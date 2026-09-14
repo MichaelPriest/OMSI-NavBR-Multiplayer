@@ -17,8 +17,12 @@ internal static class Omsi23004MemoryProfile
     // OmsiMapObjInst / OmsiPhysObjInst / OmsiMovingMapObjInst fields.
     public const int VehiclePositionOffset = 0x004;
     public const int VehicleRotationOffset = 0x050;
+    public const int VehicleAbsPositionOffset = 0x078;
     public const int VehicleVelocityOffset = 0x1C0;
     public const int VehicleGroundSpeedOffset = 0x428;
+
+    // D3DMatrix stores translation in _30/_31/_32 (bytes 0x30/0x34/0x38).
+    public const int MatrixTranslationOffset = 0x030;
 
     // OmsiMap fields.
     public const int MapLoadedOffset = 0x120;
