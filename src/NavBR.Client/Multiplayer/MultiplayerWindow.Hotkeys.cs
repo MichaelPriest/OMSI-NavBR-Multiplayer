@@ -55,11 +55,11 @@ public partial class MultiplayerWindow
         {
             StatusDetailText.Text = LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
             {
-                "pt" => "Escolha teclas diferentes para chat e voz.",
-                "es" => "Elige teclas diferentes para chat y voz.",
-                "de" => "Für Chat und Sprache unterschiedliche Tasten wählen.",
-                "fr" => "Choisissez des touches différentes pour le chat et la voix.",
-                _ => "Choose different keys for chat and voice."
+                "pt" => "Escolha combinações diferentes para chat e voz.",
+                "es" => "Elige combinaciones diferentes para chat y voz.",
+                "de" => "Für Chat und Sprache unterschiedliche Tastenkombinationen wählen.",
+                "fr" => "Choisissez des combinaisons différentes pour le chat et la voix.",
+                _ => "Choose different key combinations for chat and voice."
             };
         }
     }
@@ -72,9 +72,13 @@ public partial class MultiplayerWindow
         var chat = _settings.ChatHotkey;
         var voice = _settings.VoiceHotkey;
         VoiceEnabledCheckBox.Content = LocalizationService.Get("MultiplayerVoiceEnabled")
-            .Replace("F10", voice, StringComparison.OrdinalIgnoreCase);
+            .Replace("F10", "{VOICE}", StringComparison.OrdinalIgnoreCase)
+            .Replace("{VOICE}", voice, StringComparison.Ordinal);
+
         FooterText.Text = LocalizationService.Get("MultiplayerPeerFooter")
-            .Replace("F9", chat, StringComparison.OrdinalIgnoreCase)
-            .Replace("F10", voice, StringComparison.OrdinalIgnoreCase);
+            .Replace("F9", "{CHAT}", StringComparison.OrdinalIgnoreCase)
+            .Replace("F10", "{VOICE}", StringComparison.OrdinalIgnoreCase)
+            .Replace("{CHAT}", chat, StringComparison.Ordinal)
+            .Replace("{VOICE}", voice, StringComparison.Ordinal);
     }
 }
