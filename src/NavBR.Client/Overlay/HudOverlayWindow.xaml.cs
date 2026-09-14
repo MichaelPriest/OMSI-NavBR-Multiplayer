@@ -16,8 +16,6 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow : Window
 {
-    private const int VkT = 0x54;
-    private const int VkN = 0x4E;
     private const int GwlExStyle = -20;
     private const int WsExTransparent = 0x00000020;
     private const int WsExToolWindow = 0x00000080;
@@ -70,7 +68,7 @@ public partial class HudOverlayWindow : Window
         SourceInitialized += (_, _) => SetInteractive(false);
         Loaded += (_, _) =>
         {
-            TryInstallKeyboardHook();
+            InstallConflictFreeHotkeys();
             _positionTimer.Start();
             _presenceTimer.Start();
             FollowOmsiWindow();
@@ -177,57 +175,6 @@ public partial class HudOverlayWindow : Window
         VoiceDot.Fill = Brushes.OrangeRed;
         VoiceStatusText.Text = $"Voz: {message}";
         VoicePanel.Visibility = Visibility.Visible;
-    }
-
-    private void TryInstallKeyboardHook()
-    {
-        try
-        {
-            _keyboardHook = new GlobalKeyboardHook();
-            _keyboardHook.KeyChanged += (virtualKey, isDown) =>
-                Dispatcher.BeginInvoke(() => HandleGlobalKey(virtualKey, isDown));
-        }
-        catch
-        {
-            // O HUD continua utilizável sem atalhos globais.
-        }
-    }
-
-    private void HandleGlobalKey(int virtualKey, bool isDown)
-    {
-        if (isDown)
-        {
-            if (!_pressedKeys.Add(virtualKey))
-            {
-                return;
-            }
-        }
-        else
-        {
-            _pressedKeys.Remove(virtualKey);
-        }
-
-        if (virtualKey == VkN)
-        {
-            if (isDown)
-            {
-                if (!_chatInteractive && IsOmsiForeground())
-                {
-                    SetLocalPushToTalk(true);
-                }
-            }
-            else if (_localPushToTalk)
-            {
-                SetLocalPushToTalk(false);
-            }
-
-            return;
-        }
-
-        if (virtualKey == VkT && isDown && !_chatInteractive && IsOmsiForeground())
-        {
-            OpenChatInput();
-        }
     }
 
     private void SetLocalPushToTalk(bool active)

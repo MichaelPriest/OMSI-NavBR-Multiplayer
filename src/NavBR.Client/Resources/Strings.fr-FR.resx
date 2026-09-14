@@ -75,10 +75,10 @@
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Se déconnecter</value></data>
   <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Créez une salle et ce PC devient le serveur, ou rejoignez une salle hébergée par un autre conducteur. Le HUD en jeu comprend une mini-carte compacte, le chat texte et la voix en push-to-talk.</value></data>
   <data name="MultiplayerHostAddress" xml:space="preserve"><value>Adresse de l'hôte</value></data>
-  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Activer le chat vocal (maintenir N pour parler)</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Activer le chat vocal (maintenir F10 pour parler)</value></data>
   <data name="MultiplayerChat" xml:space="preserve"><value>Chat texte</value></data>
   <data name="MultiplayerSend" xml:space="preserve"><value>Envoyer</value></data>
-  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>Le PC qui crée la salle héberge la session. En LAN cela fonctionne directement ; sur Internet il peut être nécessaire d'ouvrir le port TCP 27730 dans le pare-feu/routeur. T ouvre le chat et N sert au push-to-talk.</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>Le PC qui crée la salle héberge la session. En LAN cela fonctionne directement ; sur Internet il peut être nécessaire d'ouvrir le port TCP 27730 dans le pare-feu/routeur. F9 ouvre le chat et F10 sert au push-to-talk.</value></data>
   <data name="MultiplayerVoiceError" xml:space="preserve"><value>Erreur du chat vocal : {0}</value></data>
   <data name="MultiplayerHostError" xml:space="preserve"><value>Impossible d'héberger la salle : {0}</value></data>
   <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Rejoindre la salle</value></data>

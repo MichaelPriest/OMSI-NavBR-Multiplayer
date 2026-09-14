@@ -75,10 +75,10 @@
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Disconnect</value></data>
   <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Create a room and this PC becomes its server, or join a room hosted by another driver. The in-game HUD includes a compact minimap, text chat and push-to-talk voice.</value></data>
   <data name="MultiplayerHostAddress" xml:space="preserve"><value>Host address</value></data>
-  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Enable voice chat (hold N to talk)</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Enable voice chat (hold F10 to talk)</value></data>
   <data name="MultiplayerChat" xml:space="preserve"><value>Text chat</value></data>
   <data name="MultiplayerSend" xml:space="preserve"><value>Send</value></data>
-  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>The room creator's PC hosts the session. LAN works directly; Internet play may require TCP port 27730 in the firewall/router. T opens the in-game chat and N is push-to-talk.</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>The room creator's PC hosts the session. LAN works directly; Internet play may require TCP port 27730 in the firewall/router. F9 opens in-game chat and F10 is push-to-talk.</value></data>
   <data name="MultiplayerVoiceError" xml:space="preserve"><value>Voice chat error: {0}</value></data>
   <data name="MultiplayerHostError" xml:space="preserve"><value>Could not host the room: {0}</value></data>
   <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Join room</value></data>

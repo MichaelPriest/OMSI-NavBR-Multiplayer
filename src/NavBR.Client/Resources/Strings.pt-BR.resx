@@ -75,10 +75,10 @@
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Desconectar</value></data>
   <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Crie uma sala e este PC vira o servidor, ou entre em uma sala hospedada por outro motorista. O HUD no jogo inclui minimapa compacto, chat de texto e voz por pressione-para-falar.</value></data>
   <data name="MultiplayerHostAddress" xml:space="preserve"><value>Endereço do host</value></data>
-  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Ativar chat por voz (segure N para falar)</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Ativar chat por voz (segure F10 para falar)</value></data>
   <data name="MultiplayerChat" xml:space="preserve"><value>Chat de texto</value></data>
   <data name="MultiplayerSend" xml:space="preserve"><value>Enviar</value></data>
-  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>O PC de quem cria a sala hospeda a sessão. Na rede local funciona direto; pela internet pode ser necessário liberar a porta TCP 27730 no firewall/roteador. T abre o chat no jogo e N é pressione-para-falar.</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>O PC de quem cria a sala hospeda a sessão. Na rede local funciona direto; pela internet pode ser necessário liberar a porta TCP 27730 no firewall/roteador. F9 abre o chat no jogo e F10 é pressione-para-falar.</value></data>
   <data name="MultiplayerVoiceError" xml:space="preserve"><value>Erro no chat por voz: {0}</value></data>
   <data name="MultiplayerHostError" xml:space="preserve"><value>Não foi possível hospedar a sala: {0}</value></data>
   <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Entrar na sala</value></data>
