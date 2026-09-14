@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace NavBR.Client.Maps;
 
@@ -41,9 +43,11 @@ public sealed class OmsiMapCatalog
                 var folderName = Path.GetFileName(directory);
                 var displayName = TryReadMapName(globalCfg) ?? folderName;
                 var roadmap = FindRoadmap(directory);
-                var tileCount = Directory
+                var tileFiles = Directory
                     .EnumerateFiles(directory, "tile_*.map", SearchOption.TopDirectoryOnly)
-                    .Count();
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                var compatibilityId = TryBuildCompatibilityId(globalCfg, tileFiles);
 
                 maps.Add(new OmsiMapInfo(
                     folderName,
@@ -51,7 +55,8 @@ public sealed class OmsiMapCatalog
                     directory,
                     globalCfg,
                     roadmap,
-                    tileCount));
+                    tileFiles.Length,
+                    compatibilityId));
             }
             catch (IOException)
             {
@@ -92,6 +97,32 @@ public sealed class OmsiMapCatalog
         }
 
         return null;
+    }
+
+    private static string? TryBuildCompatibilityId(string globalCfg, IReadOnlyList<string> tileFiles)
+    {
+        try
+        {
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            hash.AppendData(File.ReadAllBytes(globalCfg));
+
+            foreach (var tileFile in tileFiles)
+            {
+                var name = Path.GetFileName(tileFile).ToUpperInvariant();
+                var length = new FileInfo(tileFile).Length;
+                hash.AppendData(Encoding.UTF8.GetBytes($"\n{name}:{length}"));
+            }
+
+            return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static string? FindRoadmap(string directory)
