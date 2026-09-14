@@ -6,7 +6,11 @@ public sealed record MultiplayerSettings(
     string RoomId,
     string DisplayName,
     string ChatHotkey = "F9",
-    string VoiceHotkey = "F10")
+    string VoiceHotkey = "F10",
+    double HudX = 0.02d,
+    double HudY = 1.0d,
+    double HudZoom = 1.0d,
+    double HudMapOpacity = 0.58d)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
@@ -14,5 +18,9 @@ public sealed record MultiplayerSettings(
         $"navbr-{Random.Shared.Next(1000, 9999)}",
         "Driver",
         "F9",
-        "F10");
+        "F10",
+        0.02d,
+        1.0d,
+        1.0d,
+        0.58d);
 }
