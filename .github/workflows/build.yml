@@ -18,6 +18,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Repair NavBR icon container
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
       - name: Restore shared
         run: dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
 
@@ -39,10 +43,82 @@ jobs:
       - name: Publish Windows x86 client
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
 
+      - name: Publish standalone Windows x86 EXE
+        run: >-
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o artifacts/NavBR.Client.Single
+
+      - name: Validate standalone EXE and embedded icon
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Standalone NavBR executable was not generated."
+          }
+
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NavBRIconResourceCheck
+          {
+              public delegate bool EnumResNameProc(IntPtr hModule, IntPtr type, IntPtr name, IntPtr lParam);
+
+              [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+              public static extern IntPtr LoadLibraryEx(string fileName, IntPtr file, uint flags);
+
+              [DllImport("kernel32.dll", SetLastError = true)]
+              public static extern bool EnumResourceNames(IntPtr module, IntPtr type, EnumResNameProc callback, IntPtr param);
+
+              [DllImport("kernel32.dll", SetLastError = true)]
+              public static extern bool FreeLibrary(IntPtr module);
+          }
+          "@
+
+          $module = [NavBRIconResourceCheck]::LoadLibraryEx($exe.Path, [IntPtr]::Zero, 0x00000002)
+          if ($module -eq [IntPtr]::Zero) {
+            throw "Could not open the standalone EXE as a resource image."
+          }
+
+          try {
+            $script:iconGroups = 0
+            $callback = [NavBRIconResourceCheck+EnumResNameProc]{
+              param([IntPtr]$hModule, [IntPtr]$type, [IntPtr]$name, [IntPtr]$param)
+              $script:iconGroups++
+              return $true
+            }
+
+            $null = [NavBRIconResourceCheck]::EnumResourceNames($module, [IntPtr]14, $callback, [IntPtr]::Zero)
+            if ($script:iconGroups -lt 1) {
+              throw "Standalone EXE has no RT_GROUP_ICON resource."
+            }
+
+            Write-Host "Standalone EXE validated with $script:iconGroups icon group(s): $($exe.Path)"
+          }
+          finally {
+            [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null
+          }
+
       - name: Upload NavBR client test build
         uses: actions/upload-artifact@v4
         with:
           name: OMSI-NavBR-Multiplayer-win-x86
           path: artifacts/NavBR.Client
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload standalone NavBR EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Multiplayer-standalone-win-x86
+          path: artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe
           if-no-files-found: error
           retention-days: 14
