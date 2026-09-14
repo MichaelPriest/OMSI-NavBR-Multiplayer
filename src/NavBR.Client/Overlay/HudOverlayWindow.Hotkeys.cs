@@ -8,8 +8,9 @@ public partial class HudOverlayWindow
     private const int VkF9 = 0x78;
     private const int VkF10 = 0x79;
 
-    private bool _chatHotkeyAvailable = true;
-    private bool _voiceHotkeyAvailable = true;
+    private bool _chatHotkeyAvailable;
+    private bool _voiceHotkeyAvailable;
+    private bool _omsiHotkeyConfigVerified;
     private DateTimeOffset _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<string> _f9ConflictEvents = Array.Empty<string>();
     private IReadOnlyList<string> _f10ConflictEvents = Array.Empty<string>();
@@ -31,7 +32,9 @@ public partial class HudOverlayWindow
         }
         catch
         {
-            // O HUD continua funcional sem atalhos globais.
+            _chatHotkeyAvailable = false;
+            _voiceHotkeyAvailable = false;
+            _omsiHotkeyConfigVerified = false;
         }
     }
 
@@ -47,18 +50,20 @@ public partial class HudOverlayWindow
 
         if (_omsiProcessId is not int processId)
         {
-            _chatHotkeyAvailable = true;
-            _voiceHotkeyAvailable = true;
+            _chatHotkeyAvailable = false;
+            _voiceHotkeyAvailable = false;
+            _omsiHotkeyConfigVerified = false;
             _f9ConflictEvents = Array.Empty<string>();
             _f10ConflictEvents = Array.Empty<string>();
             return;
         }
 
         var result = OmsiKeyboardConflictDetector.AnalyzeProcessInstallation(processId);
+        _omsiHotkeyConfigVerified = result.ConfigFound;
         _f9ConflictEvents = result.F9Events;
         _f10ConflictEvents = result.F10Events;
-        _chatHotkeyAvailable = !result.F9InUse;
-        _voiceHotkeyAvailable = !result.F10InUse;
+        _chatHotkeyAvailable = result.ConfigFound && !result.F9InUse;
+        _voiceHotkeyAvailable = result.ConfigFound && !result.F10InUse;
 
         if (!_voiceHotkeyAvailable && _localPushToTalk)
         {
@@ -68,6 +73,11 @@ public partial class HudOverlayWindow
 
     private string BuildHotkeyConflictTooltip()
     {
+        if (!_omsiHotkeyConfigVerified)
+        {
+            return "Inputs\\keyboard.cfg";
+        }
+
         var details = new List<string>();
         if (_f9ConflictEvents.Count > 0)
         {
@@ -84,10 +94,23 @@ public partial class HudOverlayWindow
 
     private string BuildHotkeyConflictMessage()
     {
+        var language = LocalizationService.CurrentCulture.TwoLetterISOLanguageName;
+        if (!_omsiHotkeyConfigVerified)
+        {
+            return language switch
+            {
+                "pt" => "Atalhos desativados: não foi possível verificar o keyboard.cfg do OMSI.",
+                "es" => "Atajos desactivados: no se pudo verificar el keyboard.cfg de OMSI.",
+                "de" => "Hotkeys deaktiviert: OMSIs keyboard.cfg konnte nicht geprüft werden.",
+                "fr" => "Raccourcis désactivés : impossible de vérifier le keyboard.cfg d’OMSI.",
+                _ => "Hotkeys disabled: OMSI keyboard.cfg could not be verified."
+            };
+        }
+
         var both = !_chatHotkeyAvailable && !_voiceHotkeyAvailable;
         var chatOnly = !_chatHotkeyAvailable && _voiceHotkeyAvailable;
 
-        return LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        return language switch
         {
             "pt" when both => "F9 e F10 desativadas: o OMSI já usa essas teclas.",
             "pt" when chatOnly => "F9 desativada: o OMSI já usa essa tecla.",
