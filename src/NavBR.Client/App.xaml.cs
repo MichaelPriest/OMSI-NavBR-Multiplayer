@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Client.Windows;
 
 namespace NavBR.Client;
 
@@ -11,7 +12,19 @@ public partial class App : Application
     {
         LocalizationService.Initialize();
         DispatcherUnhandledException += App_DispatcherUnhandledException;
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(Window_Loaded));
         base.OnStartup(e);
+    }
+
+    private static void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Window window)
+        {
+            WindowsThemeService.ApplyDarkTitleBar(window);
+        }
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
