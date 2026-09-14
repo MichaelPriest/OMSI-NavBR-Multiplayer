@@ -7,7 +7,9 @@
         Background="Transparent"
         ShowInTaskbar="False"
         ShowActivated="False"
-        Topmost="True">
+        Topmost="True"
+        Loaded="HudOverlayWindow_LifecycleLoaded"
+        Closed="HudOverlayWindow_LifecycleClosed">
     <Grid x:Name="OverlayRoot">
         <StackPanel HorizontalAlignment="Left"
                     VerticalAlignment="Bottom"
@@ -88,7 +90,23 @@
                                Foreground="White"
                                FontSize="12"
                                Text="NavBR offline" />
-                    <TextBlock Text="  •  T: chat  •  N: voz"
+                    <TextBlock Text="  •  "
+                               Foreground="#BFFFFFFF"
+                               FontSize="12" />
+                    <TextBlock Text="👥"
+                               FontFamily="Segoe UI Emoji"
+                               Foreground="White"
+                               FontSize="12"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="PlayerCountText"
+                               Text="0"
+                               Margin="4,0,0,0"
+                               Foreground="White"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="HudShortcutsText"
+                               Text="  •  T: chat  •  N: PTT"
                                Foreground="#BFFFFFFF"
                                FontSize="12" />
                 </StackPanel>
@@ -127,7 +145,8 @@
                 Padding="8"
                 Visibility="Collapsed">
             <DockPanel>
-                <TextBlock Text="CHAT"
+                <TextBlock x:Name="ChatInputLabelText"
+                           Text="CHAT"
                            Foreground="#FFFF8C00"
                            FontWeight="Bold"
                            Margin="0,0,8,0"
