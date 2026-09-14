@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.cache
+*.log
+TestResults/
+artifacts/
+publish/
+*.pdb
+*.exe
+*.dll
+*.zip
+.DS_Store
+Thumbs.db
