@@ -2,6 +2,54 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.2] — peer-host, HUD, chat e voz
+
+### Adicionado
+
+- criação de sala diretamente pelo cliente: o PC de quem cria a sala inicia o servidor multiplayer embutido;
+- porta padrão TCP `27730` e exibição automática dos endereços IPv4 da rede local;
+- pacote de servidor dedicado continua disponível para hosts separados;
+- HUD transparente sobre o OMSI com identidade própria do NavBR e disposição inspirada em HUDs de jogos de mundo aberto;
+- minimapa compacto no canto inferior esquerdo, centralizado no ônibus local;
+- jogadores remotos no minimapa;
+- chat de texto por sala, também exibido no HUD;
+- atalho global `T` para abrir o chat durante o jogo;
+- chat de voz push-to-talk com atalho `N`;
+- captura/reprodução de áudio com NAudio e codificação Opus com Concentus;
+- indicador de quem está falando;
+- identificador de compatibilidade do mapa para evitar misturar versões diferentes do mesmo mapa;
+- licença MIT do projeto e avisos/licenças das dependências redistribuídas;
+- traduções dos novos recursos em Português (Brasil), English, Español, Deutsch e Français.
+
+### Multiplayer e rede
+
+- presença, telemetria, texto e voz trafegam pelo PC que hospeda a sala;
+- em LAN os jogadores podem usar o IPv4 exibido pelo NavBR;
+- para conexões pela Internet, esta alpha pode exigir liberação no Windows Firewall e encaminhamento da porta TCP `27730` no roteador;
+- UPnP/NAT traversal fica planejado para reduzir configuração manual em versões seguintes.
+
+### Voz
+
+- áudio inicial em 48 kHz mono;
+- frames Opus de 20 ms;
+- bitrate alvo de 24 kbit/s com VBR e FEC;
+- transporte inicial pelo SignalR/WebSocket da própria sala;
+- transporte UDP/WebRTC de menor latência poderá substituir essa camada futuramente.
+
+### Legal
+
+- código próprio do NavBR sob MIT em `LICENSE`;
+- `THIRD_PARTY_NOTICES.md` criado;
+- textos das licenças de ASP.NET Core/SignalR, NAudio e Concentus/Opus incluídos em `licenses/` e nos pacotes publicados.
+
+### Validação pendente
+
+- validar overlay em OMSI 2.3.004 em modo janela e janela sem bordas;
+- medir latência e estabilidade do áudio em duas redes reais;
+- confirmar permissões do Windows Firewall e experiência de port forwarding;
+- testar vários microfones/dispositivos de áudio;
+- fullscreen exclusivo ainda não é considerado validado.
+
 ## [0.3.0-alpha.1] — multiplayer online inicial
 
 ### Adicionado
@@ -18,22 +66,13 @@ Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 - contratos compartilhados para presença, snapshot da sala e frames de telemetria;
 - registro de salas no servidor e limpeza automática ao desconectar;
 - validação básica de identidade, tamanho de campos e valores numéricos da telemetria;
-- traduções do multiplayer em Português (Brasil), English, Español, Deutsch e Français;
-- GitHub Pages passa a atualizar o catálogo também quando uma Release é publicada.
+- traduções do multiplayer em Português (Brasil), English, Español, Deutsch e Français.
 
 ### Segurança e privacidade
 
 - o servidor sobrescreve o `PlayerId` recebido na telemetria com a identidade da sessão, reduzindo spoofing básico;
-- somente dados do jogo/sessão são transmitidos pelo cliente; nenhuma localização do mundo real é enviada;
+- somente dados do jogo/sessão são transmitidos pelo cliente;
 - o multiplayer continua independente de Steamworks.
-
-### Próximos passos
-
-- hospedar uma instância pública oficial do servidor NavBR;
-- salas privadas com senha e criação/listagem de salas;
-- suavização/interpolação dos jogadores remotos;
-- compatibilidade de mapa por identificador/hash;
-- sincronização opcional de linha, rota e estados adicionais do ônibus.
 
 ## [0.2.0-alpha.3] — EXE standalone e ícone corrigido
 
@@ -47,14 +86,6 @@ Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 - publicação de um **`.exe` standalone/self-contained** do cliente diretamente em cada GitHub Release;
 - build de CI separado para validar o executável único Windows x86;
 - reparo automático do contêiner ICO também em builds locais no Windows.
-
-### Distribuição
-
-A partir desta versão, cada release publica:
-
-- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente standalone;
-- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — cliente completo em ZIP;
-- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor multiplayer.
 
 ## [0.2.0-alpha.2] — GPS interativo
 
@@ -75,12 +106,6 @@ A partir desta versão, cada release publica:
 - arrastar o mapa desativa automaticamente o modo de seguir o ônibus;
 - troca de mapa reinicializa de forma segura zoom, posição e marcador.
 
-### Validação pendente
-
-- confirmar no OMSI 2.3.004 a posição real do marcador em diferentes mapas;
-- confirmar o sentido/zero do heading antes de considerar a seta calibrada;
-- implementar mapas com `[worldcoordinates]` sem assumir tile de 300 m.
-
 ## [0.2.0-alpha.1] — primeira versão de teste
 
 ### Adicionado
@@ -91,26 +116,12 @@ A partir desta versão, cada release publica:
 - posição X/Y/Z, heading, velocidade e mapa carregado;
 - dashboard de telemetria com polling de 200 ms;
 - suporte inicial a Português (Brasil), English, Español, Deutsch e Français;
-- troca de idioma em tempo real e preferência persistida;
 - identidade visual e ícone oficial do NavBR;
 - catálogo automático dos mapas instalados;
 - detecção de `global.cfg` e roadmaps do OMSI;
-- leitura de GridX/GridY e posição local TileX/TileY do OMSI 2.3.004;
 - transformação inicial para pixels do roadmap em mapas padrão de 300 m/tile;
 - primeiro marcador do ônibus sobre `whole.roadmap.bmp`;
 - workflow de GitHub Releases para cliente win-x86 e servidor win-x64 self-contained.
-
-### Melhorado
-
-- descoberta de mapas tolera diretórios bloqueados, inválidos ou parcialmente instalados;
-- CI compila cliente, servidor e biblioteca compartilhada.
-
-### Validação pendente
-
-- confirmar X/Y/Z em runtime em mais de um mapa;
-- comparar velocidade do NavBR com o velocímetro do OMSI;
-- confirmar orientação e zero do heading;
-- validar o marcador no roadmap em runtime.
 
 ## [0.1.0-alpha] — bootstrap
 
