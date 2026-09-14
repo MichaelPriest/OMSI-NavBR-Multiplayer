@@ -40,4 +40,9 @@
   <data name="GpsRoadmapReady" xml:space="preserve"><value>Roadmap bereit</value></data>
   <data name="GpsRoadmapMissing" xml:space="preserve"><value>Roadmap fehlt</value></data>
   <data name="GpsMoreMaps" xml:space="preserve"><value>... und {0} weitere Karte(n)</value></data>
+  <data name="GpsZoomOut" xml:space="preserve"><value>Zoom -</value></data>
+  <data name="GpsZoomIn" xml:space="preserve"><value>Zoom +</value></data>
+  <data name="GpsFitMap" xml:space="preserve"><value>Anpassen</value></data>
+  <data name="GpsFollowBus" xml:space="preserve"><value>Bus folgen</value></data>
+  <data name="GpsAlwaysOnTop" xml:space="preserve"><value>Immer im Vordergrund</value></data>
 </root>
