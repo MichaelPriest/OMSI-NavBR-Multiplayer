@@ -96,8 +96,11 @@ public sealed class OmsiMapCatalog
 
     private static string? FindRoadmap(string directory)
     {
+        var textureMapDirectory = Path.Combine(directory, "texture", "map");
         var exactCandidates = new[]
         {
+            Path.Combine(textureMapDirectory, "whole.roadmap.bmp"),
+            Path.Combine(textureMapDirectory, "roadmap.bmp"),
             Path.Combine(directory, "whole.roadmap.bmp"),
             Path.Combine(directory, "roadmap.bmp")
         };
@@ -110,20 +113,33 @@ public sealed class OmsiMapCatalog
             }
         }
 
-        try
+        foreach (var searchDirectory in new[] { textureMapDirectory, directory })
         {
-            return Directory
-                .EnumerateFiles(directory, "*roadmap*.bmp", SearchOption.TopDirectoryOnly)
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
+            if (!Directory.Exists(searchDirectory))
+            {
+                continue;
+            }
+
+            try
+            {
+                var fallback = Directory
+                    .EnumerateFiles(searchDirectory, "*roadmap*.bmp", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+                if (fallback is not null)
+                {
+                    return fallback;
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
+
+        return null;
     }
 }
