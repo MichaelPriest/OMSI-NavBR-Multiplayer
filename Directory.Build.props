@@ -4,5 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <VersionPrefix>0.2.0</VersionPrefix>
+    <VersionSuffix>alpha.1</VersionSuffix>
+    <Product>OMSI NavBR Multiplayer</Product>
+    <Company>NavBR</Company>
+    <Authors>MichaelPriest</Authors>
   </PropertyGroup>
 </Project>
