@@ -44,8 +44,8 @@
         <strong id="latest-version">Carregando…</strong>
         <p id="latest-summary">Consultando as releases publicadas no GitHub.</p>
         <div class="mini-grid">
-          <div><span>GPS</span><b>Fase 2</b></div>
-          <div><span>Multiplayer</span><b>Em desenvolvimento</b></div>
+          <div><span>GPS</span><b>Fase 2 • teste</b></div>
+          <div><span>Multiplayer</span><b>Fase 3 • alpha</b></div>
           <div><span>OMSI</span><b>2.3.004 inicial</b></div>
           <div><span>Steam</span><b>Não obrigatória</b></div>
         </div>
@@ -71,9 +71,9 @@
       <div class="feature-grid">
         <article><span class="feature-no">01</span><h3>Telemetria ao vivo</h3><p>Posição, heading, velocidade, mapa carregado e dados do OMSI em tempo real.</p></article>
         <article><span class="feature-no">02</span><h3>GPS e roadmap</h3><p>Roadmap do próprio OMSI, marcador do ônibus, zoom, pan, follow bus e orientação pelo heading.</p></article>
-        <article><span class="feature-no">03</span><h3>Multiplayer</h3><p>Salas online, jogadores no mapa, telemetria compartilhada e evolução futura para sincronização avançada.</p></article>
+        <article><span class="feature-no">03</span><h3>Multiplayer</h3><p>Salas online, apelido, reconexão automática, jogadores no GPS e telemetria compartilhada em tempo real.</p></article>
         <article><span class="feature-no">04</span><h3>Sem dependência da Steam</h3><p>O cliente detecta o <code>Omsi.exe</code> e a pasta real da instalação diretamente pelo processo.</p></article>
-        <article><span class="feature-no">05</span><h3>Multilíngue</h3><p>Base preparada para Português (Brasil), English, Español, Deutsch e Français.</p></article>
+        <article><span class="feature-no">05</span><h3>Multilíngue</h3><p>Português (Brasil), English, Español, Deutsch e Français, inclusive no modo multiplayer.</p></article>
         <article><span class="feature-no">06</span><h3>Atualizações simples</h3><p>Releases automáticas no GitHub com EXE standalone, pacote ZIP do cliente e servidor.</p></article>
       </div>
     </section>
@@ -83,8 +83,8 @@
       <h2>Roadmap</h2>
       <div class="timeline">
         <div class="timeline-item done"><b>Fase 1</b><h3>Integração e telemetria</h3><p>Detecção do OMSI, leitura externa e dashboard em tempo real.</p></div>
-        <div class="timeline-item active"><b>Fase 2</b><h3>GPS local</h3><p>Roadmaps, posição do veículo, zoom, follow bus, rotação e compatibilidade com mais mapas.</p></div>
-        <div class="timeline-item"><b>Fase 3</b><h3>Multiplayer online</h3><p>Nickname, salas, conexão com servidor e jogadores aparecendo no mapa.</p></div>
+        <div class="timeline-item done"><b>Fase 2</b><h3>GPS local</h3><p>Roadmaps, posição do veículo, zoom, follow bus e rotação implementados; compatibilidade avançada segue em validação.</p></div>
+        <div class="timeline-item active"><b>Fase 3</b><h3>Multiplayer online</h3><p>Salas, nickname, servidor, lista de jogadores e jogadores remotos no GPS já entraram na primeira alpha.</p></div>
         <div class="timeline-item"><b>Fase 4</b><h3>Rotas e operação</h3><p>TTData, linha, rota, próxima parada, ETA, atraso/adiantamento e orientação.</p></div>
       </div>
     </section>
@@ -109,6 +109,7 @@
       <span class="eyebrow">Informações importantes</span>
       <h2>Perguntas frequentes</h2>
       <details><summary>Preciso ter Steam aberta?</summary><p>Não. O NavBR foi projetado para detectar diretamente o processo <code>Omsi.exe</code>. Ele não depende da Steam API.</p></details>
+      <details><summary>O multiplayer já funciona?</summary><p>A partir da série 0.3 alpha, o cliente pode entrar em salas, compartilhar telemetria e mostrar outros jogadores no GPS. Um servidor público oficial ainda está em preparação.</p></details>
       <details><summary>O programa já está finalizado?</summary><p>Não. As versões atuais são alpha e servem para testes durante o desenvolvimento.</p></details>
       <details><summary>O EXE precisa instalar .NET?</summary><p>O EXE standalone das releases é self-contained e inclui o runtime necessário.</p></details>
       <details><summary>Onde reporto problemas?</summary><p>Use a área de Issues do repositório no GitHub e informe a versão do NavBR, versão do OMSI, mapa e o comportamento observado.</p></details>

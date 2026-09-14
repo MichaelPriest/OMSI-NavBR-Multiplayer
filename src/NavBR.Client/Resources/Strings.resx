@@ -45,4 +45,32 @@
   <data name="GpsFitMap" xml:space="preserve"><value>Fit</value></data>
   <data name="GpsFollowBus" xml:space="preserve"><value>Follow bus</value></data>
   <data name="GpsAlwaysOnTop" xml:space="preserve"><value>Always on top</value></data>
+  <data name="MultiplayerOpen" xml:space="preserve"><value>Multiplayer</value></data>
+  <data name="MultiplayerWindowTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer • Online</value></data>
+  <data name="MultiplayerHeading" xml:space="preserve"><value>Online multiplayer</value></data>
+  <data name="MultiplayerDescription" xml:space="preserve"><value>Join a room to share OMSI telemetry and see other drivers in NavBR.</value></data>
+  <data name="MultiplayerServer" xml:space="preserve"><value>Server</value></data>
+  <data name="MultiplayerRoom" xml:space="preserve"><value>Room</value></data>
+  <data name="MultiplayerNickname" xml:space="preserve"><value>Nickname</value></data>
+  <data name="MultiplayerLocalMap" xml:space="preserve"><value>Local map</value></data>
+  <data name="MultiplayerPlayers" xml:space="preserve"><value>Players in the room</value></data>
+  <data name="MultiplayerFooter" xml:space="preserve"><value>Only game/session data is sent. NavBR does not send your real-world location.</value></data>
+  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Fill in server, room and nickname.</value></data>
+  <data name="MultiplayerConnectingDetail" xml:space="preserve"><value>Opening the connection and joining the room...</value></data>
+  <data name="MultiplayerConnectionError" xml:space="preserve"><value>Could not connect: {0}</value></data>
+  <data name="MultiplayerTelemetryError" xml:space="preserve"><value>Could not send telemetry: {0}</value></data>
+  <data name="MultiplayerYouMarker" xml:space="preserve"><value>YOU</value></data>
+  <data name="MultiplayerNoPlayers" xml:space="preserve"><value>No players in the room yet.</value></data>
+  <data name="MultiplayerPlayerCount" xml:space="preserve"><value>{0} player(s)</value></data>
+  <data name="MultiplayerDifferentMap" xml:space="preserve"><value>other map</value></data>
+  <data name="MultiplayerDistance" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="MultiplayerConnected" xml:space="preserve"><value>Connected</value></data>
+  <data name="MultiplayerConnectedDetail" xml:space="preserve"><value>Room: {0}</value></data>
+  <data name="MultiplayerConnecting" xml:space="preserve"><value>Connecting...</value></data>
+  <data name="MultiplayerReconnecting" xml:space="preserve"><value>Reconnecting...</value></data>
+  <data name="MultiplayerReconnectingDetail" xml:space="preserve"><value>The connection dropped. NavBR is trying to rejoin automatically.</value></data>
+  <data name="MultiplayerDisconnected" xml:space="preserve"><value>Disconnected</value></data>
+  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Enter a server and room to play online.</value></data>
+  <data name="MultiplayerConnect" xml:space="preserve"><value>Connect</value></data>
+  <data name="MultiplayerDisconnect" xml:space="preserve"><value>Disconnect</value></data>
 </root>

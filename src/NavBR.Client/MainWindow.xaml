@@ -34,6 +34,11 @@
                     <ComboBox x:Name="LanguageComboBox"
                               Width="170"
                               SelectionChanged="LanguageComboBox_SelectionChanged" />
+                    <Button x:Name="MultiplayerButton"
+                            Margin="10,0,0,0"
+                            Padding="12,5"
+                            Loaded="MultiplayerButton_Loaded"
+                            Click="MultiplayerButton_Click" />
                 </StackPanel>
             </Grid>
 
