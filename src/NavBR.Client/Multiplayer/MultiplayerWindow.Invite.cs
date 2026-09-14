@@ -6,7 +6,7 @@ public partial class MultiplayerWindow
 {
     private void CopyInviteButton_Loaded(object sender, RoutedEventArgs e)
     {
-        CopyInviteButton.Content = Localization.LocalizationService.Get("MultiplayerCopyInvite");
+        CopyInviteButton.Content = "📋";
         CopyInviteButton.IsEnabled = true;
     }
 
@@ -14,7 +14,7 @@ public partial class MultiplayerWindow
     {
         if (!_host.IsRunning)
         {
-            StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerInviteHostFirst");
+            StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerDisconnectedDetail");
             return;
         }
 
@@ -27,21 +27,25 @@ public partial class MultiplayerWindow
 
         var lanUrls = _host.GetLanJoinUrls();
         var serverUrl = lanUrls.FirstOrDefault() ?? _host.LocalServerUrl;
-        var invite = Localization.LocalizationService.Format(
-            "MultiplayerInviteClipboard",
+        var invite = string.Join(
+            Environment.NewLine,
+            "OMSI NavBR Multiplayer",
             serverUrl,
             roomId,
-            DefaultHostPort);
+            $"TCP {DefaultHostPort}");
 
         try
         {
             Clipboard.SetText(invite);
-            StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerInviteCopied");
+            StatusDetailText.Text = Localization.LocalizationService.Format(
+                "MultiplayerInviteAddress",
+                serverUrl,
+                roomId);
         }
         catch (Exception ex)
         {
             StatusDetailText.Text = Localization.LocalizationService.Format(
-                "MultiplayerInviteCopyError",
+                "MultiplayerHostError",
                 ex.Message);
         }
     }
