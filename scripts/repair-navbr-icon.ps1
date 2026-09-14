@@ -8,7 +8,8 @@ if (-not (Test-Path -LiteralPath $Path)) {
     throw "Icon file not found: $Path"
 }
 
-$bytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path))
+$resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+$bytes = [System.IO.File]::ReadAllBytes($resolvedPath)
 if ($bytes.Length -lt 22) {
     throw "ICO file is too small: $($bytes.Length) bytes"
 }
@@ -26,6 +27,7 @@ if ($bytes.Length -lt $directoryEnd) {
     throw "ICO directory is truncated."
 }
 
+# Repair malformed size metadata first so System.Drawing can load the original source.
 $entries = @()
 for ($i = 0; $i -lt $count; $i++) {
     $entry = 6 + (16 * $i)
@@ -53,25 +55,108 @@ for ($i = 0; $i -lt $ordered.Count; $i++) {
         [uint32]$bytes.Length
     }
 
-    if ($nextOffset -le $current.ImageOffset) {
-        throw "Invalid ICO image ordering around entry $($current.Index)."
-    }
-
     $actualSize = [uint32]($nextOffset - $current.ImageOffset)
     if ($actualSize -ne $current.DeclaredSize) {
-        Write-Host "Repairing ICO entry $($current.Index): declared=$($current.DeclaredSize), actual=$actualSize"
         [BitConverter]::GetBytes($actualSize).CopyTo($bytes, $current.EntryOffset + 8)
     }
 }
 
-[System.IO.File]::WriteAllBytes((Resolve-Path -LiteralPath $Path), $bytes)
+[System.IO.File]::WriteAllBytes($resolvedPath, $bytes)
 
-# Validate that Windows can actually load the repaired icon.
+# Windows displays the same application icon at many sizes. The original asset contained
+# a single 64x64 frame, which produced blurry/odd taskbar and Explorer rendering. Build a
+# proper multi-resolution ICO from the official NavBR artwork while preserving its design.
 Add-Type -AssemblyName System.Drawing
-$icon = [System.Drawing.Icon]::new((Resolve-Path -LiteralPath $Path))
+
+$sourceIcon = [System.Drawing.Icon]::new($resolvedPath)
 try {
-    Write-Host "NavBR icon valid: $($icon.Width)x$($icon.Height), $($bytes.Length) bytes"
+    $sourceBitmap = $sourceIcon.ToBitmap()
+    try {
+        $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
+        $frames = New-Object System.Collections.Generic.List[object]
+
+        foreach ($size in $sizes) {
+            $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+            try {
+                $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                try {
+                    $graphics.Clear([System.Drawing.Color]::Transparent)
+                    $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+                    $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+                    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                    $graphics.DrawImage($sourceBitmap, 0, 0, $size, $size)
+                }
+                finally {
+                    $graphics.Dispose()
+                }
+
+                $stream = [System.IO.MemoryStream]::new()
+                try {
+                    $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+                    $frames.Add([pscustomobject]@{ Size = $size; Bytes = $stream.ToArray() })
+                }
+                finally {
+                    $stream.Dispose()
+                }
+            }
+            finally {
+                $bitmap.Dispose()
+            }
+        }
+
+        $output = [System.IO.MemoryStream]::new()
+        $writer = [System.IO.BinaryWriter]::new($output)
+        try {
+            $writer.Write([uint16]0)
+            $writer.Write([uint16]1)
+            $writer.Write([uint16]$frames.Count)
+
+            $offset = 6 + (16 * $frames.Count)
+            foreach ($frame in $frames) {
+                $dimension = if ($frame.Size -ge 256) { [byte]0 } else { [byte]$frame.Size }
+                $writer.Write($dimension)
+                $writer.Write($dimension)
+                $writer.Write([byte]0)
+                $writer.Write([byte]0)
+                $writer.Write([uint16]1)
+                $writer.Write([uint16]32)
+                $writer.Write([uint32]$frame.Bytes.Length)
+                $writer.Write([uint32]$offset)
+                $offset += $frame.Bytes.Length
+            }
+
+            foreach ($frame in $frames) {
+                $writer.Write([byte[]]$frame.Bytes)
+            }
+
+            $writer.Flush()
+            [System.IO.File]::WriteAllBytes($resolvedPath, $output.ToArray())
+        }
+        finally {
+            $writer.Dispose()
+            $output.Dispose()
+        }
+    }
+    finally {
+        $sourceBitmap.Dispose()
+    }
 }
 finally {
-    $icon.Dispose()
+    $sourceIcon.Dispose()
+}
+
+$finalBytes = [System.IO.File]::ReadAllBytes($resolvedPath)
+$finalCount = [BitConverter]::ToUInt16($finalBytes, 4)
+if ($finalCount -lt 8) {
+    throw "Multi-resolution ICO generation failed: only $finalCount frame(s)."
+}
+
+$validatedIcon = [System.Drawing.Icon]::new($resolvedPath)
+try {
+    Write-Host "NavBR multi-resolution icon valid: $finalCount frames, $($finalBytes.Length) bytes"
+}
+finally {
+    $validatedIcon.Dispose()
 }
