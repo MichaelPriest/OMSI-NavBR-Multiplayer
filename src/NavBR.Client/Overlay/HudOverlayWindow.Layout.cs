@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using NavBR.Client.Multiplayer;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Overlay;
 
@@ -26,17 +27,29 @@ public partial class HudOverlayWindow
 
         if (enabled)
         {
+            _hudVisibilityTimer?.Stop();
             OverlayRoot.Visibility = Visibility.Visible;
             _hudVisibleForOmsi = true;
             HudMoveHandleText.Text = "Mover HUD • roda do mouse = zoom • duplo clique = reset";
         }
-        else if (_hudDragging)
+        else
         {
-            EndHudDrag(save: true);
+            if (_hudDragging)
+            {
+                EndHudDrag(save: true);
+            }
+
+            if (_hudVisibilityTimer is not null && !_hudVisibilityTimer.IsEnabled)
+            {
+                _hudVisibilityTimer.Start();
+            }
         }
 
         LayoutEditModeChanged?.Invoke(enabled);
-        RefreshHudVisibility();
+        if (!enabled)
+        {
+            RefreshHudVisibility();
+        }
     }
 
     public void ResetHudLayout()
@@ -142,12 +155,12 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var maxX = Math.Max(1d, ActualWidth - Math.Max(1d, HudDock.ActualWidth));
-        var maxY = Math.Max(1d, ActualHeight - Math.Max(1d, HudDock.ActualHeight));
+        var maxX = Math.Max(1d, ActualWidth - Math.Max(1d, HudDock.ActualWidth) - 8d);
+        var maxY = Math.Max(1d, ActualHeight - Math.Max(1d, HudDock.ActualHeight) - 8d);
         _hudSettings = _hudSettings with
         {
-            HudX = Math.Clamp(HudDockTransform.X / maxX, 0d, 1d),
-            HudY = Math.Clamp(HudDockTransform.Y / maxY, 0d, 1d)
+            HudX = Math.Clamp((HudDockTransform.X - 8d) / maxX, 0d, 1d),
+            HudY = Math.Clamp((HudDockTransform.Y - 8d) / maxY, 0d, 1d)
         };
         MultiplayerSettingsStore.Save(_hudSettings);
     }
@@ -180,19 +193,19 @@ public partial class HudOverlayWindow
 
         var dockWidth = Math.Max(1d, HudDock.ActualWidth);
         var dockHeight = Math.Max(1d, HudDock.ActualHeight);
-        var maxX = Math.Max(0d, ActualWidth - dockWidth - 8d);
-        var maxY = Math.Max(0d, ActualHeight - dockHeight - 8d);
-        SetHudDockPosition(_hudSettings.HudX * maxX, _hudSettings.HudY * maxY);
+        var maxX = Math.Max(0d, ActualWidth - dockWidth - 16d);
+        var maxY = Math.Max(0d, ActualHeight - dockHeight - 16d);
+        SetHudDockPosition(8d + _hudSettings.HudX * maxX, 8d + _hudSettings.HudY * maxY);
     }
 
     private void SetHudDockPosition(double x, double y)
     {
         var dockWidth = Math.Max(1d, HudDock.ActualWidth);
         var dockHeight = Math.Max(1d, HudDock.ActualHeight);
-        var maxX = Math.Max(0d, ActualWidth - dockWidth - 8d);
-        var maxY = Math.Max(0d, ActualHeight - dockHeight - 8d);
-        HudDockTransform.X = Math.Clamp(x, 8d, Math.Max(8d, maxX));
-        HudDockTransform.Y = Math.Clamp(y, 8d, Math.Max(8d, maxY));
+        var maxX = Math.Max(8d, ActualWidth - dockWidth - 8d);
+        var maxY = Math.Max(8d, ActualHeight - dockHeight - 8d);
+        HudDockTransform.X = Math.Clamp(x, 8d, maxX);
+        HudDockTransform.Y = Math.Clamp(y, 8d, maxY);
     }
 
     private double GetSmoothedHudZoom(VehicleTelemetry? telemetry)
