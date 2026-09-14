@@ -2,6 +2,28 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.4] — convite colável e HUD suavizado
+
+### Adicionado
+
+- formato de convite versionado `NAVBR_INVITE_V1` com servidor, sala e porta;
+- botão para colar convite recebido de outro jogador e preencher automaticamente servidor + sala;
+- compatibilidade de leitura com o convite simples gerado pela alpha.3;
+- suavização dos jogadores remotos também no minimapa compacto do HUD.
+
+### Melhorado
+
+- o minimapa do HUD atualiza os jogadores remotos em aproximadamente 30 FPS entre os frames de telemetria de rede;
+- marcadores do HUD são ocultados quando o frame remoto fica antigo, sai da área visível ou o mapa é incompatível;
+- convite peer-host fica pronto para ser enviado por Discord, WhatsApp ou outro chat sem o convidado precisar copiar campos manualmente.
+
+### Validação pendente
+
+- calibrar suavização em teste real com dois jogadores;
+- validar copiar/colar convite entre dois PCs na mesma LAN;
+- validar conexão externa após configuração de firewall/port forwarding;
+- medir latência de voz e comportamento do HUD no OMSI 2.3.004.
+
 ## [0.3.0-alpha.3] — suavização e convite rápido
 
 ### Adicionado

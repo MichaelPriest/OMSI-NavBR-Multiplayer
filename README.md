@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.3**
+> Versão em desenvolvimento: **0.3.0-alpha.4**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
@@ -54,7 +54,7 @@ O cliente já:
 - pode permanecer **Sempre visível** sobre o OMSI;
 - possui um HUD compacto sobre o jogo com minimapa centralizado no ônibus;
 - mostra outros jogadores compatíveis no minimapa;
-- suaviza os marcadores remotos no GPS principal para reduzir saltos entre atualizações;
+- suaviza os marcadores remotos tanto no GPS principal quanto no minimapa do HUD;
 - mostra chat sobre o minimapa e indicador de voz.
 
 O HUD segue uma organização inspirada em jogos de mundo aberto, com identidade visual própria do NavBR. Ele não copia assets ou interface proprietária de GTA/Rockstar.
@@ -74,11 +74,11 @@ Fluxo básico:
 
 1. O criador clica em **Criar sala neste PC**.
 2. O NavBR inicia o host na porta TCP `27730`.
-3. O criador compartilha o endereço acessível e o código/nome da sala; na alpha.3 há um botão rápido de copiar os dados do convite.
-4. Os demais jogadores informam esse endereço e entram na sala.
+3. O criador usa o botão de copiar convite; a alpha.4 gera o formato versionado `NAVBR_INVITE_V1` com servidor, sala e porta.
+4. O convidado cola o convite no NavBR; servidor e sala são preenchidos automaticamente.
 5. Telemetria, presença, chat e voz passam pelo PC do host.
 
-Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, nesta alpha o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador. UPnP/NAT traversal é uma evolução planejada para reduzir essa configuração manual.
+A alpha.4 também aceita o formato simples de convite gerado pela alpha.3. Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, nesta alpha o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador. UPnP/NAT traversal é uma evolução planejada para reduzir essa configuração manual.
 
 O pacote `OMSI-NavBR-Server` continua disponível para quem quiser executar um host dedicado em outro PC ou servidor.
 

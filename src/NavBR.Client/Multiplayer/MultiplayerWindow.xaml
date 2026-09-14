@@ -69,6 +69,11 @@
                             IsEnabled="False"
                             Loaded="CopyInviteButton_Loaded"
                             Click="CopyInviteButton_Click" />
+                    <Button x:Name="PasteInviteButton"
+                            Padding="14,8"
+                            Margin="0,0,8,0"
+                            Loaded="PasteInviteButton_Loaded"
+                            Click="PasteInviteButton_Click" />
                     <TextBlock x:Name="InviteAddressText"
                                Margin="8,0,0,0"
                                VerticalAlignment="Center"

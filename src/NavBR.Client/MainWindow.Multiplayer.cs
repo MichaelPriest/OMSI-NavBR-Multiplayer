@@ -66,17 +66,17 @@ public partial class MainWindow
         window.RemoteTelemetryReceived += frame =>
         {
             RenderRemotePlayer(frame);
-            hud.UpdateRemotePlayer(frame);
+            hud.UpdateRemotePlayerSmooth(frame);
         };
         window.RemotePlayerLeft += playerId =>
         {
             RemoveRemotePlayerMarker(playerId);
-            hud.RemoveRemotePlayer(playerId);
+            hud.RemoveRemotePlayerSmooth(playerId);
         };
         window.RemotePlayersReset += () =>
         {
             ClearRemotePlayerMarkers();
-            hud.ClearRemotePlayers();
+            hud.ClearRemotePlayersSmooth();
         };
         window.ChatMessageReceived += hud.AddChatMessage;
         window.RemoteSpeakerActive += hud.MarkRemoteSpeaker;
