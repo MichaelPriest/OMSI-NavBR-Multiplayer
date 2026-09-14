@@ -6,6 +6,13 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
+    private const int VkShift = 0x10;
+    private const int VkControl = 0x11;
+    private const int VkLeftShift = 0xA0;
+    private const int VkRightShift = 0xA1;
+    private const int VkLeftControl = 0xA2;
+    private const int VkRightControl = 0xA3;
+
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
         NavBRHotkeyCatalog.DefaultChatHotkey);
@@ -26,7 +33,8 @@ public partial class HudOverlayWindow
     {
         _chatHotkey = NavBRHotkeyCatalog.Resolve(chatHotkey, NavBRHotkeyCatalog.DefaultChatHotkey);
         _voiceHotkey = NavBRHotkeyCatalog.Resolve(voiceHotkey, NavBRHotkeyCatalog.DefaultVoiceHotkey);
-        _hotkeysDistinct = _chatHotkey.VirtualKey != _voiceHotkey.VirtualKey;
+        _hotkeysDistinct = _chatHotkey.VirtualKey != _voiceHotkey.VirtualKey ||
+                           _chatHotkey.OmsiModifierMask != _voiceHotkey.OmsiModifierMask;
         _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
         RefreshOmsiHotkeyConflicts(force: true);
         RefreshHudChrome();
@@ -97,8 +105,12 @@ public partial class HudOverlayWindow
 
         var result = OmsiKeyboardConflictDetector.AnalyzeProcessInstallation(processId);
         _omsiHotkeyConfigVerified = result.ConfigFound;
-        _chatConflictEvents = result.GetEvents(_chatHotkey.OmsiScanCode);
-        _voiceConflictEvents = result.GetEvents(_voiceHotkey.OmsiScanCode);
+        _chatConflictEvents = result.GetEvents(
+            _chatHotkey.OmsiScanCode,
+            _chatHotkey.OmsiModifierMask);
+        _voiceConflictEvents = result.GetEvents(
+            _voiceHotkey.OmsiScanCode,
+            _voiceHotkey.OmsiModifierMask);
         _chatHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _chatConflictEvents.Count == 0;
         _voiceHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _voiceConflictEvents.Count == 0;
 
@@ -175,21 +187,21 @@ public partial class HudOverlayWindow
 
         return language switch
         {
-            "pt" when both => $"{_chatHotkey.Name} e {_voiceHotkey.Name} desativadas: o OMSI já usa essas teclas.",
-            "pt" when chatOnly => $"{_chatHotkey.Name} desativada: o OMSI já usa essa tecla.",
-            "pt" => $"{_voiceHotkey.Name} desativada: o OMSI já usa essa tecla.",
-            "es" when both => $"{_chatHotkey.Name} y {_voiceHotkey.Name} desactivadas: OMSI ya usa estas teclas.",
-            "es" when chatOnly => $"{_chatHotkey.Name} desactivada: OMSI ya usa esta tecla.",
-            "es" => $"{_voiceHotkey.Name} desactivada: OMSI ya usa esta tecla.",
-            "de" when both => $"{_chatHotkey.Name} und {_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Tasten bereits.",
-            "de" when chatOnly => $"{_chatHotkey.Name} deaktiviert: OMSI verwendet diese Taste bereits.",
-            "de" => $"{_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Taste bereits.",
-            "fr" when both => $"{_chatHotkey.Name} et {_voiceHotkey.Name} désactivées : OMSI utilise déjà ces touches.",
-            "fr" when chatOnly => $"{_chatHotkey.Name} désactivée : OMSI utilise déjà cette touche.",
-            "fr" => $"{_voiceHotkey.Name} désactivée : OMSI utilise déjà cette touche.",
-            _ when both => $"{_chatHotkey.Name} and {_voiceHotkey.Name} disabled: OMSI already uses these keys.",
-            _ when chatOnly => $"{_chatHotkey.Name} disabled: OMSI already uses this key.",
-            _ => $"{_voiceHotkey.Name} disabled: OMSI already uses this key."
+            "pt" when both => $"{_chatHotkey.Name} e {_voiceHotkey.Name} desativadas: o OMSI já usa essas combinações.",
+            "pt" when chatOnly => $"{_chatHotkey.Name} desativada: o OMSI já usa essa combinação.",
+            "pt" => $"{_voiceHotkey.Name} desativada: o OMSI já usa essa combinação.",
+            "es" when both => $"{_chatHotkey.Name} y {_voiceHotkey.Name} desactivadas: OMSI ya usa estas combinaciones.",
+            "es" when chatOnly => $"{_chatHotkey.Name} desactivada: OMSI ya usa esta combinación.",
+            "es" => $"{_voiceHotkey.Name} desactivada: OMSI ya usa esta combinación.",
+            "de" when both => $"{_chatHotkey.Name} und {_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Kombinationen bereits.",
+            "de" when chatOnly => $"{_chatHotkey.Name} deaktiviert: OMSI verwendet diese Kombination bereits.",
+            "de" => $"{_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Kombination bereits.",
+            "fr" when both => $"{_chatHotkey.Name} et {_voiceHotkey.Name} désactivées : OMSI utilise déjà ces combinaisons.",
+            "fr" when chatOnly => $"{_chatHotkey.Name} désactivée : OMSI utilise déjà cette combinaison.",
+            "fr" => $"{_voiceHotkey.Name} désactivée : OMSI utilise déjà cette combinaison.",
+            _ when both => $"{_chatHotkey.Name} and {_voiceHotkey.Name} disabled: OMSI already uses these combinations.",
+            _ when chatOnly => $"{_chatHotkey.Name} disabled: OMSI already uses this combination.",
+            _ => $"{_voiceHotkey.Name} disabled: OMSI already uses this combination."
         };
     }
 
@@ -207,35 +219,56 @@ public partial class HudOverlayWindow
             _pressedKeys.Remove(virtualKey);
         }
 
+        var modifierMask = GetCurrentOmsiModifierMask();
+
         if (virtualKey == _voiceHotkey.VirtualKey)
         {
-            if (!_voiceHotkeyAvailable)
+            if (!isDown && _localPushToTalk)
             {
+                SetLocalPushToTalk(false);
                 return;
             }
 
-            if (isDown)
+            if (isDown &&
+                _voiceHotkeyAvailable &&
+                modifierMask == _voiceHotkey.OmsiModifierMask &&
+                !_chatInteractive &&
+                IsOmsiForeground())
             {
-                if (!_chatInteractive && IsOmsiForeground())
-                {
-                    SetLocalPushToTalk(true);
-                }
+                SetLocalPushToTalk(true);
+                return;
             }
-            else if (_localPushToTalk)
-            {
-                SetLocalPushToTalk(false);
-            }
-
-            return;
         }
 
         if (virtualKey == _chatHotkey.VirtualKey &&
             _chatHotkeyAvailable &&
             isDown &&
+            modifierMask == _chatHotkey.OmsiModifierMask &&
             !_chatInteractive &&
             IsOmsiForeground())
         {
             OpenChatInput();
         }
+    }
+
+    private int GetCurrentOmsiModifierMask()
+    {
+        var mask = 0;
+
+        if (_pressedKeys.Contains(VkShift) ||
+            _pressedKeys.Contains(VkLeftShift) ||
+            _pressedKeys.Contains(VkRightShift))
+        {
+            mask |= NavBRHotkeyCatalog.OmsiShiftModifier;
+        }
+
+        if (_pressedKeys.Contains(VkControl) ||
+            _pressedKeys.Contains(VkLeftControl) ||
+            _pressedKeys.Contains(VkRightControl))
+        {
+            mask |= NavBRHotkeyCatalog.OmsiCtrlModifier;
+        }
+
+        return mask;
     }
 }
