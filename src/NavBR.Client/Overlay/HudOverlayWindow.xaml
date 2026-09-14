@@ -106,7 +106,7 @@
                                FontSize="12"
                                VerticalAlignment="Center" />
                     <TextBlock x:Name="HudShortcutsText"
-                               Text="  •  T: chat  •  N: PTT"
+                               Text="  •  F9: chat  •  F10: PTT"
                                Foreground="#BFFFFFFF"
                                FontSize="12" />
                 </StackPanel>
