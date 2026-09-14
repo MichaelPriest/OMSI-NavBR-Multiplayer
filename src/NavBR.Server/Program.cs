@@ -3,6 +3,11 @@ using NavBR.Server.Multiplayer;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+}
+
 builder.Services.AddSingleton<MultiplayerRoomRegistry>();
 builder.Services.AddSignalR(options =>
 {
