@@ -3,21 +3,26 @@ using System.IO;
 
 namespace NavBR.Client.Overlay;
 
+internal readonly record struct OmsiKeyboardBinding(int ScanCode, int ModifierMask);
+
 internal sealed record OmsiKeyboardConflictResult(
     bool ConfigFound,
     DateTime LastWriteUtc,
-    IReadOnlyDictionary<int, IReadOnlyList<string>> EventsByScanCode)
+    IReadOnlyDictionary<OmsiKeyboardBinding, IReadOnlyList<string>> EventsByBinding)
 {
-    public IReadOnlyList<string> GetEvents(int scanCode) =>
-        EventsByScanCode.TryGetValue(scanCode, out var events)
+    public IReadOnlyList<string> GetEvents(int scanCode, int modifierMask) =>
+        EventsByBinding.TryGetValue(new OmsiKeyboardBinding(scanCode, modifierMask), out var events)
             ? events
             : Array.Empty<string>();
 
-    public bool IsInUse(int scanCode) => GetEvents(scanCode).Count > 0;
+    public bool IsInUse(int scanCode, int modifierMask) => GetEvents(scanCode, modifierMask).Count > 0;
 }
 
 internal static class OmsiKeyboardConflictDetector
 {
+    private const int SupportedModifierMask =
+        NavBRHotkeyCatalog.OmsiShiftModifier | NavBRHotkeyCatalog.OmsiCtrlModifier;
+
     public static OmsiKeyboardConflictResult AnalyzeProcessInstallation(int processId)
     {
         try
@@ -51,7 +56,7 @@ internal static class OmsiKeyboardConflictDetector
 
         try
         {
-            var eventsByScanCode = new Dictionary<int, HashSet<string>>();
+            var eventsByBinding = new Dictionary<OmsiKeyboardBinding, HashSet<string>>();
             var lines = File.ReadAllLines(keyboardPath);
 
             for (var index = 0; index < lines.Length; index++)
@@ -63,16 +68,22 @@ internal static class OmsiKeyboardConflictDetector
 
                 var eventName = ReadNextValue(lines, ref index);
                 var keyCodeText = ReadNextValue(lines, ref index);
+                var flagsText = ReadNextValue(lines, ref index);
+
                 if (string.IsNullOrWhiteSpace(eventName) ||
                     !int.TryParse(keyCodeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var keyCode))
                 {
                     continue;
                 }
 
-                if (!eventsByScanCode.TryGetValue(keyCode, out var events))
+                var flags = 0;
+                _ = int.TryParse(flagsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out flags);
+                var binding = new OmsiKeyboardBinding(keyCode, flags & SupportedModifierMask);
+
+                if (!eventsByBinding.TryGetValue(binding, out var events))
                 {
                     events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    eventsByScanCode[keyCode] = events;
+                    eventsByBinding[binding] = events;
                 }
 
                 events.Add(eventName);
@@ -81,9 +92,11 @@ internal static class OmsiKeyboardConflictDetector
             return new OmsiKeyboardConflictResult(
                 ConfigFound: true,
                 File.GetLastWriteTimeUtc(keyboardPath),
-                eventsByScanCode.ToDictionary(
+                eventsByBinding.ToDictionary(
                     pair => pair.Key,
-                    pair => (IReadOnlyList<string>)pair.Value.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray()));
+                    pair => (IReadOnlyList<string>)pair.Value
+                        .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                        .ToArray()));
         }
         catch
         {
@@ -114,5 +127,8 @@ internal static class OmsiKeyboardConflictDetector
     }
 
     private static OmsiKeyboardConflictResult Empty() =>
-        new(false, DateTime.MinValue, new Dictionary<int, IReadOnlyList<string>>());
+        new(
+            false,
+            DateTime.MinValue,
+            new Dictionary<OmsiKeyboardBinding, IReadOnlyList<string>>());
 }
