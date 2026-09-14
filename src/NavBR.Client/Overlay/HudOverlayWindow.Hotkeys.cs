@@ -1,5 +1,6 @@
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Client.Multiplayer;
 
 namespace NavBR.Client.Overlay;
 
@@ -16,6 +17,7 @@ public partial class HudOverlayWindow
     private bool _voiceHotkeyAvailable;
     private bool _omsiHotkeyConfigVerified;
     private bool _hotkeysDistinct = true;
+    private bool _settingsHooked;
     private DateTimeOffset _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<string> _chatConflictEvents = Array.Empty<string>();
     private IReadOnlyList<string> _voiceConflictEvents = Array.Empty<string>();
@@ -37,7 +39,14 @@ public partial class HudOverlayWindow
             _keyboardHook?.Dispose();
             _keyboardHook = null;
             _pressedKeys.Clear();
-            RefreshOmsiHotkeyConflicts(force: true);
+
+            var settings = MultiplayerSettingsStore.Load();
+            ConfigureHotkeys(settings.ChatHotkey, settings.VoiceHotkey);
+            if (!_settingsHooked)
+            {
+                _settingsHooked = true;
+                MultiplayerSettingsStore.SettingsSaved += OnMultiplayerSettingsSaved;
+            }
 
             _keyboardHook = new GlobalKeyboardHook();
             _keyboardHook.KeyChanged += (virtualKey, isDown) =>
@@ -51,6 +60,23 @@ public partial class HudOverlayWindow
             _voiceHotkeyAvailable = false;
             _omsiHotkeyConfigVerified = false;
         }
+    }
+
+    private void OnMultiplayerSettingsSaved(MultiplayerSettings settings)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+            ConfigureHotkeys(settings.ChatHotkey, settings.VoiceHotkey));
+    }
+
+    private void UnsubscribeHotkeySettings()
+    {
+        if (!_settingsHooked)
+        {
+            return;
+        }
+
+        MultiplayerSettingsStore.SettingsSaved -= OnMultiplayerSettingsSaved;
+        _settingsHooked = false;
     }
 
     private void RefreshOmsiHotkeyConflicts(bool force = false)
