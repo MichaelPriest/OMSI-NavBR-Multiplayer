@@ -12,7 +12,16 @@
   <ItemGroup>
     <Resource Include="Assets\NavBR.ico" />
     <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
+    <ProjectReference Include="..\NavBR.Server\NavBR.Server.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="NAudio" Version="2.4.0" />
+    <PackageReference Include="Concentus" Version="2.2.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="RepairNavBRIcon" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">

@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.1**
+> Versão em desenvolvimento: **0.3.0-alpha.2**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
@@ -14,9 +14,10 @@ O OMSI NavBR Multiplayer é um aplicativo Windows externo ao jogo, projetado par
 - descobrir a pasta real do OMSI a partir do processo, sem depender de Steam/Steamworks;
 - ler telemetria do ônibus local em tempo real;
 - carregar mapas, roadmaps, paradas e `TTData` diretamente da instalação do OMSI;
-- oferecer GPS/Route Advisor;
-- conectar jogadores a salas multiplayer;
-- mostrar outros jogadores no mapa;
+- oferecer GPS/Route Advisor e HUD sobre o jogo;
+- conectar jogadores a salas multiplayer hospedadas pelo próprio criador da sala;
+- mostrar outros jogadores no mapa e minimapa;
+- oferecer chat de texto e chat por voz;
 - futuramente experimentar sincronização de veículos remotos dentro do OMSI;
 - oferecer interface multilíngue com troca de idioma em tempo real.
 
@@ -38,58 +39,64 @@ Já implementado para o perfil inicial do **OMSI 2.3.004**:
 
 A telemetria ainda precisa de validação em runtime no jogo para confirmar escala/sinal da posição, velocidade e orientação em mapas diferentes.
 
-### GPS — Fase 2
+### GPS e HUD
 
 O cliente já:
 
 - encontra automaticamente a pasta `maps` da instalação detectada;
 - cataloga mapas que possuem `global.cfg`;
-- lê o nome do mapa quando disponível;
-- conta tiles;
+- calcula um identificador de compatibilidade para ajudar a detectar versões diferentes do mesmo mapa;
 - detecta `whole.roadmap.bmp`, `roadmap.bmp` e variantes de roadmap;
 - transforma GridX/GridY + posição local do tile em pixels do roadmap para mapas padrão de 300 m/tile;
 - desenha o marcador do ônibus no roadmap;
-- oferece zoom por botões e roda do mouse;
-- permite pan por arraste;
-- possui modo **Seguir ônibus**;
-- possui comando **Ajustar**;
+- oferece zoom, pan, modo **Seguir ônibus** e comando **Ajustar**;
 - gira o marcador conforme o heading recebido;
-- pode permanecer **Sempre visível** sobre o OMSI.
+- pode permanecer **Sempre visível** sobre o OMSI;
+- possui um HUD compacto sobre o jogo com minimapa centralizado no ônibus;
+- mostra outros jogadores compatíveis no minimapa;
+- mostra chat sobre o minimapa e indicador de voz.
 
-A calibração final da posição e orientação do marcador ainda depende de teste real no OMSI 2.3.004. Mapas com `[worldcoordinates]` continuam separados até a georreferência correta ser implementada.
+O HUD segue uma organização inspirada em jogos de mundo aberto, com identidade visual própria do NavBR. Ele não copia assets ou interface proprietária de GTA/Rockstar.
 
-### Multiplayer — Fase 3 inicial
+Atalhos iniciais no HUD:
 
-A versão 0.3.0-alpha.1 adiciona a primeira implementação funcional do modo online:
+- `T` — abrir chat de texto;
+- `N` — segurar para falar no chat por voz.
 
-- cliente SignalR/WebSocket integrado ao NavBR;
-- endereço de servidor configurável;
-- apelido e sala persistidos localmente;
-- identidade própria do NavBR, sem Steamworks;
-- entrada/saída de salas;
-- lista de jogadores conectados;
-- reconexão automática;
-- transmissão da telemetria local a 4 Hz;
-- atualização do mapa atual de cada jogador;
-- distância aproximada entre jogadores no mesmo mapa;
-- jogadores remotos desenhados em azul no GPS com direção e velocidade;
-- limpeza de presença quando um cliente desconecta.
+A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação.
 
-O servidor público oficial ainda não está hospedado. Para testes, execute o pacote `OMSI-NavBR-Server` em um PC/servidor acessível aos jogadores e informe no cliente, por exemplo:
+### Multiplayer peer-host — Fase 3
 
-```text
-http://192.168.1.50:5000/hubs/multiplayer
-```
+Na **0.3.0-alpha.2**, o servidor da sala passa a ser o **PC de quem cria a sala**. O próprio cliente NavBR inicia um host ASP.NET Core/SignalR local e entra nele automaticamente.
 
-Sem `ASPNETCORE_URLS` configurado, o servidor publicado escuta em `0.0.0.0:5000`, permitindo testes em rede local. Em hospedagem pública, prefira HTTPS e configure firewall/proxy reverso adequadamente.
+Fluxo básico:
 
-### Identidade visual
+1. O criador clica em **Criar sala neste PC**.
+2. O NavBR inicia o host na porta TCP `27730`.
+3. O criador compartilha o endereço acessível e o código/nome da sala.
+4. Os demais jogadores informam esse endereço e entram na sala.
+5. Telemetria, presença, chat e voz passam pelo PC do host.
 
-O cliente usa a identidade oficial **OMSI NavBR Multiplayer**, incluindo ícone próprio incorporado ao executável e à janela principal. O pipeline valida a presença do recurso Win32 de ícone no `.exe` standalone antes da publicação.
+Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, nesta alpha o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador. UPnP/NAT traversal é uma evolução planejada para reduzir essa configuração manual.
+
+O pacote `OMSI-NavBR-Server` continua disponível para quem quiser executar um host dedicado em outro PC ou servidor.
+
+### Chat e voz
+
+O multiplayer inclui:
+
+- chat de texto por sala, limitado a 280 caracteres por mensagem;
+- mensagens visíveis na janela multiplayer e no HUD;
+- voz push-to-talk por sala;
+- captura e reprodução de áudio pelo NAudio;
+- codificação Opus via Concentus em 48 kHz mono, quadros de 20 ms;
+- indicador visual de quem está falando.
+
+Nesta alpha a voz é transportada pelo mesmo canal SignalR/WebSocket da sessão. Isso simplifica o peer-host inicial, mas pode ter mais latência sob perda de rede do que um transporte UDP/WebRTC; uma camada de voz de baixa latência pode substituir esse transporte futuramente sem alterar o HUD.
 
 ## Idiomas
 
-A primeira base inclui:
+A base inclui:
 
 - Português (Brasil) — `pt-BR`;
 - English — `en-US`;
@@ -101,8 +108,6 @@ Na primeira execução, o NavBR tenta acompanhar o idioma do Windows. Se o idiom
 
 Configurações do multiplayer ficam em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\multiplayer.json`.
 
-Os textos ficam em `.resx`, permitindo adicionar novos idiomas sem modificar o motor de telemetria, GPS ou multiplayer.
-
 ## Compatibilidade
 
 O alvo inicial é **OMSI 2.3.004 no Windows**. O cliente não usa Steam API: ele localiza `Omsi.exe` em execução e deriva o diretório da instalação diretamente do processo.
@@ -113,8 +118,8 @@ A arquitetura separa detecção, perfis de memória, GPS e protocolo multiplayer
 
 ```text
 src/
-  NavBR.Client/   aplicativo Windows/WPF, telemetria, GPS, multiplayer e localização
-  NavBR.Server/   backend multiplayer em ASP.NET Core + SignalR
+  NavBR.Client/   WPF, telemetria, GPS, HUD, multiplayer, voz e localização
+  NavBR.Server/   host multiplayer em ASP.NET Core + SignalR
   NavBR.Shared/   DTOs e protocolo compartilhado
 
 docs/
@@ -122,14 +127,18 @@ docs/
   ROADMAP.md
   TELEMETRY.md
   RELEASES.md
+licenses/
+  licenças das dependências redistribuídas
 ```
 
 ## Stack
 
 - .NET 10 LTS
 - C# / WPF
-- ASP.NET Core
+- ASP.NET Core / Kestrel
 - SignalR / WebSocket
+- NAudio
+- Concentus / Opus
 - Windows `OpenProcess` / `ReadProcessMemory`
 - leitura direta de `global.cfg`, roadmaps, tiles e `TTData`
 - `.resx` + `ResourceManager` para localização
@@ -138,21 +147,21 @@ docs/
 
 O GitHub Actions compila cliente e servidor automaticamente. Cada nova versão gera um **GitHub Prerelease** com:
 
-- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente Windows x86 standalone/self-contained, pronto para abrir diretamente;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente Windows x86 standalone/self-contained;
 - `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — pacote completo do cliente;
-- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor Windows x64 self-contained;
-- release notes geradas automaticamente.
+- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor/host dedicado Windows x64;
+- `LICENSE` e `THIRD_PARTY_NOTICES.md` para os avisos legais do projeto e dependências.
 
-O `.exe` standalone inclui as dependências do .NET necessárias para execução e recebe o ícone oficial do NavBR como recurso Win32.
-
-O GitHub Pages é republicado quando o site muda e também após novas Releases, mantendo o catálogo público de downloads atualizado.
+O `.exe` standalone inclui o runtime necessário e recebe o ícone oficial do NavBR como recurso Win32.
 
 ## Segurança e escopo
 
 O projeto não implementa bypass de DRM, ativação ou patches específicos para executáveis crackeados. A integração trabalha com um processo `Omsi.exe` já existente e compatível no computador do usuário.
 
-No multiplayer são transmitidos somente dados do jogo/sessão. O NavBR não transmite localização física do usuário. Nesta fase alpha ainda não há autenticação de conta nem salas protegidas por senha.
+No multiplayer são transmitidos dados do jogo/sessão, mensagens de chat e, quando ativado, áudio do microfone durante o push-to-talk. O NavBR não usa a localização física do usuário para posicionar jogadores; os endereços de rede são necessários somente para conectar ao PC que hospeda a sala.
 
 ## Licença
 
-Ainda não definida.
+O código próprio do **OMSI NavBR Multiplayer** é disponibilizado sob licença **MIT**. Veja `LICENSE`.
+
+Dependências de terceiros e seus respectivos textos de licença estão documentados em `THIRD_PARTY_NOTICES.md` e na pasta `licenses/`. OMSI, Steam, GTA/Rockstar e demais marcas citadas pertencem aos respectivos titulares; o NavBR é um projeto independente.

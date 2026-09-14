@@ -4,4 +4,5 @@ public sealed record JoinRoomRequest(
     string RoomId,
     string PlayerId,
     string DisplayName,
-    string? MapName);
+    string? MapName,
+    string? MapCompatibilityId = null);

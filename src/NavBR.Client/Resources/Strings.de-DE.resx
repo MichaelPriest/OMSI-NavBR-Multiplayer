@@ -55,7 +55,7 @@
   <data name="MultiplayerLocalMap" xml:space="preserve"><value>Lokale Karte</value></data>
   <data name="MultiplayerPlayers" xml:space="preserve"><value>Spieler im Raum</value></data>
   <data name="MultiplayerFooter" xml:space="preserve"><value>Es werden nur Spiel- und Sitzungsdaten gesendet. NavBR sendet keinen realen Standort.</value></data>
-  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Server, Raum und Spitzname ausfüllen.</value></data>
+  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Host-Adresse, Raum und Spitzname ausfüllen.</value></data>
   <data name="MultiplayerConnectingDetail" xml:space="preserve"><value>Verbindung wird geöffnet und dem Raum beigetreten...</value></data>
   <data name="MultiplayerConnectionError" xml:space="preserve"><value>Verbindung fehlgeschlagen: {0}</value></data>
   <data name="MultiplayerTelemetryError" xml:space="preserve"><value>Telemetrie konnte nicht gesendet werden: {0}</value></data>
@@ -70,7 +70,22 @@
   <data name="MultiplayerReconnecting" xml:space="preserve"><value>Neu verbinden...</value></data>
   <data name="MultiplayerReconnectingDetail" xml:space="preserve"><value>Die Verbindung wurde unterbrochen. NavBR versucht automatisch erneut beizutreten.</value></data>
   <data name="MultiplayerDisconnected" xml:space="preserve"><value>Getrennt</value></data>
-  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Server und Raum eingeben, um online zu spielen.</value></data>
+  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Auf diesem PC einen Raum erstellen oder eine Host-Adresse eingeben.</value></data>
   <data name="MultiplayerConnect" xml:space="preserve"><value>Verbinden</value></data>
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Trennen</value></data>
+  <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Einen Raum erstellen und dieser PC wird zum Server, oder einem Raum eines anderen Fahrers beitreten. Das In-Game-HUD enthält eine kompakte Minikarte, Textchat und Push-to-Talk-Sprachchat.</value></data>
+  <data name="MultiplayerHostAddress" xml:space="preserve"><value>Host-Adresse</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Sprachchat aktivieren (N zum Sprechen halten)</value></data>
+  <data name="MultiplayerChat" xml:space="preserve"><value>Textchat</value></data>
+  <data name="MultiplayerSend" xml:space="preserve"><value>Senden</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>Der PC des Raumerstellers hostet die Sitzung. Im LAN funktioniert es direkt; über das Internet muss ggf. TCP-Port 27730 in Firewall/Router freigegeben werden. T öffnet den Chat, N ist Push-to-Talk.</value></data>
+  <data name="MultiplayerVoiceError" xml:space="preserve"><value>Sprachchat-Fehler: {0}</value></data>
+  <data name="MultiplayerHostError" xml:space="preserve"><value>Raum konnte nicht gehostet werden: {0}</value></data>
+  <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Raum beitreten</value></data>
+  <data name="MultiplayerStopHosting" xml:space="preserve"><value>Hosting beenden</value></data>
+  <data name="MultiplayerCreateRoom" xml:space="preserve"><value>Raum auf diesem PC erstellen</value></data>
+  <data name="MultiplayerHostingPort" xml:space="preserve"><value>Hosting auf TCP-Port {0}. Teile eine erreichbare Adresse dieses PCs mit den anderen Spielern.</value></data>
+  <data name="MultiplayerInviteAddress" xml:space="preserve"><value>LAN-Adresse: {0} • Raum: {1}</value></data>
+  <data name="MultiplayerChatError" xml:space="preserve"><value>Nachricht konnte nicht gesendet werden: {0}</value></data>
+  <data name="MultiplayerDifferentMapBuild" xml:space="preserve"><value>andere Kartenversion</value></data>
 </root>

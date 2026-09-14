@@ -2,9 +2,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using NavBR.Client.Localization;
-using NavBR.Client.Multiplayer;
 using NavBR.Client.Maps;
+using NavBR.Client.Multiplayer;
+using NavBR.Client.Overlay;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
@@ -12,6 +14,8 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private MultiplayerWindow? _multiplayerWindow;
+    private HudOverlayWindow? _hudOverlay;
+    private DispatcherTimer? _hudStateTimer;
     private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
 
@@ -46,22 +50,121 @@ public partial class MainWindow
             return;
         }
 
-        var window = new MultiplayerWindow(() => _lastTelemetry)
+        var window = new MultiplayerWindow(
+            () => _lastTelemetry,
+            GetActiveMapForMultiplayer)
         {
             Owner = this
         };
 
-        window.RemoteTelemetryReceived += RenderRemotePlayer;
-        window.RemotePlayerLeft += RemoveRemotePlayerMarker;
-        window.RemotePlayersReset += ClearRemotePlayerMarkers;
+        var hud = EnsureHudOverlay();
+        hud.SetLocalDisplayName(window.CurrentDisplayName);
+
+        window.RemoteTelemetryReceived += frame =>
+        {
+            RenderRemotePlayer(frame);
+            hud.UpdateRemotePlayer(frame);
+        };
+        window.RemotePlayerLeft += playerId =>
+        {
+            RemoveRemotePlayerMarker(playerId);
+            hud.RemoveRemotePlayer(playerId);
+        };
+        window.RemotePlayersReset += () =>
+        {
+            ClearRemotePlayerMarkers();
+            hud.ClearRemotePlayers();
+        };
+        window.ChatMessageReceived += hud.AddChatMessage;
+        window.RemoteSpeakerActive += hud.MarkRemoteSpeaker;
+        window.VoiceError += hud.SetVoiceError;
+        window.MultiplayerConnectionChanged += hud.SetConnectionState;
+        window.LocalDisplayNameChanged += hud.SetLocalDisplayName;
+        hud.ChatSubmitted += text => _ = window.SendChatFromOverlayAsync(text);
+        hud.PushToTalkChanged += window.SetPushToTalk;
+
         window.Closed += (_, _) =>
         {
             ClearRemotePlayerMarkers();
             _multiplayerWindow = null;
+            StopHudRefreshTimer();
+            if (_hudOverlay is not null)
+            {
+                _hudOverlay.Close();
+                _hudOverlay = null;
+            }
         };
 
         _multiplayerWindow = window;
+        UpdateHudLocalState();
         window.Show();
+    }
+
+    private HudOverlayWindow EnsureHudOverlay()
+    {
+        if (_hudOverlay is not null)
+        {
+            StartHudRefreshTimer();
+            return _hudOverlay;
+        }
+
+        var hud = new HudOverlayWindow();
+        hud.AttachOmsiProcess(_currentOmsi?.ProcessId);
+        hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        hud.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_hudOverlay, hud))
+            {
+                _hudOverlay = null;
+            }
+
+            StopHudRefreshTimer();
+        };
+        _hudOverlay = hud;
+        hud.Show();
+        StartHudRefreshTimer();
+        return hud;
+    }
+
+    private void StartHudRefreshTimer()
+    {
+        if (_hudStateTimer is null)
+        {
+            _hudStateTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            _hudStateTimer.Tick += (_, _) => UpdateHudLocalState();
+        }
+
+        if (!_hudStateTimer.IsEnabled)
+        {
+            _hudStateTimer.Start();
+        }
+    }
+
+    private void StopHudRefreshTimer()
+    {
+        _hudStateTimer?.Stop();
+    }
+
+    private void UpdateHudLocalState()
+    {
+        if (_hudOverlay is null)
+        {
+            return;
+        }
+
+        _hudOverlay.AttachOmsiProcess(_currentOmsi?.ProcessId);
+        _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+    }
+
+    private OmsiMapInfo? GetActiveMapForMultiplayer()
+    {
+        var mapName = _lastTelemetry?.MapName;
+        return string.IsNullOrWhiteSpace(mapName)
+            ? null
+            : FindActiveMap(mapName);
     }
 
     private void RenderRemotePlayer(PlayerTelemetryFrame frame)
@@ -69,8 +172,18 @@ public partial class MainWindow
         var local = _lastTelemetry;
         var layout = _loadedRoadmapLayout;
         var bitmap = _loadedRoadmapBitmap;
+        var localMap = GetActiveMapForMultiplayer();
 
-        if (local is null ||
+        var mapCompatibilityMatches = localMap is null ||
+                                      string.IsNullOrWhiteSpace(localMap.CompatibilityId) ||
+                                      string.IsNullOrWhiteSpace(frame.Player.MapCompatibilityId) ||
+                                      string.Equals(
+                                          localMap.CompatibilityId,
+                                          frame.Player.MapCompatibilityId,
+                                          StringComparison.OrdinalIgnoreCase);
+
+        if (!mapCompatibilityMatches ||
+            local is null ||
             layout is null ||
             bitmap is null ||
             string.IsNullOrWhiteSpace(local.MapName) ||

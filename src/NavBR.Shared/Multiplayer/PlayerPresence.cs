@@ -5,4 +5,5 @@ public sealed record PlayerPresence(
     string DisplayName,
     string RoomId,
     string? MapName,
-    DateTimeOffset ConnectedAtUtc);
+    DateTimeOffset ConnectedAtUtc,
+    string? MapCompatibilityId = null);

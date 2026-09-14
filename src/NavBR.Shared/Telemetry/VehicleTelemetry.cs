@@ -16,4 +16,5 @@ public sealed record VehicleTelemetry(
     int? GridX = null,
     int? GridY = null,
     double? TileX = null,
-    double? TileY = null);
+    double? TileY = null,
+    string? MapCompatibilityId = null);

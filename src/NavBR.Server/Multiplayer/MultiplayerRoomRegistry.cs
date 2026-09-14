@@ -13,14 +13,16 @@ public sealed class MultiplayerRoomRegistry
         string roomId,
         string playerId,
         string displayName,
-        string? mapName)
+        string? mapName,
+        string? mapCompatibilityId)
     {
         var presence = new PlayerPresence(
             playerId,
             displayName,
             roomId,
             NormalizeOptional(mapName),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            NormalizeOptional(mapCompatibilityId));
 
         _connections[connectionId] = presence;
         return presence;
@@ -46,17 +48,27 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
-    public PlayerPresence? UpdateMap(string connectionId, string? mapName)
+    public PlayerPresence? UpdateMap(
+        string connectionId,
+        string? mapName,
+        string? mapCompatibilityId = null)
     {
         while (_connections.TryGetValue(connectionId, out var current))
         {
-            var normalized = NormalizeOptional(mapName);
-            if (string.Equals(current.MapName, normalized, StringComparison.OrdinalIgnoreCase))
+            var normalizedMap = NormalizeOptional(mapName);
+            var normalizedCompatibilityId = NormalizeOptional(mapCompatibilityId);
+            if (string.Equals(current.MapName, normalizedMap, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(current.MapCompatibilityId, normalizedCompatibilityId, StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            var updated = current with { MapName = normalized };
+            var updated = current with
+            {
+                MapName = normalizedMap,
+                MapCompatibilityId = normalizedCompatibilityId
+            };
+
             if (_connections.TryUpdate(connectionId, updated, current))
             {
                 return updated;

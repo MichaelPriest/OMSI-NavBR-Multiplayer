@@ -55,7 +55,7 @@
   <data name="MultiplayerLocalMap" xml:space="preserve"><value>Mapa local</value></data>
   <data name="MultiplayerPlayers" xml:space="preserve"><value>Jogadores na sala</value></data>
   <data name="MultiplayerFooter" xml:space="preserve"><value>Somente dados do jogo e da sessão são enviados. O NavBR não envia sua localização do mundo real.</value></data>
-  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Preencha servidor, sala e apelido.</value></data>
+  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Preencha endereço do host, sala e apelido.</value></data>
   <data name="MultiplayerConnectingDetail" xml:space="preserve"><value>Abrindo a conexão e entrando na sala...</value></data>
   <data name="MultiplayerConnectionError" xml:space="preserve"><value>Não foi possível conectar: {0}</value></data>
   <data name="MultiplayerTelemetryError" xml:space="preserve"><value>Não foi possível enviar a telemetria: {0}</value></data>
@@ -70,7 +70,22 @@
   <data name="MultiplayerReconnecting" xml:space="preserve"><value>Reconectando...</value></data>
   <data name="MultiplayerReconnectingDetail" xml:space="preserve"><value>A conexão caiu. O NavBR está tentando entrar novamente automaticamente.</value></data>
   <data name="MultiplayerDisconnected" xml:space="preserve"><value>Desconectado</value></data>
-  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Informe um servidor e uma sala para jogar online.</value></data>
+  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Crie uma sala neste PC ou informe o endereço do host para entrar em uma.</value></data>
   <data name="MultiplayerConnect" xml:space="preserve"><value>Conectar</value></data>
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Desconectar</value></data>
+  <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Crie uma sala e este PC vira o servidor, ou entre em uma sala hospedada por outro motorista. O HUD no jogo inclui minimapa compacto, chat de texto e voz por pressione-para-falar.</value></data>
+  <data name="MultiplayerHostAddress" xml:space="preserve"><value>Endereço do host</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Ativar chat por voz (segure N para falar)</value></data>
+  <data name="MultiplayerChat" xml:space="preserve"><value>Chat de texto</value></data>
+  <data name="MultiplayerSend" xml:space="preserve"><value>Enviar</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>O PC de quem cria a sala hospeda a sessão. Na rede local funciona direto; pela internet pode ser necessário liberar a porta TCP 27730 no firewall/roteador. T abre o chat no jogo e N é pressione-para-falar.</value></data>
+  <data name="MultiplayerVoiceError" xml:space="preserve"><value>Erro no chat por voz: {0}</value></data>
+  <data name="MultiplayerHostError" xml:space="preserve"><value>Não foi possível hospedar a sala: {0}</value></data>
+  <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Entrar na sala</value></data>
+  <data name="MultiplayerStopHosting" xml:space="preserve"><value>Parar de hospedar</value></data>
+  <data name="MultiplayerCreateRoom" xml:space="preserve"><value>Criar sala neste PC</value></data>
+  <data name="MultiplayerHostingPort" xml:space="preserve"><value>Hospedando na porta TCP {0}. Compartilhe com os outros jogadores um endereço acessível deste PC.</value></data>
+  <data name="MultiplayerInviteAddress" xml:space="preserve"><value>Endereço LAN: {0} • sala: {1}</value></data>
+  <data name="MultiplayerChatError" xml:space="preserve"><value>Não foi possível enviar a mensagem: {0}</value></data>
+  <data name="MultiplayerDifferentMapBuild" xml:space="preserve"><value>versão diferente do mapa</value></data>
 </root>

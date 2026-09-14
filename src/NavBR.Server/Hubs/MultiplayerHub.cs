@@ -7,6 +7,9 @@ namespace NavBR.Server.Hubs;
 
 public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 {
+    private const int MaxChatLength = 280;
+    private const int MaxVoicePayloadBytes = 1500;
+
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -27,7 +30,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             roomId,
             playerId,
             displayName,
-            request.MapName);
+            request.MapName,
+            request.MapCompatibilityId);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
@@ -64,7 +68,10 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        var updatedPresence = registry.UpdateMap(Context.ConnectionId, safeTelemetry.MapName);
+        var updatedPresence = registry.UpdateMap(
+            Context.ConnectionId,
+            safeTelemetry.MapName,
+            presence.MapCompatibilityId);
         var currentPresence = updatedPresence ?? presence;
 
         if (updatedPresence is not null)
@@ -75,6 +82,53 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         await Clients
             .OthersInGroup(presence.RoomId)
             .SendAsync("telemetry", new PlayerTelemetryFrame(currentPresence, safeTelemetry));
+    }
+
+    public async Task SendChatMessage(string text)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before sending chat messages.");
+        }
+
+        var normalized = (text ?? string.Empty).Trim();
+        if (normalized.Length is < 1 or > MaxChatLength)
+        {
+            throw new HubException("Invalid chat message.");
+        }
+
+        var message = new ChatMessage(
+            presence.PlayerId,
+            presence.DisplayName,
+            normalized,
+            DateTimeOffset.UtcNow);
+
+        await Clients.Group(presence.RoomId).SendAsync("chatMessage", message);
+    }
+
+    public async Task PublishVoiceFrame(long sequence, byte[] opusPayload)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before publishing voice.");
+        }
+
+        if (sequence < 0 ||
+            opusPayload is null ||
+            opusPayload.Length is < 1 or > MaxVoicePayloadBytes)
+        {
+            throw new HubException("Invalid voice frame.");
+        }
+
+        var frame = new VoiceFrame(
+            presence.PlayerId,
+            sequence,
+            opusPayload,
+            DateTimeOffset.UtcNow);
+
+        await Clients
+            .OthersInGroup(presence.RoomId)
+            .SendAsync("voiceFrame", frame);
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
