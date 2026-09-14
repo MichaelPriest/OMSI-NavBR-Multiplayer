@@ -5,7 +5,7 @@ using NavBR.Shared.Telemetry;
 namespace NavBR.Client.Telemetry;
 
 /// <summary>
-/// External, read-only telemetry provider for OMSI 2.3.004.
+/// External, read-only telemetry provider for supported OMSI executables.
 /// No Steam API and no code injection are required.
 /// </summary>
 public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
@@ -24,7 +24,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         cancellationToken.ThrowIfCancellationRequested();
         DisposeMemory();
 
-        if (!processInfo.IsOmsi23004)
+        if (!processInfo.IsTelemetrySupported)
         {
             LastErrorCode = TelemetryErrorCode.UnsupportedVersion;
             return Task.FromResult(false);
@@ -99,7 +99,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 velocity.Y * velocity.Y +
                 velocity.Z * velocity.Z);
 
-            // Keep a second OMSI speed source as a fallback for unusual vehicles.
             var groundSpeed = Math.Abs(memory.ReadSingle(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleGroundSpeedOffset)));
@@ -260,24 +259,25 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             mapPointer,
             Omsi23004MemoryProfile.MapLoadedOffset)) != 0;
 
-        var friendlyName = memory.ReadDelphiUnicodeStringField(nint.Add(
+        // TMap + 0x150 is the canonical map name used by OMSI. Keep the
+        // adjacent friendly-name field only as a fallback for installations
+        // where the canonical field is blank.
+        var mapName = memory.ReadDelphiUnicodeStringField(nint.Add(
             mapPointer,
-            Omsi23004MemoryProfile.MapFriendlyNameOffset));
+            Omsi23004MemoryProfile.MapNameOffset));
 
-        if (!string.IsNullOrWhiteSpace(friendlyName))
+        if (!string.IsNullOrWhiteSpace(mapName))
         {
-            return friendlyName;
+            return mapName;
         }
 
         return memory.ReadDelphiUnicodeStringField(nint.Add(
             mapPointer,
-            Omsi23004MemoryProfile.MapNameOffset));
+            Omsi23004MemoryProfile.MapFriendlyNameOffset));
     }
 
     private static double QuaternionToHeadingDegrees(MemoryQuaternion q)
     {
-        // Yaw around the Y axis. Runtime validation will confirm the final sign/
-        // zero-axis convention used by the GPS renderer.
         var sinYaw = 2d * (q.W * q.Y + q.X * q.Z);
         var cosYaw = 1d - 2d * (q.Y * q.Y + q.Z * q.Z);
         var degrees = Math.Atan2(sinYaw, cosYaw) * (180d / Math.PI);
