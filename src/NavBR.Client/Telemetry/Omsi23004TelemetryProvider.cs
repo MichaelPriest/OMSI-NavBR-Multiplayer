@@ -121,14 +121,18 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tileY = ty;
             }
 
+            string? line = null;
+            string? route = null;
+            TryReadActiveTrip(memory, vehicleAddress, out line, out route);
+
             LastErrorCode = TelemetryErrorCode.None;
             return new VehicleTelemetry(
                 PlayerId: playerId,
                 Timestamp: DateTimeOffset.UtcNow,
                 MapName: mapName,
                 VehicleName: null,
-                Line: null,
-                Route: null,
+                Line: line,
+                Route: route,
                 X: absolutePosition.X,
                 Y: absolutePosition.Y,
                 Z: absolutePosition.Z,
@@ -190,6 +194,89 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         return vehicleAddress > 0x10000u
             ? ReadOnlyProcessMemory.PointerFromUInt32(vehicleAddress)
             : nint.Zero;
+    }
+
+    private static bool TryReadActiveTrip(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out string? line,
+        out string? route)
+    {
+        line = null;
+        route = null;
+
+        try
+        {
+            if (memory.ReadByte(nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleScheduleInfoValidOffset)) == 0)
+            {
+                return false;
+            }
+
+            var tripIndex = memory.ReadInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleScheduleTripIndexOffset));
+            if (tripIndex < 0 || tripIndex > 100000)
+            {
+                return false;
+            }
+
+            var timeTableAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.TimeTableManagerRva));
+            if (timeTableAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var timeTablePointer = ReadOnlyProcessMemory.PointerFromUInt32(timeTableAddress);
+            var tripsAddress = memory.ReadUInt32(nint.Add(
+                timeTablePointer,
+                Omsi23004MemoryProfile.TimeTableTripsOffset));
+            if (tripsAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var tripsPointer = ReadOnlyProcessMemory.PointerFromUInt32(tripsAddress);
+            try
+            {
+                var count = memory.ReadInt32(nint.Subtract(tripsPointer, sizeof(int)));
+                if (count > 0 && count < 100000 && tripIndex >= count)
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                // The record bounds are a defensive check only. If a patched
+                // runtime stores the Delphi array header differently, the
+                // actual trip record read below remains authoritative.
+            }
+
+            var tripPointer = nint.Add(
+                tripsPointer,
+                checked(tripIndex * Omsi23004MemoryProfile.TripRecordSize));
+
+            line = memory.ReadNullTerminatedAnsiStringField(nint.Add(
+                tripPointer,
+                Omsi23004MemoryProfile.TripLineNameOffset));
+            var trackName = memory.ReadNullTerminatedAnsiStringField(nint.Add(
+                tripPointer,
+                Omsi23004MemoryProfile.TripTrackNameOffset));
+            var target = memory.ReadNullTerminatedAnsiStringField(nint.Add(
+                tripPointer,
+                Omsi23004MemoryProfile.TripTargetOffset));
+
+            route = !string.IsNullOrWhiteSpace(trackName) ? trackName : target;
+            return !string.IsNullOrWhiteSpace(line) || !string.IsNullOrWhiteSpace(route);
+        }
+        catch
+        {
+            line = null;
+            route = null;
+            return false;
+        }
     }
 
     private static bool TryReadNavigationPosition(
@@ -257,8 +344,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
 
-            // MapLoaded is supplementary. If this byte differs in a compatible
-            // build, a valid TMap.name still proves that a map is loaded.
             try
             {
                 mapLoaded = memory.ReadByte(nint.Add(
