@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS e multiplayer independente da Steam</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>Idioma</value></data>
+  <data name="StatusHeading" xml:space="preserve"><value>Status do OMSI</value></data>
+  <data name="StatusSearching" xml:space="preserve"><value>Procurando Omsi.exe...</value></data>
+  <data name="RedetectButton" xml:space="preserve"><value>Detectar novamente</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Primeiro marco</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>Esta versão inicial valida a detecção do OMSI sem Steam. A próxima etapa conecta o leitor de memória, o mapa GPS e o servidor multiplayer.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Fase 0 • detecção do processo / base de compatibilidade</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI não está em execução.</value></data>
+  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Abra o OMSI 2 e clique em Detectar novamente.</value></data>
+  <data name="NoProcessFound" xml:space="preserve"><value>Nenhum processo Omsi.exe encontrado.</value></data>
+  <data name="OmsiDetected" xml:space="preserve"><value>OMSI detectado</value></data>
+  <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
+  <data name="VersionLabel" xml:space="preserve"><value>Versão</value></data>
+  <data name="ExecutableLabel" xml:space="preserve"><value>Executável</value></data>
+</root>
