@@ -10,6 +10,12 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpShowWindow = 0x0040;
+
     private readonly TimeSpan _hudVisibilityInterval = TimeSpan.FromMilliseconds(100);
     private DispatcherTimer? _hudVisibilityTimer;
     private bool _hudLifecycleInitialized;
@@ -123,7 +129,30 @@ public partial class HudOverlayWindow
         try
         {
             using var process = Process.GetProcessById(processId);
-            var omsiHandle = process.MainWindowHandle;
+            var foreground = GetForegroundWindow();
+            var overlayHandle = new WindowInteropHelper(this).Handle;
+            var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
+            var overlayOwnsForeground = _chatInteractive &&
+                                        overlayHandle != IntPtr.Zero &&
+                                        foreground == overlayHandle;
+
+            if (!foregroundBelongsToOmsi && !overlayOwnsForeground)
+            {
+                HideHudForOmsiState();
+                return;
+            }
+
+            var omsiHandle = foregroundBelongsToOmsi
+                ? foreground
+                : _omsiWindowHandle;
+
+            if (omsiHandle == IntPtr.Zero ||
+                !IsWindowVisibleNative(omsiHandle) ||
+                IsIconicNative(omsiHandle))
+            {
+                omsiHandle = process.MainWindowHandle;
+            }
+
             if (omsiHandle == IntPtr.Zero ||
                 !IsWindowVisibleNative(omsiHandle) ||
                 IsIconicNative(omsiHandle))
@@ -133,24 +162,58 @@ public partial class HudOverlayWindow
             }
 
             _omsiWindowHandle = omsiHandle;
-
-            var foreground = GetForegroundWindow();
-            var overlayHandle = new WindowInteropHelper(this).Handle;
-            var ownsForeground = foreground == omsiHandle ||
-                                 (_chatInteractive && overlayHandle != IntPtr.Zero && foreground == overlayHandle);
-
-            if (!ownsForeground)
-            {
-                HideHudForOmsiState();
-                return;
-            }
+            SyncHudToOmsiWindow(omsiHandle);
 
             OverlayRoot.Visibility = Visibility.Visible;
+            EnsureOverlayTopmost(overlayHandle);
         }
         catch
         {
             HideHudForOmsiState();
         }
+    }
+
+    private void SyncHudToOmsiWindow(IntPtr omsiHandle)
+    {
+        if (!GetWindowRect(omsiHandle, out var rect))
+        {
+            return;
+        }
+
+        var dpi = GetDpiForWindow(omsiHandle);
+        var scale = dpi > 0 ? 96d / dpi : 1d;
+        Left = rect.Left * scale;
+        Top = rect.Top * scale;
+        Width = Math.Max(1d, (rect.Right - rect.Left) * scale);
+        Height = Math.Max(1d, (rect.Bottom - rect.Top) * scale);
+    }
+
+    private static bool WindowBelongsToProcess(IntPtr windowHandle, int processId)
+    {
+        if (windowHandle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = GetWindowThreadProcessId(windowHandle, out var foregroundProcessId);
+        return foregroundProcessId == (uint)processId;
+    }
+
+    private static void EnsureOverlayTopmost(IntPtr overlayHandle)
+    {
+        if (overlayHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _ = SetWindowPos(
+            overlayHandle,
+            HwndTopmost,
+            0,
+            0,
+            0,
+            0,
+            SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
     }
 
     private void HideHudForOmsiState()
@@ -207,4 +270,18 @@ public partial class HudOverlayWindow
     [DllImport("user32.dll", EntryPoint = "SetForegroundWindow")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindowNative(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags);
 }
