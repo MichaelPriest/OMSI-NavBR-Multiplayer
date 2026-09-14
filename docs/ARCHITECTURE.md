@@ -7,6 +7,7 @@
 3. **Compatibilidade por perfil**: cada build suportada do OMSI terá um perfil de leitura/assinaturas próprio.
 4. **Sem DRM bypass**: o projeto não modifica ativação/licenciamento do OMSI.
 5. **Servidor independente do simulador**: o backend recebe apenas snapshots do cliente NavBR.
+6. **Localização desde a base**: nenhum módulo de domínio deve depender de texto de interface; idiomas são tratados no cliente por chaves de recurso.
 
 ## Fluxo
 
@@ -19,6 +20,7 @@ Omsi.exe
          │
          ▼
    NavBR.Client
+     ├─ Localization
      ├─ Map reader
      ├─ TTData reader
      ├─ Navigation engine
@@ -43,11 +45,38 @@ O cliente será WPF em `net10.0-windows`, inicialmente compilado em x86 para aco
 - `OmsiProcessDetector`: encontra PID, executável, versão e pasta da instalação.
 - `ICompatibilityProfile`: identifica uma build conhecida.
 - `ITelemetryProvider`: abstrai leitura de memória/plugin.
+- `LocalizationService`: detecta idioma, carrega recursos e persiste a preferência do usuário.
 - `MapReader`: `global.cfg`, tiles, roadmap e conversão tile/local -> mapa.
 - `TtDataReader`: `Busstops.cfg`, `.ttr`, `.ttp`, `.ttl`.
 - `NavigationEngine`: próxima parada, progresso da viagem, distância e ETA.
 - `MultiplayerClient`: sala, presença e telemetria remota.
 - `Overlay`: janela sempre no topo / modo GPS.
+
+## Internacionalização / localização
+
+A interface usa `ResourceManager` e arquivos `.resx` no namespace `NavBR.Client.Resources`.
+
+Idiomas iniciais:
+
+```text
+pt-BR  Português (Brasil)
+en-US  English
+es-ES  Español
+de-DE  Deutsch
+fr-FR  Français
+```
+
+Regras:
+
+- detectar o idioma do Windows na primeira execução;
+- usar inglês como fallback;
+- permitir troca de idioma em tempo real;
+- salvar a preferência em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\language.txt`;
+- não colocar textos de UI dentro de providers de telemetria, parsers, DTOs ou protocolo multiplayer;
+- mensagens do servidor devem usar códigos/erros estruturados; a tradução final pertence ao cliente;
+- novas telas só devem introduzir texto através de chaves de recurso.
+
+Isso permite que GPS, multiplayer, configurações e mensagens de compatibilidade recebam traduções sem alterar a lógica principal.
 
 ## Telemetria
 
@@ -81,6 +110,8 @@ Cada cliente envia snapshots como:
 - timestamp.
 
 O servidor distribui somente aos demais jogadores da mesma sala.
+
+O protocolo de rede não transporta frases traduzidas como estado principal. Sempre que possível, usa códigos e valores estruturados para que cada cliente possa renderizar a mensagem no idioma selecionado localmente.
 
 ### Fase posterior
 
