@@ -41,7 +41,8 @@ public sealed class OmsiMapCatalog
                 }
 
                 var folderName = Path.GetFileName(directory);
-                var displayName = TryReadMapName(globalCfg) ?? folderName;
+                var (configName, friendlyName) = TryReadMapNames(globalCfg);
+                var displayName = friendlyName ?? configName ?? folderName;
                 var roadmap = FindRoadmap(directory);
                 var tileFiles = Directory
                     .EnumerateFiles(directory, "tile_*.map", SearchOption.TopDirectoryOnly)
@@ -56,7 +57,9 @@ public sealed class OmsiMapCatalog
                     globalCfg,
                     roadmap,
                     tileFiles.Length,
-                    compatibilityId));
+                    compatibilityId,
+                    configName,
+                    friendlyName));
             }
             catch (IOException)
             {
@@ -72,21 +75,34 @@ public sealed class OmsiMapCatalog
             .ToArray();
     }
 
-    private static string? TryReadMapName(string globalCfg)
+    private static (string? ConfigName, string? FriendlyName) TryReadMapNames(string globalCfg)
     {
         try
         {
             var lines = File.ReadAllLines(globalCfg);
+            string? configName = null;
+            string? friendlyName = null;
+
             for (var i = 0; i < lines.Length - 1; i++)
             {
-                if (!string.Equals(lines[i].Trim(), "[name]", StringComparison.OrdinalIgnoreCase))
+                var header = lines[i].Trim();
+                var value = lines[i + 1].Trim();
+                if (string.IsNullOrWhiteSpace(value))
                 {
                     continue;
                 }
 
-                var value = lines[i + 1].Trim();
-                return string.IsNullOrWhiteSpace(value) ? null : value;
+                if (string.Equals(header, "[name]", StringComparison.OrdinalIgnoreCase))
+                {
+                    configName = value;
+                }
+                else if (string.Equals(header, "[friendlyname]", StringComparison.OrdinalIgnoreCase))
+                {
+                    friendlyName = value;
+                }
             }
+
+            return (configName, friendlyName);
         }
         catch (IOException)
         {
@@ -96,7 +112,7 @@ public sealed class OmsiMapCatalog
         {
         }
 
-        return null;
+        return (null, null);
     }
 
     private static string? TryBuildCompatibilityId(string globalCfg, IReadOnlyList<string> tileFiles)
