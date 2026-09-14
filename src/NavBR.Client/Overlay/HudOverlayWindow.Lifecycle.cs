@@ -41,6 +41,8 @@ public partial class HudOverlayWindow
 
     private void HudOverlayWindow_LifecycleClosed(object? sender, EventArgs e)
     {
+        UnsubscribeHotkeySettings();
+
         if (_hudVisibilityTimer is null)
         {
             return;
