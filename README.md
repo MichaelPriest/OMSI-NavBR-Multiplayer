@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.4**
+> Versão em desenvolvimento: **0.3.0-alpha.5**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
@@ -55,16 +55,20 @@ O cliente já:
 - possui um HUD compacto sobre o jogo com minimapa centralizado no ônibus;
 - mostra outros jogadores compatíveis no minimapa;
 - suaviza os marcadores remotos tanto no GPS principal quanto no minimapa do HUD;
-- mostra chat sobre o minimapa e indicador de voz.
+- mostra chat sobre o minimapa, contador de jogadores e indicador de voz;
+- acompanha a janela do OMSI e se oculta quando o jogo é minimizado ou deixa de ser a janela ativa;
+- devolve o foco ao OMSI depois que o jogador fecha o campo de chat.
 
 O HUD segue uma organização inspirada em jogos de mundo aberto, com identidade visual própria do NavBR. Ele não copia assets ou interface proprietária de GTA/Rockstar.
 
-Atalhos iniciais no HUD:
+Atalhos padrão atuais no HUD:
 
-- `T` — abrir chat de texto;
-- `N` — segurar para falar no chat por voz.
+- `F9` — abrir chat de texto;
+- `F10` — segurar para falar no chat por voz.
 
-A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação.
+Os atalhos `T` e `N` usados nas alphas iniciais foram removidos porque entram em conflito com comandos padrão do OMSI (`T` participa da operação de bilhetes e `N` seleciona neutro). Como o OMSI permite ao usuário e a add-ons alterar os comandos, a alpha.5 também lê `Inputs/keyboard.cfg` da instalação detectada. Se `F9` ou `F10` já estiver atribuída no OMSI, o NavBR não ativa aquele atalho e mostra um aviso no HUD com o evento conflitante.
+
+A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação real.
 
 ### Multiplayer peer-host — Fase 3
 
@@ -74,11 +78,11 @@ Fluxo básico:
 
 1. O criador clica em **Criar sala neste PC**.
 2. O NavBR inicia o host na porta TCP `27730`.
-3. O criador usa o botão de copiar convite; a alpha.4 gera o formato versionado `NAVBR_INVITE_V1` com servidor, sala e porta.
+3. O criador usa o botão de copiar convite; a alpha.4 introduziu o formato versionado `NAVBR_INVITE_V1` com servidor, sala e porta.
 4. O convidado cola o convite no NavBR; servidor e sala são preenchidos automaticamente.
 5. Telemetria, presença, chat e voz passam pelo PC do host.
 
-A alpha.4 também aceita o formato simples de convite gerado pela alpha.3. Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, nesta alpha o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador. UPnP/NAT traversal é uma evolução planejada para reduzir essa configuração manual.
+A leitura de convite continua compatível com o formato simples gerado pela alpha.3. Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, nesta alpha o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador. UPnP/NAT traversal é uma evolução planejada para reduzir essa configuração manual.
 
 O pacote `OMSI-NavBR-Server` continua disponível para quem quiser executar um host dedicado em outro PC ou servidor.
 
@@ -91,7 +95,8 @@ O multiplayer inclui:
 - voz push-to-talk por sala;
 - captura e reprodução de áudio pelo NAudio;
 - codificação Opus via Concentus em 48 kHz mono, quadros de 20 ms;
-- indicador visual de quem está falando.
+- indicador visual de quem está falando;
+- proteção contra conflito dos atalhos padrão com o `keyboard.cfg` real do OMSI.
 
 Nesta alpha a voz é transportada pelo mesmo canal SignalR/WebSocket da sessão. Isso simplifica o peer-host inicial, mas pode ter mais latência sob perda de rede do que um transporte UDP/WebRTC; uma camada de voz de baixa latência pode substituir esse transporte futuramente sem alterar o HUD.
 
@@ -141,7 +146,7 @@ licenses/
 - NAudio
 - Concentus / Opus
 - Windows `OpenProcess` / `ReadProcessMemory`
-- leitura direta de `global.cfg`, roadmaps, tiles e `TTData`
+- leitura direta de `global.cfg`, roadmaps, tiles, `TTData` e `Inputs/keyboard.cfg`
 - `.resx` + `ResourceManager` para localização
 
 ## Builds e Releases
