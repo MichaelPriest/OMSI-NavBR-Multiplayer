@@ -1,8 +1,10 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.Localization;
+using NavBR.Client.Maps;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -10,11 +12,18 @@ namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow : Window
 {
+    private const int DefaultHostPort = 27730;
+
     private readonly Func<VehicleTelemetry?> _telemetrySource;
+    private readonly Func<OmsiMapInfo?> _activeMapSource;
     private readonly MultiplayerClientService _client = new();
+    private readonly RoomHostService _host = new();
+    private readonly VoiceChatService _voiceChat = new();
     private readonly DispatcherTimer _publishTimer;
+    private readonly SemaphoreSlim _voiceSendGate = new(1, 1);
     private readonly Dictionary<string, PlayerPresence> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, VehicleTelemetry> _remoteTelemetry = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<ChatMessage> _chatMessages = [];
 
     private MultiplayerSettings _settings;
     private bool _publishing;
@@ -22,10 +31,22 @@ public partial class MultiplayerWindow : Window
     public event Action<PlayerTelemetryFrame>? RemoteTelemetryReceived;
     public event Action<string>? RemotePlayerLeft;
     public event Action? RemotePlayersReset;
+    public event Action<ChatMessage>? ChatMessageReceived;
+    public event Action<string, string>? RemoteSpeakerActive;
+    public event Action<string>? VoiceError;
+    public event Action<bool, string?>? MultiplayerConnectionChanged;
+    public event Action<string>? LocalDisplayNameChanged;
 
-    public MultiplayerWindow(Func<VehicleTelemetry?> telemetrySource)
+    public bool IsConnected => _client.IsConnected;
+    public string CurrentDisplayName => _settings.DisplayName;
+    public string CurrentRoomId => _settings.RoomId;
+
+    public MultiplayerWindow(
+        Func<VehicleTelemetry?> telemetrySource,
+        Func<OmsiMapInfo?> activeMapSource)
     {
         _telemetrySource = telemetrySource;
+        _activeMapSource = activeMapSource;
         _settings = MultiplayerSettingsStore.Load();
 
         InitializeComponent();
@@ -42,6 +63,43 @@ public partial class MultiplayerWindow : Window
         _client.PlayerPresenceChanged += presence => Dispatcher.BeginInvoke(() => UpsertPresence(presence));
         _client.PlayerLeft += playerId => Dispatcher.BeginInvoke(() => RemovePlayer(playerId));
         _client.TelemetryReceived += frame => Dispatcher.BeginInvoke(() => ApplyRemoteTelemetry(frame));
+        _client.ChatMessageReceived += message => Dispatcher.BeginInvoke(() => ApplyChatMessage(message));
+        _client.VoiceFrameReceived += frame =>
+        {
+            if (VoiceEnabledCheckBox.Dispatcher.CheckAccess())
+            {
+                if (VoiceEnabledCheckBox.IsChecked == true)
+                {
+                    _voiceChat.Receive(frame);
+                }
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (VoiceEnabledCheckBox.IsChecked == true)
+                    {
+                        _voiceChat.Receive(frame);
+                    }
+                });
+            }
+        };
+
+        _voiceChat.EncodedFrameReady += (sequence, payload) =>
+            _ = PublishVoiceFrameSafeAsync(sequence, payload);
+        _voiceChat.RemoteSpeakerActive += playerId =>
+            Dispatcher.BeginInvoke(() =>
+            {
+                var displayName = _players.TryGetValue(playerId, out var player)
+                    ? player.DisplayName
+                    : playerId;
+                RemoteSpeakerActive?.Invoke(playerId, displayName);
+            });
+        _voiceChat.VoiceError += message => Dispatcher.BeginInvoke(() =>
+        {
+            VoiceError?.Invoke(message);
+            StatusDetailText.Text = LocalizationService.Format("MultiplayerVoiceError", message);
+        });
 
         Loaded += (_, _) =>
         {
@@ -49,14 +107,39 @@ public partial class MultiplayerWindow : Window
             ApplyLocalization();
             RenderConnectionState(HubConnectionState.Disconnected);
             RenderPlayers();
+            RenderChat();
         };
 
         Closed += async (_, _) =>
         {
             _publishTimer.Stop();
+            _voiceChat.Dispose();
             await _client.DisposeAsync();
+            await _host.DisposeAsync();
+            _voiceSendGate.Dispose();
             RemotePlayersReset?.Invoke();
         };
+    }
+
+    public async Task SendChatFromOverlayAsync(string text)
+    {
+        if (!_client.IsConnected || string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        await _client.SendChatMessageAsync(text.Trim());
+    }
+
+    public void SetPushToTalk(bool active)
+    {
+        if (!_client.IsConnected || VoiceEnabledCheckBox.IsChecked != true)
+        {
+            _voiceChat.SetPushToTalk(false);
+            return;
+        }
+
+        _voiceChat.SetPushToTalk(active);
     }
 
     private void LoadSettingsIntoUi()
@@ -70,16 +153,59 @@ public partial class MultiplayerWindow : Window
     {
         Title = LocalizationService.Get("MultiplayerWindowTitle");
         HeadingText.Text = LocalizationService.Get("MultiplayerHeading");
-        DescriptionText.Text = LocalizationService.Get("MultiplayerDescription");
-        ServerLabelText.Text = LocalizationService.Get("MultiplayerServer");
+        DescriptionText.Text = LocalizationService.Get("MultiplayerPeerDescription");
+        ServerLabelText.Text = LocalizationService.Get("MultiplayerHostAddress");
         RoomLabelText.Text = LocalizationService.Get("MultiplayerRoom");
         NicknameLabelText.Text = LocalizationService.Get("MultiplayerNickname");
         LocalMapLabelText.Text = LocalizationService.Get("MultiplayerLocalMap");
+        VoiceEnabledCheckBox.Content = LocalizationService.Get("MultiplayerVoiceEnabled");
         PlayersHeadingText.Text = LocalizationService.Get("MultiplayerPlayers");
-        FooterText.Text = LocalizationService.Get("MultiplayerFooter");
+        ChatHeadingText.Text = LocalizationService.Get("MultiplayerChat");
+        SendChatButton.Content = LocalizationService.Get("MultiplayerSend");
+        FooterText.Text = LocalizationService.Get("MultiplayerPeerFooter");
         UpdateLocalMapText();
-        UpdateConnectButton();
+        UpdateButtons();
         RenderPlayers();
+        RenderChat();
+    }
+
+    private async void CreateRoomButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_host.IsRunning)
+        {
+            await DisconnectAsync();
+            await _host.StopAsync();
+            InviteAddressText.Text = string.Empty;
+            SetInputsEnabled(true);
+            UpdateButtons();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RoomTextBox.Text))
+        {
+            RoomTextBox.Text = $"navbr-{Random.Shared.Next(1000, 9999)}";
+        }
+
+        if (string.IsNullOrWhiteSpace(NicknameTextBox.Text))
+        {
+            StatusDetailText.Text = LocalizationService.Get("MultiplayerRequiredFields");
+            return;
+        }
+
+        try
+        {
+            await _host.StartAsync(DefaultHostPort);
+            ServerTextBox.Text = _host.LocalServerUrl;
+            RenderInviteAddresses();
+            UpdateButtons();
+            await ConnectToConfiguredServerAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusDetailText.Text = LocalizationService.Format("MultiplayerHostError", ex.Message);
+            await _host.StopAsync();
+            UpdateButtons();
+        }
     }
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -90,6 +216,11 @@ public partial class MultiplayerWindow : Window
             return;
         }
 
+        await ConnectToConfiguredServerAsync();
+    }
+
+    private async Task ConnectToConfiguredServerAsync()
+    {
         var serverUrl = ServerTextBox.Text.Trim();
         var roomId = RoomTextBox.Text.Trim();
         var displayName = NicknameTextBox.Text.Trim();
@@ -109,6 +240,7 @@ public partial class MultiplayerWindow : Window
             DisplayName = displayName
         };
         MultiplayerSettingsStore.Save(_settings);
+        LocalDisplayNameChanged?.Invoke(displayName);
 
         SetInputsEnabled(false);
         StatusDetailText.Text = LocalizationService.Get("MultiplayerConnectingDetail");
@@ -116,14 +248,26 @@ public partial class MultiplayerWindow : Window
         try
         {
             var localTelemetry = _telemetrySource();
-            var snapshot = await _client.ConnectAsync(_settings, localTelemetry?.MapName);
+            var activeMap = _activeMapSource();
+            var snapshot = await _client.ConnectAsync(
+                _settings,
+                localTelemetry?.MapName,
+                activeMap?.CompatibilityId);
+
             ApplySnapshot(snapshot);
             _publishTimer.Start();
+            if (VoiceEnabledCheckBox.IsChecked == true)
+            {
+                _voiceChat.Start();
+            }
+
+            MultiplayerConnectionChanged?.Invoke(true, _settings.RoomId);
             await PublishLocalTelemetryAsync();
         }
         catch (Exception ex)
         {
             _publishTimer.Stop();
+            _voiceChat.Stop();
             SetInputsEnabled(true);
             RenderConnectionState(HubConnectionState.Disconnected);
             StatusDetailText.Text = LocalizationService.Format(
@@ -135,11 +279,13 @@ public partial class MultiplayerWindow : Window
     private async Task DisconnectAsync()
     {
         _publishTimer.Stop();
+        _voiceChat.Stop();
         await _client.DisconnectAsync();
         _players.Clear();
         _remoteTelemetry.Clear();
         SetInputsEnabled(true);
         RemotePlayersReset?.Invoke();
+        MultiplayerConnectionChanged?.Invoke(false, null);
         RenderPlayers();
         RenderConnectionState(HubConnectionState.Disconnected);
     }
@@ -186,6 +332,33 @@ public partial class MultiplayerWindow : Window
         }
     }
 
+    private async Task PublishVoiceFrameSafeAsync(long sequence, byte[] payload)
+    {
+        if (!_client.IsConnected || VoiceEnabledCheckBox.IsChecked != true)
+        {
+            return;
+        }
+
+        if (!await _voiceSendGate.WaitAsync(0))
+        {
+            return;
+        }
+
+        try
+        {
+            await _client.PublishVoiceFrameAsync(sequence, payload);
+        }
+        catch (Exception ex)
+        {
+            Dispatcher.BeginInvoke(() => StatusDetailText.Text =
+                LocalizationService.Format("MultiplayerVoiceError", ex.Message));
+        }
+        finally
+        {
+            _voiceSendGate.Release();
+        }
+    }
+
     private void ApplySnapshot(RoomSnapshot snapshot)
     {
         _players.Clear();
@@ -215,14 +388,75 @@ public partial class MultiplayerWindow : Window
     {
         _players.Remove(playerId);
         _remoteTelemetry.Remove(playerId);
+        _voiceChat.RemoveRemotePlayer(playerId);
         RemotePlayerLeft?.Invoke(playerId);
         RenderPlayers();
+    }
+
+    private void ApplyChatMessage(ChatMessage message)
+    {
+        _chatMessages.Add(message);
+        if (_chatMessages.Count > 80)
+        {
+            _chatMessages.RemoveRange(0, _chatMessages.Count - 80);
+        }
+
+        RenderChat();
+        ChatMessageReceived?.Invoke(message);
+    }
+
+    private void RenderChat()
+    {
+        ChatListBox.ItemsSource = _chatMessages
+            .Select(message => $"[{message.TimestampUtc.ToLocalTime():HH:mm}] {message.DisplayName}: {message.Text}")
+            .ToArray();
+
+        if (ChatListBox.Items.Count > 0)
+        {
+            ChatListBox.ScrollIntoView(ChatListBox.Items[^1]);
+        }
+    }
+
+    private async void SendChatButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SendChatFromInputAsync();
+    }
+
+    private async void ChatTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        await SendChatFromInputAsync();
+        e.Handled = true;
+    }
+
+    private async Task SendChatFromInputAsync()
+    {
+        var text = ChatTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(text) || !_client.IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            await _client.SendChatMessageAsync(text);
+            ChatTextBox.Clear();
+        }
+        catch (Exception ex)
+        {
+            StatusDetailText.Text = LocalizationService.Format("MultiplayerChatError", ex.Message);
+        }
     }
 
     private void RenderPlayers()
     {
         var localTelemetry = _telemetrySource();
         var localMap = localTelemetry?.MapName;
+        var localCompatibilityId = _activeMapSource()?.CompatibilityId;
         var rows = new List<string>();
 
         foreach (var player in _players.Values.OrderBy(player => player.DisplayName, StringComparer.CurrentCultureIgnoreCase))
@@ -238,9 +472,15 @@ public partial class MultiplayerWindow : Window
                 ? "--.- km/h"
                 : string.Format(LocalizationService.CurrentCulture, "{0,5:F1} km/h", telemetry.SpeedKph);
 
-            var distance = GetDistanceText(localTelemetry, telemetry, localMap, player.MapName);
+            var distance = GetDistanceText(
+                localTelemetry,
+                telemetry,
+                localMap,
+                player.MapName,
+                localCompatibilityId,
+                player.MapCompatibilityId);
             var localMarker = isLocal ? LocalizationService.Get("MultiplayerYouMarker") : "  ";
-            rows.Add($"{localMarker} {player.DisplayName,-20} | {mapName,-24} | {speed} | {distance}");
+            rows.Add($"{localMarker} {player.DisplayName,-18} | {mapName,-22} | {speed} | {distance}");
         }
 
         if (rows.Count == 0)
@@ -256,8 +496,17 @@ public partial class MultiplayerWindow : Window
         VehicleTelemetry? local,
         VehicleTelemetry? remote,
         string? localMap,
-        string? remoteMap)
+        string? remoteMap,
+        string? localCompatibilityId,
+        string? remoteCompatibilityId)
     {
+        if (!string.IsNullOrWhiteSpace(localCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(remoteCompatibilityId) &&
+            !string.Equals(localCompatibilityId, remoteCompatibilityId, StringComparison.OrdinalIgnoreCase))
+        {
+            return LocalizationService.Get("MultiplayerDifferentMapBuild");
+        }
+
         if (local is null || remote is null ||
             string.IsNullOrWhiteSpace(localMap) ||
             !string.Equals(localMap, remoteMap, StringComparison.OrdinalIgnoreCase))
@@ -273,10 +522,15 @@ public partial class MultiplayerWindow : Window
 
     private void UpdateLocalMapText()
     {
-        var map = _telemetrySource()?.MapName;
-        LocalMapValueText.Text = string.IsNullOrWhiteSpace(map)
+        var mapName = _telemetrySource()?.MapName;
+        var compatibilityId = _activeMapSource()?.CompatibilityId;
+        var value = string.IsNullOrWhiteSpace(mapName)
             ? LocalizationService.Get("NotAvailable")
-            : map;
+            : mapName;
+
+        LocalMapValueText.Text = string.IsNullOrWhiteSpace(compatibilityId)
+            ? value
+            : $"{value} • {compatibilityId[..Math.Min(8, compatibilityId.Length)]}";
     }
 
     private void RenderConnectionState(HubConnectionState state)
@@ -313,20 +567,35 @@ public partial class MultiplayerWindow : Window
                 break;
         }
 
-        UpdateConnectButton();
+        UpdateButtons();
     }
 
     private void SetInputsEnabled(bool enabled)
     {
-        ServerTextBox.IsEnabled = enabled;
+        ServerTextBox.IsEnabled = enabled && !_host.IsRunning;
         RoomTextBox.IsEnabled = enabled;
         NicknameTextBox.IsEnabled = enabled;
     }
 
-    private void UpdateConnectButton()
+    private void UpdateButtons()
     {
         ConnectButton.Content = _client.State == HubConnectionState.Disconnected
-            ? LocalizationService.Get("MultiplayerConnect")
+            ? LocalizationService.Get("MultiplayerJoinRoom")
             : LocalizationService.Get("MultiplayerDisconnect");
+
+        CreateRoomButton.Content = _host.IsRunning
+            ? LocalizationService.Get("MultiplayerStopHosting")
+            : LocalizationService.Get("MultiplayerCreateRoom");
+    }
+
+    private void RenderInviteAddresses()
+    {
+        var addresses = _host.GetLanJoinUrls();
+        InviteAddressText.Text = addresses.Count == 0
+            ? LocalizationService.Format("MultiplayerHostingPort", DefaultHostPort)
+            : LocalizationService.Format(
+                "MultiplayerInviteAddress",
+                string.Join("  |  ", addresses),
+                _settings.RoomId);
     }
 }
