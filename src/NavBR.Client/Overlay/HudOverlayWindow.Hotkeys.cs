@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using NavBR.Client.Localization;
 
 namespace NavBR.Client.Overlay;
 
@@ -79,6 +80,31 @@ public partial class HudOverlayWindow
         }
 
         return string.Join(Environment.NewLine, details);
+    }
+
+    private string BuildHotkeyConflictMessage()
+    {
+        var both = !_chatHotkeyAvailable && !_voiceHotkeyAvailable;
+        var chatOnly = !_chatHotkeyAvailable && _voiceHotkeyAvailable;
+
+        return LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" when both => "F9 e F10 desativadas: o OMSI já usa essas teclas.",
+            "pt" when chatOnly => "F9 desativada: o OMSI já usa essa tecla.",
+            "pt" => "F10 desativada: o OMSI já usa essa tecla.",
+            "es" when both => "F9 y F10 desactivadas: OMSI ya usa estas teclas.",
+            "es" when chatOnly => "F9 desactivada: OMSI ya usa esta tecla.",
+            "es" => "F10 desactivada: OMSI ya usa esta tecla.",
+            "de" when both => "F9 und F10 deaktiviert: OMSI verwendet diese Tasten bereits.",
+            "de" when chatOnly => "F9 deaktiviert: OMSI verwendet diese Taste bereits.",
+            "de" => "F10 deaktiviert: OMSI verwendet diese Taste bereits.",
+            "fr" when both => "F9 et F10 désactivées : OMSI utilise déjà ces touches.",
+            "fr" when chatOnly => "F9 désactivée : OMSI utilise déjà cette touche.",
+            "fr" => "F10 désactivée : OMSI utilise déjà cette touche.",
+            _ when both => "F9 and F10 disabled: OMSI already uses these keys.",
+            _ when chatOnly => "F9 disabled: OMSI already uses this key.",
+            _ => "F10 disabled: OMSI already uses this key."
+        };
     }
 
     private void HandleConflictFreeHotkey(int virtualKey, bool isDown)
