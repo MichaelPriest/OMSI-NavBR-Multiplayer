@@ -228,9 +228,10 @@ public sealed class VoiceChatService : IDisposable
     {
         var decoder = OpusCodecFactory.CreateDecoder(SampleRate, Channels);
         var waveFormat = new WaveFormat(SampleRate, 16, Channels);
-        var buffer = new BufferedWaveProvider(waveFormat)
+        var buffer = new BufferedWaveProvider(
+            waveFormat,
+            TimeSpan.FromMilliseconds(RemoteBufferMilliseconds))
         {
-            BufferLength = waveFormat.AverageBytesPerSecond * RemoteBufferMilliseconds / 1000,
             DiscardOnBufferOverflow = true,
             ReadFully = false
         };
