@@ -2,7 +2,28 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
-## [0.2.0-alpha.2] — em preparação
+## [0.2.0-alpha.3] — em preparação
+
+### Corrigido
+
+- corrigida a estrutura interna do arquivo `NavBR.ico` antes da compilação, evitando o ícone genérico do Windows no executável;
+- o build agora valida que o `.exe` standalone contém recurso Win32 de ícone (`RT_GROUP_ICON`).
+
+### Adicionado
+
+- publicação de um **`.exe` standalone/self-contained** do cliente diretamente em cada GitHub Release;
+- build de CI separado para validar o executável único Windows x86;
+- reparo automático do contêiner ICO também em builds locais no Windows.
+
+### Distribuição
+
+A partir desta versão, cada release publica:
+
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente standalone;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — cliente completo em ZIP;
+- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor multiplayer.
+
+## [0.2.0-alpha.2] — GPS interativo
 
 ### Adicionado
 

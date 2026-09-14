@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.2.0-alpha.1**
+> Versão em desenvolvimento: **0.2.0-alpha.3**
 
 ## Objetivo
 
@@ -45,13 +45,20 @@ O cliente já:
 - lê o nome do mapa quando disponível;
 - conta tiles;
 - detecta `whole.roadmap.bmp`, `roadmap.bmp` e variantes de roadmap;
-- mostra no aplicativo quais mapas já estão prontos para a próxima etapa do GPS.
+- transforma GridX/GridY + posição local do tile em pixels do roadmap para mapas padrão de 300 m/tile;
+- desenha o marcador do ônibus no roadmap;
+- oferece zoom por botões e roda do mouse;
+- permite pan por arraste;
+- possui modo **Seguir ônibus**;
+- possui comando **Ajustar**;
+- gira o marcador conforme o heading recebido;
+- pode permanecer **Sempre visível** sobre o OMSI.
 
-O próximo marco é transformar as coordenadas do OMSI em pixels do roadmap e desenhar o ônibus em movimento sobre o mapa.
+A calibração final da posição e orientação do marcador ainda depende de teste real no OMSI 2.3.004. Mapas com `[worldcoordinates]` continuam separados até a georreferência correta ser implementada.
 
 ### Identidade visual
 
-O cliente usa a identidade oficial **OMSI NavBR Multiplayer**, incluindo ícone próprio incorporado ao executável e à janela principal.
+O cliente usa a identidade oficial **OMSI NavBR Multiplayer**, incluindo ícone próprio incorporado ao executável e à janela principal. O pipeline valida a presença do recurso Win32 de ícone no `.exe` standalone antes da publicação.
 
 ## Idiomas
 
@@ -100,11 +107,14 @@ docs/
 
 ## Builds e Releases
 
-O GitHub Actions compila cliente e servidor automaticamente. Tags no formato `v*` geram um **GitHub Prerelease** com:
+O GitHub Actions compila cliente e servidor automaticamente. Cada nova versão gera um **GitHub Prerelease** com:
 
-- cliente Windows x86 self-contained;
-- servidor Windows x64 self-contained;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente Windows x86 standalone/self-contained, pronto para abrir diretamente;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — pacote completo do cliente;
+- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor Windows x64 self-contained;
 - release notes geradas automaticamente.
+
+O `.exe` standalone inclui as dependências do .NET necessárias para execução e recebe o ícone oficial do NavBR como recurso Win32.
 
 Durante a fase alpha serão publicados marcos incrementais para teste conforme as funcionalidades forem ficando utilizáveis.
 
