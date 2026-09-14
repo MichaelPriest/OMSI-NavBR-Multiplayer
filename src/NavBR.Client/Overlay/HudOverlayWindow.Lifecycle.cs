@@ -48,10 +48,19 @@ public partial class HudOverlayWindow
         _hudVisibilityTimer.Tick += HudVisibilityTimer_Tick;
         _hudVisibilityTimer.Start();
 
-        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, InstallConflictFreeHotkeys);
+        // O construtor antigo ainda inicia um timer de posicionamento de 250 ms.
+        // Desliga esse loop depois que todos os handlers de Loaded terminarem e
+        // deixa este lifecycle como fonte única de geometria/z-order do HUD.
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FinalizeHudLifecycleInitialization);
 
         RefreshHudChrome();
         RefreshHudVisibility();
+    }
+
+    private void FinalizeHudLifecycleInitialization()
+    {
+        _positionTimer.Stop();
+        InstallConflictFreeHotkeys();
     }
 
     private void HudOverlayWindow_LifecycleClosed(object? sender, EventArgs e)
@@ -185,11 +194,48 @@ public partial class HudOverlayWindow
             }
 
             _omsiWindowHandle = omsiHandle;
+            SyncHudGeometryStable(omsiHandle);
             ShowHudForOmsiState(overlayHandle, omsiHandle);
         }
         catch
         {
             HideHudForOmsiState();
+        }
+    }
+
+    private void SyncHudGeometryStable(IntPtr omsiHandle)
+    {
+        if (!GetWindowRect(omsiHandle, out var rect))
+        {
+            return;
+        }
+
+        var dpi = GetDpiForWindow(omsiHandle);
+        var scale = dpi > 0 ? 96d / dpi : 1d;
+        var left = rect.Left * scale;
+        var top = rect.Top * scale;
+        var width = Math.Max(1d, (rect.Right - rect.Left) * scale);
+        var height = Math.Max(1d, (rect.Bottom - rect.Top) * scale);
+
+        const double tolerance = 0.5d;
+        if (Math.Abs(Left - left) > tolerance)
+        {
+            Left = left;
+        }
+
+        if (Math.Abs(Top - top) > tolerance)
+        {
+            Top = top;
+        }
+
+        if (Math.Abs(Width - width) > tolerance)
+        {
+            Width = width;
+        }
+
+        if (Math.Abs(Height - height) > tolerance)
+        {
+            Height = height;
         }
     }
 
