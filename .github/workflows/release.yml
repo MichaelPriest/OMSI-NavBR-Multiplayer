@@ -44,14 +44,19 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "prerelease=$($prerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
-          gh release view $tag --repo "${{ github.repository }}" *> $null
-          if ($LASTEXITCODE -eq 0) {
+          gh release view $tag --repo "${{ github.repository }}" --json tagName 2>$null | Out-Null
+          $releaseExists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+
+          if ($releaseExists) {
             "exists=true" >> $env:GITHUB_OUTPUT
             Write-Host "Release $tag already exists. Nothing to publish."
           } else {
             "exists=false" >> $env:GITHUB_OUTPUT
             Write-Host "Release $tag will be created from commit $env:GITHUB_SHA."
           }
+
+          exit 0
 
       - name: Publish Windows x86 client
         if: steps.version.outputs.exists != 'true'
