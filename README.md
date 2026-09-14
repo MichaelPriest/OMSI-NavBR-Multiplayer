@@ -13,7 +13,22 @@ O OMSI NavBR Multiplayer será um aplicativo Windows externo ao jogo, capaz de:
 - exibir GPS/Route Advisor em tempo real;
 - conectar jogadores a salas multiplayer;
 - mostrar outros jogadores no mapa;
-- evoluir posteriormente para sincronização de veículos remotos dentro do OMSI.
+- evoluir posteriormente para sincronização de veículos remotos dentro do OMSI;
+- oferecer interface multilíngue com troca de idioma em tempo real.
+
+## Idiomas
+
+A arquitetura de localização já está ativa no cliente. A primeira base inclui:
+
+- Português (Brasil) — `pt-BR`;
+- English — `en-US`;
+- Español — `es-ES`;
+- Deutsch — `de-DE`;
+- Français — `fr-FR`.
+
+Na primeira execução, o NavBR tenta acompanhar o idioma do Windows. Se o idioma do sistema ainda não for suportado, usa inglês. O usuário pode trocar o idioma na interface e a preferência fica salva em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\language.txt`.
+
+Os textos ficam em arquivos `.resx`, permitindo adicionar novos idiomas sem alterar o motor de telemetria, navegação ou multiplayer.
 
 ## Compatibilidade planejada
 
@@ -25,7 +40,7 @@ Não há dependência da Steam API. O programa localiza o `Omsi.exe` em execuç�
 
 ```text
 src/
-  NavBR.Client/   Aplicativo Windows/WPF, GPS e overlay
+  NavBR.Client/   Aplicativo Windows/WPF, GPS, overlay e localização
   NavBR.Server/   Backend multiplayer em ASP.NET Core + SignalR
   NavBR.Shared/   DTOs e protocolo compartilhado
 
@@ -42,6 +57,7 @@ docs/
 - SignalR/WebSocket
 - Windows `OpenProcess` / `ReadProcessMemory` para telemetria
 - leitura direta de `global.cfg`, tiles e `TTData`
+- recursos `.resx` + `ResourceManager` para localização
 
 ## Estado
 
@@ -53,6 +69,8 @@ Primeiro marco técnico:
 2. mostrar PID, versão e diretório da instalação;
 3. estabelecer a camada de telemetria;
 4. transmitir um snapshot de telemetria para o servidor multiplayer.
+
+A interface base já suporta troca de idioma em tempo real nos cinco idiomas iniciais.
 
 ## Segurança e escopo
 
