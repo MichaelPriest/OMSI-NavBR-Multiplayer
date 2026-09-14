@@ -61,9 +61,15 @@
                             Click="CreateRoomButton_Click" />
                     <Button x:Name="ConnectButton"
                             Padding="18,8"
+                            Margin="0,0,8,0"
                             Click="ConnectButton_Click" />
+                    <Button x:Name="CopyInviteButton"
+                            Padding="14,8"
+                            Margin="0,0,8,0"
+                            IsEnabled="False"
+                            Click="CopyInviteButton_Click" />
                     <TextBlock x:Name="InviteAddressText"
-                               Margin="16,0,0,0"
+                               Margin="8,0,0,0"
                                VerticalAlignment="Center"
                                Opacity="0.72"
                                TextWrapping="Wrap" />
