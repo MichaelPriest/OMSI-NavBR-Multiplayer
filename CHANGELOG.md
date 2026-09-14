@@ -2,6 +2,28 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.3] — suavização e convite rápido
+
+### Adicionado
+
+- suavização/interpolação dos jogadores remotos no GPS principal para reduzir saltos entre frames de telemetria;
+- interpolação do heading pelo caminho angular mais curto, evitando giros de quase 360° ao cruzar 0°/360°;
+- timeout visual para ocultar marcadores remotos que deixaram de receber frames;
+- botão de copiar convite da sala com endereço LAN, nome da sala e porta TCP `27730`.
+
+### Melhorado
+
+- o marcador remoto passa a trabalhar com alvo + movimento progressivo em vez de saltar diretamente a cada atualização de 4 Hz;
+- mudanças grandes de posição continuam usando snap imediato para não animar teleporte/troca brusca de posição;
+- fluxo peer-host ficou mais simples para compartilhar os dados básicos da sala em rede local.
+
+### Validação pendente
+
+- calibrar o fator de suavização em teste real com dois jogadores;
+- validar comportamento com latência e perda de pacotes;
+- aplicar a mesma estratégia de interpolação ao minimapa compacto do HUD se necessário;
+- evoluir conexão pela Internet para reduzir a necessidade de port forwarding manual.
+
 ## [0.3.0-alpha.2] — peer-host, HUD, chat e voz
 
 ### Adicionado

@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.2**
+> Versão em desenvolvimento: **0.3.0-alpha.3**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
@@ -54,6 +54,7 @@ O cliente já:
 - pode permanecer **Sempre visível** sobre o OMSI;
 - possui um HUD compacto sobre o jogo com minimapa centralizado no ônibus;
 - mostra outros jogadores compatíveis no minimapa;
+- suaviza os marcadores remotos no GPS principal para reduzir saltos entre atualizações;
 - mostra chat sobre o minimapa e indicador de voz.
 
 O HUD segue uma organização inspirada em jogos de mundo aberto, com identidade visual própria do NavBR. Ele não copia assets ou interface proprietária de GTA/Rockstar.
@@ -67,13 +68,13 @@ A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bor
 
 ### Multiplayer peer-host — Fase 3
 
-Na **0.3.0-alpha.2**, o servidor da sala passa a ser o **PC de quem cria a sala**. O próprio cliente NavBR inicia um host ASP.NET Core/SignalR local e entra nele automaticamente.
+Na série **0.3 alpha**, o servidor da sala é o **PC de quem cria a sala**. O próprio cliente NavBR inicia um host ASP.NET Core/SignalR local e entra nele automaticamente.
 
 Fluxo básico:
 
 1. O criador clica em **Criar sala neste PC**.
 2. O NavBR inicia o host na porta TCP `27730`.
-3. O criador compartilha o endereço acessível e o código/nome da sala.
+3. O criador compartilha o endereço acessível e o código/nome da sala; na alpha.3 há um botão rápido de copiar os dados do convite.
 4. Os demais jogadores informam esse endereço e entram na sala.
 5. Telemetria, presença, chat e voz passam pelo PC do host.
 
