@@ -5,19 +5,32 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
-  <data name="Tagline" xml:space="preserve"><value>GPS e multiplayer independente da Steam</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS, telemetria ao vivo e multiplayer independente da Steam</value></data>
   <data name="LanguageLabel" xml:space="preserve"><value>Idioma</value></data>
   <data name="StatusHeading" xml:space="preserve"><value>Status do OMSI</value></data>
   <data name="StatusSearching" xml:space="preserve"><value>Procurando Omsi.exe...</value></data>
   <data name="RedetectButton" xml:space="preserve"><value>Detectar novamente</value></data>
-  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Primeiro marco</value></data>
-  <data name="FirstMilestoneBody" xml:space="preserve"><value>Esta versão inicial valida a detecção do OMSI sem Steam. A próxima etapa conecta o leitor de memória, o mapa GPS e o servidor multiplayer.</value></data>
-  <data name="PhaseFooter" xml:space="preserve"><value>Fase 0 • detecção do processo / base de compatibilidade</value></data>
-  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI não está em execução.</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Diagnóstico da Fase 1</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>O NavBR abre o processo do OMSI somente com permissão de leitura. A versão e o SHA-256 do executável são exibidos aqui para validar os perfis de compatibilidade com segurança.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Fase 1 • telemetria ao vivo / OMSI 2.3.004</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>O OMSI não está em execução.</value></data>
   <data name="OpenOmsiInstruction" xml:space="preserve"><value>Abra o OMSI 2 e clique em Detectar novamente.</value></data>
   <data name="NoProcessFound" xml:space="preserve"><value>Nenhum processo Omsi.exe encontrado.</value></data>
   <data name="OmsiDetected" xml:space="preserve"><value>OMSI detectado</value></data>
   <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
   <data name="VersionLabel" xml:space="preserve"><value>Versão</value></data>
   <data name="ExecutableLabel" xml:space="preserve"><value>Executável</value></data>
+  <data name="HashLabel" xml:space="preserve"><value>SHA-256</value></data>
+  <data name="TelemetryHeading" xml:space="preserve"><value>Telemetria do veículo em tempo real</value></data>
+  <data name="TelemetryWaiting" xml:space="preserve"><value>Aguardando dados do veículo...</value></data>
+  <data name="TelemetryConnecting" xml:space="preserve"><value>Conectando à telemetria do OMSI...</value></data>
+  <data name="TelemetryConnected" xml:space="preserve"><value>OMSI detectado • telemetria conectada</value></data>
+  <data name="TelemetryAttachFailed" xml:space="preserve"><value>O OMSI foi detectado, mas não foi possível conectar a telemetria.</value></data>
+  <data name="TelemetryReadError" xml:space="preserve"><value>A telemetria está conectada, mas os dados do veículo ainda não estão disponíveis.</value></data>
+  <data name="UnsupportedVersion" xml:space="preserve"><value>O OMSI foi detectado, mas esta versão do executável ainda não é suportada para telemetria ao vivo.</value></data>
+  <data name="MapLabel" xml:space="preserve"><value>Mapa</value></data>
+  <data name="PositionLabel" xml:space="preserve"><value>Posição</value></data>
+  <data name="HeadingLabel" xml:space="preserve"><value>Direção</value></data>
+  <data name="SpeedLabel" xml:space="preserve"><value>Velocidade</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Indisponível</value></data>
 </root>
