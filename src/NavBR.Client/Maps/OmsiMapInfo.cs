@@ -7,4 +7,6 @@ public sealed record OmsiMapInfo(
     string GlobalConfigPath,
     string? RoadmapPath,
     int TileCount,
-    string? CompatibilityId);
+    string? CompatibilityId,
+    string? ConfigName = null,
+    string? FriendlyName = null);
