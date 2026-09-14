@@ -5,19 +5,32 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
-  <data name="Tagline" xml:space="preserve"><value>GPS und Multiplayer unabhängig von Steam</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS, Live-Telemetrie und Multiplayer unabhängig von Steam</value></data>
   <data name="LanguageLabel" xml:space="preserve"><value>Sprache</value></data>
   <data name="StatusHeading" xml:space="preserve"><value>OMSI-Status</value></data>
   <data name="StatusSearching" xml:space="preserve"><value>Omsi.exe wird gesucht...</value></data>
   <data name="RedetectButton" xml:space="preserve"><value>Erneut erkennen</value></data>
-  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Erster Meilenstein</value></data>
-  <data name="FirstMilestoneBody" xml:space="preserve"><value>Diese erste Version prüft die OMSI-Erkennung ohne Steam. Im nächsten Schritt werden Speicherleser, GPS-Karte und Multiplayer-Server verbunden.</value></data>
-  <data name="PhaseFooter" xml:space="preserve"><value>Phase 0 • Prozesserkennung / Kompatibilitätsbasis</value></data>
-  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI wird nicht ausgeführt.</value></data>
-  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Starte OMSI 2 und klicke auf Erneut erkennen.</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Phase-1-Diagnose</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>NavBR öffnet den laufenden OMSI-Prozess ausschließlich mit Leserechten. Version und SHA-256 der Programmdatei werden hier angezeigt, damit Kompatibilitätsprofile sicher geprüft werden können.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Phase 1 • Live-Telemetrie / OMSI 2.3.004</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI läuft nicht.</value></data>
+  <data name="OpenOmsiInstruction" xml:space="preserve"><value>OMSI 2 starten und auf Erneut erkennen klicken.</value></data>
   <data name="NoProcessFound" xml:space="preserve"><value>Kein Omsi.exe-Prozess gefunden.</value></data>
   <data name="OmsiDetected" xml:space="preserve"><value>OMSI erkannt</value></data>
   <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
   <data name="VersionLabel" xml:space="preserve"><value>Version</value></data>
-  <data name="ExecutableLabel" xml:space="preserve"><value>Ausführbare Datei</value></data>
+  <data name="ExecutableLabel" xml:space="preserve"><value>Programmdatei</value></data>
+  <data name="HashLabel" xml:space="preserve"><value>SHA-256</value></data>
+  <data name="TelemetryHeading" xml:space="preserve"><value>Live-Fahrzeugtelemetrie</value></data>
+  <data name="TelemetryWaiting" xml:space="preserve"><value>Warte auf Fahrzeugdaten...</value></data>
+  <data name="TelemetryConnecting" xml:space="preserve"><value>Verbindung mit OMSI-Telemetrie wird hergestellt...</value></data>
+  <data name="TelemetryConnected" xml:space="preserve"><value>OMSI erkannt • Telemetrie verbunden</value></data>
+  <data name="TelemetryAttachFailed" xml:space="preserve"><value>OMSI wurde erkannt, aber die Telemetrie konnte nicht verbunden werden.</value></data>
+  <data name="TelemetryReadError" xml:space="preserve"><value>Die Telemetrie ist verbunden, aber Fahrzeugdaten sind noch nicht verfügbar.</value></data>
+  <data name="UnsupportedVersion" xml:space="preserve"><value>OMSI wurde erkannt, aber diese Programmversion wird für Live-Telemetrie noch nicht unterstützt.</value></data>
+  <data name="MapLabel" xml:space="preserve"><value>Karte</value></data>
+  <data name="PositionLabel" xml:space="preserve"><value>Position</value></data>
+  <data name="HeadingLabel" xml:space="preserve"><value>Fahrtrichtung</value></data>
+  <data name="SpeedLabel" xml:space="preserve"><value>Geschwindigkeit</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Nicht verfügbar</value></data>
 </root>
