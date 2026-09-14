@@ -33,6 +33,10 @@ public partial class HudOverlayWindow
         _hudVisibilityTimer.Tick += HudVisibilityTimer_Tick;
         _hudVisibilityTimer.Start();
 
+        // O Loaded registrado no construtor instala o hook legado. Substituímos o hook
+        // depois de todos os handlers Loaded para garantir que T/N nunca sejam os atalhos ativos.
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, InstallConflictFreeHotkeys);
+
         RefreshHudChrome();
         RefreshHudVisibility();
     }
@@ -63,7 +67,7 @@ public partial class HudOverlayWindow
         PlayerCountText.Text = playerCount.ToString(LocalizationService.CurrentCulture);
         PlayerCountText.ToolTip = LocalizationService.Format("MultiplayerPlayerCount", playerCount);
         ChatInputLabelText.Text = LocalizationService.Get("MultiplayerChat").ToUpper(LocalizationService.CurrentCulture);
-        HudShortcutsText.Text = $"  •  T: {LocalizationService.Get("MultiplayerChat")}  •  N: PTT";
+        HudShortcutsText.Text = $"  •  F9: {LocalizationService.Get("MultiplayerChat")}  •  F10: PTT";
 
         if (connected)
         {
