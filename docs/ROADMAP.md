@@ -7,6 +7,10 @@
 - [x] Servidor SignalR
 - [x] Contrato de telemetria compartilhado
 - [x] Detecção de `Omsi.exe` sem Steam
+- [x] Base multilíngue com `.resx` / `ResourceManager`
+- [x] Português (Brasil), English, Español, Deutsch e Français
+- [x] Detecção automática do idioma do Windows
+- [x] Troca de idioma em tempo real e preferência persistida
 - [ ] Build CI verde
 
 ## Fase 1 — Telemetria local
@@ -35,6 +39,7 @@ Com o OMSI aberto, o NavBR deve mostrar valores de posição/direção mudando e
 - [ ] Follow vehicle
 - [ ] Rotação automática
 - [ ] Janela always-on-top
+- [ ] Localizar textos do GPS, navegação e erros de mapa
 
 ## Fase 3 — TTData
 
@@ -46,6 +51,7 @@ Com o OMSI aberto, o NavBR deve mostrar valores de posição/direção mudando e
 - [ ] Próxima parada
 - [ ] Distância restante
 - [ ] ETA
+- [ ] Formatação de distância/tempo conforme cultura selecionada
 
 ## Fase 4 — Multiplayer no NavBR
 
@@ -58,6 +64,7 @@ Com o OMSI aberto, o NavBR deve mostrar valores de posição/direção mudando e
 - [ ] Hash/fingerprint do mapa
 - [ ] Reconnect automático
 - [ ] Rate limiting
+- [ ] Códigos de erro de rede independentes de idioma
 
 ## Fase 5 — Infraestrutura online
 
@@ -78,3 +85,7 @@ Com o OMSI aberto, o NavBR deve mostrar valores de posição/direção mudando e
 - [ ] Limites de estabilidade/performance
 
 Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper estado do simulador.
+
+## Localização contínua
+
+Novas telas e funcionalidades devem nascer com chaves de recurso. Traduções não devem ser codificadas dentro de telemetria, TTData, mapas ou protocolo multiplayer. Isso permite adicionar novos idiomas progressivamente sem alterar a lógica do simulador.
