@@ -6,19 +6,18 @@ namespace NavBR.Client.Overlay;
 internal sealed record OmsiKeyboardConflictResult(
     bool ConfigFound,
     DateTime LastWriteUtc,
-    IReadOnlyList<string> F9Events,
-    IReadOnlyList<string> F10Events)
+    IReadOnlyDictionary<int, IReadOnlyList<string>> EventsByScanCode)
 {
-    public bool F9InUse => F9Events.Count > 0;
-    public bool F10InUse => F10Events.Count > 0;
+    public IReadOnlyList<string> GetEvents(int scanCode) =>
+        EventsByScanCode.TryGetValue(scanCode, out var events)
+            ? events
+            : Array.Empty<string>();
+
+    public bool IsInUse(int scanCode) => GetEvents(scanCode).Count > 0;
 }
 
 internal static class OmsiKeyboardConflictDetector
 {
-    // OMSI keyboard.cfg uses DirectInput DIK scan codes. F9/F10 are DIK_F9/DIK_F10.
-    internal const int F9ScanCode = 67;
-    internal const int F10ScanCode = 68;
-
     public static OmsiKeyboardConflictResult AnalyzeProcessInstallation(int processId)
     {
         try
@@ -52,8 +51,7 @@ internal static class OmsiKeyboardConflictDetector
 
         try
         {
-            var f9Events = new List<string>();
-            var f10Events = new List<string>();
+            var eventsByScanCode = new Dictionary<int, HashSet<string>>();
             var lines = File.ReadAllLines(keyboardPath);
 
             for (var index = 0; index < lines.Length; index++)
@@ -71,21 +69,21 @@ internal static class OmsiKeyboardConflictDetector
                     continue;
                 }
 
-                if (keyCode == F9ScanCode)
+                if (!eventsByScanCode.TryGetValue(keyCode, out var events))
                 {
-                    f9Events.Add(eventName);
+                    events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    eventsByScanCode[keyCode] = events;
                 }
-                else if (keyCode == F10ScanCode)
-                {
-                    f10Events.Add(eventName);
-                }
+
+                events.Add(eventName);
             }
 
             return new OmsiKeyboardConflictResult(
                 ConfigFound: true,
                 File.GetLastWriteTimeUtc(keyboardPath),
-                f9Events.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
-                f10Events.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+                eventsByScanCode.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<string>)pair.Value.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray()));
         }
         catch
         {
@@ -116,5 +114,5 @@ internal static class OmsiKeyboardConflictDetector
     }
 
     private static OmsiKeyboardConflictResult Empty() =>
-        new(false, DateTime.MinValue, Array.Empty<string>(), Array.Empty<string>());
+        new(false, DateTime.MinValue, new Dictionary<int, IReadOnlyList<string>>());
 }
