@@ -33,4 +33,11 @@
   <data name="HeadingLabel" xml:space="preserve"><value>Direção</value></data>
   <data name="SpeedLabel" xml:space="preserve"><value>Velocidade</value></data>
   <data name="NotAvailable" xml:space="preserve"><value>Indisponível</value></data>
+  <data name="GpsHeading" xml:space="preserve"><value>GPS / mapas instalados</value></data>
+  <data name="GpsWaitingForOmsi" xml:space="preserve"><value>Abra o OMSI para o NavBR localizar a instalação e verificar os mapas.</value></data>
+  <data name="GpsNoMaps" xml:space="preserve"><value>Nenhum mapa válido do OMSI foi encontrado nesta instalação.</value></data>
+  <data name="GpsMapsSummary" xml:space="preserve"><value>{0} mapa(s) encontrado(s) • {1} roadmap(s) pronto(s)</value></data>
+  <data name="GpsRoadmapReady" xml:space="preserve"><value>roadmap pronto</value></data>
+  <data name="GpsRoadmapMissing" xml:space="preserve"><value>roadmap ausente</value></data>
+  <data name="GpsMoreMaps" xml:space="preserve"><value>... e mais {0} mapa(s)</value></data>
 </root>
