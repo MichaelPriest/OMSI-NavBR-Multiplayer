@@ -17,9 +17,13 @@ public partial class HudOverlayWindow
     private const uint SwpShowWindow = 0x0040;
 
     private readonly TimeSpan _hudVisibilityInterval = TimeSpan.FromMilliseconds(100);
+    private readonly TimeSpan _hudFocusGracePeriod = TimeSpan.FromMilliseconds(900);
     private DispatcherTimer? _hudVisibilityTimer;
     private bool _hudLifecycleInitialized;
     private bool _restoreOmsiFocusOnChatClose = true;
+    private bool _hudVisibleForOmsi;
+    private DateTimeOffset _lastOmsiForegroundUtc = DateTimeOffset.MinValue;
+    private IntPtr _lastTopmostReferenceHandle;
     private string? _lastHudRoomId;
 
     private void HudOverlayWindow_LifecycleLoaded(object sender, RoutedEventArgs e)
@@ -31,6 +35,11 @@ public partial class HudOverlayWindow
 
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
+
+        // Começa oculto e só aparece quando o OMSI realmente estiver ativo.
+        // Isso evita um flash do HUD no desktop durante a criação da janela.
+        OverlayRoot.Visibility = Visibility.Collapsed;
+        _hudVisibleForOmsi = false;
 
         _hudVisibilityTimer = new DispatcherTimer
         {
@@ -129,6 +138,13 @@ public partial class HudOverlayWindow
         try
         {
             using var process = Process.GetProcessById(processId);
+            if (process.HasExited)
+            {
+                HideHudForOmsiState();
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
             var foreground = GetForegroundWindow();
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
@@ -136,36 +152,40 @@ public partial class HudOverlayWindow
                                         overlayHandle != IntPtr.Zero &&
                                         foreground == overlayHandle;
 
-            if (!foregroundBelongsToOmsi && !overlayOwnsForeground)
+            if (foregroundBelongsToOmsi)
             {
-                HideHudForOmsiState();
-                return;
+                _lastOmsiForegroundUtc = now;
+                if (IsUsableOmsiWindow(foreground))
+                {
+                    _omsiWindowHandle = foreground;
+                }
+            }
+            else if (!overlayOwnsForeground)
+            {
+                var neverFocused = _lastOmsiForegroundUtc == DateTimeOffset.MinValue;
+                var focusLostTooLong = !neverFocused &&
+                                       now - _lastOmsiForegroundUtc > _hudFocusGracePeriod;
+                if (neverFocused || focusLostTooLong)
+                {
+                    HideHudForOmsiState();
+                    return;
+                }
             }
 
-            var omsiHandle = foregroundBelongsToOmsi
-                ? foreground
-                : _omsiWindowHandle;
-
-            if (omsiHandle == IntPtr.Zero ||
-                !IsWindowVisibleNative(omsiHandle) ||
-                IsIconicNative(omsiHandle))
+            var omsiHandle = _omsiWindowHandle;
+            if (!IsUsableOmsiWindow(omsiHandle))
             {
                 omsiHandle = process.MainWindowHandle;
             }
 
-            if (omsiHandle == IntPtr.Zero ||
-                !IsWindowVisibleNative(omsiHandle) ||
-                IsIconicNative(omsiHandle))
+            if (!IsUsableOmsiWindow(omsiHandle))
             {
                 HideHudForOmsiState();
                 return;
             }
 
             _omsiWindowHandle = omsiHandle;
-            SyncHudToOmsiWindow(omsiHandle);
-
-            OverlayRoot.Visibility = Visibility.Visible;
-            EnsureOverlayTopmost(overlayHandle);
+            ShowHudForOmsiState(overlayHandle, omsiHandle);
         }
         catch
         {
@@ -173,19 +193,78 @@ public partial class HudOverlayWindow
         }
     }
 
-    private void SyncHudToOmsiWindow(IntPtr omsiHandle)
+    private static bool IsUsableOmsiWindow(IntPtr handle) =>
+        handle != IntPtr.Zero &&
+        IsWindowVisibleNative(handle) &&
+        !IsIconicNative(handle);
+
+    private void ShowHudForOmsiState(IntPtr overlayHandle, IntPtr omsiHandle)
     {
-        if (!GetWindowRect(omsiHandle, out var rect))
+        var becomingVisible = !_hudVisibleForOmsi || OverlayRoot.Visibility != Visibility.Visible;
+        if (becomingVisible)
+        {
+            OverlayRoot.Visibility = Visibility.Visible;
+            _hudVisibleForOmsi = true;
+        }
+
+        // Não reaplica TOPMOST a cada tick. Isso evita churn de z-order que
+        // pode causar piscadas em DirectX/WPF. Só reforça ao mostrar ou quando
+        // a janela de referência do OMSI muda.
+        if (becomingVisible || _lastTopmostReferenceHandle != omsiHandle)
+        {
+            EnsureOverlayTopmost(overlayHandle);
+            _lastTopmostReferenceHandle = omsiHandle;
+        }
+    }
+
+    private void HideHudForOmsiState()
+    {
+        if (_localPushToTalk)
+        {
+            SetLocalPushToTalk(false);
+        }
+
+        if (_chatInteractive)
+        {
+            _restoreOmsiFocusOnChatClose = false;
+            CloseChatInput();
+        }
+
+        if (!_hudVisibleForOmsi && OverlayRoot.Visibility == Visibility.Collapsed)
         {
             return;
         }
 
-        var dpi = GetDpiForWindow(omsiHandle);
-        var scale = dpi > 0 ? 96d / dpi : 1d;
-        Left = rect.Left * scale;
-        Top = rect.Top * scale;
-        Width = Math.Max(1d, (rect.Right - rect.Left) * scale);
-        Height = Math.Max(1d, (rect.Bottom - rect.Top) * scale);
+        OverlayRoot.Visibility = Visibility.Collapsed;
+        _hudVisibleForOmsi = false;
+        _lastTopmostReferenceHandle = IntPtr.Zero;
+    }
+
+    private void ChatInputPanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not bool isVisible || isVisible)
+        {
+            return;
+        }
+
+        var shouldRestore = _restoreOmsiFocusOnChatClose;
+        _restoreOmsiFocusOnChatClose = true;
+        if (!shouldRestore)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, RestoreOmsiFocus);
+    }
+
+    private void RestoreOmsiFocus()
+    {
+        if (_omsiWindowHandle == IntPtr.Zero || IsIconicNative(_omsiWindowHandle))
+        {
+            return;
+        }
+
+        _ = SetForegroundWindowNative(_omsiWindowHandle);
     }
 
     private static bool WindowBelongsToProcess(IntPtr windowHandle, int processId)
@@ -214,49 +293,6 @@ public partial class HudOverlayWindow
             0,
             0,
             SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
-    }
-
-    private void HideHudForOmsiState()
-    {
-        if (_localPushToTalk)
-        {
-            SetLocalPushToTalk(false);
-        }
-
-        if (_chatInteractive)
-        {
-            _restoreOmsiFocusOnChatClose = false;
-            CloseChatInput();
-        }
-
-        OverlayRoot.Visibility = Visibility.Collapsed;
-    }
-
-    private void ChatInputPanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-    {
-        if (e.NewValue is not bool isVisible || isVisible)
-        {
-            return;
-        }
-
-        var shouldRestore = _restoreOmsiFocusOnChatClose;
-        _restoreOmsiFocusOnChatClose = true;
-        if (!shouldRestore)
-        {
-            return;
-        }
-
-        _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, RestoreOmsiFocus);
-    }
-
-    private void RestoreOmsiFocus()
-    {
-        if (_omsiWindowHandle == IntPtr.Zero || IsIconicNative(_omsiWindowHandle))
-        {
-            return;
-        }
-
-        _ = SetForegroundWindowNative(_omsiWindowHandle);
     }
 
     [DllImport("user32.dll", EntryPoint = "IsIconic")]
