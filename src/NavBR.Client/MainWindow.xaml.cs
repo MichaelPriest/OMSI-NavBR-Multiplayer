@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Client.Maps;
 using NavBR.Client.Omsi;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
@@ -12,11 +13,13 @@ public partial class MainWindow : Window
 {
     private readonly OmsiProcessDetector _detector = new();
     private readonly Omsi23004TelemetryProvider _telemetryProvider = new();
+    private readonly OmsiMapCatalog _mapCatalog = new();
     private readonly DispatcherTimer _telemetryTimer;
 
     private bool _languageSelectorReady;
     private OmsiProcessInfo? _currentOmsi;
     private VehicleTelemetry? _lastTelemetry;
+    private IReadOnlyList<OmsiMapInfo> _installedMaps = Array.Empty<OmsiMapInfo>();
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
 
@@ -79,6 +82,7 @@ public partial class MainWindow : Window
         PositionCaptionText.Text = LocalizationService.Get("PositionLabel");
         HeadingCaptionText.Text = LocalizationService.Get("HeadingLabel");
         SpeedCaptionText.Text = LocalizationService.Get("SpeedLabel");
+        GpsHeadingText.Text = LocalizationService.Get("GpsHeading");
 
         MilestoneHeadingText.Text = LocalizationService.Get("FirstMilestoneHeading");
         MilestoneBodyText.Text = LocalizationService.Get("FirstMilestoneBody");
@@ -96,6 +100,7 @@ public partial class MainWindow : Window
         _telemetryProvider.Dispose();
         _lastTelemetry = null;
         _currentOmsi = null;
+        _installedMaps = Array.Empty<OmsiMapInfo>();
 
         _statusKey = "StatusSearching";
         _telemetryStatusKey = "TelemetryWaiting";
@@ -111,6 +116,8 @@ public partial class MainWindow : Window
         }
 
         _currentOmsi = instances[0];
+        _installedMaps = _mapCatalog.Discover(_currentOmsi.InstallDirectory);
+
         if (!_currentOmsi.IsOmsi23004)
         {
             _statusKey = "UnsupportedVersion";
@@ -173,6 +180,7 @@ public partial class MainWindow : Window
     {
         StatusText.Text = LocalizationService.Get(_statusKey);
         TelemetryStateText.Text = LocalizationService.Get(_telemetryStatusKey);
+        RenderGpsState();
 
         if (_currentOmsi is null)
         {
@@ -220,6 +228,55 @@ public partial class MainWindow : Window
             culture,
             "{0:F1} km/h",
             _lastTelemetry.SpeedKph);
+    }
+
+    private void RenderGpsState()
+    {
+        if (_currentOmsi is null)
+        {
+            GpsStatusText.Text = LocalizationService.Get("GpsWaitingForOmsi");
+            InstalledMapsText.Text = string.Empty;
+            return;
+        }
+
+        if (_installedMaps.Count == 0)
+        {
+            GpsStatusText.Text = LocalizationService.Get("GpsNoMaps");
+            InstalledMapsText.Text = string.Empty;
+            return;
+        }
+
+        var culture = LocalizationService.CurrentCulture;
+        var roadmapCount = _installedMaps.Count(map => !string.IsNullOrWhiteSpace(map.RoadmapPath));
+        GpsStatusText.Text = string.Format(
+            culture,
+            LocalizationService.Get("GpsMapsSummary"),
+            _installedMaps.Count,
+            roadmapCount);
+
+        const int visibleMapLimit = 10;
+        var rows = _installedMaps
+            .Take(visibleMapLimit)
+            .Select(map =>
+            {
+                var roadmapStatus = LocalizationService.Get(
+                    string.IsNullOrWhiteSpace(map.RoadmapPath)
+                        ? "GpsRoadmapMissing"
+                        : "GpsRoadmapReady");
+
+                return $"{map.DisplayName} [{map.FolderName}] | {map.TileCount} | {roadmapStatus}";
+            })
+            .ToList();
+
+        if (_installedMaps.Count > visibleMapLimit)
+        {
+            rows.Add(string.Format(
+                culture,
+                LocalizationService.Get("GpsMoreMaps"),
+                _installedMaps.Count - visibleMapLimit));
+        }
+
+        InstalledMapsText.Text = string.Join(Environment.NewLine, rows);
     }
 
     private static string ErrorKey(TelemetryErrorCode errorCode) => errorCode switch
