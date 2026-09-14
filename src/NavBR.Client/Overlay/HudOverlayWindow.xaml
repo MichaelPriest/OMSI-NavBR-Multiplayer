@@ -18,7 +18,7 @@
 
             <Border x:Name="ChatPanel"
                     Background="#B10B0F14"
-                    BorderBrush="#553FFFFFF"
+                    BorderBrush="#55FFFFFF"
                     BorderThickness="1"
                     CornerRadius="7"
                     Padding="10,8"
