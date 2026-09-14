@@ -230,9 +230,33 @@ public partial class MainWindow
     private OmsiMapInfo? GetActiveMapForMultiplayer()
     {
         var mapName = _lastTelemetry?.MapName;
-        return string.IsNullOrWhiteSpace(mapName)
-            ? null
-            : FindActiveMap(mapName);
+        if (!string.IsNullOrWhiteSpace(mapName))
+        {
+            var fromTelemetry = FindActiveMap(mapName);
+            if (fromTelemetry is not null)
+            {
+                return fromTelemetry;
+            }
+        }
+
+        // Some OMSI builds / 4GB-patched sessions expose vehicle telemetry
+        // correctly while TMap.name is unavailable. OMSI itself records the
+        // authoritative loaded folder in logfile.txt, so use that as a safe,
+        // read-only fallback instead of leaving the HUD at "Sem mapa".
+        var installDirectory = _currentOmsi?.InstallDirectory;
+        if (string.IsNullOrWhiteSpace(installDirectory))
+        {
+            return null;
+        }
+
+        var loadedFolder = OmsiLoadedMapDetector.TryGetLoadedMapFolder(installDirectory);
+        if (string.IsNullOrWhiteSpace(loadedFolder))
+        {
+            return null;
+        }
+
+        return _installedMaps.FirstOrDefault(map =>
+            string.Equals(map.FolderName, loadedFolder, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RenderRemotePlayer(PlayerTelemetryFrame frame)
