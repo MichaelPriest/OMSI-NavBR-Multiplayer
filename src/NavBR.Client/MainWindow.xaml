@@ -1,0 +1,47 @@
+<Window x:Class="NavBR.Client.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="OMSI NavBR Multiplayer" Height="420" Width="720"
+        MinHeight="360" MinWidth="640">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="OMSI NavBR Multiplayer" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="GPS e multiplayer independente da Steam" Margin="0,4,0,0" Opacity="0.7" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,24,0,16" Padding="16" BorderThickness="1" CornerRadius="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Status do OMSI" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatusText" Text="Procurando Omsi.exe..." Margin="0,6,0,0" />
+                    <TextBlock x:Name="InstallPathText" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.7" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Detectar novamente" Padding="14,8" Margin="16,0,0,0" Click="RefreshButton_Click" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" BorderThickness="1" CornerRadius="8" Padding="16">
+            <StackPanel>
+                <TextBlock Text="Primeiro marco" FontWeight="SemiBold" FontSize="16" />
+                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap"
+                           Text="Esta versão inicial valida a detecção do OMSI sem Steam. A próxima etapa conecta o leitor de memória, o mapa GPS e o servidor multiplayer." />
+                <Separator Margin="0,16" />
+                <TextBlock x:Name="ProcessDetailsText" FontFamily="Consolas" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Margin="0,16,0,0" Opacity="0.6"
+                   Text="Fase 0 • process detection / compatibility bootstrap" />
+    </Grid>
+</Window>
