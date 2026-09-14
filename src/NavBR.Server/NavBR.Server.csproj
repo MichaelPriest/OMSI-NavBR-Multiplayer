@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NavBR.Server</RootNamespace>
+    <AssemblyName>NavBR.Server</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
+  </ItemGroup>
+</Project>
