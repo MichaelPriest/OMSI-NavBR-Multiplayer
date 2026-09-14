@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS und Multiplayer unabhängig von Steam</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>Sprache</value></data>
+  <data name="StatusHeading" xml:space="preserve"><value>OMSI-Status</value></data>
+  <data name="StatusSearching" xml:space="preserve"><value>Omsi.exe wird gesucht...</value></data>
+  <data name="RedetectButton" xml:space="preserve"><value>Erneut erkennen</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Erster Meilenstein</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>Diese erste Version prüft die OMSI-Erkennung ohne Steam. Im nächsten Schritt werden Speicherleser, GPS-Karte und Multiplayer-Server verbunden.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Phase 0 • Prozesserkennung / Kompatibilitätsbasis</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI wird nicht ausgeführt.</value></data>
+  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Starte OMSI 2 und klicke auf Erneut erkennen.</value></data>
+  <data name="NoProcessFound" xml:space="preserve"><value>Kein Omsi.exe-Prozess gefunden.</value></data>
+  <data name="OmsiDetected" xml:space="preserve"><value>OMSI erkannt</value></data>
+  <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
+  <data name="VersionLabel" xml:space="preserve"><value>Version</value></data>
+  <data name="ExecutableLabel" xml:space="preserve"><value>Ausführbare Datei</value></data>
+</root>
