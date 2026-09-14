@@ -7,6 +7,8 @@ on:
       - 'site/**'
       - 'src/NavBR.Client/Assets/NavBR.ico'
       - '.github/workflows/pages.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
