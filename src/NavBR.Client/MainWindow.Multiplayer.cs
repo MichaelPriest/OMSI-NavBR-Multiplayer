@@ -16,7 +16,9 @@ public partial class MainWindow
     private MultiplayerWindow? _multiplayerWindow;
     private HudOverlayWindow? _hudOverlay;
     private DispatcherTimer? _hudStateTimer;
+    private DispatcherTimer? _remoteMotionTimer;
     private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RemoteMotionSmoother> _remotePlayerMotion = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
 
     private void MultiplayerButton_Loaded(object sender, RoutedEventArgs e)
@@ -59,6 +61,7 @@ public partial class MainWindow
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);
+        EnsureRemoteMotionTimer();
 
         window.RemoteTelemetryReceived += frame =>
         {
@@ -88,6 +91,7 @@ public partial class MainWindow
             ClearRemotePlayerMarkers();
             _multiplayerWindow = null;
             StopHudRefreshTimer();
+            StopRemoteMotionTimer();
             if (_hudOverlay is not null)
             {
                 _hudOverlay.Close();
@@ -146,6 +150,28 @@ public partial class MainWindow
     private void StopHudRefreshTimer()
     {
         _hudStateTimer?.Stop();
+    }
+
+    private void EnsureRemoteMotionTimer()
+    {
+        if (_remoteMotionTimer is null)
+        {
+            _remoteMotionTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(33)
+            };
+            _remoteMotionTimer.Tick += (_, _) => UpdateRemoteMarkerMotion();
+        }
+
+        if (!_remoteMotionTimer.IsEnabled)
+        {
+            _remoteMotionTimer.Start();
+        }
+    }
+
+    private void StopRemoteMotionTimer()
+    {
+        _remoteMotionTimer?.Stop();
     }
 
     private void UpdateHudLocalState()
@@ -211,20 +237,77 @@ public partial class MainWindow
                 hiddenMarker.Visibility = Visibility.Collapsed;
             }
 
+            if (_remotePlayerMotion.TryGetValue(frame.Player.PlayerId, out var hiddenMotion))
+            {
+                hiddenMotion.Reset();
+            }
+
             return;
         }
 
         var marker = GetOrCreateRemoteMarker(frame.Player.PlayerId, frame.Player.DisplayName, bitmap.PixelWidth);
+        var smoother = GetOrCreateRemoteMotion(frame.Player.PlayerId);
+        smoother.SetTarget(
+            pixelX,
+            pixelY,
+            frame.Telemetry.HeadingDegrees,
+            frame.Telemetry.Timestamp);
+
+        marker.ToolTip = $"{frame.Player.DisplayName} • {frame.Telemetry.SpeedKph:F1} km/h";
+        marker.Visibility = Visibility.Visible;
+        EnsureRemoteMotionTimer();
+        UpdateRemoteMarkerMotion(frame.Player.PlayerId);
+    }
+
+    private RemoteMotionSmoother GetOrCreateRemoteMotion(string playerId)
+    {
+        if (_remotePlayerMotion.TryGetValue(playerId, out var existing))
+        {
+            return existing;
+        }
+
+        var smoother = new RemoteMotionSmoother();
+        _remotePlayerMotion[playerId] = smoother;
+        return smoother;
+    }
+
+    private void UpdateRemoteMarkerMotion()
+    {
+        foreach (var playerId in _remotePlayerMotion.Keys.ToArray())
+        {
+            UpdateRemoteMarkerMotion(playerId);
+        }
+    }
+
+    private void UpdateRemoteMarkerMotion(string playerId)
+    {
+        if (!_remotePlayerMotion.TryGetValue(playerId, out var smoother) ||
+            !_remotePlayerMarkers.TryGetValue(playerId, out var marker))
+        {
+            return;
+        }
+
+        if (DateTimeOffset.UtcNow - smoother.LastTargetUtc > TimeSpan.FromSeconds(3))
+        {
+            marker.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var pose = smoother.Step();
+        if (!pose.IsValid)
+        {
+            return;
+        }
+
         var markerSize = marker.Width;
-        Canvas.SetLeft(marker, pixelX - markerSize / 2d);
-        Canvas.SetTop(marker, pixelY - markerSize / 2d);
+        Canvas.SetLeft(marker, pose.X - markerSize / 2d);
+        Canvas.SetTop(marker, pose.Y - markerSize / 2d);
 
         if (marker.RenderTransform is RotateTransform rotation)
         {
-            rotation.Angle = frame.Telemetry.HeadingDegrees;
+            rotation.Angle = pose.HeadingDegrees;
         }
 
-        marker.ToolTip = $"{frame.Player.DisplayName} • {frame.Telemetry.SpeedKph:F1} km/h";
         marker.Visibility = Visibility.Visible;
     }
 
@@ -274,6 +357,8 @@ public partial class MainWindow
 
     private void RemoveRemotePlayerMarker(string playerId)
     {
+        _remotePlayerMotion.Remove(playerId);
+
         if (!_remotePlayerMarkers.Remove(playerId, out var marker))
         {
             return;
@@ -290,5 +375,6 @@ public partial class MainWindow
         }
 
         _remotePlayerMarkers.Clear();
+        _remotePlayerMotion.Clear();
     }
 }
