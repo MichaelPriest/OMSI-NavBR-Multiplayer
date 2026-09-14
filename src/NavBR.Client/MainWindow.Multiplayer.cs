@@ -17,6 +17,7 @@ public partial class MainWindow
     private HudOverlayWindow? _hudOverlay;
     private DispatcherTimer? _hudStateTimer;
     private DispatcherTimer? _remoteMotionTimer;
+    private int? _hudAttachedOmsiProcessId;
     private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RemoteMotionSmoother> _remotePlayerMotion = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
@@ -24,6 +25,10 @@ public partial class MainWindow
     private void MultiplayerButton_Loaded(object sender, RoutedEventArgs e)
     {
         LocalizeMultiplayerButton();
+
+        // O mini HUD faz parte do NavBR base. Multiplayer apenas acrescenta
+        // jogadores remotos, chat e voz ao mesmo overlay.
+        EnsureHudOverlay();
 
         if (_multiplayerLocalizationHooked)
         {
@@ -83,20 +88,25 @@ public partial class MainWindow
         window.VoiceError += hud.SetVoiceError;
         window.MultiplayerConnectionChanged += hud.SetConnectionState;
         window.LocalDisplayNameChanged += hud.SetLocalDisplayName;
-        hud.ChatSubmitted += text => _ = window.SendChatFromOverlayAsync(text);
-        hud.PushToTalkChanged += window.SetPushToTalk;
+
+        Action<string> chatSubmittedHandler = text => _ = window.SendChatFromOverlayAsync(text);
+        Action<bool> pushToTalkHandler = window.SetPushToTalk;
+        hud.ChatSubmitted += chatSubmittedHandler;
+        hud.PushToTalkChanged += pushToTalkHandler;
 
         window.Closed += (_, _) =>
         {
+            hud.ChatSubmitted -= chatSubmittedHandler;
+            hud.PushToTalkChanged -= pushToTalkHandler;
+            hud.SetConnectionState(false);
+            hud.ClearRemotePlayersSmooth();
             ClearRemotePlayerMarkers();
             _multiplayerWindow = null;
-            StopHudRefreshTimer();
             StopRemoteMotionTimer();
-            if (_hudOverlay is not null)
-            {
-                _hudOverlay.Close();
-                _hudOverlay = null;
-            }
+
+            // Não fecha nem para o timer do HUD: o minimapa continua sendo
+            // um recurso principal do NavBR mesmo sem sessão multiplayer.
+            UpdateHudLocalState();
         };
 
         _multiplayerWindow = window;
@@ -113,7 +123,9 @@ public partial class MainWindow
         }
 
         var hud = new HudOverlayWindow();
-        hud.AttachOmsiProcess(_currentOmsi?.ProcessId);
+        var processId = _currentOmsi?.ProcessId;
+        hud.AttachOmsiProcess(processId);
+        _hudAttachedOmsiProcessId = processId;
         hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
         hud.Closed += (_, _) =>
         {
@@ -122,6 +134,7 @@ public partial class MainWindow
                 _hudOverlay = null;
             }
 
+            _hudAttachedOmsiProcessId = null;
             StopHudRefreshTimer();
         };
         _hudOverlay = hud;
@@ -181,7 +194,13 @@ public partial class MainWindow
             return;
         }
 
-        _hudOverlay.AttachOmsiProcess(_currentOmsi?.ProcessId);
+        var processId = _currentOmsi?.ProcessId;
+        if (_hudAttachedOmsiProcessId != processId)
+        {
+            _hudOverlay.AttachOmsiProcess(processId);
+            _hudAttachedOmsiProcessId = processId;
+        }
+
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
     }
 
