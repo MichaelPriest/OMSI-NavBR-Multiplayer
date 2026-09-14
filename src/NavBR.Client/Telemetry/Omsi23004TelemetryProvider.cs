@@ -112,6 +112,18 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
 
+            int? gridX = null;
+            int? gridY = null;
+            double? tileX = null;
+            double? tileY = null;
+            if (TryReadNavigationPosition(memory, out var gx, out var gy, out var tx, out var ty))
+            {
+                gridX = gx;
+                gridY = gy;
+                tileX = tx;
+                tileY = ty;
+            }
+
             LastErrorCode = TelemetryErrorCode.None;
             return new VehicleTelemetry(
                 PlayerId: playerId,
@@ -125,7 +137,11 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 Z: absolutePosition.Z,
                 HeadingDegrees: heading,
                 SpeedKph: speedMps * 3.6,
-                IsInGame: mapLoaded);
+                IsInGame: mapLoaded,
+                GridX: gridX,
+                GridY: gridY,
+                TileX: tileX,
+                TileY: tileY);
         }
         catch (ArgumentException)
         {
@@ -174,6 +190,56 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         return vehicleAddress > 0x10000
             ? new nint(vehicleAddress)
             : nint.Zero;
+    }
+
+    private static bool TryReadNavigationPosition(
+        ReadOnlyProcessMemory memory,
+        out int gridX,
+        out int gridY,
+        out double tileX,
+        out double tileY)
+    {
+        gridX = 0;
+        gridY = 0;
+        tileX = 0;
+        tileY = 0;
+
+        try
+        {
+            var mapAddress = memory.ReadInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            var navigationVehicleAddress = memory.ReadInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.NavigationVehiclePointerRva));
+
+            if (mapAddress <= 0x10000 || navigationVehicleAddress <= 0x10000)
+            {
+                return false;
+            }
+
+            var mapPointer = new nint(mapAddress);
+            var navigationVehiclePointer = new nint(navigationVehicleAddress);
+
+            gridX = memory.ReadInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.CurrentGridXOffset));
+            gridY = memory.ReadInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.CurrentGridYOffset));
+            tileX = memory.ReadSingle(nint.Add(
+                navigationVehiclePointer,
+                Omsi23004MemoryProfile.NavigationTileXOffset));
+            tileY = memory.ReadSingle(nint.Add(
+                navigationVehiclePointer,
+                Omsi23004MemoryProfile.NavigationTileYOffset));
+
+            return double.IsFinite(tileX) && double.IsFinite(tileY);
+        }
+        catch
+        {
+            // Navigation coordinates are supplementary. A map/layout mismatch
+            // must not take down the primary telemetry provider.
+            return false;
+        }
     }
 
     private static string? TryReadMapName(

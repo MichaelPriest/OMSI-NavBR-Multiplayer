@@ -11,7 +11,10 @@
 - [x] Português (Brasil), English, Español, Deutsch e Français
 - [x] Detecção automática do idioma do Windows
 - [x] Troca de idioma em tempo real e preferência persistida
-- [ ] Build CI verde
+- [x] Build CI verde
+- [x] Ícone oficial do aplicativo embutido no executável
+- [x] Versionamento SemVer inicial
+- [x] Workflow de GitHub Release para cliente e servidor
 
 ## Fase 1 — Telemetria local
 
@@ -36,15 +39,19 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 
 ## Fase 2 — GPS local
 
-- [ ] Detectar pasta `maps`
-- [ ] Ler `global.cfg`
-- [ ] Ler roadmap do OMSI
+- [x] Detectar pasta `maps`
+- [x] Catalogar mapas com `global.cfg`
+- [x] Detectar `whole.roadmap.bmp` / `roadmap.bmp`
+- [x] Mostrar quantidade de mapas e roadmaps disponíveis no cliente
+- [x] Localizar os novos textos do GPS nos cinco idiomas atuais
+- [ ] Ler metadados de coordenadas do `global.cfg`
+- [ ] Criar transformador OMSI world X/Y → pixels do roadmap
 - [ ] Renderizar ônibus sobre o mapa
 - [ ] Zoom/pan
 - [ ] Follow vehicle
 - [ ] Rotação automática
 - [ ] Janela always-on-top
-- [ ] Localizar textos do GPS, navegação e erros de mapa
+- [ ] Tratamento visual para mapas sem roadmap
 
 ## Fase 3 — TTData
 

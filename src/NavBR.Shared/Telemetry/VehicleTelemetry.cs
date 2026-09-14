@@ -12,4 +12,8 @@ public sealed record VehicleTelemetry(
     double Z,
     double HeadingDegrees,
     double SpeedKph,
-    bool IsInGame);
+    bool IsInGame,
+    int? GridX = null,
+    int? GridY = null,
+    double? TileX = null,
+    double? TileY = null);

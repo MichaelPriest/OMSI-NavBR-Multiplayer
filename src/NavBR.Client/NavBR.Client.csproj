@@ -6,8 +6,10 @@
     <PlatformTarget>x86</PlatformTarget>
     <RootNamespace>NavBR.Client</RootNamespace>
     <AssemblyName>OMSI.NavBR.Multiplayer</AssemblyName>
+    <ApplicationIcon>Assets\NavBR.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets\NavBR.ico" />
     <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
   </ItemGroup>
