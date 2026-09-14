@@ -58,9 +58,29 @@ jobs:
 
           exit 0
 
+      - name: Repair NavBR icon container
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
       - name: Publish Windows x86 client
         if: steps.version.outputs.exists != 'true'
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/client
+
+      - name: Publish standalone Windows x86 EXE
+        if: steps.version.outputs.exists != 'true'
+        run: >-
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o artifacts/client-single
 
       - name: Publish Windows x64 server
         if: steps.version.outputs.exists != 'true'
@@ -71,8 +91,19 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
+          $clientExe = "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          if (-not (Test-Path $clientExe)) {
+            throw "Standalone NavBR EXE was not generated."
+          }
+
+          $releaseExe = "OMSI-NavBR-Multiplayer-$tag-win-x86.exe"
+          Copy-Item $clientExe $releaseExe
+
           Compress-Archive -Path artifacts/client/* -DestinationPath "OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
           Compress-Archive -Path artifacts/server/* -DestinationPath "OMSI-NavBR-Server-$tag-win-x64.zip"
+
+          Write-Host "Release EXE: $releaseExe"
+          Write-Host "Release ZIP: OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
 
       - name: Create GitHub release
         if: steps.version.outputs.exists != 'true'
@@ -83,6 +114,7 @@ jobs:
           $tag = "${{ steps.version.outputs.tag }}"
           $args = @(
             "release", "create", $tag,
+            "OMSI-NavBR-Multiplayer-$tag-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
             "--repo", "${{ github.repository }}",
