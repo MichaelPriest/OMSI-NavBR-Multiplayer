@@ -27,6 +27,7 @@
 - [x] Resolver o veículo ativo do jogador
 - [x] Criar profile de compatibilidade 2.3.004
 - [x] Dashboard multilíngue de telemetria a cada 200 ms
+- [x] Ler GridX/GridY e posição local TileX/TileY
 - [ ] Validar posição em runtime no OMSI 2.3.004
 - [ ] Validar velocidade contra o velocímetro do OMSI
 - [ ] Validar sinal/zero do heading para o GPS
@@ -43,15 +44,20 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - [x] Catalogar mapas com `global.cfg`
 - [x] Detectar `whole.roadmap.bmp` / `roadmap.bmp`
 - [x] Mostrar quantidade de mapas e roadmaps disponíveis no cliente
-- [x] Localizar os novos textos do GPS nos cinco idiomas atuais
-- [ ] Ler metadados de coordenadas do `global.cfg`
-- [ ] Criar transformador OMSI world X/Y → pixels do roadmap
-- [ ] Renderizar ônibus sobre o mapa
-- [ ] Zoom/pan
-- [ ] Follow vehicle
-- [ ] Rotação automática
-- [ ] Janela always-on-top
-- [ ] Tratamento visual para mapas sem roadmap
+- [x] Localizar textos do GPS nos cinco idiomas atuais
+- [x] Ler grade de tiles do `global.cfg`
+- [x] Transformar GridX/GridY + TileX/TileY em pixels do roadmap para mapas padrão de 300 m/tile
+- [x] Renderizar ônibus sobre o roadmap
+- [x] Zoom por botões e roda do mouse
+- [x] Pan por arraste
+- [x] Follow vehicle
+- [x] Indicador do ônibus rotacionado pelo heading
+- [x] Janela always-on-top
+- [x] Ajustar roadmap ao viewport
+- [ ] Validar visualmente o marcador e heading em runtime
+- [ ] Suportar corretamente mapas com `[worldcoordinates]`
+- [ ] Modo heading-up com rotação do mapa inteiro
+- [ ] Tratamento visual aprimorado para mapas sem roadmap
 
 ## Fase 3 — TTData
 
