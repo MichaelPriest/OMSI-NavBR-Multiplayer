@@ -33,8 +33,6 @@ public partial class HudOverlayWindow
         _hudVisibilityTimer.Tick += HudVisibilityTimer_Tick;
         _hudVisibilityTimer.Start();
 
-        // O Loaded registrado no construtor instala o hook legado. Substituímos o hook
-        // depois de todos os handlers Loaded para garantir que T/N nunca sejam os atalhos ativos.
         _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, InstallConflictFreeHotkeys);
 
         RefreshHudChrome();
@@ -70,9 +68,11 @@ public partial class HudOverlayWindow
         ChatInputLabelText.Text = LocalizationService.Get("MultiplayerChat").ToUpper(LocalizationService.CurrentCulture);
 
         var chatShortcut = _chatHotkeyAvailable
-            ? $"F9: {LocalizationService.Get("MultiplayerChat")}"
-            : "F9: OMSI";
-        var voiceShortcut = _voiceHotkeyAvailable ? "F10: PTT" : "F10: OMSI";
+            ? $"{_chatHotkey.Name}: {LocalizationService.Get("MultiplayerChat")}"
+            : $"{_chatHotkey.Name}: OMSI";
+        var voiceShortcut = _voiceHotkeyAvailable
+            ? $"{_voiceHotkey.Name}: PTT"
+            : $"{_voiceHotkey.Name}: OMSI";
         HudShortcutsText.Text = $"  •  {chatShortcut}  •  {voiceShortcut}";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
