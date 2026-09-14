@@ -6,11 +6,30 @@
         <SolidColorBrush x:Key="NavBgBrush" Color="#07111F" />
         <SolidColorBrush x:Key="NavSurfaceBrush" Color="#0B1828" />
         <SolidColorBrush x:Key="NavSurface2Brush" Color="#10243A" />
+        <SolidColorBrush x:Key="NavControlBrush" Color="#0E2034" />
+        <SolidColorBrush x:Key="NavControlHoverBrush" Color="#173653" />
+        <SolidColorBrush x:Key="NavControlPressedBrush" Color="#1C466B" />
         <SolidColorBrush x:Key="NavBorderBrush" Color="#24415F" />
         <SolidColorBrush x:Key="NavTextBrush" Color="#EEF7FF" />
         <SolidColorBrush x:Key="NavMutedBrush" Color="#9CB2C8" />
+        <SolidColorBrush x:Key="NavDisabledBrush" Color="#60758A" />
         <SolidColorBrush x:Key="NavAccentBrush" Color="#22C77A" />
         <SolidColorBrush x:Key="NavAccentBlueBrush" Color="#2AA8FF" />
+        <SolidColorBrush x:Key="NavSelectionBrush" Color="#245B7D" />
+
+        <!--
+            WPF control templates still reference SystemColors in several places.
+            Override the relevant brushes so Windows light/dark mode cannot create
+            white-on-white or black-on-dark combinations inside NavBR controls.
+        -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#091521" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#EEF7FF" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#0E2034" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#EEF7FF" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#245B7D" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#60758A" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#24415F" />
 
         <Style TargetType="Window">
             <Setter Property="Background" Value="{StaticResource NavBgBrush}" />
@@ -19,19 +38,41 @@
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
         </Style>
 
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+        </Style>
+
         <Style TargetType="TextBox">
-            <Setter Property="Background" Value="#0E2034" />
+            <Setter Property="Background" Value="{StaticResource NavControlBrush}" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
             <Setter Property="CaretBrush" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource NavSelectionBrush}" />
+            <Setter Property="SelectionTextBrush" Value="White" />
             <Setter Property="Padding" Value="9,6" />
         </Style>
 
         <Style TargetType="ComboBox">
-            <Setter Property="Background" Value="#0E2034" />
+            <Setter Property="Background" Value="{StaticResource NavControlBrush}" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
             <Setter Property="Padding" Value="7,5" />
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="{StaticResource NavSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="{StaticResource NavControlHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource NavSelectionBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="ListBox">
@@ -41,6 +82,22 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="Padding" Value="7,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource NavControlHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource NavSelectionBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="#142A42" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
@@ -48,14 +105,97 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavControlHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavControlPressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource NavDisabledBrush}" />
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="ToggleButton">
             <Setter Property="Background" Value="#142A42" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="12,7" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavControlHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavSelectionBrush}" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource NavAccentBlueBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavControlPressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource NavDisabledBrush}" />
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+        </Style>
+
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource NavSurface2Brush}" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
+
+        <Style TargetType="ContextMenu">
+            <Setter Property="Background" Value="{StaticResource NavSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
+        </Style>
+
+        <Style TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
         </Style>
 
         <Style x:Key="NavPrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
