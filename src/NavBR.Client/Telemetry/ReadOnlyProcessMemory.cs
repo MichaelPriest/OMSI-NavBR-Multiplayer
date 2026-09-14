@@ -29,6 +29,11 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public static ReadOnlyProcessMemory Open(OmsiProcessInfo processInfo)
     {
+        if (!Omsi23004MemoryProfile.ConfigureFor(processInfo))
+        {
+            throw new NotSupportedException($"Unsupported OMSI executable version: {processInfo.FileVersion}");
+        }
+
         var process = Process.GetProcessById(processInfo.ProcessId);
         if (process.HasExited)
         {
