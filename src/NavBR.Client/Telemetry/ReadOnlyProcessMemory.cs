@@ -63,6 +63,10 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public int ReadInt32(nint address) => BitConverter.ToInt32(ReadBytes(address, sizeof(int)), 0);
 
+    public uint ReadUInt32(nint address) => BitConverter.ToUInt32(ReadBytes(address, sizeof(uint)), 0);
+
+    public static nint PointerFromUInt32(uint value) => unchecked((nint)(nuint)value);
+
     public float ReadSingle(nint address) => BitConverter.ToSingle(ReadBytes(address, sizeof(float)), 0);
 
     public byte ReadByte(nint address) => ReadBytes(address, 1)[0];
@@ -89,16 +93,18 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
     /// <summary>
     /// Reads an OMSI/Delphi UnicodeString field. The field stores a 32-bit
     /// pointer to UTF-16 data and Delphi stores the character count at ptr-4.
+    /// Pointer values are unsigned because 4GB-patched OMSI may allocate data
+    /// above 0x7FFFFFFF.
     /// </summary>
     public string? ReadDelphiUnicodeStringField(nint fieldAddress, int maxCharacters = 1024)
     {
-        var stringPointer = ReadInt32(fieldAddress);
-        if (stringPointer <= 0x10000)
+        var stringPointer = ReadUInt32(fieldAddress);
+        if (stringPointer <= 0x10000u)
         {
             return null;
         }
 
-        var dataAddress = new nint(stringPointer);
+        var dataAddress = PointerFromUInt32(stringPointer);
         var length = ReadInt32(nint.Subtract(dataAddress, sizeof(int)));
         if (length <= 0 || length > maxCharacters)
         {
@@ -111,8 +117,8 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     /// <summary>
     /// Reads a 32-bit pointer field that points directly to a null-terminated
-    /// UTF-16 string. OMSI TMap.name at +0x150 uses this representation rather
-    /// than Delphi's length-prefixed UnicodeString layout.
+    /// UTF-16 string. OMSI TMap.name at +0x150 uses this representation.
+    /// Pointer values are unsigned so addresses in the upper 2GB remain valid.
     /// </summary>
     public string? ReadNullTerminatedUnicodeStringField(nint fieldAddress, int maxCharacters = 256)
     {
@@ -123,13 +129,13 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
         try
         {
-            var stringPointer = ReadInt32(fieldAddress);
-            if (stringPointer <= 0x10000)
+            var stringPointer = ReadUInt32(fieldAddress);
+            if (stringPointer <= 0x10000u)
             {
                 return null;
             }
 
-            var dataAddress = new nint(stringPointer);
+            var dataAddress = PointerFromUInt32(stringPointer);
             var bytes = new List<byte>(Math.Min(maxCharacters * 2, 512));
 
             for (var index = 0; index < maxCharacters; index++)
