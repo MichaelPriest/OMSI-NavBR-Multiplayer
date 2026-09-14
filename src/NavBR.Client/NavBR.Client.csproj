@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseAppHost>true</UseAppHost>
     <PlatformTarget>x86</PlatformTarget>
     <RootNamespace>NavBR.Client</RootNamespace>
     <AssemblyName>OMSI.NavBR.Multiplayer</AssemblyName>
@@ -13,4 +14,8 @@
     <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
   </ItemGroup>
+
+  <Target Name="RepairNavBRIcon" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\repair-navbr-icon.ps1&quot; -Path &quot;$(MSBuildProjectDirectory)\Assets\NavBR.ico&quot;" />
+  </Target>
 </Project>
