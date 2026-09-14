@@ -79,8 +79,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return null;
             }
 
-            // Absolute vehicle position comes from OmsiMapObjInst.AbsPosition.Position
-            // (D3DMatrix _30/_31/_32).
             var absolutePosition = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleAbsPositionOffset +
@@ -159,35 +157,38 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         ReadOnlyProcessMemory memory,
         int playerVehicleIndex)
     {
-        var omsiListAddress = memory.ReadInt32(
+        var omsiListAddress = memory.ReadUInt32(
             memory.AddressFromRva(Omsi23004MemoryProfile.RoadVehiclesListRva));
-        if (omsiListAddress <= 0x10000)
+        if (omsiListAddress <= 0x10000u)
         {
             return nint.Zero;
         }
 
-        var fListAddress = memory.ReadInt32(nint.Add(
-            new nint(omsiListAddress),
+        var omsiListPointer = ReadOnlyProcessMemory.PointerFromUInt32(omsiListAddress);
+        var fListAddress = memory.ReadUInt32(nint.Add(
+            omsiListPointer,
             Omsi23004MemoryProfile.OmsiListFListOffset));
-        if (fListAddress <= 0x10000)
+        if (fListAddress <= 0x10000u)
         {
             return nint.Zero;
         }
 
-        var itemsAddress = memory.ReadInt32(nint.Add(
-            new nint(fListAddress),
+        var fListPointer = ReadOnlyProcessMemory.PointerFromUInt32(fListAddress);
+        var itemsAddress = memory.ReadUInt32(nint.Add(
+            fListPointer,
             Omsi23004MemoryProfile.TListItemsOffset));
-        if (itemsAddress <= 0x10000)
+        if (itemsAddress <= 0x10000u)
         {
             return nint.Zero;
         }
 
-        var vehicleAddress = memory.ReadInt32(nint.Add(
-            new nint(itemsAddress),
+        var itemsPointer = ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
+        var vehicleAddress = memory.ReadUInt32(nint.Add(
+            itemsPointer,
             checked(playerVehicleIndex * sizeof(int))));
 
-        return vehicleAddress > 0x10000
-            ? new nint(vehicleAddress)
+        return vehicleAddress > 0x10000u
+            ? ReadOnlyProcessMemory.PointerFromUInt32(vehicleAddress)
             : nint.Zero;
     }
 
@@ -205,18 +206,18 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
         try
         {
-            var mapAddress = memory.ReadInt32(
+            var mapAddress = memory.ReadUInt32(
                 memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
-            var navigationVehicleAddress = memory.ReadInt32(
+            var navigationVehicleAddress = memory.ReadUInt32(
                 memory.AddressFromRva(Omsi23004MemoryProfile.NavigationVehiclePointerRva));
 
-            if (mapAddress <= 0x10000 || navigationVehicleAddress <= 0x10000)
+            if (mapAddress <= 0x10000u || navigationVehicleAddress <= 0x10000u)
             {
                 return false;
             }
 
-            var mapPointer = new nint(mapAddress);
-            var navigationVehiclePointer = new nint(navigationVehicleAddress);
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            var navigationVehiclePointer = ReadOnlyProcessMemory.PointerFromUInt32(navigationVehicleAddress);
 
             gridX = memory.ReadInt32(nint.Add(
                 mapPointer,
@@ -235,8 +236,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
         catch
         {
-            // Navigation coordinates are supplementary. A map/layout mismatch
-            // must not take down the primary telemetry provider.
             return false;
         }
     }
@@ -247,31 +246,46 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     {
         mapLoaded = false;
 
-        var mapAddress = memory.ReadInt32(
-            memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
-        if (mapAddress <= 0x10000)
+        try
+        {
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return null;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+
+            // MapLoaded is supplementary. If this byte differs in a compatible
+            // build, a valid TMap.name still proves that a map is loaded.
+            try
+            {
+                mapLoaded = memory.ReadByte(nint.Add(
+                    mapPointer,
+                    Omsi23004MemoryProfile.MapLoadedOffset)) != 0;
+            }
+            catch
+            {
+                mapLoaded = false;
+            }
+
+            var mapName = memory.ReadNullTerminatedUnicodeStringField(
+                nint.Add(mapPointer, Omsi23004MemoryProfile.MapNameOffset),
+                maxCharacters: 128);
+
+            if (!string.IsNullOrWhiteSpace(mapName))
+            {
+                mapLoaded = true;
+                return mapName;
+            }
+
+            return null;
+        }
+        catch
         {
             return null;
         }
-
-        var mapPointer = new nint(mapAddress);
-        mapLoaded = memory.ReadByte(nint.Add(
-            mapPointer,
-            Omsi23004MemoryProfile.MapLoadedOffset)) != 0;
-
-        // OMSI stores TMap.name (+0x150) as a wchar_t* to a null-terminated
-        // UTF-16 string. It is not a Delphi length-prefixed UnicodeString.
-        var mapName = memory.ReadNullTerminatedUnicodeStringField(
-            nint.Add(mapPointer, Omsi23004MemoryProfile.MapNameOffset),
-            maxCharacters: 128);
-
-        if (!string.IsNullOrWhiteSpace(mapName))
-        {
-            mapLoaded = true;
-            return mapName;
-        }
-
-        return null;
     }
 
     private static double QuaternionToHeadingDegrees(MemoryQuaternion q)
