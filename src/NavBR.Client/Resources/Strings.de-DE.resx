@@ -45,4 +45,32 @@
   <data name="GpsFitMap" xml:space="preserve"><value>Anpassen</value></data>
   <data name="GpsFollowBus" xml:space="preserve"><value>Bus folgen</value></data>
   <data name="GpsAlwaysOnTop" xml:space="preserve"><value>Immer im Vordergrund</value></data>
+  <data name="MultiplayerOpen" xml:space="preserve"><value>Mehrspieler</value></data>
+  <data name="MultiplayerWindowTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer • Online</value></data>
+  <data name="MultiplayerHeading" xml:space="preserve"><value>Online-Mehrspieler</value></data>
+  <data name="MultiplayerDescription" xml:space="preserve"><value>Einem Raum beitreten, um OMSI-Telemetrie zu teilen und andere Fahrer in NavBR zu sehen.</value></data>
+  <data name="MultiplayerServer" xml:space="preserve"><value>Server</value></data>
+  <data name="MultiplayerRoom" xml:space="preserve"><value>Raum</value></data>
+  <data name="MultiplayerNickname" xml:space="preserve"><value>Spitzname</value></data>
+  <data name="MultiplayerLocalMap" xml:space="preserve"><value>Lokale Karte</value></data>
+  <data name="MultiplayerPlayers" xml:space="preserve"><value>Spieler im Raum</value></data>
+  <data name="MultiplayerFooter" xml:space="preserve"><value>Es werden nur Spiel- und Sitzungsdaten gesendet. NavBR sendet keinen realen Standort.</value></data>
+  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Server, Raum und Spitzname ausfüllen.</value></data>
+  <data name="MultiplayerConnectingDetail" xml:space="preserve"><value>Verbindung wird geöffnet und dem Raum beigetreten...</value></data>
+  <data name="MultiplayerConnectionError" xml:space="preserve"><value>Verbindung fehlgeschlagen: {0}</value></data>
+  <data name="MultiplayerTelemetryError" xml:space="preserve"><value>Telemetrie konnte nicht gesendet werden: {0}</value></data>
+  <data name="MultiplayerYouMarker" xml:space="preserve"><value>DU</value></data>
+  <data name="MultiplayerNoPlayers" xml:space="preserve"><value>Noch keine Spieler im Raum.</value></data>
+  <data name="MultiplayerPlayerCount" xml:space="preserve"><value>{0} Spieler</value></data>
+  <data name="MultiplayerDifferentMap" xml:space="preserve"><value>andere Karte</value></data>
+  <data name="MultiplayerDistance" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="MultiplayerConnected" xml:space="preserve"><value>Verbunden</value></data>
+  <data name="MultiplayerConnectedDetail" xml:space="preserve"><value>Raum: {0}</value></data>
+  <data name="MultiplayerConnecting" xml:space="preserve"><value>Verbinden...</value></data>
+  <data name="MultiplayerReconnecting" xml:space="preserve"><value>Neu verbinden...</value></data>
+  <data name="MultiplayerReconnectingDetail" xml:space="preserve"><value>Die Verbindung wurde unterbrochen. NavBR versucht automatisch erneut beizutreten.</value></data>
+  <data name="MultiplayerDisconnected" xml:space="preserve"><value>Getrennt</value></data>
+  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Server und Raum eingeben, um online zu spielen.</value></data>
+  <data name="MultiplayerConnect" xml:space="preserve"><value>Verbinden</value></data>
+  <data name="MultiplayerDisconnect" xml:space="preserve"><value>Trennen</value></data>
 </root>
