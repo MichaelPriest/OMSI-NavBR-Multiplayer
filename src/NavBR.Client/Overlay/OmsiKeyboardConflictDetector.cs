@@ -103,7 +103,7 @@ internal static class OmsiKeyboardConflictDetector
                 continue;
             }
 
-            if (value.StartsWith('[', StringComparison.Ordinal))
+            if (value.StartsWith("[", StringComparison.Ordinal))
             {
                 index--;
                 return null;
