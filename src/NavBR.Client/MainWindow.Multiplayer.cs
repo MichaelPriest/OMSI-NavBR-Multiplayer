@@ -21,6 +21,7 @@ public partial class MainWindow
     private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RemoteMotionSmoother> _remotePlayerMotion = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
+    private bool _hudLifetimeHooked;
 
     private void MultiplayerButton_Loaded(object sender, RoutedEventArgs e)
     {
@@ -29,6 +30,7 @@ public partial class MainWindow
         // O mini HUD faz parte do NavBR base. Multiplayer apenas acrescenta
         // jogadores remotos, chat e voz ao mesmo overlay.
         EnsureHudOverlay();
+        HookHudLifetimeToMainWindow();
 
         if (_multiplayerLocalizationHooked)
         {
@@ -37,6 +39,27 @@ public partial class MainWindow
 
         _multiplayerLocalizationHooked = true;
         LanguageComboBox.SelectionChanged += (_, _) => LocalizeMultiplayerButton();
+    }
+
+    private void HookHudLifetimeToMainWindow()
+    {
+        if (_hudLifetimeHooked)
+        {
+            return;
+        }
+
+        _hudLifetimeHooked = true;
+        Closed += (_, _) =>
+        {
+            StopHudRefreshTimer();
+            StopRemoteMotionTimer();
+
+            if (_hudOverlay is not null)
+            {
+                _hudOverlay.Close();
+                _hudOverlay = null;
+            }
+        };
     }
 
     private void LocalizeMultiplayerButton()
