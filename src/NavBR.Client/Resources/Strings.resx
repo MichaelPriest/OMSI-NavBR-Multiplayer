@@ -55,7 +55,7 @@
   <data name="MultiplayerLocalMap" xml:space="preserve"><value>Local map</value></data>
   <data name="MultiplayerPlayers" xml:space="preserve"><value>Players in the room</value></data>
   <data name="MultiplayerFooter" xml:space="preserve"><value>Only game/session data is sent. NavBR does not send your real-world location.</value></data>
-  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Fill in server, room and nickname.</value></data>
+  <data name="MultiplayerRequiredFields" xml:space="preserve"><value>Fill in host address, room and nickname.</value></data>
   <data name="MultiplayerConnectingDetail" xml:space="preserve"><value>Opening the connection and joining the room...</value></data>
   <data name="MultiplayerConnectionError" xml:space="preserve"><value>Could not connect: {0}</value></data>
   <data name="MultiplayerTelemetryError" xml:space="preserve"><value>Could not send telemetry: {0}</value></data>
@@ -70,7 +70,22 @@
   <data name="MultiplayerReconnecting" xml:space="preserve"><value>Reconnecting...</value></data>
   <data name="MultiplayerReconnectingDetail" xml:space="preserve"><value>The connection dropped. NavBR is trying to rejoin automatically.</value></data>
   <data name="MultiplayerDisconnected" xml:space="preserve"><value>Disconnected</value></data>
-  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Enter a server and room to play online.</value></data>
+  <data name="MultiplayerDisconnectedDetail" xml:space="preserve"><value>Create a room on this PC or enter a host address to join one.</value></data>
   <data name="MultiplayerConnect" xml:space="preserve"><value>Connect</value></data>
   <data name="MultiplayerDisconnect" xml:space="preserve"><value>Disconnect</value></data>
+  <data name="MultiplayerPeerDescription" xml:space="preserve"><value>Create a room and this PC becomes its server, or join a room hosted by another driver. The in-game HUD includes a compact minimap, text chat and push-to-talk voice.</value></data>
+  <data name="MultiplayerHostAddress" xml:space="preserve"><value>Host address</value></data>
+  <data name="MultiplayerVoiceEnabled" xml:space="preserve"><value>Enable voice chat (hold N to talk)</value></data>
+  <data name="MultiplayerChat" xml:space="preserve"><value>Text chat</value></data>
+  <data name="MultiplayerSend" xml:space="preserve"><value>Send</value></data>
+  <data name="MultiplayerPeerFooter" xml:space="preserve"><value>The room creator's PC hosts the session. LAN works directly; Internet play may require TCP port 27730 in the firewall/router. T opens the in-game chat and N is push-to-talk.</value></data>
+  <data name="MultiplayerVoiceError" xml:space="preserve"><value>Voice chat error: {0}</value></data>
+  <data name="MultiplayerHostError" xml:space="preserve"><value>Could not host the room: {0}</value></data>
+  <data name="MultiplayerJoinRoom" xml:space="preserve"><value>Join room</value></data>
+  <data name="MultiplayerStopHosting" xml:space="preserve"><value>Stop hosting</value></data>
+  <data name="MultiplayerCreateRoom" xml:space="preserve"><value>Create room on this PC</value></data>
+  <data name="MultiplayerHostingPort" xml:space="preserve"><value>Hosting on TCP port {0}. Share this PC's reachable address with the other players.</value></data>
+  <data name="MultiplayerInviteAddress" xml:space="preserve"><value>LAN address: {0} • room: {1}</value></data>
+  <data name="MultiplayerChatError" xml:space="preserve"><value>Could not send chat message: {0}</value></data>
+  <data name="MultiplayerDifferentMapBuild" xml:space="preserve"><value>different map build</value></data>
 </root>
