@@ -6,6 +6,8 @@ namespace NavBR.Client.Maps;
 public static class OmsiMapLayoutReader
 {
     private const double StandardTileSize = 300d;
+    private const double EarthRadiusMeters = 6378137d;
+    private const double RealWorldTileCount = 65536d;
 
     public static OmsiMapLayout? TryRead(string globalConfigPath)
     {
@@ -48,16 +50,40 @@ public static class OmsiMapLayoutReader
             return null;
         }
 
-        // [worldcoordinates] changes how OMSI relates the map to geographic
-        // coordinates, but the OMSI map grid is still composed of 300 x 300 m
-        // tiles. Keeping the standard tile size lets the roadmap renderer use
-        // the same local grid/tile coordinates on both map types.
+        var minGridX = gridCoordinates.Min(tile => tile.X);
+        var minGridY = gridCoordinates.Min(tile => tile.Y);
+        var maxGridX = gridCoordinates.Max(tile => tile.X);
+        var maxGridY = gridCoordinates.Max(tile => tile.Y);
+
+        var tileSize = usesWorldCoordinates
+            ? CalculateWorldCoordinateTileSize((minGridY + maxGridY) / 2d)
+            : StandardTileSize;
+
         return new OmsiMapLayout(
-            MinGridX: gridCoordinates.Min(tile => tile.X),
-            MinGridY: gridCoordinates.Min(tile => tile.Y),
-            MaxGridX: gridCoordinates.Max(tile => tile.X),
-            MaxGridY: gridCoordinates.Max(tile => tile.Y),
+            MinGridX: minGridX,
+            MinGridY: minGridY,
+            MaxGridX: maxGridX,
+            MaxGridY: maxGridY,
             UsesWorldCoordinates: usesWorldCoordinates,
-            TileSize: StandardTileSize);
+            TileSize: tileSize);
+    }
+
+    /// <summary>
+    /// OMSI world-coordinate maps use a Mercator grid with 2^16 tiles around
+    /// the globe. Their physical tile width therefore varies with latitude.
+    /// The OMSI grid Y value can be converted to latitude directly; using the
+    /// map's centre tile keeps the scale stable across the roadmap.
+    /// </summary>
+    private static double CalculateWorldCoordinateTileSize(double gridY)
+    {
+        var latitudeRadians = Math.Atan(Math.Sinh(
+            Math.PI * (2d * gridY / RealWorldTileCount)));
+
+        var earthCircumference = 2d * Math.PI * EarthRadiusMeters;
+        var tileSize = earthCircumference / RealWorldTileCount * Math.Cos(latitudeRadians);
+
+        return double.IsFinite(tileSize) && tileSize > 0d
+            ? tileSize
+            : StandardTileSize;
     }
 }
