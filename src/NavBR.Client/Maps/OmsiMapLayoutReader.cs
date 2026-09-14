@@ -48,12 +48,16 @@ public static class OmsiMapLayoutReader
             return null;
         }
 
+        // [worldcoordinates] changes how OMSI relates the map to geographic
+        // coordinates, but the OMSI map grid is still composed of 300 x 300 m
+        // tiles. Keeping the standard tile size lets the roadmap renderer use
+        // the same local grid/tile coordinates on both map types.
         return new OmsiMapLayout(
             MinGridX: gridCoordinates.Min(tile => tile.X),
             MinGridY: gridCoordinates.Min(tile => tile.Y),
             MaxGridX: gridCoordinates.Max(tile => tile.X),
             MaxGridY: gridCoordinates.Max(tile => tile.Y),
             UsesWorldCoordinates: usesWorldCoordinates,
-            TileSize: usesWorldCoordinates ? null : StandardTileSize);
+            TileSize: StandardTileSize);
     }
 }
