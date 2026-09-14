@@ -259,21 +259,19 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             mapPointer,
             Omsi23004MemoryProfile.MapLoadedOffset)) != 0;
 
-        // TMap + 0x150 is the canonical map name used by OMSI. Keep the
-        // adjacent friendly-name field only as a fallback for installations
-        // where the canonical field is blank.
-        var mapName = memory.ReadDelphiUnicodeStringField(nint.Add(
-            mapPointer,
-            Omsi23004MemoryProfile.MapNameOffset));
+        // OMSI stores TMap.name (+0x150) as a wchar_t* to a null-terminated
+        // UTF-16 string. It is not a Delphi length-prefixed UnicodeString.
+        var mapName = memory.ReadNullTerminatedUnicodeStringField(
+            nint.Add(mapPointer, Omsi23004MemoryProfile.MapNameOffset),
+            maxCharacters: 128);
 
         if (!string.IsNullOrWhiteSpace(mapName))
         {
+            mapLoaded = true;
             return mapName;
         }
 
-        return memory.ReadDelphiUnicodeStringField(nint.Add(
-            mapPointer,
-            Omsi23004MemoryProfile.MapFriendlyNameOffset));
+        return null;
     }
 
     private static double QuaternionToHeadingDegrees(MemoryQuaternion q)
