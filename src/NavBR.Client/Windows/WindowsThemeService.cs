@@ -10,18 +10,13 @@ internal static class WindowsThemeService
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaUseImmersiveDarkModeLegacy = 19;
 
-    public static void AttachDarkTitleBar(Window window)
+    public static void ApplyDarkTitleBar(Window window)
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows() || window.WindowStyle == WindowStyle.None)
         {
             return;
         }
 
-        window.SourceInitialized += (_, _) => ApplyDarkTitleBar(window);
-    }
-
-    private static void ApplyDarkTitleBar(Window window)
-    {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero)
         {
