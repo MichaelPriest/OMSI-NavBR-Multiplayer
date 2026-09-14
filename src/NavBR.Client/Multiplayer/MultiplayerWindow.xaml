@@ -67,6 +67,7 @@
                             Padding="14,8"
                             Margin="0,0,8,0"
                             IsEnabled="False"
+                            Loaded="CopyInviteButton_Loaded"
                             Click="CopyInviteButton_Click" />
                     <TextBlock x:Name="InviteAddressText"
                                Margin="8,0,0,0"
