@@ -5,19 +5,32 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
-  <data name="Tagline" xml:space="preserve"><value>GPS y multijugador independiente de Steam</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS, telemetría en vivo y multijugador independiente de Steam</value></data>
   <data name="LanguageLabel" xml:space="preserve"><value>Idioma</value></data>
   <data name="StatusHeading" xml:space="preserve"><value>Estado de OMSI</value></data>
   <data name="StatusSearching" xml:space="preserve"><value>Buscando Omsi.exe...</value></data>
   <data name="RedetectButton" xml:space="preserve"><value>Detectar de nuevo</value></data>
-  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Primer hito</value></data>
-  <data name="FirstMilestoneBody" xml:space="preserve"><value>Esta versión inicial valida la detección de OMSI sin Steam. La siguiente etapa conecta el lector de memoria, el mapa GPS y el servidor multijugador.</value></data>
-  <data name="PhaseFooter" xml:space="preserve"><value>Fase 0 • detección del proceso / base de compatibilidad</value></data>
-  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI no se está ejecutando.</value></data>
-  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Abre OMSI 2 y haz clic en Detectar de nuevo.</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Diagnóstico de la Fase 1</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>NavBR abre el proceso de OMSI únicamente con permisos de lectura. La versión y el SHA-256 del ejecutable se muestran aquí para validar los perfiles de compatibilidad de forma segura.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Fase 1 • telemetría en vivo / OMSI 2.3.004</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI no está en ejecución.</value></data>
+  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Abre OMSI 2 y pulsa Detectar de nuevo.</value></data>
   <data name="NoProcessFound" xml:space="preserve"><value>No se encontró ningún proceso Omsi.exe.</value></data>
   <data name="OmsiDetected" xml:space="preserve"><value>OMSI detectado</value></data>
   <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
   <data name="VersionLabel" xml:space="preserve"><value>Versión</value></data>
   <data name="ExecutableLabel" xml:space="preserve"><value>Ejecutable</value></data>
+  <data name="HashLabel" xml:space="preserve"><value>SHA-256</value></data>
+  <data name="TelemetryHeading" xml:space="preserve"><value>Telemetría del vehículo en vivo</value></data>
+  <data name="TelemetryWaiting" xml:space="preserve"><value>Esperando datos del vehículo...</value></data>
+  <data name="TelemetryConnecting" xml:space="preserve"><value>Conectando a la telemetría de OMSI...</value></data>
+  <data name="TelemetryConnected" xml:space="preserve"><value>OMSI detectado • telemetría conectada</value></data>
+  <data name="TelemetryAttachFailed" xml:space="preserve"><value>OMSI fue detectado, pero no se pudo conectar la telemetría.</value></data>
+  <data name="TelemetryReadError" xml:space="preserve"><value>La telemetría está conectada, pero los datos del vehículo aún no están disponibles.</value></data>
+  <data name="UnsupportedVersion" xml:space="preserve"><value>OMSI fue detectado, pero esta versión del ejecutable aún no es compatible con la telemetría en vivo.</value></data>
+  <data name="MapLabel" xml:space="preserve"><value>Mapa</value></data>
+  <data name="PositionLabel" xml:space="preserve"><value>Posición</value></data>
+  <data name="HeadingLabel" xml:space="preserve"><value>Dirección</value></data>
+  <data name="SpeedLabel" xml:space="preserve"><value>Velocidad</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>No disponible</value></data>
 </root>
