@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS et multijoueur indépendants de Steam</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>Langue</value></data>
+  <data name="StatusHeading" xml:space="preserve"><value>État d’OMSI</value></data>
+  <data name="StatusSearching" xml:space="preserve"><value>Recherche de Omsi.exe...</value></data>
+  <data name="RedetectButton" xml:space="preserve"><value>Détecter à nouveau</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Premier jalon</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>Cette première version valide la détection d’OMSI sans Steam. L’étape suivante connecte le lecteur mémoire, la carte GPS et le serveur multijoueur.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Phase 0 • détection du processus / base de compatibilité</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI n’est pas en cours d’exécution.</value></data>
+  <data name="OpenOmsiInstruction" xml:space="preserve"><value>Lancez OMSI 2 puis cliquez sur Détecter à nouveau.</value></data>
+  <data name="NoProcessFound" xml:space="preserve"><value>Aucun processus Omsi.exe trouvé.</value></data>
+  <data name="OmsiDetected" xml:space="preserve"><value>OMSI détecté</value></data>
+  <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
+  <data name="VersionLabel" xml:space="preserve"><value>Version</value></data>
+  <data name="ExecutableLabel" xml:space="preserve"><value>Exécutable</value></data>
+</root>
