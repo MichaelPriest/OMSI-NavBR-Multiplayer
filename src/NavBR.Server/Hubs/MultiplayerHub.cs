@@ -65,6 +65,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         };
 
         var updatedPresence = registry.UpdateMap(Context.ConnectionId, safeTelemetry.MapName);
+        var currentPresence = updatedPresence ?? presence;
+
         if (updatedPresence is not null)
         {
             await Clients.Group(presence.RoomId).SendAsync("playerPresenceChanged", updatedPresence);
@@ -72,7 +74,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 
         await Clients
             .OthersInGroup(presence.RoomId)
-            .SendAsync("telemetry", safeTelemetry);
+            .SendAsync("telemetry", new PlayerTelemetryFrame(currentPresence, safeTelemetry));
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -108,8 +110,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             throw new HubException("Telemetry contains invalid numeric values.");
         }
 
-        if (telemetry.TileX is double tileX && !double.IsFinite(tileX) ||
-            telemetry.TileY is double tileY && !double.IsFinite(tileY))
+        if ((telemetry.TileX is double tileX && !double.IsFinite(tileX)) ||
+            (telemetry.TileY is double tileY && !double.IsFinite(tileY)))
         {
             throw new HubException("Telemetry contains invalid tile coordinates.");
         }
