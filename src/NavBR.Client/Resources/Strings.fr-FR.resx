@@ -5,19 +5,32 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="AppTitle" xml:space="preserve"><value>OMSI NavBR Multiplayer</value></data>
-  <data name="Tagline" xml:space="preserve"><value>GPS et multijoueur indépendants de Steam</value></data>
+  <data name="Tagline" xml:space="preserve"><value>GPS, télémétrie en direct et multijoueur indépendant de Steam</value></data>
   <data name="LanguageLabel" xml:space="preserve"><value>Langue</value></data>
-  <data name="StatusHeading" xml:space="preserve"><value>État d’OMSI</value></data>
+  <data name="StatusHeading" xml:space="preserve"><value>État d'OMSI</value></data>
   <data name="StatusSearching" xml:space="preserve"><value>Recherche de Omsi.exe...</value></data>
   <data name="RedetectButton" xml:space="preserve"><value>Détecter à nouveau</value></data>
-  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Premier jalon</value></data>
-  <data name="FirstMilestoneBody" xml:space="preserve"><value>Cette première version valide la détection d’OMSI sans Steam. L’étape suivante connecte le lecteur mémoire, la carte GPS et le serveur multijoueur.</value></data>
-  <data name="PhaseFooter" xml:space="preserve"><value>Phase 0 • détection du processus / base de compatibilité</value></data>
-  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI n’est pas en cours d’exécution.</value></data>
+  <data name="FirstMilestoneHeading" xml:space="preserve"><value>Diagnostic de la phase 1</value></data>
+  <data name="FirstMilestoneBody" xml:space="preserve"><value>NavBR ouvre le processus OMSI en cours d'exécution avec des droits de lecture uniquement. La version et le SHA-256 de l'exécutable sont affichés ici afin de valider les profils de compatibilité en toute sécurité.</value></data>
+  <data name="PhaseFooter" xml:space="preserve"><value>Phase 1 • télémétrie en direct / OMSI 2.3.004</value></data>
+  <data name="OmsiNotRunning" xml:space="preserve"><value>OMSI n'est pas en cours d'exécution.</value></data>
   <data name="OpenOmsiInstruction" xml:space="preserve"><value>Lancez OMSI 2 puis cliquez sur Détecter à nouveau.</value></data>
   <data name="NoProcessFound" xml:space="preserve"><value>Aucun processus Omsi.exe trouvé.</value></data>
   <data name="OmsiDetected" xml:space="preserve"><value>OMSI détecté</value></data>
   <data name="PidLabel" xml:space="preserve"><value>PID</value></data>
   <data name="VersionLabel" xml:space="preserve"><value>Version</value></data>
   <data name="ExecutableLabel" xml:space="preserve"><value>Exécutable</value></data>
+  <data name="HashLabel" xml:space="preserve"><value>SHA-256</value></data>
+  <data name="TelemetryHeading" xml:space="preserve"><value>Télémétrie du véhicule en direct</value></data>
+  <data name="TelemetryWaiting" xml:space="preserve"><value>En attente des données du véhicule...</value></data>
+  <data name="TelemetryConnecting" xml:space="preserve"><value>Connexion à la télémétrie OMSI...</value></data>
+  <data name="TelemetryConnected" xml:space="preserve"><value>OMSI détecté • télémétrie connectée</value></data>
+  <data name="TelemetryAttachFailed" xml:space="preserve"><value>OMSI a été détecté, mais la télémétrie n'a pas pu être connectée.</value></data>
+  <data name="TelemetryReadError" xml:space="preserve"><value>La télémétrie est connectée, mais les données du véhicule ne sont pas encore disponibles.</value></data>
+  <data name="UnsupportedVersion" xml:space="preserve"><value>OMSI a été détecté, mais cette version de l'exécutable n'est pas encore prise en charge pour la télémétrie en direct.</value></data>
+  <data name="MapLabel" xml:space="preserve"><value>Carte</value></data>
+  <data name="PositionLabel" xml:space="preserve"><value>Position</value></data>
+  <data name="HeadingLabel" xml:space="preserve"><value>Direction</value></data>
+  <data name="SpeedLabel" xml:space="preserve"><value>Vitesse</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Indisponible</value></data>
 </root>

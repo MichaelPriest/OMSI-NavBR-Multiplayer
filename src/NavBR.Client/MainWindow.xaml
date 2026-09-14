@@ -1,63 +1,98 @@
 <Window x:Class="NavBR.Client.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OMSI NavBR Multiplayer" Height="440" Width="780"
-        MinHeight="380" MinWidth="680">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        Title="OMSI NavBR Multiplayer" Height="650" Width="820"
+        MinHeight="560" MinWidth="720">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel>
-                <TextBlock Text="OMSI NavBR Multiplayer" FontSize="28" FontWeight="SemiBold" />
-                <TextBlock x:Name="TaglineText" Margin="0,4,0,0" Opacity="0.7" />
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                <TextBlock x:Name="LanguageLabelText" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox x:Name="LanguageComboBox"
-                          Width="170"
-                          SelectionChanged="LanguageComboBox_SelectionChanged" />
-            </StackPanel>
-        </Grid>
-
-        <Border Grid.Row="1" Margin="0,24,0,16" Padding="16" BorderThickness="1" CornerRadius="8">
-            <Grid>
+            <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+
                 <StackPanel>
-                    <TextBlock x:Name="StatusHeadingText" FontWeight="SemiBold" />
-                    <TextBlock x:Name="StatusText" Margin="0,6,0,0" />
-                    <TextBlock x:Name="InstallPathText" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.7" />
+                    <TextBlock Text="OMSI NavBR Multiplayer" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TaglineText" Margin="0,4,0,0" Opacity="0.7" />
                 </StackPanel>
-                <Button x:Name="RefreshButton"
-                        Grid.Column="1"
-                        Padding="14,8"
-                        Margin="16,0,0,0"
-                        Click="RefreshButton_Click" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <TextBlock x:Name="LanguageLabelText" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="LanguageComboBox"
+                              Width="170"
+                              SelectionChanged="LanguageComboBox_SelectionChanged" />
+                </StackPanel>
             </Grid>
-        </Border>
 
-        <Border Grid.Row="2" BorderThickness="1" CornerRadius="8" Padding="16">
-            <StackPanel>
-                <TextBlock x:Name="MilestoneHeadingText" FontWeight="SemiBold" FontSize="16" />
-                <TextBlock x:Name="MilestoneBodyText" Margin="0,10,0,0" TextWrapping="Wrap" />
-                <Separator Margin="0,16" />
-                <TextBlock x:Name="ProcessDetailsText" FontFamily="Consolas" TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
+            <Border Grid.Row="1" Margin="0,24,0,16" Padding="16" BorderThickness="1" CornerRadius="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock x:Name="StatusHeadingText" FontWeight="SemiBold" />
+                        <TextBlock x:Name="StatusText" Margin="0,6,0,0" />
+                        <TextBlock x:Name="InstallPathText" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.7" />
+                    </StackPanel>
+                    <Button x:Name="RefreshButton"
+                            Grid.Column="1"
+                            Padding="14,8"
+                            Margin="16,0,0,0"
+                            Click="RefreshButton_Click" />
+                </Grid>
+            </Border>
 
-        <TextBlock x:Name="PhaseFooterText" Grid.Row="3" Margin="0,16,0,0" Opacity="0.6" />
-    </Grid>
+            <Border Grid.Row="2" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock x:Name="TelemetryHeadingText" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock x:Name="TelemetryStateText" Margin="0,6,0,14" Opacity="0.7" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="MapCaptionText" Grid.Row="0" Grid.Column="0" FontWeight="SemiBold" Margin="0,0,8,10" />
+                        <TextBlock x:Name="MapValueText" Grid.Row="0" Grid.Column="1" Margin="0,0,24,10" TextWrapping="Wrap" />
+
+                        <TextBlock x:Name="SpeedCaptionText" Grid.Row="0" Grid.Column="2" FontWeight="SemiBold" Margin="0,0,8,10" />
+                        <TextBlock x:Name="SpeedValueText" Grid.Row="0" Grid.Column="3" Margin="0,0,0,10" />
+
+                        <TextBlock x:Name="PositionCaptionText" Grid.Row="1" Grid.Column="0" FontWeight="SemiBold" Margin="0,0,8,0" />
+                        <TextBlock x:Name="PositionValueText" Grid.Row="1" Grid.Column="1" Margin="0,0,24,0" FontFamily="Consolas" />
+
+                        <TextBlock x:Name="HeadingCaptionText" Grid.Row="1" Grid.Column="2" FontWeight="SemiBold" Margin="0,0,8,0" />
+                        <TextBlock x:Name="HeadingValueText" Grid.Row="1" Grid.Column="3" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="3" Margin="0,16,0,0" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock x:Name="MilestoneHeadingText" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock x:Name="MilestoneBodyText" Margin="0,8,0,12" TextWrapping="Wrap" Opacity="0.7" />
+                    <Separator Margin="0,0,0,12" />
+                    <TextBlock x:Name="ProcessDetailsText" FontFamily="Consolas" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="PhaseFooterText" Grid.Row="4" Margin="0,16,0,0" Opacity="0.6" />
+        </Grid>
+    </ScrollViewer>
 </Window>

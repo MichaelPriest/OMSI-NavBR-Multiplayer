@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO;
+using System.Security.Cryptography;
 
 namespace NavBR.Client.Omsi;
 
@@ -25,12 +27,14 @@ public sealed class OmsiProcessDetector
                 }
 
                 var version = FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "unknown";
+                var sha256 = ComputeSha256(executablePath);
 
                 results.Add(new OmsiProcessInfo(
                     process.Id,
                     executablePath,
                     installDirectory,
-                    version));
+                    version,
+                    sha256));
             }
             catch (Exception)
             {
@@ -40,5 +44,11 @@ public sealed class OmsiProcessDetector
         }
 
         return results;
+    }
+
+    private static string ComputeSha256(string filePath)
+    {
+        using var stream = File.OpenRead(filePath);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 }
