@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
 using NavBR.Client.Multiplayer;
@@ -14,6 +15,7 @@ public partial class MainWindow
 {
     private MultiplayerWindow? _multiplayerWindow;
     private HudOverlayWindow? _hudOverlay;
+    private DispatcherTimer? _hudStateTimer;
     private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
 
@@ -85,6 +87,7 @@ public partial class MainWindow
         {
             ClearRemotePlayerMarkers();
             _multiplayerWindow = null;
+            StopHudRefreshTimer();
             if (_hudOverlay is not null)
             {
                 _hudOverlay.Close();
@@ -101,6 +104,7 @@ public partial class MainWindow
     {
         if (_hudOverlay is not null)
         {
+            StartHudRefreshTimer();
             return _hudOverlay;
         }
 
@@ -113,10 +117,35 @@ public partial class MainWindow
             {
                 _hudOverlay = null;
             }
+
+            StopHudRefreshTimer();
         };
         _hudOverlay = hud;
         hud.Show();
+        StartHudRefreshTimer();
         return hud;
+    }
+
+    private void StartHudRefreshTimer()
+    {
+        if (_hudStateTimer is null)
+        {
+            _hudStateTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            _hudStateTimer.Tick += (_, _) => UpdateHudLocalState();
+        }
+
+        if (!_hudStateTimer.IsEnabled)
+        {
+            _hudStateTimer.Start();
+        }
+    }
+
+    private void StopHudRefreshTimer()
+    {
+        _hudStateTimer?.Stop();
     }
 
     private void UpdateHudLocalState()
