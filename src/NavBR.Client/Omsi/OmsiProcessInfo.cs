@@ -4,7 +4,7 @@ public sealed record OmsiProcessInfo(
     int ProcessId,
     string ExecutablePath,
     string InstallDirectory,
-    string FileVersion,
+    string ExecutableFileVersion,
     string Sha256,
     string? RuntimeVersion = null)
 {
@@ -15,8 +15,12 @@ public sealed record OmsiProcessInfo(
     /// </summary>
     public string EffectiveVersion =>
         string.IsNullOrWhiteSpace(RuntimeVersion)
-            ? FileVersion
+            ? ExecutableFileVersion
             : RuntimeVersion!;
+
+    // Existing UI/diagnostics use FileVersion. Expose the effective runtime
+    // version there while retaining the raw PE metadata separately above.
+    public string FileVersion => EffectiveVersion;
 
     public bool IsOmsi22032 =>
         EffectiveVersion.Contains("2.2.032", StringComparison.OrdinalIgnoreCase) ||
