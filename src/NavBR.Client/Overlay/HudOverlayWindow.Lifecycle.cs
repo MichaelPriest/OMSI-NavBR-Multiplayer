@@ -55,6 +55,7 @@ public partial class HudOverlayWindow
 
     private void HudVisibilityTimer_Tick(object? sender, EventArgs e)
     {
+        RefreshOmsiHotkeyConflicts();
         RefreshHudChrome();
         RefreshHudVisibility();
     }
@@ -67,7 +68,24 @@ public partial class HudOverlayWindow
         PlayerCountText.Text = playerCount.ToString(LocalizationService.CurrentCulture);
         PlayerCountText.ToolTip = LocalizationService.Format("MultiplayerPlayerCount", playerCount);
         ChatInputLabelText.Text = LocalizationService.Get("MultiplayerChat").ToUpper(LocalizationService.CurrentCulture);
-        HudShortcutsText.Text = $"  •  F9: {LocalizationService.Get("MultiplayerChat")}  •  F10: PTT";
+
+        var chatShortcut = _chatHotkeyAvailable
+            ? $"F9: {LocalizationService.Get("MultiplayerChat")}"
+            : "F9: OMSI";
+        var voiceShortcut = _voiceHotkeyAvailable ? "F10: PTT" : "F10: OMSI";
+        HudShortcutsText.Text = $"  •  {chatShortcut}  •  {voiceShortcut}";
+
+        var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
+        HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
+        if (hasHotkeyConflict)
+        {
+            HotkeyWarningText.Text = !_chatHotkeyAvailable && !_voiceHotkeyAvailable
+                ? LocalizationService.Get("HudHotkeyConflictBoth")
+                : !_chatHotkeyAvailable
+                    ? LocalizationService.Get("HudHotkeyConflictChat")
+                    : LocalizationService.Get("HudHotkeyConflictVoice");
+            HotkeyWarningPanel.ToolTip = BuildHotkeyConflictTooltip();
+        }
 
         if (connected)
         {
