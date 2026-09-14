@@ -14,6 +14,7 @@ public sealed class VoiceChatService : IDisposable
     public const int FrameMilliseconds = 20;
     public const int FrameSamples = SampleRate * FrameMilliseconds / 1000;
     private const int MaxOpusPacketBytes = 1275;
+    private const int RemoteBufferMilliseconds = 300;
 
     private readonly IOpusEncoder _encoder;
     private readonly WaveInEvent _capture;
@@ -198,10 +199,10 @@ public sealed class VoiceChatService : IDisposable
             var sampleCount = e.BytesRecorded / sizeof(short);
             var samples = new short[sampleCount];
             Buffer.BlockCopy(e.Buffer, 0, samples, 0, sampleCount * sizeof(short));
+            var encoded = new byte[MaxOpusPacketBytes];
 
             for (var offset = 0; offset + FrameSamples <= sampleCount; offset += FrameSamples)
             {
-                Span<byte> encoded = stackalloc byte[MaxOpusPacketBytes];
                 var length = _encoder.Encode(
                     samples.AsSpan(offset, FrameSamples),
                     FrameSamples,
@@ -213,7 +214,7 @@ public sealed class VoiceChatService : IDisposable
                     continue;
                 }
 
-                var payload = encoded[..length].ToArray();
+                var payload = encoded.AsSpan(0, length).ToArray();
                 EncodedFrameReady?.Invoke(Interlocked.Increment(ref _sequence), payload);
             }
         }
@@ -226,9 +227,10 @@ public sealed class VoiceChatService : IDisposable
     private RemoteVoiceStream CreateRemoteStream()
     {
         var decoder = OpusCodecFactory.CreateDecoder(SampleRate, Channels);
-        var buffer = new BufferedWaveProvider(new WaveFormat(SampleRate, 16, Channels))
+        var waveFormat = new WaveFormat(SampleRate, 16, Channels);
+        var buffer = new BufferedWaveProvider(waveFormat)
         {
-            BufferDuration = TimeSpan.FromMilliseconds(300),
+            BufferLength = waveFormat.AverageBytesPerSecond * RemoteBufferMilliseconds / 1000,
             DiscardOnBufferOverflow = true,
             ReadFully = false
         };
