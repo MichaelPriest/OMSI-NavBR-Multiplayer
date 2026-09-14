@@ -79,11 +79,7 @@ public partial class HudOverlayWindow
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
         if (hasHotkeyConflict)
         {
-            HotkeyWarningText.Text = !_chatHotkeyAvailable && !_voiceHotkeyAvailable
-                ? LocalizationService.Get("HudHotkeyConflictBoth")
-                : !_chatHotkeyAvailable
-                    ? LocalizationService.Get("HudHotkeyConflictChat")
-                    : LocalizationService.Get("HudHotkeyConflictVoice");
+            HotkeyWarningText.Text = BuildHotkeyConflictMessage();
             HotkeyWarningPanel.ToolTip = BuildHotkeyConflictTooltip();
         }
 
