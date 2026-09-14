@@ -66,9 +66,11 @@ Atalhos padrão atuais no HUD:
 - `F9` — abrir chat de texto;
 - `F10` — segurar para falar no chat por voz.
 
-Na alpha.6 esses atalhos passam a ser **configuráveis** na janela multiplayer. O usuário pode selecionar `F6`, `F7`, `F8`, `F9` ou `F10` separadamente para chat e push-to-talk. As duas funções precisam usar teclas diferentes.
+Na alpha.6 os atalhos passam a ser **configuráveis** na janela multiplayer. Para evitar comandos conhecidos do OMSI, o NavBR não oferece F5, F6, F7 ou F8. As opções são combinações baseadas em `F9` e `F10`, com ou sem `Shift` e/ou `Ctrl`, como `Shift+F9`, `Ctrl+F10` e `Ctrl+Shift+F9`. Chat e push-to-talk precisam usar combinações diferentes.
 
-Os atalhos `T` e `N` usados nas alphas iniciais foram removidos porque entram em conflito com comandos padrão do OMSI (`T` participa da operação de bilhetes e `N` seleciona neutro). Como o OMSI permite ao usuário e a add-ons alterar os comandos, o NavBR lê `Inputs/keyboard.cfg` da instalação detectada e compara o scan code DirectInput da tecla escolhida. Se a tecla já estiver atribuída no OMSI, o NavBR não ativa aquele atalho e mostra um aviso no HUD com o evento conflitante. Se o `keyboard.cfg` não puder ser verificado, os atalhos ficam desativados por segurança.
+Os atalhos `T` e `N` usados nas alphas iniciais foram removidos porque entram em conflito com comandos padrão do OMSI (`T` participa da operação de bilhetes e `N` seleciona neutro). O manual também atribui F5–F8 a funções de operação dos letreiros/rolos em veículos compatíveis, por isso essas teclas foram excluídas das opções do NavBR.
+
+Como o OMSI permite ao usuário e a add-ons alterar os comandos, o NavBR lê `Inputs/keyboard.cfg` da instalação detectada e compara **scan code + modificadores** da combinação escolhida. Se a combinação já estiver atribuída no OMSI, o NavBR não ativa aquele atalho e mostra um aviso no HUD com o evento conflitante. Se o `keyboard.cfg` não puder ser verificado, os atalhos ficam desativados por segurança.
 
 A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação real.
 
@@ -114,7 +116,7 @@ A base inclui:
 
 Na primeira execução, o NavBR tenta acompanhar o idioma do Windows. Se o idioma do sistema ainda não for suportado, usa inglês. A preferência fica salva em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\language.txt`.
 
-Configurações do multiplayer ficam em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\multiplayer.json`.
+Configurações do multiplayer, incluindo os atalhos escolhidos, ficam em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\multiplayer.json`.
 
 ## Compatibilidade
 
