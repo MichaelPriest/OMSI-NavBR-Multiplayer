@@ -115,48 +115,25 @@
     <section class="section shell validation">
       <div class="validation-card">
         <div><span class="eyebrow">Transparência de testes</span><h2>Alpha significa alpha.</h2></div>
-        <div><p>O CI valida compilação, cliente x86, EXE standalone e recurso de ícone. <strong>Voz, overlay, host peer-to-peer e atalhos só serão considerados validados após testes reais no Windows com OMSI 2.3.004.</strong></p></div>
+        <div><p>O CI valida compilação, cliente x86, EXE standalone e recurso de ícone. A interface principal e o tema escuro já passaram por conferência visual no Windows. <strong>Voz, overlay, host peer-to-peer e atalhos continuam pendentes de teste real com OMSI 2.3.004.</strong></p></div>
       </div>
     </section>
 
     <section id="roadmap" class="section shell">
-      <span class="eyebrow">Evolução do projeto</span>
-      <h2>Roadmap</h2>
-      <div class="timeline">
-        <div class="timeline-item done"><b>Fase 1</b><h3>Integração e telemetria</h3><p>Detecção do processo, leitura externa e dashboard em tempo real.</p></div>
-        <div class="timeline-item done"><b>Fase 2</b><h3>GPS local</h3><p>Roadmaps, posição do veículo, zoom, follow bus e rotação.</p></div>
-        <div class="timeline-item active"><b>Fase 3</b><h3>Multiplayer + HUD</h3><p>Peer-host, jogadores remotos, chat, voz, HUD e proteção de atalhos.</p></div>
-        <div class="timeline-item"><b>Fase 4</b><h3>Rotas e operação</h3><p>TTData, linha, rota, próxima parada, ETA e informações de operação.</p></div>
-      </div>
-    </section>
-
-    <section class="section shell faq">
-      <span class="eyebrow">Dúvidas rápidas</span>
-      <h2>Perguntas frequentes</h2>
-      <details><summary>Preciso ter a Steam aberta?</summary><p>Não. O NavBR não depende da Steam API e detecta diretamente o processo <code>Omsi.exe</code>.</p></details>
-      <details><summary>Quem hospeda a sala?</summary><p>Por padrão, o PC de quem cria a sala. O servidor dedicado é uma alternativa para quem preferir hospedar separadamente.</p></details>
-      <details><summary>Preciso liberar o Firewall?</summary><p>Para receber conexões de outros PCs, sim. O NavBR oferece uma ação para permitir TCP 27730 no perfil Privado do Windows Firewall. Acesso pela Internet pode exigir também encaminhamento da porta no roteador.</p></details>
-      <details><summary>Quais são os atalhos?</summary><p>Os padrões são F9 para chat e F10 para push-to-talk. Na versão em desenvolvimento eles podem ser alterados para combinações de F9/F10 com Shift/Ctrl, sempre com verificação do <code>keyboard.cfg</code>.</p></details>
-      <details><summary>O HUD copia GTA?</summary><p>Não. A organização usa referências gerais comuns a jogos de mundo aberto, mas os assets, layout e identidade são próprios do NavBR.</p></details>
-      <details><summary>Já está totalmente validado dentro do OMSI?</summary><p>Não. O projeto está em alpha e funcionalidades de runtime continuam exigindo testes reais no OMSI 2.3.004.</p></details>
-    </section>
-
-    <section id="apoie" class="section shell support-wrap">
-      <div class="support-card">
-        <div><span class="eyebrow">Projeto independente</span><h2>Apoie o desenvolvimento</h2><p>Contribuições ajudam com testes, infraestrutura e evolução do multiplayer.</p></div>
-        <div class="pix-box" data-pix="b07a9cc9-b10d-48a8-b201-d28bddc4399a">
-          <span>PIX • CHAVE ALEATÓRIA</span>
-          <strong id="pix-status">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong>
-          <button id="copy-pix" class="button primary" type="button">Copiar chave Pix</button>
-        </div>
+      <span class="eyebrow">Roadmap</span>
+      <h2>O que vem depois</h2>
+      <div class="roadmap-grid">
+        <article><b>Agora</b><h3>Alpha.6</h3><p>Estabilidade do Multiplayer, Firewall, atalhos seguros, novo visual, site renovado e ícone multi-resolução.</p></article>
+        <article><b>Próximo</b><h3>Teste real no OMSI</h3><p>Validar overlay, voz, PTT, host peer-to-peer e compatibilidade de mapas em Windows + OMSI 2.3.004.</p></article>
+        <article><b>Depois</b><h3>Experiência multiplayer</h3><p>Refinar presença, convite, diagnóstico de rede e qualidade da sessão com base nos testes reais.</p></article>
       </div>
     </section>
   </main>
 
   <footer>
-    <div class="shell footer-inner">
-      <div><strong>OMSI NavBR Multiplayer</strong><p>Projeto comunitário independente para OMSI 2.</p></div>
-      <p>OMSI e outras marcas citadas pertencem aos respectivos titulares. O projeto não é afiliado à Aerosoft, M-R-Software, Valve ou Rockstar Games.</p>
+    <div class="shell footer-grid">
+      <div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2.</p></div>
+      <div><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div>
     </div>
   </footer>
 
