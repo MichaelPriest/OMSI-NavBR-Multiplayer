@@ -42,7 +42,7 @@ public sealed class OmsiMapCatalog
 
                 var folderName = Path.GetFileName(directory);
                 var (configName, friendlyName) = TryReadMapNames(globalCfg);
-                var displayName = friendlyName ?? configName ?? folderName;
+                var displayName = configName ?? friendlyName ?? folderName;
                 var roadmap = FindRoadmap(directory);
                 var tileFiles = Directory
                     .EnumerateFiles(directory, "tile_*.map", SearchOption.TopDirectoryOnly)
