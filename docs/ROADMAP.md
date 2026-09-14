@@ -15,19 +15,24 @@
 
 ## Fase 1 — Telemetria local
 
-- [ ] Detectar OMSI 2.3.004 por versão/hash
-- [ ] Abrir processo com acesso somente de leitura
-- [ ] Ler posição X/Y/Z
-- [ ] Ler heading
-- [ ] Ler velocidade
-- [ ] Identificar mapa carregado
-- [ ] Identificar veículo do jogador
-- [ ] Criar profile de compatibilidade 2.3.004
-- [ ] Fallback por signature scanning
+- [x] Detectar OMSI 2.3.004 por versão/hash
+- [x] Abrir processo com acesso somente de leitura
+- [x] Implementar leitura de posição X/Y/Z
+- [x] Implementar leitura de heading
+- [x] Implementar leitura de velocidade
+- [x] Implementar identificação do mapa carregado
+- [x] Resolver o veículo ativo do jogador
+- [x] Criar profile de compatibilidade 2.3.004
+- [x] Dashboard multilíngue de telemetria a cada 200 ms
+- [ ] Validar posição em runtime no OMSI 2.3.004
+- [ ] Validar velocidade contra o velocímetro do OMSI
+- [ ] Validar sinal/zero do heading para o GPS
+- [ ] Criar allowlist de hashes conhecidos após os primeiros testes
+- [ ] Fallback por signature scanning para builds futuras
 
 ### Critério de aceite
 
-Com o OMSI aberto, o NavBR deve mostrar valores de posição/direção mudando em tempo real sem Steam API.
+Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, direção e velocidade mudando em tempo real sem Steam API e sem permissão de escrita no processo.
 
 ## Fase 2 — GPS local
 
