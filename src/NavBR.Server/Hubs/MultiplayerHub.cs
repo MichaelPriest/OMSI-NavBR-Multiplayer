@@ -1,35 +1,117 @@
 using Microsoft.AspNetCore.SignalR;
+using NavBR.Server.Multiplayer;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Server.Hubs;
 
-public sealed class MultiplayerHub : Hub
+public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 {
-    public Task JoinRoom(string roomId)
+    public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
-        return Groups.AddToGroupAsync(Context.ConnectionId, NormalizeRoom(roomId));
-    }
+        ArgumentNullException.ThrowIfNull(request);
 
-    public Task LeaveRoom(string roomId)
-    {
-        return Groups.RemoveFromGroupAsync(Context.ConnectionId, NormalizeRoom(roomId));
-    }
+        var roomId = NormalizeRequired(request.RoomId, 64, "room id");
+        var playerId = NormalizeRequired(request.PlayerId, 64, "player id");
+        var displayName = NormalizeRequired(request.DisplayName, 32, "display name");
 
-    public Task PublishTelemetry(string roomId, VehicleTelemetry telemetry)
-    {
-        return Clients
-            .OthersInGroup(NormalizeRoom(roomId))
-            .SendAsync("telemetry", telemetry);
-    }
-
-    private static string NormalizeRoom(string roomId)
-    {
-        var value = (roomId ?? string.Empty).Trim();
-        if (value.Length is < 1 or > 64)
+        if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
-            throw new HubException("Invalid room id.");
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, previous.RoomId);
+            registry.Remove(Context.ConnectionId);
+            await Clients.Group(previous.RoomId).SendAsync("playerLeft", previous.PlayerId);
         }
 
-        return value;
+        var presence = registry.Upsert(
+            Context.ConnectionId,
+            roomId,
+            playerId,
+            displayName,
+            request.MapName);
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+        await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
+
+        return new RoomSnapshot(roomId, registry.GetRoomPlayers(roomId));
+    }
+
+    public async Task LeaveRoom()
+    {
+        var presence = registry.Remove(Context.ConnectionId);
+        if (presence is null)
+        {
+            return;
+        }
+
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, presence.RoomId);
+        await Clients.Group(presence.RoomId).SendAsync("playerLeft", presence.PlayerId);
+    }
+
+    public async Task PublishTelemetry(VehicleTelemetry telemetry)
+    {
+        ArgumentNullException.ThrowIfNull(telemetry);
+
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before publishing telemetry.");
+        }
+
+        ValidateTelemetry(telemetry);
+
+        var safeTelemetry = telemetry with
+        {
+            PlayerId = presence.PlayerId,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        var updatedPresence = registry.UpdateMap(Context.ConnectionId, safeTelemetry.MapName);
+        if (updatedPresence is not null)
+        {
+            await Clients.Group(presence.RoomId).SendAsync("playerPresenceChanged", updatedPresence);
+        }
+
+        await Clients
+            .OthersInGroup(presence.RoomId)
+            .SendAsync("telemetry", safeTelemetry);
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var presence = registry.Remove(Context.ConnectionId);
+        if (presence is not null)
+        {
+            await Clients.Group(presence.RoomId).SendAsync("playerLeft", presence.PlayerId);
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    private static string NormalizeRequired(string? value, int maxLength, string fieldName)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        if (normalized.Length is < 1 || normalized.Length > maxLength)
+        {
+            throw new HubException($"Invalid {fieldName}.");
+        }
+
+        return normalized;
+    }
+
+    private static void ValidateTelemetry(VehicleTelemetry telemetry)
+    {
+        if (!double.IsFinite(telemetry.X) ||
+            !double.IsFinite(telemetry.Y) ||
+            !double.IsFinite(telemetry.Z) ||
+            !double.IsFinite(telemetry.HeadingDegrees) ||
+            !double.IsFinite(telemetry.SpeedKph))
+        {
+            throw new HubException("Telemetry contains invalid numeric values.");
+        }
+
+        if (telemetry.TileX is double tileX && !double.IsFinite(tileX) ||
+            telemetry.TileY is double tileY && !double.IsFinite(tileY))
+        {
+            throw new HubException("Telemetry contains invalid tile coordinates.");
+        }
     }
 }
