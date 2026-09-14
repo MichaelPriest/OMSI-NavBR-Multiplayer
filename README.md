@@ -2,7 +2,7 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.5**
+> Versão em desenvolvimento: **0.3.0-alpha.6**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
@@ -66,7 +66,9 @@ Atalhos padrão atuais no HUD:
 - `F9` — abrir chat de texto;
 - `F10` — segurar para falar no chat por voz.
 
-Os atalhos `T` e `N` usados nas alphas iniciais foram removidos porque entram em conflito com comandos padrão do OMSI (`T` participa da operação de bilhetes e `N` seleciona neutro). Como o OMSI permite ao usuário e a add-ons alterar os comandos, a alpha.5 também lê `Inputs/keyboard.cfg` da instalação detectada. Se `F9` ou `F10` já estiver atribuída no OMSI, o NavBR não ativa aquele atalho e mostra um aviso no HUD com o evento conflitante.
+Na alpha.6 esses atalhos passam a ser **configuráveis** na janela multiplayer. O usuário pode selecionar `F6`, `F7`, `F8`, `F9` ou `F10` separadamente para chat e push-to-talk. As duas funções precisam usar teclas diferentes.
+
+Os atalhos `T` e `N` usados nas alphas iniciais foram removidos porque entram em conflito com comandos padrão do OMSI (`T` participa da operação de bilhetes e `N` seleciona neutro). Como o OMSI permite ao usuário e a add-ons alterar os comandos, o NavBR lê `Inputs/keyboard.cfg` da instalação detectada e compara o scan code DirectInput da tecla escolhida. Se a tecla já estiver atribuída no OMSI, o NavBR não ativa aquele atalho e mostra um aviso no HUD com o evento conflitante. Se o `keyboard.cfg` não puder ser verificado, os atalhos ficam desativados por segurança.
 
 A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação real.
 
@@ -96,7 +98,7 @@ O multiplayer inclui:
 - captura e reprodução de áudio pelo NAudio;
 - codificação Opus via Concentus em 48 kHz mono, quadros de 20 ms;
 - indicador visual de quem está falando;
-- proteção contra conflito dos atalhos padrão com o `keyboard.cfg` real do OMSI.
+- atalhos configuráveis e protegidos contra conflitos com o `keyboard.cfg` real do OMSI.
 
 Nesta alpha a voz é transportada pelo mesmo canal SignalR/WebSocket da sessão. Isso simplifica o peer-host inicial, mas pode ter mais latência sob perda de rede do que um transporte UDP/WebRTC; uma camada de voz de baixa latência pode substituir esse transporte futuramente sem alterar o HUD.
 
