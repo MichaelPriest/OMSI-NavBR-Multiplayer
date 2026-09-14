@@ -12,28 +12,54 @@ public sealed class OmsiMapCatalog
             return Array.Empty<OmsiMapInfo>();
         }
 
+        string[] mapDirectories;
+        try
+        {
+            mapDirectories = Directory.GetDirectories(mapsDirectory);
+        }
+        catch (IOException)
+        {
+            return Array.Empty<OmsiMapInfo>();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Array.Empty<OmsiMapInfo>();
+        }
+
         var maps = new List<OmsiMapInfo>();
 
-        foreach (var directory in Directory.EnumerateDirectories(mapsDirectory))
+        foreach (var directory in mapDirectories)
         {
-            var globalCfg = Path.Combine(directory, "global.cfg");
-            if (!File.Exists(globalCfg))
+            try
             {
-                continue;
+                var globalCfg = Path.Combine(directory, "global.cfg");
+                if (!File.Exists(globalCfg))
+                {
+                    continue;
+                }
+
+                var folderName = Path.GetFileName(directory);
+                var displayName = TryReadMapName(globalCfg) ?? folderName;
+                var roadmap = FindRoadmap(directory);
+                var tileCount = Directory
+                    .EnumerateFiles(directory, "tile_*.map", SearchOption.TopDirectoryOnly)
+                    .Count();
+
+                maps.Add(new OmsiMapInfo(
+                    folderName,
+                    displayName,
+                    directory,
+                    globalCfg,
+                    roadmap,
+                    tileCount));
             }
-
-            var folderName = Path.GetFileName(directory);
-            var displayName = TryReadMapName(globalCfg) ?? folderName;
-            var roadmap = FindRoadmap(directory);
-            var tileCount = Directory.EnumerateFiles(directory, "tile_*.map", SearchOption.TopDirectoryOnly).Count();
-
-            maps.Add(new OmsiMapInfo(
-                folderName,
-                displayName,
-                directory,
-                globalCfg,
-                roadmap,
-                tileCount));
+            catch (IOException)
+            {
+                // One broken or locked map must not prevent the other maps from loading.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         return maps
