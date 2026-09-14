@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -86,6 +87,17 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         run: dotnet publish src/NavBR.Server/NavBR.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/server
 
+      - name: Add legal notices to packages
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          foreach ($target in @("artifacts/client", "artifacts/server")) {
+            Copy-Item LICENSE "$target/LICENSE" -Force
+            Copy-Item THIRD_PARTY_NOTICES.md "$target/THIRD_PARTY_NOTICES.md" -Force
+            New-Item -ItemType Directory -Force -Path "$target/licenses" | Out-Null
+            Copy-Item licenses/*.txt "$target/licenses/" -Force
+          }
+
       - name: Package release assets
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
@@ -117,6 +129,8 @@ jobs:
             "OMSI-NavBR-Multiplayer-$tag-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
             "--repo", "${{ github.repository }}",
             "--target", "$env:GITHUB_SHA",
             "--title", "OMSI NavBR Multiplayer $tag",
@@ -128,3 +142,11 @@ jobs:
           }
 
           & gh @args
+
+      - name: Refresh GitHub Pages release catalog
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run pages.yml --repo "${{ github.repository }}" --ref main
