@@ -13,6 +13,7 @@ internal static class Omsi23004MemoryProfile
     public const int RoadVehiclesListRva = 0x00861508 - PreferredImageBase;
     public const int PlayerVehicleIndexRva = 0x00861740 - PreferredImageBase;
     public const int MapPointerRva = 0x00861588 - PreferredImageBase;
+    public const int NavigationVehiclePointerRva = 0x00862F28 - PreferredImageBase;
 
     // OmsiMapObjInst / OmsiPhysObjInst / OmsiMovingMapObjInst fields.
     public const int VehiclePositionOffset = 0x004;
@@ -26,8 +27,16 @@ internal static class Omsi23004MemoryProfile
 
     // OmsiMap fields.
     public const int MapLoadedOffset = 0x120;
+    public const int CurrentGridXOffset = 0x144;
+    public const int CurrentGridYOffset = 0x148;
     public const int MapNameOffset = 0x150;
     public const int MapFriendlyNameOffset = 0x158;
+
+    // Navigation/local vehicle coordinates used by OMSI RouteAdvisor-compatible
+    // 2.3.004 layouts. These are read-only and are kept separate from the
+    // absolute transform so the roadmap renderer can work in map-tile space.
+    public const int NavigationTileXOffset = 0x018;
+    public const int NavigationTileYOffset = 0x020;
 
     // TMyOMSIList / TList chain used by the road-vehicle collection.
     public const int OmsiListFListOffset = 0x028;
