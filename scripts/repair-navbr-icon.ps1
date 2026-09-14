@@ -68,7 +68,14 @@ for ($i = 0; $i -lt $ordered.Count; $i++) {
 # proper multi-resolution ICO from the official NavBR artwork while preserving its design.
 Add-Type -AssemblyName System.Drawing
 
-$sourceIcon = [System.Drawing.Icon]::new($resolvedPath)
+# The target runs more than once during build/publish. Once the ICO is multi-resolution,
+# always reopen its largest frame so repeated invocations do not progressively resample a
+# small 16/32 px frame and degrade the artwork.
+$sourceIcon = if ($count -gt 1) {
+    [System.Drawing.Icon]::new($resolvedPath, 256, 256)
+} else {
+    [System.Drawing.Icon]::new($resolvedPath)
+}
 try {
     $sourceBitmap = $sourceIcon.ToBitmap()
     try {
