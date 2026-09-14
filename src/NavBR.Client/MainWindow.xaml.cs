@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
@@ -12,6 +13,9 @@ namespace NavBR.Client;
 
 public partial class MainWindow : Window
 {
+    private const double MinimumRoadmapZoom = 0.02d;
+    private const double MaximumRoadmapZoom = 8d;
+
     private readonly OmsiProcessDetector _detector = new();
     private readonly Omsi23004TelemetryProvider _telemetryProvider = new();
     private readonly OmsiMapCatalog _mapCatalog = new();
@@ -24,6 +28,14 @@ public partial class MainWindow : Window
     private string? _loadedRoadmapPath;
     private OmsiMapLayout? _loadedRoadmapLayout;
     private BitmapImage? _loadedRoadmapBitmap;
+    private double _roadmapZoom = 1d;
+    private bool _roadmapZoomInitialized;
+    private double? _lastVehiclePixelX;
+    private double? _lastVehiclePixelY;
+    private bool _isPanning;
+    private Point _panStartPoint;
+    private double _panStartHorizontalOffset;
+    private double _panStartVerticalOffset;
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
 
@@ -87,6 +99,11 @@ public partial class MainWindow : Window
         HeadingCaptionText.Text = LocalizationService.Get("HeadingLabel");
         SpeedCaptionText.Text = LocalizationService.Get("SpeedLabel");
         GpsHeadingText.Text = LocalizationService.Get("GpsHeading");
+        ZoomOutButton.Content = LocalizationService.Get("GpsZoomOut");
+        ZoomInButton.Content = LocalizationService.Get("GpsZoomIn");
+        FitMapButton.Content = LocalizationService.Get("GpsFitMap");
+        FollowButton.Content = LocalizationService.Get("GpsFollowBus");
+        TopmostButton.Content = LocalizationService.Get("GpsAlwaysOnTop");
 
         MilestoneHeadingText.Text = LocalizationService.Get("FirstMilestoneHeading");
         MilestoneBodyText.Text = LocalizationService.Get("FirstMilestoneBody");
@@ -96,6 +113,34 @@ public partial class MainWindow : Window
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await RefreshOmsiStatusAsync();
+    }
+
+    private void ZoomOutButton_Click(object sender, RoutedEventArgs e)
+    {
+        ChangeRoadmapZoom(0.8d);
+    }
+
+    private void ZoomInButton_Click(object sender, RoutedEventArgs e)
+    {
+        ChangeRoadmapZoom(1.25d);
+    }
+
+    private void FitMapButton_Click(object sender, RoutedEventArgs e)
+    {
+        FitRoadmapToViewport();
+    }
+
+    private void FollowButton_Changed(object sender, RoutedEventArgs e)
+    {
+        if (FollowButton.IsChecked == true)
+        {
+            CenterOnVehicle();
+        }
+    }
+
+    private void TopmostButton_Changed(object sender, RoutedEventArgs e)
+    {
+        Topmost = TopmostButton.IsChecked == true;
     }
 
     private async Task RefreshOmsiStatusAsync()
@@ -313,7 +358,7 @@ public partial class MainWindow : Window
             }
         }
 
-        RoadmapViewbox.Visibility = Visibility.Visible;
+        RoadmapScrollViewer.Visibility = Visibility.Visible;
 
         if (_loadedRoadmapBitmap is null ||
             _loadedRoadmapLayout is null ||
@@ -335,13 +380,30 @@ public partial class MainWindow : Window
             pixelY < 0 || pixelY > _loadedRoadmapBitmap.PixelHeight)
         {
             VehicleMarker.Visibility = Visibility.Collapsed;
+            _lastVehiclePixelX = null;
+            _lastVehiclePixelY = null;
             return;
         }
 
         var markerSize = VehicleMarker.Width;
         Canvas.SetLeft(VehicleMarker, pixelX - markerSize / 2d);
         Canvas.SetTop(VehicleMarker, pixelY - markerSize / 2d);
+        VehicleHeadingTransform.Angle = telemetry.HeadingDegrees;
         VehicleMarker.Visibility = Visibility.Visible;
+        _lastVehiclePixelX = pixelX;
+        _lastVehiclePixelY = pixelY;
+
+        if (!_roadmapZoomInitialized)
+        {
+            _roadmapZoomInitialized = true;
+            Dispatcher.BeginInvoke(
+                new Action(FitRoadmapToViewport),
+                DispatcherPriority.Loaded);
+        }
+        else if (FollowButton.IsChecked == true && !_isPanning)
+        {
+            CenterOnVehicle();
+        }
     }
 
     private OmsiMapInfo? FindActiveMap(string activeMapName)
@@ -375,6 +437,10 @@ public partial class MainWindow : Window
             _loadedRoadmapPath = map.RoadmapPath;
             _loadedRoadmapBitmap = bitmap;
             _loadedRoadmapLayout = OmsiMapLayoutReader.TryRead(map.GlobalConfigPath);
+            _roadmapZoom = 1d;
+            _roadmapZoomInitialized = false;
+            _lastVehiclePixelX = null;
+            _lastVehiclePixelY = null;
 
             RoadmapCanvas.Width = bitmap.PixelWidth;
             RoadmapCanvas.Height = bitmap.PixelHeight;
@@ -382,10 +448,12 @@ public partial class MainWindow : Window
             RoadmapImage.Height = bitmap.PixelHeight;
             RoadmapImage.Source = bitmap;
 
-            var markerSize = Math.Clamp(bitmap.PixelWidth * 0.015d, 28d, 90d);
+            var markerSize = Math.Clamp(bitmap.PixelWidth * 0.02d, 42d, 120d);
             VehicleMarker.Width = markerSize;
             VehicleMarker.Height = markerSize;
-            VehicleMarker.StrokeThickness = Math.Max(3d, markerSize * 0.12d);
+
+            ApplyRoadmapZoom(_roadmapZoom);
+            RoadmapScrollViewer.Visibility = Visibility.Visible;
             return true;
         }
         catch
@@ -395,9 +463,175 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ChangeRoadmapZoom(double multiplier, Point? anchor = null)
+    {
+        if (_loadedRoadmapBitmap is null || RoadmapScrollViewer.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var oldZoom = _roadmapZoom;
+        var newZoom = Math.Clamp(oldZoom * multiplier, MinimumRoadmapZoom, MaximumRoadmapZoom);
+        if (Math.Abs(newZoom - oldZoom) < 0.000001d)
+        {
+            return;
+        }
+
+        var oldHorizontalOffset = RoadmapScrollViewer.HorizontalOffset;
+        var oldVerticalOffset = RoadmapScrollViewer.VerticalOffset;
+        var anchorPoint = anchor ?? new Point(
+            RoadmapScrollViewer.ViewportWidth / 2d,
+            RoadmapScrollViewer.ViewportHeight / 2d);
+
+        ApplyRoadmapZoom(newZoom);
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (FollowButton.IsChecked == true)
+            {
+                CenterOnVehicle();
+                return;
+            }
+
+            var ratio = newZoom / oldZoom;
+            var horizontalOffset = (oldHorizontalOffset + anchorPoint.X) * ratio - anchorPoint.X;
+            var verticalOffset = (oldVerticalOffset + anchorPoint.Y) * ratio - anchorPoint.Y;
+            RoadmapScrollViewer.ScrollToHorizontalOffset(Math.Max(0d, horizontalOffset));
+            RoadmapScrollViewer.ScrollToVerticalOffset(Math.Max(0d, verticalOffset));
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void ApplyRoadmapZoom(double zoom)
+    {
+        var bitmap = _loadedRoadmapBitmap;
+        if (bitmap is null)
+        {
+            return;
+        }
+
+        _roadmapZoom = Math.Clamp(zoom, MinimumRoadmapZoom, MaximumRoadmapZoom);
+        RoadmapViewbox.Width = bitmap.PixelWidth * _roadmapZoom;
+        RoadmapViewbox.Height = bitmap.PixelHeight * _roadmapZoom;
+    }
+
+    private void FitRoadmapToViewport()
+    {
+        var bitmap = _loadedRoadmapBitmap;
+        if (bitmap is null || RoadmapScrollViewer.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var viewportWidth = RoadmapScrollViewer.ViewportWidth;
+        var viewportHeight = RoadmapScrollViewer.ViewportHeight;
+
+        if (viewportWidth <= 1d)
+        {
+            viewportWidth = Math.Max(1d, RoadmapScrollViewer.ActualWidth - 20d);
+        }
+
+        if (viewportHeight <= 1d)
+        {
+            viewportHeight = Math.Max(1d, RoadmapScrollViewer.ActualHeight - 20d);
+        }
+
+        var zoom = Math.Min(
+            viewportWidth / bitmap.PixelWidth,
+            viewportHeight / bitmap.PixelHeight);
+
+        ApplyRoadmapZoom(Math.Clamp(zoom, MinimumRoadmapZoom, MaximumRoadmapZoom));
+        _roadmapZoomInitialized = true;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (FollowButton.IsChecked == true)
+            {
+                CenterOnVehicle();
+            }
+            else
+            {
+                RoadmapScrollViewer.ScrollToHome();
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void CenterOnVehicle()
+    {
+        if (_lastVehiclePixelX is not double pixelX ||
+            _lastVehiclePixelY is not double pixelY ||
+            RoadmapScrollViewer.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var scaledX = pixelX * _roadmapZoom;
+        var scaledY = pixelY * _roadmapZoom;
+        var horizontalOffset = scaledX - RoadmapScrollViewer.ViewportWidth / 2d;
+        var verticalOffset = scaledY - RoadmapScrollViewer.ViewportHeight / 2d;
+
+        RoadmapScrollViewer.ScrollToHorizontalOffset(Math.Max(0d, horizontalOffset));
+        RoadmapScrollViewer.ScrollToVerticalOffset(Math.Max(0d, verticalOffset));
+    }
+
+    private void RoadmapScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_loadedRoadmapBitmap is null)
+        {
+            return;
+        }
+
+        var anchor = e.GetPosition(RoadmapScrollViewer);
+        ChangeRoadmapZoom(e.Delta > 0 ? 1.2d : 1d / 1.2d, anchor);
+        e.Handled = true;
+    }
+
+    private void RoadmapScrollViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_loadedRoadmapBitmap is null)
+        {
+            return;
+        }
+
+        _isPanning = true;
+        _panStartPoint = e.GetPosition(RoadmapScrollViewer);
+        _panStartHorizontalOffset = RoadmapScrollViewer.HorizontalOffset;
+        _panStartVerticalOffset = RoadmapScrollViewer.VerticalOffset;
+        FollowButton.IsChecked = false;
+        RoadmapScrollViewer.Cursor = Cursors.Hand;
+        RoadmapScrollViewer.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void RoadmapScrollViewer_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isPanning || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var currentPoint = e.GetPosition(RoadmapScrollViewer);
+        var delta = currentPoint - _panStartPoint;
+        RoadmapScrollViewer.ScrollToHorizontalOffset(_panStartHorizontalOffset - delta.X);
+        RoadmapScrollViewer.ScrollToVerticalOffset(_panStartVerticalOffset - delta.Y);
+        e.Handled = true;
+    }
+
+    private void RoadmapScrollViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isPanning)
+        {
+            return;
+        }
+
+        _isPanning = false;
+        RoadmapScrollViewer.ReleaseMouseCapture();
+        RoadmapScrollViewer.Cursor = Cursors.Arrow;
+        e.Handled = true;
+    }
+
     private void HideRoadmap()
     {
-        RoadmapViewbox.Visibility = Visibility.Collapsed;
+        RoadmapScrollViewer.Visibility = Visibility.Collapsed;
         VehicleMarker.Visibility = Visibility.Collapsed;
     }
 
@@ -406,9 +640,16 @@ public partial class MainWindow : Window
         _loadedRoadmapPath = null;
         _loadedRoadmapLayout = null;
         _loadedRoadmapBitmap = null;
+        _lastVehiclePixelX = null;
+        _lastVehiclePixelY = null;
+        _roadmapZoom = 1d;
+        _roadmapZoomInitialized = false;
+        _isPanning = false;
         RoadmapImage.Source = null;
         RoadmapCanvas.Width = 0;
         RoadmapCanvas.Height = 0;
+        RoadmapViewbox.Width = 0;
+        RoadmapViewbox.Height = 0;
         HideRoadmap();
     }
 
