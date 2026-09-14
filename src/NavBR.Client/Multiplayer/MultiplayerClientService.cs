@@ -15,6 +15,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     public event Action<PlayerPresence>? PlayerPresenceChanged;
     public event Action<string>? PlayerLeft;
     public event Action<PlayerTelemetryFrame>? TelemetryReceived;
+    public event Action<ChatMessage>? ChatMessageReceived;
+    public event Action<VoiceFrame>? VoiceFrameReceived;
 
     public HubConnectionState State => _connection?.State ?? HubConnectionState.Disconnected;
 
@@ -23,6 +25,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     public async Task<RoomSnapshot> ConnectAsync(
         MultiplayerSettings settings,
         string? currentMapName,
+        string? currentMapCompatibilityId = null,
         CancellationToken cancellationToken = default)
     {
         await DisconnectAsync();
@@ -32,7 +35,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             settings.RoomId.Trim(),
             settings.PlayerId.Trim(),
             settings.DisplayName.Trim(),
-            string.IsNullOrWhiteSpace(currentMapName) ? null : currentMapName.Trim());
+            NormalizeOptional(currentMapName),
+            NormalizeOptional(currentMapCompatibilityId));
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
@@ -89,6 +93,28 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         await connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
 
+    public async Task SendChatMessageAsync(
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = RequireConnectedConnection();
+        await connection.SendAsync("SendChatMessage", text, cancellationToken);
+    }
+
+    public async Task PublishVoiceFrameAsync(
+        long sequence,
+        byte[] opusPayload,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        await connection.SendAsync("PublishVoiceFrame", sequence, opusPayload, cancellationToken);
+    }
+
     public async Task DisconnectAsync()
     {
         var connection = _connection;
@@ -128,6 +154,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
         connection.On<string>("playerLeft", playerId => PlayerLeft?.Invoke(playerId));
         connection.On<PlayerTelemetryFrame>("telemetry", frame => TelemetryReceived?.Invoke(frame));
+        connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
+        connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
         connection.Reconnecting += _ =>
         {
@@ -151,6 +179,17 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
+    }
+
+    private HubConnection RequireConnectedConnection()
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            throw new InvalidOperationException("Multiplayer is not connected.");
+        }
+
+        return connection;
     }
 
     private static async Task DisposeConnectionAsync(HubConnection connection)
@@ -187,5 +226,11 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             Path = $"{path}/hubs/multiplayer"
         };
         return builder.Uri.ToString().TrimEnd('/');
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }
