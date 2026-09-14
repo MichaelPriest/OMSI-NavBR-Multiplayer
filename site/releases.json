@@ -1,0 +1,45 @@
+[
+  {
+    "tag_name": "v0.2.0-alpha.3",
+    "name": "OMSI NavBR Multiplayer v0.2.0-alpha.3",
+    "prerelease": true,
+    "published_at": "2026-09-14T14:49:23Z",
+    "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.3",
+    "body": "EXE standalone, correção do ícone do aplicativo e melhorias no processo de release.",
+    "assets": [
+      {
+        "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.exe",
+        "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.exe",
+        "size": 60791581
+      },
+      {
+        "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.zip",
+        "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.zip",
+        "size": 60829486
+      },
+      {
+        "name": "OMSI-NavBR-Server-v0.2.0-alpha.3-win-x64.zip",
+        "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Server-v0.2.0-alpha.3-win-x64.zip",
+        "size": 50149057
+      }
+    ]
+  },
+  {
+    "tag_name": "v0.2.0-alpha.2",
+    "name": "OMSI NavBR Multiplayer v0.2.0-alpha.2",
+    "prerelease": true,
+    "published_at": "2026-09-14T14:27:58Z",
+    "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.2",
+    "body": "Zoom, follow bus e controles do GPS.",
+    "assets": []
+  },
+  {
+    "tag_name": "v0.2.0-alpha.1",
+    "name": "OMSI NavBR Multiplayer v0.2.0-alpha.1",
+    "prerelease": true,
+    "published_at": "2026-09-14T00:00:00Z",
+    "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.1",
+    "body": "Primeira versão de teste com telemetria local, base do GPS, catálogo de mapas e identidade visual.",
+    "assets": []
+  }
+]

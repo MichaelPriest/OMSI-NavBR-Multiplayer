@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="Site oficial do OMSI NavBR Multiplayer — GPS, telemetria e multiplayer para OMSI 2." />
+  <title>OMSI NavBR Multiplayer</title>
+  <link rel="icon" href="assets/navbr.ico" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#inicio" aria-label="OMSI NavBR Multiplayer">
+      <img src="assets/navbr.ico" alt="" class="brand-icon" />
+      <span>OMSI <strong>NavBR</strong> Multiplayer</span>
+    </a>
+    <nav>
+      <a href="#versoes">Versões</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#apoie">Apoie</a>
+      <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero shell">
+      <div class="hero-copy">
+        <span class="eyebrow">Projeto em desenvolvimento ativo</span>
+        <h1>Navegação e multiplayer para <span>OMSI 2</span>.</h1>
+        <p>Um aplicativo Windows independente da Steam para telemetria, GPS, roadmaps e multiplayer. Feito para funcionar com instalações compatíveis do OMSI 2 sem depender de Steamworks.</p>
+        <div class="actions">
+          <a id="latest-download" class="button primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Baixar versão mais recente</a>
+          <a class="button secondary" href="#versoes">Ver versões</a>
+        </div>
+        <div class="badges">
+          <span>Windows x86</span><span>Self-contained</span><span>Multilíngue</span><span>Open development</span>
+        </div>
+      </div>
+      <aside class="status-card">
+        <div class="status-dot"></div>
+        <p class="muted">Versão atual</p>
+        <strong id="latest-version">Carregando…</strong>
+        <p id="latest-summary">Consultando as releases publicadas no GitHub.</p>
+        <div class="mini-grid">
+          <div><span>GPS</span><b>Fase 2</b></div>
+          <div><span>Multiplayer</span><b>Em desenvolvimento</b></div>
+          <div><span>OMSI</span><b>2.3.004 inicial</b></div>
+          <div><span>Steam</span><b>Não obrigatória</b></div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="versoes" class="section shell">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Downloads e changelog</span>
+          <h2>Versões publicadas</h2>
+        </div>
+        <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Todas no GitHub →</a>
+      </div>
+      <div id="release-list" class="release-grid">
+        <article class="release-card"><p>Carregando releases…</p></article>
+      </div>
+    </section>
+
+    <section id="recursos" class="section shell">
+      <span class="eyebrow">O que o NavBR está construindo</span>
+      <h2>Recursos</h2>
+      <div class="feature-grid">
+        <article><span class="feature-no">01</span><h3>Telemetria ao vivo</h3><p>Posição, heading, velocidade, mapa carregado e dados do OMSI em tempo real.</p></article>
+        <article><span class="feature-no">02</span><h3>GPS e roadmap</h3><p>Roadmap do próprio OMSI, marcador do ônibus, zoom, pan, follow bus e orientação pelo heading.</p></article>
+        <article><span class="feature-no">03</span><h3>Multiplayer</h3><p>Salas online, jogadores no mapa, telemetria compartilhada e evolução futura para sincronização avançada.</p></article>
+        <article><span class="feature-no">04</span><h3>Sem dependência da Steam</h3><p>O cliente detecta o <code>Omsi.exe</code> e a pasta real da instalação diretamente pelo processo.</p></article>
+        <article><span class="feature-no">05</span><h3>Multilíngue</h3><p>Base preparada para Português (Brasil), English, Español, Deutsch e Français.</p></article>
+        <article><span class="feature-no">06</span><h3>Atualizações simples</h3><p>Releases automáticas no GitHub com EXE standalone, pacote ZIP do cliente e servidor.</p></article>
+      </div>
+    </section>
+
+    <section id="roadmap" class="section shell">
+      <span class="eyebrow">Próximos marcos</span>
+      <h2>Roadmap</h2>
+      <div class="timeline">
+        <div class="timeline-item done"><b>Fase 1</b><h3>Integração e telemetria</h3><p>Detecção do OMSI, leitura externa e dashboard em tempo real.</p></div>
+        <div class="timeline-item active"><b>Fase 2</b><h3>GPS local</h3><p>Roadmaps, posição do veículo, zoom, follow bus, rotação e compatibilidade com mais mapas.</p></div>
+        <div class="timeline-item"><b>Fase 3</b><h3>Multiplayer online</h3><p>Nickname, salas, conexão com servidor e jogadores aparecendo no mapa.</p></div>
+        <div class="timeline-item"><b>Fase 4</b><h3>Rotas e operação</h3><p>TTData, linha, rota, próxima parada, ETA, atraso/adiantamento e orientação.</p></div>
+      </div>
+    </section>
+
+    <section id="apoie" class="section shell support-wrap">
+      <div class="support-card">
+        <div>
+          <span class="eyebrow">Projeto independente</span>
+          <h2>Apoie o OMSI NavBR Multiplayer</h2>
+          <p>Se o projeto for útil para você, contribua via Pix para ajudar com desenvolvimento, testes e infraestrutura do multiplayer.</p>
+        </div>
+        <div class="pix-box" data-pix="b07a9cc9-b10d-48a8-b201-d28bddc4399a">
+          <span>PIX • CHAVE ALEATÓRIA</span>
+          <strong id="pix-status">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong>
+          <button id="copy-pix" class="button primary" type="button">Copiar chave Pix</button>
+          <small>Ao apoiar, você ajuda a manter o desenvolvimento e a futura infraestrutura multiplayer do projeto.</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell faq">
+      <span class="eyebrow">Informações importantes</span>
+      <h2>Perguntas frequentes</h2>
+      <details><summary>Preciso ter Steam aberta?</summary><p>Não. O NavBR foi projetado para detectar diretamente o processo <code>Omsi.exe</code>. Ele não depende da Steam API.</p></details>
+      <details><summary>O programa já está finalizado?</summary><p>Não. As versões atuais são alpha e servem para testes durante o desenvolvimento.</p></details>
+      <details><summary>O EXE precisa instalar .NET?</summary><p>O EXE standalone das releases é self-contained e inclui o runtime necessário.</p></details>
+      <details><summary>Onde reporto problemas?</summary><p>Use a área de Issues do repositório no GitHub e informe a versão do NavBR, versão do OMSI, mapa e o comportamento observado.</p></details>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <div><strong>OMSI NavBR Multiplayer</strong><p>Projeto comunitário independente para OMSI 2.</p></div>
+      <p>OMSI é propriedade de seus respectivos detentores. Este projeto não é afiliado à Aerosoft, M-R-Software ou Valve.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
