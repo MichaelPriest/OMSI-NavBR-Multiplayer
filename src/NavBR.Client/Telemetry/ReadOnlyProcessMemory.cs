@@ -109,6 +109,59 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         return Encoding.Unicode.GetString(bytes).TrimEnd('\0');
     }
 
+    /// <summary>
+    /// Reads a 32-bit pointer field that points directly to a null-terminated
+    /// UTF-16 string. OMSI TMap.name at +0x150 uses this representation rather
+    /// than Delphi's length-prefixed UnicodeString layout.
+    /// </summary>
+    public string? ReadNullTerminatedUnicodeStringField(nint fieldAddress, int maxCharacters = 256)
+    {
+        if (maxCharacters <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var stringPointer = ReadInt32(fieldAddress);
+            if (stringPointer <= 0x10000)
+            {
+                return null;
+            }
+
+            var dataAddress = new nint(stringPointer);
+            var bytes = new List<byte>(Math.Min(maxCharacters * 2, 512));
+
+            for (var index = 0; index < maxCharacters; index++)
+            {
+                var pair = ReadBytes(nint.Add(dataAddress, checked(index * 2)), 2);
+                if (pair[0] == 0 && pair[1] == 0)
+                {
+                    break;
+                }
+
+                bytes.Add(pair[0]);
+                bytes.Add(pair[1]);
+            }
+
+            if (bytes.Count == 0)
+            {
+                return null;
+            }
+
+            var value = Encoding.Unicode.GetString(bytes.ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (Win32Exception)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     private byte[] ReadBytes(nint address, int count)
     {
         ObjectDisposedException.ThrowIf(_processHandle == nint.Zero, this);
