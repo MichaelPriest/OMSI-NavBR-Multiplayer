@@ -2,7 +2,40 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
-## [0.2.0-alpha.3] — em preparação
+## [0.3.0-alpha.1] — multiplayer online inicial
+
+### Adicionado
+
+- janela multiplayer com endereço do servidor, sala e apelido persistidos localmente;
+- conexão cliente-servidor por SignalR/WebSocket;
+- identidade local persistente independente de Steam;
+- entrada e saída de salas com lista de jogadores conectados;
+- reconexão automática após perda temporária da conexão;
+- envio da telemetria do OMSI quatro vezes por segundo enquanto conectado;
+- presença com mapa atual e atualização quando o jogador troca de mapa;
+- cálculo de distância entre jogadores no mesmo mapa;
+- marcadores azuis para jogadores remotos no GPS do NavBR, com heading e velocidade;
+- contratos compartilhados para presença, snapshot da sala e frames de telemetria;
+- registro de salas no servidor e limpeza automática ao desconectar;
+- validação básica de identidade, tamanho de campos e valores numéricos da telemetria;
+- traduções do multiplayer em Português (Brasil), English, Español, Deutsch e Français;
+- GitHub Pages passa a atualizar o catálogo também quando uma Release é publicada.
+
+### Segurança e privacidade
+
+- o servidor sobrescreve o `PlayerId` recebido na telemetria com a identidade da sessão, reduzindo spoofing básico;
+- somente dados do jogo/sessão são transmitidos pelo cliente; nenhuma localização do mundo real é enviada;
+- o multiplayer continua independente de Steamworks.
+
+### Próximos passos
+
+- hospedar uma instância pública oficial do servidor NavBR;
+- salas privadas com senha e criação/listagem de salas;
+- suavização/interpolação dos jogadores remotos;
+- compatibilidade de mapa por identificador/hash;
+- sincronização opcional de linha, rota e estados adicionais do ônibus.
+
+## [0.2.0-alpha.3] — EXE standalone e ícone corrigido
 
 ### Corrigido
 
