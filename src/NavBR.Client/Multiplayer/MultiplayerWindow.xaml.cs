@@ -350,7 +350,7 @@ public partial class MultiplayerWindow : Window
         }
         catch (Exception ex)
         {
-            Dispatcher.BeginInvoke(() => StatusDetailText.Text =
+            _ = Dispatcher.BeginInvoke(() => StatusDetailText.Text =
                 LocalizationService.Format("MultiplayerVoiceError", ex.Message));
         }
         finally
