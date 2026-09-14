@@ -5,15 +5,30 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
-    private const int VkF9 = 0x78;
-    private const int VkF10 = 0x79;
+    private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
+        NavBRHotkeyCatalog.DefaultChatHotkey,
+        NavBRHotkeyCatalog.DefaultChatHotkey);
+    private NavBRHotkeyDefinition _voiceHotkey = NavBRHotkeyCatalog.Resolve(
+        NavBRHotkeyCatalog.DefaultVoiceHotkey,
+        NavBRHotkeyCatalog.DefaultVoiceHotkey);
 
     private bool _chatHotkeyAvailable;
     private bool _voiceHotkeyAvailable;
     private bool _omsiHotkeyConfigVerified;
+    private bool _hotkeysDistinct = true;
     private DateTimeOffset _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
-    private IReadOnlyList<string> _f9ConflictEvents = Array.Empty<string>();
-    private IReadOnlyList<string> _f10ConflictEvents = Array.Empty<string>();
+    private IReadOnlyList<string> _chatConflictEvents = Array.Empty<string>();
+    private IReadOnlyList<string> _voiceConflictEvents = Array.Empty<string>();
+
+    public void ConfigureHotkeys(string? chatHotkey, string? voiceHotkey)
+    {
+        _chatHotkey = NavBRHotkeyCatalog.Resolve(chatHotkey, NavBRHotkeyCatalog.DefaultChatHotkey);
+        _voiceHotkey = NavBRHotkeyCatalog.Resolve(voiceHotkey, NavBRHotkeyCatalog.DefaultVoiceHotkey);
+        _hotkeysDistinct = _chatHotkey.VirtualKey != _voiceHotkey.VirtualKey;
+        _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
+        RefreshOmsiHotkeyConflicts(force: true);
+        RefreshHudChrome();
+    }
 
     private void InstallConflictFreeHotkeys()
     {
@@ -50,25 +65,30 @@ public partial class HudOverlayWindow
 
         if (_omsiProcessId is not int processId)
         {
-            _chatHotkeyAvailable = false;
-            _voiceHotkeyAvailable = false;
-            _omsiHotkeyConfigVerified = false;
-            _f9ConflictEvents = Array.Empty<string>();
-            _f10ConflictEvents = Array.Empty<string>();
+            DisableUnverifiedHotkeys();
             return;
         }
 
         var result = OmsiKeyboardConflictDetector.AnalyzeProcessInstallation(processId);
         _omsiHotkeyConfigVerified = result.ConfigFound;
-        _f9ConflictEvents = result.F9Events;
-        _f10ConflictEvents = result.F10Events;
-        _chatHotkeyAvailable = result.ConfigFound && !result.F9InUse;
-        _voiceHotkeyAvailable = result.ConfigFound && !result.F10InUse;
+        _chatConflictEvents = result.GetEvents(_chatHotkey.OmsiScanCode);
+        _voiceConflictEvents = result.GetEvents(_voiceHotkey.OmsiScanCode);
+        _chatHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _chatConflictEvents.Count == 0;
+        _voiceHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _voiceConflictEvents.Count == 0;
 
         if (!_voiceHotkeyAvailable && _localPushToTalk)
         {
             SetLocalPushToTalk(false);
         }
+    }
+
+    private void DisableUnverifiedHotkeys()
+    {
+        _chatHotkeyAvailable = false;
+        _voiceHotkeyAvailable = false;
+        _omsiHotkeyConfigVerified = false;
+        _chatConflictEvents = Array.Empty<string>();
+        _voiceConflictEvents = Array.Empty<string>();
     }
 
     private string BuildHotkeyConflictTooltip()
@@ -78,15 +98,20 @@ public partial class HudOverlayWindow
             return "Inputs\\keyboard.cfg";
         }
 
-        var details = new List<string>();
-        if (_f9ConflictEvents.Count > 0)
+        if (!_hotkeysDistinct)
         {
-            details.Add($"F9: {string.Join(", ", _f9ConflictEvents.Take(4))}");
+            return $"{_chatHotkey.Name}: chat + PTT";
         }
 
-        if (_f10ConflictEvents.Count > 0)
+        var details = new List<string>();
+        if (_chatConflictEvents.Count > 0)
         {
-            details.Add($"F10: {string.Join(", ", _f10ConflictEvents.Take(4))}");
+            details.Add($"{_chatHotkey.Name}: {string.Join(", ", _chatConflictEvents.Take(4))}");
+        }
+
+        if (_voiceConflictEvents.Count > 0)
+        {
+            details.Add($"{_voiceHotkey.Name}: {string.Join(", ", _voiceConflictEvents.Take(4))}");
         }
 
         return string.Join(Environment.NewLine, details);
@@ -107,26 +132,38 @@ public partial class HudOverlayWindow
             };
         }
 
+        if (!_hotkeysDistinct)
+        {
+            return language switch
+            {
+                "pt" => "Escolha teclas diferentes para chat e voz.",
+                "es" => "Elige teclas diferentes para chat y voz.",
+                "de" => "Für Chat und Sprache unterschiedliche Tasten wählen.",
+                "fr" => "Choisissez des touches différentes pour le chat et la voix.",
+                _ => "Choose different keys for chat and voice."
+            };
+        }
+
         var both = !_chatHotkeyAvailable && !_voiceHotkeyAvailable;
         var chatOnly = !_chatHotkeyAvailable && _voiceHotkeyAvailable;
 
         return language switch
         {
-            "pt" when both => "F9 e F10 desativadas: o OMSI já usa essas teclas.",
-            "pt" when chatOnly => "F9 desativada: o OMSI já usa essa tecla.",
-            "pt" => "F10 desativada: o OMSI já usa essa tecla.",
-            "es" when both => "F9 y F10 desactivadas: OMSI ya usa estas teclas.",
-            "es" when chatOnly => "F9 desactivada: OMSI ya usa esta tecla.",
-            "es" => "F10 desactivada: OMSI ya usa esta tecla.",
-            "de" when both => "F9 und F10 deaktiviert: OMSI verwendet diese Tasten bereits.",
-            "de" when chatOnly => "F9 deaktiviert: OMSI verwendet diese Taste bereits.",
-            "de" => "F10 deaktiviert: OMSI verwendet diese Taste bereits.",
-            "fr" when both => "F9 et F10 désactivées : OMSI utilise déjà ces touches.",
-            "fr" when chatOnly => "F9 désactivée : OMSI utilise déjà cette touche.",
-            "fr" => "F10 désactivée : OMSI utilise déjà cette touche.",
-            _ when both => "F9 and F10 disabled: OMSI already uses these keys.",
-            _ when chatOnly => "F9 disabled: OMSI already uses this key.",
-            _ => "F10 disabled: OMSI already uses this key."
+            "pt" when both => $"{_chatHotkey.Name} e {_voiceHotkey.Name} desativadas: o OMSI já usa essas teclas.",
+            "pt" when chatOnly => $"{_chatHotkey.Name} desativada: o OMSI já usa essa tecla.",
+            "pt" => $"{_voiceHotkey.Name} desativada: o OMSI já usa essa tecla.",
+            "es" when both => $"{_chatHotkey.Name} y {_voiceHotkey.Name} desactivadas: OMSI ya usa estas teclas.",
+            "es" when chatOnly => $"{_chatHotkey.Name} desactivada: OMSI ya usa esta tecla.",
+            "es" => $"{_voiceHotkey.Name} desactivada: OMSI ya usa esta tecla.",
+            "de" when both => $"{_chatHotkey.Name} und {_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Tasten bereits.",
+            "de" when chatOnly => $"{_chatHotkey.Name} deaktiviert: OMSI verwendet diese Taste bereits.",
+            "de" => $"{_voiceHotkey.Name} deaktiviert: OMSI verwendet diese Taste bereits.",
+            "fr" when both => $"{_chatHotkey.Name} et {_voiceHotkey.Name} désactivées : OMSI utilise déjà ces touches.",
+            "fr" when chatOnly => $"{_chatHotkey.Name} désactivée : OMSI utilise déjà cette touche.",
+            "fr" => $"{_voiceHotkey.Name} désactivée : OMSI utilise déjà cette touche.",
+            _ when both => $"{_chatHotkey.Name} and {_voiceHotkey.Name} disabled: OMSI already uses these keys.",
+            _ when chatOnly => $"{_chatHotkey.Name} disabled: OMSI already uses this key.",
+            _ => $"{_voiceHotkey.Name} disabled: OMSI already uses this key."
         };
     }
 
@@ -144,7 +181,7 @@ public partial class HudOverlayWindow
             _pressedKeys.Remove(virtualKey);
         }
 
-        if (virtualKey == VkF10)
+        if (virtualKey == _voiceHotkey.VirtualKey)
         {
             if (!_voiceHotkeyAvailable)
             {
@@ -166,7 +203,7 @@ public partial class HudOverlayWindow
             return;
         }
 
-        if (virtualKey == VkF9 &&
+        if (virtualKey == _chatHotkey.VirtualKey &&
             _chatHotkeyAvailable &&
             isDown &&
             !_chatInteractive &&
