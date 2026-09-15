@@ -36,13 +36,14 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         _acceptLoop = Task.Run(() => AcceptLoopAsync(_lifetimeCts.Token));
     }
 
-    public async Task SendRemoteVehicleStateAsync(
+    public async Task SendMessageAsync(
         PluginBridgeMessage message,
         CancellationToken cancellationToken = default)
     {
-        if (!string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
+        if (message.ProtocolVersion != PluginBridgeProtocol.Version ||
+            !IsClientMessageType(message.Type))
         {
-            throw new ArgumentException("Expected a remote vehicle state message.", nameof(message));
+            throw new ArgumentException("Unsupported NavBR plugin bridge message.", nameof(message));
         }
 
         StreamWriter? writer;
@@ -167,6 +168,11 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             }
         }
     }
+
+    private static bool IsClientMessageType(string type) =>
+        string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal);
 
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {
