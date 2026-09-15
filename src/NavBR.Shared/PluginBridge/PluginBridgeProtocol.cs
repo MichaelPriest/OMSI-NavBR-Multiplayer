@@ -88,4 +88,11 @@ public sealed record PluginBridgeMessage(
     bool? Success = null,
     string? ErrorCode = null,
     string? ErrorMessage = null,
-    string[]? Capabilities = null);
+    string[]? Capabilities = null,
+    double? LocalX = null,
+    double? LocalY = null,
+    double? LocalZ = null,
+    double? RotationX = null,
+    double? RotationY = null,
+    double? RotationZ = null,
+    double? RotationW = null);
