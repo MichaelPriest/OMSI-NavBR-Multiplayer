@@ -72,6 +72,30 @@ OmsiHook reforça decisões importantes:
 3. A futura representação 3D deve tratar criação e ciclo de vida de veículos como operações específicas do simulador.
 4. Leitura e escrita devem ter perfis/fingerprints de versão e falhar fechado quando uma capacidade não estiver validada.
 
+## OMSI RouteAdvisor
+
+Referência: `beispielsweise/OMSI-RouteAdvisor` (MIT).
+
+Esse projeto é uma referência especialmente útil para o módulo de mapas porque também investiga uma solução de navegação externa ao OMSI e documenta limitações do gerador tradicional do Editor.
+
+Pontos relevantes observados:
+
+- procura `texture\map\whole.roadmap.bmp` como imagem global;
+- documenta que roadmaps individuais de tile normalmente são `256x256`;
+- observa que a imagem global pode incluir células vazias/"ghost tiles" para manter a grade retangular;
+- registra que `whole.roadmap.bmp` não é simplesmente uma concatenação sem escala em todos os mapas;
+- descreve a necessidade de interpretar `[spline]`, posição, rotação, comprimento e raio;
+- separa splines de crossings/objetos, reforçando que um gerador vetorial completo precisa tratar ambos.
+
+Aplicação no NavBR:
+
+- o modo "Montar por tiles" mantém a grade completa e preenche células sem imagem;
+- o modo "Vetorial" lê `global.cfg`, tiles `.map`, `[spline]` e `[spline_h]`;
+- a saída é criada de forma própria pelo NavBR, sem copiar a implementação da referência;
+- crossings/objetos permanecem uma etapa explícita de evolução do Roadmap Studio.
+
+Como a licença é MIT, uma eventual reutilização de código seria juridicamente mais simples que em referências GPL/LGPL, mas o projeto continua preferindo implementação própria e atribuição/documentação clara quando qualquer trecho for efetivamente reutilizado.
+
 ## Telemetria avançada
 
 A alpha.11 usa estruturas públicas já investigadas pela comunidade como referência para ampliar a telemetria em modo defensivo.
@@ -122,7 +146,7 @@ tile_-1_0.map.roadmap.bmp
 tile_0_0.map.roadmap.bmp
 ```
 
-O NavBR combina essas imagens usando a grade do mapa, respeita a inversão do eixo Y entre coordenadas do OMSI e bitmap e escreve o `whole.roadmap.bmp` por streaming.
+O NavBR combina essas imagens usando a grade do mapa, respeita a inversão do eixo Y entre coordenadas do OMSI e bitmap, mantém posições vazias na grade e escreve o `whole.roadmap.bmp` por streaming para reduzir consumo de memória.
 
 ### Geração vetorial
 
@@ -130,11 +154,20 @@ Quando não existe roadmap por tile, o NavBR lê `global.cfg`, tiles `.map`, `[s
 
 Essa imagem é deliberadamente uma representação NavBR e não pretende reproduzir pixel a pixel o render do OMSI Editor.
 
+O Roadmap Studio também deve:
+
+- mostrar preview antes/depois;
+- criar backup automático de um `whole.roadmap.bmp` existente;
+- informar quantidade de tiles/splines processados;
+- bloquear dimensões/arquivos impraticáveis;
+- nunca exigir que o OMSI Editor esteja aberto.
+
 Próxima pesquisa para esse módulo:
 
 - crossings;
 - paths dentro de scenery objects;
 - road objects que concentram grande parte da malha viária;
+- downscale compatível com mapas muito grandes;
 - convenções adicionais usadas por ferramentas públicas de mapa/route advisor.
 
 ## Interface e execução em segundo plano
@@ -158,6 +191,7 @@ O app também ganha modo de bandeja do Windows para continuar executando host, b
 
 - `NyCodeGHG/omsi-launcher`: GPL-3.0. Usar como referência conceitual; não incorporar código GPL diretamente ao NavBR sem decisão explícita de licenciamento.
 - `space928/Omsi-Extensions`: LGPL-3.0. Antes de adicionar uma dependência direta, revisar obrigações de redistribuição e compatibilidade. A pesquisa atual usa arquitetura/documentação/estruturas como referência e não incorpora seus binários ao NavBR.
+- `beispielsweise/OMSI-RouteAdvisor`: MIT. Pode ser estudado como referência de navegação/roadmaps; qualquer reaproveitamento direto deve manter os avisos/licença exigidos pela MIT.
 
 ## Regra de segurança
 
