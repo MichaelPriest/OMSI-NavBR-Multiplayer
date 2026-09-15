@@ -189,6 +189,14 @@ internal static class OmsiPluginInstallationService
             yield return preferredRoot;
         }
 
+        // OMSI Launcher documents the native Aerosoft registration as an additional
+        // installation source. This is useful when OMSI lives outside the default
+        // Steam library, or when the Steam folder is symlinked/junctioned.
+        foreach (var registeredRoot in EnumerateRegisteredOmsiRoots())
+        {
+            yield return registeredRoot;
+        }
+
         foreach (var steamRoot in EnumerateSteamRoots())
         {
             var steamApps = Path.Combine(steamRoot, "steamapps");
@@ -207,12 +215,42 @@ internal static class OmsiPluginInstallationService
         }
     }
 
+    private static IEnumerable<string> EnumerateRegisteredOmsiRoots()
+    {
+        var roots = new List<string>();
+
+        AddRegistryPath(
+            roots,
+            RegistryHive.LocalMachine,
+            RegistryView.Registry32,
+            @"SOFTWARE\aerosoft\OMSI 2",
+            "Product_Path");
+
+        // Some systems expose the WOW6432Node path literally despite Registry32.
+        AddRegistryPath(
+            roots,
+            RegistryHive.LocalMachine,
+            RegistryView.Default,
+            @"SOFTWARE\WOW6432Node\aerosoft\OMSI 2",
+            "Product_Path");
+
+        AddRegistryPath(
+            roots,
+            RegistryHive.CurrentUser,
+            RegistryView.Default,
+            @"Software\aerosoft\OMSI 2",
+            "Product_Path");
+
+        return roots.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
     private static IEnumerable<string> EnumerateSteamRoots()
     {
         var roots = new List<string>();
 
-        AddRegistrySteamRoot(roots, RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamPath");
-        AddRegistrySteamRoot(roots, RegistryHive.LocalMachine, RegistryView.Registry32, @"SOFTWARE\Valve\Steam", "InstallPath");
+        AddRegistryPath(roots, RegistryHive.CurrentUser, RegistryView.Default, @"Software\Valve\Steam", "SteamPath");
+        AddRegistryPath(roots, RegistryHive.LocalMachine, RegistryView.Registry32, @"SOFTWARE\Valve\Steam", "InstallPath");
+        AddRegistryPath(roots, RegistryHive.LocalMachine, RegistryView.Default, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath");
 
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
         if (!string.IsNullOrWhiteSpace(programFilesX86))
@@ -253,7 +291,7 @@ internal static class OmsiPluginInstallationService
         return expanded.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static void AddRegistrySteamRoot(
+    private static void AddRegistryPath(
         ICollection<string> roots,
         RegistryHive hive,
         RegistryView view,
@@ -266,11 +304,13 @@ internal static class OmsiPluginInstallationService
             using var key = baseKey.OpenSubKey(subKey);
             if (key?.GetValue(valueName) is string path && !string.IsNullOrWhiteSpace(path))
             {
-                roots.Add(path.Replace('/', Path.DirectorySeparatorChar));
+                roots.Add(path.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace('/', Path.DirectorySeparatorChar));
             }
         }
         catch
         {
+            // Registry discovery is best-effort; other sources remain available.
         }
     }
 
