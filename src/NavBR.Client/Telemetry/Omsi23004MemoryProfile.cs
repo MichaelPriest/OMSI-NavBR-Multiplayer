@@ -49,14 +49,29 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleVelocityOffset = 0x1C0;
     public const int VehicleGroundSpeedOffset = 0x428;
 
+    // Driver controls / AI visual state exposed on OmsiVehicleInst. These are
+    // read-only in NavBR and guarded by range checks before entering telemetry.
+    public const int VehicleThrottleOffset = 0x5DC;
+    public const int VehicleBrakePedalOffset = 0x5E0;
+    public const int VehicleAiLightOffset = 0x634;
+    public const int VehicleAiInteriorLightOffset = 0x638;
+    public const int VehicleAiBlinkerLeftOffset = 0x63C;
+    public const int VehicleAiBlinkerRightOffset = 0x640;
+    public const int VehicleAiBrakeLightOffset = 0x644;
+
     // Active timetable state on TRVInst (read-only).
     public const int VehicleScheduleInfoValidOffset = 0x65C;
     public const int VehicleScheduleLineIndexOffset = 0x660;
     public const int VehicleScheduleTripIndexOffset = 0x66C;
     public const int VehicleScheduleTargetIndexOffset = 0x674;
     public const int VehicleScheduleNextStopOffset = 0x680;
+    public const int VehicleScheduleNextStopIndexOffset = 0x6A8;
     public const int VehicleScheduleNextStopNameOffset = 0x6AC;
     public const int VehicleScheduleDelayOffset = 0x6BC;
+
+    // OmsiRoadVehicleInst runtime state.
+    public const int VehicleCurrentStationOffset = 0x7A0;
+    public const int VehicleFuelPercentOffset = 0x7CC;
 
     // TTimeTableMan dynamic arrays and TTTTrip layout.
     public const int TimeTableTripsOffset = 0x00C;
