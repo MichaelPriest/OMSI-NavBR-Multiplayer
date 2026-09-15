@@ -47,7 +47,6 @@ function New-NavBRMasterIcon {
         $dark2 = [System.Drawing.Color]::FromArgb(255, 31, 35, 42)
         $white = [System.Drawing.Color]::FromArgb(255, 247, 247, 247)
 
-        # Sombra curta, suficiente para separar o símbolo em fundos claros/escuros.
         $shadowBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(78, 0, 0, 0))
         try {
             $graphics.FillEllipse($shadowBrush, 113, 60, 302, 302)
@@ -62,7 +61,6 @@ function New-NavBRMasterIcon {
             $shadowBrush.Dispose()
         }
 
-        # Pin externo.
         $tailBrush = [System.Drawing.SolidBrush]::new($orangeDark)
         try {
             $tailPoints = [System.Drawing.PointF[]]@(
@@ -92,7 +90,6 @@ function New-NavBRMasterIcon {
             $highlightPen.Dispose()
         }
 
-        # Centro escuro.
         $centerBrush = [System.Drawing.SolidBrush]::new($dark)
         try {
             $graphics.FillEllipse($centerBrush, 139, 79, 234, 234)
@@ -109,7 +106,6 @@ function New-NavBRMasterIcon {
             $centerPen.Dispose()
         }
 
-        # Ônibus branco central. Formas deliberadamente simples para não borrar em 16/32 px.
         $busBrush = [System.Drawing.SolidBrush]::new($white)
         $windowBrush = [System.Drawing.SolidBrush]::new($dark)
         try {
@@ -121,11 +117,9 @@ function New-NavBRMasterIcon {
                 $body.Dispose()
             }
 
-            # Espelhos.
             $graphics.FillEllipse($busBrush, 163, 166, 26, 56)
             $graphics.FillEllipse($busBrush, 323, 166, 26, 56)
 
-            # Destino/topo e para-brisa.
             $roof = New-RoundedRectanglePath 201 111 110 26 10
             try {
                 $graphics.FillPath($busBrush, $roof)
@@ -142,12 +136,9 @@ function New-NavBRMasterIcon {
                 $windshield.Dispose()
             }
 
-            # Para-choque e detalhes frontais.
             $graphics.FillRectangle($windowBrush, 205, 232, 102, 12)
             $graphics.FillEllipse($windowBrush, 204, 247, 18, 18)
             $graphics.FillEllipse($windowBrush, 290, 247, 18, 18)
-
-            # Rodas/apoio visual inferior.
             $graphics.FillEllipse($busBrush, 195, 260, 22, 29)
             $graphics.FillEllipse($busBrush, 295, 260, 22, 29)
         }
@@ -259,5 +250,13 @@ if ($reserved -ne 0 -or $type -ne 1 -or $count -ne 10) {
     throw "Generated NavBR icon has an invalid ICO header (reserved=$reserved type=$type count=$count)."
 }
 
-$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedPath).Hash.ToLowerInvariant()
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $hashBytes = $sha256.ComputeHash($finalBytes)
+    $hash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+}
+finally {
+    $sha256.Dispose()
+}
+
 Write-Host "NavBR compact app icon generated: $count frames, $($finalBytes.Length) bytes, sha256=$hash"
