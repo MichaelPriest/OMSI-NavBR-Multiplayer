@@ -11,9 +11,10 @@ const fallbackRelease = {
 };
 
 const alpha10IntegrationTest = {
-  tag: 'v0.3.0-alpha.10-test.4',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.4`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-alpha10-test.4-integration-win-x86.zip`
+  tag: 'v0.3.0-alpha.10-test.5',
+  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.5`,
+  exeUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.5-win-x86.exe`,
+  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-alpha10-test.5-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
@@ -173,16 +174,17 @@ function setupAlpha10IntegrationTest() {
       <h2>${escapeHtml(alpha10IntegrationTest.tag)} disponível</h2>
     </div>
     <div>
-      <p><strong>Use o pacote integrado para testar a nova interface e o plugin.</strong> A test.4 inclui novo ícone, barra translúcida no jogo, GPS heading-up, informações de linha/parada fora do mapa, setas de manobra, chat acoplado, mais atalhos e log automático. Esta prerelease é permanente e não substitui a alpha.9 como download normal.</p>
+      <p><strong>Para a test.5, use preferencialmente o EXE standalone.</strong> O plugin experimental agora vem embutido no próprio cliente e pode ser instalado/atualizado pelo painel do NavBR, com detecção automática da pasta do OMSI. Esta build também corrige o erro de XAML do HUD da test.4 e valida o novo ícone no pipeline. A test.5 não substitui a alpha.9 como download normal.</p>
       <div class="actions">
-        <a class="button primary" href="${escapeHtml(alpha10IntegrationTest.bundleUrl)}" target="_blank" rel="noreferrer">Baixar pacote integrado de teste</a>
-        <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.releaseUrl)}" target="_blank" rel="noreferrer">Abrir prerelease de teste</a>
+        <a class="button primary" href="${escapeHtml(alpha10IntegrationTest.exeUrl)}" target="_blank" rel="noreferrer">Baixar EXE da test.5</a>
+        <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.bundleUrl)}" target="_blank" rel="noreferrer">Pacote integrado / fallback</a>
+        <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.releaseUrl)}" target="_blank" rel="noreferrer">Abrir prerelease</a>
       </div>
     </div>`;
 
   document.querySelectorAll('.trust-grid b').forEach(element => {
     if (/alpha\.10-test\.\d+/i.test(element.textContent || '')) {
-      element.textContent = 'alpha.10-test.4';
+      element.textContent = 'alpha.10-test.5';
     }
   });
 }
