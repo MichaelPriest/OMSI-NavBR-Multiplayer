@@ -92,12 +92,19 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             return;
         }
 
+        var compatibilityId = OmsiPluginBridgeRelay.ResolveCurrentMapCompatibilityId(
+            telemetry.MapCompatibilityId ?? _joinRequest?.MapCompatibilityId);
+        var outgoing = telemetry with
+        {
+            MapCompatibilityId = compatibilityId
+        };
+
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
-            telemetry,
-            _joinRequest?.MapCompatibilityId,
+            outgoing,
+            compatibilityId,
             cancellationToken);
 
-        await connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
+        await connection.SendAsync("PublishTelemetry", outgoing, cancellationToken);
     }
 
     public async Task SendChatMessageAsync(
