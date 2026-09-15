@@ -85,7 +85,12 @@ public partial class HudOverlayWindow
             return;
         }
 
-        EnsureRouteTrace(map, layout, telemetry.Line, telemetry.Route);
+        EnsureRouteTrace(
+            map,
+            layout,
+            telemetry.Line,
+            telemetry.Route,
+            telemetry.DestinationName);
         RenderRouteTrace(
             layout,
             bitmap.PixelWidth,
@@ -130,16 +135,25 @@ public partial class HudOverlayWindow
         OmsiMapInfo map,
         OmsiMapLayout layout,
         string? lineName,
-        string? routeName)
+        string? routeName,
+        string? destinationName)
     {
-        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}";
+        // Some OMSI maps/patches expose the passenger-facing destination but
+        // leave the technical track/route field empty. OmsiRouteTraceReader can
+        // resolve line + destination through the .ttp [trip] block to the real
+        // .ttr, so keep display semantics separate while still using destination
+        // as a lookup fallback.
+        var lookupTarget = !string.IsNullOrWhiteSpace(routeName)
+            ? routeName
+            : destinationName;
+        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}|{destinationName}";
         if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName, lineName);
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, lookupTarget, lineName);
     }
 
     private void RenderRouteTrace(
