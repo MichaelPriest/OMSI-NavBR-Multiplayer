@@ -8,15 +8,21 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class PluginBridgeClient
 {
+    private static readonly object LocalStateSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
     private static Action<string>? _log;
+    private static PluginBridgeMessage? _localState;
 
-    public static PluginBridgeMessage? LatestRemoteState => RemoteVehicles.Latest;
+    public static PluginBridgeMessage? LatestRemoteState =>
+        RemoteVehicles.LatestCompatible(GetLocalState());
 
     public static int RemoteVehicleCount => RemoteVehicles.Count;
+
+    public static int CompatibleRemoteVehicleCount =>
+        RemoteVehicles.CountCompatible(GetLocalState());
 
     public static void Start(Action<string> log)
     {
@@ -35,7 +41,7 @@ internal static class PluginBridgeClient
         _lifetimeCts?.Cancel();
         _lifetimeCts = null;
         _loopTask = null;
-        RemoteVehicles.Clear();
+        ClearAllState();
     }
 
     public static int PruneStaleRemoteStates() => RemoteVehicles.PruneStale();
@@ -108,7 +114,7 @@ internal static class PluginBridgeClient
                     ApplyMessage(message);
                 }
 
-                RemoteVehicles.Clear();
+                ClearAllState();
                 Log("bridge desconectado");
             }
             catch (TimeoutException)
@@ -121,17 +127,17 @@ internal static class PluginBridgeClient
             }
             catch (IOException ex)
             {
-                RemoteVehicles.Clear();
+                ClearAllState();
                 Log($"bridge io: {ex.Message}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                RemoteVehicles.Clear();
+                ClearAllState();
                 Log($"bridge acesso negado: {ex.Message}");
             }
             catch (Exception ex)
             {
-                RemoteVehicles.Clear();
+                ClearAllState();
                 Log($"bridge erro: {ex.GetType().Name}: {ex.Message}");
             }
 
@@ -141,6 +147,12 @@ internal static class PluginBridgeClient
 
     private static void ApplyMessage(PluginBridgeMessage message)
     {
+        if (string.Equals(message.Type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal))
+        {
+            SetLocalState(IsValidLocalState(message) ? message : null);
+            return;
+        }
+
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal))
         {
             RemoteVehicles.Clear();
@@ -158,6 +170,48 @@ internal static class PluginBridgeClient
             RemoteVehicles.Upsert(message);
         }
     }
+
+    private static PluginBridgeMessage? GetLocalState()
+    {
+        lock (LocalStateSync)
+        {
+            return _localState;
+        }
+    }
+
+    private static void SetLocalState(PluginBridgeMessage? state)
+    {
+        lock (LocalStateSync)
+        {
+            _localState = state;
+        }
+    }
+
+    private static void ClearAllState()
+    {
+        SetLocalState(null);
+        RemoteVehicles.Clear();
+    }
+
+    private static bool IsValidLocalState(PluginBridgeMessage message)
+    {
+        if (message.ProtocolVersion != PluginBridgeProtocol.Version ||
+            !string.Equals(message.Type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal) ||
+            (message.MapName?.Length ?? 0) > 256 ||
+            (message.MapCompatibilityId?.Length ?? 0) > 256)
+        {
+            return false;
+        }
+
+        return IsFinite(message.X) &&
+               IsFinite(message.Y) &&
+               IsFinite(message.Z) &&
+               IsFinite(message.HeadingDegrees) &&
+               IsFinite(message.SpeedKph);
+    }
+
+    private static bool IsFinite(double? value) =>
+        value is double number && double.IsFinite(number);
 
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {
