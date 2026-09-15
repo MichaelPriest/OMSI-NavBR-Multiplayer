@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using DNNE;
@@ -85,6 +86,7 @@ public static class PluginExports
             }
         }
 
+        var staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
         var remote = PluginBridgeClient.LatestRemoteState;
         var remoteSummary = remote is null
             ? "remote=none"
@@ -93,7 +95,9 @@ public static class PluginExports
         Log(
             $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
             $"callbacks={Interlocked.Read(ref _systemVariableCallbacks)} " +
-            $"remoteCount={PluginBridgeClient.RemoteVehicleCount} {remoteSummary}");
+            $"remoteCount={PluginBridgeClient.RemoteVehicleCount} " +
+            $"compatibleRemoteCount={PluginBridgeClient.CompatibleRemoteVehicleCount} " +
+            $"staleRemoved={staleRemoved} {remoteSummary}");
     }
 
     private static void Log(string message)
