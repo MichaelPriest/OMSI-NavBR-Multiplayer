@@ -17,101 +17,146 @@ A prerelease geral mais recente continua sendo:
 v0.3.0-alpha.9
 ```
 
-Ela é publicada como **Prerelease**, porque HUD, traçado detalhado, destino/próxima parada, voz, atalhos e multiplayer peer-host ainda precisam de validação real mais ampla no OMSI e entre computadores.
+Ela continua como **download geral recomendado**, porque a alpha.10 ainda possui recursos que aguardam validação real no OMSI e entre computadores.
 
 A alpha.10 está em desenvolvimento. A prerelease permanente de integração mais recente é:
 
 ```text
-v0.3.0-alpha.10-test.2
+v0.3.0-alpha.10-test.6
 ```
 
-Essa tag é **somente para teste de integração**. Ela não substitui a alpha.9 como download recomendado geral e não significa que a alpha.10 esteja pronta para merge/release final.
+A `test.6` é **somente para teste de integração**. Ela não substitui a alpha.9 como versão geral e não significa que a alpha.10 esteja pronta para merge/release final.
 
-A `v0.3.0-alpha.10-test.1` permanece publicada como snapshot histórico. A `test.2` acrescenta o diagnóstico de instalação do plugin no cliente (`install`, `files`, `manifest` e `plugin-dir`) e é a build indicada para a rodada atual de testes.
+As tags `test.1` a `test.5` permanecem publicadas como snapshots históricos e nunca são sobrescritas.
 
 ## Prereleases de teste de integração
 
-Builds `-test.n` existem para que um pacote importante de validação não dependa do prazo de retenção dos artefatos do GitHub Actions.
+Builds `-test.n` existem para que pacotes importantes de validação não dependam do prazo de retenção dos artefatos do GitHub Actions.
 
 Regras:
 
 - ficam publicadas na área de GitHub Releases até remoção manual;
 - são marcadas como **Prerelease**;
-- cada `test.n` é imutável na prática: um workflow não deve sobrescrever uma tag de teste já publicada;
-- o commit exato usado no teste deve ficar associado à tag;
-- devem incluir checksums SHA-256 quando houver binários;
-- não entram na vitrine normal do GitHub Pages nem substituem o botão principal de download;
-- o próximo teste corrigido deve usar uma nova tag, por exemplo `test.3`, em vez de substituir `test.2`.
+- cada `test.n` é tratada como imutável: o workflow recusa sobrescrever uma tag já publicada;
+- o commit exato usado no teste fica associado à tag;
+- incluem checksums SHA-256;
+- não substituem a release geral no catálogo normal do GitHub Pages;
+- a seção experimental do site pode apontar explicitamente para o teste atual;
+- uma correção sempre recebe uma nova tag `test.n+1`.
 
-### Alpha.10 test.2
+## Alpha.10 test.6
 
-A `v0.3.0-alpha.10-test.2` aponta para o commit:
-
-```text
-83009c5222f5089ac9b8244c65a8e4de526df5fa
-```
-
-Pacote recomendado para o teste:
+Release:
 
 ```text
-OMSI-NavBR-alpha10-test.2-integration-win-x86.zip
+v0.3.0-alpha.10-test.6
 ```
 
-Ele reúne:
-
-- cliente standalone;
-- pasta completa do plugin x86;
-- instalador e removedor do plugin;
-- checklist de teste da alpha.10;
-- identificação do build/commit.
-
-Também são publicados separadamente:
+Commit publicado:
 
 ```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip
-SHA256SUMS.txt
-LICENSE
-THIRD_PARTY_NOTICES.md
+7a0fbe3ffbcc338e776add1e1dec1bb5ac7154ea
 ```
 
-Checksums verificados da publicação `test.2`:
+Pacote integrado recomendado para uma rodada completa de teste:
 
 ```text
-bd2a9aff5c2af1f6c6ddb544adb50d8bbc8b1896e8723209a5079835f0497429  OMSI-NavBR-alpha10-test.2-integration-win-x86.zip
-78873e8f5d87ed10088f337deff136083a7e6963e08f780303c46f49709f9e90  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe
-920a49391226d6e6f396fbf344c8461397273a8c48f99039039aeafbb13d9c4e  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip
-52d1cb448587d58bc1d2efb97eaca947c882052302c14ae01fbfbac3ec773b8a  OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip
-bae3e887dfad4f4b2d79d66b076cde72a74896c1f165426f39ed91288c50d8a5  OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip
+OMSI-NavBR-alpha10-test.6-integration-win-x86.zip
 ```
 
-O plugin dessa build continua experimental: **não escreve variáveis, não aciona triggers e não cria/move ônibus físicos dentro do OMSI**.
+Para uso normal, o **EXE standalone** é a opção preferida:
 
-### Alpha.10 test.1
+```text
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe
+```
 
-A `v0.3.0-alpha.10-test.1` permanece disponível apenas para comparação/rastreabilidade da primeira integração permanente. Ela não deve substituir a `test.2` nos testes atuais.
+### Mudanças importantes da test.6
+
+- plugin OMSI publicado como **Native AOT x86 autocontido**;
+- o plugin continua x86 porque o OMSI 2 é 32-bit, mas **não exige mais instalação separada do Microsoft .NET Runtime x86**;
+- plugin embutido no próprio EXE do NavBR;
+- instalação, atualização e remoção pelo painel `PLUGIN BRIDGE v1 • EXP`;
+- pacote instalado no OMSI reduzido a `NavBR.OmsiPlugin.dll` + `NavBR.OmsiPlugin.opl`;
+- detecção da instalação pelo caminho/processo conhecido, registro Aerosoft `Product_Path`, Steam App ID `252530`, `appmanifest_252530.acf` e bibliotecas Steam adicionais;
+- seletor manual de pasta permanece fallback;
+- novo ícone compacto pino laranja + ônibus, gerado em 10 resoluções para Windows;
+- correção do `XamlParseException` do HUD e validação automática dos tokens de cor XAML;
+- HUD moderno com barra superior translúcida;
+- GPS heading-up;
+- linha, destino e próxima parada fora do mapa;
+- chat acoplado ao HUD e proteção de input durante digitação;
+- manobras/curvas somente quando a geometria é confiável;
+- `navbr.log` automático;
+- referências técnicas OMSI Launcher e OmsiHook documentadas para a próxima fase de integração.
+
+### Gates de CI da test.6
+
+Antes da publicação, o workflow validou:
+
+- plugin Native AOT `win-x86` compilado;
+- DLL PE/I386;
+- exports `PluginStart`, `PluginFinalize`, `AccessVariable`, `AccessTrigger`, `AccessStringVariable` e `AccessSystemVariable`;
+- instalação e remoção em OMSI simulado **sem preparar .NET Runtime x86**;
+- payload do plugin embutido no cliente;
+- build do cliente WPF x86;
+- smoke test do Named Pipe/bridge;
+- EXE standalone self-contained;
+- recurso de ícone dentro do EXE;
+- servidor dedicado x64;
+- montagem do pacote integrado.
+
+Esses gates não substituem teste real dentro do OMSI 2.3.004.
+
+### Assets principais e SHA-256
+
+```text
+da1ab08ee6f5bb777f1c730d446a90a9d52e9417534c9bcecb3f7191463cd8e2  OMSI-NavBR-alpha10-test.6-integration-win-x86.zip
+1ea18dc0456c5c2e65071091462ea1cfeed76e6f2bc1e197aa04ae54eade48b2  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe
+c2993234b09d73f60daf4eaf2a503f52854dd7594e56069cbb977af1bd469466  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.zip
+8c0f80b95cb9ab85b19bc06665bd8ac306ca240151378b61aa8eb4d88953884b  OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.6-win-x86.zip
+f45648f11515391abc857af61af3c1a479e264ff97fe37dbe0d4777410c30383  OMSI-NavBR-Server-v0.3.0-alpha.10-test.6-win-x64.zip
+```
+
+O arquivo `SHA256SUMS.txt` também é publicado junto da Release.
+
+## Histórico alpha.10
+
+- `test.1` — primeira integração permanente;
+- `test.2` — diagnóstico de instalação e bundle permanente mais completo;
+- `test.3` — preflight do Runtime x86 e nova rodada de aceitação;
+- `test.4` — primeira rodada do HUD/GPS moderno;
+- `test.5` — plugin embutido/gerenciado pelo EXE e correções de HUD/ícone em desenvolvimento;
+- `test.6` — Native AOT x86 sem runtime externo, novo ícone compacto e fluxo atual de instalação/detecção.
+
+Snapshots anteriores permanecem disponíveis somente para comparação e rastreabilidade; o teste atual deve usar a `test.6`.
+
+## Limite atual do multiplayer 3D
+
+Mesmo na `test.6`, o plugin **ainda não cria nem move ônibus físicos de outros jogadores no mundo 3D do OMSI**.
+
+Hoje, jogadores remotos podem aparecer no GPS/mapa/HUD do NavBR, presença, chat e voz, e seus estados podem chegar ao bridge/plugin experimental para diagnóstico. A representação física 3D continua como próxima camada de pesquisa.
+
+As referências `NyCodeGHG/omsi-launcher` e `space928/Omsi-Extensions` / `OmsiHook` são usadas para orientar descoberta da instalação, arquitetura de integração e investigação futura de `PlayerVehicle`, `RoadVehicles` e ciclo de vida de entidades. Não se deve assumir que escrever coordenadas em memória seja suficiente ou seguro para criar um veículo remoto.
 
 ## Publicação
 
-O workflow `.github/workflows/release.yml` compila e publica os pacotes oficiais quando a versão está pronta para release.
+O workflow `.github/workflows/release.yml` compila e publica os pacotes oficiais quando uma versão está pronta para release geral.
 
-O processo atual:
+O processo geral inclui:
 
-1. restaura e compila os projetos com .NET 10;
-2. compila cliente WPF x86;
-3. compila servidor ASP.NET Core/SignalR;
-4. publica o cliente Windows x86 self-contained;
-5. gera o EXE standalone single-file x86;
-6. valida o executável e o ícone embutido;
-7. publica o servidor dedicado Windows x64;
-8. gera ZIP do cliente e ZIP do servidor;
-9. inclui os avisos legais;
-10. cria/atualiza o GitHub Prerelease;
-11. atualiza o catálogo do GitHub Pages e os contadores de downloads.
+1. restauração e build com .NET 10;
+2. cliente WPF Windows x86;
+3. servidor ASP.NET Core/SignalR;
+4. cliente self-contained;
+5. EXE standalone single-file x86;
+6. validação do executável/ícone;
+7. servidor dedicado Windows x64;
+8. ZIP do cliente e servidor;
+9. avisos legais;
+10. GitHub Prerelease;
+11. catálogo/contadores do GitHub Pages.
 
-A alpha.10 também possui um workflow específico de prerelease de integração. Ele repete as validações críticas antes de publicar o pacote permanente de teste.
+A alpha.10 usa um workflow separado para snapshots de integração. Ele repete os gates críticos antes de publicar uma prerelease permanente `-test.n`.
 
 ## Artefatos oficiais
 
@@ -127,47 +172,27 @@ THIRD_PARTY_NOTICES.md
 
 ### EXE standalone
 
-O arquivo:
+`OMSI-NavBR-Multiplayer-v<versão>-win-x86.exe` é a opção mais simples para a maioria dos usuários. O cliente é self-contained.
 
-```text
-OMSI-NavBR-Multiplayer-v<versão>-win-x86.exe
-```
-
-é a opção mais simples para a maioria dos usuários. Ele é self-contained e inclui o runtime necessário para o cliente.
+Na alpha.10/test.6, o EXE também carrega internamente o pacote do plugin experimental para instalá-lo na pasta correta do OMSI quando o usuário escolher essa opção.
 
 ### Cliente ZIP
 
-O ZIP x86 contém a publicação completa do cliente e é útil para diagnóstico, distribuição manual ou quando o usuário prefere trabalhar com a pasta completa da aplicação.
+O ZIP x86 contém a publicação completa do cliente e é útil para diagnóstico ou distribuição manual.
 
 ### Servidor ZIP
 
-O servidor dedicado x64 é opcional. Na série 0.3, o modo principal de multiplayer é **peer-host**: o próprio PC de quem cria a sala inicia o host da sessão.
+O servidor dedicado x64 é opcional. Na série 0.3, o modo principal continua **peer-host**: o próprio PC de quem cria a sala inicia o host da sessão.
 
 ## Site e contadores
 
-O GitHub Pages consulta os assets das releases para mostrar:
+O GitHub Pages mostra a release geral separadamente da prerelease experimental.
 
-- versão geral atual;
-- downloads por arquivo;
-- downloads por release;
-- total de downloads oficiais.
+- a alpha.9 continua no fluxo geral/recomendado;
+- tags `-test` ficam fora do catálogo automático de releases gerais;
+- a seção experimental aponta explicitamente para `alpha.10-test.6`.
 
-Tags de integração `-test` ficam deliberadamente fora do catálogo normal do site para não confundir um build experimental com o download recomendado. A seção experimental do site oferece explicitamente o pacote `test.2` quando necessário.
-
-A atualização ocorre após releases e também periodicamente pelo workflow de Pages.
-
-## Critério para publicar uma alpha
-
-Uma alpha pode ser publicada quando:
-
-- o CI estiver verde;
-- cliente e servidor compilarem;
-- EXE standalone e pacotes ZIP forem gerados corretamente;
-- a nova funcionalidade estiver suficientemente completa para teste;
-- limitações conhecidas estiverem documentadas;
-- os recursos ainda não validados em runtime estiverem claramente identificados como experimentais ou aguardando teste real.
-
-Não é necessário esperar todas as fases do projeto para publicar uma nova alpha. O objetivo é disponibilizar builds progressivamente para validação real no OMSI.
+Isso evita que uma build de integração substitua acidentalmente o download normal.
 
 ## Critério para avançar além da alpha.9
 
@@ -175,15 +200,18 @@ Antes de considerar a alpha.10 pronta como prerelease geral, continuam prioritá
 
 1. HUD durante gameplay e menus;
 2. posição, velocidade e heading;
-3. traçado detalhado da rota;
-4. destino e próxima parada;
-5. multiplayer entre dois computadores;
-6. chat e voz push-to-talk;
+3. GPS heading-up e traçado detalhado da rota;
+4. destino, próxima parada e manobras;
+5. chat sem vazamento de clique/teclado para o OMSI;
+6. voz push-to-talk;
 7. atalhos e conflitos com `keyboard.cfg`;
-8. lista de mapas/roadmaps da alpha.10;
-9. carregamento real do plugin no OMSI 2.3.004;
-10. diagnóstico de instalação do plugin (`install=INSTALLED`, `files=3/3`, `manifest=YES`);
-11. painel do bridge com `status=CONNECTED`, `process-match=YES` e `heartbeat=LIVE`;
-12. fluxo SignalR → cliente → Named Pipe → plugin entre dois PCs.
+8. lista de mapas/roadmaps;
+9. novo ícone em Explorer/janela/taskbar;
+10. instalação real do plugin no OMSI 2.3.004;
+11. painel com `package=EMBEDDED`, `deployment=NATIVE-AOT-X86`, `install=INSTALLED`, `files=2/2`, `manifest=YES`, `runtime=BUILT-IN`;
+12. bridge com `status=CONNECTED`, `process-match=YES`, `heartbeat=LIVE` e callbacks aumentando;
+13. SignalR → cliente → Named Pipe → plugin entre dois PCs;
+14. presença/GPS/chat/PTT/reconnect sem duplicação de remotos;
+15. somente depois investigar criação segura de uma entidade AI/equivalente para representação física remota.
 
 Os problemas encontrados nesses testes devem ser corrigidos antes de considerar os recursos correspondentes estáveis.
