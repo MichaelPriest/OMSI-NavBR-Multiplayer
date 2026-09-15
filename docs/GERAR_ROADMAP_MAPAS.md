@@ -1,66 +1,152 @@
-# Como gerar o Roadmap de um mapa para o NavBR
+# Como gerar Roadmaps para o NavBR
 
-O NavBR usa o **Roadmap gerado pelo próprio OMSI Editor** como imagem de fundo do GPS/minimapa. O arquivo preferido é:
+O NavBR usa uma imagem global de roadmap como fundo do GPS/minimapa. O arquivo preferido continua sendo:
 
 ```text
 <PASTA_DO_OMSI>\maps\<NOME_DO_MAPA>\texture\map\whole.roadmap.bmp
 ```
 
-Sem esse arquivo o mapa ainda pode ser detectado pelo `global.cfg` e o traçado da viagem ainda pode ser processado, mas o GPS pode ficar sem a imagem de fundo do mapa.
+A partir da **alpha.11**, o NavBR passa a desenvolver o **Roadmap Studio**, uma ferramenta integrada para criar esse arquivo sem depender obrigatoriamente do OMSI Editor.
 
-## Método recomendado — OMSI Editor
+> Estado atual: o Roadmap Studio está na branch de desenvolvimento da alpha.11 e ainda deve ser validado em mapas reais antes da publicação oficial.
+
+## Roadmap Studio — Alpha.11
+
+Abra o módulo:
+
+```text
+Roadmap Studio
+```
+
+na barra lateral da interface alpha.11.
+
+O Studio oferece dois modos.
+
+### Modo 1 — Montar pelas imagens de tile
+
+Use quando o mapa já possuir arquivos semelhantes a:
+
+```text
+tile_-1_0.map.roadmap.bmp
+tile_0_0.map.roadmap.bmp
+tile_1_0.map.roadmap.bmp
+```
+
+mas não tiver conseguido concluir o `whole.roadmap.bmp`.
+
+O NavBR:
+
+1. identifica automaticamente as coordenadas X/Y pelo nome de cada tile;
+2. verifica se as imagens têm dimensões compatíveis;
+3. calcula a grade completa;
+4. respeita a orientação dos eixos do OMSI;
+5. monta o BMP final por streaming, linha a linha, para evitar consumir memória proporcional ao mapa inteiro;
+6. preenche posições sem imagem com fundo escuro;
+7. cria backup do `whole.roadmap.bmp` anterior, quando existir;
+8. grava o novo arquivo em `texture\map\whole.roadmap.bmp`;
+9. mostra preview e estatísticas no próprio Roadmap Studio.
+
+Esse modo é o mais indicado quando o Editor conseguiu gerar roadmaps individuais, mas falhou ao montar a imagem final.
+
+### Modo 2 — Gerar vetorial pelas splines
+
+Use quando não existir nenhum roadmap por tile.
+
+O NavBR lê diretamente:
+
+```text
+global.cfg
+tile_*.map
+[spline]
+[spline_h]
+```
+
+e cria uma imagem de navegação a partir da geometria das splines.
+
+O resultado é uma base **vetorial/navegável**, e não uma reprodução pixel a pixel do roadmap criado pelo OMSI Editor.
+
+Na primeira implementação, o modo vetorial:
+
+- lê a grade do mapa pelo `global.cfg`;
+- suporta mapas normais e a escala tratada pelo leitor de `[worldcoordinates]` do NavBR;
+- amostra splines retas e curvas;
+- usa a mesma transformação de coordenadas do GPS;
+- limita a dimensão máxima do bitmap para evitar consumo excessivo de memória;
+- cria backup do roadmap anterior;
+- grava metadados em `whole.roadmap.navbr.txt`;
+- não precisa iniciar o OMSI Editor.
+
+### Limitação inicial do modo vetorial
+
+Alguns mapas constroem boa parte das ruas através de **crossings, scenery objects e paths internos de objetos**, e não apenas através de `[spline]` diretamente no tile.
+
+Nesses mapas, a primeira versão do modo Vetorial pode produzir uma rede incompleta ou informar que não encontrou splines suficientes. O próximo estágio do gerador deve reutilizar os leitores de geometria de scenery/crossing já existentes no NavBR para completar essas vias.
+
+## Segurança ao substituir roadmaps
+
+O Roadmap Studio não substitui silenciosamente um arquivo existente sem manter uma cópia.
+
+Quando já existir:
+
+```text
+whole.roadmap.bmp
+```
+
+o NavBR cria algo semelhante a:
+
+```text
+whole.roadmap.backup-20260915-193000.bmp
+```
+
+antes de publicar o novo arquivo.
+
+Arquivos temporários incompletos são descartados se a operação falhar.
+
+## Mapas muito grandes
+
+O OMSI Editor pode falhar na geração de roadmaps grandes por memória/recursos. O modo por tiles do Roadmap Studio foi desenhado para reduzir esse problema porque escreve o BMP final por linhas, sem montar todas as tiles simultaneamente numa imagem gigante em RAM.
+
+Mesmo assim existem limites de segurança:
+
+- imagens finais absurdamente grandes são bloqueadas;
+- BMPs estimados acima de aproximadamente 2 GB são recusados;
+- o modo vetorial usa uma resolução global limitada para manter o consumo de memória previsível.
+
+## Método clássico — OMSI Editor
+
+O Editor continua sendo uma alternativa e pode ser usado para produzir o roadmap visual original do mapa.
 
 ### 1. Feche o OMSI normal
 
-Evite manter uma sessão normal do jogo aberta enquanto for trabalhar no Editor.
+Evite manter uma sessão normal aberta enquanto trabalha no Editor.
 
-### 2. Inicie o OMSI em modo Editor
+### 2. Inicie o Editor
 
-Abra o OMSI Map Editor da forma usada na sua instalação. O método clássico é iniciar o executável com o parâmetro:
+O método clássico é:
 
 ```text
 Omsi.exe -editor
 ```
 
-Em instalações com atalho próprio para o Editor, pode usar esse atalho.
-
 ### 3. Abra o mapa
 
-Carregue o mapa para o qual deseja criar o roadmap.
+Carregue o mapa desejado.
 
 ### 4. Abra a aba `Tile`
 
-No painel do Editor, selecione:
+### 5. Use `Create Roadmap`
 
-```text
-Tile
-```
+O Editor percorre as tiles e normalmente gera os roadmaps individuais e o arquivo global.
 
-### 5. Clique em `Create Roadmap`
-
-Na parte inferior da aba `Tile`, use:
-
-```text
-Create Roadmap
-```
-
-O OMSI percorre as tiles e gera as imagens do roadmap. Dependendo do tamanho do mapa, esse processo pode demorar bastante e o Editor pode parecer parado durante parte do processamento.
-
-### 6. Aguarde o processo terminar
-
-Não feche o Editor enquanto ele estiver gerando os arquivos.
-
-Quando concluído corretamente, procure principalmente por:
+Quando concluído corretamente, procure:
 
 ```text
 <PASTA_DO_OMSI>\maps\<NOME_DO_MAPA>\texture\map\whole.roadmap.bmp
 ```
 
-O Editor também pode gerar arquivos de roadmap correspondentes às tiles dentro da mesma pasta.
-
 ## Como confirmar que o NavBR encontrará o arquivo
 
-A estrutura ideal é:
+Estrutura ideal:
 
 ```text
 OMSI 2\
@@ -73,91 +159,57 @@ OMSI 2\
             └─ whole.roadmap.bmp
 ```
 
-O NavBR procura primeiro:
+O NavBR procura primeiro variantes globais como:
 
 ```text
 texture\map\whole.roadmap.bmp
 texture\map\roadmap.bmp
 ```
 
-Também existem fallbacks para variantes de nome/localização, mas `texture\map\whole.roadmap.bmp` é o formato recomendado.
+`texture\map\whole.roadmap.bmp` continua sendo o formato recomendado.
 
-## Importante: Roadmap não é o traçado da linha
+## Roadmap não é o traçado da linha
 
-São coisas diferentes:
+São camadas diferentes:
 
-- **Roadmap**: imagem de fundo do mapa, gerada pelo OMSI Editor;
-- **Traçado da linha**: calculado pelo NavBR a partir de `TTData`, `.ttp`, `.ttr`, tiles `.map`, splines `.sli` e paths/crossings `.sco`.
+- **Roadmap:** fundo visual do GPS;
+- **Traçado da linha:** calculado a partir de timetable e geometria (`TTData`, `.ttp`, `.ttr`, tiles `.map`, splines, crossings e paths).
 
-Portanto, gerar `whole.roadmap.bmp` melhora/viabiliza o fundo do GPS, mas não corrige sozinho um problema de rota ou timetable.
+Portanto, criar `whole.roadmap.bmp` melhora o fundo visual, mas não corrige sozinho erros de timetable ou rota.
 
-## Se `whole.roadmap.bmp` já existir
+## Quando regenerar
 
-Não é necessário gerar novamente para usar o NavBR.
-
-Só vale regenerar quando:
+Vale regenerar quando:
 
 - o mapa foi atualizado;
 - novas tiles/ruas foram adicionadas;
-- a imagem ficou incompleta;
+- o roadmap ficou incompleto;
 - o arquivo está corrompido;
-- o roadmap não corresponde mais à versão instalada do mapa.
+- a imagem não corresponde mais à versão instalada do mapa.
 
-Antes de substituir um arquivo existente, faça backup.
-
-## Mapas muito grandes
-
-O gerador do OMSI Editor pode falhar em mapas com muitas tiles por limitações do próprio OMSI/Editor, especialmente por memória/recursos.
-
-Sintomas comuns:
-
-- `Create Roadmap` demora muito e fecha com erro;
-- erro de recursos/memória;
-- erro de faixa/range check;
-- somente parte das tiles recebe arquivos `*.roadmap.bmp`;
-- `whole.roadmap.bmp` não é concluído.
-
-### O que tentar
-
-1. faça backup da pasta do mapa;
-2. verifique o `logfile.txt` do OMSI após a falha;
-3. valide se existem tiles/objetos/splines quebrados;
-4. tente gerar novamente com outros programas fechados;
-5. em mapas enormes, pode ser necessário gerar roadmaps parciais/tile a tile e montar uma imagem final manualmente.
-
-A montagem manual deve respeitar exatamente a grade e a orientação das tiles. Um BMP montado incorretamente fará o marcador do NavBR aparecer deslocado mesmo quando a telemetria estiver correta.
-
-## Se o Editor gerar apenas arquivos por tile
-
-Em alguns mapas grandes, o Editor pode deixar diversos arquivos `*.roadmap.bmp` na pasta:
-
-```text
-<MAPA>\texture\map\
-```
-
-mas falhar antes de produzir o `whole.roadmap.bmp` final.
-
-Esses arquivos podem servir como matéria-prima para reconstrução manual, mas o NavBR funciona melhor com uma imagem global completa. Não renomeie simplesmente uma tile individual para `whole.roadmap.bmp`.
-
-## Checklist para testar um mapa no NavBR
+## Checklist
 
 Antes de testar um mapa no NavBR, confirme:
 
 - `global.cfg` existe;
 - tiles `.map` existem;
-- `texture\map\whole.roadmap.bmp` existe, quando o fundo visual for desejado;
+- `whole.roadmap.bmp` existe ou foi criado pelo Roadmap Studio, se um fundo visual for desejado;
 - `TTData` ou `Chrono\*\TTData` existe para linhas/viagens;
 - a viagem foi iniciada dentro do OMSI;
-- o mapa é a mesma versão usada pelos jogadores no multiplayer.
+- todos os jogadores usam a mesma versão do mapa no multiplayer.
 
-Se a rota não for desenhada corretamente, envie também:
+Para problemas de traçado, o log relevante continua sendo:
 
 ```text
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-route.log
 ```
 
-Esse log é mais importante para problemas de traçado do que o BMP do roadmap.
+## Referências técnicas
 
-## Próxima melhoria planejada
+O desenvolvimento do Roadmap Studio segue a regra do projeto de consultar ferramentas/plugins OMSI existentes como referência antes de implementar recursos grandes. O NavBR usa essas referências para entender formatos e fluxos, mas mantém implementação própria e compatível com a licença do projeto.
 
-Para mapas muito grandes, o NavBR poderá ganhar uma ferramenta própria para **montar automaticamente um `whole.roadmap.bmp`** a partir dos roadmaps individuais das tiles, usando a grade do `global.cfg`. Isso reduzirá a dependência das limitações de memória do OMSI Editor.
+As referências gerais usadas na alpha.11 ficam registradas em:
+
+```text
+docs/REFERENCIAS_OMSILAUNCH_OMSIHOOK.md
+```
