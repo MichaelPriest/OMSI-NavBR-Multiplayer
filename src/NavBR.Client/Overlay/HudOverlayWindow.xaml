@@ -100,21 +100,25 @@
 
             <Grid HorizontalAlignment="Left">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="320" />
+                    <ColumnDefinition Width="300" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Grid Width="320" Height="202" HorizontalAlignment="Left">
+                <Grid Width="300" Height="190" HorizontalAlignment="Left">
                     <Border Background="#66101820"
                             BorderBrush="#78FFFFFF"
                             BorderThickness="1"
                             CornerRadius="12"
                             ClipToBounds="True">
                         <Canvas x:Name="MiniMapCanvas"
-                                Width="318"
-                                Height="200"
+                                Width="296"
+                                Height="186"
                                 ClipToBounds="True"
-                                Background="#28101820">
+                                Background="#28101820"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Canvas.RenderTransform>
+                                <ScaleTransform x:Name="MiniMapContentScale" ScaleX="1" ScaleY="1" />
+                            </Canvas.RenderTransform>
                             <Image x:Name="MiniMapImage"
                                    Opacity="0.58"
                                    Stretch="Fill"
