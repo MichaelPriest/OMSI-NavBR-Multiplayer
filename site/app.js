@@ -11,9 +11,9 @@ const fallbackRelease = {
 };
 
 const alpha10IntegrationTest = {
-  tag: 'v0.3.0-alpha.10-test.2',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.2`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-alpha10-test.2-integration-win-x86.zip`
+  tag: 'v0.3.0-alpha.10-test.3',
+  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.3`,
+  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-alpha10-test.3-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
@@ -156,12 +156,17 @@ async function loadReleases() {
 function setupAlpha10IntegrationTest() {
   const pluginSection = document.getElementById('plugin');
   const featureGrid = pluginSection?.querySelector('.feature-grid');
-  if (!pluginSection || !featureGrid || document.getElementById('alpha10-integration-test')) return;
+  if (!pluginSection || !featureGrid) return;
 
-  const testCard = document.createElement('div');
-  testCard.id = 'alpha10-integration-test';
-  testCard.className = 'validation-card';
-  testCard.style.marginBottom = '20px';
+  let testCard = document.getElementById('alpha10-integration-test');
+  if (!testCard) {
+    testCard = document.createElement('div');
+    testCard.id = 'alpha10-integration-test';
+    testCard.className = 'validation-card';
+    testCard.style.marginBottom = '20px';
+    featureGrid.before(testCard);
+  }
+
   testCard.innerHTML = `
     <div>
       <span class="eyebrow">Teste permanente da alpha.10</span>
@@ -175,7 +180,11 @@ function setupAlpha10IntegrationTest() {
       </div>
     </div>`;
 
-  featureGrid.before(testCard);
+  document.querySelectorAll('.trust-grid b').forEach(element => {
+    if (/alpha\.10-test\.\d+/i.test(element.textContent || '')) {
+      element.textContent = 'alpha.10-test.3';
+    }
+  });
 }
 
 function setupPix() {
