@@ -49,6 +49,16 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleVelocityOffset = 0x1C0;
     public const int VehicleGroundSpeedOffset = 0x428;
 
+    // File/object identity. OmsiComplMapObjInst.MyFileObject points to the
+    // source object entry and OmsiRoadVehicleInst.RoadVehicle points to the
+    // loaded .bus/.ovh definition. These reads are used only for compatibility
+    // fingerprints; the external telemetry provider remains read-only.
+    public const int VehicleFileObjectOffset = 0x1E8;
+    public const int FileObjectPathOffset = 0x018;
+    public const int RoadVehicleDefinitionOffset = 0x710;
+    public const int RoadVehicleFriendlyNameOffset = 0x19C;
+    public const int RoadVehicleMyPathOffset = 0x1A8;
+
     // Driver controls / AI visual state exposed on OmsiVehicleInst. These are
     // read-only in NavBR and guarded by range checks before entering telemetry.
     public const int VehicleThrottleOffset = 0x5DC;
