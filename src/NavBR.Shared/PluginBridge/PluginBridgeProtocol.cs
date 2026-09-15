@@ -9,6 +9,8 @@ public static class PluginBridgeProtocol
     public const string PluginHello = "plugin-hello";
     public const string ClientHello = "client-hello";
     public const string RemoteVehicleState = "remote-vehicle-state";
+    public const string RemoteVehicleRemoved = "remote-vehicle-removed";
+    public const string ClearRemoteVehicles = "clear-remote-vehicles";
 }
 
 public sealed record PluginBridgeMessage(
