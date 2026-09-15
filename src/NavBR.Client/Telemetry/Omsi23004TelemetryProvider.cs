@@ -124,7 +124,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             string? line = null;
             string? route = null;
             string? nextStopName = null;
-            TryReadActiveTrip(memory, vehicleAddress, out line, out route, out nextStopName);
+            string? destinationName = null;
+            TryReadActiveTrip(
+                memory,
+                vehicleAddress,
+                out line,
+                out route,
+                out nextStopName,
+                out destinationName);
 
             LastErrorCode = TelemetryErrorCode.None;
             return new VehicleTelemetry(
@@ -144,7 +151,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 GridY: gridY,
                 TileX: tileX,
                 TileY: tileY,
-                NextStopName: nextStopName);
+                NextStopName: nextStopName,
+                DestinationName: destinationName);
         }
         catch (ArgumentException)
         {
@@ -203,11 +211,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         nint vehicleAddress,
         out string? line,
         out string? route,
-        out string? nextStopName)
+        out string? nextStopName,
+        out string? destinationName)
     {
         line = null;
         route = null;
         nextStopName = null;
+        destinationName = null;
 
         try
         {
@@ -278,20 +288,26 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var trackName = memory.ReadNullTerminatedAnsiStringField(nint.Add(
                 tripPointer,
                 Omsi23004MemoryProfile.TripTrackNameOffset));
-            var target = memory.ReadNullTerminatedAnsiStringField(nint.Add(
+            destinationName = memory.ReadNullTerminatedAnsiStringField(nint.Add(
                 tripPointer,
                 Omsi23004MemoryProfile.TripTargetOffset));
 
-            route = !string.IsNullOrWhiteSpace(trackName) ? trackName : target;
+            // Route remains the technical track identifier when available because
+            // the roadmap reader uses it to resolve the actual .ttr. Destination
+            // is exposed separately so the HUD never has to show that technical
+            // identifier to the driver.
+            route = !string.IsNullOrWhiteSpace(trackName) ? trackName : destinationName;
             return !string.IsNullOrWhiteSpace(line) ||
                    !string.IsNullOrWhiteSpace(route) ||
-                   !string.IsNullOrWhiteSpace(nextStopName);
+                   !string.IsNullOrWhiteSpace(nextStopName) ||
+                   !string.IsNullOrWhiteSpace(destinationName);
         }
         catch
         {
             line = null;
             route = null;
             nextStopName = null;
+            destinationName = null;
             return false;
         }
     }
