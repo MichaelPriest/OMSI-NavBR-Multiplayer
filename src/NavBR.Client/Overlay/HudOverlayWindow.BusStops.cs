@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -42,9 +43,9 @@ public partial class HudOverlayWindow
     private void BusStopSettingsSaved(MultiplayerSettings settings)
     {
         var styleKey = BuildStopStyleKey(settings);
+        _hudSettings = settings;
         if (!string.Equals(styleKey, _busStopMarkerStyleKey, StringComparison.OrdinalIgnoreCase))
         {
-            _hudSettings = settings;
             InvalidateBusStopMarkers();
         }
     }
@@ -109,7 +110,11 @@ public partial class HudOverlayWindow
         {
             _busStopMapKey = mapKey;
             _busStops = OmsiBusStopReader.TryRead(map);
-            InvalidateBusStopMarkers();
+            foreach (var marker in _busStopMarkers.Values)
+            {
+                MiniMapCanvas.Children.Remove(marker);
+            }
+            _busStopMarkers.Clear();
         }
 
         var styleKey = BuildStopStyleKey(_hudSettings);
@@ -163,7 +168,7 @@ public partial class HudOverlayWindow
 
             var key = StopKey(stop);
             var isNext = string.Equals(key, nextStopKey, StringComparison.OrdinalIgnoreCase);
-            var marker = GetOrCreateBusStopMarker(stop, isNext);
+            var marker = GetOrCreateBusStopMarker(stop);
             UpdateBusStopMarkerVisual(marker, stop, isNext, telemetry.HeadingDegrees, zoom);
             Canvas.SetLeft(marker, x - marker.Width / 2d);
             Canvas.SetTop(marker, y - marker.Height / 2d);
@@ -230,7 +235,7 @@ public partial class HudOverlayWindow
         return nearest is null ? null : StopKey(nearest);
     }
 
-    private FrameworkElement GetOrCreateBusStopMarker(OmsiBusStopPoint stop, bool isNext)
+    private FrameworkElement GetOrCreateBusStopMarker(OmsiBusStopPoint stop)
     {
         var key = StopKey(stop);
         if (_busStopMarkers.TryGetValue(key, out var marker))
@@ -238,17 +243,17 @@ public partial class HudOverlayWindow
             return marker;
         }
 
-        marker = BuildBusStopMarker(isNext);
+        marker = BuildBusStopMarker();
         marker.ToolTip = stop.Name;
-        Panel.SetZIndex(marker, isNext ? 31 : 24);
+        Panel.SetZIndex(marker, 24);
         MiniMapCanvas.Children.Add(marker);
         _busStopMarkers[key] = marker;
         return marker;
     }
 
-    private FrameworkElement BuildBusStopMarker(bool isNext)
+    private FrameworkElement BuildBusStopMarker()
     {
-        var size = isNext ? 20d : 14d;
+        const double size = 14d;
         if (string.Equals(_hudSettings.StopIconStyle, "custom", StringComparison.OrdinalIgnoreCase) &&
             TryLoadCustomBusStopIcon() is BitmapSource customIcon)
         {
@@ -269,9 +274,9 @@ public partial class HudOverlayWindow
             {
                 Width = size,
                 Height = size,
-                Fill = isNext ? Brushes.Orange : Brushes.White,
-                Stroke = isNext ? Brushes.White : new SolidColorBrush(Color.FromRgb(23, 139, 67)),
-                StrokeThickness = isNext ? 2.2d : 1.8d,
+                Fill = Brushes.White,
+                Stroke = new SolidColorBrush(Color.FromRgb(23, 139, 67)),
+                StrokeThickness = 1.8d,
                 RenderTransformOrigin = new Point(0.5d, 0.5d)
             };
         }
@@ -288,13 +293,13 @@ public partial class HudOverlayWindow
         {
             Fill = new SolidColorBrush(Color.FromRgb(247, 211, 47)),
             Stroke = new SolidColorBrush(Color.FromRgb(24, 122, 55)),
-            StrokeThickness = isNext ? 2.5d : 2d
+            StrokeThickness = 2d
         });
         grid.Children.Add(new TextBlock
         {
             Text = "H",
             Foreground = new SolidColorBrush(Color.FromRgb(19, 102, 47)),
-            FontSize = isNext ? 12d : 8d,
+            FontSize = 8d,
             FontWeight = FontWeights.Black,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
@@ -303,29 +308,36 @@ public partial class HudOverlayWindow
         return grid;
     }
 
-    private void UpdateBusStopMarkerVisual(
+    private static void UpdateBusStopMarkerVisual(
         FrameworkElement marker,
         OmsiBusStopPoint stop,
         bool isNext,
         double headingDegrees,
         double zoom)
     {
-        var wantedSize = isNext ? 20d : 14d;
-        if (Math.Abs(marker.Width - wantedSize) > 0.1d || Math.Abs(marker.Height - wantedSize) > 0.1d)
-        {
-            // Rebuild when the same marker transitions to/from next stop so the
-            // H glyph and border also receive the correct emphasis.
-            MiniMapCanvas.Children.Remove(marker);
-            _busStopMarkers.Remove(StopKey(stop));
-            marker = GetOrCreateBusStopMarker(stop, isNext);
-        }
-
         marker.ToolTip = isNext ? $"Próxima parada: {stop.Name}" : stop.Name;
         Panel.SetZIndex(marker, isNext ? 31 : 24);
+        marker.Effect = isNext
+            ? new DropShadowEffect
+            {
+                Color = Colors.Orange,
+                BlurRadius = 10d,
+                ShadowDepth = 0d,
+                Opacity = 0.95d
+            }
+            : null;
+
+        if (marker is Ellipse dot)
+        {
+            dot.Fill = isNext ? Brushes.Orange : Brushes.White;
+            dot.Stroke = isNext ? Brushes.White : new SolidColorBrush(Color.FromRgb(23, 139, 67));
+            dot.StrokeThickness = isNext ? 2.2d : 1.8d;
+        }
 
         var transforms = new TransformGroup();
         transforms.Children.Add(new RotateTransform(headingDegrees));
-        transforms.Children.Add(new ScaleTransform(1d / zoom, 1d / zoom));
+        var emphasis = isNext ? 1.45d : 1d;
+        transforms.Children.Add(new ScaleTransform(emphasis / zoom, emphasis / zoom));
         marker.RenderTransform = transforms;
     }
 
