@@ -32,6 +32,7 @@ OMSI NavBR Multiplayer usa bibliotecas de terceiros distribuídas sob licenças 
 - Versão usada no protótipo: `2.1.2`
 - Licença: MIT
 - Projeto: https://github.com/AaronRobinsonMSFT/DNNE
+- Texto da licença: `licenses/DNNE-LICENSE.txt`
 - O plugin continua experimental e não integra o pacote normal do cliente enquanto não houver validação real no OMSI.
 
 ## .NET / WPF
