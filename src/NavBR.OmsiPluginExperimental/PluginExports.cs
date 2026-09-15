@@ -86,15 +86,21 @@ public static class PluginExports
             }
         }
 
+        var callbacks = Interlocked.Read(ref _systemVariableCallbacks);
         var staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
         var remote = PluginBridgeClient.LatestRemoteState;
         var remoteSummary = remote is null
             ? "remote=none"
             : $"remote={remote.PlayerId} map={remote.MapName ?? "-"} pos=({remote.X:F2},{remote.Y:F2},{remote.Z:F2}) heading={remote.HeadingDegrees:F1} speed={remote.SpeedKph:F1}";
 
+        PluginBridgeClient.ReportRuntimeStatus(
+            callbacks,
+            variableIndex,
+            staleRemoved);
+
         Log(
             $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
-            $"callbacks={Interlocked.Read(ref _systemVariableCallbacks)} " +
+            $"callbacks={callbacks} " +
             $"remoteCount={PluginBridgeClient.RemoteVehicleCount} " +
             $"compatibleRemoteCount={PluginBridgeClient.CompatibleRemoteVehicleCount} " +
             $"staleRemoved={staleRemoved} {remoteSummary}");
