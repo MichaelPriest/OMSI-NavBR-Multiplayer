@@ -2,6 +2,43 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.10-test.4] — HUD moderno, GPS heading-up e novo ícone
+
+### Adicionado
+
+- barra superior translúcida dentro do jogo com status de conexão, mapa, jogadores, chat, PTT e atalhos;
+- animação discreta do indicador de conexão;
+- GPS em modo **heading-up**, mantendo o ônibus local apontado para cima enquanto mapa/rota giram;
+- card separado para linha, destino e próxima parada;
+- setas de manobra com distância aproximada quando existe geometria detalhada suficiente;
+- chat visual acoplado abaixo do GPS;
+- camada que bloqueia cliques no OMSI enquanto o chat está em modo de digitação;
+- mais opções de atalhos para chat/PTT: F1-F4 e F9-F12 com combinações Shift/Ctrl/Ctrl+Shift;
+- log de sessão automático em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr.log`.
+
+### Melhorado
+
+- novo ícone oficial incorporado ao app/EXE e validado pelo CI;
+- F5-F8 continuam fora das opções de atalho para evitar conflitos comuns do OMSI;
+- orientação de manobra é ocultada quando a rota disponível é apenas coarse/tile-fallback, evitando instruções inventadas;
+- documentação do HUD/chat/voz e checklist de teste atualizados para a test.4.
+
+### Mantido
+
+- plugin OMSI continua experimental e opcional;
+- preflight de .NET 10 Runtime x86 antes da instalação do plugin;
+- multiplayer peer-host TCP 27730, SignalR, chat, PTT e reconexão/rejoin;
+- ainda não existe criação física de ônibus remoto dentro do mundo 3D do OMSI.
+
+### Validação necessária
+
+- confirmar no OMSI 2.3.004 que o mapa gira no sentido correto durante curvas;
+- confirmar que o clique não chega ao jogo durante a digitação do chat;
+- validar setas de manobra em rota com geometria detalhada;
+- confirmar novo ícone no Explorer/taskbar em máquina sem cache anterior;
+- validar HUD moderno em janela e janela sem bordas;
+- executar teste de dois PCs com GPS/HUD/chat/PTT e plugin bridge.
+
 ## [0.3.0-alpha.4] — convite colável e HUD suavizado
 
 ### Adicionado
