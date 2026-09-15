@@ -31,6 +31,9 @@ jobs:
       - name: Restore client
         run: dotnet restore src/NavBR.Client/NavBR.Client.csproj
 
+      - name: Restore experimental OMSI plugin
+        run: dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+
       - name: Build shared
         run: dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
 
@@ -39,6 +42,33 @@ jobs:
 
       - name: Build client
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release --no-restore
+
+      - name: Build experimental OMSI plugin x86
+        run: >-
+          dotnet build src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj
+          -c Release
+          -r win-x86
+          --no-restore
+          -o artifacts/NavBR.OmsiPlugin.Experimental
+
+      - name: Validate experimental OMSI plugin package
+        shell: pwsh
+        run: |
+          $native = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
+          $opl = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl"
+          $runtimeConfig = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPluginExperimental.runtimeconfig.json"
+
+          if (-not (Test-Path $native)) {
+            throw "Native OMSI plugin entry DLL was not generated: $native"
+          }
+          if (-not (Test-Path $opl)) {
+            throw "OMSI plugin OPL file was not generated: $opl"
+          }
+          if (-not (Test-Path $runtimeConfig)) {
+            throw "OMSI plugin runtimeconfig was not generated: $runtimeConfig"
+          }
+
+          Write-Host "Experimental OMSI plugin package validated."
 
       - name: Publish Windows x86 client
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
@@ -120,5 +150,13 @@ jobs:
         with:
           name: OMSI-NavBR-Multiplayer-standalone-win-x86
           path: artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload experimental OMSI plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Plugin-experimental-win-x86
+          path: artifacts/NavBR.OmsiPlugin.Experimental
           if-no-files-found: error
           retention-days: 14
