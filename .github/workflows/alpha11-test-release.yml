@@ -5,6 +5,7 @@ on:
     branches: [ test/alpha11-test1 ]
     paths:
       - 'Directory.Build.props'
+      - '.github/workflows/alpha11-test-release.yml'
 
 permissions:
   contents: write
@@ -60,6 +61,7 @@ jobs:
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj -r win-x64
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
