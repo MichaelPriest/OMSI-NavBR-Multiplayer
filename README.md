@@ -120,19 +120,20 @@ Já existem no código:
 - voz push-to-talk;
 - convite versionado;
 - host peer-to-peer na porta TCP `27730`;
+- reconexão automática SignalR com reentrada na sala;
 - servidor dedicado opcional.
 
 Em rede local, o NavBR mostra automaticamente os endereços IPv4 disponíveis. Para jogadores fora da mesma rede, o host pode precisar liberar o NavBR no Windows Firewall e encaminhar a porta TCP `27730` no roteador.
 
 Ainda precisam ser desenvolvidos/refinados depois dos testes reais:
 
-- reconexão automática;
-- diagnóstico de conectividade mais completo;
+- diagnóstico de conectividade/porta mais completo;
 - rate limiting;
 - códigos de erro de rede mais estruturados e independentes de idioma;
-- UPnP/NAT traversal para reduzir configuração manual de porta.
+- UPnP/NAT traversal para reduzir configuração manual de porta;
+- melhorias de voz em redes com perda/latência elevada.
 
-O pacote `OMSI-NavBR-Server` continua disponível para quem quiser executar um host dedicado em outro PC ou servidor.
+O pacote `OMSI-NavBR-Server` continua disponível somente para quem quiser executar um **host dedicado separado**. Ele não é necessário para criar uma sala comum pelo cliente NavBR.
 
 ### Chat e voz
 
@@ -149,7 +150,7 @@ O multiplayer inclui:
 
 Nesta alpha a voz é transportada pelo mesmo canal SignalR/WebSocket da sessão. Isso simplifica o peer-host inicial, mas pode ter mais latência sob perda de rede do que um transporte UDP/WebRTC.
 
-Voz, latência, atalhos e peer-host ainda exigem validação real entre computadores antes de serem considerados estáveis.
+Voz, latência, atalhos, reconexão e peer-host ainda exigem validação real entre computadores antes de serem considerados estáveis.
 
 ## Próximos testes prioritários
 
@@ -163,8 +164,9 @@ Antes de continuar o desenvolvimento de novas funções, a alpha.9 deve ser vali
 6. multiplayer entre dois computadores em LAN;
 7. multiplayer pela Internet com firewall/NAT configurados;
 8. chat, PTT e áudio entre dois computadores;
-9. conflitos dos atalhos com `keyboard.cfg`;
-10. perfil OMSI 2.2.032 quando houver ambiente para teste.
+9. reconexão/reentrada na sala após queda temporária;
+10. conflitos dos atalhos com `keyboard.cfg`;
+11. perfil OMSI 2.2.032 quando houver ambiente para teste.
 
 Depois desses testes, o desenvolvimento segue com as correções encontradas e com os itens pendentes descritos em `docs/ROADMAP.md`.
 
@@ -222,10 +224,18 @@ licenses/
 
 O GitHub Actions compila cliente e servidor automaticamente. Cada nova versão gera um **GitHub Prerelease** com:
 
-- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — cliente Windows x86 standalone/self-contained;
-- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — pacote completo do cliente;
-- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — servidor/host dedicado Windows x64;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — **cliente recomendado**, standalone/self-contained;
+- `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — **cliente em ZIP**, alternativa ao EXE standalone;
+- `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — **servidor dedicado opcional**;
 - `LICENSE` e `THIRD_PARTY_NOTICES.md` para os avisos legais do projeto e dependências.
+
+### Qual arquivo baixar?
+
+Para **jogar, entrar em uma sala ou criar uma sala no próprio PC**, baixe somente o **EXE standalone do cliente**. O próprio NavBR inicia o host da sala; **não é necessário baixar o servidor dedicado**.
+
+O **ZIP do cliente** é apenas uma forma alternativa de distribuir o mesmo cliente. Não é necessário baixar EXE e ZIP juntos.
+
+O **ZIP do servidor** é somente para quem quiser rodar um **servidor dedicado separado**, em outro computador ou processo. Nesse modo, extraia o ZIP e mantenha todos os arquivos do pacote juntos; o servidor dedicado atual não é publicado como EXE único.
 
 O `.exe` standalone inclui o runtime necessário e recebe o ícone oficial do NavBR como recurso Win32.
 
