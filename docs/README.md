@@ -3,8 +3,9 @@
 ## Uso e testes
 
 - [Manual de uso](MANUAL_DE_USO.md)
-- [Como gerar Roadmap dos mapas](GERAR_ROADMAP_MAPAS.md) — passo a passo no OMSI Editor para criar `whole.roadmap.bmp` e lidar com mapas grandes.
+- [Como gerar Roadmap dos mapas](GERAR_ROADMAP_MAPAS.md) — OMSI Editor + Roadmap Studio alpha.11 para criar `whole.roadmap.bmp` e lidar com mapas grandes.
 - [Roadmap de desenvolvimento](ROADMAP.md)
+- [Estado de desenvolvimento da alpha.11](ALPHA11_DEVELOPMENT.md) — HUD, pontos de parada, ícones, visão geral da rota e Roadmap Studio.
 - [Checklist de teste v0.3.0-alpha.2](ALPHA2_TEST_CHECKLIST.md)
 
 ## Arquitetura e integração
@@ -31,4 +32,4 @@ Problemas de traçado devem incluir, quando possível:
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-route.log
 ```
 
-O plugin experimental está isolado da alpha.9 e não é necessário para GPS, HUD ou multiplayer externo.
+O plugin experimental continua opcional e não é necessário para GPS, HUD ou multiplayer externo.
