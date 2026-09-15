@@ -13,9 +13,11 @@ public static class OmsiCompatibilityEvaluator
         {
             issues.Add(new CompatibilityIssue(
                 "manifest-missing",
-                CompatibilityIssueSeverity.Warning,
+                requireVehicleForPhysicalMultiplayer
+                    ? CompatibilityIssueSeverity.Blocking
+                    : CompatibilityIssueSeverity.Warning,
                 "Compatibility manifest is unavailable for one of the players."));
-            return new RoomCompatibilityReport(true, issues);
+            return new RoomCompatibilityReport(!requireVehicleForPhysicalMultiplayer, issues);
         }
 
         CompareRequiredFingerprint(
@@ -24,7 +26,8 @@ public static class OmsiCompatibilityEvaluator
             local.MapCompatibilityId,
             remote.MapCompatibilityId,
             "Map compatibility differs between players.",
-            blocking: true);
+            blocking: true,
+            required: true);
 
         if (!string.Equals(local.OmsiVersion, remote.OmsiVersion, StringComparison.OrdinalIgnoreCase))
         {
@@ -46,13 +49,26 @@ public static class OmsiCompatibilityEvaluator
                 remote.PluginProtocolVersion.ToString()));
         }
 
+        if (requireVehicleForPhysicalMultiplayer &&
+            (string.IsNullOrWhiteSpace(remote.VehiclePath) ||
+             string.IsNullOrWhiteSpace(remote.VehicleCompatibilityId)))
+        {
+            issues.Add(new CompatibilityIssue(
+                "vehicle-identity-missing",
+                CompatibilityIssueSeverity.Blocking,
+                "Remote vehicle identity is required before a physical bus can be created in OMSI.",
+                local.VehiclePath,
+                remote.VehiclePath));
+        }
+
         CompareRequiredFingerprint(
             issues,
             "vehicle",
             local.VehicleCompatibilityId,
             remote.VehicleCompatibilityId,
             "Vehicle definitions differ. Physical remote-bus rendering may not match.",
-            blocking: requireVehicleForPhysicalMultiplayer);
+            blocking: requireVehicleForPhysicalMultiplayer,
+            required: requireVehicleForPhysicalMultiplayer);
 
         CompareRequiredFingerprint(
             issues,
@@ -60,7 +76,8 @@ public static class OmsiCompatibilityEvaluator
             local.HofCompatibilityId,
             remote.HofCompatibilityId,
             "HOF definitions differ. Line/destination display may not match.",
-            blocking: false);
+            blocking: false,
+            required: false);
 
         if (!string.IsNullOrWhiteSpace(local.MapName) &&
             !string.IsNullOrWhiteSpace(remote.MapName) &&
@@ -100,13 +117,16 @@ public static class OmsiCompatibilityEvaluator
         string? local,
         string? remote,
         string message,
-        bool blocking)
+        bool blocking,
+        bool required)
     {
         if (string.IsNullOrWhiteSpace(local) || string.IsNullOrWhiteSpace(remote))
         {
             issues.Add(new CompatibilityIssue(
                 $"{code}-unknown",
-                CompatibilityIssueSeverity.Info,
+                required
+                    ? CompatibilityIssueSeverity.Blocking
+                    : CompatibilityIssueSeverity.Info,
                 $"{code.ToUpperInvariant()} fingerprint is unavailable for one of the players.",
                 local,
                 remote));
