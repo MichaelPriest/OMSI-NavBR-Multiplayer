@@ -23,18 +23,25 @@ internal sealed class RemoteVehicleRegistry
         }
     }
 
-    public PluginBridgeMessage? Latest
+    public int CountCompatible(PluginBridgeMessage? localState)
     {
-        get
+        lock (_sync)
         {
-            lock (_sync)
-            {
-                PruneStaleUnsafe(DateTimeOffset.UtcNow);
-                return _entries.Values
-                    .OrderByDescending(entry => entry.ReceivedAtUtc)
-                    .Select(entry => entry.Message)
-                    .FirstOrDefault();
-            }
+            PruneStaleUnsafe(DateTimeOffset.UtcNow);
+            return _entries.Values.Count(entry => IsCompatible(localState, entry.Message));
+        }
+    }
+
+    public PluginBridgeMessage? LatestCompatible(PluginBridgeMessage? localState)
+    {
+        lock (_sync)
+        {
+            PruneStaleUnsafe(DateTimeOffset.UtcNow);
+            return _entries.Values
+                .Where(entry => IsCompatible(localState, entry.Message))
+                .OrderByDescending(entry => entry.ReceivedAtUtc)
+                .Select(entry => entry.Message)
+                .FirstOrDefault();
         }
     }
 
@@ -109,6 +116,34 @@ internal sealed class RemoteVehicleRegistry
         }
 
         return staleIds.Length;
+    }
+
+    private static bool IsCompatible(
+        PluginBridgeMessage? localState,
+        PluginBridgeMessage remoteState)
+    {
+        if (localState is null ||
+            localState.IsInGame != true ||
+            remoteState.IsInGame != true)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(localState.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(remoteState.MapCompatibilityId))
+        {
+            return string.Equals(
+                localState.MapCompatibilityId,
+                remoteState.MapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return !string.IsNullOrWhiteSpace(localState.MapName) &&
+               !string.IsNullOrWhiteSpace(remoteState.MapName) &&
+               string.Equals(
+                   localState.MapName,
+                   remoteState.MapName,
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsValidRemoteState(PluginBridgeMessage message)
