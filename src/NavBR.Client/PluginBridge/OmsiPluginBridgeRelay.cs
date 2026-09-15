@@ -29,25 +29,14 @@ public static class OmsiPluginBridgeRelay
         var currentCompatibilityId = ResolveCurrentMapCompatibilityId(
             telemetry.MapCompatibilityId ?? mapCompatibilityId);
 
-        var message = new PluginBridgeMessage(
-            PluginBridgeProtocol.LocalVehicleState,
-            PluginBridgeProtocol.Version,
-            PlayerId: telemetry.PlayerId,
-            MapName: telemetry.MapName,
-            MapCompatibilityId: currentCompatibilityId,
-            TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
-            X: telemetry.X,
-            Y: telemetry.Y,
-            Z: telemetry.Z,
-            GridX: telemetry.GridX,
-            GridY: telemetry.GridY,
-            TileX: telemetry.TileX,
-            TileY: telemetry.TileY,
-            HeadingDegrees: telemetry.HeadingDegrees,
-            SpeedKph: telemetry.SpeedKph,
-            IsInGame: telemetry.IsInGame);
-
-        return SendBestEffortAsync(message, cancellationToken);
+        return SendBestEffortAsync(
+            CreateStateMessage(
+                PluginBridgeProtocol.LocalVehicleState,
+                telemetry,
+                telemetry.PlayerId,
+                displayName: null,
+                currentCompatibilityId),
+            cancellationToken);
     }
 
     public static Task ForwardRemoteTelemetryAsync(
@@ -55,24 +44,12 @@ public static class OmsiPluginBridgeRelay
         CancellationToken cancellationToken = default)
     {
         var telemetry = frame.Telemetry;
-        var message = new PluginBridgeMessage(
+        var message = CreateStateMessage(
             PluginBridgeProtocol.RemoteVehicleState,
-            PluginBridgeProtocol.Version,
-            PlayerId: frame.Player.PlayerId,
-            DisplayName: frame.Player.DisplayName,
-            MapName: telemetry.MapName ?? frame.Player.MapName,
-            MapCompatibilityId: telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId,
-            TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
-            X: telemetry.X,
-            Y: telemetry.Y,
-            Z: telemetry.Z,
-            GridX: telemetry.GridX,
-            GridY: telemetry.GridY,
-            TileX: telemetry.TileX,
-            TileY: telemetry.TileY,
-            HeadingDegrees: telemetry.HeadingDegrees,
-            SpeedKph: telemetry.SpeedKph,
-            IsInGame: telemetry.IsInGame);
+            telemetry,
+            frame.Player.PlayerId,
+            frame.Player.DisplayName,
+            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId);
 
         return SendBestEffortAsync(message, cancellationToken);
     }
@@ -101,6 +78,163 @@ public static class OmsiPluginBridgeRelay
             PluginBridgeProtocol.Version);
 
         return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    public static Task<PluginBridgeMessage?> SpawnGhostVehicleAsync(
+        string ghostId,
+        VehicleTelemetry initialState,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            CreateCommandMessage(
+                PluginBridgeProtocol.SpawnGhostVehicle,
+                ghostId,
+                initialState),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> UpdateGhostVehicleAsync(
+        string ghostId,
+        VehicleTelemetry state,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            CreateCommandMessage(
+                PluginBridgeProtocol.UpdateGhostVehicle,
+                ghostId,
+                state),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> DespawnGhostVehicleAsync(
+        string ghostId,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.DespawnGhostVehicle,
+                PluginBridgeProtocol.Version,
+                VehicleInstanceId: ghostId),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> SpawnRemoteVehicleAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            CreateCommandMessage(
+                PluginBridgeProtocol.SpawnRemoteVehicle,
+                frame.Player.PlayerId,
+                frame.Telemetry,
+                frame.Player.DisplayName),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> UpdateRemoteVehicleAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            CreateCommandMessage(
+                PluginBridgeProtocol.UpdateRemoteVehicle,
+                frame.Player.PlayerId,
+                frame.Telemetry,
+                frame.Player.DisplayName),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> DespawnRemoteVehicleAsync(
+        string playerId,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.DespawnRemoteVehicle,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                VehicleInstanceId: playerId),
+            cancellationToken);
+
+    private static PluginBridgeMessage CreateCommandMessage(
+        string type,
+        string vehicleInstanceId,
+        VehicleTelemetry telemetry,
+        string? displayName = null)
+    {
+        var state = CreateStateMessage(
+            type,
+            telemetry,
+            telemetry.PlayerId,
+            displayName,
+            ResolveCurrentMapCompatibilityId(telemetry.MapCompatibilityId));
+
+        return state with { VehicleInstanceId = vehicleInstanceId };
+    }
+
+    private static PluginBridgeMessage CreateStateMessage(
+        string type,
+        VehicleTelemetry telemetry,
+        string? playerId,
+        string? displayName,
+        string? mapCompatibilityId)
+    {
+        return new PluginBridgeMessage(
+            type,
+            PluginBridgeProtocol.Version,
+            PlayerId: playerId,
+            DisplayName: displayName,
+            MapName: telemetry.MapName,
+            MapCompatibilityId: mapCompatibilityId,
+            TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
+            X: telemetry.X,
+            Y: telemetry.Y,
+            Z: telemetry.Z,
+            GridX: telemetry.GridX,
+            GridY: telemetry.GridY,
+            TileX: telemetry.TileX,
+            TileY: telemetry.TileY,
+            HeadingDegrees: telemetry.HeadingDegrees,
+            SpeedKph: telemetry.SpeedKph,
+            IsInGame: telemetry.IsInGame,
+            VehiclePath: telemetry.VehiclePath,
+            VehicleName: telemetry.VehicleName,
+            VehicleCompatibilityId: telemetry.VehicleCompatibilityId,
+            HofName: telemetry.HofName,
+            HofCompatibilityId: telemetry.HofCompatibilityId,
+            Line: telemetry.Line,
+            Route: telemetry.Route,
+            NextStopName: telemetry.NextStopName,
+            DestinationName: telemetry.DestinationName,
+            AccelerationMps2: telemetry.AccelerationMps2,
+            FuelPercent: telemetry.FuelPercent,
+            ThrottlePercent: telemetry.ThrottlePercent,
+            BrakePercent: telemetry.BrakePercent,
+            SteeringDegrees: telemetry.SteeringDegrees,
+            DelaySeconds: telemetry.DelaySeconds,
+            CurrentStopIndex: telemetry.CurrentStopIndex,
+            DoorFlags: (int)telemetry.Doors,
+            LightFlags: (int)telemetry.Lights,
+            TurnSignal: (int)telemetry.TurnSignal,
+            HornActive: telemetry.HornActive,
+            WipersActive: telemetry.WipersActive,
+            ParkingBrakeActive: telemetry.ParkingBrakeActive,
+            ReverseGear: telemetry.ReverseGear);
+    }
+
+    private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(
+        PluginBridgeMessage command,
+        CancellationToken cancellationToken)
+    {
+        if (Application.Current is not App app || !app.PluginBridge.IsConnected)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await app.PluginBridge.SendCommandAsync(
+                command,
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static async Task SendBestEffortAsync(
