@@ -17,6 +17,7 @@ internal static class Alpha11VisualTuning
 
         HideLegacyHeader(window);
         CompactMainMapVehicleMarker(window);
+        window.InitializeRouteOverviewFeature();
     }
 
     private static void HideLegacyHeader(MainWindow window)
