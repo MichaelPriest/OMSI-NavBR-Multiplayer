@@ -64,6 +64,7 @@ public partial class App : Application
 
         if (window is MainWindow mainWindow)
         {
+            Alpha11ShellUiInstaller.Install(mainWindow);
             OmsiProfilesUiInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
