@@ -226,7 +226,12 @@ internal static class Alpha11ShellUiInstaller
 
     private static void MoveToPanel(UIElement element, Panel target)
     {
-        switch (element.Parent)
+        // UIElement itself does not expose a Parent property. Resolve the
+        // current visual/logical parent explicitly so controls can be moved
+        // safely into the alpha.11 shell without depending on a concrete
+        // FrameworkElement subtype.
+        var parent = VisualTreeHelper.GetParent(element) ?? LogicalTreeHelper.GetParent(element);
+        switch (parent)
         {
             case Panel oldPanel:
                 oldPanel.Children.Remove(element);
