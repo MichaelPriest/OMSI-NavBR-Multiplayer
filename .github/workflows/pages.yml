@@ -11,6 +11,8 @@ on:
     workflows: [release]
     types: [completed]
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -41,21 +43,25 @@ jobs:
           mkdir -p site/assets
           cp src/NavBR.Client/Assets/NavBR.ico site/assets/navbr.ico
 
-      - name: Build release catalog
+      - name: Build release catalog and download statistics
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/${{ github.repository }}/releases?per_page=6" \
-            | jq '[.[] | {
-                tag_name,
-                name,
-                prerelease,
-                published_at,
-                html_url,
-                body,
-                assets: [.assets[] | {name, browser_download_url, size}]
-              }]' \
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            | jq '{
+                total_downloads: ([.[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
+                releases: (.[:6] | map({
+                  tag_name,
+                  name,
+                  prerelease,
+                  published_at,
+                  html_url,
+                  body,
+                  download_count: ([.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
+                  assets: [.assets[] | {name, browser_download_url, size, download_count}]
+                }))
+              }' \
             > site/releases.json
 
       - name: Configure GitHub Pages

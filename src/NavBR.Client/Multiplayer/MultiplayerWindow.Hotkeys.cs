@@ -43,6 +43,29 @@ public partial class MultiplayerWindow
             return;
         }
 
+        if (string.Equals(chatHotkey, voiceHotkey, StringComparison.OrdinalIgnoreCase))
+        {
+            if (ReferenceEquals(sender, ChatHotkeyComboBox))
+            {
+                voiceHotkey = PickDistinctHotkey(
+                    chatHotkey,
+                    NavBRHotkeyCatalog.DefaultVoiceHotkey,
+                    NavBRHotkeyCatalog.DefaultChatHotkey);
+            }
+            else
+            {
+                chatHotkey = PickDistinctHotkey(
+                    voiceHotkey,
+                    NavBRHotkeyCatalog.DefaultChatHotkey,
+                    NavBRHotkeyCatalog.DefaultVoiceHotkey);
+            }
+
+            _hotkeyUiReady = false;
+            ChatHotkeyComboBox.SelectedItem = chatHotkey;
+            VoiceHotkeyComboBox.SelectedItem = voiceHotkey;
+            _hotkeyUiReady = true;
+        }
+
         _settings = _settings with
         {
             ChatHotkey = chatHotkey,
@@ -50,18 +73,21 @@ public partial class MultiplayerWindow
         };
         MultiplayerSettingsStore.Save(_settings);
         RefreshHotkeyUiText();
+    }
 
-        if (string.Equals(chatHotkey, voiceHotkey, StringComparison.OrdinalIgnoreCase))
+    private static string PickDistinctHotkey(string reserved, params string[] preferred)
+    {
+        foreach (var candidate in preferred)
         {
-            StatusDetailText.Text = LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+            if (!string.Equals(candidate, reserved, StringComparison.OrdinalIgnoreCase))
             {
-                "pt" => "Escolha combinações diferentes para chat e voz.",
-                "es" => "Elige combinaciones diferentes para chat y voz.",
-                "de" => "Für Chat und Sprache unterschiedliche Tastenkombinationen wählen.",
-                "fr" => "Choisissez des combinaisons différentes pour le chat et la voix.",
-                _ => "Choose different key combinations for chat and voice."
-            };
+                return candidate;
+            }
         }
+
+        return NavBRHotkeyCatalog.Options
+            .Select(option => option.Name)
+            .First(option => !string.Equals(option, reserved, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshHotkeyUiText()

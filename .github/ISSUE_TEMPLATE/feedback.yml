@@ -1,0 +1,64 @@
+name: Dar feedback do projeto
+description: Conte como foi sua experiência usando o NavBR e o que devemos priorizar.
+title: "[Feedback] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este formulário para contar sua experiência geral com o NavBR. Para erros reproduzíveis, prefira o formulário de bug.
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão testada
+      placeholder: v0.3.0-alpha.8 / alpha.9 de teste
+
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Como foi sua experiência?
+      options:
+        - Muito boa
+        - Boa
+        - Regular
+        - Ruim
+        - Ainda não consegui usar
+    validations:
+      required: true
+
+  - type: textarea
+    id: liked
+    attributes:
+      label: O que você mais gostou?
+      placeholder: HUD, minimapa, chat, facilidade de uso, etc.
+
+  - type: textarea
+    id: improve
+    attributes:
+      label: O que mais precisa melhorar?
+      placeholder: Conte onde o NavBR ainda atrapalha, confunde ou poderia ficar melhor.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: O que deveria ter prioridade agora?
+      options:
+        - Navegação / traçado
+        - HUD / minimapa
+        - Multiplayer
+        - Chat
+        - Voz / PTT
+        - Desempenho / estabilidade
+        - Instalação / atualização
+        - Site / documentação
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Comentários adicionais
+      placeholder: Qualquer outra observação sobre o projeto.

@@ -18,6 +18,8 @@ public partial class HudOverlayWindow
         }
 
         _enhancedMapRenderingStarted = true;
+        MiniMapStatusText.MaxWidth = 238d;
+        MiniMapStatusText.TextWrapping = TextWrapping.Wrap;
         RenderEnhancedMiniMap();
     }
 
@@ -48,6 +50,12 @@ public partial class HudOverlayWindow
             MiniMapContentScale.ScaleY = zoom;
         }
 
+        // The polyline lives inside the scaled canvas. Compensate its stroke so
+        // 10x zoom does not turn the route into an oversized band on screen.
+        var safeZoom = Math.Max(0.01d, zoom);
+        ActiveRoutePolyline.StrokeThickness = 4.5d / safeZoom;
+        ActiveRouteShadow.StrokeThickness = 8d / safeZoom;
+
         if (map is not null)
         {
             MiniMapStatusText.Text = BuildMiniMapTitle(map, telemetry);
@@ -77,7 +85,12 @@ public partial class HudOverlayWindow
             return;
         }
 
-        EnsureRouteTrace(map, layout, telemetry.Line, telemetry.Route);
+        EnsureRouteTrace(
+            map,
+            layout,
+            telemetry.Line,
+            telemetry.Route,
+            telemetry.DestinationName);
         RenderRouteTrace(
             layout,
             bitmap.PixelWidth,
@@ -88,30 +101,59 @@ public partial class HudOverlayWindow
 
     private static string BuildMiniMapTitle(OmsiMapInfo map, NavBR.Shared.Telemetry.VehicleTelemetry? telemetry)
     {
+        string title;
         if (!string.IsNullOrWhiteSpace(telemetry?.Line))
         {
-            return !string.IsNullOrWhiteSpace(telemetry.Route)
-                ? $"Linha {telemetry.Line} • {telemetry.Route}"
-                : $"Linha {telemetry.Line}";
+            title = $"Linha {telemetry.Line}";
+
+            if (!string.IsNullOrWhiteSpace(telemetry.DestinationName))
+            {
+                title += $" • Destino: {telemetry.DestinationName}";
+            }
+            else if (!string.IsNullOrWhiteSpace(telemetry.Route))
+            {
+                // Keep a useful fallback for maps/patches that expose only the
+                // track field, while preferring the passenger-facing destination
+                // whenever OMSI provides it separately.
+                title += $" • Rota: {telemetry.Route}";
+            }
+        }
+        else
+        {
+            title = $"{map.DisplayName} • Sem linha ativa";
         }
 
-        return $"{map.DisplayName} • Sem linha ativa";
+        if (!string.IsNullOrWhiteSpace(telemetry?.NextStopName))
+        {
+            title += $"\nPróx.: {telemetry.NextStopName}";
+        }
+
+        return title;
     }
 
     private void EnsureRouteTrace(
         OmsiMapInfo map,
         OmsiMapLayout layout,
         string? lineName,
-        string? routeName)
+        string? routeName,
+        string? destinationName)
     {
-        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}";
+        // Some OMSI maps/patches expose the passenger-facing destination but
+        // leave the technical track/route field empty. OmsiRouteTraceReader can
+        // resolve line + destination through the .ttp [trip] block to the real
+        // .ttr, so keep display semantics separate while still using destination
+        // as a lookup fallback.
+        var lookupTarget = !string.IsNullOrWhiteSpace(routeName)
+            ? routeName
+            : destinationName;
+        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}|{destinationName}";
         if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName, lineName);
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, lookupTarget, lineName);
     }
 
     private void RenderRouteTrace(

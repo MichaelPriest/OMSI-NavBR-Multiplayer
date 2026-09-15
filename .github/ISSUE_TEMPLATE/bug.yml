@@ -1,0 +1,94 @@
+name: Relatar um bug
+description: Informe um problema encontrado no NavBR durante o uso ou teste no OMSI 2.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por testar o OMSI NavBR Multiplayer. Quanto mais detalhes você enviar, mais rápido conseguimos reproduzir o problema.
+
+  - type: input
+    id: navbr-version
+    attributes:
+      label: Versão do NavBR
+      description: Exemplo: v0.3.0-alpha.8 ou alpha.9 de teste.
+      placeholder: v0.3.0-alpha.8
+    validations:
+      required: true
+
+  - type: input
+    id: omsi-version
+    attributes:
+      label: Versão do OMSI 2
+      description: A versão exibida pelo NavBR ou pelo logfile.txt.
+      placeholder: 2.3.004
+    validations:
+      required: true
+
+  - type: input
+    id: map
+    attributes:
+      label: Mapa / ônibus
+      description: Informe o mapa e, se for relevante, o ônibus usado.
+      placeholder: SP_Projeto Metra Ficticio / ônibus utilizado
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afetada
+      options:
+        - HUD / minimapa
+        - Traçado / navegação
+        - Chat
+        - Voz / PTT
+        - Multiplayer / conexão
+        - Interface do NavBR
+        - Instalação / atualização
+        - Site / download
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que aconteceu?
+      description: Explique o comportamento observado.
+      placeholder: Descreva o problema com o máximo de detalhes possível.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      description: Informe os passos que levam ao problema.
+      placeholder: |
+        1. Abri o NavBR
+        2. Carreguei o mapa...
+        3. Selecionei a linha...
+        4. O problema apareceu...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que deveria acontecer?
+      placeholder: Descreva o comportamento esperado.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Prints e logs
+      description: Arraste prints aqui e, se houver problema de rota, anexe o navbr-route.log. Para outros erros, o navbr-error.log e o logfile.txt do OMSI também podem ajudar.
+      placeholder: Arraste os arquivos ou imagens para esta área.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmações
+      options:
+        - label: Fechei versões antigas do NavBR antes de testar esta build.
+        - label: Não incluí senhas, tokens ou outras informações privadas nos anexos.
+          required: true

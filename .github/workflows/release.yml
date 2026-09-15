@@ -143,6 +143,20 @@ jobs:
 
           & gh @args
 
+      - name: Add live download badge to release notes
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $body = gh release view $tag --repo "${{ github.repository }}" --json body --jq .body
+          $badge = "[![Downloads](https://img.shields.io/github/downloads/${{ github.repository }}/$tag/total?label=downloads&color=22c77a)](https://github.com/${{ github.repository }}/releases/tag/$tag)"
+          $notes = "$badge`n`n$body"
+          $file = Join-Path $env:RUNNER_TEMP "release-notes-$tag.md"
+          Set-Content -Path $file -Value $notes -Encoding utf8
+          gh release edit $tag --repo "${{ github.repository }}" --notes-file $file
+
       - name: Refresh GitHub Pages release catalog
         if: steps.version.outputs.exists != 'true'
         shell: pwsh

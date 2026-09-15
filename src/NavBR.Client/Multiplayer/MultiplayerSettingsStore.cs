@@ -62,13 +62,29 @@ public static class MultiplayerSettingsStore
             settings.VoiceHotkey,
             NavBRHotkeyCatalog.DefaultVoiceHotkey).Name;
 
+        // Older builds allowed chat/PTT to end up on the same chord. Keep the
+        // user's valid selection whenever possible, but always migrate a
+        // duplicate pair to distinct defaults so the HUD never advertises two
+        // actions on the same shortcut.
+        if (string.Equals(chat, voice, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.Equals(chat, NavBRHotkeyCatalog.DefaultVoiceHotkey, StringComparison.OrdinalIgnoreCase))
+            {
+                voice = NavBRHotkeyCatalog.DefaultVoiceHotkey;
+            }
+            else
+            {
+                chat = NavBRHotkeyCatalog.DefaultChatHotkey;
+            }
+        }
+
         return settings with
         {
             ChatHotkey = chat,
             VoiceHotkey = voice,
             HudX = Math.Clamp(double.IsFinite(settings.HudX) ? settings.HudX : 0.02d, 0d, 1d),
             HudY = Math.Clamp(double.IsFinite(settings.HudY) ? settings.HudY : 1d, 0d, 1d),
-            HudZoom = Math.Clamp(double.IsFinite(settings.HudZoom) ? settings.HudZoom : 1d, 0.65d, 2.25d),
+            HudZoom = Math.Clamp(double.IsFinite(settings.HudZoom) ? settings.HudZoom : 1d, 0.65d, 10d),
             HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.58d, 0.30d, 0.90d)
         };
     }
