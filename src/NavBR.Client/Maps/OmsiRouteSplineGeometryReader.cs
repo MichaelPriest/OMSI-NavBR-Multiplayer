@@ -387,7 +387,7 @@ internal static class OmsiRouteSplineGeometryReader
         for (var i = startIndex; i < endIndex; i++)
         {
             var value = lines[i].Trim();
-            if (value.StartsWith('[', StringComparison.Ordinal))
+            if (value.StartsWith("[", StringComparison.Ordinal))
             {
                 break;
             }
