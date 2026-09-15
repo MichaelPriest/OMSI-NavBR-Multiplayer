@@ -11,9 +11,9 @@ const fallbackRelease = {
 };
 
 const alpha10IntegrationTest = {
-  tag: 'v0.3.0-alpha.10-test.1',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.1`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-alpha10-test.1-integration-win-x86.zip`
+  tag: 'v0.3.0-alpha.10-test.2',
+  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.2`,
+  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-alpha10-test.2-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
