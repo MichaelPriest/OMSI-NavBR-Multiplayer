@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace NavBR.Client.Windows;
@@ -14,7 +15,25 @@ internal static class Alpha11VisualTuning
             return;
         }
 
+        HideLegacyHeader(window);
         CompactMainMapVehicleMarker(window);
+    }
+
+    private static void HideLegacyHeader(MainWindow window)
+    {
+        // The alpha.11 shell already has its own brand/navigation rail. The old
+        // top header would duplicate the logo/title and leave empty spaces after
+        // Multiplayer/language are moved into the sidebar.
+        DependencyObject? current = window.TaglineText;
+        while (current is not null)
+        {
+            current = VisualTreeHelper.GetParent(current);
+            if (current is Grid grid && Grid.GetRow(grid) == 0)
+            {
+                grid.Visibility = Visibility.Collapsed;
+                break;
+            }
+        }
     }
 
     private static void CompactMainMapVehicleMarker(MainWindow window)
