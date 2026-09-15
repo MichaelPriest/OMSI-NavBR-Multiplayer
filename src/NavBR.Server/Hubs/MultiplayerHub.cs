@@ -9,6 +9,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 {
     private const int MaxChatLength = 280;
     private const int MaxVoicePayloadBytes = 1500;
+    private const int MaxMapNameLength = 256;
+    private const int MaxMapCompatibilityIdLength = 256;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -17,6 +19,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         var roomId = NormalizeRequired(request.RoomId, 64, "room id");
         var playerId = NormalizeRequired(request.PlayerId, 64, "player id");
         var displayName = NormalizeRequired(request.DisplayName, 32, "display name");
+        ValidateOptionalText(request.MapName, MaxMapNameLength, "map name");
+        ValidateOptionalText(request.MapCompatibilityId, MaxMapCompatibilityIdLength, "map compatibility id");
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -71,7 +75,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         var updatedPresence = registry.UpdateMap(
             Context.ConnectionId,
             safeTelemetry.MapName,
-            presence.MapCompatibilityId);
+            safeTelemetry.MapCompatibilityId);
         var currentPresence = updatedPresence ?? presence;
 
         if (updatedPresence is not null)
@@ -153,6 +157,14 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         return normalized;
     }
 
+    private static void ValidateOptionalText(string? value, int maxLength, string fieldName)
+    {
+        if ((value?.Trim().Length ?? 0) > maxLength)
+        {
+            throw new HubException($"Invalid {fieldName}.");
+        }
+    }
+
     private static void ValidateTelemetry(VehicleTelemetry telemetry)
     {
         if (!double.IsFinite(telemetry.X) ||
@@ -169,5 +181,11 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         {
             throw new HubException("Telemetry contains invalid tile coordinates.");
         }
+
+        ValidateOptionalText(telemetry.MapName, MaxMapNameLength, "map name");
+        ValidateOptionalText(
+            telemetry.MapCompatibilityId,
+            MaxMapCompatibilityIdLength,
+            "map compatibility id");
     }
 }
