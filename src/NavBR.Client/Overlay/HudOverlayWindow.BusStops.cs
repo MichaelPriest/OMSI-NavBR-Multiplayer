@@ -23,12 +23,6 @@ public partial class HudOverlayWindow
     private string? _busStopMarkerStyleKey;
     private BitmapSource? _customBusStopIcon;
 
-    protected override void OnContentRendered(EventArgs e)
-    {
-        base.OnContentRendered(e);
-        InitializeBusStopHud();
-    }
-
     private void InitializeBusStopHud()
     {
         if (_busStopRenderTimer is not null)
@@ -432,8 +426,6 @@ public partial class HudOverlayWindow
             };
         }
 
-        // NavBR vector rendering of the classic OMSI/German H bus-stop sign.
-        // It keeps the familiar OMSI appearance without redistributing a game asset.
         var grid = new Grid
         {
             Width = size,
