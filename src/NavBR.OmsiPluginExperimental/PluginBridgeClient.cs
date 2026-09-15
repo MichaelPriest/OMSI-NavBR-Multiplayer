@@ -64,7 +64,8 @@ internal static class PluginBridgeClient
             RemoteVehicleCount: RemoteVehicleCount,
             CompatibleRemoteVehicleCount: CompatibleRemoteVehicleCount,
             StaleRemovedCount: staleRemovedCount,
-            LastSystemVariableIndex: lastSystemVariableIndex);
+            LastSystemVariableIndex: lastSystemVariableIndex,
+            ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled);
 
         lock (StatusSync)
         {
@@ -122,6 +123,17 @@ internal static class PluginBridgeClient
 
                 Log($"bridge conectado clientPid={response.ProcessId} protocol={response.ProtocolVersion}");
 
+                var capabilities = new PluginBridgeMessage(
+                    PluginBridgeProtocol.PluginCapabilities,
+                    PluginBridgeProtocol.Version,
+                    ProcessId: Environment.ProcessId,
+                    ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+                    TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled,
+                    Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
+                await writer.WriteLineAsync(SerializeMessage(capabilities));
+                await writer.FlushAsync(cancellationToken);
+
                 using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 var statusSender = Task.Run(
                     () => SendPendingStatusLoopAsync(writer, connectionCts.Token),
@@ -144,7 +156,16 @@ internal static class PluginBridgeClient
                             continue;
                         }
 
-                        ApplyMessage(message);
+                        var result = ApplyMessage(message);
+                        if (result is not null)
+                        {
+                            var json = SerializeMessage(result);
+                            if (json.Length <= PluginBridgeProtocol.MaxMessageChars)
+                            {
+                                await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
+                                await writer.FlushAsync(cancellationToken);
+                            }
+                        }
                     }
                 }
                 finally
@@ -229,31 +250,51 @@ internal static class PluginBridgeClient
         }
     }
 
-    private static void ApplyMessage(PluginBridgeMessage message)
+    private static PluginBridgeMessage? ApplyMessage(PluginBridgeMessage message)
     {
         if (string.Equals(message.Type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal))
         {
             SetLocalState(IsValidLocalState(message) ? message : null);
-            return;
+            return null;
         }
 
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal))
         {
             RemoteVehicles.Clear();
-            return;
+            return null;
         }
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
             RemoteVehicles.Remove(message.PlayerId);
-            return;
+            return null;
         }
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
             RemoteVehicles.Upsert(message);
+            return null;
         }
+
+        if (IsVehicleCommand(message.Type))
+        {
+            var result = ExperimentalVehicleCommandProcessor.Process(message);
+            Log(
+                $"vehicle-command type={message.Type} id={message.VehicleInstanceId ?? message.PlayerId ?? "-"} " +
+                $"success={result.Success} error={result.ErrorCode ?? "-"}");
+            return result;
+        }
+
+        return null;
     }
+
+    private static bool IsVehicleCommand(string type) =>
+        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
 
     private static PluginBridgeMessage? GetLocalState()
     {
