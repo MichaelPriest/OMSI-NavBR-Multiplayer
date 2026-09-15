@@ -15,6 +15,7 @@ public partial class HudOverlayWindow
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpShowWindow = 0x0040;
+    private const uint GaRoot = 2;
 
     private readonly TimeSpan _hudVisibilityInterval = TimeSpan.FromMilliseconds(100);
     private readonly TimeSpan _hudFocusGracePeriod = TimeSpan.FromMilliseconds(900);
@@ -169,8 +170,17 @@ public partial class HudOverlayWindow
                 _omsiWindowHandle = mainOmsiHandle;
             }
 
+            var mainOmsiRoot = GetAncestor(mainOmsiHandle, GaRoot);
+            if (mainOmsiRoot == IntPtr.Zero)
+            {
+                mainOmsiRoot = mainOmsiHandle;
+            }
+
             var now = DateTimeOffset.UtcNow;
             var foreground = GetForegroundWindow();
+            var foregroundRoot = foreground == IntPtr.Zero
+                ? IntPtr.Zero
+                : GetAncestor(foreground, GaRoot);
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
             var foregroundBelongsToNavBr = WindowBelongsToProcess(foreground, Environment.ProcessId);
@@ -188,9 +198,14 @@ public partial class HudOverlayWindow
 
             if (foregroundBelongsToOmsi)
             {
-                // A different top-level OMSI HWND is a menu/dialog surface, not
-                // the gameplay render surface. Hide immediately with no grace.
-                if (foreground != mainOmsiHandle)
+                // DirectX/OMSI may focus a child HWND that belongs to the same
+                // gameplay root. Allow that surface. A dialog/menu has its own
+                // GA_ROOT, so it is still rejected immediately.
+                var foregroundIsGameplaySurface =
+                    foreground == mainOmsiHandle ||
+                    foregroundRoot == mainOmsiRoot;
+
+                if (!foregroundIsGameplaySurface)
                 {
                     HideHudForOmsiState();
                     return;
@@ -368,6 +383,9 @@ public partial class HudOverlayWindow
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
