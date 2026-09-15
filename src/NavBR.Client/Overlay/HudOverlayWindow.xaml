@@ -22,7 +22,7 @@
             </StackPanel.RenderTransform>
 
             <Border x:Name="HudMoveHandle"
-                    Width="320"
+                    Width="380"
                     HorizontalAlignment="Left"
                     Margin="0,0,0,6"
                     Padding="10,6"
@@ -36,6 +36,12 @@
                     MouseMove="HudMoveHandle_MouseMove"
                     MouseLeftButtonUp="HudMoveHandle_MouseLeftButtonUp">
                 <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="OK"
+                            MinWidth="48"
+                            Margin="10,0,0,0"
+                            Padding="8,2"
+                            Click="HudMoveDoneButton_Click" />
                     <TextBlock Text="↕"
                                Foreground="#FF25C989"
                                FontSize="15"
@@ -44,7 +50,8 @@
                     <TextBlock x:Name="HudMoveHandleText"
                                Text="Mover HUD • roda do mouse = zoom • duplo clique = reset"
                                Foreground="White"
-                               FontSize="11" />
+                               FontSize="11"
+                               VerticalAlignment="Center" />
                 </DockPanel>
             </Border>
 
