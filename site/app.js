@@ -162,6 +162,7 @@ async function loadReleases() {
   }
 
   if (!Array.isArray(releases) || releases.length === 0) releases = [fallbackRelease];
+  releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
   if (!totalDownloads) totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
 
   const latest = releases[0];
@@ -233,6 +234,23 @@ function setupPix() {
   });
 }
 
+function loadModernExperience() {
+  if (!document.querySelector('link[href="modern.css"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'modern.css';
+    document.head.appendChild(link);
+  }
+
+  if (!document.querySelector('script[src="modern.js"]')) {
+    const script = document.createElement('script');
+    script.src = 'modern.js';
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+}
+
 loadReleases();
 setupAlpha10Official();
 setupPix();
+loadModernExperience();
