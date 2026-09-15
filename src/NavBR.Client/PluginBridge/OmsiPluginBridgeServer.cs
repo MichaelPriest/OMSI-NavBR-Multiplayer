@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -11,12 +12,14 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _connectionSync = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<PluginBridgeMessage>> _pendingCommands = new(StringComparer.Ordinal);
     private Task? _acceptLoop;
     private StreamWriter? _writer;
     private int? _pluginProcessId;
     private string? _pluginComponentVersion;
     private DateTimeOffset? _connectedAtUtc;
     private PluginBridgeMessage? _lastPluginStatus;
+    private PluginBridgeMessage? _lastPluginCapabilities;
 
     public bool IsConnected
     {
@@ -38,11 +41,24 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _pluginProcessId,
                 _pluginComponentVersion,
                 _connectedAtUtc,
-                _lastPluginStatus);
+                _lastPluginStatus,
+                _lastPluginCapabilities);
+        }
+    }
+
+    public bool SupportsCapability(string capability)
+    {
+        lock (_connectionSync)
+        {
+            return _lastPluginCapabilities?.Capabilities?.Contains(
+                       capability,
+                       StringComparer.OrdinalIgnoreCase) == true;
         }
     }
 
     public event Action<bool>? ConnectionStateChanged;
+    public event Action<PluginBridgeMessage>? PluginCapabilitiesChanged;
+    public event Action<PluginBridgeMessage>? CommandResultReceived;
 
     public void Start()
     {
@@ -78,7 +94,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         var json = JsonSerializer.Serialize(message);
         if (json.Length > PluginBridgeProtocol.MaxMessageChars)
         {
-            return;
+            throw new InvalidOperationException("Plugin bridge message exceeds the protocol limit.");
         }
 
         await _writeLock.WaitAsync(cancellationToken);
@@ -97,6 +113,45 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         finally
         {
             _writeLock.Release();
+        }
+    }
+
+    public async Task<PluginBridgeMessage> SendCommandAsync(
+        PluginBridgeMessage command,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsCommandType(command.Type))
+        {
+            throw new ArgumentException("Message is not a plugin command.", nameof(command));
+        }
+
+        var commandId = string.IsNullOrWhiteSpace(command.CommandId)
+            ? Guid.NewGuid().ToString("N")
+            : command.CommandId;
+        var normalized = command with
+        {
+            ProtocolVersion = PluginBridgeProtocol.Version,
+            CommandId = commandId
+        };
+
+        var completion = new TaskCompletionSource<PluginBridgeMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_pendingCommands.TryAdd(commandId, completion))
+        {
+            throw new InvalidOperationException("Duplicate plugin command id.");
+        }
+
+        try
+        {
+            await SendMessageAsync(normalized, cancellationToken);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout ?? TimeSpan.FromSeconds(5));
+            return await completion.Task.WaitAsync(timeoutCts.Token);
+        }
+        finally
+        {
+            _pendingCommands.TryRemove(commandId, out _);
         }
     }
 
@@ -190,13 +245,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     {
         if (!TryParseMessage(line, out var message) ||
             message is null ||
-            message.ProtocolVersion != PluginBridgeProtocol.Version ||
-            !string.Equals(message.Type, PluginBridgeProtocol.PluginStatus, StringComparison.Ordinal) ||
-            message.TimestampUnixMilliseconds is null ||
-            message.SystemVariableCallbacks is < 0 ||
-            message.RemoteVehicleCount is < 0 ||
-            message.CompatibleRemoteVehicleCount is < 0 ||
-            message.StaleRemovedCount is < 0)
+            message.ProtocolVersion != PluginBridgeProtocol.Version)
         {
             return;
         }
@@ -204,12 +253,48 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         lock (_connectionSync)
         {
             if (!ReferenceEquals(_writer, writer) ||
-                _pluginProcessId is int expectedPid && message.ProcessId != expectedPid)
+                _pluginProcessId is int expectedPid && message.ProcessId is int messagePid && messagePid != expectedPid)
+            {
+                return;
+            }
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.PluginStatus, StringComparison.Ordinal))
+        {
+            if (message.TimestampUnixMilliseconds is null ||
+                message.SystemVariableCallbacks is < 0 ||
+                message.RemoteVehicleCount is < 0 ||
+                message.CompatibleRemoteVehicleCount is < 0 ||
+                message.StaleRemovedCount is < 0)
             {
                 return;
             }
 
-            _lastPluginStatus = message;
+            lock (_connectionSync)
+            {
+                _lastPluginStatus = message;
+            }
+            return;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.PluginCapabilities, StringComparison.Ordinal))
+        {
+            lock (_connectionSync)
+            {
+                _lastPluginCapabilities = message;
+            }
+            PluginCapabilitiesChanged?.Invoke(message);
+            return;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.CommandResult, StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(message.CommandId))
+        {
+            if (_pendingCommands.TryGetValue(message.CommandId, out var completion))
+            {
+                completion.TrySetResult(message);
+            }
+            CommandResultReceived?.Invoke(message);
         }
     }
 
@@ -217,7 +302,16 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         string.Equals(type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal);
+        string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal) ||
+        IsCommandType(type);
+
+    private static bool IsCommandType(string type) =>
+        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
 
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {
@@ -250,6 +344,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             _pluginComponentVersion = pluginComponentVersion;
             _connectedAtUtc = DateTimeOffset.UtcNow;
             _lastPluginStatus = null;
+            _lastPluginCapabilities = null;
         }
 
         ConnectionStateChanged?.Invoke(true);
@@ -267,9 +362,16 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _pluginComponentVersion = null;
                 _connectedAtUtc = null;
                 _lastPluginStatus = null;
+                _lastPluginCapabilities = null;
                 changed = true;
             }
         }
+
+        foreach (var pending in _pendingCommands.Values)
+        {
+            pending.TrySetException(new IOException("OMSI plugin bridge disconnected."));
+        }
+        _pendingCommands.Clear();
 
         if (changed)
         {
@@ -313,4 +415,5 @@ public sealed record OmsiPluginBridgeConnectionInfo(
     int? PluginProcessId,
     string? PluginComponentVersion,
     DateTimeOffset? ConnectedAtUtc,
-    PluginBridgeMessage? LastStatus);
+    PluginBridgeMessage? LastStatus,
+    PluginBridgeMessage? LastCapabilities);
