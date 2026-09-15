@@ -4,12 +4,13 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
-> Versão em desenvolvimento: **0.3.0-alpha.9**  
+> Versão em desenvolvimento: **0.3.0-alpha.10**  
 > Última release publicada: **v0.3.0-alpha.9**
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
 Manual de uso: **[docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md)**  
+Como gerar o roadmap dos mapas: **[docs/GERAR_ROADMAP_MAPAS.md](docs/GERAR_ROADMAP_MAPAS.md)**  
 Roadmap atualizado: **[docs/ROADMAP.md](docs/ROADMAP.md)**
 
 ## Objetivo
@@ -24,16 +25,34 @@ O OMSI NavBR Multiplayer é um aplicativo Windows externo ao jogo, projetado par
 - conectar jogadores a salas multiplayer hospedadas pelo próprio criador da sala;
 - mostrar outros jogadores no mapa e minimapa;
 - oferecer chat de texto e chat por voz;
-- futuramente experimentar sincronização de veículos remotos dentro do OMSI;
+- experimentar, de forma opcional e isolada, uma integração por plugin para futuros veículos remotos dentro do OMSI;
 - oferecer interface multilíngue com troca de idioma em tempo real.
 
-## Estado atual — alpha.9
+## Estado atual
+
+### Release publicada — alpha.9
 
 A **v0.3.0-alpha.9** está publicada como prerelease com EXE standalone, ZIP do cliente e ZIP do servidor dedicado opcional.
 
 O CI valida compilação e publicação dos artefatos. Recursos que dependem do comportamento do OMSI, rede entre computadores, microfone ou geometria específica dos mapas continuam marcados como **implementados, aguardando validação real** até serem testados no simulador.
 
-### Telemetria local
+### Em desenvolvimento — alpha.10
+
+A **v0.3.0-alpha.10** está sendo desenvolvida em PR draft e mantém a alpha.9 publicada intacta. O foco atual é:
+
+- listar todos os mapas instalados separados entre **roadmap pronto** e **roadmap ausente**;
+- aceitar como pronto somente um roadmap global utilizável, evitando falso positivo com BMPs individuais de tiles;
+- mostrar nome do mapa, pasta, quantidade de tiles e arquivo de roadmap global detectado;
+- manter mapa e `MapCompatibilityId` atualizados dinamicamente no multiplayer quando o jogador troca de mapa;
+- desenvolver um plugin x86 **opcional** para investigar futuros ônibus remotos dentro do próprio OMSI;
+- transportar estado local/remoto do NavBR para esse plugin por Windows Named Pipes;
+- validar e filtrar estados remotos por mapa/fingerprint antes de qualquer futuro spawn;
+- manter limite de 64 estados remotos, timeout de 5 s e interpolação básica de movimento;
+- continuar sem escrita de variáveis, triggers ou criação física de veículos no OMSI até os testes reais aprovarem o bridge.
+
+A arquitetura experimental completa está em **[docs/OMSI_PLUGIN_EXPERIMENTAL.md](docs/OMSI_PLUGIN_EXPERIMENTAL.md)**.
+
+## Telemetria local
 
 Já implementado para os perfis suportados do OMSI:
 
@@ -48,7 +67,7 @@ Já implementado para os perfis suportados do OMSI:
 - linha/track ativa, destino e próxima parada quando disponibilizados pelo timetable;
 - atualização contínua do dashboard/HUD.
 
-A integração continua somente leitura: o NavBR não injeta código nem grava na memória do OMSI.
+A integração principal continua somente leitura: o NavBR não injeta código nem grava na memória do OMSI.
 
 Ainda precisam de validação real mais ampla:
 
@@ -58,14 +77,14 @@ Ainda precisam de validação real mais ampla:
 - perfil 2.2.032;
 - allowlist de hashes conhecidos para builds testadas.
 
-### GPS, HUD e rota
+## GPS, HUD e rota
 
 O cliente já:
 
 - encontra automaticamente a pasta `maps` da instalação detectada;
 - cataloga mapas que possuem `global.cfg`;
 - calcula um identificador de compatibilidade do mapa;
-- detecta `whole.roadmap.bmp`, `roadmap.bmp` e variantes;
+- detecta `whole.roadmap.bmp`, `roadmap.bmp` e variantes globais suportadas;
 - transforma GridX/GridY + posição local do tile em pixels do roadmap;
 - possui suporte técnico a mapas com `[worldcoordinates]`;
 - desenha o marcador do ônibus no roadmap;
@@ -79,11 +98,11 @@ O cliente já:
 - acompanha a janela de gameplay do OMSI e tenta ocultar a sobreposição em menus e diálogos auxiliares;
 - devolve o foco ao OMSI depois que o jogador fecha o campo de chat.
 
-Na **alpha.9**, o traçado da viagem ativa lê o `.ttp/.ttr`, resolve o índice de tile pela ordem dos blocos `[map]` do `global.cfg` e tenta reconstruir a geometria usando `ObjectId`, `PathId`, tiles `.map`, splines `.sli` e paths de objetos/crossings `.sco`. Quando um trecho não pode ser decodificado com segurança, o NavBR mantém fallback por tiles.
+Na **alpha.10**, o catálogo também separa explicitamente os mapas com roadmap global pronto dos mapas que ainda precisam gerar esse arquivo. Roadmaps individuais de tiles não são considerados suficientes para marcar o mapa como pronto.
+
+O traçado da viagem ativa lê o `.ttp/.ttr`, resolve o índice de tile pela ordem dos blocos `[map]` do `global.cfg` e tenta reconstruir a geometria usando `ObjectId`, `PathId`, tiles `.map`, splines `.sli` e paths de objetos/crossings `.sco`. Quando um trecho não pode ser decodificado com segurança, o NavBR mantém fallback por tiles.
 
 O traçado detalhado, destino, próxima parada e comportamento completo do HUD ainda precisam de validação visual no OMSI real antes de serem considerados estáveis.
-
-O HUD segue uma organização inspirada em jogos de mundo aberto, com identidade visual própria do NavBR. Ele não copia assets ou interface proprietária de GTA/Rockstar.
 
 Atalhos padrão atuais no HUD:
 
@@ -96,7 +115,7 @@ Como o OMSI permite ao usuário e a add-ons alterar comandos, o NavBR lê `Input
 
 A sobreposição é voltada inicialmente a OMSI em modo janela ou janela sem bordas. Overlay em fullscreen exclusivo ainda precisa de validação real.
 
-### Multiplayer peer-host
+## Multiplayer peer-host
 
 Na série **0.3 alpha**, o servidor da sala é o **PC de quem cria a sala**. O próprio cliente NavBR inicia um host ASP.NET Core/SignalR local e entra nele automaticamente.
 
@@ -116,6 +135,7 @@ Já existem no código:
 - jogadores no mapa/minimapa;
 - suavização/interpolação visual dos jogadores remotos;
 - compatibilidade/fingerprint de mapa;
+- atualização dinâmica de mapa + fingerprint durante a sessão;
 - chat de texto;
 - voz push-to-talk;
 - convite versionado;
@@ -135,7 +155,27 @@ Ainda precisam ser desenvolvidos/refinados depois dos testes reais:
 
 O pacote `OMSI-NavBR-Server` continua disponível somente para quem quiser executar um **host dedicado separado**. Ele não é necessário para criar uma sala comum pelo cliente NavBR.
 
-### Chat e voz
+## Plugin OMSI experimental
+
+A alpha.10 contém uma investigação isolada para futuros veículos remotos dentro do OMSI.
+
+Estado atual da base experimental:
+
+- plugin x86 opcional em formato DLL + `.opl`;
+- exports/callbacks básicos do OMSI;
+- heartbeat em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log`;
+- Windows Named Pipe local restrito ao usuário atual;
+- protocolo versionado com handshake e reconexão;
+- envio de contexto do jogador local e estados remotos;
+- remoção/limpeza de jogadores propagada ao plugin;
+- máximo de 64 estados remotos;
+- timeout de 5 segundos;
+- filtro por mapa e `MapCompatibilityId`;
+- interpolação de X/Y/Z, velocidade e heading com atraso aproximado de 100 ms.
+
+**Ainda não existe criação física de ônibus remoto no OMSI.** O plugin atual não escreve variáveis nem dispara triggers do jogo. O primeiro teste precisa confirmar carregamento, heartbeat e bridge estáveis no OMSI 2.3.004 antes de qualquer etapa de spawn.
+
+## Chat e voz
 
 O multiplayer inclui:
 
@@ -154,21 +194,23 @@ Voz, latência, atalhos, reconexão e peer-host ainda exigem validação real en
 
 ## Próximos testes prioritários
 
-Antes de continuar o desenvolvimento de novas funções, a alpha.9 deve ser validada em OMSI real, priorizando:
+Antes de promover a alpha.10, devem ser priorizados:
 
 1. HUD visível durante a condução;
 2. HUD oculto em menus/opções/timetable e reaparecendo ao retornar ao gameplay;
 3. marcador, posição, velocidade e heading;
 4. traçado detalhado da linha em mapas reais;
 5. destino e próxima parada;
-6. multiplayer entre dois computadores em LAN;
-7. multiplayer pela Internet com firewall/NAT configurados;
-8. chat, PTT e áudio entre dois computadores;
-9. reconexão/reentrada na sala após queda temporária;
-10. conflitos dos atalhos com `keyboard.cfg`;
-11. perfil OMSI 2.2.032 quando houver ambiente para teste.
-
-Depois desses testes, o desenvolvimento segue com as correções encontradas e com os itens pendentes descritos em `docs/ROADMAP.md`.
+6. lista completa de mapas com roadmap pronto/ausente;
+7. multiplayer entre dois computadores em LAN;
+8. troca de mapa durante uma sessão e atualização correta do fingerprint;
+9. multiplayer pela Internet com firewall/NAT configurados;
+10. chat, PTT e áudio entre dois computadores;
+11. reconexão/reentrada na sala após queda temporária;
+12. conflitos dos atalhos com `keyboard.cfg`;
+13. carregamento do plugin experimental no OMSI 2.3.004;
+14. handshake e fluxo SignalR → cliente → Named Pipe → plugin;
+15. perfil OMSI 2.2.032 quando houver ambiente para teste.
 
 ## Idiomas
 
@@ -186,7 +228,7 @@ Configurações do multiplayer/HUD, incluindo atalhos escolhidos, posição do H
 
 ## Compatibilidade
 
-O perfil principal **suportado tecnicamente** é **OMSI 2.3.004 no Windows**. A alpha.7 também introduziu suporte técnico ao perfil **2.2.032 (tram patch)**, porém esse perfil ainda precisa de validação real mais ampla.
+O perfil principal **suportado tecnicamente** é **OMSI 2.3.004 no Windows**. Também existe suporte técnico ao perfil **2.2.032 (tram patch)**, porém esse perfil ainda precisa de validação real mais ampla.
 
 O cliente não usa Steam API: ele localiza `Omsi.exe` em execução e deriva o diretório da instalação diretamente do processo. Quando o metadado de versão do executável diverge da versão carregada, o NavBR pode usar o `logfile.txt` do OMSI como referência de runtime.
 
@@ -194,12 +236,15 @@ O cliente não usa Steam API: ele localiza `Omsi.exe` em execução e deriva o d
 
 ```text
 src/
-  NavBR.Client/   WPF, telemetria, GPS, HUD, multiplayer, voz e localização
-  NavBR.Server/   host multiplayer em ASP.NET Core + SignalR
-  NavBR.Shared/   DTOs e protocolo compartilhado
+  NavBR.Client/                   WPF, telemetria, GPS, HUD, multiplayer, voz e localização
+  NavBR.Server/                   host multiplayer em ASP.NET Core + SignalR
+  NavBR.Shared/                   DTOs e protocolos compartilhados
+  NavBR.OmsiPluginExperimental/   plugin x86 opcional em investigação
 
 docs/
   MANUAL_DE_USO.md
+  GERAR_ROADMAP_MAPAS.md
+  OMSI_PLUGIN_EXPERIMENTAL.md
   ARCHITECTURE.md
   ROADMAP.md
   TELEMETRY.md
@@ -217,17 +262,21 @@ licenses/
 - NAudio
 - Concentus / Opus
 - Windows `OpenProcess` / `ReadProcessMemory`
+- Windows Named Pipes para o bridge local experimental
+- DNNE no plugin experimental x86
 - leitura direta de `global.cfg`, tiles `.map`, splines `.sli`, objetos `.sco`, roadmaps, `TTData` e `Inputs/keyboard.cfg`
 - `.resx` + `ResourceManager` para localização
 
 ## Builds e Releases
 
-O GitHub Actions compila cliente e servidor automaticamente. Cada nova versão gera um **GitHub Prerelease** com:
+O GitHub Actions compila cliente e servidor automaticamente. Cada release gera:
 
 - `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.exe` — **cliente recomendado**, standalone/self-contained;
 - `OMSI-NavBR-Multiplayer-vX.X.X-win-x86.zip` — **cliente em ZIP**, alternativa ao EXE standalone;
 - `OMSI-NavBR-Server-vX.X.X-win-x64.zip` — **servidor dedicado opcional**;
 - `LICENSE` e `THIRD_PARTY_NOTICES.md` para os avisos legais do projeto e dependências.
+
+Durante o desenvolvimento da alpha.10, o CI também pode produzir um artefato **experimental separado** do plugin. Ele não deve ser confundido com o servidor dedicado nem é necessário para o uso normal do NavBR.
 
 ### Qual arquivo baixar?
 
@@ -242,6 +291,8 @@ O `.exe` standalone inclui o runtime necessário e recebe o ícone oficial do Na
 O site oficial usa o `download_count` público dos assets de release do GitHub para mostrar o total de downloads dos pacotes `.exe` e `.zip`, por versão e por arquivo. O catálogo do GitHub Pages é atualizado após releases e periodicamente.
 
 ## Segurança e escopo
+
+A integração principal do NavBR permanece externa e somente leitura. O plugin da alpha.10 é experimental, opcional e atualmente não escreve estado físico no OMSI.
 
 O projeto não implementa bypass de DRM, ativação ou patches específicos para executáveis crackeados. A integração trabalha com um processo `Omsi.exe` já existente e compatível no computador do usuário.
 
