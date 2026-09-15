@@ -70,8 +70,12 @@ public sealed class OmsiMapCatalog
             }
         }
 
+        // A lista exibida pelo cliente usa esta mesma ordem. Mapas com um
+        // roadmap global compatível aparecem primeiro para o jogador identificar
+        // imediatamente quais já estão prontos para o fundo visual do GPS.
         return maps
-            .OrderBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .OrderByDescending(map => !string.IsNullOrWhiteSpace(map.RoadmapPath))
+            .ThenBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
     }
 
@@ -160,6 +164,10 @@ public sealed class OmsiMapCatalog
             }
         }
 
+        // OMSI can leave many per-tile files such as *.roadmap.bmp when
+        // Create Roadmap does not complete the global image. Those files are
+        // NOT enough to mark a map as ready in NavBR. Only accept fallback
+        // names that explicitly identify a whole/global roadmap.
         foreach (var searchDirectory in new[] { textureMapDirectory, directory })
         {
             if (!Directory.Exists(searchDirectory))
@@ -170,7 +178,14 @@ public sealed class OmsiMapCatalog
             try
             {
                 var fallback = Directory
-                    .EnumerateFiles(searchDirectory, "*roadmap*.bmp", SearchOption.TopDirectoryOnly)
+                    .EnumerateFiles(searchDirectory, "*.bmp", SearchOption.TopDirectoryOnly)
+                    .Where(path =>
+                    {
+                        var fileName = Path.GetFileName(path);
+                        return fileName.Contains("roadmap", StringComparison.OrdinalIgnoreCase) &&
+                               (fileName.Contains("whole", StringComparison.OrdinalIgnoreCase) ||
+                                fileName.Contains("global", StringComparison.OrdinalIgnoreCase));
+                    })
                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                     .FirstOrDefault();
 

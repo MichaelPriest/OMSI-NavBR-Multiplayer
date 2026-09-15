@@ -1,0 +1,134 @@
+name: promote alpha10 official
+
+on:
+  push:
+    branches:
+      - feature/alpha10-roadmap-plugin
+
+permissions:
+  contents: write
+
+jobs:
+  promote-alpha10:
+    if: contains(github.event.head_commit.message, '[promote-alpha10]')
+    runs-on: ubuntu-latest
+
+    env:
+      SOURCE_TAG: v0.3.0-alpha.10-test.6
+      OFFICIAL_TAG: v0.3.0-alpha.10
+      SOURCE_COMMIT: 7a0fbe3ffbcc338e776add1e1dec1bb5ac7154ea
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refuse overwrite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$OFFICIAL_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $OFFICIAL_TAG already exists; refusing to overwrite."
+            exit 1
+          fi
+
+      - name: Download validated test.6 assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/source artifacts/release
+          gh release download "$SOURCE_TAG" \
+            --repo "${{ github.repository }}" \
+            --dir artifacts/source \
+            --pattern 'OMSI-NavBR-*' \
+            --pattern 'LICENSE' \
+            --pattern 'THIRD_PARTY_NOTICES.md'
+
+      - name: Verify permanent test.6 hashes
+        shell: bash
+        run: |
+          cd artifacts/source
+          echo '1ea18dc0456c5c2e65071091462ea1cfeed76e6f2bc1e197aa04ae54eade48b2  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe' | sha256sum -c -
+          echo 'c2993234b09d73f60daf4eaf2a503f52854dd7594e56069cbb977af1bd469466  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.zip' | sha256sum -c -
+          echo '8c0f80b95cb9ab85b19bc06665bd8ac306ca240151378b61aa8eb4d88953884b  OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.6-win-x86.zip' | sha256sum -c -
+          echo 'f45648f11515391abc857af61af3c1a479e264ff97fe37dbe0d4777410c30383  OMSI-NavBR-Server-v0.3.0-alpha.10-test.6-win-x64.zip' | sha256sum -c -
+          echo 'da1ab08ee6f5bb777f1c730d446a90a9d52e9417534c9bcecb3f7191463cd8e2  OMSI-NavBR-alpha10-test.6-integration-win-x86.zip' | sha256sum -c -
+
+      - name: Prepare official alpha.10 aliases
+        shell: bash
+        run: |
+          cp artifacts/source/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe artifacts/release/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe
+          cp artifacts/source/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.zip artifacts/release/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip
+          cp artifacts/source/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.6-win-x86.zip artifacts/release/OMSI-NavBR-Plugin-v0.3.0-alpha.10-win-x86.zip
+          cp artifacts/source/OMSI-NavBR-Server-v0.3.0-alpha.10-test.6-win-x64.zip artifacts/release/OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip
+          cp artifacts/source/OMSI-NavBR-alpha10-test.6-integration-win-x86.zip artifacts/release/OMSI-NavBR-alpha10-integration-win-x86.zip
+          cp artifacts/source/LICENSE artifacts/release/LICENSE
+          cp artifacts/source/THIRD_PARTY_NOTICES.md artifacts/release/THIRD_PARTY_NOTICES.md
+
+          cd artifacts/release
+          sha256sum \
+            OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe \
+            OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip \
+            OMSI-NavBR-Plugin-v0.3.0-alpha.10-win-x86.zip \
+            OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip \
+            OMSI-NavBR-alpha10-integration-win-x86.zip \
+            LICENSE THIRD_PARTY_NOTICES.md > SHA256SUMS.txt
+
+      - name: Verify aliases remain byte-for-byte identical
+        shell: bash
+        run: |
+          test "$(sha256sum artifacts/release/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe | cut -d' ' -f1)" = '1ea18dc0456c5c2e65071091462ea1cfeed76e6f2bc1e197aa04ae54eade48b2'
+          test "$(sha256sum artifacts/release/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip | cut -d' ' -f1)" = 'c2993234b09d73f60daf4eaf2a503f52854dd7594e56069cbb977af1bd469466'
+          test "$(sha256sum artifacts/release/OMSI-NavBR-Plugin-v0.3.0-alpha.10-win-x86.zip | cut -d' ' -f1)" = '8c0f80b95cb9ab85b19bc06665bd8ac306ca240151378b61aa8eb4d88953884b'
+          test "$(sha256sum artifacts/release/OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip | cut -d' ' -f1)" = 'f45648f11515391abc857af61af3c1a479e264ff97fe37dbe0d4777410c30383'
+          test "$(sha256sum artifacts/release/OMSI-NavBR-alpha10-integration-win-x86.zip | cut -d' ' -f1)" = 'da1ab08ee6f5bb777f1c730d446a90a9d52e9417534c9bcecb3f7191463cd8e2'
+
+      - name: Write official release notes
+        shell: bash
+        run: |
+          cat > artifacts/release-notes.md <<'EOF'
+          # OMSI NavBR Multiplayer v0.3.0-alpha.10
+
+          **Alpha oficial promovida da `v0.3.0-alpha.10-test.6`.**
+
+          Os binarios principais desta release sao **byte-for-byte identicos** aos artefatos permanentes da test.6 que passaram pela validacao de integracao. Apenas os nomes dos arquivos foram promovidos para a versao oficial `alpha.10`.
+
+          ## Destaques
+
+          - cliente WPF x86 standalone;
+          - host da propria sala no PC de quem cria a sala, porta inicial TCP 27730;
+          - servidor dedicado continua como alternativa;
+          - HUD moderno e GPS heading-up;
+          - linha, destino e proxima parada fora do mapa;
+          - chat e voz/PTT;
+          - plugin OMSI Native AOT x86 embutido no EXE;
+          - instalacao/atualizacao/remocao do plugin pelo proprio NavBR;
+          - **nao requer .NET Runtime x86 instalado separadamente**;
+          - deteccao do OMSI por caminho conhecido, registro Aerosoft e bibliotecas Steam;
+          - logs automaticos em `%LOCALAPPDATA%\\OMSI NavBR Multiplayer\\`;
+          - interface em pt-BR, ingles, espanhol, alemao e frances.
+
+          ## Escopo 3D
+
+          Esta alpha ainda **nao cria nem move fisicamente o onibus de outro jogador no mundo 3D do OMSI**. Essa evolucao esta sendo desenvolvida na alpha.11, usando OMSI Launcher e OmsiHook/Omsi-Extensions como referencias tecnicas.
+
+          ## Proveniencia
+
+          Snapshot promovida: `v0.3.0-alpha.10-test.6`
+          Commit validado: `7a0fbe3ffbcc338e776add1e1dec1bb5ac7154ea`
+          EOF
+
+      - name: Create official alpha.10 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          assets=(artifacts/release/*)
+          gh release create "$OFFICIAL_TAG" "${assets[@]}" \
+            --repo "${{ github.repository }}" \
+            --target "$SOURCE_COMMIT" \
+            --title "OMSI NavBR Multiplayer v0.3.0-alpha.10" \
+            --notes-file artifacts/release-notes.md \
+            --prerelease

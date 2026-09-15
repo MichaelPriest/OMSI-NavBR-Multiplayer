@@ -11,6 +11,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\NavBR.ico" />
+    <EmbeddedResource Include="Assets\NavBR.OmsiPlugin.bundle.zip"
+                      LogicalName="NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip"
+                      Condition="Exists('Assets\NavBR.OmsiPlugin.bundle.zip')" />
     <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
     <ProjectReference Include="..\NavBR.Server\NavBR.Server.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -23,6 +26,10 @@
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="ValidateNavBRXamlColors" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\validate-xaml-colors.ps1&quot; -Root &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
 
   <Target Name="RepairNavBRIcon" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\repair-navbr-icon.ps1&quot; -Path &quot;$(MSBuildProjectDirectory)\Assets\NavBR.ico&quot;" />

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -75,6 +76,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             }
 
             _joinRequest = null;
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             throw;
         }
@@ -90,7 +92,19 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             return;
         }
 
-        await connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
+        var compatibilityId = OmsiPluginBridgeRelay.ResolveCurrentMapCompatibilityId(
+            telemetry.MapCompatibilityId ?? _joinRequest?.MapCompatibilityId);
+        var outgoing = telemetry with
+        {
+            MapCompatibilityId = compatibilityId
+        };
+
+        _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
+            outgoing,
+            compatibilityId,
+            cancellationToken);
+
+        await connection.SendAsync("PublishTelemetry", outgoing, cancellationToken);
     }
 
     public async Task SendChatMessageAsync(
@@ -120,6 +134,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         var connection = _connection;
         _connection = null;
         _joinRequest = null;
+        _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
         {
@@ -152,18 +167,27 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         connection.On<PlayerPresence>("playerJoined", player => PlayerJoined?.Invoke(player));
         connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
-        connection.On<string>("playerLeft", playerId => PlayerLeft?.Invoke(playerId));
-        connection.On<PlayerTelemetryFrame>("telemetry", frame => TelemetryReceived?.Invoke(frame));
+        connection.On<string>("playerLeft", playerId =>
+        {
+            PlayerLeft?.Invoke(playerId);
+            _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
+        });
+        connection.On<PlayerTelemetryFrame>("telemetry", frame =>
+        {
+            TelemetryReceived?.Invoke(frame);
+            _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
+        });
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
-        connection.Reconnecting += _ =>
+        connection.Reconnecting += error =>
         {
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
             return Task.CompletedTask;
         };
 
-        connection.Reconnected += async _ =>
+        connection.Reconnected += async connectionId =>
         {
             if (_joinRequest is not null)
             {
@@ -174,8 +198,9 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Connected);
         };
 
-        connection.Closed += _ =>
+        connection.Closed += error =>
         {
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };

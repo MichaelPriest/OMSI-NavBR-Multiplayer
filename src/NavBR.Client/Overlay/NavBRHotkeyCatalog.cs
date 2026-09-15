@@ -14,17 +14,20 @@ public static class NavBRHotkeyCatalog
     public const string DefaultChatHotkey = "F9";
     public const string DefaultVoiceHotkey = "F10";
 
-    public static IReadOnlyList<NavBRHotkeyDefinition> Options { get; } =
+    private static readonly (string Name, int VirtualKey, int ScanCode)[] BaseKeys =
     [
-        new("F9", 0x78, 67, 0),
-        new("F10", 0x79, 68, 0),
-        new("Shift+F9", 0x78, 67, OmsiShiftModifier),
-        new("Shift+F10", 0x79, 68, OmsiShiftModifier),
-        new("Ctrl+F9", 0x78, 67, OmsiCtrlModifier),
-        new("Ctrl+F10", 0x79, 68, OmsiCtrlModifier),
-        new("Ctrl+Shift+F9", 0x78, 67, OmsiCtrlModifier | OmsiShiftModifier),
-        new("Ctrl+Shift+F10", 0x79, 68, OmsiCtrlModifier | OmsiShiftModifier)
+        ("F1", 0x70, 59),
+        ("F2", 0x71, 60),
+        ("F3", 0x72, 61),
+        ("F4", 0x73, 62),
+        // F5-F8 are intentionally omitted because OMSI commonly uses them.
+        ("F9", 0x78, 67),
+        ("F10", 0x79, 68),
+        ("F11", 0x7A, 87),
+        ("F12", 0x7B, 88)
     ];
+
+    public static IReadOnlyList<NavBRHotkeyDefinition> Options { get; } = BuildOptions();
 
     public static NavBRHotkeyDefinition Resolve(string? name, string fallback)
     {
@@ -37,5 +40,23 @@ public static class NavBRHotkeyCatalog
 
         return Options.First(option =>
             string.Equals(option.Name, fallback, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyList<NavBRHotkeyDefinition> BuildOptions()
+    {
+        var result = new List<NavBRHotkeyDefinition>();
+        foreach (var key in BaseKeys)
+        {
+            result.Add(new(key.Name, key.VirtualKey, key.ScanCode, 0));
+            result.Add(new($"Shift+{key.Name}", key.VirtualKey, key.ScanCode, OmsiShiftModifier));
+            result.Add(new($"Ctrl+{key.Name}", key.VirtualKey, key.ScanCode, OmsiCtrlModifier));
+            result.Add(new(
+                $"Ctrl+Shift+{key.Name}",
+                key.VirtualKey,
+                key.ScanCode,
+                OmsiCtrlModifier | OmsiShiftModifier));
+        }
+
+        return result;
     }
 }

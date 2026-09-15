@@ -3,167 +3,260 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-
-if (-not (Test-Path -LiteralPath $Path)) {
-    throw "Icon file not found: $Path"
-}
-
-$resolvedPath = (Resolve-Path -LiteralPath $Path).Path
-$bytes = [System.IO.File]::ReadAllBytes($resolvedPath)
-if ($bytes.Length -lt 22) {
-    throw "ICO file is too small: $($bytes.Length) bytes"
-}
-
-$reserved = [BitConverter]::ToUInt16($bytes, 0)
-$type = [BitConverter]::ToUInt16($bytes, 2)
-$count = [BitConverter]::ToUInt16($bytes, 4)
-
-if ($reserved -ne 0 -or $type -ne 1 -or $count -lt 1) {
-    throw "Invalid ICO header (reserved=$reserved type=$type count=$count)."
-}
-
-$directoryEnd = 6 + (16 * $count)
-if ($bytes.Length -lt $directoryEnd) {
-    throw "ICO directory is truncated."
-}
-
-# Repair malformed size metadata first so System.Drawing can load the original source.
-$entries = @()
-for ($i = 0; $i -lt $count; $i++) {
-    $entry = 6 + (16 * $i)
-    $declaredSize = [BitConverter]::ToUInt32($bytes, $entry + 8)
-    $imageOffset = [BitConverter]::ToUInt32($bytes, $entry + 12)
-
-    if ($imageOffset -lt $directoryEnd -or $imageOffset -ge $bytes.Length) {
-        throw "Invalid ICO image offset $imageOffset for entry $i."
-    }
-
-    $entries += [pscustomobject]@{
-        Index = $i
-        EntryOffset = $entry
-        DeclaredSize = [uint32]$declaredSize
-        ImageOffset = [uint32]$imageOffset
-    }
-}
-
-$ordered = $entries | Sort-Object ImageOffset
-for ($i = 0; $i -lt $ordered.Count; $i++) {
-    $current = $ordered[$i]
-    $nextOffset = if ($i + 1 -lt $ordered.Count) {
-        [uint32]$ordered[$i + 1].ImageOffset
-    } else {
-        [uint32]$bytes.Length
-    }
-
-    $actualSize = [uint32]($nextOffset - $current.ImageOffset)
-    if ($actualSize -ne $current.DeclaredSize) {
-        [BitConverter]::GetBytes($actualSize).CopyTo($bytes, $current.EntryOffset + 8)
-    }
-}
-
-[System.IO.File]::WriteAllBytes($resolvedPath, $bytes)
-
-# Windows displays the same application icon at many sizes. The original asset contained
-# a single 64x64 frame, which produced blurry/odd taskbar and Explorer rendering. Build a
-# proper multi-resolution ICO from the official NavBR artwork while preserving its design.
 Add-Type -AssemblyName System.Drawing
 
-# The target runs more than once during build/publish. Once the ICO is multi-resolution,
-# always reopen its largest frame so repeated invocations do not progressively resample a
-# small 16/32 px frame and degrade the artwork.
-$sourceIcon = if ($count -gt 1) {
-    [System.Drawing.Icon]::new($resolvedPath, 256, 256)
-} else {
-    [System.Drawing.Icon]::new($resolvedPath)
+function New-RoundedRectanglePath(
+    [float]$x,
+    [float]$y,
+    [float]$width,
+    [float]$height,
+    [float]$radius) {
+
+    $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
+    $diameter = [Math]::Max(1.0, $radius * 2.0)
+    $path.AddArc($x, $y, $diameter, $diameter, 180, 90)
+    $path.AddArc($x + $width - $diameter, $y, $diameter, $diameter, 270, 90)
+    $path.AddArc($x + $width - $diameter, $y + $height - $diameter, $diameter, $diameter, 0, 90)
+    $path.AddArc($x, $y + $height - $diameter, $diameter, $diameter, 90, 90)
+    $path.CloseFigure()
+    return $path
 }
-try {
-    $sourceBitmap = $sourceIcon.ToBitmap()
+
+function New-NavBRMasterIcon {
+    $size = 512
+    $bitmap = [System.Drawing.Bitmap]::new(
+        $size,
+        $size,
+        [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     try {
-        $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
-        $frames = New-Object System.Collections.Generic.List[object]
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
 
-        foreach ($size in $sizes) {
-            $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-            try {
-                $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-                try {
-                    $graphics.Clear([System.Drawing.Color]::Transparent)
-                    $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
-                    $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-                    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-                    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-                    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                    $graphics.DrawImage($sourceBitmap, 0, 0, $size, $size)
-                }
-                finally {
-                    $graphics.Dispose()
-                }
+        # O símbolo deriva diretamente da terceira arte aprovada do projeto:
+        # pin de navegação laranja + ônibus branco. Para ícone do Windows usamos
+        # apenas o símbolo, sem textos pequenos, para permanecer legível em 16/32 px.
+        $orange = [System.Drawing.Color]::FromArgb(255, 255, 132, 0)
+        $orangeDark = [System.Drawing.Color]::FromArgb(255, 224, 83, 0)
+        $orangeLight = [System.Drawing.Color]::FromArgb(255, 255, 188, 67)
+        $dark = [System.Drawing.Color]::FromArgb(255, 18, 20, 24)
+        $dark2 = [System.Drawing.Color]::FromArgb(255, 31, 35, 42)
+        $white = [System.Drawing.Color]::FromArgb(255, 247, 247, 247)
 
-                $stream = [System.IO.MemoryStream]::new()
-                try {
-                    $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
-                    $frames.Add([pscustomobject]@{ Size = $size; Bytes = $stream.ToArray() })
-                }
-                finally {
-                    $stream.Dispose()
-                }
-            }
-            finally {
-                $bitmap.Dispose()
-            }
-        }
-
-        $output = [System.IO.MemoryStream]::new()
-        $writer = [System.IO.BinaryWriter]::new($output)
+        $shadowBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(78, 0, 0, 0))
         try {
-            $writer.Write([uint16]0)
-            $writer.Write([uint16]1)
-            $writer.Write([uint16]$frames.Count)
-
-            $offset = 6 + (16 * $frames.Count)
-            foreach ($frame in $frames) {
-                $dimension = if ($frame.Size -ge 256) { [byte]0 } else { [byte]$frame.Size }
-                $writer.Write($dimension)
-                $writer.Write($dimension)
-                $writer.Write([byte]0)
-                $writer.Write([byte]0)
-                $writer.Write([uint16]1)
-                $writer.Write([uint16]32)
-                $writer.Write([uint32]$frame.Bytes.Length)
-                $writer.Write([uint32]$offset)
-                $offset += $frame.Bytes.Length
-            }
-
-            foreach ($frame in $frames) {
-                $writer.Write([byte[]]$frame.Bytes)
-            }
-
-            $writer.Flush()
-            [System.IO.File]::WriteAllBytes($resolvedPath, $output.ToArray())
+            $graphics.FillEllipse($shadowBrush, 113, 60, 302, 302)
+            $shadowPoints = [System.Drawing.PointF[]]@(
+                [System.Drawing.PointF]::new(151, 246),
+                [System.Drawing.PointF]::new(377, 246),
+                [System.Drawing.PointF]::new(264, 458)
+            )
+            $graphics.FillPolygon($shadowBrush, $shadowPoints)
         }
         finally {
-            $writer.Dispose()
-            $output.Dispose()
+            $shadowBrush.Dispose()
+        }
+
+        $tailBrush = [System.Drawing.SolidBrush]::new($orangeDark)
+        try {
+            $tailPoints = [System.Drawing.PointF[]]@(
+                [System.Drawing.PointF]::new(143, 229),
+                [System.Drawing.PointF]::new(369, 229),
+                [System.Drawing.PointF]::new(256, 450)
+            )
+            $graphics.FillPolygon($tailBrush, $tailPoints)
+        }
+        finally {
+            $tailBrush.Dispose()
+        }
+
+        $pinBrush = [System.Drawing.SolidBrush]::new($orange)
+        try {
+            $graphics.FillEllipse($pinBrush, 96, 36, 320, 320)
+        }
+        finally {
+            $pinBrush.Dispose()
+        }
+
+        $highlightPen = [System.Drawing.Pen]::new($orangeLight, 11)
+        try {
+            $graphics.DrawEllipse($highlightPen, 108, 48, 296, 296)
+        }
+        finally {
+            $highlightPen.Dispose()
+        }
+
+        $centerBrush = [System.Drawing.SolidBrush]::new($dark)
+        try {
+            $graphics.FillEllipse($centerBrush, 139, 79, 234, 234)
+        }
+        finally {
+            $centerBrush.Dispose()
+        }
+
+        $centerPen = [System.Drawing.Pen]::new($dark2, 5)
+        try {
+            $graphics.DrawEllipse($centerPen, 139, 79, 234, 234)
+        }
+        finally {
+            $centerPen.Dispose()
+        }
+
+        $busBrush = [System.Drawing.SolidBrush]::new($white)
+        $windowBrush = [System.Drawing.SolidBrush]::new($dark)
+        try {
+            $body = New-RoundedRectanglePath 181 129 150 143 22
+            try {
+                $graphics.FillPath($busBrush, $body)
+            }
+            finally {
+                $body.Dispose()
+            }
+
+            $graphics.FillEllipse($busBrush, 163, 166, 26, 56)
+            $graphics.FillEllipse($busBrush, 323, 166, 26, 56)
+
+            $roof = New-RoundedRectanglePath 201 111 110 26 10
+            try {
+                $graphics.FillPath($busBrush, $roof)
+            }
+            finally {
+                $roof.Dispose()
+            }
+
+            $windshield = New-RoundedRectanglePath 199 153 114 60 9
+            try {
+                $graphics.FillPath($windowBrush, $windshield)
+            }
+            finally {
+                $windshield.Dispose()
+            }
+
+            $graphics.FillRectangle($windowBrush, 205, 232, 102, 12)
+            $graphics.FillEllipse($windowBrush, 204, 247, 18, 18)
+            $graphics.FillEllipse($windowBrush, 290, 247, 18, 18)
+            $graphics.FillEllipse($busBrush, 195, 260, 22, 29)
+            $graphics.FillEllipse($busBrush, 295, 260, 22, 29)
+        }
+        finally {
+            $busBrush.Dispose()
+            $windowBrush.Dispose()
+        }
+
+        return $bitmap
+    }
+    finally {
+        $graphics.Dispose()
+    }
+}
+
+function Convert-ToPngFrame([System.Drawing.Bitmap]$master, [int]$size) {
+    $bitmap = [System.Drawing.Bitmap]::new(
+        $size,
+        $size,
+        [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    try {
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.DrawImage($master, 0, 0, $size, $size)
+
+        $stream = [System.IO.MemoryStream]::new()
+        try {
+            $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+            return $stream.ToArray()
+        }
+        finally {
+            $stream.Dispose()
         }
     }
     finally {
-        $sourceBitmap.Dispose()
+        $graphics.Dispose()
+        $bitmap.Dispose()
+    }
+}
+
+$resolvedPath = [System.IO.Path]::GetFullPath($Path)
+$directory = [System.IO.Path]::GetDirectoryName($resolvedPath)
+if (-not [string]::IsNullOrWhiteSpace($directory)) {
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+}
+
+$master = New-NavBRMasterIcon
+try {
+    $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
+    $frames = foreach ($size in $sizes) {
+        [pscustomobject]@{
+            Size = $size
+            Bytes = Convert-ToPngFrame $master $size
+        }
+    }
+
+    $output = [System.IO.MemoryStream]::new()
+    $writer = [System.IO.BinaryWriter]::new($output)
+    try {
+        $writer.Write([uint16]0)
+        $writer.Write([uint16]1)
+        $writer.Write([uint16]$frames.Count)
+
+        $offset = 6 + (16 * $frames.Count)
+        foreach ($frame in $frames) {
+            $dimension = if ($frame.Size -ge 256) { [byte]0 } else { [byte]$frame.Size }
+            $writer.Write($dimension)
+            $writer.Write($dimension)
+            $writer.Write([byte]0)
+            $writer.Write([byte]0)
+            $writer.Write([uint16]1)
+            $writer.Write([uint16]32)
+            $writer.Write([uint32]$frame.Bytes.Length)
+            $writer.Write([uint32]$offset)
+            $offset += $frame.Bytes.Length
+        }
+
+        foreach ($frame in $frames) {
+            $writer.Write([byte[]]$frame.Bytes)
+        }
+
+        $writer.Flush()
+        [System.IO.File]::WriteAllBytes($resolvedPath, $output.ToArray())
+    }
+    finally {
+        $writer.Dispose()
+        $output.Dispose()
     }
 }
 finally {
-    $sourceIcon.Dispose()
+    $master.Dispose()
 }
 
 $finalBytes = [System.IO.File]::ReadAllBytes($resolvedPath)
-$finalCount = [BitConverter]::ToUInt16($finalBytes, 4)
-if ($finalCount -lt 8) {
-    throw "Multi-resolution ICO generation failed: only $finalCount frame(s)."
+if ($finalBytes.Length -lt 64) {
+    throw "Generated NavBR icon is unexpectedly small."
 }
 
-$validatedIcon = [System.Drawing.Icon]::new($resolvedPath)
+$reserved = [BitConverter]::ToUInt16($finalBytes, 0)
+$type = [BitConverter]::ToUInt16($finalBytes, 2)
+$count = [BitConverter]::ToUInt16($finalBytes, 4)
+if ($reserved -ne 0 -or $type -ne 1 -or $count -ne 10) {
+    throw "Generated NavBR icon has an invalid ICO header (reserved=$reserved type=$type count=$count)."
+}
+
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
 try {
-    Write-Host "NavBR multi-resolution icon valid: $finalCount frames, $($finalBytes.Length) bytes"
+    $hashBytes = $sha256.ComputeHash($finalBytes)
+    $hash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
 }
 finally {
-    $validatedIcon.Dispose()
+    $sha256.Dispose()
 }
+
+Write-Host "NavBR compact app icon generated: $count frames, $($finalBytes.Length) bytes, sha256=$hash"
