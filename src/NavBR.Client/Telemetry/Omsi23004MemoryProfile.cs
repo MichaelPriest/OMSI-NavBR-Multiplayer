@@ -66,6 +66,7 @@ internal static class Omsi23004MemoryProfile
     // read-only in NavBR and guarded by range checks before entering telemetry.
     public const int VehicleThrottleOffset = 0x5DC;
     public const int VehicleBrakePedalOffset = 0x5E0;
+    public const int VehiclePaiOffset = 0x624;
     public const int VehicleAiLightOffset = 0x634;
     public const int VehicleAiInteriorLightOffset = 0x638;
     public const int VehicleAiBlinkerLeftOffset = 0x63C;
