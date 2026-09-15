@@ -107,7 +107,7 @@ internal static class PluginBridgeClient
                     ProcessId: Environment.ProcessId,
                     ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString());
 
-                await writer.WriteLineAsync(JsonSerializer.Serialize(hello));
+                await writer.WriteLineAsync(SerializeMessage(hello));
 
                 var responseLine = await reader.ReadLineAsync(cancellationToken);
                 if (!TryParseMessage(responseLine, out var response) ||
@@ -199,7 +199,7 @@ internal static class PluginBridgeClient
             var pending = TakePendingStatus();
             if (pending is not null)
             {
-                var json = JsonSerializer.Serialize(pending);
+                var json = SerializeMessage(pending);
                 if (json.Length <= PluginBridgeProtocol.MaxMessageChars)
                 {
                     await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
@@ -297,6 +297,11 @@ internal static class PluginBridgeClient
     private static bool IsFinite(double? value) =>
         value is double number && double.IsFinite(number);
 
+    private static string SerializeMessage(PluginBridgeMessage message) =>
+        JsonSerializer.Serialize(
+            message,
+            PluginBridgeJsonContext.Default.PluginBridgeMessage);
+
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {
         message = null;
@@ -307,7 +312,9 @@ internal static class PluginBridgeClient
 
         try
         {
-            message = JsonSerializer.Deserialize<PluginBridgeMessage>(json);
+            message = JsonSerializer.Deserialize(
+                json,
+                PluginBridgeJsonContext.Default.PluginBridgeMessage);
             return message is not null;
         }
         catch (JsonException)
