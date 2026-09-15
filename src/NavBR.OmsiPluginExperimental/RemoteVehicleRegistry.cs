@@ -6,6 +6,7 @@ internal sealed class RemoteVehicleRegistry
 {
     private const int MaxRemoteVehicles = 64;
     private static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan InterpolationDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly object _sync = new();
     private readonly Dictionary<string, RemoteVehicleEntry> _entries =
@@ -28,20 +29,22 @@ internal sealed class RemoteVehicleRegistry
         lock (_sync)
         {
             PruneStaleUnsafe(DateTimeOffset.UtcNow);
-            return _entries.Values.Count(entry => IsCompatible(localState, entry.Message));
+            return _entries.Values.Count(entry => IsCompatible(localState, entry.Current));
         }
     }
 
     public PluginBridgeMessage? LatestCompatible(PluginBridgeMessage? localState)
     {
+        var now = DateTimeOffset.UtcNow;
         lock (_sync)
         {
-            PruneStaleUnsafe(DateTimeOffset.UtcNow);
-            return _entries.Values
-                .Where(entry => IsCompatible(localState, entry.Message))
-                .OrderByDescending(entry => entry.ReceivedAtUtc)
-                .Select(entry => entry.Message)
+            PruneStaleUnsafe(now);
+            var entry = _entries.Values
+                .Where(candidate => IsCompatible(localState, candidate.Current))
+                .OrderByDescending(candidate => candidate.ReceivedAtUtc)
                 .FirstOrDefault();
+
+            return entry?.Sample(now - InterpolationDelay);
         }
     }
 
@@ -57,7 +60,13 @@ internal sealed class RemoteVehicleRegistry
         {
             PruneStaleUnsafe(now);
 
-            if (!_entries.ContainsKey(message.PlayerId!) && _entries.Count >= MaxRemoteVehicles)
+            if (_entries.TryGetValue(message.PlayerId!, out var existing))
+            {
+                existing.Push(message, now);
+                return true;
+            }
+
+            if (_entries.Count >= MaxRemoteVehicles)
             {
                 var oldest = _entries
                     .OrderBy(pair => pair.Value.ReceivedAtUtc)
@@ -169,7 +178,74 @@ internal sealed class RemoteVehicleRegistry
     private static bool IsFinite(double? value) =>
         value is double number && double.IsFinite(number);
 
-    private sealed record RemoteVehicleEntry(
-        PluginBridgeMessage Message,
-        DateTimeOffset ReceivedAtUtc);
+    private sealed class RemoteVehicleEntry
+    {
+        private PluginBridgeMessage? _previous;
+        private DateTimeOffset _previousReceivedAtUtc;
+
+        public RemoteVehicleEntry(PluginBridgeMessage message, DateTimeOffset receivedAtUtc)
+        {
+            Current = message;
+            ReceivedAtUtc = receivedAtUtc;
+        }
+
+        public PluginBridgeMessage Current { get; private set; }
+        public DateTimeOffset ReceivedAtUtc { get; private set; }
+
+        public void Push(PluginBridgeMessage message, DateTimeOffset receivedAtUtc)
+        {
+            _previous = Current;
+            _previousReceivedAtUtc = ReceivedAtUtc;
+            Current = message;
+            ReceivedAtUtc = receivedAtUtc;
+        }
+
+        public PluginBridgeMessage Sample(DateTimeOffset targetUtc)
+        {
+            if (_previous is null ||
+                ReceivedAtUtc <= _previousReceivedAtUtc ||
+                targetUtc <= _previousReceivedAtUtc)
+            {
+                return _previous ?? Current;
+            }
+
+            if (targetUtc >= ReceivedAtUtc)
+            {
+                return Current;
+            }
+
+            var totalMilliseconds = (ReceivedAtUtc - _previousReceivedAtUtc).TotalMilliseconds;
+            if (totalMilliseconds <= 0.001d)
+            {
+                return Current;
+            }
+
+            var elapsedMilliseconds = (targetUtc - _previousReceivedAtUtc).TotalMilliseconds;
+            var amount = Math.Clamp(elapsedMilliseconds / totalMilliseconds, 0d, 1d);
+
+            return Current with
+            {
+                TimestampUnixMilliseconds = targetUtc.ToUnixTimeMilliseconds(),
+                X = Lerp(_previous.X!.Value, Current.X!.Value, amount),
+                Y = Lerp(_previous.Y!.Value, Current.Y!.Value, amount),
+                Z = Lerp(_previous.Z!.Value, Current.Z!.Value, amount),
+                HeadingDegrees = LerpHeading(
+                    _previous.HeadingDegrees!.Value,
+                    Current.HeadingDegrees!.Value,
+                    amount),
+                SpeedKph = Lerp(_previous.SpeedKph!.Value, Current.SpeedKph!.Value, amount)
+            };
+        }
+
+        private static double Lerp(double from, double to, double amount) =>
+            from + (to - from) * amount;
+
+        private static double LerpHeading(double from, double to, double amount)
+        {
+            var delta = ((to - from + 540d) % 360d) - 180d;
+            var value = from + delta * amount;
+            value %= 360d;
+            return value < 0d ? value + 360d : value;
+        }
+    }
 }
