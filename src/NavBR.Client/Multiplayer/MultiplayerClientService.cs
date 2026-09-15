@@ -173,14 +173,14 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
-        connection.Reconnecting += _ =>
+        connection.Reconnecting += error =>
         {
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
             return Task.CompletedTask;
         };
 
-        connection.Reconnected += async _ =>
+        connection.Reconnected += async connectionId =>
         {
             if (_joinRequest is not null)
             {
@@ -191,7 +191,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Connected);
         };
 
-        connection.Closed += _ =>
+        connection.Closed += error =>
         {
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
