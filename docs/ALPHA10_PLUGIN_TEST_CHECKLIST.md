@@ -5,22 +5,22 @@
 Para esta rodada, use a prerelease permanente de integração mais recente:
 
 ```text
-v0.3.0-alpha.10-test.2
+v0.3.0-alpha.10-test.3
 ```
 
 Release:
 
 ```text
-https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.2
+https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.3
 ```
 
 Pacote recomendado:
 
 ```text
-OMSI-NavBR-alpha10-test.2-integration-win-x86.zip
+OMSI-NavBR-alpha10-test.3-integration-win-x86.zip
 ```
 
-A `test.1` permanece publicada apenas para rastreabilidade histórica. A `test.2` é a primeira build que inclui o diagnóstico de instalação do plugin (`install`, `files`, `manifest` e `plugin-dir`).
+As `test.1` e `test.2` permanecem publicadas apenas para rastreabilidade histórica. A `test.3` acrescenta a validação explícita de um **.NET 10 Runtime x86 real** no instalador/smoke test, além do diagnóstico de instalação do plugin (`install`, `files`, `manifest` e `plugin-dir`).
 
 O plugin é **opcional**. GPS, HUD, criação/entrada em salas, chat e voz continuam funcionando sem instalar o plugin.
 
@@ -34,8 +34,9 @@ Validar com segurança que:
 4. o Named Pipe local conecta plugin e cliente NavBR;
 5. o cliente recebe heartbeat/status de volta do plugin;
 6. o cliente detecta corretamente os arquivos instalados na pasta `plugins` do OMSI;
-7. nenhuma variável ou trigger do OMSI é alterada;
-8. não há crash ou queda perceptível de desempenho.
+7. o instalador reconhece corretamente o .NET 10 Runtime x86;
+8. nenhuma variável ou trigger do OMSI é alterada;
+9. não há crash ou queda perceptível de desempenho.
 
 **Esta rodada ainda não cria nem movimenta ônibus remotos dentro do OMSI.**
 
@@ -79,13 +80,14 @@ O instalador:
 
 - exige que `Omsi.exe` exista no diretório informado;
 - recusa instalação com o OMSI aberto;
+- valida a presença de um **.NET 10 Runtime x86** compatível antes de copiar o plugin;
 - mantém um manifesto dos arquivos copiados;
 - não sobrescreve arquivos de mesmo nome que não pertençam a uma instalação NavBR rastreada.
 
 ## Ordem recomendada do teste
 
 1. Instale o plugin com o OMSI fechado.
-2. Abra o `OMSI.NavBR.Multiplayer.exe` do bundle `test.2`.
+2. Abra o `OMSI.NavBR.Multiplayer.exe` do bundle `test.3`.
 3. Abra o OMSI 2.3.004 normalmente.
 4. Carregue um mapa e um ônibus.
 5. Aguarde pelo menos 10 segundos.
@@ -221,7 +223,7 @@ Depois de remover, o painel deve passar a indicar `install=MISSING` quando essa 
 
 Informe:
 
-- tag usada (`v0.3.0-alpha.10-test.2` ou posterior);
+- tag usada (`v0.3.0-alpha.10-test.3` ou posterior);
 - versão do OMSI;
 - mapa carregado;
 - valores exibidos em `PLUGIN BRIDGE v1 • EXP`;
