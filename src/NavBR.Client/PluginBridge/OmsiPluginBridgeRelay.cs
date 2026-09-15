@@ -208,7 +208,14 @@ public static class OmsiPluginBridgeRelay
             HornActive: telemetry.HornActive,
             WipersActive: telemetry.WipersActive,
             ParkingBrakeActive: telemetry.ParkingBrakeActive,
-            ReverseGear: telemetry.ReverseGear);
+            ReverseGear: telemetry.ReverseGear,
+            LocalX: telemetry.LocalX,
+            LocalY: telemetry.LocalY,
+            LocalZ: telemetry.LocalZ,
+            RotationX: telemetry.RotationX,
+            RotationY: telemetry.RotationY,
+            RotationZ: telemetry.RotationZ,
+            RotationW: telemetry.RotationW);
     }
 
     private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(
