@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      TEST_TAG: v0.3.0-alpha.10-test.2
+      TEST_TAG: v0.3.0-alpha.10-test.3
 
     steps:
       - uses: actions/checkout@v4
@@ -194,7 +194,8 @@ jobs:
             "Leia LEIA-ME-TESTE-ALPHA10.md antes de instalar o plugin."
           ) | Set-Content -LiteralPath (Join-Path $bundleDir "BUILD-INFO.txt") -Encoding UTF8
 
-          Compress-Archive -Path "$bundleDir/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-alpha10-test.2-integration-win-x86.zip") -Force
+          $integrationZip = Join-Path $releaseDir "OMSI-NavBR-alpha10-test.3-integration-win-x86.zip"
+          Compress-Archive -Path "$bundleDir/*" -DestinationPath $integrationZip -Force
 
           Copy-Item LICENSE (Join-Path $releaseDir "LICENSE") -Force
           Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $releaseDir "THIRD_PARTY_NOTICES.md") -Force
@@ -211,11 +212,11 @@ jobs:
 
           **PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**
 
-          Esta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86, o diagnostico da instalacao e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.
+          Esta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86, o diagnostico da instalacao, a verificacao do .NET 10 Runtime x86 e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.
 
           ## Para o teste recomendado
 
-          Baixe `OMSI-NavBR-alpha10-test.2-integration-win-x86.zip`.
+          Baixe `OMSI-NavBR-alpha10-test.3-integration-win-x86.zip`.
 
           O pacote contem:
 
@@ -235,9 +236,11 @@ jobs:
           - `heartbeat=LIVE`;
           - `callbacks` aumentando.
 
+          O instalador agora valida um .NET 10 Runtime x86 real antes de copiar o plugin.
+
           O plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**
 
-          A alpha.9 continua sendo a ultima prerelease geral. Esta `test.2` e somente para os testes da alpha.10. A `test.1` permanece preservada para rastreabilidade.
+          A alpha.9 continua sendo a ultima prerelease geral. Esta `test.3` e somente para os testes da alpha.10. As `test.1` e `test.2` permanecem preservadas para rastreabilidade.
           "@ | Set-Content -LiteralPath "artifacts/release-notes.md" -Encoding UTF8
 
       - name: Create permanent GitHub prerelease
