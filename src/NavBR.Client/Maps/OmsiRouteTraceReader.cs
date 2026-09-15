@@ -61,7 +61,21 @@ public static class OmsiRouteTraceReader
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            var entries = ReadTrackEntries(File.ReadAllLines(trackPath));
+            var tileCatalog = ReadTileIndexCatalog(map.GlobalConfigPath);
+            if (tileCatalog.Count == 0)
+            {
+                WriteDiagnostics(
+                    map,
+                    trackPath,
+                    activeLine,
+                    activeTrackOrTarget,
+                    "tile-catalog-empty",
+                    0,
+                    0);
+                return Array.Empty<OmsiRouteTracePoint>();
+            }
+
+            var entries = ReadTrackEntries(File.ReadAllLines(trackPath), tileCatalog);
             if (entries.Count == 0)
             {
                 WriteDiagnostics(
@@ -150,7 +164,9 @@ public static class OmsiRouteTraceReader
         return true;
     }
 
-    private static List<OmsiRouteTrackEntry> ReadTrackEntries(string[] lines)
+    private static List<OmsiRouteTrackEntry> ReadTrackEntries(
+        string[] lines,
+        IReadOnlyDictionary<int, (int GridX, int GridY)> tileCatalog)
     {
         var entries = new List<OmsiRouteTrackEntry>();
 
@@ -161,18 +177,22 @@ public static class OmsiRouteTraceReader
                 continue;
             }
 
-            // OMSI TTR [track_entry] layout:
+            // OMSI 2 TTR [track_entry] layout used by the timetable editor:
             // object/spline id
             // path id
-            // tile X
-            // tile Y
+            // tile id (Kachel-ID: index in the [map] list of global.cfg)
+            // internal/auxiliary value (not needed to locate the tile)
             // approximate path length
-            // flags/reserved
+            // flags/reserved (normally 0)
+            //
+            // The third and fourth values are NOT GridX/GridY. This matters on
+            // world-coordinate maps, where real grid coordinates can be values
+            // such as -14445/8871 while TTR tile ids remain small integers.
             if (i + 5 >= lines.Length ||
                 !int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var objectId) ||
                 !int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pathId) ||
-                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) ||
-                !int.TryParse(lines[i + 4].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
+                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tileId) ||
+                !tileCatalog.TryGetValue(tileId, out var grid))
             {
                 continue;
             }
@@ -187,12 +207,42 @@ public static class OmsiRouteTraceReader
             entries.Add(new OmsiRouteTrackEntry(
                 objectId,
                 pathId,
-                gridX,
-                gridY,
+                grid.GridX,
+                grid.GridY,
                 double.IsFinite(pathLength) && pathLength > 0d ? pathLength : 0d));
         }
 
         return entries;
+    }
+
+    private static IReadOnlyDictionary<int, (int GridX, int GridY)> ReadTileIndexCatalog(
+        string globalConfigPath)
+    {
+        var result = new Dictionary<int, (int GridX, int GridY)>();
+        var lines = File.ReadAllLines(globalConfigPath);
+        var tileId = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!string.Equals(lines[i].Trim(), "[map]", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // OMSI timetable files reference the ordered [map] entries by
+            // Kachel-ID. The entry itself stores the real grid X/Y directly
+            // below [map], followed by the tile .map filename.
+            if (i + 2 < lines.Length &&
+                int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) &&
+                int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
+            {
+                result[tileId] = (gridX, gridY);
+            }
+
+            tileId++;
+        }
+
+        return result;
     }
 
     private static IReadOnlyList<OmsiRouteTracePoint> BuildTileFallback(
