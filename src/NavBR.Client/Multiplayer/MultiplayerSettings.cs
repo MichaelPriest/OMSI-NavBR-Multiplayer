@@ -10,7 +10,16 @@ public sealed record MultiplayerSettings(
     double HudX = 0.02d,
     double HudY = 1.0d,
     double HudZoom = 1.0d,
-    double HudMapOpacity = 0.58d)
+    double HudMapOpacity = 0.58d,
+    int DashboardSettingsVersion = 1,
+    bool DashboardEnabled = true,
+    double DashboardX = 0.02d,
+    double DashboardY = 0.58d,
+    double DashboardScale = 1.0d,
+    double DashboardOpacity = 0.92d,
+    bool DashboardShowFuel = true,
+    bool DashboardShowPedals = true,
+    bool DashboardShowStatus = true)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
@@ -22,5 +31,14 @@ public sealed record MultiplayerSettings(
         0.02d,
         1.0d,
         1.0d,
-        0.58d);
+        0.58d,
+        1,
+        true,
+        0.02d,
+        0.58d,
+        1.0d,
+        0.92d,
+        true,
+        true,
+        true);
 }
