@@ -11,10 +11,10 @@ internal readonly record struct OmsiRouteTrackEntry(
     double PathLength);
 
 /// <summary>
-/// Resolves timetable track entries against the real spline instances stored
-/// in OMSI tile .map files. This stays read-only and deliberately falls back to
-/// the coarser tile trace when an entry belongs to a scenery object/intersection
-/// whose internal path geometry has not been decoded yet.
+/// Resolves timetable track entries against OMSI's actual map geometry. Direct
+/// spline entries come from tile .map files and their .sli lane/path offsets;
+/// scenery-object entries (typically crossings) are resolved through SCO
+/// [path]/[path_2] geometry. All reads are external/read-only.
 /// </summary>
 internal static class OmsiRouteSplineGeometryReader
 {
@@ -80,16 +80,26 @@ internal static class OmsiRouteSplineGeometryReader
                 splineCache[tilePath] = splines;
             }
 
-            if (!splines.TryGetValue(entry.ObjectId, out var spline))
+            List<OmsiRouteTracePoint> segment;
+            if (splines.TryGetValue(entry.ObjectId, out var spline))
             {
-                // Many junctions are scenery objects with their own path table.
-                // Those are intentionally skipped here; neighboring spline
-                // points still bridge the junction without inventing geometry.
-                continue;
+                var pathOffset = ResolvePathOffset(spline, entry.PathId, pathOffsetCache);
+                segment = SampleSpline(entry.GridX, entry.GridY, spline, pathOffset);
+            }
+            else
+            {
+                var scenerySegment = OmsiRouteSceneryPathGeometryReader.TryResolve(
+                    map.DirectoryPath,
+                    tilePath,
+                    entry);
+                if (scenerySegment.Count == 0)
+                {
+                    continue;
+                }
+
+                segment = scenerySegment.ToList();
             }
 
-            var pathOffset = ResolvePathOffset(spline, entry.PathId, pathOffsetCache);
-            var segment = SampleSpline(entry.GridX, entry.GridY, spline, pathOffset);
             AppendOriented(result, segment, tileSize);
         }
 
