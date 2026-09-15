@@ -12,6 +12,7 @@ namespace NavBR.Client;
 public partial class App : Application
 {
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
+    internal NavBRTrayIconService TrayIcon { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -27,8 +28,17 @@ public partial class App : Application
         base.OnStartup(e);
     }
 
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        TrayIcon.PrepareForSystemExit();
+        base.OnSessionEnding(e);
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        TrayIcon.PrepareForSystemExit();
+        TrayIcon.Dispose();
+
         try
         {
             PluginBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -43,7 +53,7 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    private static void Window_Loaded(object sender, RoutedEventArgs e)
+    private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not Window window)
         {
@@ -55,6 +65,7 @@ public partial class App : Application
         if (window is MainWindow mainWindow)
         {
             OmsiProfilesUiInstaller.Install(mainWindow);
+            TrayIcon.Attach(mainWindow);
         }
     }
 
