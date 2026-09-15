@@ -15,7 +15,6 @@
       the .NET 10 x86 runtime just to load the NavBR plugin.
     -->
     <PublishAot>true</PublishAot>
-    <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
     <NativeLib>Shared</NativeLib>
     <StripSymbols>false</StripSymbols>
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>
