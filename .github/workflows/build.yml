@@ -47,12 +47,20 @@ jobs:
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release --no-restore
 
       - name: Smoke-test plugin bridge handshake and status
-        run: >-
-          dotnet run
-          --project src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj
-          -c Release
-          -r win-x86
-          --no-restore
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            --no-restore `
+            -o artifacts/NavBR.PluginBridgeSmokeTest
+
+          $smokeExe = Resolve-Path "artifacts/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.exe"
+          & $smokeExe.Path
+          if ($LASTEXITCODE -ne 0) {
+            throw "Plugin bridge smoke test failed with exit code $LASTEXITCODE"
+          }
 
       - name: Build experimental OMSI plugin x86
         run: >-
