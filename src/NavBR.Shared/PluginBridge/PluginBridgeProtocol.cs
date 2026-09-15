@@ -7,6 +7,7 @@ public static class PluginBridgeProtocol
     public const int MaxMessageChars = 16_384;
 
     public const string PluginHello = "plugin-hello";
+    public const string PluginStatus = "plugin-status";
     public const string ClientHello = "client-hello";
     public const string LocalVehicleState = "local-vehicle-state";
     public const string RemoteVehicleState = "remote-vehicle-state";
@@ -33,4 +34,9 @@ public sealed record PluginBridgeMessage(
     double? TileY = null,
     double? HeadingDegrees = null,
     double? SpeedKph = null,
-    bool? IsInGame = null);
+    bool? IsInGame = null,
+    long? SystemVariableCallbacks = null,
+    int? RemoteVehicleCount = null,
+    int? CompatibleRemoteVehicleCount = null,
+    int? StaleRemovedCount = null,
+    int? LastSystemVariableIndex = null);
