@@ -23,6 +23,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
     private const int MaxDeploymentLength = 64;
     private const int MaxCapabilities = 32;
     private const int MaxCapabilityLength = 64;
+    private const int MaxTrafficVehicles = 48;
+    private const int MaxTrafficIdLength = 128;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -43,6 +45,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, previous.RoomId);
             registry.Remove(Context.ConnectionId);
             await Clients.Group(previous.RoomId).SendAsync("playerLeft", previous.PlayerId);
+            await BroadcastTrafficAuthorityAsync(previous.RoomId);
         }
 
         var presence = registry.Upsert(
@@ -57,7 +60,13 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
 
-        return new RoomSnapshot(roomId, registry.GetRoomPlayers(roomId));
+        var authorityPlayerId = registry.GetTrafficAuthorityPlayerId(roomId);
+        await Clients.Group(roomId).SendAsync("trafficAuthorityChanged", authorityPlayerId);
+
+        return new RoomSnapshot(
+            roomId,
+            registry.GetRoomPlayers(roomId),
+            authorityPlayerId);
     }
 
     public async Task LeaveRoom()
@@ -70,6 +79,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, presence.RoomId);
         await Clients.Group(presence.RoomId).SendAsync("playerLeft", presence.PlayerId);
+        await BroadcastTrafficAuthorityAsync(presence.RoomId);
     }
 
     public async Task PublishTelemetry(VehicleTelemetry telemetry)
@@ -128,6 +138,53 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             .SendAsync("telemetry", new PlayerTelemetryFrame(currentPresence, safeTelemetry));
     }
 
+    public async Task PublishTrafficSnapshot(TrafficSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before publishing traffic.");
+        }
+
+        if (!registry.IsTrafficAuthority(Context.ConnectionId))
+        {
+            throw new HubException("Only the room traffic authority can publish traffic.");
+        }
+
+        if (snapshot.Sequence < 0 || snapshot.Vehicles is null || snapshot.Vehicles.Count > MaxTrafficVehicles)
+        {
+            throw new HubException("Invalid traffic snapshot.");
+        }
+
+        var mapName = NormalizeOptional(snapshot.MapName, MaxMapNameLength, "traffic map name");
+        var mapCompatibilityId = NormalizeOptional(
+            snapshot.MapCompatibilityId,
+            MaxMapCompatibilityIdLength,
+            "traffic map compatibility id");
+
+        if (!MapsMatch(presence, mapName, mapCompatibilityId))
+        {
+            throw new HubException("Traffic snapshot does not match the authority map.");
+        }
+
+        var vehicles = snapshot.Vehicles
+            .Select(NormalizeTrafficVehicle)
+            .ToArray();
+
+        var safeSnapshot = new TrafficSnapshot(
+            presence.PlayerId,
+            snapshot.Sequence,
+            DateTimeOffset.UtcNow,
+            mapName ?? presence.MapName,
+            mapCompatibilityId ?? presence.MapCompatibilityId,
+            vehicles);
+
+        await Clients
+            .OthersInGroup(presence.RoomId)
+            .SendAsync("trafficSnapshot", safeSnapshot);
+    }
+
     public async Task SendChatMessage(string text)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
@@ -181,9 +238,85 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         if (presence is not null)
         {
             await Clients.Group(presence.RoomId).SendAsync("playerLeft", presence.PlayerId);
+            await BroadcastTrafficAuthorityAsync(presence.RoomId);
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private Task BroadcastTrafficAuthorityAsync(string roomId) =>
+        Clients.Group(roomId).SendAsync(
+            "trafficAuthorityChanged",
+            registry.GetTrafficAuthorityPlayerId(roomId));
+
+    private static bool MapsMatch(
+        PlayerPresence presence,
+        string? mapName,
+        string? mapCompatibilityId)
+    {
+        if (!string.IsNullOrWhiteSpace(presence.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(mapCompatibilityId))
+        {
+            return string.Equals(
+                presence.MapCompatibilityId,
+                mapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!string.IsNullOrWhiteSpace(presence.MapName) &&
+            !string.IsNullOrWhiteSpace(mapName))
+        {
+            return string.Equals(
+                presence.MapName,
+                mapName,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return true;
+    }
+
+    private static TrafficVehicleState NormalizeTrafficVehicle(TrafficVehicleState vehicle)
+    {
+        ArgumentNullException.ThrowIfNull(vehicle);
+
+        var trafficId = NormalizeRequired(vehicle.TrafficId, MaxTrafficIdLength, "traffic id");
+        var vehiclePath = NormalizeOptional(vehicle.VehiclePath, MaxVehiclePathLength, "traffic vehicle path");
+        var compatibilityId = NormalizeOptional(
+            vehicle.VehicleCompatibilityId,
+            MaxCompatibilityIdLength,
+            "traffic vehicle compatibility id");
+
+        ValidateTrafficFinite(vehicle.X, "traffic X");
+        ValidateTrafficFinite(vehicle.Y, "traffic Y");
+        ValidateTrafficFinite(vehicle.Z, "traffic Z");
+        ValidateTrafficFinite(vehicle.LocalX, "traffic local X");
+        ValidateTrafficFinite(vehicle.LocalY, "traffic local Y");
+        ValidateTrafficFinite(vehicle.LocalZ, "traffic local Z");
+        ValidateTrafficFinite(vehicle.RotationX, "traffic rotation X");
+        ValidateTrafficFinite(vehicle.RotationY, "traffic rotation Y");
+        ValidateTrafficFinite(vehicle.RotationZ, "traffic rotation Z");
+        ValidateTrafficFinite(vehicle.RotationW, "traffic rotation W");
+        ValidateTrafficFinite(vehicle.SpeedKph, "traffic speed");
+
+        if (vehicle.SpeedKph is < -20d or > 250d)
+        {
+            throw new HubException("Traffic vehicle contains invalid speed.");
+        }
+
+        return vehicle with
+        {
+            TrafficId = trafficId,
+            VehiclePath = vehiclePath,
+            VehicleCompatibilityId = compatibilityId
+        };
+    }
+
+    private static void ValidateTrafficFinite(double value, string fieldName)
+    {
+        if (!double.IsFinite(value))
+        {
+            throw new HubException($"Traffic snapshot contains invalid {fieldName}.");
+        }
     }
 
     private static string NormalizeRequired(string? value, int maxLength, string fieldName)
@@ -284,6 +417,13 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         ValidateOptionalFinite(telemetry.ThrottlePercent, "throttle");
         ValidateOptionalFinite(telemetry.BrakePercent, "brake");
         ValidateOptionalFinite(telemetry.SteeringDegrees, "steering");
+        ValidateOptionalFinite(telemetry.LocalX, "local X");
+        ValidateOptionalFinite(telemetry.LocalY, "local Y");
+        ValidateOptionalFinite(telemetry.LocalZ, "local Z");
+        ValidateOptionalFinite(telemetry.RotationX, "rotation X");
+        ValidateOptionalFinite(telemetry.RotationY, "rotation Y");
+        ValidateOptionalFinite(telemetry.RotationZ, "rotation Z");
+        ValidateOptionalFinite(telemetry.RotationW, "rotation W");
 
         if (telemetry.FuelPercent is < 0 or > 100 ||
             telemetry.ThrottlePercent is < 0 or > 100 ||
