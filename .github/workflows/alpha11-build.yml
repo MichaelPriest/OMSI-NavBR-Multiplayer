@@ -8,6 +8,8 @@ on:
     paths:
       - 'src/**'
       - 'scripts/**'
+      - 'site/**'
+      - 'docs/**'
       - '.github/workflows/alpha11-build.yml'
 
 jobs:
@@ -29,6 +31,10 @@ jobs:
       - name: Validate XAML colors
         shell: pwsh
         run: .\scripts\validate-xaml-colors.ps1
+
+      - name: Validate site JavaScript
+        shell: pwsh
+        run: node --check site/app.js
 
       - name: Restore
         shell: pwsh
