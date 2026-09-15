@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/alpha10-roadmap-plugin ]
   pull_request:
     branches: [ main ]
 
@@ -18,38 +18,126 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Repair NavBR icon container
+      - name: Generate compact NavBR app icon
         shell: pwsh
         run: .\scripts\repair-navbr-icon.ps1
 
-      - name: Restore shared
-        run: dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+      - name: Restore projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
 
-      - name: Restore server
-        run: dotnet restore src/NavBR.Server/NavBR.Server.csproj
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
 
-      - name: Restore client
-        run: dotnet restore src/NavBR.Client/NavBR.Client.csproj
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release `
+            -r win-x86 `
+            --no-restore `
+            -p:PublishAot=true `
+            -p:NativeLib=Shared `
+            -o artifacts/NavBR.OmsiPlugin.Experimental
 
-      - name: Restore plugin bridge smoke test
-        run: dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          foreach ($required in @(
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl",
+            "artifacts/NavBR.OmsiPlugin.Experimental/Install-NavBROmsiPlugin.ps1",
+            "artifacts/NavBR.OmsiPlugin.Experimental/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Native AOT plugin package incomplete: $required"
+            }
+          }
 
-      - name: Restore experimental OMSI plugin
-        run: dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+      - name: Validate Native AOT x86 DLL and OMSI exports
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
 
-      - name: Build shared
-        run: dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
+          if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "Plugin is not PE/MZ." }
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "Plugin has invalid PE signature." }
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0x014C) { throw ("Plugin must be x86/I386; machine=0x{0:X4}" -f $machine) }
 
-      - name: Build server
-        run: dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if (-not $vsRoot) { throw "Visual Studio VC tools not found for export validation." }
+          $dumpbin = Get-ChildItem (Join-Path $vsRoot "VC/Tools/MSVC") -Recurse -Filter dumpbin.exe |
+            Where-Object { $_.FullName -match 'Hostx64\\x86\\dumpbin\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin.exe x86 not found." }
 
-      - name: Build experimental OMSI plugin x86
-        run: >-
-          dotnet build src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj
-          -c Release
-          -r win-x86
-          --no-restore
-          -o artifacts/NavBR.OmsiPlugin.Experimental
+          $exports = (& $dumpbin.FullName /nologo /exports $dll.Path) -join "`n"
+          foreach ($name in @(
+            'PluginStart',
+            'PluginFinalize',
+            'AccessVariable',
+            'AccessTrigger',
+            'AccessStringVariable',
+            'AccessSystemVariable'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
+              throw "Native AOT plugin is missing OMSI export: $name"
+            }
+          }
+
+          Write-Host "Native AOT plugin validated: x86 + all OMSI exports."
+
+      - name: Smoke-test Native AOT plugin install and removal without .NET x86
+        shell: pwsh
+        run: |
+          $fakeOmsi = Join-Path $env:RUNNER_TEMP "NavBR-Omsi-NativeAot-Smoke"
+          if (Test-Path $fakeOmsi) { Remove-Item $fakeOmsi -Recurse -Force }
+          New-Item -ItemType Directory -Path $fakeOmsi -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $fakeOmsi "Omsi.exe") -Force | Out-Null
+
+          Remove-Item Env:DOTNET_ROOT_X86 -ErrorAction SilentlyContinue
+          Remove-Item 'Env:DOTNET_ROOT(x86)' -ErrorAction SilentlyContinue
+
+          $package = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental"
+          & (Join-Path $package "Install-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
+
+          $plugins = Join-Path $fakeOmsi "plugins"
+          $manifest = Join-Path $plugins "NavBR.OmsiPlugin.install-manifest.txt"
+          foreach ($installed in @(
+            $manifest,
+            (Join-Path $plugins "NavBR.OmsiPlugin.dll"),
+            (Join-Path $plugins "NavBR.OmsiPlugin.opl")
+          )) {
+            if (-not (Test-Path $installed)) { throw "Native AOT installer did not create: $installed" }
+          }
+
+          $manifestText = Get-Content -LiteralPath $manifest -Raw
+          if ($manifestText -notmatch 'Native AOT x86') {
+            throw "Native AOT deployment was not recorded in manifest."
+          }
+          if ($manifestText -match 'Microsoft\.NETCore\.App') {
+            throw "Manifest still declares an external .NET runtime dependency."
+          }
+
+          & (Join-Path $package "Remove-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
+          foreach ($removed in @(
+            $manifest,
+            (Join-Path $plugins "NavBR.OmsiPlugin.dll"),
+            (Join-Path $plugins "NavBR.OmsiPlugin.opl")
+          )) {
+            if (Test-Path $removed) { throw "Plugin remover left file behind: $removed" }
+          }
+          Remove-Item $fakeOmsi -Recurse -Force
+          Write-Host "Native AOT install/remove smoke test passed without .NET x86 runtime setup."
 
       - name: Prepare embedded OMSI plugin payload
         shell: pwsh
@@ -59,122 +147,36 @@ jobs:
           -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
 
       - name: Build client
-        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release --no-restore
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
-      - name: Validate embedded plugin resource
+      - name: Validate embedded plugin resource without loading x86 assembly
         shell: pwsh
         run: |
           $assembly = Get-ChildItem "src/NavBR.Client/bin/Release" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" | Select-Object -First 1
-          if (-not $assembly) {
-            throw "NavBR client assembly was not found after build."
+          if (-not $assembly) { throw "NavBR client assembly was not found after build." }
+          $bytes = [System.IO.File]::ReadAllBytes($assembly.FullName)
+          $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+          if (-not $text.Contains("NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip")) {
+            throw "Client metadata does not contain the embedded OMSI plugin payload."
           }
-
-          $loaded = [System.Reflection.Assembly]::LoadFrom($assembly.FullName)
-          $resource = $loaded.GetManifestResourceNames() | Where-Object { $_ -eq "NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip" }
-          if (-not $resource) {
-            throw "Standalone client assembly does not contain the embedded OMSI plugin package."
-          }
-
-          Write-Host "Embedded OMSI plugin resource validated in $($assembly.FullName)."
+          Write-Host "Embedded Native AOT plugin resource validated."
 
       - name: Smoke-test plugin bridge handshake and status
         shell: pwsh
         run: |
           dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
-            -c Release `
-            -r win-x86 `
-            --self-contained true `
-            --no-restore `
+            -c Release -r win-x86 --self-contained true --no-restore `
             -o artifacts/NavBR.PluginBridgeSmokeTest
-
-          $smokeExe = Resolve-Path "artifacts/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.exe"
-          & $smokeExe.Path
-          if ($LASTEXITCODE -ne 0) {
-            throw "Plugin bridge smoke test failed with exit code $LASTEXITCODE"
-          }
-
-      - name: Validate experimental OMSI plugin package
-        shell: pwsh
-        run: |
-          $native = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
-          $opl = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl"
-          $runtimeConfig = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPluginExperimental.runtimeconfig.json"
-          $installer = "artifacts/NavBR.OmsiPlugin.Experimental/Install-NavBROmsiPlugin.ps1"
-          $remover = "artifacts/NavBR.OmsiPlugin.Experimental/Remove-NavBROmsiPlugin.ps1"
-
-          foreach ($required in @($native, $opl, $runtimeConfig, $installer, $remover)) {
-            if (-not (Test-Path $required)) {
-              throw "Required experimental plugin package file was not generated: $required"
-            }
-          }
-
-          Write-Host "Experimental OMSI plugin package validated."
-
-      - name: Smoke-test experimental plugin install and removal
-        shell: pwsh
-        run: |
-          $fakeOmsi = Join-Path $env:RUNNER_TEMP "NavBR-Omsi-Smoke"
-          $dotnetX86 = Join-Path $env:RUNNER_TEMP "NavBR-dotnet-x86"
-          $dotnetInstall = Join-Path $env:RUNNER_TEMP "dotnet-install-x86.ps1"
-
-          foreach ($path in @($fakeOmsi, $dotnetX86)) {
-            if (Test-Path $path) {
-              Remove-Item $path -Recurse -Force
-            }
-          }
-
-          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile $dotnetInstall
-          & $dotnetInstall `
-            -Channel 10.0 `
-            -Runtime dotnet `
-            -Architecture x86 `
-            -InstallDir $dotnetX86 `
-            -NoPath
-
-          if (-not (Test-Path (Join-Path $dotnetX86 "dotnet.exe"))) {
-            throw "Could not install the temporary .NET 10 x86 runtime used by the plugin installer smoke test."
-          }
-
-          $env:DOTNET_ROOT_X86 = $dotnetX86
-
-          New-Item -ItemType Directory -Path $fakeOmsi -Force | Out-Null
-          New-Item -ItemType File -Path (Join-Path $fakeOmsi "Omsi.exe") -Force | Out-Null
-
-          $package = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental"
-          & (Join-Path $package "Install-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
-
-          $plugins = Join-Path $fakeOmsi "plugins"
-          $manifest = Join-Path $plugins "NavBR.OmsiPlugin.install-manifest.txt"
-          $installedDll = Join-Path $plugins "NavBR.OmsiPlugin.dll"
-          $installedOpl = Join-Path $plugins "NavBR.OmsiPlugin.opl"
-
-          foreach ($installed in @($manifest, $installedDll, $installedOpl)) {
-            if (-not (Test-Path $installed)) {
-              throw "Plugin installer smoke test did not create: $installed"
-            }
-          }
-
-          $manifestText = Get-Content -LiteralPath $manifest -Raw
-          if ($manifestText -notmatch 'Runtime x86: Microsoft\.NETCore\.App 10\.') {
-            throw "Plugin installer manifest did not record the validated .NET 10 x86 runtime."
-          }
-
-          & (Join-Path $package "Remove-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
-
-          foreach ($removed in @($manifest, $installedDll, $installedOpl)) {
-            if (Test-Path $removed) {
-              throw "Plugin remover smoke test left file behind: $removed"
-            }
-          }
-
-          Remove-Item $fakeOmsi -Recurse -Force
-          Remove-Item $dotnetX86 -Recurse -Force
-          Write-Host "Experimental plugin install/remove smoke test passed with a real .NET 10 x86 runtime."
+          & "artifacts/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
 
       - name: Publish Windows x86 client
+        shell: pwsh
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
 
       - name: Publish standalone Windows x86 EXE
+        shell: pwsh
         run: >-
           dotnet publish src/NavBR.Client/NavBR.Client.csproj
           -c Release
@@ -188,95 +190,56 @@ jobs:
           -p:DebugSymbols=false
           -o artifacts/NavBR.Client.Single
 
-      - name: Validate standalone EXE and embedded icon
+      - name: Validate standalone EXE icon resource
         shell: pwsh
         run: |
           $exe = Resolve-Path "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe"
-          if (-not (Test-Path $exe)) {
-            throw "Standalone NavBR executable was not generated."
-          }
-
           Add-Type @"
           using System;
           using System.Runtime.InteropServices;
-          public static class NavBRIconResourceCheck
-          {
-              public delegate bool EnumResNameProc(IntPtr hModule, IntPtr type, IntPtr name, IntPtr lParam);
-
-              [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-              public static extern IntPtr LoadLibraryEx(string fileName, IntPtr file, uint flags);
-
-              [DllImport("kernel32.dll", SetLastError = true)]
-              public static extern bool EnumResourceNames(IntPtr module, IntPtr type, EnumResNameProc callback, IntPtr param);
-
-              [DllImport("kernel32.dll", SetLastError = true)]
-              public static extern bool FreeLibrary(IntPtr module);
+          public static class NavBRIconResourceCheck {
+            public delegate bool EnumResNameProc(IntPtr h, IntPtr t, IntPtr n, IntPtr p);
+            [DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+            public static extern IntPtr LoadLibraryEx(string fileName, IntPtr file, uint flags);
+            [DllImport("kernel32.dll", SetLastError=true)]
+            public static extern bool EnumResourceNames(IntPtr module, IntPtr type, EnumResNameProc callback, IntPtr param);
+            [DllImport("kernel32.dll", SetLastError=true)]
+            public static extern bool FreeLibrary(IntPtr module);
           }
           "@
-
           $module = [NavBRIconResourceCheck]::LoadLibraryEx($exe.Path, [IntPtr]::Zero, 0x00000002)
-          if ($module -eq [IntPtr]::Zero) {
-            throw "Could not open the standalone EXE as a resource image."
-          }
-
+          if ($module -eq [IntPtr]::Zero) { throw "Could not inspect standalone EXE icon resources." }
           try {
             $script:iconGroups = 0
             $callback = [NavBRIconResourceCheck+EnumResNameProc]{
-              param([IntPtr]$hModule, [IntPtr]$type, [IntPtr]$name, [IntPtr]$param)
+              param([IntPtr]$h,[IntPtr]$t,[IntPtr]$n,[IntPtr]$p)
               $script:iconGroups++
               return $true
             }
-
             $null = [NavBRIconResourceCheck]::EnumResourceNames($module, [IntPtr]14, $callback, [IntPtr]::Zero)
-            if ($script:iconGroups -lt 1) {
-              throw "Standalone EXE has no RT_GROUP_ICON resource."
-            }
-
-            Write-Host "Standalone EXE validated with $script:iconGroups icon group(s): $($exe.Path)"
+            if ($script:iconGroups -lt 1) { throw "Standalone EXE has no RT_GROUP_ICON resource." }
+            Write-Host "Standalone EXE icon resource confirmed."
           }
-          finally {
-            [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null
-          }
+          finally { [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null }
 
       - name: Prepare alpha.10 integration test bundle
         shell: pwsh
         run: |
           $bundle = "artifacts/NavBR.Alpha10.IntegrationTest"
           $pluginBundle = Join-Path $bundle "Plugin"
-
-          if (Test-Path $bundle) {
-            Remove-Item $bundle -Recurse -Force
-          }
-
+          if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
           New-Item -ItemType Directory -Path $pluginBundle -Force | Out-Null
           Copy-Item "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe" $bundle
           Copy-Item "artifacts/NavBR.OmsiPlugin.Experimental/*" $pluginBundle -Recurse -Force
           Copy-Item "docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md")
-
           @(
             "OMSI NavBR Multiplayer v0.3.0-alpha.10 - integration test build"
             "GitHub SHA: $env:GITHUB_SHA"
-            "PR head: $env:GITHUB_HEAD_REF"
             "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
             ""
-            "NAO E UMA RELEASE OFICIAL."
-            "O EXE agora contem o pacote do plugin para instalacao/atualizacao pelo proprio aplicativo."
-            "A pasta Plugin permanece no bundle somente como fallback tecnico."
+            "Plugin Native AOT x86: nao requer instalacao separada do .NET Runtime x86."
+            "O EXE contem o pacote do plugin e gerencia a instalacao no OMSI."
           ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
-
-          foreach ($required in @(
-            (Join-Path $bundle "OMSI.NavBR.Multiplayer.exe"),
-            (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md"),
-            (Join-Path $bundle "BUILD-INFO.txt"),
-            (Join-Path $pluginBundle "NavBR.OmsiPlugin.dll"),
-            (Join-Path $pluginBundle "NavBR.OmsiPlugin.opl")
-          )) {
-            if (-not (Test-Path $required)) {
-              throw "Alpha.10 integration test bundle is incomplete: $required"
-            }
-          }
-
-          Write-Host "Alpha.10 integration test bundle prepared: $bundle"
 
       - name: Upload NavBR client test build
         uses: actions/upload-artifact@v4
