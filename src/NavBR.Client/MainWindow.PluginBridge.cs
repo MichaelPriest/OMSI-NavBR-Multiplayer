@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -91,6 +92,7 @@ public partial class MainWindow
         var activeMap = GetActiveMapForMultiplayer();
         var mapName = activeMap?.FolderName ?? _lastTelemetry?.MapName ?? "-";
         var compatibility = ShortFingerprint(activeMap?.CompatibilityId);
+        var install = GetPluginInstallDiagnostics();
 
         var processMatch = bridge.PluginProcessId is null || _currentOmsi?.ProcessId is null
             ? "UNKNOWN"
@@ -129,6 +131,7 @@ public partial class MainWindow
             : "-";
 
         _pluginDiagnosticsStatusText.Text =
+            $"install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
             $"status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
@@ -136,11 +139,61 @@ public partial class MainWindow
             $"remote={remoteCount}  compatible={compatibleCount}  stale-removed={staleRemoved}\n" +
             $"map={mapName}\n" +
             $"compatibility={compatibility}\n" +
+            $"plugin-dir={install.DisplayPath}\n" +
             "log=%LOCALAPPDATA%\\OMSI NavBR Multiplayer\\navbr-plugin.log";
 
-        _pluginDiagnosticsStatusText.Foreground = bridge.IsConnected && heartbeatState != "STALE"
+        var healthy = bridge.IsConnected &&
+                      heartbeatState != "STALE" &&
+                      install.State is "INSTALLED" or "UNTRACKED";
+
+        _pluginDiagnosticsStatusText.Foreground = healthy
             ? TryFindResource("NavAccentBrush") as Brush ?? Brushes.LightGreen
             : TryFindResource("NavMutedBrush") as Brush ?? Brushes.LightGray;
+    }
+
+    private PluginInstallDiagnostics GetPluginInstallDiagnostics()
+    {
+        var installDirectory = _currentOmsi?.InstallDirectory;
+        if (string.IsNullOrWhiteSpace(installDirectory))
+        {
+            return new PluginInstallDiagnostics("UNKNOWN", 0, "UNKNOWN", "-");
+        }
+
+        try
+        {
+            var pluginsDirectory = Path.Combine(installDirectory, "plugins");
+            var requiredFiles = new[]
+            {
+                "NavBR.OmsiPlugin.dll",
+                "NavBR.OmsiPlugin.opl",
+                "NavBR.OmsiPluginExperimental.runtimeconfig.json"
+            };
+
+            var found = requiredFiles.Count(file =>
+                File.Exists(Path.Combine(pluginsDirectory, file)));
+            var manifestPath = Path.Combine(
+                pluginsDirectory,
+                "NavBR.OmsiPlugin.install-manifest.txt");
+            var hasManifest = File.Exists(manifestPath);
+
+            var state = found switch
+            {
+                0 => "MISSING",
+                3 when hasManifest => "INSTALLED",
+                3 => "UNTRACKED",
+                _ => "PARTIAL"
+            };
+
+            return new PluginInstallDiagnostics(
+                state,
+                found,
+                hasManifest ? "YES" : "NO",
+                pluginsDirectory);
+        }
+        catch
+        {
+            return new PluginInstallDiagnostics("ERROR", 0, "UNKNOWN", "-");
+        }
     }
 
     private static string ShortFingerprint(string? value)
@@ -155,4 +208,10 @@ public partial class MainWindow
             ? normalized
             : $"{normalized[..12]}…{normalized[^6..]}";
     }
+
+    private sealed record PluginInstallDiagnostics(
+        string State,
+        int RequiredFilesFound,
+        string Manifest,
+        string DisplayPath);
 }
