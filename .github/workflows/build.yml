@@ -190,6 +190,47 @@ jobs:
             [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null
           }
 
+      - name: Prepare alpha.10 integration test bundle
+        shell: pwsh
+        run: |
+          $bundle = "artifacts/NavBR.Alpha10.IntegrationTest"
+          $pluginBundle = Join-Path $bundle "Plugin"
+
+          if (Test-Path $bundle) {
+            Remove-Item $bundle -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $pluginBundle -Force | Out-Null
+          Copy-Item "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe" $bundle
+          Copy-Item "artifacts/NavBR.OmsiPlugin.Experimental/*" $pluginBundle -Recurse -Force
+          Copy-Item "docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md")
+
+          @(
+            "OMSI NavBR Multiplayer v0.3.0-alpha.10 - integration test build"
+            "GitHub SHA: $env:GITHUB_SHA"
+            "PR head: $env:GITHUB_HEAD_REF"
+            "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
+            ""
+            "NAO E UMA RELEASE OFICIAL."
+            "Use LEIA-ME-TESTE-ALPHA10.md antes de instalar o plugin."
+          ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
+
+          foreach ($required in @(
+            (Join-Path $bundle "OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md"),
+            (Join-Path $bundle "BUILD-INFO.txt"),
+            (Join-Path $pluginBundle "NavBR.OmsiPlugin.dll"),
+            (Join-Path $pluginBundle "NavBR.OmsiPlugin.opl"),
+            (Join-Path $pluginBundle "Install-NavBROmsiPlugin.ps1"),
+            (Join-Path $pluginBundle "Remove-NavBROmsiPlugin.ps1")
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Alpha.10 integration test bundle is incomplete: $required"
+            }
+          }
+
+          Write-Host "Alpha.10 integration test bundle prepared: $bundle"
+
       - name: Upload NavBR client test build
         uses: actions/upload-artifact@v4
         with:
@@ -211,5 +252,13 @@ jobs:
         with:
           name: OMSI-NavBR-Plugin-experimental-win-x86
           path: artifacts/NavBR.OmsiPlugin.Experimental
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload alpha.10 integration test bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-alpha10-integration-test-win-x86
+          path: artifacts/NavBR.Alpha10.IntegrationTest
           if-no-files-found: error
           retention-days: 14
