@@ -171,6 +171,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     }
 
     private static bool IsClientMessageType(string type) =>
+        string.Equals(type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal);
