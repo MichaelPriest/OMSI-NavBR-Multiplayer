@@ -18,6 +18,8 @@ public partial class HudOverlayWindow
         }
 
         _enhancedMapRenderingStarted = true;
+        MiniMapStatusText.MaxWidth = 238d;
+        MiniMapStatusText.TextWrapping = TextWrapping.Wrap;
         RenderEnhancedMiniMap();
     }
 
@@ -47,6 +49,12 @@ public partial class HudOverlayWindow
             MiniMapContentScale.ScaleX = zoom;
             MiniMapContentScale.ScaleY = zoom;
         }
+
+        // The polyline lives inside the scaled canvas. Compensate its stroke so
+        // 10x zoom does not turn the route into an oversized band on screen.
+        var safeZoom = Math.Max(0.01d, zoom);
+        ActiveRoutePolyline.StrokeThickness = 4.5d / safeZoom;
+        ActiveRouteShadow.StrokeThickness = 8d / safeZoom;
 
         if (map is not null)
         {
@@ -88,14 +96,24 @@ public partial class HudOverlayWindow
 
     private static string BuildMiniMapTitle(OmsiMapInfo map, NavBR.Shared.Telemetry.VehicleTelemetry? telemetry)
     {
+        string title;
         if (!string.IsNullOrWhiteSpace(telemetry?.Line))
         {
-            return !string.IsNullOrWhiteSpace(telemetry.Route)
+            title = !string.IsNullOrWhiteSpace(telemetry.Route)
                 ? $"Linha {telemetry.Line} • {telemetry.Route}"
                 : $"Linha {telemetry.Line}";
         }
+        else
+        {
+            title = $"{map.DisplayName} • Sem linha ativa";
+        }
 
-        return $"{map.DisplayName} • Sem linha ativa";
+        if (!string.IsNullOrWhiteSpace(telemetry?.NextStopName))
+        {
+            title += $"\nPróx.: {telemetry.NextStopName}";
+        }
+
+        return title;
     }
 
     private void EnsureRouteTrace(
