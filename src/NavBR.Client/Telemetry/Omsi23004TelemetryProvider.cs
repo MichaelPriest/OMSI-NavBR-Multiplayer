@@ -79,6 +79,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return null;
             }
 
+            // Keep both representations. AbsPosition is useful for cross-tile
+            // distance calculations, while Position/Rotation are the exact
+            // native pose that the alpha.11 physical multiplayer backend can
+            // apply to another OMSI instance without guessing coordinate axes.
+            var localPosition = memory.ReadVector3(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehiclePositionOffset));
+
             var absolutePosition = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleAbsPositionOffset +
@@ -155,7 +163,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 NextStopName: nextStopName,
                 DestinationName: destinationName,
                 VehiclePath: vehicleIdentity.RelativePath,
-                VehicleCompatibilityId: vehicleIdentity.CompatibilityId);
+                VehicleCompatibilityId: vehicleIdentity.CompatibilityId,
+                LocalX: localPosition.X,
+                LocalY: localPosition.Y,
+                LocalZ: localPosition.Z,
+                RotationX: rotation.X,
+                RotationY: rotation.Y,
+                RotationZ: rotation.Z,
+                RotationW: rotation.W);
         }
         catch (ArgumentException)
         {
@@ -231,9 +246,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return false;
             }
 
-            // The scheduled next-stop name is stored directly on TRVInst.
-            // OMSI versions/addons can expose it as Unicode or ANSI, so use a
-            // defensive read-only fallback without making trip detection fail.
             nextStopName = memory.ReadNullTerminatedUnicodeStringField(
                                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
                                maxCharacters: 128)
@@ -276,9 +288,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
             catch
             {
-                // The record bounds are a defensive check only. If a patched
-                // runtime stores the Delphi array header differently, the
-                // actual trip record read below remains authoritative.
+                // Bounds check only; patched runtimes can store headers differently.
             }
 
             var tripPointer = nint.Add(
@@ -295,10 +305,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tripPointer,
                 Omsi23004MemoryProfile.TripTargetOffset));
 
-            // Route remains the technical track identifier when available because
-            // the roadmap reader uses it to resolve the actual .ttr. Destination
-            // is exposed separately so the HUD never has to show that technical
-            // identifier to the driver.
             route = !string.IsNullOrWhiteSpace(trackName) ? trackName : destinationName;
             return !string.IsNullOrWhiteSpace(line) ||
                    !string.IsNullOrWhiteSpace(route) ||
