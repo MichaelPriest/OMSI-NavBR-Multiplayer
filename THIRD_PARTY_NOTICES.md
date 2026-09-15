@@ -26,6 +26,14 @@ OMSI NavBR Multiplayer usa bibliotecas de terceiros distribuídas sob licenças 
 - Projeto: https://github.com/lostromb/concentus
 - Texto da licença: `licenses/Concentus-LICENSE.txt`
 
+## DNNE
+
+- Uso no NavBR: gerar a camada nativa x86/exportações C necessárias para o protótipo experimental de plugin do OMSI
+- Versão usada no protótipo: `2.1.2`
+- Licença: MIT
+- Projeto: https://github.com/AaronRobinsonMSFT/DNNE
+- O plugin continua experimental e não integra o pacote normal do cliente enquanto não houver validação real no OMSI.
+
 ## .NET / WPF
 
 O aplicativo também é construído sobre .NET e WPF. As distribuições self-contained incluem componentes do runtime e seus próprios avisos de terceiros gerados pela cadeia oficial do .NET. O projeto NavBR não altera os termos desses componentes.
