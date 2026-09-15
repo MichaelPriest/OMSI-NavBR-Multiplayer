@@ -45,8 +45,11 @@ internal static class Omsi23004MemoryProfile
     // OmsiMapObjInst / OmsiPhysObjInst / OmsiMovingMapObjInst fields.
     public const int VehiclePositionOffset = 0x004;
     public const int VehicleRotationOffset = 0x050;
+    public const int VehicleKachelOffset = 0x074;
     public const int VehicleAbsPositionOffset = 0x078;
     public const int VehicleVelocityOffset = 0x1C0;
+    public const int MovingVehicleIndexOffset = 0x258;
+    public const int MovingVehicleUserTrainOffset = 0x26C;
     public const int VehicleGroundSpeedOffset = 0x428;
 
     // File/object identity. OmsiComplMapObjInst.MyFileObject points to the
@@ -107,6 +110,8 @@ internal static class Omsi23004MemoryProfile
     public const int NavigationTileXOffset = 0x018;
     public const int NavigationTileYOffset = 0x020;
 
+    // OmsiMyOmsiList<T> -> TList backing store.
     public const int OmsiListFListOffset = 0x028;
+    public const int OmsiListCountOffset = 0x02C;
     public const int TListItemsOffset = 0x004;
 }
