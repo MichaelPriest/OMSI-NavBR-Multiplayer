@@ -50,6 +50,31 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
+    public string? GetTrafficAuthorityPlayerId(string roomId)
+    {
+        return _connections.Values
+            .Where(player => string.Equals(player.RoomId, roomId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(player => player.ConnectedAtUtc)
+            .ThenBy(player => player.PlayerId, StringComparer.OrdinalIgnoreCase)
+            .Select(player => player.PlayerId)
+            .FirstOrDefault();
+    }
+
+    public bool IsTrafficAuthority(string connectionId)
+    {
+        if (!TryGet(connectionId, out var presence) || presence is null)
+        {
+            return false;
+        }
+
+        var authorityPlayerId = GetTrafficAuthorityPlayerId(presence.RoomId);
+        return !string.IsNullOrWhiteSpace(authorityPlayerId) &&
+               string.Equals(
+                   authorityPlayerId,
+                   presence.PlayerId,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
     public PlayerPresence? UpdateMap(
         string connectionId,
         string? mapName,
