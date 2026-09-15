@@ -300,33 +300,54 @@ public partial class MainWindow : Window
         }
 
         var culture = LocalizationService.CurrentCulture;
-        var roadmapCount = _installedMaps.Count(map => !string.IsNullOrWhiteSpace(map.RoadmapPath));
+        var readyMaps = _installedMaps
+            .Where(map => !string.IsNullOrWhiteSpace(map.RoadmapPath))
+            .OrderBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        var missingMaps = _installedMaps
+            .Where(map => string.IsNullOrWhiteSpace(map.RoadmapPath))
+            .OrderBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+
         GpsStatusText.Text = string.Format(
             culture,
             LocalizationService.Get("GpsMapsSummary"),
             _installedMaps.Count,
-            roadmapCount);
+            readyMaps.Length);
 
-        const int visibleMapLimit = 10;
-        var rows = _installedMaps
-            .Take(visibleMapLimit)
-            .Select(map =>
-            {
-                var roadmapStatus = LocalizationService.Get(
-                    string.IsNullOrWhiteSpace(map.RoadmapPath)
-                        ? "GpsRoadmapMissing"
-                        : "GpsRoadmapReady");
-
-                return $"{map.DisplayName} [{map.FolderName}] | {map.TileCount} | {roadmapStatus}";
-            })
-            .ToList();
-
-        if (_installedMaps.Count > visibleMapLimit)
+        var readyLabel = LocalizationService.Get("GpsRoadmapReady").ToUpper(culture);
+        var missingLabel = LocalizationService.Get("GpsRoadmapMissing").ToUpper(culture);
+        var rows = new List<string>
         {
-            rows.Add(string.Format(
-                culture,
-                LocalizationService.Get("GpsMoreMaps"),
-                _installedMaps.Count - visibleMapLimit));
+            $"✓ {readyLabel} ({readyMaps.Length})"
+        };
+
+        if (readyMaps.Length == 0)
+        {
+            rows.Add("  —");
+        }
+        else
+        {
+            foreach (var map in readyMaps)
+            {
+                var roadmapFile = Path.GetFileName(map.RoadmapPath);
+                rows.Add($"  ✓ {map.DisplayName} [{map.FolderName}] | {map.TileCount} tiles | {roadmapFile}");
+            }
+        }
+
+        rows.Add(string.Empty);
+        rows.Add($"⚠ {missingLabel} ({missingMaps.Length})");
+
+        if (missingMaps.Length == 0)
+        {
+            rows.Add("  —");
+        }
+        else
+        {
+            foreach (var map in missingMaps)
+            {
+                rows.Add($"  ⚠ {map.DisplayName} [{map.FolderName}] | {map.TileCount} tiles");
+            }
         }
 
         InstalledMapsText.Text = string.Join(Environment.NewLine, rows);
