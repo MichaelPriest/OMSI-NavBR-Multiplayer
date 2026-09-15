@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using NavBR.Client.Diagnostics;
 using NavBR.Client.Localization;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
@@ -13,8 +14,10 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        NavBRAppLog.StartSession();
         LocalizationService.Initialize();
         PluginBridge.Start();
+        NavBRAppLog.Info("plugin-bridge-start");
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         EventManager.RegisterClassHandler(
             typeof(Window),
@@ -28,12 +31,14 @@ public partial class App : Application
         try
         {
             PluginBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            NavBRAppLog.Info("plugin-bridge-stop");
         }
-        catch
+        catch (Exception ex)
         {
-            // Experimental bridge shutdown must never prevent application exit.
+            NavBRAppLog.Error("plugin-bridge-stop-error", ex);
         }
 
+        NavBRAppLog.EndSession();
         base.OnExit(e);
     }
 
@@ -47,6 +52,8 @@ public partial class App : Application
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        NavBRAppLog.Error("dispatcher-unhandled", e.Exception);
+
         try
         {
             var directory = Path.Combine(
