@@ -13,6 +13,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     private readonly object _connectionSync = new();
     private Task? _acceptLoop;
     private StreamWriter? _writer;
+    private int? _pluginProcessId;
+    private string? _pluginComponentVersion;
+    private DateTimeOffset? _connectedAtUtc;
 
     public bool IsConnected
     {
@@ -22,6 +25,18 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             {
                 return _writer is not null;
             }
+        }
+    }
+
+    public OmsiPluginBridgeConnectionInfo GetConnectionInfo()
+    {
+        lock (_connectionSync)
+        {
+            return new OmsiPluginBridgeConnectionInfo(
+                _writer is not null,
+                _pluginProcessId,
+                _pluginComponentVersion,
+                _connectedAtUtc);
         }
     }
 
@@ -130,7 +145,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
 
                 await writer.WriteLineAsync(JsonSerializer.Serialize(response));
 
-                SetConnectedWriter(writer);
+                SetConnectedWriter(writer, hello.ProcessId, hello.ComponentVersion);
                 try
                 {
                     while (pipe.IsConnected && !cancellationToken.IsCancellationRequested)
@@ -195,11 +210,17 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         }
     }
 
-    private void SetConnectedWriter(StreamWriter writer)
+    private void SetConnectedWriter(
+        StreamWriter writer,
+        int? pluginProcessId,
+        string? pluginComponentVersion)
     {
         lock (_connectionSync)
         {
             _writer = writer;
+            _pluginProcessId = pluginProcessId;
+            _pluginComponentVersion = pluginComponentVersion;
+            _connectedAtUtc = DateTimeOffset.UtcNow;
         }
 
         ConnectionStateChanged?.Invoke(true);
@@ -213,6 +234,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             if (ReferenceEquals(_writer, writer))
             {
                 _writer = null;
+                _pluginProcessId = null;
+                _pluginComponentVersion = null;
+                _connectedAtUtc = null;
                 changed = true;
             }
         }
@@ -253,3 +277,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         _lifetimeCts.Dispose();
     }
 }
+
+public sealed record OmsiPluginBridgeConnectionInfo(
+    bool IsConnected,
+    int? PluginProcessId,
+    string? PluginComponentVersion,
+    DateTimeOffset? ConnectedAtUtc);
