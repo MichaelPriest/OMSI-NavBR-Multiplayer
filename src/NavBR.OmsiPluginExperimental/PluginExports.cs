@@ -90,7 +90,10 @@ public static class PluginExports
             ? "remote=none"
             : $"remote={remote.PlayerId} map={remote.MapName ?? "-"} pos=({remote.X:F2},{remote.Y:F2},{remote.Z:F2}) heading={remote.HeadingDegrees:F1} speed={remote.SpeedKph:F1}";
 
-        Log($"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} callbacks={Interlocked.Read(ref _systemVariableCallbacks)} {remoteSummary}");
+        Log(
+            $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
+            $"callbacks={Interlocked.Read(ref _systemVariableCallbacks)} " +
+            $"remoteCount={PluginBridgeClient.RemoteVehicleCount} {remoteSummary}");
     }
 
     private static void Log(string message)
