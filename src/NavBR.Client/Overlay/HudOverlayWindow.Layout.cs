@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -14,6 +16,7 @@ public partial class HudOverlayWindow
     private Point _hudDragStartMouse;
     private Point _hudDragStartPosition;
     private double _renderedHudZoom = 1d;
+    private Button? _mainHudLayoutButton;
 
     public bool IsLayoutEditMode => _hudLayoutEditMode;
 
@@ -30,7 +33,7 @@ public partial class HudOverlayWindow
             _hudVisibilityTimer?.Stop();
             OverlayRoot.Visibility = Visibility.Visible;
             _hudVisibleForOmsi = true;
-            HudMoveHandleText.Text = "Mover HUD • roda do mouse = zoom • duplo clique = reset";
+            HudMoveHandleText.Text = MoveHandleText();
         }
         else
         {
@@ -45,6 +48,7 @@ public partial class HudOverlayWindow
             }
         }
 
+        UpdateMainHudLayoutButtonText();
         LayoutEditModeChanged?.Invoke(enabled);
         if (!enabled)
         {
@@ -65,7 +69,7 @@ public partial class HudOverlayWindow
         MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
         _renderedHudZoom = _hudSettings.HudZoom;
         ApplyHudLayoutPosition();
-        RenderMiniMap();
+        RenderEnhancedMiniMap();
     }
 
     private void HudDock_Loaded(object sender, RoutedEventArgs e)
@@ -97,6 +101,81 @@ public partial class HudOverlayWindow
         };
 
         ApplyHudLayoutPosition();
+        StartEnhancedMapRendering();
+        InstallMainWindowLayoutButton();
+    }
+
+    private void InstallMainWindowLayoutButton()
+    {
+        if (_mainHudLayoutButton is not null || Application.Current.MainWindow is not NavBR.Client.MainWindow mainWindow)
+        {
+            return;
+        }
+
+        if (mainWindow.FindName("MultiplayerButton") is not Button multiplayerButton ||
+            multiplayerButton.Parent is not Panel parent)
+        {
+            return;
+        }
+
+        var button = new Button
+        {
+            MinWidth = 110,
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        button.Click += (_, _) => SetLayoutEditMode(!IsLayoutEditMode);
+
+        var index = parent.Children.IndexOf(multiplayerButton);
+        parent.Children.Insert(Math.Max(0, index), button);
+        _mainHudLayoutButton = button;
+        UpdateMainHudLayoutButtonText();
+
+        if (mainWindow.FindName("LanguageComboBox") is ComboBox languageComboBox)
+        {
+            languageComboBox.SelectionChanged += (_, _) => UpdateMainHudLayoutButtonText();
+        }
+    }
+
+    private void UpdateMainHudLayoutButtonText()
+    {
+        if (_mainHudLayoutButton is null)
+        {
+            return;
+        }
+
+        var language = LocalizationService.CurrentCulture.TwoLetterISOLanguageName;
+        _mainHudLayoutButton.Content = (language, _hudLayoutEditMode) switch
+        {
+            ("pt", false) => "Mover HUD",
+            ("pt", true) => "Bloquear HUD",
+            ("es", false) => "Mover HUD",
+            ("es", true) => "Bloquear HUD",
+            ("de", false) => "HUD verschieben",
+            ("de", true) => "HUD sperren",
+            ("fr", false) => "Déplacer HUD",
+            ("fr", true) => "Verrouiller HUD",
+            (_, false) => "Move HUD",
+            _ => "Lock HUD"
+        };
+    }
+
+    private static string MoveHandleText()
+    {
+        return LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Arraste para mover • roda do mouse = zoom • duplo clique = reset",
+            "es" => "Arrastra para mover • rueda = zoom • doble clic = reset",
+            "de" => "Ziehen zum Verschieben • Mausrad = Zoom • Doppelklick = Reset",
+            "fr" => "Glisser pour déplacer • molette = zoom • double-clic = reset",
+            _ => "Drag to move • mouse wheel = zoom • double-click = reset"
+        };
+    }
+
+    private void HudMoveDoneButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetLayoutEditMode(false);
+        e.Handled = true;
     }
 
     private void HudMoveHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -155,8 +234,8 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var maxX = Math.Max(1d, ActualWidth - Math.Max(1d, HudDock.ActualWidth) - 8d);
-        var maxY = Math.Max(1d, ActualHeight - Math.Max(1d, HudDock.ActualHeight) - 8d);
+        var maxX = Math.Max(1d, ActualWidth - Math.Max(1d, HudDock.ActualWidth) - 16d);
+        var maxY = Math.Max(1d, ActualHeight - Math.Max(1d, HudDock.ActualHeight) - 16d);
         _hudSettings = _hudSettings with
         {
             HudX = Math.Clamp((HudDockTransform.X - 8d) / maxX, 0d, 1d),
@@ -180,7 +259,7 @@ public partial class HudOverlayWindow
         _renderedHudZoom = _hudSettings.HudZoom;
         MultiplayerSettingsStore.Save(_hudSettings);
         MiniMapZoomText.Text = $"{_hudSettings.HudZoom:F1}×";
-        RenderMiniMap();
+        RenderEnhancedMiniMap();
         e.Handled = true;
     }
 
