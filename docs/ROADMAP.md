@@ -76,6 +76,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Chat visual, jogadores e indicador de voz no HUD
 - ✅ Proteção dos atalhos usando `Inputs/keyboard.cfg`
 - ✅ Aprendizado da janela real de gameplay do OMSI para controlar a visibilidade do HUD
+- ✅ Guia de geração de roadmap em `docs/GERAR_ROADMAP_MAPAS.md`
 - 🧪 Validar visualmente marcador/heading em mapas reais
 - 🧪 Validar `[worldcoordinates]` em mapas reais
 - 🧪 Validar ocultação/reexibição do HUD em menus, opções e timetable
@@ -180,26 +181,55 @@ O peer-host é o modo principal da série 0.3. Esta fase é complementar, não r
 
 ## Fase 6 — Veículos remotos dentro do OMSI (experimental)
 
-- ⬜ Investigar API oficial de plugins
-- ⬜ Protótipo de entidade remota
-- ⬜ Sincronizar posição/orientação dentro do simulador
-- ⬜ Interpolação e extrapolação
-- ⬜ Portas/luzes/setas/buzina
-- ⬜ Limites de estabilidade/performance
+Esta fase começou em uma branch isolada e **não faz parte da release alpha.9 normal**.
 
-Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper estado do simulador.
+### Já iniciado
+
+- ✅ Confirmar a interface oficial de plugins do OMSI (`.dll` + `.opl` em `OMSI\plugins`)
+- ✅ Definir plugin experimental como módulo opcional, separado do cliente estável
+- ✅ Criar projeto x86 `NavBR.OmsiPluginExperimental`
+- ✅ Exportar callbacks básicos esperados pelo OMSI
+- ✅ Criar `.opl` mínimo usando a system variable `Time`
+- ✅ Implementar log/heartbeat em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log`
+- ✅ Manter o protótipo sem escrita de variáveis/triggers nesta primeira etapa
+- ✅ Adicionar compilação/artefato do plugin experimental ao CI da branch/PR
+
+### Aguardando validação real
+
+- 🧪 Confirmar que o OMSI 2.3.004 carrega a DLL x86
+- 🧪 Confirmar `PluginStart`, callbacks periódicos e `PluginFinalize`
+- 🧪 Confirmar que o plugin não causa instabilidade ou queda de FPS perceptível
+
+### Próximas etapas experimentais
+
+- ⬜ Criar bridge local seguro entre o cliente NavBR e o plugin
+- ⬜ Definir protocolo/versionamento para estado de veículos remotos
+- ⬜ Enviar ao plugin um único jogador remoto de teste
+- ⬜ Investigar criação/controle seguro de entidade remota no OMSI
+- ⬜ Sincronizar posição/orientação de um único veículo remoto
+- ⬜ Interpolação/extrapolação dentro do simulador
+- ⬜ Compatibilidade/fallback de modelo de ônibus
+- ⬜ Articulação
+- ⬜ Portas
+- ⬜ Luzes/setas/pisca-alerta/buzina
+- ⬜ Linha/destino/matriz quando tecnicamente seguro
+- ⬜ Limites de distância, quantidade de jogadores e performance
+- ⬜ Procedimento automático de instalação/remoção do plugin
+
+Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper estado do simulador e sem tornar o plugin obrigatório para quem quiser apenas GPS/HUD/multiplayer externo.
 
 ## Prioridade imediata após a alpha.9
 
-Antes de abrir uma nova frente grande de desenvolvimento:
+O plugin pode avançar em paralelo apenas como experimento isolado. Para o produto principal, a prioridade continua:
 
 1. 🧪 validar HUD e telemetria no OMSI real;
 2. 🧪 validar o novo parser/traçado `.ttr` em mapas reais;
 3. 🧪 validar destino e próxima parada;
 4. 🧪 testar multiplayer entre dois computadores;
 5. 🧪 testar chat/voz/PTT e reconexão;
-6. corrigir os problemas encontrados;
-7. só então avançar para ETA/distância, diagnóstico de rede e UPnP/NAT traversal.
+6. 🧪 validar o carregamento seguro do plugin experimental;
+7. corrigir os problemas encontrados;
+8. só então avançar para ETA/distância, diagnóstico de rede, UPnP/NAT traversal e criação real de veículo remoto.
 
 ## Localização contínua
 
