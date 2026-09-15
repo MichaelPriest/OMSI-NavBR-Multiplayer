@@ -70,8 +70,12 @@ public sealed class OmsiMapCatalog
             }
         }
 
+        // A lista exibida pelo cliente usa esta mesma ordem. Mapas com um
+        // roadmap compatível aparecem primeiro para o jogador identificar
+        // imediatamente quais já estão prontos para o fundo visual do GPS.
         return maps
-            .OrderBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .OrderByDescending(map => !string.IsNullOrWhiteSpace(map.RoadmapPath))
+            .ThenBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
     }
 
