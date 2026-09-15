@@ -1,0 +1,239 @@
+name: alpha10 integration prerelease
+
+on:
+  push:
+    branches:
+      - feature/alpha10-roadmap-plugin
+
+permissions:
+  contents: write
+
+jobs:
+  publish-test-release:
+    if: contains(github.event.head_commit.message, '[publish-alpha10-test]')
+    runs-on: windows-latest
+
+    env:
+      TEST_TAG: v0.3.0-alpha.10-test.1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Repair NavBR icon container
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Restore projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+
+      - name: Smoke-test plugin bridge x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            --no-restore `
+            -o artifacts/bridge-smoke
+
+          $exe = Resolve-Path "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          & $exe.Path
+          if ($LASTEXITCODE -ne 0) {
+            throw "Plugin bridge smoke test failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Publish client packages
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            -o artifacts/client
+
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/client-single
+
+      - name: Publish dedicated server
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Server/NavBR.Server.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o artifacts/server
+
+      - name: Build experimental OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release `
+            -r win-x86 `
+            --no-restore `
+            -o artifacts/plugin
+
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/NavBR.OmsiPluginExperimental.runtimeconfig.json",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Plugin package incomplete: $required"
+            }
+          }
+
+      - name: Smoke-test plugin installer and remover
+        shell: pwsh
+        run: |
+          $fakeOmsi = Join-Path $env:RUNNER_TEMP "NavBR-Omsi-TestRelease"
+          if (Test-Path $fakeOmsi) { Remove-Item $fakeOmsi -Recurse -Force }
+          New-Item -ItemType Directory -Path $fakeOmsi -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $fakeOmsi "Omsi.exe") -Force | Out-Null
+
+          & "artifacts/plugin/Install-NavBROmsiPlugin.ps1" -OmsiRoot $fakeOmsi
+          if (-not (Test-Path (Join-Path $fakeOmsi "plugins/NavBR.OmsiPlugin.dll"))) {
+            throw "Plugin installer smoke test failed."
+          }
+
+          & "artifacts/plugin/Remove-NavBROmsiPlugin.ps1" -OmsiRoot $fakeOmsi
+          if (Test-Path (Join-Path $fakeOmsi "plugins/NavBR.OmsiPlugin.dll")) {
+            throw "Plugin remover smoke test failed."
+          }
+
+          Remove-Item $fakeOmsi -Recurse -Force
+
+      - name: Prepare permanent prerelease assets
+        shell: pwsh
+        run: |
+          $tag = $env:TEST_TAG
+          $releaseDir = "artifacts/release"
+          $bundleDir = "artifacts/integration-bundle"
+          $pluginBundle = Join-Path $bundleDir "Plugin"
+
+          New-Item -ItemType Directory -Force -Path $releaseDir, $pluginBundle | Out-Null
+
+          foreach ($target in @("artifacts/client", "artifacts/server", "artifacts/plugin")) {
+            Copy-Item LICENSE (Join-Path $target "LICENSE") -Force
+            Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $target "THIRD_PARTY_NOTICES.md") -Force
+          }
+
+          $standalone = "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          if (-not (Test-Path $standalone)) { throw "Standalone client EXE missing." }
+
+          $releaseExe = Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$tag-win-x86.exe"
+          Copy-Item $standalone $releaseExe -Force
+
+          Compress-Archive -Path "artifacts/client/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$tag-win-x86.zip") -Force
+          Compress-Archive -Path "artifacts/server/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Server-$tag-win-x64.zip") -Force
+          Compress-Archive -Path "artifacts/plugin/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Plugin-$tag-win-x86.zip") -Force
+
+          Copy-Item $standalone (Join-Path $bundleDir "OMSI.NavBR.Multiplayer.exe") -Force
+          Copy-Item "artifacts/plugin/*" $pluginBundle -Recurse -Force
+
+          $checklistUrl = "https://raw.githubusercontent.com/${{ github.repository }}/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md"
+          Invoke-WebRequest -Uri $checklistUrl -OutFile (Join-Path $bundleDir "LEIA-ME-TESTE-ALPHA10.md")
+
+          @(
+            "OMSI NavBR Multiplayer $tag"
+            "Integration test prerelease"
+            "GitHub SHA: $env:GITHUB_SHA"
+            "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
+            ""
+            "NAO E A ALPHA.10 FINAL."
+            "O plugin ainda nao cria nem movimenta onibus fisicos dentro do OMSI."
+            "Leia LEIA-ME-TESTE-ALPHA10.md antes de instalar o plugin."
+          ) | Set-Content -LiteralPath (Join-Path $bundleDir "BUILD-INFO.txt") -Encoding UTF8
+
+          Compress-Archive -Path "$bundleDir/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-alpha10-test.1-integration-win-x86.zip") -Force
+
+          Copy-Item LICENSE (Join-Path $releaseDir "LICENSE") -Force
+          Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $releaseDir "THIRD_PARTY_NOTICES.md") -Force
+
+          $hashLines = foreach ($file in Get-ChildItem $releaseDir -File | Sort-Object Name) {
+            if ($file.Name -eq "SHA256SUMS.txt") { continue }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content -LiteralPath (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
+
+          @"
+          # OMSI NavBR Multiplayer $tag
+
+          **PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**
+
+          Esta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86 e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.
+
+          ## Para o teste recomendado
+
+          Baixe `OMSI-NavBR-alpha10-test.1-integration-win-x86.zip`.
+
+          O pacote contem:
+
+          - cliente standalone;
+          - pasta `Plugin` completa;
+          - instalador e removedor do plugin;
+          - checklist de validacao;
+          - identificacao do build.
+
+          No painel `PLUGIN BRIDGE v1 • EXP`, o resultado esperado apos abrir o OMSI e o NavBR e:
+
+          - `status=CONNECTED`;
+          - `process-match=YES`;
+          - `heartbeat=LIVE`;
+          - `callbacks` aumentando.
+
+          O plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**
+
+          A alpha.9 continua sendo a ultima prerelease geral. Esta `test.1` e somente para os testes da alpha.10.
+          "@ | Set-Content -LiteralPath "artifacts/release-notes.md" -Encoding UTF8
+
+      - name: Create permanent GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:TEST_TAG
+          gh release view $tag --repo "${{ github.repository }}" --json tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Prerelease $tag already exists; refusing to overwrite a permanent test build."
+          }
+          $global:LASTEXITCODE = 0
+
+          $assets = Get-ChildItem "artifacts/release" -File | ForEach-Object { $_.FullName }
+          $args = @(
+            "release", "create", $tag
+          ) + $assets + @(
+            "--repo", "${{ github.repository }}",
+            "--target", "$env:GITHUB_SHA",
+            "--title", "OMSI NavBR Multiplayer $tag — integration test",
+            "--notes-file", "artifacts/release-notes.md",
+            "--prerelease"
+          )
+
+          & gh @args
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create permanent integration prerelease $tag."
+          }
