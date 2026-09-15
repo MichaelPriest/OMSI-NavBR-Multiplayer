@@ -7,6 +7,7 @@ namespace NavBR.Client.Multiplayer;
 
 public sealed class MultiplayerClientService : IAsyncDisposable
 {
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
 
@@ -27,13 +28,18 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         MultiplayerSettings settings,
         string? currentMapName,
         string? currentMapCompatibilityId = null,
-        CancellationToken cancellationToken = default) =>
-        ConnectAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var compatibility = OmsiCompatibilityManifestFactory.Create(
+            currentMapName,
+            currentMapCompatibilityId);
+        return ConnectAsync(
             settings,
             currentMapName,
             currentMapCompatibilityId,
-            compatibility: null,
+            compatibility,
             cancellationToken);
+    }
 
     public async Task<RoomSnapshot> ConnectAsync(
         MultiplayerSettings settings,
@@ -52,6 +58,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             NormalizeOptional(currentMapName),
             NormalizeOptional(currentMapCompatibilityId),
             compatibility);
+        _physicalVehicles.SetLocalManifest(compatibility);
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
@@ -90,6 +97,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             }
 
             _joinRequest = null;
+            _physicalVehicles.SetLocalManifest(null);
+            _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             throw;
@@ -148,6 +157,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         var connection = _connection;
         _connection = null;
         _joinRequest = null;
+        _physicalVehicles.SetLocalManifest(null);
+        _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
@@ -184,18 +195,21 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         connection.On<string>("playerLeft", playerId =>
         {
             PlayerLeft?.Invoke(playerId);
+            _ = _physicalVehicles.DespawnAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
         connection.On<PlayerTelemetryFrame>("telemetry", frame =>
         {
             TelemetryReceived?.Invoke(frame);
             _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
+            _ = _physicalVehicles.ApplyAsync(frame);
         });
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
         connection.Reconnecting += error =>
         {
+            _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
             return Task.CompletedTask;
@@ -214,6 +228,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         connection.Closed += error =>
         {
+            _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
