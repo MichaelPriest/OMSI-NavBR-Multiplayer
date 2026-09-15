@@ -1,3 +1,5 @@
+using NavBR.Shared.Multiplayer;
+
 namespace NavBR.Shared.PluginBridge;
 
 public static class PluginBridgeProtocol
@@ -14,6 +16,8 @@ public static class PluginBridgeProtocol
     public const string RemoteVehicleState = "remote-vehicle-state";
     public const string RemoteVehicleRemoved = "remote-vehicle-removed";
     public const string ClearRemoteVehicles = "clear-remote-vehicles";
+    public const string TrafficSnapshotState = "traffic-snapshot-state";
+    public const string ClearTrafficVehicles = "clear-traffic-vehicles";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -32,6 +36,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleTransform = "vehicle-transform";
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityTimetableState = "timetable-state";
+    public const string CapabilityTrafficSync = "traffic-sync";
 }
 
 public sealed record PluginBridgeMessage(
@@ -95,4 +100,7 @@ public sealed record PluginBridgeMessage(
     double? RotationX = null,
     double? RotationY = null,
     double? RotationZ = null,
-    double? RotationW = null);
+    double? RotationW = null,
+    string? AuthorityPlayerId = null,
+    long? Sequence = null,
+    TrafficVehicleState[]? TrafficVehicles = null);
