@@ -50,23 +50,30 @@ NavBR.OmsiPlugin.opl
 
 Como o protótipo usa hospedagem .NET, o pacote de teste deve preservar também os arquivos de runtime/assemblies gerados pelo build. Não copie somente a DLL nativa até o empacotamento self-contained do plugin ser definido.
 
+### Requisito temporário do protótipo
+
+Nesta primeira fase o plugin é **framework-dependent**. Portanto, o computador de teste precisa ter o **.NET 10 Runtime x86** disponível para o processo 32-bit do OMSI. O EXE standalone do NavBR ser self-contained não instala esse runtime globalmente.
+
+Antes de distribuir o plugin para usuários finais, o empacotamento será alterado para evitar esse requisito manual sempre que tecnicamente possível.
+
 ## Instalação para teste
 
 Quando houver um artefato de CI aprovado:
 
 1. feche o OMSI;
 2. faça backup da pasta `plugins`;
-3. extraia o pacote experimental;
-4. copie **todo o conteúdo do pacote do plugin** para:
+3. confirme que o .NET 10 Runtime x86 está instalado no PC de teste;
+4. extraia o pacote experimental;
+5. copie **todo o conteúdo do pacote do plugin** para:
 
 ```text
 <PASTA_DO_OMSI>\plugins\
 ```
 
-5. inicie o OMSI normalmente;
-6. carregue um mapa e um ônibus;
-7. aguarde alguns segundos;
-8. confira se existe:
+6. inicie o OMSI normalmente;
+7. carregue um mapa e um ônibus;
+8. aguarde alguns segundos;
+9. confira se existe:
 
 ```text
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log
