@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using NavBR.Client.Omsi;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Telemetry;
@@ -42,6 +43,36 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             DisposeMemory();
             LastErrorCode = TelemetryErrorCode.AttachFailed;
             return Task.FromResult(false);
+        }
+    }
+
+    public IReadOnlyList<TrafficVehicleState> ReadRoadTraffic(
+        int maxVehicles = OmsiRoadTrafficReader.DefaultMaxVehicles,
+        double radiusMeters = OmsiRoadTrafficReader.DefaultRadiusMeters)
+    {
+        var memory = _memory;
+        var processInfo = _processInfo;
+        if (memory is null || processInfo is null || !processInfo.IsOmsi23004Exact)
+        {
+            return Array.Empty<TrafficVehicleState>();
+        }
+
+        try
+        {
+            if (Process.GetProcessById(memory.ProcessId).HasExited)
+            {
+                return Array.Empty<TrafficVehicleState>();
+            }
+
+            return OmsiRoadTrafficReader.Read(
+                memory,
+                processInfo,
+                maxVehicles,
+                radiusMeters);
+        }
+        catch
+        {
+            return Array.Empty<TrafficVehicleState>();
         }
     }
 
