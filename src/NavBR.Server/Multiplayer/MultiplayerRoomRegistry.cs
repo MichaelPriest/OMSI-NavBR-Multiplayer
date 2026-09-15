@@ -14,7 +14,8 @@ public sealed class MultiplayerRoomRegistry
         string playerId,
         string displayName,
         string? mapName,
-        string? mapCompatibilityId)
+        string? mapCompatibilityId,
+        OmsiCompatibilityManifest? compatibility = null)
     {
         var presence = new PlayerPresence(
             playerId,
@@ -22,7 +23,8 @@ public sealed class MultiplayerRoomRegistry
             roomId,
             NormalizeOptional(mapName),
             DateTimeOffset.UtcNow,
-            NormalizeOptional(mapCompatibilityId));
+            NormalizeOptional(mapCompatibilityId),
+            compatibility);
 
         _connections[connectionId] = presence;
         return presence;
@@ -63,10 +65,19 @@ public sealed class MultiplayerRoomRegistry
                 return null;
             }
 
+            var compatibility = current.Compatibility is null
+                ? null
+                : current.Compatibility with
+                {
+                    MapName = normalizedMap,
+                    MapCompatibilityId = normalizedCompatibilityId
+                };
+
             var updated = current with
             {
                 MapName = normalizedMap,
-                MapCompatibilityId = normalizedCompatibilityId
+                MapCompatibilityId = normalizedCompatibilityId,
+                Compatibility = compatibility
             };
 
             if (_connections.TryUpdate(connectionId, updated, current))
