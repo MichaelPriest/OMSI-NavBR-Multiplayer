@@ -9,12 +9,14 @@ namespace NavBR.OmsiPluginExperimental;
 internal static class PluginBridgeClient
 {
     private static readonly object LocalStateSync = new();
+    private static readonly object StatusSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
     private static Action<string>? _log;
     private static PluginBridgeMessage? _localState;
+    private static PluginBridgeMessage? _pendingStatus;
 
     public static PluginBridgeMessage? LatestRemoteState =>
         RemoteVehicles.LatestCompatible(GetLocalState());
@@ -42,9 +44,33 @@ internal static class PluginBridgeClient
         _lifetimeCts = null;
         _loopTask = null;
         ClearAllState();
+        ClearPendingStatus();
     }
 
     public static int PruneStaleRemoteStates() => RemoteVehicles.PruneStale();
+
+    public static void ReportRuntimeStatus(
+        long systemVariableCallbacks,
+        int lastSystemVariableIndex,
+        int staleRemovedCount)
+    {
+        var status = new PluginBridgeMessage(
+            PluginBridgeProtocol.PluginStatus,
+            PluginBridgeProtocol.Version,
+            ProcessId: Environment.ProcessId,
+            ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+            TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            SystemVariableCallbacks: systemVariableCallbacks,
+            RemoteVehicleCount: RemoteVehicleCount,
+            CompatibleRemoteVehicleCount: CompatibleRemoteVehicleCount,
+            StaleRemovedCount: staleRemovedCount,
+            LastSystemVariableIndex: lastSystemVariableIndex);
+
+        lock (StatusSync)
+        {
+            _pendingStatus = status;
+        }
+    }
 
     private static async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -96,22 +122,41 @@ internal static class PluginBridgeClient
 
                 Log($"bridge conectado clientPid={response.ProcessId} protocol={response.ProtocolVersion}");
 
-                while (pipe.IsConnected && !cancellationToken.IsCancellationRequested)
+                using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var statusSender = Task.Run(
+                    () => SendPendingStatusLoopAsync(writer, connectionCts.Token),
+                    connectionCts.Token);
+
+                try
                 {
-                    var line = await reader.ReadLineAsync(cancellationToken);
-                    if (line is null)
+                    while (pipe.IsConnected && !cancellationToken.IsCancellationRequested)
                     {
-                        break;
-                    }
+                        var line = await reader.ReadLineAsync(cancellationToken);
+                        if (line is null)
+                        {
+                            break;
+                        }
 
-                    if (!TryParseMessage(line, out var message) ||
-                        message is null ||
-                        message.ProtocolVersion != PluginBridgeProtocol.Version)
+                        if (!TryParseMessage(line, out var message) ||
+                            message is null ||
+                            message.ProtocolVersion != PluginBridgeProtocol.Version)
+                        {
+                            continue;
+                        }
+
+                        ApplyMessage(message);
+                    }
+                }
+                finally
+                {
+                    connectionCts.Cancel();
+                    try
                     {
-                        continue;
+                        await statusSender;
                     }
-
-                    ApplyMessage(message);
+                    catch (OperationCanceledException)
+                    {
+                    }
                 }
 
                 ClearAllState();
@@ -142,6 +187,45 @@ internal static class PluginBridgeClient
             }
 
             await DelayBeforeRetryAsync(cancellationToken);
+        }
+    }
+
+    private static async Task SendPendingStatusLoopAsync(
+        StreamWriter writer,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var pending = TakePendingStatus();
+            if (pending is not null)
+            {
+                var json = JsonSerializer.Serialize(pending);
+                if (json.Length <= PluginBridgeProtocol.MaxMessageChars)
+                {
+                    await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
+                    await writer.FlushAsync(cancellationToken);
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+        }
+    }
+
+    private static PluginBridgeMessage? TakePendingStatus()
+    {
+        lock (StatusSync)
+        {
+            var pending = _pendingStatus;
+            _pendingStatus = null;
+            return pending;
+        }
+    }
+
+    private static void ClearPendingStatus()
+    {
+        lock (StatusSync)
+        {
+            _pendingStatus = null;
         }
     }
 
