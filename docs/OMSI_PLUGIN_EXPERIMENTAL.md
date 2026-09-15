@@ -28,9 +28,9 @@ A arquitetura experimental adiciona uma ponte opcional:
 Omsi.exe
    ↕ interface de plugin OMSI
 NavBR.OmsiPlugin
-   ↕ bridge local versionado
+   ↕ Windows Named Pipe local
 NavBR.Client
-   ↕ multiplayer NavBR
+   ↕ SignalR / multiplayer NavBR
 outros jogadores
 ```
 
@@ -67,7 +67,7 @@ src/NavBR.OmsiPluginExperimental/
 Nesta fase o plugin:
 
 - é x86;
-- recebe apenas uma system variable para heartbeat;
+- recebe uma system variable para heartbeat;
 - escreve diagnóstico em log;
 - não altera variáveis;
 - não aciona triggers;
@@ -80,7 +80,7 @@ Log esperado:
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log
 ```
 
-O CI já compila e valida o pacote x86 experimental. A etapa seguinte é validar o carregamento real no OMSI 2.3.004.
+O CI já compila e valida o pacote x86 experimental. Ainda falta validar o carregamento real no OMSI 2.3.004.
 
 Critério de aceite:
 
@@ -92,27 +92,45 @@ Critério de aceite:
 
 ## Fase 1 — bridge local
 
-Depois do teste de carga, criar uma comunicação local entre `NavBR.Client` e o plugin.
+A **alpha.10 em desenvolvimento** já implementa a primeira versão do bridge local entre `NavBR.Client` e o plugin usando **Windows Named Pipes**.
 
-Requisitos:
+Características atuais:
 
-- somente localhost/IPC;
-- protocolo versionado;
+- comunicação somente no computador local;
 - nenhuma porta pública adicional;
-- autenticação/segredo efêmero local ou ACL de processo/usuário;
-- limites de tamanho/frequência;
-- timeouts;
-- desligamento seguro se o cliente desaparecer.
+- pipe restrito ao usuário atual do Windows;
+- protocolo versionado `v1`;
+- handshake `plugin-hello` / `client-hello`;
+- reconexão automática local;
+- limite de tamanho das mensagens;
+- telemetria remota recebida pelo SignalR pode ser encaminhada ao plugin;
+- mensagens de remoção de jogador e limpeza da sala evitam estado remoto fantasma;
+- falha do bridge não derruba a sessão multiplayer;
+- o plugin continua sem aplicar qualquer dado ao OMSI nesta fase.
 
-A preferência inicial é **Windows Named Pipes**, por permitir comunicação local sem abrir uma nova porta de rede.
+Fluxo de diagnóstico atual:
+
+```text
+Jogador remoto
+   ↓ SignalR
+NavBR.Client
+   ↓ mensagem versionada
+Named Pipe local
+   ↓
+NavBR.OmsiPlugin
+   ↓
+navbr-plugin.log
+```
+
+O heartbeat do plugin pode registrar a quantidade de jogadores remotos recebidos e um resumo do último estado remoto.
 
 ## Fase 2 — um veículo remoto de teste
 
-Antes de sincronizar vários jogadores:
+Só depois de validar carga e bridge no OMSI real:
 
 1. selecionar um único jogador remoto;
 2. transmitir um estado mínimo;
-3. criar/associar uma entidade experimental;
+3. investigar criação/associação segura de uma entidade experimental;
 4. aplicar posição e orientação;
 5. remover a entidade ao desconectar;
 6. medir estabilidade e performance.
@@ -129,11 +147,13 @@ Speed
 VehicleCompatibilityId
 ```
 
+O `VehicleCompatibilityId` ainda é futuro. A primeira etapa do bridge já transporta os dados de posição/orientação disponíveis no contrato multiplayer.
+
 ## Fase 3 — suavização dentro do OMSI
 
 A rede não deve mover o ônibus remoto diretamente a cada pacote.
 
-O cliente/plugin deve manter snapshots e usar:
+O cliente/plugin deverá manter snapshots e usar:
 
 - interpolação temporal;
 - limite de extrapolação;
@@ -192,7 +212,10 @@ Regras obrigatórias:
 - ✅ exports/callbacks básicos implementados;
 - ✅ CI compila e valida o pacote do plugin;
 - ✅ artefato experimental de CI é gerado separadamente;
-- 🧪 falta validar o carregamento real no OMSI 2.3.004;
-- ⬜ bridge local NavBR ↔ plugin;
+- ✅ bridge local NavBR ↔ plugin implementado por Named Pipe na alpha.10 em desenvolvimento;
+- ✅ protocolo inclui atualização, remoção e limpeza de estados remotos;
+- ✅ frames remotos do multiplayer são encaminhados ao bridge em modo diagnóstico;
+- 🧪 falta validar carregamento real do plugin no OMSI 2.3.004;
+- 🧪 falta validar handshake e fluxo SignalR → cliente → pipe → plugin em dois PCs;
 - ⬜ criação de uma entidade remota experimental;
 - ⬜ sincronização física dentro do OMSI.
