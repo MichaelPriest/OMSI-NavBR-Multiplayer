@@ -26,7 +26,9 @@ internal static class OmsiRouteSplineGeometryReader
         double Y,
         double RotationDegrees,
         double Length,
-        double Radius);
+        double Radius,
+        string? SplineFilePath,
+        bool Mirrored);
 
     public static IReadOnlyList<OmsiRouteTracePoint> TryBuild(
         OmsiMapInfo map,
@@ -57,7 +59,10 @@ internal static class OmsiRouteSplineGeometryReader
             return Array.Empty<OmsiRouteTracePoint>();
         }
 
+        var omsiRoot = TryGetOmsiRoot(map.DirectoryPath);
         var splineCache = new Dictionary<string, IReadOnlyDictionary<int, SplinePlacement>>(
+            StringComparer.OrdinalIgnoreCase);
+        var pathOffsetCache = new Dictionary<string, IReadOnlyList<double>>(
             StringComparer.OrdinalIgnoreCase);
         var result = new List<OmsiRouteTracePoint>();
 
@@ -71,7 +76,7 @@ internal static class OmsiRouteSplineGeometryReader
 
             if (!splineCache.TryGetValue(tilePath, out var splines))
             {
-                splines = ReadSplines(tilePath);
+                splines = ReadSplines(tilePath, omsiRoot);
                 splineCache[tilePath] = splines;
             }
 
@@ -83,7 +88,8 @@ internal static class OmsiRouteSplineGeometryReader
                 continue;
             }
 
-            var segment = SampleSpline(entry.GridX, entry.GridY, spline);
+            var pathOffset = ResolvePathOffset(spline, entry.PathId, pathOffsetCache);
+            var segment = SampleSpline(entry.GridX, entry.GridY, spline, pathOffset);
             AppendOriented(result, segment, tileSize);
         }
 
@@ -114,9 +120,7 @@ internal static class OmsiRouteSplineGeometryReader
                 continue;
             }
 
-            var normalizedPath = relativePath
-                .Replace('\\', Path.DirectorySeparatorChar)
-                .Replace('/', Path.DirectorySeparatorChar);
+            var normalizedPath = NormalizeFilePath(relativePath);
             var fullPath = Path.IsPathRooted(normalizedPath)
                 ? normalizedPath
                 : Path.Combine(mapDirectory, normalizedPath);
@@ -127,7 +131,9 @@ internal static class OmsiRouteSplineGeometryReader
         return result;
     }
 
-    private static IReadOnlyDictionary<int, SplinePlacement> ReadSplines(string tilePath)
+    private static IReadOnlyDictionary<int, SplinePlacement> ReadSplines(
+        string tilePath,
+        string? omsiRoot)
     {
         var result = new Dictionary<int, SplinePlacement>();
 
@@ -163,7 +169,76 @@ internal static class OmsiRouteSplineGeometryReader
                     continue;
                 }
 
-                result.TryAdd(id, new SplinePlacement(x, y, rotation, length, radius));
+                var splineFilePath = ResolveSplineFile(omsiRoot, lines[i + 2].Trim());
+                var mirrored = IsMirrored(lines, i + 12);
+                result.TryAdd(id, new SplinePlacement(
+                    x,
+                    y,
+                    rotation,
+                    length,
+                    radius,
+                    splineFilePath,
+                    mirrored));
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return result;
+    }
+
+    private static double ResolvePathOffset(
+        SplinePlacement spline,
+        int pathId,
+        Dictionary<string, IReadOnlyList<double>> pathOffsetCache)
+    {
+        if (pathId < 0 ||
+            string.IsNullOrWhiteSpace(spline.SplineFilePath) ||
+            !File.Exists(spline.SplineFilePath))
+        {
+            return 0d;
+        }
+
+        if (!pathOffsetCache.TryGetValue(spline.SplineFilePath, out var offsets))
+        {
+            offsets = ReadPathOffsets(spline.SplineFilePath);
+            pathOffsetCache[spline.SplineFilePath] = offsets;
+        }
+
+        if (pathId >= offsets.Count)
+        {
+            return 0d;
+        }
+
+        var offset = offsets[pathId];
+        return spline.Mirrored ? -offset : offset;
+    }
+
+    private static IReadOnlyList<double> ReadPathOffsets(string splineFilePath)
+    {
+        var result = new List<double>();
+
+        try
+        {
+            var lines = File.ReadAllLines(splineFilePath);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!string.Equals(lines[i].Trim(), "[path]", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // [path] -> type, lateral X, Z, width, direction.
+                // Preserve the list index even when a malformed offset occurs,
+                // because TTR PathId is zero-based against this path list.
+                result.Add(
+                    i + 2 < lines.Length && TryParseDouble(lines[i + 2], out var offset)
+                        ? offset
+                        : 0d);
             }
         }
         catch (IOException)
@@ -179,7 +254,8 @@ internal static class OmsiRouteSplineGeometryReader
     private static List<OmsiRouteTracePoint> SampleSpline(
         int gridX,
         int gridY,
-        SplinePlacement spline)
+        SplinePlacement spline,
+        double pathOffset)
     {
         var sampleCount = Math.Clamp(
             (int)Math.Ceiling(spline.Length / SampleSpacingMeters),
@@ -200,12 +276,13 @@ internal static class OmsiRouteSplineGeometryReader
             if (Math.Abs(spline.Radius) > 0.001d)
             {
                 var angle = distance / spline.Radius;
-                localX = spline.Radius * (1d - Math.Cos(angle));
-                localY = spline.Radius * Math.Sin(angle);
+                var radiusFromCurveCentre = pathOffset - spline.Radius;
+                localX = radiusFromCurveCentre * Math.Cos(angle) + spline.Radius;
+                localY = -radiusFromCurveCentre * Math.Sin(angle);
             }
             else
             {
-                localX = 0d;
+                localX = pathOffset;
                 localY = distance;
             }
 
@@ -265,6 +342,69 @@ internal static class OmsiRouteSplineGeometryReader
         var dy = leftY - rightY;
         return dx * dx + dy * dy;
     }
+
+    private static string? TryGetOmsiRoot(string mapDirectory)
+    {
+        try
+        {
+            var mapsDirectory = Directory.GetParent(mapDirectory);
+            return mapsDirectory?.Parent?.FullName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveSplineFile(string? omsiRoot, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var normalizedPath = NormalizeFilePath(relativePath);
+            if (Path.IsPathRooted(normalizedPath))
+            {
+                return normalizedPath;
+            }
+
+            return string.IsNullOrWhiteSpace(omsiRoot)
+                ? null
+                : Path.GetFullPath(Path.Combine(omsiRoot, normalizedPath));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsMirrored(string[] lines, int startIndex)
+    {
+        var endIndex = Math.Min(lines.Length, startIndex + 20);
+        for (var i = startIndex; i < endIndex; i++)
+        {
+            var value = lines[i].Trim();
+            if (value.StartsWith('[', StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            if (string.Equals(value, "mirror", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizeFilePath(string value) =>
+        value
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
 
     private static bool TryParseDouble(string value, out double result) =>
         double.TryParse(
