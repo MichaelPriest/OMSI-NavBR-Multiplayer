@@ -45,8 +45,8 @@ function formatDate(date) {
 function summarizeBody(body = '') {
   const clean = body
     .replace(/#+\s*/g, '')
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
     .replace(/!\[(.*?)\]\(.*?\)/g, '')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
     .replace(/\*+/g, '')
     .replace(/\s+/g, ' ')
     .trim();
