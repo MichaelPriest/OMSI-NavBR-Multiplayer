@@ -43,8 +43,39 @@ jobs:
       - name: Build server
         run: dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
 
+      - name: Build experimental OMSI plugin x86
+        run: >-
+          dotnet build src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj
+          -c Release
+          -r win-x86
+          --no-restore
+          -o artifacts/NavBR.OmsiPlugin.Experimental
+
+      - name: Prepare embedded OMSI plugin payload
+        shell: pwsh
+        run: >-
+          .\scripts\prepare-embedded-plugin.ps1
+          -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental"
+          -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
       - name: Build client
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release --no-restore
+
+      - name: Validate embedded plugin resource
+        shell: pwsh
+        run: |
+          $assembly = Get-ChildItem "src/NavBR.Client/bin/Release" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" | Select-Object -First 1
+          if (-not $assembly) {
+            throw "NavBR client assembly was not found after build."
+          }
+
+          $loaded = [System.Reflection.Assembly]::LoadFrom($assembly.FullName)
+          $resource = $loaded.GetManifestResourceNames() | Where-Object { $_ -eq "NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip" }
+          if (-not $resource) {
+            throw "Standalone client assembly does not contain the embedded OMSI plugin package."
+          }
+
+          Write-Host "Embedded OMSI plugin resource validated in $($assembly.FullName)."
 
       - name: Smoke-test plugin bridge handshake and status
         shell: pwsh
@@ -61,14 +92,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Plugin bridge smoke test failed with exit code $LASTEXITCODE"
           }
-
-      - name: Build experimental OMSI plugin x86
-        run: >-
-          dotnet build src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj
-          -c Release
-          -r win-x86
-          --no-restore
-          -o artifacts/NavBR.OmsiPlugin.Experimental
 
       - name: Validate experimental OMSI plugin package
         shell: pwsh
@@ -237,7 +260,8 @@ jobs:
             "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
             ""
             "NAO E UMA RELEASE OFICIAL."
-            "Use LEIA-ME-TESTE-ALPHA10.md antes de instalar o plugin."
+            "O EXE agora contem o pacote do plugin para instalacao/atualizacao pelo proprio aplicativo."
+            "A pasta Plugin permanece no bundle somente como fallback tecnico."
           ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
 
           foreach ($required in @(
@@ -245,9 +269,7 @@ jobs:
             (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md"),
             (Join-Path $bundle "BUILD-INFO.txt"),
             (Join-Path $pluginBundle "NavBR.OmsiPlugin.dll"),
-            (Join-Path $pluginBundle "NavBR.OmsiPlugin.opl"),
-            (Join-Path $pluginBundle "Install-NavBROmsiPlugin.ps1"),
-            (Join-Path $pluginBundle "Remove-NavBROmsiPlugin.ps1")
+            (Join-Path $pluginBundle "NavBR.OmsiPlugin.opl")
           )) {
             if (-not (Test-Path $required)) {
               throw "Alpha.10 integration test bundle is incomplete: $required"
