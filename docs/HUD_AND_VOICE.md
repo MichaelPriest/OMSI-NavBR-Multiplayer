@@ -2,7 +2,7 @@
 
 ## Interface em jogo
 
-O HUD do NavBR é uma sobreposição WPF transparente sobre a janela do OMSI. A interface atual usa uma barra superior translúcida moderna e módulos separados para navegação, dados da linha, chat e voz.
+O HUD do NavBR é uma sobreposição WPF transparente sobre a janela do OMSI. A interface da alpha.11 usa uma barra superior translúcida moderna e módulos separados para navegação, dados da linha, painel do ônibus, chat e voz.
 
 Estrutura atual:
 
@@ -13,10 +13,12 @@ Estrutura atual:
 │ LINHA 287   Destino: ...   Próxima parada: ...     ↗ Em 60 m ...    │
 │                                                                       │
 │ ┌──────────── GPS heading-up ────────────┐                            │
-│ │ mapa + rota giram                      │                            │
+│ │ mapa + rota + pontos de parada giram   │                            │
+│ │       H     H       H                  │                            │
 │ │               ▲                       │                            │
 │ │        ônibus sempre para cima         │                            │
 │ └────────────────────────────────────────┘                            │
+│ painel do ônibus: velocidade / pedais / portas / luzes               │
 │ chat recebido                                                        │
 │ Jogador: mensagem                                                     │
 │ [CHAT] digitando...                                                   │
@@ -39,14 +41,57 @@ O HUD continua click-through durante a condução normal.
 
 ## GPS heading-up
 
-O módulo de navegação agora segue o comportamento típico de GPS automotivo:
+O módulo de navegação segue o comportamento típico de GPS automotivo:
 
 - o marcador do ônibus local permanece centralizado e sempre apontando para cima;
-- o roadmap, a rota e os jogadores remotos giram em sentido contrário ao heading do ônibus;
+- o roadmap, a rota, os pontos de parada e os jogadores remotos giram em sentido contrário ao heading do ônibus;
 - o zoom dinâmico continua disponível, inclusive ajuste manual até 10x no modo de edição;
-- linha, destino e próxima parada ficam fora da área do mapa para não esconder a navegação.
+- linha, destino e próxima parada ficam fora da área do mapa para não esconder a navegação;
+- o bloco legado `NAVBR DRIVE` não faz parte da interface final da alpha.11;
+- o marcador local foi compactado para não cobrir a rota nem as paradas próximas.
 
 Quando existe geometria de rota detalhada e contínua, o HUD pode mostrar uma indicação de manobra com seta e distância aproximada. O NavBR não inventa instruções quando só existe geometria grosseira por centro de tile: se os segmentos forem grandes demais, a seta é ocultada.
+
+## Pontos de parada no HUD
+
+A alpha.11 lê as paradas funcionais diretamente das tiles `.map` do mapa instalado. Como referência de formato foi estudado o comportamento público do OMSI RouteAdvisor, mas o parser do NavBR é uma implementação própria.
+
+Comportamento previsto/implementado:
+
+- localizar objetos funcionais de parada, incluindo o padrão `Sceneryobjects\Generic\bus_stop.sco` e variantes compatíveis;
+- converter a posição local da parada para o mesmo sistema do roadmap;
+- mostrar apenas marcadores próximos/visíveis no GPS para evitar poluição visual;
+- manter o símbolo da parada legível enquanto o mapa gira;
+- destacar a próxima parada usando o nome recebido pela telemetria e a parada compatível mais próxima;
+- manter o texto de próxima parada também no painel superior de viagem.
+
+### Ícone de parada
+
+O modo padrão é **OMSI**, representado no HUD pelo símbolo clássico de parada `H`, mantendo a aparência familiar do simulador sem redistribuir assets proprietários do jogo.
+
+O usuário pode trocar o visual em tempo de execução:
+
+- **Padrão OMSI** — símbolo clássico `H`;
+- **Minimalista** — marcador simples para quem prefere menos informação visual;
+- **Personalizado** — arquivo PNG, JPG/JPEG ou BMP escolhido pelo usuário.
+
+A escolha é persistida em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\multiplayer.json`. Se o arquivo personalizado deixar de existir ou não puder ser lido, o HUD volta de forma segura ao visual padrão OMSI em vez de quebrar o GPS.
+
+A próxima parada recebe destaque visual maior e glow laranja, independentemente do estilo selecionado.
+
+## Painel do ônibus
+
+O painel do ônibus é independente do GPS e pode ficar abaixo dele ou ser movido pelo usuário. Ele suporta:
+
+- arrastar e salvar posição;
+- resetar posição;
+- aumentar/diminuir escala;
+- ajustar transparência;
+- ativar/desativar o painel;
+- ativar/desativar combustível, pedais e indicadores;
+- velocidade, aceleração, combustível, acelerador, freio, portas, setas, luzes, freio de estacionamento, ré e limpador quando a telemetria correspondente for válida.
+
+Valores inválidos ou não disponíveis não devem ser inventados: o módulo mostra estado indisponível e mantém a leitura defensiva.
 
 ## Chat em jogo
 
@@ -119,4 +164,5 @@ Os frames Opus usam SignalR/WebSocket nesta fase. A implementação prioriza sim
 - cancelamento de eco, redução de ruído e controle automático de ganho são recursos posteriores;
 - qualidade e consumo de banda precisam de testes com jogadores em redes reais;
 - as setas de manobra dependem de geometria suficientemente detalhada; o NavBR prefere não mostrar seta a apresentar uma orientação falsa;
+- mapas que implementem parada funcional com uma estrutura totalmente diferente do objeto OMSI conhecido podem exigir um perfil/parser adicional;
 - o HUD e o GPS mostram jogadores remotos no NavBR, mas ainda não criam ônibus físicos remotos dentro do mundo 3D do OMSI.
