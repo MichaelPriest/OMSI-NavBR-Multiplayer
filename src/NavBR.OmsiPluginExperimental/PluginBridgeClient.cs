@@ -1,3 +1,4 @@
+using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -7,36 +8,15 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class PluginBridgeClient
 {
-    private static readonly object StateSync = new();
-    private static readonly Dictionary<string, PluginBridgeMessage> RemoteStates =
-        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly RemoteVehicleRegistry RemoteVehicles = new();
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
-    private static PluginBridgeMessage? _latestRemoteState;
     private static Action<string>? _log;
 
-    public static PluginBridgeMessage? LatestRemoteState
-    {
-        get
-        {
-            lock (StateSync)
-            {
-                return _latestRemoteState;
-            }
-        }
-    }
+    public static PluginBridgeMessage? LatestRemoteState => RemoteVehicles.Latest;
 
-    public static int RemoteVehicleCount
-    {
-        get
-        {
-            lock (StateSync)
-            {
-                return RemoteStates.Count;
-            }
-        }
-    }
+    public static int RemoteVehicleCount => RemoteVehicles.Count;
 
     public static void Start(Action<string> log)
     {
@@ -55,8 +35,10 @@ internal static class PluginBridgeClient
         _lifetimeCts?.Cancel();
         _lifetimeCts = null;
         _loopTask = null;
-        ClearRemoteStates();
+        RemoteVehicles.Clear();
     }
+
+    public static int PruneStaleRemoteStates() => RemoteVehicles.PruneStale();
 
     private static async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -126,7 +108,7 @@ internal static class PluginBridgeClient
                     ApplyMessage(message);
                 }
 
-                ClearRemoteStates();
+                RemoteVehicles.Clear();
                 Log("bridge desconectado");
             }
             catch (TimeoutException)
@@ -139,17 +121,17 @@ internal static class PluginBridgeClient
             }
             catch (IOException ex)
             {
-                ClearRemoteStates();
+                RemoteVehicles.Clear();
                 Log($"bridge io: {ex.Message}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                ClearRemoteStates();
+                RemoteVehicles.Clear();
                 Log($"bridge acesso negado: {ex.Message}");
             }
             catch (Exception ex)
             {
-                ClearRemoteStates();
+                RemoteVehicles.Clear();
                 Log($"bridge erro: {ex.GetType().Name}: {ex.Message}");
             }
 
@@ -161,49 +143,19 @@ internal static class PluginBridgeClient
     {
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal))
         {
-            ClearRemoteStates();
+            RemoteVehicles.Clear();
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(message.PlayerId))
+        if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
+            RemoteVehicles.Remove(message.PlayerId);
             return;
         }
 
-        lock (StateSync)
+        if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
-            if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
-            {
-                RemoteStates.Remove(message.PlayerId);
-                if (string.Equals(
-                        _latestRemoteState?.PlayerId,
-                        message.PlayerId,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    _latestRemoteState = RemoteStates.Values
-                        .OrderByDescending(state => state.TimestampUnixMilliseconds ?? 0L)
-                        .FirstOrDefault();
-                }
-
-                return;
-            }
-
-            if (!string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            RemoteStates[message.PlayerId] = message;
-            _latestRemoteState = message;
-        }
-    }
-
-    private static void ClearRemoteStates()
-    {
-        lock (StateSync)
-        {
-            RemoteStates.Clear();
-            _latestRemoteState = null;
+            RemoteVehicles.Upsert(message);
         }
     }
 
