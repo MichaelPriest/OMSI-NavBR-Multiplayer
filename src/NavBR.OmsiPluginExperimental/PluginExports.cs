@@ -20,11 +20,13 @@ public static class PluginExports
     public static void PluginStart(IntPtr owner)
     {
         Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture}");
+        PluginBridgeClient.Start(Log);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(PluginFinalize))]
     public static void PluginFinalize()
     {
+        PluginBridgeClient.Stop();
         Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
     }
 
@@ -34,7 +36,7 @@ public static class PluginExports
         [C99Type("float*")] IntPtr value,
         [C99Type("__crt_bool*")] IntPtr writeValue)
     {
-        // Fase 0 do protótipo: nenhum valor local do veículo é solicitado ou alterado.
+        // O bridge pode receber estado remoto, mas esta fase ainda não escreve no OMSI.
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(AccessTrigger))]
@@ -42,7 +44,7 @@ public static class PluginExports
         ushort triggerIndex,
         [C99Type("__crt_bool*")] IntPtr triggerScript)
     {
-        // Fase 0 do protótipo: nenhum trigger do OMSI é acionado.
+        // Nenhum trigger do OMSI é acionado nesta fase.
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(AccessStringVariable))]
@@ -83,7 +85,12 @@ public static class PluginExports
             }
         }
 
-        Log($"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
+        var remote = PluginBridgeClient.LatestRemoteState;
+        var remoteSummary = remote is null
+            ? "remote=none"
+            : $"remote={remote.PlayerId} map={remote.MapName ?? "-"} pos=({remote.X:F2},{remote.Y:F2},{remote.Z:F2}) heading={remote.HeadingDegrees:F1} speed={remote.SpeedKph:F1}";
+
+        Log($"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} callbacks={Interlocked.Read(ref _systemVariableCallbacks)} {remoteSummary}");
     }
 
     private static void Log(string message)
