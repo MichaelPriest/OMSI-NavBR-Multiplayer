@@ -11,9 +11,9 @@ const fallbackRelease = {
 };
 
 const alpha10IntegrationTest = {
-  tag: 'v0.3.0-alpha.10-test.3',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.3`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-alpha10-test.3-integration-win-x86.zip`
+  tag: 'v0.3.0-alpha.10-test.4',
+  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.4`,
+  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-alpha10-test.4-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
@@ -173,7 +173,7 @@ function setupAlpha10IntegrationTest() {
       <h2>${escapeHtml(alpha10IntegrationTest.tag)} disponível</h2>
     </div>
     <div>
-      <p><strong>Use o pacote integrado para testar o plugin.</strong> Ele reúne o cliente standalone, a pasta completa do plugin, instalador/removedor, checklist e identificação do build. Esta prerelease é permanente no GitHub e não substitui a alpha.9 como download normal.</p>
+      <p><strong>Use o pacote integrado para testar a nova interface e o plugin.</strong> A test.4 inclui novo ícone, barra translúcida no jogo, GPS heading-up, informações de linha/parada fora do mapa, setas de manobra, chat acoplado, mais atalhos e log automático. Esta prerelease é permanente e não substitui a alpha.9 como download normal.</p>
       <div class="actions">
         <a class="button primary" href="${escapeHtml(alpha10IntegrationTest.bundleUrl)}" target="_blank" rel="noreferrer">Baixar pacote integrado de teste</a>
         <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.releaseUrl)}" target="_blank" rel="noreferrer">Abrir prerelease de teste</a>
@@ -182,7 +182,7 @@ function setupAlpha10IntegrationTest() {
 
   document.querySelectorAll('.trust-grid b').forEach(element => {
     if (/alpha\.10-test\.\d+/i.test(element.textContent || '')) {
-      element.textContent = 'alpha.10-test.3';
+      element.textContent = 'alpha.10-test.4';
     }
   });
 }
