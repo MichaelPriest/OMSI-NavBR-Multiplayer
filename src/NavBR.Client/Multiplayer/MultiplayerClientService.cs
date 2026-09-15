@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -153,7 +154,11 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         connection.On<PlayerPresence>("playerJoined", player => PlayerJoined?.Invoke(player));
         connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
         connection.On<string>("playerLeft", playerId => PlayerLeft?.Invoke(playerId));
-        connection.On<PlayerTelemetryFrame>("telemetry", frame => TelemetryReceived?.Invoke(frame));
+        connection.On<PlayerTelemetryFrame>("telemetry", frame =>
+        {
+            TelemetryReceived?.Invoke(frame);
+            _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
+        });
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
