@@ -10,12 +10,14 @@ internal sealed class RoadmapStudioWindow : Window
 {
     private readonly Func<IReadOnlyList<OmsiMapInfo>> _mapProvider;
     private readonly OmsiRoadmapGeneratorService _generator = new();
+    private readonly OmsiRoadmapVectorGeneratorService _vectorGenerator = new();
 
     private readonly ComboBox _mapCombo = new();
     private readonly TextBlock _analysisText = new();
     private readonly ProgressBar _progress = new();
     private readonly Button _analyzeButton = new();
     private readonly Button _generateButton = new();
+    private readonly Button _vectorButton = new();
     private readonly Button _openFolderButton = new();
     private readonly Image _preview = new();
 
@@ -26,10 +28,10 @@ internal sealed class RoadmapStudioWindow : Window
     {
         _mapProvider = mapProvider;
         Title = "NavBR Roadmap Studio • Alpha.11";
-        Width = 980;
-        Height = 720;
-        MinWidth = 760;
-        MinHeight = 560;
+        Width = 1040;
+        Height = 740;
+        MinWidth = 800;
+        MinHeight = 580;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = new SolidColorBrush(Color.FromRgb(5, 9, 13));
         Foreground = Brushes.White;
@@ -55,7 +57,7 @@ internal sealed class RoadmapStudioWindow : Window
         });
         title.Children.Add(new TextBlock
         {
-            Text = "Monte whole.roadmap.bmp sem abrir o OMSI Editor. O primeiro modo combina automaticamente roadmaps por tile e cria backup do arquivo anterior.",
+            Text = "Gere whole.roadmap.bmp sem abrir o OMSI Editor. Use imagens por tile quando existirem ou o modo Vetorial para desenhar a rede diretamente das splines do mapa.",
             Margin = new Thickness(0, 6, 0, 0),
             Foreground = new SolidColorBrush(Color.FromRgb(155, 173, 187)),
             TextWrapping = TextWrapping.Wrap
@@ -85,11 +87,17 @@ internal sealed class RoadmapStudioWindow : Window
         _analyzeButton.Click += (_, _) => AnalyzeSelectedMap();
         actions.Children.Add(_analyzeButton);
 
-        _generateButton.Content = "Gerar whole.roadmap.bmp";
+        _generateButton.Content = "Montar pelas imagens de tile";
         ConfigureButton(_generateButton, primary: true);
         _generateButton.Margin = new Thickness(8, 0, 0, 0);
         _generateButton.Click += async (_, _) => await GenerateAsync();
         actions.Children.Add(_generateButton);
+
+        _vectorButton.Content = "Gerar vetorial pelas splines";
+        ConfigureButton(_vectorButton);
+        _vectorButton.Margin = new Thickness(8, 0, 0, 0);
+        _vectorButton.Click += async (_, _) => await GenerateVectorAsync();
+        actions.Children.Add(_vectorButton);
 
         _openFolderButton.Content = "Abrir pasta do roadmap";
         ConfigureButton(_openFolderButton);
@@ -154,9 +162,10 @@ internal sealed class RoadmapStudioWindow : Window
         _mapCombo.ItemsSource = maps;
         _mapCombo.SelectedIndex = maps.Length > 0 ? 0 : -1;
         _analysisText.Text = maps.Length > 0
-            ? $"{maps.Length} mapa(s) disponível(is). Selecione um mapa e clique em Analisar tiles."
+            ? $"{maps.Length} mapa(s) disponível(is). Selecione um mapa. O modo por tiles preserva o visual do Editor; o Vetorial não precisa de roadmap prévio."
             : "Nenhum mapa foi catalogado ainda. Inicie/detecte o OMSI e tente novamente.";
         _generateButton.IsEnabled = false;
+        _vectorButton.IsEnabled = maps.Length > 0;
         _openFolderButton.IsEnabled = false;
     }
 
@@ -165,11 +174,15 @@ internal sealed class RoadmapStudioWindow : Window
         _selectedMap = _mapCombo.SelectedItem as OmsiMapInfo;
         _analysis = null;
         _generateButton.IsEnabled = false;
+        _vectorButton.IsEnabled = _selectedMap is not null;
         _openFolderButton.IsEnabled = _selectedMap is not null;
         _preview.Source = null;
         if (_selectedMap is not null)
         {
-            _analysisText.Text = $"Mapa: {_selectedMap.DisplayName}\nPasta: {_selectedMap.DirectoryPath}";
+            _analysisText.Text =
+                $"Mapa: {_selectedMap.DisplayName}\n" +
+                $"Pasta: {_selectedMap.DirectoryPath}\n" +
+                "Escolha Analisar tiles ou gere diretamente um roadmap vetorial pelas splines.";
         }
     }
 
@@ -188,8 +201,9 @@ internal sealed class RoadmapStudioWindow : Window
                 _analysisText.Text =
                     $"Mapa: {_selectedMap.DisplayName}\n" +
                     "Nenhum arquivo tile_X_Y.map.roadmap.bmp foi encontrado.\n" +
-                    "O modo Vetorial (geração direta a partir de splines/paths) será o segundo modo do Roadmap Studio.";
+                    "Use 'Gerar vetorial pelas splines' para criar um fundo navegável sem OMSI Editor.";
                 _generateButton.IsEnabled = false;
+                _vectorButton.IsEnabled = true;
                 TryLoadPreview(_analysis.OutputPath);
                 return;
             }
@@ -203,12 +217,14 @@ internal sealed class RoadmapStudioWindow : Window
                 $"Posições sem imagem: {_analysis.MissingTileImages}\n" +
                 $"whole.roadmap.bmp existente: {(_analysis.ExistingWholeRoadmap ? "SIM — será feito backup" : "NÃO")}";
             _generateButton.IsEnabled = true;
+            _vectorButton.IsEnabled = true;
             TryLoadPreview(_analysis.OutputPath);
         }
         catch (Exception ex)
         {
             _analysisText.Text = $"Falha na análise: {ex.Message}";
             _generateButton.IsEnabled = false;
+            _vectorButton.IsEnabled = _selectedMap is not null;
         }
     }
 
@@ -219,20 +235,13 @@ internal sealed class RoadmapStudioWindow : Window
             return;
         }
 
-        _generateButton.IsEnabled = false;
-        _analyzeButton.IsEnabled = false;
-        _progress.Visibility = Visibility.Visible;
-        _progress.Value = 0;
-
+        SetBusy(true);
         try
         {
-            var progress = new Progress<double>(value =>
-            {
-                _progress.Value = Math.Clamp(value * 100d, 0d, 100d);
-            });
+            var progress = NewProgressReporter();
             var result = await _generator.BuildFromTileRoadmapsAsync(_selectedMap, progress);
             _analysisText.Text =
-                $"GERADO COM SUCESSO\n" +
+                $"ROADMAP POR TILES GERADO COM SUCESSO\n" +
                 $"Arquivo: {result.OutputPath}\n" +
                 $"Dimensão: {result.PixelWidth}x{result.PixelHeight} px\n" +
                 $"Tiles usados: {result.TileImagesUsed} | vazios: {result.MissingTileImages}\n" +
@@ -244,13 +253,64 @@ internal sealed class RoadmapStudioWindow : Window
         }
         catch (Exception ex)
         {
-            _analysisText.Text = $"Falha ao gerar roadmap: {ex.Message}";
+            _analysisText.Text = $"Falha ao gerar roadmap por tiles: {ex.Message}";
         }
         finally
         {
-            _progress.Visibility = Visibility.Collapsed;
-            _analyzeButton.IsEnabled = true;
-            _generateButton.IsEnabled = _analysis?.CanBuild == true;
+            SetBusy(false);
+        }
+    }
+
+    private async Task GenerateVectorAsync()
+    {
+        if (_selectedMap is null)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            var progress = NewProgressReporter();
+            var result = await _vectorGenerator.BuildAsync(_selectedMap, progress);
+            _analysisText.Text =
+                $"ROADMAP VETORIAL GERADO COM SUCESSO\n" +
+                $"Arquivo: {result.OutputPath}\n" +
+                $"Dimensão: {result.PixelWidth}x{result.PixelHeight} px\n" +
+                $"Tiles lidos: {result.TileFilesRead}\n" +
+                $"Splines desenhadas: {result.SplinesDrawn}\n" +
+                $"Tempo: {result.Elapsed.TotalSeconds:F1}s\n" +
+                (result.BackupPath is null ? "Backup: não necessário" : $"Backup: {result.BackupPath}") +
+                "\nFonte: global.cfg + tile .map [spline]/[spline_h].";
+            TryLoadPreview(result.OutputPath);
+            _analysis = _generator.Analyze(_selectedMap);
+        }
+        catch (Exception ex)
+        {
+            _analysisText.Text = $"Falha ao gerar roadmap vetorial: {ex.Message}";
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private Progress<double> NewProgressReporter() => new(value =>
+    {
+        _progress.Value = Math.Clamp(value * 100d, 0d, 100d);
+    });
+
+    private void SetBusy(bool busy)
+    {
+        _analyzeButton.IsEnabled = !busy;
+        _generateButton.IsEnabled = !busy && _analysis?.CanBuild == true;
+        _vectorButton.IsEnabled = !busy && _selectedMap is not null;
+        _openFolderButton.IsEnabled = !busy && _selectedMap is not null;
+        _mapCombo.IsEnabled = !busy;
+        _progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        if (busy)
+        {
+            _progress.Value = 0d;
         }
     }
 
