@@ -36,6 +36,7 @@ public partial class HudOverlayWindow
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
 
+        // Start hidden and only show when the primary OMSI gameplay window is active.
         OverlayRoot.Visibility = Visibility.Collapsed;
         _hudVisibleForOmsi = false;
 
