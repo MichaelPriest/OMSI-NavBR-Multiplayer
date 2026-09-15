@@ -57,6 +57,7 @@ internal static class Alpha11ShellUiInstaller
         panel.Children.Add(footer);
 
         var body = new StackPanel();
+        body.LayoutUpdated += (_, _) => NormalizeSidebarButtons(body);
         panel.Children.Add(body);
 
         body.Children.Add(BuildBrand());
@@ -72,10 +73,7 @@ internal static class Alpha11ShellUiInstaller
         body.Children.Add(toolsPanel);
 
         MoveToPanel(window.MultiplayerButton, body);
-        window.MultiplayerButton.Margin = new Thickness(0d, 0d, 0d, 7d);
-        window.MultiplayerButton.MinWidth = 0d;
-        window.MultiplayerButton.HorizontalContentAlignment = HorizontalAlignment.Left;
-        window.MultiplayerButton.Padding = new Thickness(13d, 8d, 13d, 8d);
+        NormalizeButton(window.MultiplayerButton);
 
         return new Border
         {
@@ -121,7 +119,7 @@ internal static class Alpha11ShellUiInstaller
 
         var trayButton = NewNavigationButton("—  Minimizar para bandeja", () =>
         {
-            if (Application.Current is App app)
+            if (System.Windows.Application.Current is App app)
             {
                 app.TrayIcon.HideMainWindow();
             }
@@ -145,41 +143,63 @@ internal static class Alpha11ShellUiInstaller
 
     private static Button NewNavigationButton(string text, Action action)
     {
-        var button = new Button
-        {
-            Content = text,
-            Height = 41d,
-            Margin = new Thickness(0d, 0d, 0d, 7d),
-            Padding = new Thickness(13d, 8d, 13d, 8d),
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = new SolidColorBrush(Color.FromRgb(11, 21, 29)),
-            Foreground = new SolidColorBrush(Color.FromRgb(221, 232, 242)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(32, 48, 62)),
-            BorderThickness = new Thickness(1d),
-            FontSize = 13d,
-            Cursor = System.Windows.Input.Cursors.Hand
-        };
+        var button = new Button { Content = text };
+        NormalizeButton(button);
         button.Click += (_, _) => action();
         return button;
     }
 
     internal static Button CreateToolButton(string text, string tooltip)
     {
-        return new Button
+        var button = new Button
         {
             Content = text,
-            ToolTip = tooltip,
-            Height = 41d,
-            Margin = new Thickness(0d, 0d, 0d, 7d),
-            Padding = new Thickness(13d, 8d, 13d, 8d),
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = new SolidColorBrush(Color.FromRgb(11, 21, 29)),
-            Foreground = new SolidColorBrush(Color.FromRgb(221, 232, 242)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(32, 48, 62)),
-            BorderThickness = new Thickness(1d),
-            FontSize = 13d,
-            Cursor = System.Windows.Input.Cursors.Hand
+            ToolTip = tooltip
         };
+        NormalizeButton(button);
+        return button;
+    }
+
+    private static void NormalizeSidebarButtons(Panel root)
+    {
+        foreach (var button in EnumerateButtons(root))
+        {
+            NormalizeButton(button);
+        }
+    }
+
+    private static IEnumerable<Button> EnumerateButtons(DependencyObject root)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is Button button)
+            {
+                yield return button;
+            }
+
+            foreach (var descendant in EnumerateButtons(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static void NormalizeButton(Button button)
+    {
+        button.Height = 41d;
+        button.MinWidth = 0d;
+        button.Margin = new Thickness(0d, 0d, 0d, 7d);
+        button.Padding = new Thickness(13d, 8d, 13d, 8d);
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        button.HorizontalContentAlignment = HorizontalAlignment.Left;
+        button.VerticalAlignment = VerticalAlignment.Center;
+        button.Background = new SolidColorBrush(Color.FromRgb(11, 21, 29));
+        button.Foreground = new SolidColorBrush(Color.FromRgb(221, 232, 242));
+        button.BorderBrush = new SolidColorBrush(Color.FromRgb(32, 48, 62));
+        button.BorderThickness = new Thickness(1d);
+        button.FontSize = 13d;
+        button.Cursor = System.Windows.Input.Cursors.Hand;
     }
 
     private static TextBlock BuildSectionLabel(string text) => new()
