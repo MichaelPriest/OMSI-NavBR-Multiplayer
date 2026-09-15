@@ -16,6 +16,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     private int? _pluginProcessId;
     private string? _pluginComponentVersion;
     private DateTimeOffset? _connectedAtUtc;
+    private PluginBridgeMessage? _lastPluginStatus;
 
     public bool IsConnected
     {
@@ -36,7 +37,8 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _writer is not null,
                 _pluginProcessId,
                 _pluginComponentVersion,
-                _connectedAtUtc);
+                _connectedAtUtc,
+                _lastPluginStatus);
         }
     }
 
@@ -161,8 +163,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                             break;
                         }
 
-                        // Phase 1 only needs to keep the duplex channel alive.
-                        // Future plugin acknowledgements/diagnostics can be handled here.
+                        HandlePluginMessage(writer, line);
                     }
                 }
                 finally
@@ -182,6 +183,33 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             {
                 await DelayBeforeRetryAsync(cancellationToken);
             }
+        }
+    }
+
+    private void HandlePluginMessage(StreamWriter writer, string line)
+    {
+        if (!TryParseMessage(line, out var message) ||
+            message is null ||
+            message.ProtocolVersion != PluginBridgeProtocol.Version ||
+            !string.Equals(message.Type, PluginBridgeProtocol.PluginStatus, StringComparison.Ordinal) ||
+            message.TimestampUnixMilliseconds is null ||
+            message.SystemVariableCallbacks is < 0 ||
+            message.RemoteVehicleCount is < 0 ||
+            message.CompatibleRemoteVehicleCount is < 0 ||
+            message.StaleRemovedCount is < 0)
+        {
+            return;
+        }
+
+        lock (_connectionSync)
+        {
+            if (!ReferenceEquals(_writer, writer) ||
+                _pluginProcessId is int expectedPid && message.ProcessId != expectedPid)
+            {
+                return;
+            }
+
+            _lastPluginStatus = message;
         }
     }
 
@@ -221,6 +249,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             _pluginProcessId = pluginProcessId;
             _pluginComponentVersion = pluginComponentVersion;
             _connectedAtUtc = DateTimeOffset.UtcNow;
+            _lastPluginStatus = null;
         }
 
         ConnectionStateChanged?.Invoke(true);
@@ -237,6 +266,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _pluginProcessId = null;
                 _pluginComponentVersion = null;
                 _connectedAtUtc = null;
+                _lastPluginStatus = null;
                 changed = true;
             }
         }
@@ -282,4 +312,5 @@ public sealed record OmsiPluginBridgeConnectionInfo(
     bool IsConnected,
     int? PluginProcessId,
     string? PluginComponentVersion,
-    DateTimeOffset? ConnectedAtUtc);
+    DateTimeOffset? ConnectedAtUtc,
+    PluginBridgeMessage? LastStatus);
