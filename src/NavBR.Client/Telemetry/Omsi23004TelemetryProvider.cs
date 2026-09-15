@@ -123,7 +123,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             string? line = null;
             string? route = null;
-            TryReadActiveTrip(memory, vehicleAddress, out line, out route);
+            string? nextStopName = null;
+            TryReadActiveTrip(memory, vehicleAddress, out line, out route, out nextStopName);
 
             LastErrorCode = TelemetryErrorCode.None;
             return new VehicleTelemetry(
@@ -142,7 +143,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 GridX: gridX,
                 GridY: gridY,
                 TileX: tileX,
-                TileY: tileY);
+                TileY: tileY,
+                NextStopName: nextStopName);
         }
         catch (ArgumentException)
         {
@@ -200,10 +202,12 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         ReadOnlyProcessMemory memory,
         nint vehicleAddress,
         out string? line,
-        out string? route)
+        out string? route,
+        out string? nextStopName)
     {
         line = null;
         route = null;
+        nextStopName = null;
 
         try
         {
@@ -213,6 +217,16 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             {
                 return false;
             }
+
+            // The scheduled next-stop name is stored directly on TRVInst.
+            // OMSI versions/addons can expose it as Unicode or ANSI, so use a
+            // defensive read-only fallback without making trip detection fail.
+            nextStopName = memory.ReadNullTerminatedUnicodeStringField(
+                               nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
+                               maxCharacters: 128)
+                           ?? memory.ReadNullTerminatedAnsiStringField(
+                               nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
+                               maxCharacters: 128);
 
             var tripIndex = memory.ReadInt32(nint.Add(
                 vehicleAddress,
@@ -269,12 +283,15 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 Omsi23004MemoryProfile.TripTargetOffset));
 
             route = !string.IsNullOrWhiteSpace(trackName) ? trackName : target;
-            return !string.IsNullOrWhiteSpace(line) || !string.IsNullOrWhiteSpace(route);
+            return !string.IsNullOrWhiteSpace(line) ||
+                   !string.IsNullOrWhiteSpace(route) ||
+                   !string.IsNullOrWhiteSpace(nextStopName);
         }
         catch
         {
             line = null;
             route = null;
+            nextStopName = null;
             return false;
         }
     }
