@@ -21,8 +21,7 @@
         <Border x:Name="GameInputBlocker"
                 Panel.ZIndex="900"
                 Background="#01000000"
-                Visibility="Collapsed"
-                PreviewMouseDown="GameInputBlocker_PreviewMouseDown" />
+                Visibility="{Binding ElementName=ChatInputPanel, Path=Visibility}" />
 
         <StackPanel x:Name="HudDock"
                     Panel.ZIndex="1000"
@@ -69,7 +68,6 @@
                 </DockPanel>
             </Border>
 
-            <!-- Barra superior translúcida de operação -->
             <Border Width="680"
                     HorizontalAlignment="Left"
                     Margin="0,0,0,8"
@@ -194,7 +192,6 @@
                 </Grid>
             </Border>
 
-            <!-- Linha/destino/próxima parada fora da área do mapa -->
             <Border x:Name="TripInfoPanel"
                     Width="680"
                     HorizontalAlignment="Left"
@@ -267,14 +264,13 @@
                 </Grid>
             </Border>
 
-            <!-- GPS heading-up: veículo fixo apontando para cima, mapa gira -->
             <Grid HorizontalAlignment="Left" Width="680">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="360" />
+                    <ColumnDefinition Width="300" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Grid Width="360" Height="230" HorizontalAlignment="Left">
+                <Grid Width="300" Height="190" HorizontalAlignment="Left">
                     <Border Background="#D60D1319"
                             BorderBrush="#78FFFFFF"
                             BorderThickness="1"
@@ -282,8 +278,8 @@
                             ClipToBounds="True"
                             Effect="{StaticResource HudShadow}">
                         <Canvas x:Name="MiniMapCanvas"
-                                Width="356"
-                                Height="226"
+                                Width="296"
+                                Height="186"
                                 ClipToBounds="True"
                                 Background="#24101820"
                                 RenderTransformOrigin="0.5,0.5">
@@ -381,7 +377,6 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Chat sempre acoplado abaixo do GPS -->
             <Border x:Name="ChatPanel"
                     Width="680"
                     HorizontalAlignment="Left"
