@@ -36,15 +36,19 @@ mas não tiver conseguido concluir o `whole.roadmap.bmp`.
 
 O NavBR:
 
-1. identifica automaticamente as coordenadas X/Y pelo nome de cada tile;
-2. verifica se as imagens têm dimensões compatíveis;
-3. calcula a grade completa;
-4. respeita a orientação dos eixos do OMSI;
-5. monta o BMP final por streaming, linha a linha, para evitar consumir memória proporcional ao mapa inteiro;
-6. preenche posições sem imagem com fundo escuro;
-7. cria backup do `whole.roadmap.bmp` anterior, quando existir;
-8. grava o novo arquivo em `texture\map\whole.roadmap.bmp`;
-9. mostra preview e estatísticas no próprio Roadmap Studio.
+1. lê o `global.cfg` como fonte oficial da grade do mapa;
+2. identifica as coordenadas X/Y das imagens de roadmap pelo nome de cada tile;
+3. verifica se as imagens têm dimensões compatíveis;
+4. usa os limites min/max do `global.cfg`, inclusive quando uma tile de borda não possui imagem de roadmap;
+5. distingue uma tile configurada sem imagem de uma célula vazia/ghost da grade retangular;
+6. respeita a orientação dos eixos do OMSI;
+7. monta o BMP final por streaming, linha a linha, para evitar consumir memória proporcional ao mapa inteiro;
+8. preenche posições sem imagem com fundo escuro;
+9. cria backup do `whole.roadmap.bmp` anterior, quando existir;
+10. grava o novo arquivo em `texture\map\whole.roadmap.bmp`;
+11. mostra preview e estatísticas no próprio Roadmap Studio.
+
+Usar o `global.cfg` para os limites é importante: se o roadmap de uma tile da borda estiver ausente, o mosaico não deve encolher e deslocar todo o sistema de coordenadas do GPS.
 
 Esse modo é o mais indicado quando o Editor conseguiu gerar roadmaps individuais, mas falhou ao montar a imagem final.
 
@@ -173,9 +177,10 @@ texture\map\roadmap.bmp
 São camadas diferentes:
 
 - **Roadmap:** fundo visual do GPS;
-- **Traçado da linha:** calculado a partir de timetable e geometria (`TTData`, `.ttp`, `.ttr`, tiles `.map`, splines, crossings e paths).
+- **Traçado da linha:** calculado a partir de timetable e geometria (`TTData`, `.ttp`, `.ttr`, tiles `.map`, splines, crossings e paths);
+- **Pontos de parada:** lidos dos objetos funcionais de parada nas tiles `.map` e desenhados como uma camada independente no HUD.
 
-Portanto, criar `whole.roadmap.bmp` melhora o fundo visual, mas não corrige sozinho erros de timetable ou rota.
+Portanto, criar `whole.roadmap.bmp` melhora o fundo visual, mas não corrige sozinho erros de timetable, rota ou objetos de parada do mapa.
 
 ## Quando regenerar
 
@@ -206,7 +211,9 @@ Para problemas de traçado, o log relevante continua sendo:
 
 ## Referências técnicas
 
-O desenvolvimento do Roadmap Studio segue a regra do projeto de consultar ferramentas/plugins OMSI existentes como referência antes de implementar recursos grandes. O NavBR usa essas referências para entender formatos e fluxos, mas mantém implementação própria e compatível com a licença do projeto.
+O desenvolvimento do Roadmap Studio segue a regra do projeto de consultar ferramentas/plugins OMSI existentes como referência antes de implementar recursos grandes. Foram estudados, entre outros, OMSI Launcher/OmsiHook e o projeto público OMSI RouteAdvisor para entender convenções de tiles, roadmaps e objetos de parada.
+
+O NavBR usa essas referências para entender formatos e fluxos, mas mantém implementação própria e compatível com a licença do projeto.
 
 As referências gerais usadas na alpha.11 ficam registradas em:
 
