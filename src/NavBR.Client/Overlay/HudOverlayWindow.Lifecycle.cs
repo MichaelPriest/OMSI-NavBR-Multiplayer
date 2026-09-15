@@ -159,6 +159,18 @@ public partial class HudOverlayWindow
                 return;
             }
 
+            // Keep a single canonical OMSI surface. Dialogs and auxiliary OMSI
+            // windows belong to the same process but must never become the HUD
+            // reference window, otherwise the minimap appears on top of menus.
+            var mainOmsiHandle = process.MainWindowHandle;
+            if (!IsUsableOmsiWindow(mainOmsiHandle))
+            {
+                HideHudForOmsiState();
+                return;
+            }
+
+            _omsiWindowHandle = mainOmsiHandle;
+
             var now = DateTimeOffset.UtcNow;
             var foreground = GetForegroundWindow();
             var overlayHandle = new WindowInteropHelper(this).Handle;
@@ -170,7 +182,7 @@ public partial class HudOverlayWindow
 
             // NavBR dialogs/windows are not part of the game HUD surface. Hide
             // immediately when one of them has focus so the minimap does not
-            // appear on top of Settings, Multiplayer or any newly opened window.
+            // appear on top of Settings, Multiplayer, Feedback or new windows.
             // Chat input and layout edit are intentional interactive exceptions.
             if (foregroundBelongsToNavBr &&
                 !overlayOwnsForeground &&
@@ -182,11 +194,16 @@ public partial class HudOverlayWindow
 
             if (foregroundBelongsToOmsi)
             {
-                _lastOmsiForegroundUtc = now;
-                if (IsUsableOmsiWindow(foreground))
+                // Only the primary OMSI window is the gameplay surface. Any
+                // other top-level HWND owned by Omsi.exe is treated as an
+                // in-game dialog/menu and hides the HUD immediately.
+                if (foreground != mainOmsiHandle)
                 {
-                    _omsiWindowHandle = foreground;
+                    HideHudForOmsiState();
+                    return;
                 }
+
+                _lastOmsiForegroundUtc = now;
             }
             else if (!overlayOwnsForeground)
             {
@@ -200,21 +217,8 @@ public partial class HudOverlayWindow
                 }
             }
 
-            var omsiHandle = _omsiWindowHandle;
-            if (!IsUsableOmsiWindow(omsiHandle))
-            {
-                omsiHandle = process.MainWindowHandle;
-            }
-
-            if (!IsUsableOmsiWindow(omsiHandle))
-            {
-                HideHudForOmsiState();
-                return;
-            }
-
-            _omsiWindowHandle = omsiHandle;
-            SyncHudGeometryStable(omsiHandle);
-            ShowHudForOmsiState(overlayHandle, omsiHandle);
+            SyncHudGeometryStable(mainOmsiHandle);
+            ShowHudForOmsiState(overlayHandle, mainOmsiHandle);
         }
         catch
         {
