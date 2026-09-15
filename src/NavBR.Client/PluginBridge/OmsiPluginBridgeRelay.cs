@@ -6,15 +6,10 @@ namespace NavBR.Client.PluginBridge;
 
 public static class OmsiPluginBridgeRelay
 {
-    public static async Task ForwardRemoteTelemetryAsync(
+    public static Task ForwardRemoteTelemetryAsync(
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken = default)
     {
-        if (Application.Current is not App app || !app.PluginBridge.IsConnected)
-        {
-            return;
-        }
-
         var telemetry = frame.Telemetry;
         var message = new PluginBridgeMessage(
             PluginBridgeProtocol.RemoteVehicleState,
@@ -34,9 +29,47 @@ public static class OmsiPluginBridgeRelay
             HeadingDegrees: telemetry.HeadingDegrees,
             SpeedKph: telemetry.SpeedKph);
 
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    public static Task RemoveRemotePlayerAsync(
+        string playerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.RemoteVehicleRemoved,
+            PluginBridgeProtocol.Version,
+            PlayerId: playerId);
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    public static Task ClearRemotePlayersAsync(CancellationToken cancellationToken = default)
+    {
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.ClearRemoteVehicles,
+            PluginBridgeProtocol.Version);
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    private static async Task SendBestEffortAsync(
+        PluginBridgeMessage message,
+        CancellationToken cancellationToken)
+    {
+        if (Application.Current is not App app || !app.PluginBridge.IsConnected)
+        {
+            return;
+        }
+
         try
         {
-            await app.PluginBridge.SendRemoteVehicleStateAsync(message, cancellationToken);
+            await app.PluginBridge.SendMessageAsync(message, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
