@@ -105,14 +105,13 @@ jobs:
         shell: pwsh
         run: |
           $assembly = Resolve-Path "artifacts/client/OMSI.NavBR.Multiplayer.dll"
-          $loaded = [System.Reflection.Assembly]::LoadFrom($assembly.Path)
-          $resource = $loaded.GetManifestResourceNames() | Where-Object {
-            $_ -eq "NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip"
+          $bytes = [System.IO.File]::ReadAllBytes($assembly.Path)
+          $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+          $resourceName = "NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip"
+          if (-not $text.Contains($resourceName)) {
+            throw "Client metadata does not contain the embedded OMSI plugin resource name."
           }
-          if (-not $resource) {
-            throw "Client does not contain the embedded OMSI plugin payload."
-          }
-          Write-Host "Embedded plugin payload confirmed."
+          Write-Host "Embedded plugin payload metadata confirmed without loading x86 assembly."
 
       - name: Validate standalone EXE icon resource
         shell: pwsh
