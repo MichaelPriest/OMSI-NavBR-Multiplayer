@@ -1,20 +1,39 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
 const fallbackRelease = {
-  tag_name: 'v0.3.0-alpha.9',
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.9',
+  tag_name: 'v0.3.0-alpha.10',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.10',
   prerelease: true,
-  published_at: '2026-09-15T03:11:33Z',
-  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.9`,
-  body: 'Alpha.9 com refinamento de navegação, próxima parada, multiplayer peer-host, chat e voz para testes reais.',
+  published_at: '2026-09-15T18:48:07Z',
+  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10`,
+  body: 'Alpha.10 oficial promovida byte-for-byte da test.6 validada: plugin Native AOT x86 embutido, sem Runtime x86 separado, HUD/GPS moderno, chat, voz e peer-host.',
   download_count: 0,
-  assets: []
+  assets: [
+    {
+      name: 'OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe',
+      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe`,
+      size: 84032681,
+      download_count: 0
+    },
+    {
+      name: 'OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip',
+      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip`,
+      size: 84719078,
+      download_count: 0
+    },
+    {
+      name: 'OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip',
+      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip`,
+      size: 50167193,
+      download_count: 0
+    }
+  ]
 };
 
-const alpha10IntegrationTest = {
-  tag: 'v0.3.0-alpha.10-test.6',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10-test.6`,
-  exeUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-alpha10-test.6-integration-win-x86.zip`
+const alpha10Official = {
+  tag: 'v0.3.0-alpha.10',
+  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10`,
+  exeUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe`,
+  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-alpha10-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
@@ -64,18 +83,23 @@ function assetLabel(name = '') {
   if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI — fallback técnico';
+  if (/integration.*win-x86\.zip$/i.test(name)) return 'Pacote integrado — fallback técnico';
   return name;
 }
 
 function assetHelp(name = '') {
   if (/win-x86\.exe$/i.test(name)) {
-    return 'Use para jogar, entrar em salas ou criar uma sala no próprio PC. Não precisa baixar o servidor.';
+    return 'Use para jogar, entrar em salas ou criar uma sala no próprio PC. O plugin Native AOT x86 vem embutido no cliente.';
   }
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) {
     return 'Mesmo cliente em pacote ZIP. É uma alternativa ao EXE standalone; não é necessário baixar os dois.';
   }
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) {
-    return 'Somente para servidor dedicado em outra máquina/processo. Não é necessário para criar sala pelo cliente NavBR; extraia e mantenha todos os arquivos do ZIP.';
+    return 'Somente para servidor dedicado em outra máquina/processo. Não é necessário para criar sala pelo cliente NavBR.';
+  }
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name) || /integration.*win-x86\.zip$/i.test(name)) {
+    return 'Pacote técnico/fallback. No uso normal, prefira o EXE standalone e instale/atualize o plugin pelo próprio NavBR.';
   }
   return '';
 }
@@ -106,7 +130,7 @@ function renderRelease(release) {
   return `
     <article class="release-card">
       <div class="release-meta">
-        <span class="tag">${release.prerelease ? 'ALPHA / TESTE' : 'ESTÁVEL'}</span>
+        <span class="tag">${release.prerelease ? 'ALPHA' : 'ESTÁVEL'}</span>
         <small>${escapeHtml(formatDate(release.published_at))}</small>
       </div>
       <h3>${escapeHtml(release.name || release.tag_name)}</h3>
@@ -154,37 +178,37 @@ async function loadReleases() {
   document.getElementById('release-list').innerHTML = releases.slice(0, 6).map(renderRelease).join('');
 }
 
-function setupAlpha10IntegrationTest() {
+function setupAlpha10Official() {
   const pluginSection = document.getElementById('plugin');
   const featureGrid = pluginSection?.querySelector('.feature-grid');
   if (!pluginSection || !featureGrid) return;
 
-  let testCard = document.getElementById('alpha10-integration-test');
-  if (!testCard) {
-    testCard = document.createElement('div');
-    testCard.id = 'alpha10-integration-test';
-    testCard.className = 'validation-card';
-    testCard.style.marginBottom = '20px';
-    featureGrid.before(testCard);
+  let card = document.getElementById('alpha10-integration-test');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'alpha10-integration-test';
+    card.className = 'validation-card';
+    card.style.marginBottom = '20px';
+    featureGrid.before(card);
   }
 
-  testCard.innerHTML = `
+  card.innerHTML = `
     <div>
-      <span class="eyebrow">Teste permanente da alpha.10</span>
-      <h2>${escapeHtml(alpha10IntegrationTest.tag)} disponível</h2>
+      <span class="eyebrow">Alpha oficial atual</span>
+      <h2>${escapeHtml(alpha10Official.tag)} disponível</h2>
     </div>
     <div>
-      <p><strong>Para a test.6, use preferencialmente o EXE standalone.</strong> O plugin experimental Native AOT x86 vem embutido no próprio cliente, é instalado/atualizado pelo painel do NavBR e <strong>não exige mais a instalação separada do .NET Runtime x86</strong>. A detecção do OMSI considera o caminho conhecido, registro Aerosoft e bibliotecas Steam. A test.6 também leva o HUD/GPS moderno, a correção do XAML e o novo ícone compacto. Ela não substitui a alpha.9 como download normal e ainda não cria ônibus remotos físicos no OMSI 3D.</p>
+      <p><strong>A alpha.10 oficial foi promovida byte-for-byte da test.6 validada.</strong> O plugin Native AOT x86 vem embutido no cliente, pode ser instalado/atualizado pelo painel do NavBR e <strong>não exige instalação separada do .NET Runtime x86</strong>. A detecção do OMSI considera caminho conhecido, registro Aerosoft e bibliotecas Steam. A futura representação física de ônibus remotos no OMSI 3D está sendo desenvolvida na alpha.11.</p>
       <div class="actions">
-        <a class="button primary" href="${escapeHtml(alpha10IntegrationTest.exeUrl)}" target="_blank" rel="noreferrer">Baixar EXE da test.6</a>
-        <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.bundleUrl)}" target="_blank" rel="noreferrer">Pacote integrado / fallback</a>
-        <a class="button secondary" href="${escapeHtml(alpha10IntegrationTest.releaseUrl)}" target="_blank" rel="noreferrer">Abrir prerelease</a>
+        <a class="button primary" href="${escapeHtml(alpha10Official.exeUrl)}" target="_blank" rel="noreferrer">Baixar EXE da alpha.10</a>
+        <a class="button secondary" href="${escapeHtml(alpha10Official.bundleUrl)}" target="_blank" rel="noreferrer">Pacote integrado / fallback</a>
+        <a class="button secondary" href="${escapeHtml(alpha10Official.releaseUrl)}" target="_blank" rel="noreferrer">Abrir release</a>
       </div>
     </div>`;
 
   document.querySelectorAll('.trust-grid b').forEach(element => {
-    if (/alpha\.10-test\.\d+/i.test(element.textContent || '')) {
-      element.textContent = 'alpha.10-test.6';
+    if (/alpha\.10(?:-test\.\d+)?/i.test(element.textContent || '')) {
+      element.textContent = 'alpha.10';
     }
   });
 }
@@ -210,5 +234,5 @@ function setupPix() {
 }
 
 loadReleases();
-setupAlpha10IntegrationTest();
+setupAlpha10Official();
 setupPix();
