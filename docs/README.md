@@ -4,6 +4,7 @@
 
 - [Manual de uso](MANUAL_DE_USO.md)
 - [Como gerar Roadmap dos mapas](GERAR_ROADMAP_MAPAS.md) — passo a passo no OMSI Editor para criar `whole.roadmap.bmp` e lidar com mapas grandes.
+- [Checklist de teste v0.3.0-alpha.10 — plugin e bridge](ALPHA10_PLUGIN_TEST_CHECKLIST.md) — instalação segura, painel `PLUGIN BRIDGE v1 • EXP`, heartbeat e teste entre dois PCs.
 - [Roadmap de desenvolvimento](ROADMAP.md)
 - [Checklist de teste v0.3.0-alpha.2](ALPHA2_TEST_CHECKLIST.md)
 
@@ -31,4 +32,4 @@ Problemas de traçado devem incluir, quando possível:
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-route.log
 ```
 
-O plugin experimental está isolado da alpha.9 e não é necessário para GPS, HUD ou multiplayer externo.
+O plugin experimental está isolado da alpha.9 e não é necessário para GPS, HUD ou multiplayer externo. Para testar a alpha.10 experimental, siga o checklist específico antes de qualquer tentativa futura de criar veículos remotos dentro do OMSI.
