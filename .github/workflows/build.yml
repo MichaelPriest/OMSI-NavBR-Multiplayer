@@ -31,6 +31,9 @@ jobs:
       - name: Restore client
         run: dotnet restore src/NavBR.Client/NavBR.Client.csproj
 
+      - name: Restore plugin bridge smoke test
+        run: dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+
       - name: Restore experimental OMSI plugin
         run: dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
 
@@ -42,6 +45,14 @@ jobs:
 
       - name: Build client
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release --no-restore
+
+      - name: Smoke-test plugin bridge handshake and status
+        run: >-
+          dotnet run
+          --project src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj
+          -c Release
+          -r win-x86
+          --no-restore
 
       - name: Build experimental OMSI plugin x86
         run: >-
