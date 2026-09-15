@@ -11,6 +11,8 @@
     <ApplicationIcon>Assets\NavBR.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
     <Resource Include="Assets\NavBR.ico" />
     <EmbeddedResource Include="Assets\NavBR.OmsiPlugin.bundle.zip"
                       LogicalName="NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip"
