@@ -1,6 +1,8 @@
 using System.IO;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
@@ -16,11 +18,18 @@ public partial class HudOverlayWindow
     private readonly Dictionary<string, FrameworkElement> _busStopMarkers = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<OmsiBusStopPoint> _busStops = Array.Empty<OmsiBusStopPoint>();
     private DispatcherTimer? _busStopRenderTimer;
+    private Button? _stopIconSettingsButton;
     private string? _busStopMapKey;
     private string? _busStopMarkerStyleKey;
     private BitmapSource? _customBusStopIcon;
 
-    private void MiniMapCanvas_BusStopsLoaded(object sender, RoutedEventArgs e)
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        InitializeBusStopHud();
+    }
+
+    private void InitializeBusStopHud()
     {
         if (_busStopRenderTimer is not null)
         {
@@ -35,6 +44,7 @@ public partial class HudOverlayWindow
         _busStopRenderTimer.Start();
         MultiplayerSettingsStore.SettingsSaved += BusStopSettingsSaved;
         Closed += BusStopWindow_Closed;
+        InstallStopIconSettingsButton();
         RenderBusStops();
     }
 
@@ -44,6 +54,7 @@ public partial class HudOverlayWindow
     {
         var styleKey = BuildStopStyleKey(settings);
         _hudSettings = settings;
+        UpdateStopIconSettingsButtonText();
         if (!string.Equals(styleKey, _busStopMarkerStyleKey, StringComparison.OrdinalIgnoreCase))
         {
             InvalidateBusStopMarkers();
@@ -61,6 +72,146 @@ public partial class HudOverlayWindow
 
         MultiplayerSettingsStore.SettingsSaved -= BusStopSettingsSaved;
         Closed -= BusStopWindow_Closed;
+
+        if (_stopIconSettingsButton?.Parent is Panel parent)
+        {
+            parent.Children.Remove(_stopIconSettingsButton);
+        }
+        _stopIconSettingsButton = null;
+    }
+
+    private void InstallStopIconSettingsButton()
+    {
+        if (_stopIconSettingsButton is not null ||
+            Application.Current.MainWindow is not NavBR.Client.MainWindow mainWindow ||
+            mainWindow.FindName("MultiplayerButton") is not Button multiplayerButton ||
+            multiplayerButton.Parent is not Panel parent)
+        {
+            return;
+        }
+
+        _stopIconSettingsButton = new Button
+        {
+            MinWidth = 110,
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _stopIconSettingsButton.Click += (_, _) => ShowStopIconSettingsMenu();
+        var index = parent.Children.IndexOf(multiplayerButton);
+        parent.Children.Insert(Math.Max(0, index), _stopIconSettingsButton);
+        UpdateStopIconSettingsButtonText();
+    }
+
+    private void UpdateStopIconSettingsButtonText()
+    {
+        if (_stopIconSettingsButton is null)
+        {
+            return;
+        }
+
+        var style = _hudSettings.StopIconStyle?.ToLowerInvariant() switch
+        {
+            "dot" => StopIconText("Simples", "Simple", "Simple", "Einfach", "Simple"),
+            "custom" => StopIconText("Personalizado", "Custom", "Personalizado", "Benutzer", "Personnalisé"),
+            _ => "OMSI"
+        };
+        _stopIconSettingsButton.Content = $"{StopIconText("Paradas", "Stops", "Paradas", "Halte", "Arrêts")}: {style}";
+    }
+
+    private void ShowStopIconSettingsMenu()
+    {
+        if (_stopIconSettingsButton is null)
+        {
+            return;
+        }
+
+        var menu = new ContextMenu();
+        menu.Items.Add(NewStopStyleMenuItem(
+            StopIconText("Padrão OMSI", "OMSI default", "Predeterminado OMSI", "OMSI-Standard", "Standard OMSI"),
+            "omsi"));
+        menu.Items.Add(NewStopStyleMenuItem(
+            StopIconText("Minimalista", "Minimal", "Minimalista", "Minimal", "Minimaliste"),
+            "dot"));
+        menu.Items.Add(new Separator());
+
+        var custom = new MenuItem
+        {
+            Header = StopIconText(
+                "Escolher imagem personalizada…",
+                "Choose custom image…",
+                "Elegir imagen personalizada…",
+                "Eigenes Bild wählen…",
+                "Choisir une image…")
+        };
+        custom.Click += (_, _) => ChooseCustomStopIcon();
+        menu.Items.Add(custom);
+
+        if (!string.IsNullOrWhiteSpace(_hudSettings.StopCustomIconPath))
+        {
+            var reuse = new MenuItem
+            {
+                Header = StopIconText(
+                    "Usar imagem personalizada salva",
+                    "Use saved custom image",
+                    "Usar imagen guardada",
+                    "Gespeichertes Bild verwenden",
+                    "Utiliser l’image enregistrée"),
+                IsCheckable = true,
+                IsChecked = string.Equals(_hudSettings.StopIconStyle, "custom", StringComparison.OrdinalIgnoreCase)
+            };
+            reuse.Click += (_, _) => SaveStopIconSettings("custom", _hudSettings.StopCustomIconPath);
+            menu.Items.Add(reuse);
+        }
+
+        _stopIconSettingsButton.ContextMenu = menu;
+        menu.PlacementTarget = _stopIconSettingsButton;
+        menu.Placement = PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    private MenuItem NewStopStyleMenuItem(string header, string style)
+    {
+        var item = new MenuItem
+        {
+            Header = header,
+            IsCheckable = true,
+            IsChecked = string.Equals(_hudSettings.StopIconStyle, style, StringComparison.OrdinalIgnoreCase)
+        };
+        item.Click += (_, _) => SaveStopIconSettings(style, _hudSettings.StopCustomIconPath);
+        return item;
+    }
+
+    private void ChooseCustomStopIcon()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = StopIconText(
+                "Escolher ícone das paradas",
+                "Choose stop icon",
+                "Elegir icono de paradas",
+                "Haltestellensymbol wählen",
+                "Choisir l’icône des arrêts"),
+            Filter = "Imagens|*.png;*.jpg;*.jpeg;*.bmp|PNG|*.png|JPEG|*.jpg;*.jpeg|Bitmap|*.bmp",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(Application.Current.MainWindow) == true)
+        {
+            SaveStopIconSettings("custom", dialog.FileName);
+        }
+    }
+
+    private void SaveStopIconSettings(string style, string? customPath)
+    {
+        _hudSettings = _hudSettings with
+        {
+            StopIconStyle = style,
+            StopCustomIconPath = customPath
+        };
+        MultiplayerSettingsStore.Save(_hudSettings);
+        UpdateStopIconSettingsButtonText();
+        InvalidateBusStopMarkers();
     }
 
     private void InvalidateBusStopMarkers()
@@ -386,6 +537,16 @@ public partial class HudOverlayWindow
 
     private static string StopKey(OmsiBusStopPoint stop) =>
         $"{stop.GridX}:{stop.GridY}:{stop.ObjectId}";
+
+    private static string StopIconText(string pt, string en, string es, string de, string fr) =>
+        NavBR.Client.Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static string NormalizeStopName(string value) =>
         new(value
