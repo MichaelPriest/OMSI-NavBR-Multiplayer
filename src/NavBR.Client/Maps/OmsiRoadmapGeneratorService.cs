@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
@@ -50,14 +51,31 @@ public sealed class OmsiRoadmapGeneratorService
     public OmsiRoadmapAnalysis Analyze(OmsiMapInfo map)
     {
         ArgumentNullException.ThrowIfNull(map);
-        var tiles = DiscoverTileRoadmaps(map.DirectoryPath);
+        var discoveredTiles = DiscoverTileRoadmaps(map.DirectoryPath);
+        var tiles = discoveredTiles
+            .GroupBy(tile => (tile.GridX, tile.GridY))
+            .Select(group => group.First())
+            .ToList();
+        var layout = OmsiMapLayoutReader.TryRead(map.GlobalConfigPath);
+        var configuredTiles = ReadConfiguredTiles(map.GlobalConfigPath);
+        var outputPath = GetOutputPath(map.DirectoryPath);
+
         if (tiles.Count == 0)
         {
             return new OmsiRoadmapAnalysis(
                 map.DirectoryPath,
-                GetOutputPath(map.DirectoryPath),
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                File.Exists(GetOutputPath(map.DirectoryPath)),
+                outputPath,
+                0,
+                layout?.MinGridX ?? 0,
+                layout?.MinGridY ?? 0,
+                layout?.MaxGridX ?? 0,
+                layout?.MaxGridY ?? 0,
+                0,
+                0,
+                0,
+                0,
+                configuredTiles.Count,
+                File.Exists(outputPath),
                 0);
         }
 
@@ -69,23 +87,31 @@ public sealed class OmsiRoadmapGeneratorService
                 "Os roadmaps por tile têm dimensões diferentes. O NavBR não vai combinar arquivos incompatíveis automaticamente.");
         }
 
-        var minX = tiles.Min(tile => tile.GridX);
-        var maxX = tiles.Max(tile => tile.GridX);
-        var minY = tiles.Min(tile => tile.GridY);
-        var maxY = tiles.Max(tile => tile.GridY);
+        var minX = layout?.MinGridX ?? tiles.Min(tile => tile.GridX);
+        var maxX = layout?.MaxGridX ?? tiles.Max(tile => tile.GridX);
+        var minY = layout?.MinGridY ?? tiles.Min(tile => tile.GridY);
+        var maxY = layout?.MaxGridY ?? tiles.Max(tile => tile.GridY);
         var columns = checked(maxX - minX + 1);
         var rows = checked(maxY - minY + 1);
         var outputWidth = checked(columns * tileWidth);
         var outputHeight = checked(rows * tileHeight);
-        var expectedTileCount = checked(columns * rows);
-        var missing = Math.Max(0, expectedTileCount - tiles.Count);
+
+        var tileCoordinates = tiles
+            .Select(tile => (tile.GridX, tile.GridY))
+            .ToHashSet();
+        var missing = configuredTiles.Count > 0
+            ? configuredTiles.Count(coordinate => !tileCoordinates.Contains(coordinate))
+            : Math.Max(0, checked(columns * rows) - tileCoordinates.Count);
+        var usedImageCount = tiles.Count(tile =>
+            tile.GridX >= minX && tile.GridX <= maxX &&
+            tile.GridY >= minY && tile.GridY <= maxY);
         var rowStride = Align4(checked(outputWidth * 3L));
         var estimated = checked(54L + rowStride * outputHeight);
 
         return new OmsiRoadmapAnalysis(
             map.DirectoryPath,
-            GetOutputPath(map.DirectoryPath),
-            tiles.Count,
+            outputPath,
+            usedImageCount,
             minX,
             minY,
             maxX,
@@ -95,7 +121,7 @@ public sealed class OmsiRoadmapGeneratorService
             outputWidth,
             outputHeight,
             missing,
-            File.Exists(GetOutputPath(map.DirectoryPath)),
+            File.Exists(outputPath),
             estimated);
     }
 
@@ -119,7 +145,7 @@ public sealed class OmsiRoadmapGeneratorService
         if (!analysis.CanBuild)
         {
             throw new InvalidOperationException(
-                "Nenhum roadmap por tile foi encontrado. Use o modo Vetorial quando ele estiver disponível ou gere pelo menos as imagens por tile.");
+                "Nenhum roadmap por tile foi encontrado. Use o modo Vetorial ou gere pelo menos as imagens por tile.");
         }
 
         if (analysis.OutputPixelWidth > 100_000 || analysis.OutputPixelHeight > 100_000)
@@ -137,7 +163,11 @@ public sealed class OmsiRoadmapGeneratorService
         }
 
         var tiles = DiscoverTileRoadmaps(map.DirectoryPath)
-            .ToDictionary(tile => (tile.GridX, tile.GridY));
+            .Where(tile =>
+                tile.GridX >= analysis.MinGridX && tile.GridX <= analysis.MaxGridX &&
+                tile.GridY >= analysis.MinGridY && tile.GridY <= analysis.MaxGridY)
+            .GroupBy(tile => (tile.GridX, tile.GridY))
+            .ToDictionary(group => group.Key, group => group.First());
         var outputPath = analysis.OutputPath;
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
@@ -346,6 +376,34 @@ public sealed class OmsiRoadmapGeneratorService
             {
                 // One broken tile should not prevent analysis of all others.
             }
+        }
+
+        return result;
+    }
+
+    private static HashSet<(int X, int Y)> ReadConfiguredTiles(string globalConfigPath)
+    {
+        var result = new HashSet<(int X, int Y)>();
+        try
+        {
+            var lines = File.ReadAllLines(globalConfigPath);
+            for (var index = 0; index < lines.Length - 2; index++)
+            {
+                if (!string.Equals(lines[index].Trim(), "[map]", StringComparison.OrdinalIgnoreCase) ||
+                    !int.TryParse(lines[index + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var x) ||
+                    !int.TryParse(lines[index + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
+                {
+                    continue;
+                }
+
+                result.Add((x, y));
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
         }
 
         return result;
