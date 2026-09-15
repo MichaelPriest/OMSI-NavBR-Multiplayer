@@ -6,10 +6,10 @@ namespace NavBR.Client.Maps;
 public sealed record OmsiRouteTracePoint(int GridX, int GridY, double TileX, double TileY);
 
 /// <summary>
-/// Reads the tile sequence of an OMSI timetable track (.ttr). The track data
-/// is never modified. The current renderer deliberately uses the centre of
-/// each real route tile; this gives a trustworthy route trace without
-/// inventing detailed spline geometry that NavBR has not decoded yet.
+/// Reads the active OMSI timetable track (.ttr). Whenever possible NavBR now
+/// resolves track entries against the real spline placement stored in the tile
+/// .map file; if that detailed geometry is unavailable it keeps the coarse,
+/// trustworthy tile-centre fallback instead of inventing a road shape.
 /// </summary>
 public static class OmsiRouteTraceReader
 {
@@ -41,57 +41,19 @@ public static class OmsiRouteTraceReader
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            var lines = File.ReadAllLines(trackPath);
-            var points = new List<OmsiRouteTracePoint>();
-            (int X, int Y)? previousGrid = null;
-
-            for (var i = 0; i < lines.Length; i++)
+            var entries = ReadTrackEntries(File.ReadAllLines(trackPath));
+            if (entries.Count == 0)
             {
-                if (!string.Equals(lines[i].Trim(), "[track_entry]", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                // OMSI TTR [track_entry] layout:
-                // object/spline id
-                // path id
-                // tile X
-                // tile Y
-                // approximate path length
-                // flags/reserved
-                //
-                // Older NavBR builds incorrectly treated tile X as an index
-                // into global.cfg. TTR already stores the real grid coordinates.
-                if (i + 4 >= lines.Length ||
-                    !int.TryParse(
-                        lines[i + 3].Trim(),
-                        NumberStyles.Integer,
-                        CultureInfo.InvariantCulture,
-                        out var gridX) ||
-                    !int.TryParse(
-                        lines[i + 4].Trim(),
-                        NumberStyles.Integer,
-                        CultureInfo.InvariantCulture,
-                        out var gridY))
-                {
-                    continue;
-                }
-
-                var grid = (X: gridX, Y: gridY);
-                if (previousGrid == grid)
-                {
-                    continue;
-                }
-
-                previousGrid = grid;
-                points.Add(new OmsiRouteTracePoint(
-                    gridX,
-                    gridY,
-                    tileSize / 2d,
-                    tileSize / 2d));
+                return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            return points;
+            var splineTrace = OmsiRouteSplineGeometryReader.TryBuild(map, layout, entries);
+            if (splineTrace.Count >= 2)
+            {
+                return splineTrace;
+            }
+
+            return BuildTileFallback(entries, tileSize);
         }
         catch (IOException)
         {
@@ -101,6 +63,77 @@ public static class OmsiRouteTraceReader
         {
             return Array.Empty<OmsiRouteTracePoint>();
         }
+    }
+
+    private static List<OmsiRouteTrackEntry> ReadTrackEntries(string[] lines)
+    {
+        var entries = new List<OmsiRouteTrackEntry>();
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!string.Equals(lines[i].Trim(), "[track_entry]", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // OMSI TTR [track_entry] layout:
+            // object/spline id
+            // path id
+            // tile X
+            // tile Y
+            // approximate path length
+            // flags/reserved
+            if (i + 5 >= lines.Length ||
+                !int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var objectId) ||
+                !int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pathId) ||
+                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) ||
+                !int.TryParse(lines[i + 4].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
+            {
+                continue;
+            }
+
+            var pathLength = 0d;
+            double.TryParse(
+                lines[i + 5].Trim(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out pathLength);
+
+            entries.Add(new OmsiRouteTrackEntry(
+                objectId,
+                pathId,
+                gridX,
+                gridY,
+                double.IsFinite(pathLength) && pathLength > 0d ? pathLength : 0d));
+        }
+
+        return entries;
+    }
+
+    private static IReadOnlyList<OmsiRouteTracePoint> BuildTileFallback(
+        IReadOnlyList<OmsiRouteTrackEntry> entries,
+        double tileSize)
+    {
+        var points = new List<OmsiRouteTracePoint>();
+        (int X, int Y)? previousGrid = null;
+
+        foreach (var entry in entries)
+        {
+            var grid = (entry.GridX, entry.GridY);
+            if (previousGrid == grid)
+            {
+                continue;
+            }
+
+            previousGrid = grid;
+            points.Add(new OmsiRouteTracePoint(
+                entry.GridX,
+                entry.GridY,
+                tileSize / 2d,
+                tileSize / 2d));
+        }
+
+        return points;
     }
 
     private static string? FindTrackPath(string mapDirectory, string? activeTrackName)
