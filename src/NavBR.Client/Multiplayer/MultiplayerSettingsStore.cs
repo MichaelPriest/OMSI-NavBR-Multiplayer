@@ -79,6 +79,19 @@ public static class MultiplayerSettingsStore
         }
 
         var legacyDashboard = settings.DashboardSettingsVersion <= 0;
+        var stopIconStyle = settings.StopIconStyle?.Trim().ToLowerInvariant() switch
+        {
+            "dot" => "dot",
+            "custom" => "custom",
+            _ => "omsi"
+        };
+        var customIconPath = string.IsNullOrWhiteSpace(settings.StopCustomIconPath)
+            ? null
+            : settings.StopCustomIconPath.Trim();
+        if (stopIconStyle == "custom" && customIconPath is null)
+        {
+            stopIconStyle = "omsi";
+        }
 
         return settings with
         {
@@ -108,7 +121,9 @@ public static class MultiplayerSettingsStore
                 1d),
             DashboardShowFuel = legacyDashboard || settings.DashboardShowFuel,
             DashboardShowPedals = legacyDashboard || settings.DashboardShowPedals,
-            DashboardShowStatus = legacyDashboard || settings.DashboardShowStatus
+            DashboardShowStatus = legacyDashboard || settings.DashboardShowStatus,
+            StopIconStyle = stopIconStyle,
+            StopCustomIconPath = customIconPath
         };
     }
 }
