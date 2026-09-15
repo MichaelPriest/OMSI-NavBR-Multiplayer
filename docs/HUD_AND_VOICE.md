@@ -52,6 +52,22 @@ O módulo de navegação segue o comportamento típico de GPS automotivo:
 
 Quando existe geometria de rota detalhada e contínua, o HUD pode mostrar uma indicação de manobra com seta e distância aproximada. O NavBR não inventa instruções quando só existe geometria grosseira por centro de tile: se os segmentos forem grandes demais, a seta é ocultada.
 
+## Visão geral da rota
+
+O mapa principal do NavBR possui o modo **Rota completa**. Quando a viagem ativa pode ser resolvida pelo timetable, o NavBR desenha a rota sobre o roadmap e calcula automaticamente um enquadramento que mostra o percurso inteiro.
+
+Esse modo:
+
+- usa a mesma geometria `.ttp` / `.ttr` / splines do GPS;
+- calcula os limites reais dos pontos da rota, em vez de simplesmente mostrar o mapa inteiro;
+- centraliza a rota no viewport com margem visual;
+- desativa temporariamente o modo **Seguir ônibus**;
+- permite zoom e pan manual mesmo depois do enquadramento inicial;
+- volta ao modo de seguir o veículo ao desligar **Rota completa**;
+- fica indisponível quando não existe geometria suficiente para representar a linha com segurança.
+
+O comando aparece traduzido em Português (Brasil), English, Español, Deutsch e Français.
+
 ## Pontos de parada no HUD
 
 A alpha.11 lê as paradas funcionais diretamente das tiles `.map` do mapa instalado. Como referência de formato foi estudado o comportamento público do OMSI RouteAdvisor, mas o parser do NavBR é uma implementação própria.
