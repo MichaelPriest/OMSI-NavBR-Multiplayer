@@ -92,6 +92,11 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             return;
         }
 
+        _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
+            telemetry,
+            _joinRequest?.MapCompatibilityId,
+            cancellationToken);
+
         await connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
 
