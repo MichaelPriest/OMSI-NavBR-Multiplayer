@@ -55,6 +55,7 @@ public partial class HudOverlayWindow
 
         RefreshHudChrome();
         RefreshHudVisibility();
+        RenderEnhancedMiniMap();
     }
 
     private void FinalizeHudLifecycleInitialization()
@@ -82,6 +83,11 @@ public partial class HudOverlayWindow
         RefreshOmsiHotkeyConflicts();
         RefreshHudChrome();
         RefreshHudVisibility();
+
+        // Presentation-only refresh. Bitmap geometry is owned exclusively by
+        // RenderMiniMap(), preventing alpha.7's competing Width/Height/Left/Top
+        // updates from making the roadmap alternate/flicker.
+        RenderEnhancedMiniMap();
     }
 
     private void RefreshHudChrome()
@@ -157,9 +163,22 @@ public partial class HudOverlayWindow
             var foreground = GetForegroundWindow();
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
+            var foregroundBelongsToNavBr = WindowBelongsToProcess(foreground, Environment.ProcessId);
             var overlayOwnsForeground = _chatInteractive &&
                                         overlayHandle != IntPtr.Zero &&
                                         foreground == overlayHandle;
+
+            // NavBR dialogs/windows are not part of the game HUD surface. Hide
+            // immediately when one of them has focus so the minimap does not
+            // appear on top of Settings, Multiplayer or any newly opened window.
+            // Chat input and layout edit are intentional interactive exceptions.
+            if (foregroundBelongsToNavBr &&
+                !overlayOwnsForeground &&
+                !_hudLayoutEditMode)
+            {
+                HideHudForOmsiState();
+                return;
+            }
 
             if (foregroundBelongsToOmsi)
             {

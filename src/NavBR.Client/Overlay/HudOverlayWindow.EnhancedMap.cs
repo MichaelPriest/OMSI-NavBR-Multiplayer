@@ -1,37 +1,34 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Threading;
 using NavBR.Client.Maps;
 
 namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
-    private DispatcherTimer? _enhancedMapTimer;
     private string? _routeTraceCacheKey;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
+    private bool _enhancedMapRenderingStarted;
 
     private void StartEnhancedMapRendering()
     {
-        if (_enhancedMapTimer is null)
+        if (_enhancedMapRenderingStarted)
         {
-            _enhancedMapTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(100)
-            };
-            _enhancedMapTimer.Tick += (_, _) => RenderEnhancedMiniMap();
-            Closed += (_, _) => _enhancedMapTimer?.Stop();
+            return;
         }
 
-        if (!_enhancedMapTimer.IsEnabled)
-        {
-            _enhancedMapTimer.Start();
-        }
-
+        _enhancedMapRenderingStarted = true;
         RenderEnhancedMiniMap();
     }
 
+    /// <summary>
+    /// Applies presentation-only enhancements to the minimap.
+    ///
+    /// IMPORTANT: this method must not change MiniMapImage Width/Height/Left/Top.
+    /// HudOverlayWindow.RenderMiniMap remains the single source of bitmap geometry.
+    /// Keeping one geometry renderer prevents the roadmap from alternating between
+    /// two different view sizes, which caused visible flicker in alpha.7.
+    /// </summary>
     private void RenderEnhancedMiniMap()
     {
         var telemetry = _localTelemetry;
@@ -41,25 +38,25 @@ public partial class HudOverlayWindow
 
         MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
 
-        if (map is not null)
+        // GTA-like zoom is applied around the center of the already-positioned
+        // canvas. The local vehicle marker lives outside MiniMapCanvas, so it
+        // stays fixed while the map moves/zooms underneath it.
+        var zoom = GetSmoothedHudZoom(telemetry);
+        if (Math.Abs(MiniMapContentScale.ScaleX - zoom) > 0.002d)
         {
-            var title = !string.IsNullOrWhiteSpace(telemetry?.Line)
-                ? !string.IsNullOrWhiteSpace(telemetry?.Route)
-                    ? $"{telemetry.Line} • {telemetry.Route}"
-                    : telemetry.Line!
-                : map.DisplayName;
-            MiniMapStatusText.Text = title;
+            MiniMapContentScale.ScaleX = zoom;
+            MiniMapContentScale.ScaleY = zoom;
         }
 
-        if (bitmap is null || map is null)
+        if (map is not null)
         {
-            ActiveRoutePolyline.Visibility = Visibility.Collapsed;
-            ActiveRouteShadow.Visibility = Visibility.Collapsed;
-            return;
+            MiniMapStatusText.Text = BuildMiniMapTitle(map, telemetry);
         }
 
         if (telemetry is null ||
+            bitmap is null ||
             layout is null ||
+            map is null ||
             telemetry.GridX is not int gridX ||
             telemetry.GridY is not int gridY ||
             telemetry.TileX is not double tileX ||
@@ -75,64 +72,46 @@ public partial class HudOverlayWindow
                 out var localPixelX,
                 out var localPixelY))
         {
-            RenderFittedRoadmap(bitmap);
             ActiveRoutePolyline.Visibility = Visibility.Collapsed;
             ActiveRouteShadow.Visibility = Visibility.Collapsed;
             return;
         }
 
-        const double canvasWidth = 318d;
-        const double canvasHeight = 200d;
-        const double baseSourceViewWidth = 720d;
-        var zoom = GetSmoothedHudZoom(telemetry);
-        var sourceViewWidth = baseSourceViewWidth / Math.Max(0.01d, zoom);
-        var scale = canvasWidth / sourceViewWidth;
-
-        MiniMapImage.Width = bitmap.PixelWidth * scale;
-        MiniMapImage.Height = bitmap.PixelHeight * scale;
-        Canvas.SetLeft(MiniMapImage, canvasWidth / 2d - localPixelX * scale);
-        Canvas.SetTop(MiniMapImage, canvasHeight / 2d - localPixelY * scale);
-
-        LocalMarker.Visibility = Visibility.Visible;
-        LocalMarkerRotation.Angle = telemetry.HeadingDegrees;
-
-        EnsureRouteTrace(map, layout, telemetry.Route);
+        EnsureRouteTrace(map, layout, telemetry.Line, telemetry.Route);
         RenderRouteTrace(
             layout,
             bitmap.PixelWidth,
             bitmap.PixelHeight,
             localPixelX,
-            localPixelY,
-            scale,
-            canvasWidth,
-            canvasHeight);
+            localPixelY);
     }
 
-    private void RenderFittedRoadmap(System.Windows.Media.Imaging.BitmapImage bitmap)
+    private static string BuildMiniMapTitle(OmsiMapInfo map, NavBR.Shared.Telemetry.VehicleTelemetry? telemetry)
     {
-        const double canvasWidth = 318d;
-        const double canvasHeight = 200d;
-        var scale = Math.Min(
-            canvasWidth / Math.Max(1d, bitmap.PixelWidth),
-            canvasHeight / Math.Max(1d, bitmap.PixelHeight));
+        if (!string.IsNullOrWhiteSpace(telemetry?.Line))
+        {
+            return !string.IsNullOrWhiteSpace(telemetry.Route)
+                ? $"Linha {telemetry.Line} • {telemetry.Route}"
+                : $"Linha {telemetry.Line}";
+        }
 
-        MiniMapImage.Width = bitmap.PixelWidth * scale;
-        MiniMapImage.Height = bitmap.PixelHeight * scale;
-        Canvas.SetLeft(MiniMapImage, (canvasWidth - MiniMapImage.Width) / 2d);
-        Canvas.SetTop(MiniMapImage, (canvasHeight - MiniMapImage.Height) / 2d);
-        LocalMarker.Visibility = Visibility.Collapsed;
+        return $"{map.DisplayName} • Sem linha ativa";
     }
 
-    private void EnsureRouteTrace(OmsiMapInfo map, OmsiMapLayout layout, string? routeName)
+    private void EnsureRouteTrace(
+        OmsiMapInfo map,
+        OmsiMapLayout layout,
+        string? lineName,
+        string? routeName)
     {
-        var cacheKey = $"{map.DirectoryPath}|{routeName}";
+        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}";
         if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName);
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName, lineName);
     }
 
     private void RenderRouteTrace(
@@ -140,10 +119,7 @@ public partial class HudOverlayWindow
         int bitmapWidth,
         int bitmapHeight,
         double localPixelX,
-        double localPixelY,
-        double scale,
-        double canvasWidth,
-        double canvasHeight)
+        double localPixelY)
     {
         if (_routeTracePoints.Count < 2)
         {
@@ -151,6 +127,14 @@ public partial class HudOverlayWindow
             ActiveRouteShadow.Visibility = Visibility.Collapsed;
             return;
         }
+
+        // These values intentionally match the legacy renderer that owns
+        // MiniMapImage geometry. Zoom is applied afterwards by the Canvas
+        // ScaleTransform, so route and roadmap remain perfectly aligned.
+        const double canvasWidth = 296d;
+        const double canvasHeight = 186d;
+        const double sourceViewWidth = 900d;
+        var scale = canvasWidth / sourceViewWidth;
 
         var points = new PointCollection(_routeTracePoints.Count);
         foreach (var routePoint in _routeTracePoints)

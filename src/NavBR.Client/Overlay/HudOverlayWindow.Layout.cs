@@ -81,9 +81,9 @@ public partial class HudOverlayWindow
 
         _hudLayoutInitialized = true;
         _hudSettings = MultiplayerSettingsStore.Load();
-        _renderedHudZoom = _hudSettings.HudZoom;
+        _renderedHudZoom = Math.Clamp(_hudSettings.HudZoom, 0.65d, 10d);
         MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
-        MiniMapZoomText.Text = $"{_hudSettings.HudZoom:F1}×";
+        MiniMapZoomText.Text = $"{_renderedHudZoom:F1}×";
 
         HudDock.SizeChanged += (_, _) =>
         {
@@ -164,11 +164,11 @@ public partial class HudOverlayWindow
     {
         return LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Arraste para mover • roda do mouse = zoom • duplo clique = reset",
-            "es" => "Arrastra para mover • rueda = zoom • doble clic = reset",
-            "de" => "Ziehen zum Verschieben • Mausrad = Zoom • Doppelklick = Reset",
-            "fr" => "Glisser pour déplacer • molette = zoom • double-clic = reset",
-            _ => "Drag to move • mouse wheel = zoom • double-click = reset"
+            "pt" => "Arraste para mover • roda do mouse = zoom (até 10×) • duplo clique = reset",
+            "es" => "Arrastra para mover • rueda = zoom (hasta 10×) • doble clic = reset",
+            "de" => "Ziehen zum Verschieben • Mausrad = Zoom (bis 10×) • Doppelklick = Reset",
+            "fr" => "Glisser pour déplacer • molette = zoom (jusqu’à 10×) • double-clic = reset",
+            _ => "Drag to move • mouse wheel = zoom (up to 10×) • double-click = reset"
         };
     }
 
@@ -251,10 +251,10 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var multiplier = e.Delta > 0 ? 1.10d : 1d / 1.10d;
+        var multiplier = e.Delta > 0 ? 1.15d : 1d / 1.15d;
         _hudSettings = _hudSettings with
         {
-            HudZoom = Math.Clamp(_hudSettings.HudZoom * multiplier, 0.65d, 2.25d)
+            HudZoom = Math.Clamp(_hudSettings.HudZoom * multiplier, 0.65d, 10d)
         };
         _renderedHudZoom = _hudSettings.HudZoom;
         MultiplayerSettingsStore.Save(_hudSettings);
@@ -297,7 +297,7 @@ public partial class HudOverlayWindow
             > 50d => 0.92d,
             _ => 1d
         };
-        var target = Math.Clamp(_hudSettings.HudZoom * speedFactor, 0.65d, 2.25d);
+        var target = Math.Clamp(_hudSettings.HudZoom * speedFactor, 0.65d, 10d);
         _renderedHudZoom += (target - _renderedHudZoom) * 0.16d;
         MiniMapZoomText.Text = $"{_renderedHudZoom:F1}×";
         return _renderedHudZoom;

@@ -16,16 +16,26 @@ public static class OmsiRouteTraceReader
     public static IReadOnlyList<OmsiRouteTracePoint> TryRead(
         OmsiMapInfo map,
         OmsiMapLayout layout,
-        string? activeTrackName)
+        string? activeTrackOrTarget,
+        string? activeLine = null)
     {
-        if (string.IsNullOrWhiteSpace(activeTrackName) || layout.TileSize is not double tileSize)
+        if (layout.TileSize is not double tileSize)
         {
             return Array.Empty<OmsiRouteTracePoint>();
         }
 
         try
         {
-            var trackPath = FindTrackPath(map.DirectoryPath, activeTrackName);
+            var trackPath = FindTrackPath(map.DirectoryPath, activeTrackOrTarget);
+            if (trackPath is null)
+            {
+                var resolvedTrackName = ResolveTrackNameFromTrip(
+                    map.DirectoryPath,
+                    activeLine,
+                    activeTrackOrTarget);
+                trackPath = FindTrackPath(map.DirectoryPath, resolvedTrackName);
+            }
+
             if (trackPath is null)
             {
                 return Array.Empty<OmsiRouteTracePoint>();
@@ -82,39 +92,20 @@ public static class OmsiRouteTraceReader
         }
     }
 
-    private static string? FindTrackPath(string mapDirectory, string activeTrackName)
+    private static string? FindTrackPath(string mapDirectory, string? activeTrackName)
     {
+        if (string.IsNullOrWhiteSpace(activeTrackName))
+        {
+            return null;
+        }
+
         var requested = Path.GetFileNameWithoutExtension(activeTrackName.Trim());
         if (string.IsNullOrWhiteSpace(requested))
         {
             return null;
         }
 
-        var timetableDirectories = new List<string>();
-        var baseTimetable = Path.Combine(mapDirectory, "TTData");
-        if (Directory.Exists(baseTimetable))
-        {
-            timetableDirectories.Add(baseTimetable);
-        }
-
-        var chronoDirectory = Path.Combine(mapDirectory, "Chrono");
-        if (Directory.Exists(chronoDirectory))
-        {
-            try
-            {
-                timetableDirectories.AddRange(
-                    Directory.EnumerateDirectories(chronoDirectory, "*", SearchOption.TopDirectoryOnly)
-                        .Select(path => Path.Combine(path, "TTData"))
-                        .Where(Directory.Exists));
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
-
+        var timetableDirectories = GetTimetableDirectories(mapDirectory);
         foreach (var directory in timetableDirectories)
         {
             try
@@ -160,6 +151,129 @@ public static class OmsiRouteTraceReader
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// OMSI trip files (.ttp) link a trip to a track using the [trip] block:
+    /// line 1 = track/TTR name, line 2 = destination, line 3 = line number.
+    /// Some runtimes expose the destination but not the track name through the
+    /// in-memory timetable record. In that case, line + destination can resolve
+    /// the real TTR without guessing route geometry.
+    /// </summary>
+    private static string? ResolveTrackNameFromTrip(
+        string mapDirectory,
+        string? activeLine,
+        string? activeTarget)
+    {
+        if (string.IsNullOrWhiteSpace(activeLine) && string.IsNullOrWhiteSpace(activeTarget))
+        {
+            return null;
+        }
+
+        var normalizedLine = Normalize(activeLine ?? string.Empty);
+        var normalizedTarget = Normalize(activeTarget ?? string.Empty);
+        var fallbackMatches = new List<string>();
+
+        foreach (var directory in GetTimetableDirectories(mapDirectory))
+        {
+            IEnumerable<string> tripFiles;
+            try
+            {
+                tripFiles = Directory.EnumerateFiles(directory, "*.ttp", SearchOption.TopDirectoryOnly).ToArray();
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var tripPath in tripFiles)
+            {
+                try
+                {
+                    var lines = File.ReadAllLines(tripPath);
+                    for (var i = 0; i < lines.Length - 3; i++)
+                    {
+                        if (!string.Equals(lines[i].Trim(), "[trip]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var trackName = lines[i + 1].Trim();
+                        var target = lines[i + 2].Trim();
+                        var line = lines[i + 3].Trim();
+                        if (string.IsNullOrWhiteSpace(trackName))
+                        {
+                            break;
+                        }
+
+                        var lineMatches = string.IsNullOrWhiteSpace(normalizedLine) ||
+                                          Normalize(line) == normalizedLine;
+                        var targetMatches = string.IsNullOrWhiteSpace(normalizedTarget) ||
+                                            Normalize(target) == normalizedTarget ||
+                                            Normalize(Path.GetFileNameWithoutExtension(tripPath)) == normalizedTarget;
+
+                        if (lineMatches && targetMatches)
+                        {
+                            return trackName;
+                        }
+
+                        if (lineMatches)
+                        {
+                            fallbackMatches.Add(trackName);
+                        }
+
+                        break;
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+
+        return fallbackMatches
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .Count() == 1
+            ? fallbackMatches[0]
+            : null;
+    }
+
+    private static IReadOnlyList<string> GetTimetableDirectories(string mapDirectory)
+    {
+        var timetableDirectories = new List<string>();
+        var baseTimetable = Path.Combine(mapDirectory, "TTData");
+        if (Directory.Exists(baseTimetable))
+        {
+            timetableDirectories.Add(baseTimetable);
+        }
+
+        var chronoDirectory = Path.Combine(mapDirectory, "Chrono");
+        if (Directory.Exists(chronoDirectory))
+        {
+            try
+            {
+                timetableDirectories.AddRange(
+                    Directory.EnumerateDirectories(chronoDirectory, "*", SearchOption.TopDirectoryOnly)
+                        .Select(path => Path.Combine(path, "TTData"))
+                        .Where(Directory.Exists));
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return timetableDirectories;
     }
 
     private static Dictionary<int, (int X, int Y)> ReadGlobalTileIndex(string globalConfigPath)
