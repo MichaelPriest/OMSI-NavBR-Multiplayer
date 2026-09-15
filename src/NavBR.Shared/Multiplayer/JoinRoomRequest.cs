@@ -5,4 +5,5 @@ public sealed record JoinRoomRequest(
     string PlayerId,
     string DisplayName,
     string? MapName,
-    string? MapCompatibilityId = null);
+    string? MapCompatibilityId = null,
+    OmsiCompatibilityManifest? Compatibility = null);
