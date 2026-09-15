@@ -99,9 +99,19 @@ public partial class HudOverlayWindow
         string title;
         if (!string.IsNullOrWhiteSpace(telemetry?.Line))
         {
-            title = !string.IsNullOrWhiteSpace(telemetry.Route)
-                ? $"Linha {telemetry.Line} • {telemetry.Route}"
-                : $"Linha {telemetry.Line}";
+            title = $"Linha {telemetry.Line}";
+
+            if (!string.IsNullOrWhiteSpace(telemetry.DestinationName))
+            {
+                title += $" • Destino: {telemetry.DestinationName}";
+            }
+            else if (!string.IsNullOrWhiteSpace(telemetry.Route))
+            {
+                // Keep a useful fallback for maps/patches that expose only the
+                // track field, while preferring the passenger-facing destination
+                // whenever OMSI provides it separately.
+                title += $" • Rota: {telemetry.Route}";
+            }
         }
         else
         {
