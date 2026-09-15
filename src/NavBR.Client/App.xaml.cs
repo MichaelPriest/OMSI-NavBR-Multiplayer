@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Localization;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
 
@@ -44,9 +45,16 @@ public partial class App : Application
 
     private static void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is Window window)
+        if (sender is not Window window)
         {
-            WindowsThemeService.ApplyDarkTitleBar(window);
+            return;
+        }
+
+        WindowsThemeService.ApplyDarkTitleBar(window);
+
+        if (window is MainWindow mainWindow)
+        {
+            OmsiProfilesUiInstaller.Install(mainWindow);
         }
     }
 
