@@ -140,12 +140,17 @@ internal static class OmsiRouteSceneryPathGeometryReader
 
                 // Both path formats share the geometry prefix:
                 // X, Y, Z, heading, radius, length, gradients...
+                var x = 0d;
+                var y = 0d;
+                var heading = 0d;
+                var radius = 0d;
+                var length = 0d;
                 var valid = i + 6 < lines.Length &&
-                            TryParseDouble(lines[i + 1], out var x) &&
-                            TryParseDouble(lines[i + 2], out var y) &&
-                            TryParseDouble(lines[i + 4], out var heading) &&
-                            TryParseDouble(lines[i + 5], out var radius) &&
-                            TryParseDouble(lines[i + 6], out var length) &&
+                            TryParseDouble(lines[i + 1], out x) &&
+                            TryParseDouble(lines[i + 2], out y) &&
+                            TryParseDouble(lines[i + 4], out heading) &&
+                            TryParseDouble(lines[i + 5], out radius) &&
+                            TryParseDouble(lines[i + 6], out length) &&
                             double.IsFinite(x) &&
                             double.IsFinite(y) &&
                             double.IsFinite(heading) &&
