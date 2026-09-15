@@ -6,4 +6,5 @@ public sealed record PlayerPresence(
     string RoomId,
     string? MapName,
     DateTimeOffset ConnectedAtUtc,
-    string? MapCompatibilityId = null);
+    string? MapCompatibilityId = null,
+    OmsiCompatibilityManifest? Compatibility = null);
