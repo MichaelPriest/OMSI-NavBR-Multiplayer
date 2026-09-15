@@ -48,6 +48,11 @@ public partial class HudOverlayWindow
             MiniMapContentScale.ScaleY = zoom;
         }
 
+        if (map is not null)
+        {
+            MiniMapStatusText.Text = BuildMiniMapTitle(map, telemetry);
+        }
+
         if (telemetry is null ||
             bitmap is null ||
             layout is null ||
@@ -72,7 +77,7 @@ public partial class HudOverlayWindow
             return;
         }
 
-        EnsureRouteTrace(map, layout, telemetry.Route);
+        EnsureRouteTrace(map, layout, telemetry.Line, telemetry.Route);
         RenderRouteTrace(
             layout,
             bitmap.PixelWidth,
@@ -81,16 +86,32 @@ public partial class HudOverlayWindow
             localPixelY);
     }
 
-    private void EnsureRouteTrace(OmsiMapInfo map, OmsiMapLayout layout, string? routeName)
+    private static string BuildMiniMapTitle(OmsiMapInfo map, NavBR.Shared.Telemetry.VehicleTelemetry? telemetry)
     {
-        var cacheKey = $"{map.DirectoryPath}|{routeName}";
+        if (!string.IsNullOrWhiteSpace(telemetry?.Line))
+        {
+            return !string.IsNullOrWhiteSpace(telemetry.Route)
+                ? $"Linha {telemetry.Line} • {telemetry.Route}"
+                : $"Linha {telemetry.Line}";
+        }
+
+        return $"{map.DisplayName} • Sem linha ativa";
+    }
+
+    private void EnsureRouteTrace(
+        OmsiMapInfo map,
+        OmsiMapLayout layout,
+        string? lineName,
+        string? routeName)
+    {
+        var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}";
         if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName);
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, routeName, lineName);
     }
 
     private void RenderRouteTrace(
