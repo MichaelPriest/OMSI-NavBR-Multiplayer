@@ -11,17 +11,11 @@ internal static class OmsiPluginInstallationService
 {
     private const string EmbeddedResourceName = "NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip";
     private const string SteamAppId = "252530";
-    private const int RequiredRuntimeMajor = 10;
 
     private static readonly string[] RequiredPluginFiles =
     [
         "NavBR.OmsiPlugin.dll",
-        "NavBR.OmsiPlugin.opl",
-        "NavBR.OmsiPluginExperimental.dll",
-        "NavBR.OmsiPluginExperimental.deps.json",
-        "NavBR.OmsiPluginExperimental.runtimeconfig.json",
-        "NavBR.Shared.dll",
-        "NavBR.Shared.deps.json"
+        "NavBR.OmsiPlugin.opl"
     ];
 
     public static bool HasEmbeddedPackage =>
@@ -66,14 +60,6 @@ internal static class OmsiPluginInstallationService
         {
             throw new InvalidOperationException(
                 "Esta build do NavBR não contém o pacote do plugin embutido. Use uma build oficial/teste gerada pelo CI.");
-        }
-
-        var runtimeRoot = FindDotNet10X86Root();
-        if (runtimeRoot is null)
-        {
-            throw new InvalidOperationException(
-                "Microsoft .NET 10 Runtime x86 não foi encontrado. O OMSI é 32-bit e o plugin NavBR precisa do runtime x86. " +
-                "Instale o .NET 10 Runtime x86 e tente novamente.");
         }
 
         var pluginsRoot = Path.Combine(root, "plugins");
@@ -158,12 +144,11 @@ internal static class OmsiPluginInstallationService
                 "# OMSI NavBR Plugin experimental - arquivos instalados",
                 $"# Instalado em: {DateTimeOffset.Now:O}",
                 $"# NavBR: {version}",
-                $"# Runtime x86: Microsoft.NETCore.App {RequiredRuntimeMajor}.x",
-                $"# dotnet x86: {runtimeRoot}",
+                "# Deployment: Native AOT x86 (self-contained; no .NET x86 runtime required)",
                 .. RequiredPluginFiles
             ]);
 
-        return new PluginInstallResult(root, pluginsRoot, RequiredPluginFiles.Length, runtimeRoot);
+        return new PluginInstallResult(root, pluginsRoot, RequiredPluginFiles.Length);
     }
 
     public static PluginRemoveResult Remove(string omsiRoot)
@@ -349,68 +334,12 @@ internal static class OmsiPluginInstallationService
 
         return tracked;
     }
-
-    private static string? FindDotNet10X86Root()
-    {
-        var candidates = new List<string?>
-        {
-            Environment.GetEnvironmentVariable("DOTNET_ROOT_X86"),
-            Environment.GetEnvironmentVariable("DOTNET_ROOT(x86)")
-        };
-
-        try
-        {
-            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
-            using var key = baseKey.OpenSubKey(@"SOFTWARE\dotnet\Setup\InstalledVersions\x86");
-            candidates.Add(key?.GetValue("InstallLocation") as string);
-        }
-        catch
-        {
-        }
-
-        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        if (!string.IsNullOrWhiteSpace(programFilesX86))
-        {
-            candidates.Add(Path.Combine(programFilesX86, "dotnet"));
-        }
-
-        foreach (var candidate in candidates.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var root = Path.GetFullPath(candidate!);
-            if (!File.Exists(Path.Combine(root, "dotnet.exe")))
-            {
-                continue;
-            }
-
-            if (HasMajorVersionDirectory(Path.Combine(root, "shared", "Microsoft.NETCore.App"), RequiredRuntimeMajor) &&
-                HasMajorVersionDirectory(Path.Combine(root, "host", "fxr"), RequiredRuntimeMajor))
-            {
-                return root;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool HasMajorVersionDirectory(string parent, int major)
-    {
-        if (!Directory.Exists(parent))
-        {
-            return false;
-        }
-
-        return Directory.EnumerateDirectories(parent)
-            .Select(Path.GetFileName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Any(name => Version.TryParse(name, out var version) && version.Major == major);
-    }
 }
 
 internal sealed record PluginInstallResult(
     string OmsiRoot,
     string PluginsDirectory,
-    int InstalledFiles,
-    string DotNetX86Root);
+    int InstalledFiles);
 
 internal sealed record PluginRemoveResult(
     string OmsiRoot,
