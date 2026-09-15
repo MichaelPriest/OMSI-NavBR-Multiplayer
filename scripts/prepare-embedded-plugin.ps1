@@ -13,14 +13,11 @@ $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
 $outputDirectory = Split-Path -Parent $outputFullPath
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
+# Native AOT x86: the OMSI plugin is a self-contained native DLL. No .NET x86
+# runtimeconfig/deps/managed companion assemblies are required on the user's PC.
 $required = @(
     'NavBR.OmsiPlugin.dll',
-    'NavBR.OmsiPlugin.opl',
-    'NavBR.OmsiPluginExperimental.dll',
-    'NavBR.OmsiPluginExperimental.deps.json',
-    'NavBR.OmsiPluginExperimental.runtimeconfig.json',
-    'NavBR.Shared.dll',
-    'NavBR.Shared.deps.json'
+    'NavBR.OmsiPlugin.opl'
 )
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("NavBR-PluginPayload-" + [Guid]::NewGuid().ToString('N'))
@@ -30,7 +27,7 @@ try {
     foreach ($name in $required) {
         $source = Join-Path $pluginRoot $name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
-            throw "Embedded plugin payload is incomplete: $source"
+            throw "Embedded Native AOT plugin payload is incomplete: $source"
         }
 
         Copy-Item -LiteralPath $source -Destination (Join-Path $temp $name) -Force
@@ -44,7 +41,7 @@ try {
     $hash = (Get-FileHash -LiteralPath $outputFullPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $size = (Get-Item -LiteralPath $outputFullPath).Length
 
-    Write-Host "Embedded plugin payload ready: $outputFullPath"
+    Write-Host "Embedded Native AOT plugin payload ready: $outputFullPath"
     Write-Host "Files: $($required.Count)  Bytes: $size  SHA256: $hash"
 }
 finally {
