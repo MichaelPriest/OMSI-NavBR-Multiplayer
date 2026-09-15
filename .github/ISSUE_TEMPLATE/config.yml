@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Releases e downloads
+    url: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases
+    about: Baixe a versão mais recente antes de relatar um problema já corrigido.
