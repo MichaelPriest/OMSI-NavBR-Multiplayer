@@ -84,7 +84,33 @@ Require(info.LastStatus.CompatibleRemoteVehicleCount == 1, "compatible remote co
 Require(info.LastStatus.StaleRemovedCount == 3, "stale count mismatch");
 Require(info.LastStatus.LastSystemVariableIndex == 7, "system variable index mismatch");
 
-Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime status.");
+var spoofedStatus = pluginStatus with
+{
+    ProcessId = 9999,
+    TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    SystemVariableCallbacks = 999
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(spoofedStatus));
+await Task.Delay(250, cts.Token);
+
+var afterSpoof = server.GetConnectionInfo();
+Require(afterSpoof.LastStatus?.SystemVariableCallbacks == 123,
+    "runtime status from a PID different from the handshake was accepted");
+
+var invalidCountersStatus = pluginStatus with
+{
+    TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    SystemVariableCallbacks = 777,
+    RemoteVehicleCount = -1
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(invalidCountersStatus));
+await Task.Delay(250, cts.Token);
+
+var afterInvalidCounters = server.GetConnectionInfo();
+Require(afterInvalidCounters.LastStatus?.SystemVariableCallbacks == 123,
+    "runtime status with invalid counters was accepted");
+
+Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime status + rejection checks.");
 
 static void Require(bool condition, string message)
 {
