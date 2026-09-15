@@ -107,15 +107,38 @@ public partial class MainWindow
             ? connectedAt.ToLocalTime().ToString("HH:mm:ss")
             : "-";
 
+        var heartbeat = bridge.LastStatus;
+        var heartbeatAge = heartbeat?.TimestampUnixMilliseconds is long heartbeatMs
+            ? Math.Max(
+                0d,
+                (DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(heartbeatMs)).TotalSeconds)
+            : (double?)null;
+        var heartbeatState = heartbeatAge is null
+            ? "NONE"
+            : heartbeatAge <= 12d
+                ? "LIVE"
+                : "STALE";
+
+        var callbackCount = heartbeat?.SystemVariableCallbacks?.ToString() ?? "-";
+        var systemVariable = heartbeat?.LastSystemVariableIndex?.ToString() ?? "-";
+        var remoteCount = heartbeat?.RemoteVehicleCount?.ToString() ?? "-";
+        var compatibleCount = heartbeat?.CompatibleRemoteVehicleCount?.ToString() ?? "-";
+        var staleRemoved = heartbeat?.StaleRemovedCount?.ToString() ?? "-";
+        var heartbeatAgeText = heartbeatAge is double seconds
+            ? $"{seconds:F1}s"
+            : "-";
+
         _pluginDiagnosticsStatusText.Text =
             $"status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
+            $"heartbeat={heartbeatState}  age={heartbeatAgeText}  callbacks={callbackCount}  system-var={systemVariable}\n" +
+            $"remote={remoteCount}  compatible={compatibleCount}  stale-removed={staleRemoved}\n" +
             $"map={mapName}\n" +
             $"compatibility={compatibility}\n" +
             "log=%LOCALAPPDATA%\\OMSI NavBR Multiplayer\\navbr-plugin.log";
 
-        _pluginDiagnosticsStatusText.Foreground = bridge.IsConnected
+        _pluginDiagnosticsStatusText.Foreground = bridge.IsConnected && heartbeatState != "STALE"
             ? TryFindResource("NavAccentBrush") as Brush ?? Brushes.LightGreen
             : TryFindResource("NavMutedBrush") as Brush ?? Brushes.LightGray;
     }
