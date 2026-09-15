@@ -19,13 +19,15 @@ v0.3.0-alpha.9
 
 Ela é publicada como **Prerelease**, porque HUD, traçado detalhado, destino/próxima parada, voz, atalhos e multiplayer peer-host ainda precisam de validação real mais ampla no OMSI e entre computadores.
 
-A alpha.10 está em desenvolvimento. Para os testes do novo catálogo de roadmaps e do plugin OMSI experimental existe uma prerelease separada e permanente:
+A alpha.10 está em desenvolvimento. A prerelease permanente de integração mais recente é:
 
 ```text
-v0.3.0-alpha.10-test.1
+v0.3.0-alpha.10-test.2
 ```
 
 Essa tag é **somente para teste de integração**. Ela não substitui a alpha.9 como download recomendado geral e não significa que a alpha.10 esteja pronta para merge/release final.
+
+A `v0.3.0-alpha.10-test.1` permanece publicada como snapshot histórico. A `test.2` acrescenta o diagnóstico de instalação do plugin no cliente (`install`, `files`, `manifest` e `plugin-dir`) e é a build indicada para a rodada atual de testes.
 
 ## Prereleases de teste de integração
 
@@ -39,14 +41,20 @@ Regras:
 - o commit exato usado no teste deve ficar associado à tag;
 - devem incluir checksums SHA-256 quando houver binários;
 - não entram na vitrine normal do GitHub Pages nem substituem o botão principal de download;
-- o próximo teste corrigido deve usar uma nova tag, por exemplo `test.2`, em vez de substituir `test.1`.
+- o próximo teste corrigido deve usar uma nova tag, por exemplo `test.3`, em vez de substituir `test.2`.
 
-### Alpha.10 test.1
+### Alpha.10 test.2
 
-A `v0.3.0-alpha.10-test.1` publica, além dos pacotes separados, o bundle recomendado para o teste do plugin:
+A `v0.3.0-alpha.10-test.2` aponta para o commit:
 
 ```text
-OMSI-NavBR-alpha10-test.1-integration-win-x86.zip
+83009c5222f5089ac9b8244c65a8e4de526df5fa
+```
+
+Pacote recomendado para o teste:
+
+```text
+OMSI-NavBR-alpha10-test.2-integration-win-x86.zip
 ```
 
 Ele reúne:
@@ -60,16 +68,30 @@ Ele reúne:
 Também são publicados separadamente:
 
 ```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.1-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.10-test.1-win-x64.zip
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip
+OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip
+OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip
 SHA256SUMS.txt
 LICENSE
 THIRD_PARTY_NOTICES.md
 ```
 
+Checksums verificados da publicação `test.2`:
+
+```text
+bd2a9aff5c2af1f6c6ddb544adb50d8bbc8b1896e8723209a5079835f0497429  OMSI-NavBR-alpha10-test.2-integration-win-x86.zip
+78873e8f5d87ed10088f337deff136083a7e6963e08f780303c46f49709f9e90  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe
+920a49391226d6e6f396fbf344c8461397273a8c48f99039039aeafbb13d9c4e  OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip
+52d1cb448587d58bc1d2efb97eaca947c882052302c14ae01fbfbac3ec773b8a  OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip
+bae3e887dfad4f4b2d79d66b076cde72a74896c1f165426f39ed91288c50d8a5  OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip
+```
+
 O plugin dessa build continua experimental: **não escreve variáveis, não aciona triggers e não cria/move ônibus físicos dentro do OMSI**.
+
+### Alpha.10 test.1
+
+A `v0.3.0-alpha.10-test.1` permanece disponível apenas para comparação/rastreabilidade da primeira integração permanente. Ela não deve substituir a `test.2` nos testes atuais.
 
 ## Publicação
 
@@ -111,7 +133,7 @@ O arquivo:
 OMSI-NavBR-Multiplayer-v<versão>-win-x86.exe
 ```
 
-é a opção mais simples para a maioria dos usuários. Ele é self-contained e inclui o runtime necessário.
+é a opção mais simples para a maioria dos usuários. Ele é self-contained e inclui o runtime necessário para o cliente.
 
 ### Cliente ZIP
 
@@ -130,7 +152,7 @@ O GitHub Pages consulta os assets das releases para mostrar:
 - downloads por release;
 - total de downloads oficiais.
 
-Tags de integração `-test` ficam deliberadamente fora do catálogo normal do site para não confundir um build experimental com o download recomendado. A seção experimental do site pode oferecer um link explícito para o teste quando necessário.
+Tags de integração `-test` ficam deliberadamente fora do catálogo normal do site para não confundir um build experimental com o download recomendado. A seção experimental do site oferece explicitamente o pacote `test.2` quando necessário.
 
 A atualização ocorre após releases e também periodicamente pelo workflow de Pages.
 
@@ -160,7 +182,8 @@ Antes de considerar a alpha.10 pronta como prerelease geral, continuam prioritá
 7. atalhos e conflitos com `keyboard.cfg`;
 8. lista de mapas/roadmaps da alpha.10;
 9. carregamento real do plugin no OMSI 2.3.004;
-10. painel do bridge com `status=CONNECTED`, `process-match=YES` e `heartbeat=LIVE`;
-11. fluxo SignalR → cliente → Named Pipe → plugin entre dois PCs.
+10. diagnóstico de instalação do plugin (`install=INSTALLED`, `files=3/3`, `manifest=YES`);
+11. painel do bridge com `status=CONNECTED`, `process-match=YES` e `heartbeat=LIVE`;
+12. fluxo SignalR → cliente → Named Pipe → plugin entre dois PCs.
 
 Os problemas encontrados nesses testes devem ser corrigidos antes de considerar os recursos correspondentes estáveis.
