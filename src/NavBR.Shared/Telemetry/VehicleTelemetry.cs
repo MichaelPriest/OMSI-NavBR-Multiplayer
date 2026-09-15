@@ -37,7 +37,14 @@ public sealed record VehicleTelemetry(
     bool ParkingBrakeActive = false,
     bool ReverseGear = false,
     string? VehicleCompatibilityId = null,
-    string? HofCompatibilityId = null);
+    string? HofCompatibilityId = null,
+    double? LocalX = null,
+    double? LocalY = null,
+    double? LocalZ = null,
+    double? RotationX = null,
+    double? RotationY = null,
+    double? RotationZ = null,
+    double? RotationW = null);
 
 [Flags]
 public enum VehicleDoorFlags
