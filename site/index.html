@@ -104,15 +104,19 @@
           <h2>Ônibus remotos dentro do próprio OMSI.</h2>
           <p class="section-lead">A alpha.10 prepara uma integração opcional via plugin x86. O multiplayer atual continua independente do plugin e segue funcionando apenas com o cliente NavBR.</p>
         </div>
-        <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md" target="_blank" rel="noreferrer">Documento técnico →</a>
+        <div class="actions">
+          <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md" target="_blank" rel="noreferrer">Documento técnico →</a>
+          <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist alpha.10 →</a>
+        </div>
       </div>
       <div class="feature-grid">
         <article><span class="feature-icon">DLL</span><h3>Plugin opcional x86</h3><p>Protótipo DLL + OPL com callbacks do OMSI e diagnóstico por heartbeat. Ainda não cria nem move veículos no simulador.</p></article>
-        <article><span class="feature-icon">↔</span><h3>Bridge local implementado</h3><p>Windows Named Pipes já ligam cliente e plugin no mesmo PC, com protocolo versionado, handshake e reconexão sem abrir outra porta pública.</p></article>
+        <article><span class="feature-icon">↔</span><h3>Bridge local implementado</h3><p>Windows Named Pipes já ligam cliente e plugin no mesmo PC, com protocolo versionado, handshake, status de runtime e reconexão sem abrir outra porta pública.</p></article>
+        <article><span class="feature-icon">HB</span><h3>Diagnóstico ao vivo</h3><p>O painel <code>PLUGIN BRIDGE v1 • EXP</code> mostra conexão, PID/process-match, heartbeat, callbacks, remotos compatíveis, mapa e fingerprint resumido.</p></article>
         <article><span class="feature-icon">✓</span><h3>Filtro e segurança</h3><p>O plugin recebe o contexto local, filtra remotos pelo mapa/fingerprint, limita 64 estados e remove automaticamente dados com mais de 5 segundos.</p></article>
         <article><span class="feature-icon">≈</span><h3>Movimento suavizado</h3><p>Dois snapshots por jogador já alimentam interpolação de X/Y/Z, velocidade e heading com atraso aproximado de 100 ms antes do futuro spawn.</p></article>
       </div>
-      <p class="release-note"><strong>Próximo marco:</strong> validar DLL, heartbeat e fluxo SignalR → cliente → Named Pipe → plugin no OMSI 2.3.004. Só depois será tentada a primeira entidade remota física.</p>
+      <p class="release-note"><strong>Estado da alpha.10:</strong> o CI já valida handshake + <code>plugin-status</code> pelo Named Pipe x86, instalação/remoção do plugin e empacotamento integrado. Ainda falta validar no OMSI 2.3.004 real: <code>status=CONNECTED</code>, <code>process-match=YES</code> e <code>heartbeat=LIVE</code>. Só depois será tentada a primeira entidade remota física.</p>
     </section>
 
     <section id="feedback" class="section shell feedback-section">
@@ -140,10 +144,10 @@
       </div>
     </section>
 
-    <section id="roadmap" class="section shell"><span class="eyebrow">Roadmap de desenvolvimento</span><h2>O que vem depois</h2><div class="roadmap-grid"><article><b>Agora</b><h3>Validar Alpha.9</h3><p>HUD, rota, telemetria, multiplayer PC ↔ PC, chat, voz, atalhos e reconexão.</p></article><article><b>Em paralelo</b><h3>Alpha.10 experimental</h3><p>Lista de mapas/roadmaps, plugin x86, bridge local, filtro por mapa e interpolação antes do primeiro ônibus remoto físico.</p></article><article><b>Depois</b><h3>Beta e expansão</h3><p>Correções dos testes, ETA/distância, diagnóstico de rede, NAT traversal e evolução do multiplayer visual.</p></article></div></section>
+    <section id="roadmap" class="section shell"><span class="eyebrow">Roadmap de desenvolvimento</span><h2>O que vem depois</h2><div class="roadmap-grid"><article><b>Agora</b><h3>Testes reais</h3><p>Alpha.9: HUD, rota e multiplayer PC ↔ PC. Alpha.10: lista de roadmaps, carregamento do plugin e bridge com heartbeat.</p></article><article><b>Em paralelo</b><h3>Alpha.10 experimental</h3><p>Plugin x86, bridge local, filtro por mapa, timeout, interpolação e diagnóstico antes do primeiro ônibus remoto físico.</p></article><article><b>Depois</b><h3>Beta e expansão</h3><p>Correções dos testes, ETA/distância, diagnóstico de rede, NAT traversal e evolução do multiplayer visual.</p></article></div></section>
   </main>
 
-  <footer><div class="shell footer-grid"><div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2.</p></div><div><a href="#mapas">Preparar mapas</a><a href="#plugin">Plugin experimental</a><a href="#feedback">Enviar feedback</a><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
+  <footer><div class="shell footer-grid"><div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2.</p></div><div><a href="#mapas">Preparar mapas</a><a href="#plugin">Plugin experimental</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist alpha.10</a><a href="#feedback">Enviar feedback</a><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
   <script src="app.js"></script>
 </body>
 </html>
