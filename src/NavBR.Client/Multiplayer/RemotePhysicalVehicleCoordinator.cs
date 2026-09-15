@@ -41,10 +41,25 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        // Vehicle identity is refreshed on every telemetry frame. Presence is
+        // created when the player joins and can therefore predate the moment in
+        // which OMSI has a fully resolved .bus/.ovh definition.
+        var remoteManifest = BuildLiveRemoteManifest(frame);
+        if (string.IsNullOrWhiteSpace(remoteManifest.VehiclePath) ||
+            string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
+        {
+            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            return;
+        }
+
+        // Physical rendering only requires the same map/protocol. Players do
+        // not need to be driving the same bus: the receiver creates the remote
+        // player's actual vehicle asset from VehiclePath and validates its
+        // fingerprint separately in the OMSI plugin backend.
         var report = OmsiCompatibilityEvaluator.Compare(
             _localManifest,
-            frame.Player.Compatibility,
-            requireVehicleForPhysicalMultiplayer: true);
+            remoteManifest,
+            requireVehicleForPhysicalMultiplayer: false);
         if (!report.IsCompatible)
         {
             await DespawnAsync(frame.Player.PlayerId, cancellationToken);
@@ -97,5 +112,37 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 playerId,
                 cancellationToken);
         }
+    }
+
+    private static OmsiCompatibilityManifest BuildLiveRemoteManifest(PlayerTelemetryFrame frame)
+    {
+        var telemetry = frame.Telemetry;
+        var reported = frame.Player.Compatibility;
+
+        if (reported is not null)
+        {
+            return reported with
+            {
+                MapName = telemetry.MapName ?? reported.MapName,
+                MapCompatibilityId = telemetry.MapCompatibilityId ?? reported.MapCompatibilityId,
+                VehiclePath = telemetry.VehiclePath ?? reported.VehiclePath,
+                VehicleCompatibilityId = telemetry.VehicleCompatibilityId ?? reported.VehicleCompatibilityId,
+                HofName = telemetry.HofName ?? reported.HofName,
+                HofCompatibilityId = telemetry.HofCompatibilityId ?? reported.HofCompatibilityId
+            };
+        }
+
+        return new OmsiCompatibilityManifest(
+            OmsiVersion: null,
+            NavBRVersion: null,
+            MapName: telemetry.MapName ?? frame.Player.MapName,
+            MapCompatibilityId: telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId,
+            VehiclePath: telemetry.VehiclePath,
+            VehicleCompatibilityId: telemetry.VehicleCompatibilityId,
+            HofName: telemetry.HofName,
+            HofCompatibilityId: telemetry.HofCompatibilityId,
+            PluginProtocolVersion: PluginBridgeProtocol.Version,
+            PluginDeployment: null,
+            Capabilities: Array.Empty<string>());
     }
 }
