@@ -91,9 +91,28 @@ jobs:
         shell: pwsh
         run: |
           $fakeOmsi = Join-Path $env:RUNNER_TEMP "NavBR-Omsi-Smoke"
-          if (Test-Path $fakeOmsi) {
-            Remove-Item $fakeOmsi -Recurse -Force
+          $dotnetX86 = Join-Path $env:RUNNER_TEMP "NavBR-dotnet-x86"
+          $dotnetInstall = Join-Path $env:RUNNER_TEMP "dotnet-install-x86.ps1"
+
+          foreach ($path in @($fakeOmsi, $dotnetX86)) {
+            if (Test-Path $path) {
+              Remove-Item $path -Recurse -Force
+            }
           }
+
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile $dotnetInstall
+          & $dotnetInstall `
+            -Channel 10.0 `
+            -Runtime dotnet `
+            -Architecture x86 `
+            -InstallDir $dotnetX86 `
+            -NoPath
+
+          if (-not (Test-Path (Join-Path $dotnetX86 "dotnet.exe"))) {
+            throw "Could not install the temporary .NET 10 x86 runtime used by the plugin installer smoke test."
+          }
+
+          $env:DOTNET_ROOT_X86 = $dotnetX86
 
           New-Item -ItemType Directory -Path $fakeOmsi -Force | Out-Null
           New-Item -ItemType File -Path (Join-Path $fakeOmsi "Omsi.exe") -Force | Out-Null
@@ -112,6 +131,11 @@ jobs:
             }
           }
 
+          $manifestText = Get-Content -LiteralPath $manifest -Raw
+          if ($manifestText -notmatch 'Runtime x86: Microsoft\.NETCore\.App 10\.') {
+            throw "Plugin installer manifest did not record the validated .NET 10 x86 runtime."
+          }
+
           & (Join-Path $package "Remove-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
 
           foreach ($removed in @($manifest, $installedDll, $installedOpl)) {
@@ -121,7 +145,8 @@ jobs:
           }
 
           Remove-Item $fakeOmsi -Recurse -Force
-          Write-Host "Experimental plugin install/remove smoke test passed."
+          Remove-Item $dotnetX86 -Recurse -Force
+          Write-Host "Experimental plugin install/remove smoke test passed with a real .NET 10 x86 runtime."
 
       - name: Publish Windows x86 client
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
