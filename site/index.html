@@ -7,18 +7,19 @@
   <meta name="description" content="OMSI NavBR Multiplayer — GPS, HUD, salas peer-host, chat e voz para OMSI 2. Jogadores remotos já aparecem no NavBR; ônibus remotos dentro do mundo 3D do OMSI ainda estão em desenvolvimento." />
   <meta property="og:title" content="OMSI NavBR Multiplayer" />
   <meta property="og:description" content="Navegação, HUD e multiplayer externo para OMSI 2, com alpha.10 experimental preparando a futura representação de veículos remotos no simulador." />
+  <meta property="og:image" content="assets/navbr-hero.webp" />
   <title>OMSI NavBR Multiplayer</title>
-  <link rel="icon" href="assets/navbr.ico" />
+  <link rel="icon" href="assets/navbr-app-icon.png" type="image/png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="omsi-theme.css" />
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#inicio" aria-label="OMSI NavBR Multiplayer">
-      <span class="brand-box"><img src="assets/navbr.ico" alt="" /></span>
-      <span class="brand-copy"><b>NavBR</b><small>OMSI Multiplayer</small></span>
+    <a class="brand brand-wide" href="#inicio" aria-label="OMSI NavBR Multiplayer">
+      <img class="brand-logo" src="assets/navbr-logo.webp" alt="OMSI NavBR Multiplayer" />
     </a>
     <nav aria-label="Navegação principal">
+      <a href="#contribua">Contribua</a>
       <a href="#estado">Estado atual</a>
       <a href="#download">Download</a>
       <a href="#recursos">Recursos</a>
@@ -50,19 +51,40 @@
         </div>
       </div>
 
-      <div class="project-console" aria-label="Estado atual do OMSI NavBR Multiplayer">
-        <div class="console-head"><span>NAVBR • SESSION STATUS</span><span class="console-live"><i></i> DEVELOPMENT</span></div>
-        <div class="console-body">
-          <div class="console-row ok"><span>GPS / HUD</span><strong>ATIVO</strong></div>
-          <div class="console-row ok"><span>Peer-host / SignalR</span><strong>IMPLEMENTADO</strong></div>
-          <div class="console-row ok"><span>Jogadores no mapa NavBR</span><strong>SIM</strong></div>
-          <div class="console-row ok"><span>Chat / PTT</span><strong>IMPLEMENTADO</strong></div>
-          <div class="console-divider"></div>
-          <div class="console-row exp"><span>Plugin OMSI x86</span><strong>EXPERIMENTAL</strong></div>
-          <div class="console-row exp"><span>Bridge local / heartbeat</span><strong>ALPHA.10</strong></div>
-          <div class="console-row no"><span>Ônibus remoto no mundo 3D</span><strong>AINDA NÃO</strong></div>
+      <div class="hero-media">
+        <figure class="hero-visual">
+          <img src="assets/navbr-hero.webp" alt="Conceito visual do OMSI NavBR mostrando GPS, HUD, chat, voz e marcadores de jogadores no aplicativo" />
+          <figcaption>Visual conceitual do NavBR: os remotos aparecem no GPS/HUD do aplicativo. Isso não representa ônibus remotos 3D já disponíveis no OMSI.</figcaption>
+        </figure>
+        <div class="project-console" aria-label="Estado atual do OMSI NavBR Multiplayer">
+          <div class="console-head"><span>NAVBR • SESSION STATUS</span><span class="console-live"><i></i> DEVELOPMENT</span></div>
+          <div class="console-body">
+            <div class="console-row ok"><span>GPS / HUD</span><strong>ATIVO</strong></div>
+            <div class="console-row ok"><span>Peer-host / SignalR</span><strong>IMPLEMENTADO</strong></div>
+            <div class="console-row ok"><span>Jogadores no mapa NavBR</span><strong>SIM</strong></div>
+            <div class="console-row ok"><span>Chat / PTT</span><strong>IMPLEMENTADO</strong></div>
+            <div class="console-divider"></div>
+            <div class="console-row exp"><span>Plugin OMSI x86</span><strong>EXPERIMENTAL</strong></div>
+            <div class="console-row exp"><span>Bridge local / heartbeat</span><strong>ALPHA.10</strong></div>
+            <div class="console-row no"><span>Ônibus remoto no mundo 3D</span><strong>AINDA NÃO</strong></div>
+          </div>
+          <div class="console-foot">O marcador remoto no GPS/HUD não significa que outro ônibus já foi criado fisicamente dentro do OMSI.</div>
         </div>
-        <div class="console-foot">O marcador remoto no GPS/HUD não significa que outro ônibus já foi criado fisicamente dentro do OMSI.</div>
+      </div>
+    </section>
+
+    <section id="contribua" class="section shell support-wrap support-featured">
+      <div class="support-card featured-support-card">
+        <div class="support-brand">
+          <img src="assets/navbr-app-icon.png" alt="Ícone do OMSI NavBR Multiplayer" />
+          <div><span class="eyebrow">Projeto independente</span><h2>Ajude o NavBR a continuar evoluindo.</h2><p>Contribuições ajudam diretamente no desenvolvimento, testes entre computadores, compatibilidade com mapas/ônibus, infraestrutura e evolução do multiplayer visual.</p></div>
+        </div>
+        <div class="pix-box pix-box-featured" data-pix="b07a9cc9-b10d-48a8-b201-d28bddc4399a">
+          <span>CONTRIBUA VIA PIX • CHAVE ALEATÓRIA</span>
+          <strong id="pix-status">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong>
+          <button id="copy-pix" class="button primary" type="button">Copiar chave Pix</button>
+          <small>O apoio é voluntário. O projeto continua público e o código do NavBR permanece disponível no GitHub.</small>
+        </div>
       </div>
     </section>
 
@@ -73,6 +95,10 @@
         <div><span class="eyebrow">Estado real do projeto</span><h2>Multiplayer conectado não significa, ainda, ônibus dentro do OMSI.</h2><p class="section-lead">O NavBR já troca telemetria entre jogadores e mostra os remotos na própria interface. A representação física no mundo 3D do simulador é a próxima fronteira técnica e continua experimental.</p></div>
         <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MULTIPLAYER_STATUS.md" target="_blank" rel="noreferrer">Ler estado completo →</a>
       </div>
+      <figure class="status-visual">
+        <img src="assets/navbr-multiplayer-status.webp" alt="Infográfico do OMSI NavBR com multiplayer atual e plugin experimental" />
+        <figcaption>Resumo visual do projeto: rede, GPS/HUD, chat e voz já formam a base atual; ônibus remotos 3D continuam indisponíveis nesta fase.</figcaption>
+      </figure>
       <div class="status-grid">
         <article class="status-card status-ready"><span class="status-label">FUNCIONA HOJE</span><h3>Multiplayer externo</h3><p>Sala, presença, telemetria, jogadores no GPS/minimapa/HUD do NavBR, chat, voz e reconexão automática.</p><ul><li>Host no PC do criador</li><li>TCP 27730 / SignalR</li><li>Mapa + fingerprint compartilhados</li><li>Servidor dedicado opcional</li></ul></article>
         <article class="status-card status-pending"><span class="status-label">AINDA NÃO</span><h3>Multiplayer visual 3D</h3><p>O NavBR ainda não cria outro jogador como ônibus físico/AI dentro do cenário do OMSI.</p><ul><li>Sem ônibus remoto 3D</li><li>Sem colisões compartilhadas</li><li>Sem portas/luzes/matriz remotas</li><li>Sem tráfego/passageiros sincronizados</li></ul></article>
@@ -174,13 +200,6 @@
       <p class="feedback-note">Os relatos são públicos no GitHub. Não publique senhas, tokens ou dados privados nos formulários e anexos.</p>
     </section>
 
-    <section id="contribua" class="section shell support-wrap">
-      <div class="support-card">
-        <div><span class="eyebrow">Projeto independente</span><h2>Contribua com o OMSI NavBR Multiplayer</h2><p>Se o projeto for útil para você, contribua via Pix para ajudar com desenvolvimento, testes e futura infraestrutura multiplayer.</p></div>
-        <div class="pix-box" data-pix="b07a9cc9-b10d-48a8-b201-d28bddc4399a"><span>PIX • CHAVE ALEATÓRIA</span><strong id="pix-status">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong><button id="copy-pix" class="button primary" type="button">Copiar chave Pix</button><small>Ao apoiar, você ajuda a manter o desenvolvimento e os testes do projeto.</small></div>
-      </div>
-    </section>
-
     <section id="roadmap" class="section shell roadmap-section">
       <span class="eyebrow">Roadmap de desenvolvimento</span><h2>Da telemetria compartilhada ao multiplayer visual.</h2>
       <div class="roadmap-grid">
@@ -192,7 +211,7 @@
     </section>
   </main>
 
-  <footer><div class="shell footer-grid"><div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2. Multiplayer externo em desenvolvimento; representação 3D de ônibus remotos ainda experimental.</p></div><div><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MULTIPLAYER_STATUS.md" target="_blank" rel="noreferrer">Estado real do multiplayer</a><a href="#mapas">Preparar mapas</a><a href="#plugin">Alpha.10 experimental</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist alpha.10</a><a href="#feedback">Enviar feedback</a><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
+  <footer><div class="shell footer-grid"><div><img class="footer-logo" src="assets/navbr-logo.webp" alt="OMSI NavBR Multiplayer" /><p>Projeto independente para OMSI 2. Multiplayer externo em desenvolvimento; representação 3D de ônibus remotos ainda experimental.</p></div><div><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MULTIPLAYER_STATUS.md" target="_blank" rel="noreferrer">Estado real do multiplayer</a><a href="#mapas">Preparar mapas</a><a href="#plugin">Alpha.10 experimental</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist alpha.10</a><a href="#feedback">Enviar feedback</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
   <script src="app.js"></script>
 </body>
 </html>
