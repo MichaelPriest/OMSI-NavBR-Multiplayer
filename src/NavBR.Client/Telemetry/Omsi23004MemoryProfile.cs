@@ -1,7 +1,9 @@
+using NavBR.Client.Omsi;
+
 namespace NavBR.Client.Telemetry;
 
 /// <summary>
-/// Read-only memory layout used by OMSI 2.3.004.
+/// Read-only memory layout used by the supported OMSI executables.
 /// Global addresses are stored as RVAs so the reader also works when the
 /// executable is not loaded at its preferred 0x00400000 image base.
 /// </summary>
@@ -9,11 +11,36 @@ internal static class Omsi23004MemoryProfile
 {
     private const int PreferredImageBase = 0x00400000;
 
-    // OMSI globals.
-    public const int RoadVehiclesListRva = 0x00861508 - PreferredImageBase;
-    public const int PlayerVehicleIndexRva = 0x00861740 - PreferredImageBase;
-    public const int MapPointerRva = 0x00861588 - PreferredImageBase;
-    public const int NavigationVehiclePointerRva = 0x00862F28 - PreferredImageBase;
+    public static int RoadVehiclesListRva { get; private set; } = 0x00861508 - PreferredImageBase;
+    public static int PlayerVehicleIndexRva { get; private set; } = 0x00861740 - PreferredImageBase;
+    public static int MapPointerRva { get; private set; } = 0x00861588 - PreferredImageBase;
+    public static int TimeTableManagerRva { get; private set; } = 0x008614E8 - PreferredImageBase;
+    public static int NavigationVehiclePointerRva { get; private set; } = 0x00862F28 - PreferredImageBase;
+
+    public static bool ConfigureFor(OmsiProcessInfo processInfo)
+    {
+        if (processInfo.IsOmsi22032)
+        {
+            RoadVehiclesListRva = 0x00861504 - PreferredImageBase;
+            PlayerVehicleIndexRva = 0x0086173C - PreferredImageBase;
+            MapPointerRva = 0x00861584 - PreferredImageBase;
+            TimeTableManagerRva = 0x008614E4 - PreferredImageBase;
+            NavigationVehiclePointerRva = 0x00862F24 - PreferredImageBase;
+            return true;
+        }
+
+        if (processInfo.IsOmsi23004Exact)
+        {
+            RoadVehiclesListRva = 0x00861508 - PreferredImageBase;
+            PlayerVehicleIndexRva = 0x00861740 - PreferredImageBase;
+            MapPointerRva = 0x00861588 - PreferredImageBase;
+            TimeTableManagerRva = 0x008614E8 - PreferredImageBase;
+            NavigationVehiclePointerRva = 0x00862F28 - PreferredImageBase;
+            return true;
+        }
+
+        return false;
+    }
 
     // OmsiMapObjInst / OmsiPhysObjInst / OmsiMovingMapObjInst fields.
     public const int VehiclePositionOffset = 0x004;
@@ -22,7 +49,27 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleVelocityOffset = 0x1C0;
     public const int VehicleGroundSpeedOffset = 0x428;
 
-    // D3DMatrix stores translation in _30/_31/_32 (bytes 0x30/0x34/0x38).
+    // Active timetable state on TRVInst (read-only).
+    public const int VehicleScheduleInfoValidOffset = 0x65C;
+    public const int VehicleScheduleLineIndexOffset = 0x660;
+    public const int VehicleScheduleTripIndexOffset = 0x66C;
+    public const int VehicleScheduleTargetIndexOffset = 0x674;
+    public const int VehicleScheduleNextStopOffset = 0x680;
+    public const int VehicleScheduleNextStopNameOffset = 0x6AC;
+    public const int VehicleScheduleDelayOffset = 0x6BC;
+
+    // TTimeTableMan dynamic arrays and TTTTrip layout.
+    public const int TimeTableTripsOffset = 0x00C;
+    public const int TimeTableLinesOffset = 0x018;
+    public const int TripRecordSize = 0x028;
+    public const int TripFilenameOffset = 0x000;
+    public const int TripTargetOffset = 0x008;
+    public const int TripLineNameOffset = 0x00C;
+    public const int TripBusStopsOffset = 0x018;
+    public const int TripTrackNameOffset = 0x01C;
+    public const int TripTrackIndexOffset = 0x020;
+    public const int TripStationLinkListOffset = 0x024;
+
     public const int MatrixTranslationOffset = 0x030;
 
     // OmsiMap fields.
@@ -32,13 +79,9 @@ internal static class Omsi23004MemoryProfile
     public const int MapNameOffset = 0x150;
     public const int MapFriendlyNameOffset = 0x158;
 
-    // Navigation/local vehicle coordinates used by OMSI RouteAdvisor-compatible
-    // 2.3.004 layouts. These are read-only and are kept separate from the
-    // absolute transform so the roadmap renderer can work in map-tile space.
     public const int NavigationTileXOffset = 0x018;
     public const int NavigationTileYOffset = 0x020;
 
-    // TMyOMSIList / TList chain used by the road-vehicle collection.
     public const int OmsiListFListOffset = 0x028;
     public const int TListItemsOffset = 0x004;
 }

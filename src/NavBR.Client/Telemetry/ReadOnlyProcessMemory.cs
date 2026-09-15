@@ -29,6 +29,11 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public static ReadOnlyProcessMemory Open(OmsiProcessInfo processInfo)
     {
+        if (!Omsi23004MemoryProfile.ConfigureFor(processInfo))
+        {
+            throw new NotSupportedException($"Unsupported OMSI executable version: {processInfo.FileVersion}");
+        }
+
         var process = Process.GetProcessById(processInfo.ProcessId);
         if (process.HasExited)
         {
@@ -58,6 +63,10 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public int ReadInt32(nint address) => BitConverter.ToInt32(ReadBytes(address, sizeof(int)), 0);
 
+    public uint ReadUInt32(nint address) => BitConverter.ToUInt32(ReadBytes(address, sizeof(uint)), 0);
+
+    public static nint PointerFromUInt32(uint value) => unchecked((nint)(nuint)value);
+
     public float ReadSingle(nint address) => BitConverter.ToSingle(ReadBytes(address, sizeof(float)), 0);
 
     public byte ReadByte(nint address) => ReadBytes(address, 1)[0];
@@ -81,19 +90,15 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             BitConverter.ToSingle(bytes, 12));
     }
 
-    /// <summary>
-    /// Reads an OMSI/Delphi UnicodeString field. The field stores a 32-bit
-    /// pointer to UTF-16 data and Delphi stores the character count at ptr-4.
-    /// </summary>
     public string? ReadDelphiUnicodeStringField(nint fieldAddress, int maxCharacters = 1024)
     {
-        var stringPointer = ReadInt32(fieldAddress);
-        if (stringPointer <= 0x10000)
+        var stringPointer = ReadUInt32(fieldAddress);
+        if (stringPointer <= 0x10000u)
         {
             return null;
         }
 
-        var dataAddress = new nint(stringPointer);
+        var dataAddress = PointerFromUInt32(stringPointer);
         var length = ReadInt32(nint.Subtract(dataAddress, sizeof(int)));
         if (length <= 0 || length > maxCharacters)
         {
@@ -102,6 +107,105 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
         var bytes = ReadBytes(dataAddress, checked(length * 2));
         return Encoding.Unicode.GetString(bytes).TrimEnd('\0');
+    }
+
+    public string? ReadNullTerminatedUnicodeStringField(nint fieldAddress, int maxCharacters = 256)
+    {
+        if (maxCharacters <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var stringPointer = ReadUInt32(fieldAddress);
+            if (stringPointer <= 0x10000u)
+            {
+                return null;
+            }
+
+            var dataAddress = PointerFromUInt32(stringPointer);
+            var bytes = new List<byte>(Math.Min(maxCharacters * 2, 512));
+
+            for (var index = 0; index < maxCharacters; index++)
+            {
+                var pair = ReadBytes(nint.Add(dataAddress, checked(index * 2)), 2);
+                if (pair[0] == 0 && pair[1] == 0)
+                {
+                    break;
+                }
+
+                bytes.Add(pair[0]);
+                bytes.Add(pair[1]);
+            }
+
+            if (bytes.Count == 0)
+            {
+                return null;
+            }
+
+            var value = Encoding.Unicode.GetString(bytes.ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (Win32Exception)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads a 32-bit pointer field pointing to OMSI's null-terminated ANSI
+    /// timetable text. Latin-1 keeps the operation dependency-free and is a
+    /// safe byte-for-byte fallback for route/line labels.
+    /// </summary>
+    public string? ReadNullTerminatedAnsiStringField(nint fieldAddress, int maxCharacters = 256)
+    {
+        if (maxCharacters <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var stringPointer = ReadUInt32(fieldAddress);
+            if (stringPointer <= 0x10000u)
+            {
+                return null;
+            }
+
+            var dataAddress = PointerFromUInt32(stringPointer);
+            var bytes = new List<byte>(Math.Min(maxCharacters, 256));
+            for (var index = 0; index < maxCharacters; index++)
+            {
+                var value = ReadByte(nint.Add(dataAddress, index));
+                if (value == 0)
+                {
+                    break;
+                }
+
+                bytes.Add(value);
+            }
+
+            if (bytes.Count == 0)
+            {
+                return null;
+            }
+
+            var text = Encoding.Latin1.GetString(bytes.ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(text) ? null : text;
+        }
+        catch (Win32Exception)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private byte[] ReadBytes(nint address, int count)

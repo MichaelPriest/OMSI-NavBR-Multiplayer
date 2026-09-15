@@ -10,10 +10,20 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpShowWindow = 0x0040;
+
     private readonly TimeSpan _hudVisibilityInterval = TimeSpan.FromMilliseconds(100);
+    private readonly TimeSpan _hudFocusGracePeriod = TimeSpan.FromMilliseconds(900);
     private DispatcherTimer? _hudVisibilityTimer;
     private bool _hudLifecycleInitialized;
     private bool _restoreOmsiFocusOnChatClose = true;
+    private bool _hudVisibleForOmsi;
+    private DateTimeOffset _lastOmsiForegroundUtc = DateTimeOffset.MinValue;
+    private IntPtr _lastTopmostReferenceHandle;
     private string? _lastHudRoomId;
 
     private void HudOverlayWindow_LifecycleLoaded(object sender, RoutedEventArgs e)
@@ -26,6 +36,11 @@ public partial class HudOverlayWindow
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
 
+        // Começa oculto e só aparece quando o OMSI realmente estiver ativo.
+        // Isso evita um flash do HUD no desktop durante a criação da janela.
+        OverlayRoot.Visibility = Visibility.Collapsed;
+        _hudVisibleForOmsi = false;
+
         _hudVisibilityTimer = new DispatcherTimer
         {
             Interval = _hudVisibilityInterval
@@ -33,10 +48,19 @@ public partial class HudOverlayWindow
         _hudVisibilityTimer.Tick += HudVisibilityTimer_Tick;
         _hudVisibilityTimer.Start();
 
-        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, InstallConflictFreeHotkeys);
+        // O construtor antigo ainda inicia um timer de posicionamento de 250 ms.
+        // Desliga esse loop depois que todos os handlers de Loaded terminarem e
+        // deixa este lifecycle como fonte única de geometria/z-order do HUD.
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FinalizeHudLifecycleInitialization);
 
         RefreshHudChrome();
         RefreshHudVisibility();
+    }
+
+    private void FinalizeHudLifecycleInitialization()
+    {
+        _positionTimer.Stop();
+        InstallConflictFreeHotkeys();
     }
 
     private void HudOverlayWindow_LifecycleClosed(object? sender, EventArgs e)
@@ -123,33 +147,119 @@ public partial class HudOverlayWindow
         try
         {
             using var process = Process.GetProcessById(processId);
-            var omsiHandle = process.MainWindowHandle;
-            if (omsiHandle == IntPtr.Zero ||
-                !IsWindowVisibleNative(omsiHandle) ||
-                IsIconicNative(omsiHandle))
+            if (process.HasExited)
+            {
+                HideHudForOmsiState();
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var foreground = GetForegroundWindow();
+            var overlayHandle = new WindowInteropHelper(this).Handle;
+            var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
+            var overlayOwnsForeground = _chatInteractive &&
+                                        overlayHandle != IntPtr.Zero &&
+                                        foreground == overlayHandle;
+
+            if (foregroundBelongsToOmsi)
+            {
+                _lastOmsiForegroundUtc = now;
+                if (IsUsableOmsiWindow(foreground))
+                {
+                    _omsiWindowHandle = foreground;
+                }
+            }
+            else if (!overlayOwnsForeground)
+            {
+                var neverFocused = _lastOmsiForegroundUtc == DateTimeOffset.MinValue;
+                var focusLostTooLong = !neverFocused &&
+                                       now - _lastOmsiForegroundUtc > _hudFocusGracePeriod;
+                if (neverFocused || focusLostTooLong)
+                {
+                    HideHudForOmsiState();
+                    return;
+                }
+            }
+
+            var omsiHandle = _omsiWindowHandle;
+            if (!IsUsableOmsiWindow(omsiHandle))
+            {
+                omsiHandle = process.MainWindowHandle;
+            }
+
+            if (!IsUsableOmsiWindow(omsiHandle))
             {
                 HideHudForOmsiState();
                 return;
             }
 
             _omsiWindowHandle = omsiHandle;
-
-            var foreground = GetForegroundWindow();
-            var overlayHandle = new WindowInteropHelper(this).Handle;
-            var ownsForeground = foreground == omsiHandle ||
-                                 (_chatInteractive && overlayHandle != IntPtr.Zero && foreground == overlayHandle);
-
-            if (!ownsForeground)
-            {
-                HideHudForOmsiState();
-                return;
-            }
-
-            OverlayRoot.Visibility = Visibility.Visible;
+            SyncHudGeometryStable(omsiHandle);
+            ShowHudForOmsiState(overlayHandle, omsiHandle);
         }
         catch
         {
             HideHudForOmsiState();
+        }
+    }
+
+    private void SyncHudGeometryStable(IntPtr omsiHandle)
+    {
+        if (!GetWindowRect(omsiHandle, out var rect))
+        {
+            return;
+        }
+
+        var dpi = GetDpiForWindow(omsiHandle);
+        var scale = dpi > 0 ? 96d / dpi : 1d;
+        var left = rect.Left * scale;
+        var top = rect.Top * scale;
+        var width = Math.Max(1d, (rect.Right - rect.Left) * scale);
+        var height = Math.Max(1d, (rect.Bottom - rect.Top) * scale);
+
+        const double tolerance = 0.5d;
+        if (Math.Abs(Left - left) > tolerance)
+        {
+            Left = left;
+        }
+
+        if (Math.Abs(Top - top) > tolerance)
+        {
+            Top = top;
+        }
+
+        if (Math.Abs(Width - width) > tolerance)
+        {
+            Width = width;
+        }
+
+        if (Math.Abs(Height - height) > tolerance)
+        {
+            Height = height;
+        }
+    }
+
+    private static bool IsUsableOmsiWindow(IntPtr handle) =>
+        handle != IntPtr.Zero &&
+        IsWindowVisibleNative(handle) &&
+        !IsIconicNative(handle);
+
+    private void ShowHudForOmsiState(IntPtr overlayHandle, IntPtr omsiHandle)
+    {
+        var becomingVisible = !_hudVisibleForOmsi || OverlayRoot.Visibility != Visibility.Visible;
+        if (becomingVisible)
+        {
+            OverlayRoot.Visibility = Visibility.Visible;
+            _hudVisibleForOmsi = true;
+        }
+
+        // Não reaplica TOPMOST a cada tick. Isso evita churn de z-order que
+        // pode causar piscadas em DirectX/WPF. Só reforça ao mostrar ou quando
+        // a janela de referência do OMSI muda.
+        if (becomingVisible || _lastTopmostReferenceHandle != omsiHandle)
+        {
+            EnsureOverlayTopmost(overlayHandle);
+            _lastTopmostReferenceHandle = omsiHandle;
         }
     }
 
@@ -166,7 +276,14 @@ public partial class HudOverlayWindow
             CloseChatInput();
         }
 
+        if (!_hudVisibleForOmsi && OverlayRoot.Visibility == Visibility.Collapsed)
+        {
+            return;
+        }
+
         OverlayRoot.Visibility = Visibility.Collapsed;
+        _hudVisibleForOmsi = false;
+        _lastTopmostReferenceHandle = IntPtr.Zero;
     }
 
     private void ChatInputPanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -196,6 +313,34 @@ public partial class HudOverlayWindow
         _ = SetForegroundWindowNative(_omsiWindowHandle);
     }
 
+    private static bool WindowBelongsToProcess(IntPtr windowHandle, int processId)
+    {
+        if (windowHandle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = GetWindowThreadProcessId(windowHandle, out var foregroundProcessId);
+        return foregroundProcessId == (uint)processId;
+    }
+
+    private static void EnsureOverlayTopmost(IntPtr overlayHandle)
+    {
+        if (overlayHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _ = SetWindowPos(
+            overlayHandle,
+            HwndTopmost,
+            0,
+            0,
+            0,
+            0,
+            SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+    }
+
     [DllImport("user32.dll", EntryPoint = "IsIconic")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool IsIconicNative(IntPtr hWnd);
@@ -207,4 +352,18 @@ public partial class HudOverlayWindow
     [DllImport("user32.dll", EntryPoint = "SetForegroundWindow")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindowNative(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags);
 }
