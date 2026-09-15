@@ -11,6 +11,11 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
     private const int MaxVoicePayloadBytes = 1500;
     private const int MaxMapNameLength = 256;
     private const int MaxMapCompatibilityIdLength = 256;
+    private const int MaxVehicleNameLength = 256;
+    private const int MaxLineLength = 128;
+    private const int MaxRouteLength = 128;
+    private const int MaxStopNameLength = 256;
+    private const int MaxDestinationLength = 256;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -19,8 +24,11 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         var roomId = NormalizeRequired(request.RoomId, 64, "room id");
         var playerId = NormalizeRequired(request.PlayerId, 64, "player id");
         var displayName = NormalizeRequired(request.DisplayName, 32, "display name");
-        ValidateOptionalText(request.MapName, MaxMapNameLength, "map name");
-        ValidateOptionalText(request.MapCompatibilityId, MaxMapCompatibilityIdLength, "map compatibility id");
+        var mapName = NormalizeOptional(request.MapName, MaxMapNameLength, "map name");
+        var mapCompatibilityId = NormalizeOptional(
+            request.MapCompatibilityId,
+            MaxMapCompatibilityIdLength,
+            "map compatibility id");
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -34,8 +42,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             roomId,
             playerId,
             displayName,
-            request.MapName,
-            request.MapCompatibilityId);
+            mapName,
+            mapCompatibilityId);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
@@ -69,7 +77,20 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         var safeTelemetry = telemetry with
         {
             PlayerId = presence.PlayerId,
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            MapName = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name"),
+            MapCompatibilityId = NormalizeOptional(
+                telemetry.MapCompatibilityId,
+                MaxMapCompatibilityIdLength,
+                "map compatibility id"),
+            VehicleName = NormalizeOptional(telemetry.VehicleName, MaxVehicleNameLength, "vehicle name"),
+            Line = NormalizeOptional(telemetry.Line, MaxLineLength, "line"),
+            Route = NormalizeOptional(telemetry.Route, MaxRouteLength, "route"),
+            NextStopName = NormalizeOptional(telemetry.NextStopName, MaxStopNameLength, "next stop"),
+            DestinationName = NormalizeOptional(
+                telemetry.DestinationName,
+                MaxDestinationLength,
+                "destination")
         };
 
         var updatedPresence = registry.UpdateMap(
@@ -157,12 +178,20 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         return normalized;
     }
 
-    private static void ValidateOptionalText(string? value, int maxLength, string fieldName)
+    private static string? NormalizeOptional(string? value, int maxLength, string fieldName)
     {
-        if ((value?.Trim().Length ?? 0) > maxLength)
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        if (normalized.Length > maxLength)
         {
             throw new HubException($"Invalid {fieldName}.");
         }
+
+        return normalized;
     }
 
     private static void ValidateTelemetry(VehicleTelemetry telemetry)
@@ -182,10 +211,15 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             throw new HubException("Telemetry contains invalid tile coordinates.");
         }
 
-        ValidateOptionalText(telemetry.MapName, MaxMapNameLength, "map name");
-        ValidateOptionalText(
+        _ = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name");
+        _ = NormalizeOptional(
             telemetry.MapCompatibilityId,
             MaxMapCompatibilityIdLength,
             "map compatibility id");
+        _ = NormalizeOptional(telemetry.VehicleName, MaxVehicleNameLength, "vehicle name");
+        _ = NormalizeOptional(telemetry.Line, MaxLineLength, "line");
+        _ = NormalizeOptional(telemetry.Route, MaxRouteLength, "route");
+        _ = NormalizeOptional(telemetry.NextStopName, MaxStopNameLength, "next stop");
+        _ = NormalizeOptional(telemetry.DestinationName, MaxDestinationLength, "destination");
     }
 }
