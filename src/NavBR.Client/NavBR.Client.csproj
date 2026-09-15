@@ -11,6 +11,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\NavBR.ico" />
+    <EmbeddedResource Include="Assets\NavBR.OmsiPlugin.bundle.zip"
+                      LogicalName="NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip"
+                      Condition="Exists('Assets\NavBR.OmsiPlugin.bundle.zip')" />
     <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
     <ProjectReference Include="..\NavBR.Server\NavBR.Server.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
