@@ -1,11 +1,11 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
 const fallbackRelease = {
-  tag_name: 'v0.3.0-alpha.8',
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.8',
+  tag_name: 'v0.3.0-alpha.9',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.9',
   prerelease: true,
-  published_at: '2026-09-15T01:03:28Z',
-  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.8`,
-  body: 'Minimapa estável, rota ativa, zoom de até 10× e chat visual no HUD.',
+  published_at: '2026-09-15T03:11:33Z',
+  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.9`,
+  body: 'Alpha.9 com refinamento de navegação, próxima parada, multiplayer peer-host, chat e voz para testes reais.',
   download_count: 0,
   assets: []
 };
@@ -54,10 +54,23 @@ function summarizeBody(body = '') {
 }
 
 function assetLabel(name = '') {
-  if (/win-x86\.exe$/i.test(name)) return 'EXE standalone';
-  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP';
-  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor ZIP';
+  if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
+  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
+  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
   return name;
+}
+
+function assetHelp(name = '') {
+  if (/win-x86\.exe$/i.test(name)) {
+    return 'Use para jogar, entrar em salas ou criar uma sala no próprio PC. Não precisa baixar o servidor.';
+  }
+  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) {
+    return 'Mesmo cliente em pacote ZIP. É uma alternativa ao EXE standalone; não é necessário baixar os dois.';
+  }
+  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) {
+    return 'Somente para servidor dedicado em outra máquina/processo. Não é necessário para criar sala pelo cliente NavBR; extraia e mantenha todos os arquivos do ZIP.';
+  }
+  return '';
 }
 
 function releaseDownloadCount(release) {
@@ -73,9 +86,10 @@ function renderRelease(release) {
     const size = formatBytes(asset.size);
     const downloads = `${formatNumber(asset.download_count)} download${Number(asset.download_count) === 1 ? '' : 's'}`;
     const meta = [size, downloads].filter(Boolean).join(' • ');
+    const help = assetHelp(asset.name);
     return `
       <a href="${escapeHtml(asset.browser_download_url)}" target="_blank" rel="noreferrer">
-        <span><b>${escapeHtml(assetLabel(asset.name))}</b><small>${escapeHtml(asset.name)}</small></span>
+        <span><b>${escapeHtml(assetLabel(asset.name))}</b><small>${escapeHtml(asset.name)}</small>${help ? `<small>${escapeHtml(help)}</small>` : ''}</span>
         <small>${escapeHtml(meta)}</small>
       </a>`;
   }).join('');
