@@ -19,6 +19,7 @@ public partial class HudOverlayWindow
         base.OnContentRendered(e);
         InitializeVisualChat();
         EnsureBusDashboard();
+        InitializeBusStopHud();
     }
 
     private void InitializeVisualChat()
