@@ -108,6 +108,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
+            var vehicleIdentity = OmsiVehicleIdentityReader.Read(memory, _processInfo, vehicleAddress);
 
             int? gridX = null;
             int? gridY = null;
@@ -138,7 +139,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 PlayerId: playerId,
                 Timestamp: DateTimeOffset.UtcNow,
                 MapName: mapName,
-                VehicleName: null,
+                VehicleName: vehicleIdentity.Name,
                 Line: line,
                 Route: route,
                 X: absolutePosition.X,
@@ -152,7 +153,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 TileX: tileX,
                 TileY: tileY,
                 NextStopName: nextStopName,
-                DestinationName: destinationName);
+                DestinationName: destinationName,
+                VehiclePath: vehicleIdentity.RelativePath,
+                VehicleCompatibilityId: vehicleIdentity.CompatibilityId);
         }
         catch (ArgumentException)
         {
