@@ -14,6 +14,31 @@ internal static class OmsiCompatibilityManifestFactory
         OmsiMapInfo? activeMap,
         string? omsiVersion = null)
     {
+        return CreateCore(
+            telemetry,
+            telemetry?.MapName ?? activeMap?.FolderName,
+            telemetry?.MapCompatibilityId ?? activeMap?.CompatibilityId,
+            omsiVersion);
+    }
+
+    public static OmsiCompatibilityManifest Create(
+        string? mapName,
+        string? mapCompatibilityId,
+        string? omsiVersion = null)
+    {
+        return CreateCore(
+            telemetry: null,
+            mapName,
+            mapCompatibilityId,
+            omsiVersion);
+    }
+
+    private static OmsiCompatibilityManifest CreateCore(
+        VehicleTelemetry? telemetry,
+        string? mapName,
+        string? mapCompatibilityId,
+        string? omsiVersion)
+    {
         var connection = Application.Current is App app
             ? app.PluginBridge.GetConnectionInfo()
             : null;
@@ -29,8 +54,8 @@ internal static class OmsiCompatibilityManifestFactory
         return new OmsiCompatibilityManifest(
             OmsiVersion: Normalize(omsiVersion),
             NavBRVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString(),
-            MapName: Normalize(telemetry?.MapName ?? activeMap?.FolderName),
-            MapCompatibilityId: Normalize(telemetry?.MapCompatibilityId ?? activeMap?.CompatibilityId),
+            MapName: Normalize(mapName),
+            MapCompatibilityId: Normalize(mapCompatibilityId),
             VehiclePath: Normalize(telemetry?.VehiclePath),
             VehicleCompatibilityId: Normalize(telemetry?.VehicleCompatibilityId),
             HofName: Normalize(telemetry?.HofName),
