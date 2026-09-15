@@ -13,6 +13,9 @@ public sealed record OmsiRouteTracePoint(int GridX, int GridY, double TileX, dou
 /// </summary>
 public static class OmsiRouteTraceReader
 {
+    private static readonly object DiagnosticLock = new();
+    private static string? _lastDiagnosticSignature;
+
     public static IReadOnlyList<OmsiRouteTracePoint> TryRead(
         OmsiMapInfo map,
         OmsiMapLayout layout,
@@ -21,6 +24,14 @@ public static class OmsiRouteTraceReader
     {
         if (layout.TileSize is not double tileSize)
         {
+            WriteDiagnostics(
+                map,
+                null,
+                activeLine,
+                activeTrackOrTarget,
+                "layout-missing",
+                0,
+                0);
             return Array.Empty<OmsiRouteTracePoint>();
         }
 
@@ -38,29 +49,78 @@ public static class OmsiRouteTraceReader
 
             if (trackPath is null)
             {
+                WriteDiagnostics(
+                    map,
+                    null,
+                    activeLine,
+                    activeTrackOrTarget,
+                    "track-not-found",
+                    0,
+                    0);
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
             var entries = ReadTrackEntries(File.ReadAllLines(trackPath));
             if (entries.Count == 0)
             {
+                WriteDiagnostics(
+                    map,
+                    trackPath,
+                    activeLine,
+                    activeTrackOrTarget,
+                    "track-empty",
+                    0,
+                    0);
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
             var splineTrace = OmsiRouteSplineGeometryReader.TryBuild(map, layout, entries);
             if (splineTrace.Count >= 2)
             {
+                WriteDiagnostics(
+                    map,
+                    trackPath,
+                    activeLine,
+                    activeTrackOrTarget,
+                    "detailed",
+                    entries.Count,
+                    splineTrace.Count);
                 return splineTrace;
             }
 
-            return BuildTileFallback(entries, tileSize);
+            var fallback = BuildTileFallback(entries, tileSize);
+            WriteDiagnostics(
+                map,
+                trackPath,
+                activeLine,
+                activeTrackOrTarget,
+                "tile-fallback",
+                entries.Count,
+                fallback.Count);
+            return fallback;
         }
         catch (IOException)
         {
+            WriteDiagnostics(
+                map,
+                null,
+                activeLine,
+                activeTrackOrTarget,
+                "io-error",
+                0,
+                0);
             return Array.Empty<OmsiRouteTracePoint>();
         }
         catch (UnauthorizedAccessException)
         {
+            WriteDiagnostics(
+                map,
+                null,
+                activeLine,
+                activeTrackOrTarget,
+                "access-denied",
+                0,
+                0);
             return Array.Empty<OmsiRouteTracePoint>();
         }
     }
@@ -318,6 +378,84 @@ public static class OmsiRouteTraceReader
         }
 
         return timetableDirectories;
+    }
+
+    private static void WriteDiagnostics(
+        OmsiMapInfo map,
+        string? trackPath,
+        string? activeLine,
+        string? activeTrackOrTarget,
+        string mode,
+        int entryCount,
+        int pointCount)
+    {
+        var trackName = trackPath is null
+            ? "-"
+            : Path.GetFileName(trackPath);
+        var signature = string.Join(
+            "|",
+            map.FolderName,
+            trackName,
+            activeLine ?? string.Empty,
+            activeTrackOrTarget ?? string.Empty,
+            mode,
+            entryCount.ToString(CultureInfo.InvariantCulture),
+            pointCount.ToString(CultureInfo.InvariantCulture));
+
+        lock (DiagnosticLock)
+        {
+            if (string.Equals(_lastDiagnosticSignature, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastDiagnosticSignature = signature;
+        }
+
+        try
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localAppData))
+            {
+                return;
+            }
+
+            var directory = Path.Combine(localAppData, "OMSI NavBR Multiplayer");
+            Directory.CreateDirectory(directory);
+            var logPath = Path.Combine(directory, "navbr-route.log");
+            var line = string.Join(
+                " ",
+                $"[{DateTimeOffset.Now:O}]",
+                $"map={ToLogValue(map.FolderName)}",
+                $"line={ToLogValue(activeLine)}",
+                $"route={ToLogValue(activeTrackOrTarget)}",
+                $"track={ToLogValue(trackName)}",
+                $"mode={mode}",
+                $"entries={entryCount.ToString(CultureInfo.InvariantCulture)}",
+                $"points={pointCount.ToString(CultureInfo.InvariantCulture)}");
+
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string ToLogValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        return value
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim()
+            .Replace(' ', '_');
     }
 
     private static string Normalize(string value) =>
