@@ -1,11 +1,38 @@
 using System.Windows;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.PluginBridge;
 
 public static class OmsiPluginBridgeRelay
 {
+    public static Task ForwardLocalTelemetryAsync(
+        VehicleTelemetry telemetry,
+        string? mapCompatibilityId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.LocalVehicleState,
+            PluginBridgeProtocol.Version,
+            PlayerId: telemetry.PlayerId,
+            MapName: telemetry.MapName,
+            MapCompatibilityId: mapCompatibilityId ?? telemetry.MapCompatibilityId,
+            TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
+            X: telemetry.X,
+            Y: telemetry.Y,
+            Z: telemetry.Z,
+            GridX: telemetry.GridX,
+            GridY: telemetry.GridY,
+            TileX: telemetry.TileX,
+            TileY: telemetry.TileY,
+            HeadingDegrees: telemetry.HeadingDegrees,
+            SpeedKph: telemetry.SpeedKph,
+            IsInGame: telemetry.IsInGame);
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
     public static Task ForwardRemoteTelemetryAsync(
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken = default)
@@ -27,7 +54,8 @@ public static class OmsiPluginBridgeRelay
             TileX: telemetry.TileX,
             TileY: telemetry.TileY,
             HeadingDegrees: telemetry.HeadingDegrees,
-            SpeedKph: telemetry.SpeedKph);
+            SpeedKph: telemetry.SpeedKph,
+            IsInGame: telemetry.IsInGame);
 
         return SendBestEffortAsync(message, cancellationToken);
     }
