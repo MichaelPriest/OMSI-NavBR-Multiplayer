@@ -37,7 +37,6 @@ public partial class HudOverlayWindow
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
 
-        // Start hidden and only show when the primary OMSI gameplay window is active.
         OverlayRoot.Visibility = Visibility.Collapsed;
         _hudVisibleForOmsi = false;
 
@@ -152,35 +151,8 @@ public partial class HudOverlayWindow
                 return;
             }
 
-            // Keep the OMSI gameplay HWND stable. Auxiliary dialogs can belong
-            // to Omsi.exe too, so never replace a still-valid primary handle
-            // just because Process.MainWindowHandle changes while a dialog opens.
-            var mainOmsiHandle = _omsiWindowHandle;
-            if (!IsUsableOmsiWindow(mainOmsiHandle) ||
-                !WindowBelongsToProcess(mainOmsiHandle, processId))
-            {
-                mainOmsiHandle = process.MainWindowHandle;
-                if (!IsUsableOmsiWindow(mainOmsiHandle) ||
-                    !WindowBelongsToProcess(mainOmsiHandle, processId))
-                {
-                    HideHudForOmsiState();
-                    return;
-                }
-
-                _omsiWindowHandle = mainOmsiHandle;
-            }
-
-            var mainOmsiRoot = GetAncestor(mainOmsiHandle, GaRoot);
-            if (mainOmsiRoot == IntPtr.Zero)
-            {
-                mainOmsiRoot = mainOmsiHandle;
-            }
-
             var now = DateTimeOffset.UtcNow;
             var foreground = GetForegroundWindow();
-            var foregroundRoot = foreground == IntPtr.Zero
-                ? IntPtr.Zero
-                : GetAncestor(foreground, GaRoot);
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
             var foregroundBelongsToNavBr = WindowBelongsToProcess(foreground, Environment.ProcessId);
@@ -198,23 +170,54 @@ public partial class HudOverlayWindow
 
             if (foregroundBelongsToOmsi)
             {
-                // DirectX/OMSI may focus a child HWND that belongs to the same
-                // gameplay root. Allow that surface. A dialog/menu has its own
-                // GA_ROOT, so it is still rejected immediately.
-                var foregroundIsGameplaySurface =
-                    foreground == mainOmsiHandle ||
-                    foregroundRoot == mainOmsiRoot;
-
-                if (!foregroundIsGameplaySurface)
+                // alpha.8 worked because the real OMSI gameplay HWND was learned
+                // from the actual foreground window. Process.MainWindowHandle is
+                // not reliable for all OMSI setups and may refer to another
+                // top-level surface. Learn the gameplay surface here instead.
+                if (!IsUsableOmsiWindow(_omsiWindowHandle) ||
+                    !WindowBelongsToProcess(_omsiWindowHandle, processId) ||
+                    _lastOmsiForegroundUtc == DateTimeOffset.MinValue)
                 {
-                    HideHudForOmsiState();
-                    return;
+                    _omsiWindowHandle = foreground;
+                }
+                else
+                {
+                    var gameplayRoot = GetAncestor(_omsiWindowHandle, GaRoot);
+                    if (gameplayRoot == IntPtr.Zero)
+                    {
+                        gameplayRoot = _omsiWindowHandle;
+                    }
+
+                    var foregroundRoot = GetAncestor(foreground, GaRoot);
+                    if (foregroundRoot == IntPtr.Zero)
+                    {
+                        foregroundRoot = foreground;
+                    }
+
+                    // A separate OMSI top-level window is a menu/dialog. Keep
+                    // the learned gameplay HWND unchanged and hide immediately.
+                    if (foreground != _omsiWindowHandle &&
+                        foregroundRoot != gameplayRoot)
+                    {
+                        HideHudForOmsiState();
+                        return;
+                    }
                 }
 
                 _lastOmsiForegroundUtc = now;
             }
             else if (!overlayOwnsForeground)
             {
+                // Do not use Process.MainWindowHandle as a visibility fallback.
+                // Until a real OMSI foreground surface has been learned, stay
+                // hidden. This prevents a wrong HWND from blocking the HUD later.
+                if (!IsUsableOmsiWindow(_omsiWindowHandle) ||
+                    !WindowBelongsToProcess(_omsiWindowHandle, processId))
+                {
+                    HideHudForOmsiState();
+                    return;
+                }
+
                 var neverFocused = _lastOmsiForegroundUtc == DateTimeOffset.MinValue;
                 var focusLostTooLong = !neverFocused &&
                                        now - _lastOmsiForegroundUtc > _hudFocusGracePeriod;
@@ -225,8 +228,16 @@ public partial class HudOverlayWindow
                 }
             }
 
-            SyncHudGeometryStable(mainOmsiHandle);
-            ShowHudForOmsiState(overlayHandle, mainOmsiHandle);
+            var gameplayHandle = _omsiWindowHandle;
+            if (!IsUsableOmsiWindow(gameplayHandle) ||
+                !WindowBelongsToProcess(gameplayHandle, processId))
+            {
+                HideHudForOmsiState();
+                return;
+            }
+
+            SyncHudGeometryStable(gameplayHandle);
+            ShowHudForOmsiState(overlayHandle, gameplayHandle);
         }
         catch
         {
