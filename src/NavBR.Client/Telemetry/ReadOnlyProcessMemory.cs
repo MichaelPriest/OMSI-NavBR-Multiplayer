@@ -109,6 +109,42 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         return Encoding.Unicode.GetString(bytes).TrimEnd('\0');
     }
 
+    /// <summary>
+    /// Reads a Delphi AnsiString field used by OMSI object definitions. The
+    /// field stores a 32-bit pointer to the first character and Delphi keeps
+    /// the character count immediately before that data pointer.
+    /// </summary>
+    public string? ReadDelphiAnsiStringField(nint fieldAddress, int maxCharacters = 1024)
+    {
+        try
+        {
+            var stringPointer = ReadUInt32(fieldAddress);
+            if (stringPointer <= 0x10000u)
+            {
+                return null;
+            }
+
+            var dataAddress = PointerFromUInt32(stringPointer);
+            var length = ReadInt32(nint.Subtract(dataAddress, sizeof(int)));
+            if (length <= 0 || length > maxCharacters)
+            {
+                return null;
+            }
+
+            var bytes = ReadBytes(dataAddress, length);
+            var value = Encoding.Latin1.GetString(bytes).TrimEnd('\0').Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (Win32Exception)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     public string? ReadNullTerminatedUnicodeStringField(nint fieldAddress, int maxCharacters = 256)
     {
         if (maxCharacters <= 0)
