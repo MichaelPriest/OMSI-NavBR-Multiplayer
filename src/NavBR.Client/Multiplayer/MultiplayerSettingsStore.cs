@@ -78,6 +78,8 @@ public static class MultiplayerSettingsStore
             }
         }
 
+        var legacyDashboard = settings.DashboardSettingsVersion <= 0;
+
         return settings with
         {
             ChatHotkey = chat,
@@ -85,7 +87,28 @@ public static class MultiplayerSettingsStore
             HudX = Math.Clamp(double.IsFinite(settings.HudX) ? settings.HudX : 0.02d, 0d, 1d),
             HudY = Math.Clamp(double.IsFinite(settings.HudY) ? settings.HudY : 1d, 0d, 1d),
             HudZoom = Math.Clamp(double.IsFinite(settings.HudZoom) ? settings.HudZoom : 1d, 0.65d, 10d),
-            HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.58d, 0.30d, 0.90d)
+            HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.58d, 0.30d, 0.90d),
+            DashboardSettingsVersion = 1,
+            DashboardEnabled = legacyDashboard || settings.DashboardEnabled,
+            DashboardX = Math.Clamp(
+                legacyDashboard ? 0.02d : double.IsFinite(settings.DashboardX) ? settings.DashboardX : 0.02d,
+                0d,
+                1d),
+            DashboardY = Math.Clamp(
+                legacyDashboard ? 0.58d : double.IsFinite(settings.DashboardY) ? settings.DashboardY : 0.58d,
+                0d,
+                1d),
+            DashboardScale = Math.Clamp(
+                legacyDashboard ? 1d : double.IsFinite(settings.DashboardScale) ? settings.DashboardScale : 1d,
+                0.70d,
+                1.60d),
+            DashboardOpacity = Math.Clamp(
+                legacyDashboard ? 0.92d : double.IsFinite(settings.DashboardOpacity) ? settings.DashboardOpacity : 0.92d,
+                0.45d,
+                1d),
+            DashboardShowFuel = legacyDashboard || settings.DashboardShowFuel,
+            DashboardShowPedals = legacyDashboard || settings.DashboardShowPedals,
+            DashboardShowStatus = legacyDashboard || settings.DashboardShowStatus
         };
     }
 }
