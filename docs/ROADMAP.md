@@ -1,6 +1,6 @@
 # Roadmap
 
-Este roadmap foi atualizado para refletir o estado real da **v0.3.0-alpha.9**.
+Este roadmap reflete o estado da **v0.3.0-alpha.10 em desenvolvimento**. A última release publicada continua sendo **v0.3.0-alpha.9**.
 
 Legenda:
 
@@ -61,6 +61,9 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Catalogar mapas com `global.cfg`
 - ✅ Detectar `whole.roadmap.bmp` / `roadmap.bmp`
 - ✅ Mostrar mapas e roadmaps disponíveis no cliente
+- ✅ Na alpha.10, separar todos os mapas em **roadmap pronto** e **roadmap ausente**
+- ✅ Na alpha.10, mostrar nome, pasta, quantidade de tiles e BMP global encontrado
+- ✅ Não considerar roadmap individual de tile como roadmap global pronto
 - ✅ Localizar textos do GPS nos cinco idiomas atuais
 - ✅ Ler grade de tiles do `global.cfg`
 - ✅ Transformar GridX/GridY + posição local em pixels do roadmap
@@ -78,6 +81,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Aprendizado da janela real de gameplay do OMSI para controlar a visibilidade do HUD
 - ✅ Guia de geração de roadmap em `docs/GERAR_ROADMAP_MAPAS.md`
 - 🧪 Validar visualmente marcador/heading em mapas reais
+- 🧪 Validar a nova lista de roadmaps em uma instalação grande de OMSI
 - 🧪 Validar `[worldcoordinates]` em mapas reais
 - 🧪 Validar ocultação/reexibição do HUD em menus, opções e timetable
 - 🧪 Validar fullscreen exclusivo
@@ -138,6 +142,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Jogadores remotos no mapa/minimapa
 - ✅ Suavização/interpolação visual de jogadores remotos
 - ✅ Identificador/fingerprint de compatibilidade do mapa
+- ✅ Atualização dinâmica de mapa + fingerprint quando o jogador troca de mapa durante a sessão
 - ✅ Chat de texto
 - ✅ Chat visual no HUD
 - ✅ Voz push-to-talk
@@ -153,6 +158,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - 🧪 Teste completo entre dois computadores em LAN
 - 🧪 Teste pela Internet com NAT/port forwarding
 - 🧪 Validação de telemetria de vários jogadores
+- 🧪 Validar troca de mapa/fingerprint durante uma sessão
 - 🧪 Validação de chat sob uso real
 - 🧪 Validação de voz, microfone, reprodução e latência
 - 🧪 Validação dos atalhos F9/F10 e combinações modificadas
@@ -181,54 +187,66 @@ O peer-host é o modo principal da série 0.3. Esta fase é complementar, não r
 
 ## Fase 6 — Veículos remotos dentro do OMSI (experimental)
 
-Esta fase começou em uma branch isolada e **não faz parte da release alpha.9 normal**.
+Esta fase avança na **alpha.10 experimental**, mas o plugin continua opcional e não faz parte da alpha.9 publicada.
 
-### Já iniciado
+### Implementado na base experimental
 
-- ✅ Confirmar a interface oficial de plugins do OMSI (`.dll` + `.opl` em `OMSI\plugins`)
+- ✅ Confirmar a interface de plugins do OMSI (`.dll` + `.opl` em `OMSI\plugins`)
 - ✅ Definir plugin experimental como módulo opcional, separado do cliente estável
 - ✅ Criar projeto x86 `NavBR.OmsiPluginExperimental`
 - ✅ Exportar callbacks básicos esperados pelo OMSI
 - ✅ Criar `.opl` mínimo usando uma system variable para heartbeat
 - ✅ Implementar log/heartbeat em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log`
-- ✅ Manter o protótipo sem escrita de variáveis/triggers nesta primeira etapa
-- ✅ Adicionar compilação/artefato do plugin experimental ao CI da branch/PR
-- ✅ CI compilar e validar o pacote x86 experimental
+- ✅ Manter o protótipo sem escrita de variáveis/triggers
+- ✅ Adicionar compilação/artefato do plugin experimental ao CI
+- ✅ Windows Named Pipe local restrito ao usuário atual
+- ✅ Protocolo versionado com handshake cliente/plugin
+- ✅ Reconexão local do bridge
+- ✅ Encaminhar contexto do veículo local ao plugin
+- ✅ Encaminhar frames remotos do SignalR ao plugin
+- ✅ Propagar remoção de jogador e limpeza da sala
+- ✅ Limitar o registro a 64 estados remotos
+- ✅ Expirar estado remoto após 5 s sem atualização
+- ✅ Rejeitar números não finitos e campos excessivos
+- ✅ Filtrar candidatos remotos por mapa/fingerprint compatível
+- ✅ Interpolar X/Y/Z, velocidade e heading com atraso aproximado de 100 ms
 
 ### Aguardando validação real
 
 - 🧪 Confirmar que o OMSI 2.3.004 carrega a DLL x86
 - 🧪 Confirmar `PluginStart`, callbacks periódicos e `PluginFinalize`
 - 🧪 Confirmar que o plugin não causa instabilidade ou queda de FPS perceptível
+- 🧪 Confirmar handshake `plugin-hello` / `client-hello`
+- 🧪 Validar fluxo SignalR → NavBR.Client → Named Pipe → plugin em dois PCs
+- 🧪 Confirmar filtro por mapa/fingerprint no log (`compatibleRemoteCount`)
+- 🧪 Confirmar timeout e remoção de estados remotos em runtime
 
 ### Próximas etapas experimentais
 
-- ⬜ Criar bridge local seguro entre o cliente NavBR e o plugin
-- ⬜ Definir protocolo/versionamento para estado de veículos remotos
-- ⬜ Enviar ao plugin um único jogador remoto de teste
-- ⬜ Investigar criação/controle seguro de entidade remota no OMSI
-- ⬜ Sincronizar posição/orientação de um único veículo remoto
-- ⬜ Interpolação/extrapolação dentro do simulador
+- ⬜ Investigar criação/controle seguro de **uma única** entidade remota no OMSI
+- ⬜ Aplicar posição/orientação do estado já validado/interpolado
+- ⬜ Extrapolação curta e limitada para perda de pacotes
+- ⬜ Política de snap por erro máximo seguro
 - ⬜ Compatibilidade/fallback de modelo de ônibus
 - ⬜ Articulação
 - ⬜ Portas
 - ⬜ Luzes/setas/pisca-alerta/buzina
 - ⬜ Linha/destino/matriz quando tecnicamente seguro
-- ⬜ Limites de distância, quantidade de jogadores e performance
+- ⬜ Limites de distância/LOD e performance para entidades físicas
 - ⬜ Procedimento automático de instalação/remoção do plugin
 
 Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper estado do simulador e sem tornar o plugin obrigatório para quem quiser apenas GPS/HUD/multiplayer externo.
 
-## Prioridade imediata após a alpha.9
+## Prioridade imediata
 
 O plugin pode avançar em paralelo apenas como experimento isolado. Para o produto principal, a prioridade continua:
 
 1. 🧪 validar HUD e telemetria no OMSI real;
-2. 🧪 validar o novo parser/traçado `.ttr` em mapas reais;
+2. 🧪 validar o parser/traçado `.ttr` em mapas reais;
 3. 🧪 validar destino e próxima parada;
 4. 🧪 testar multiplayer entre dois computadores;
-5. 🧪 testar chat/voz/PTT e reconexão;
-6. 🧪 validar o carregamento seguro do plugin experimental;
+5. 🧪 testar chat/voz/PTT, reconexão e troca de mapa;
+6. 🧪 validar carregamento e bridge do plugin experimental;
 7. corrigir os problemas encontrados;
 8. só então avançar para ETA/distância, diagnóstico de rede, UPnP/NAT traversal e criação real de veículo remoto.
 
