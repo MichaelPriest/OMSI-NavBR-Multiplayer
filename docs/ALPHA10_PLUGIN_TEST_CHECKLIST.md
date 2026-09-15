@@ -1,6 +1,24 @@
 # Alpha.10 — checklist de teste do plugin OMSI experimental
 
-> Este checklist cobre **somente o plugin experimental e o bridge local da v0.3.0-alpha.10 em desenvolvimento**. A última release publicada continua sendo a v0.3.0-alpha.9.
+> Este checklist cobre **somente o plugin experimental e o bridge local da v0.3.0-alpha.10 em desenvolvimento**. A prerelease geral recomendada continua sendo a v0.3.0-alpha.9.
+
+Para esta rodada existe uma prerelease permanente de integração:
+
+```text
+v0.3.0-alpha.10-test.1
+```
+
+Release:
+
+```text
+https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.1
+```
+
+Pacote recomendado:
+
+```text
+OMSI-NavBR-alpha10-test.1-integration-win-x86.zip
+```
 
 O plugin é **opcional**. GPS, HUD, criação/entrada em salas, chat e voz continuam funcionando sem instalar o plugin.
 
@@ -24,21 +42,28 @@ Validar com segurança que:
 - Feche outras cópias do NavBR.
 - Preserve um backup da pasta `OMSI\plugins` por precaução.
 - O protótipo atual do plugin é framework-dependent e requer **.NET 10 Runtime x86** disponível para o processo 32-bit do OMSI.
-- Use o artefato completo do plugin experimental; não copie somente a DLL.
+- Use a pasta `Plugin` completa do pacote integrado; não copie somente a DLL.
 
 ## Instalação do plugin
 
-O pacote experimental contém:
+Dentro do bundle integrado, abra a pasta:
+
+```text
+Plugin\
+```
+
+Ela contém, entre outros arquivos:
 
 ```text
 Install-NavBROmsiPlugin.ps1
 Remove-NavBROmsiPlugin.ps1
 NavBR.OmsiPlugin.dll
 NavBR.OmsiPlugin.opl
+NavBR.OmsiPluginExperimental.runtimeconfig.json
 ...arquivos .NET necessários ao protótipo
 ```
 
-Com o OMSI fechado, execute:
+Com o OMSI fechado, execute dentro dessa pasta:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -57,7 +82,7 @@ O instalador:
 ## Ordem recomendada do teste
 
 1. Instale o plugin com o OMSI fechado.
-2. Abra o cliente NavBR alpha.10.
+2. Abra o `OMSI.NavBR.Multiplayer.exe` do bundle `test.1`.
 3. Abra o OMSI 2.3.004 normalmente.
 4. Carregue um mapa e um ônibus.
 5. Aguarde pelo menos 10 segundos.
@@ -66,7 +91,15 @@ O instalador:
 
 ## Valores esperados no painel
 
-Quando o plugin estiver carregado corretamente:
+Com o OMSI detectado e os arquivos instalados pelo script, primeiro confirme:
+
+```text
+install=INSTALLED
+files=3/3
+manifest=YES
+```
+
+Depois, quando o plugin estiver carregado corretamente pelo OMSI:
 
 ```text
 status=CONNECTED
@@ -83,9 +116,27 @@ Também devem aparecer:
 - `remote=<n>` — estados remotos recebidos;
 - `compatible=<n>` — estados remotos compatíveis com o mapa local;
 - `map=<mapa atual>`;
-- `compatibility=<fingerprint resumido>`.
+- `compatibility=<fingerprint resumido>`;
+- `plugin-dir=<caminho>` — pasta `plugins` derivada da instalação do `Omsi.exe` detectado.
 
-### Interpretação
+### Interpretação da instalação
+
+`install=INSTALLED`
+: os três arquivos essenciais estão presentes e existe o manifesto criado pelo instalador NavBR. É o resultado recomendado.
+
+`install=MISSING`
+: nenhum dos três arquivos essenciais foi encontrado na instalação do OMSI detectada.
+
+`install=PARTIAL`
+: apenas parte dos arquivos essenciais existe. **Não avançar o teste**; remova/reinstale o plugin com o OMSI fechado.
+
+`install=UNTRACKED`
+: os três arquivos essenciais existem, mas não há manifesto do instalador NavBR. Pode ser uma cópia manual; para um teste reproduzível, prefira remover essa cópia e instalar com o script oficial.
+
+`install=UNKNOWN` ou `install=ERROR`
+: o NavBR ainda não conseguiu determinar a instalação ou ocorreu erro ao consultar a pasta. Registrar o caminho detectado e investigar antes de avançar.
+
+### Interpretação do bridge
 
 `status=WAITING`
 : o NavBR está aberto, mas nenhum plugin completou o handshake local.
@@ -153,7 +204,7 @@ Guia de geração:
 
 ## Como remover o plugin
 
-Feche o OMSI e execute, a partir do pacote experimental:
+Feche o OMSI e execute, a partir da pasta `Plugin` do pacote integrado:
 
 ```powershell
 .\Remove-NavBROmsiPlugin.ps1 -OmsiRoot "G:\Games\OMSI 2 Steam Edition"
@@ -161,11 +212,13 @@ Feche o OMSI e execute, a partir do pacote experimental:
 
 O removedor usa o manifesto criado na instalação e remove somente os arquivos rastreados pelo NavBR.
 
+Depois de remover, o painel deve passar a indicar `install=MISSING` quando essa mesma instalação do OMSI for detectada.
+
 ## O que registrar se houver problema
 
 Informe:
 
-- versão do NavBR;
+- tag usada (`v0.3.0-alpha.10-test.1` ou posterior);
 - versão do OMSI;
 - mapa carregado;
 - valores exibidos em `PLUGIN BRIDGE v1 • EXP`;
@@ -174,10 +227,11 @@ Informe:
 - se houve crash, travamento ou queda perceptível de FPS;
 - se o problema ocorreu antes ou depois de entrar em uma sala multiplayer.
 
-## Critério para avançar para o primeiro ônibus remoto
+## Critério para avançar para a primeira representação remota
 
-Só iniciar a etapa de entidade física quando houver confirmação real de:
+Só iniciar a etapa física quando houver confirmação real de:
 
+- `install=INSTALLED`, `files=3/3` e `manifest=YES`;
 - `status=CONNECTED`;
 - `process-match=YES`;
 - heartbeat contínuo e estável;
@@ -185,3 +239,5 @@ Só iniciar a etapa de entidade física quando houver confirmação real de:
 - bridge estável com dois PCs;
 - filtro de compatibilidade de mapa funcionando;
 - nenhum crash/regressão relevante no OMSI.
+
+A etapa física futura deverá investigar uma representação por veículo AI/instância equivalente suportável. A interface `.opl` documentada não deve ser tratada como se fornecesse uma API direta de spawn.
