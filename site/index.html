@@ -80,6 +80,7 @@
         <span class="eyebrow">Preparação do mapa</span>
         <h2>Roadmap visual e rota são coisas diferentes.</h2>
         <p class="section-lead">O NavBR lê a instalação real do mapa. Para o fundo visual do GPS, o arquivo recomendado é <code>texture\map\whole.roadmap.bmp</code>. O traçado da linha continua vindo do TTData e da geometria do mapa.</p>
+        <p class="release-note"><strong>Em desenvolvimento para a alpha.10:</strong> o cliente passa a listar todos os mapas instalados em dois grupos — <strong>roadmap pronto</strong> e <strong>roadmap ausente</strong>. Mapas com apenas roadmaps individuais de tiles não são marcados incorretamente como prontos.</p>
         <div class="actions">
           <a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/GERAR_ROADMAP_MAPAS.md" target="_blank" rel="noreferrer">Abrir guia completo</a>
         </div>
@@ -88,7 +89,7 @@
         <article><b>01</b><div><h3>Abra o OMSI Editor</h3><p>Inicie o Editor, carregue o mapa e abra a aba <strong>Tile</strong>.</p></div></article>
         <article><b>02</b><div><h3>Use Create Roadmap</h3><p>O Editor gera os roadmaps das tiles e, quando possível, o <code>whole.roadmap.bmp</code>.</p></div></article>
         <article><b>03</b><div><h3>Confira a pasta correta</h3><p>O caminho recomendado é <code>maps\&lt;mapa&gt;\texture\map\whole.roadmap.bmp</code>.</p></div></article>
-        <article><b>04</b><div><h3>Mapas muito grandes</h3><p>Se o Editor não concluir o arquivo global, os roadmaps por tile podem ser usados futuramente por uma ferramenta de montagem automática do NavBR.</p></div></article>
+        <article><b>04</b><div><h3>Veja a lista no NavBR</h3><p>Na alpha.10, mapas prontos aparecem primeiro com nome, pasta, quantidade de tiles e o arquivo de roadmap global detectado.</p></div></article>
       </div>
     </section>
 
@@ -107,8 +108,8 @@
       </div>
       <div class="feature-grid">
         <article><span class="feature-icon">DLL</span><h3>Plugin opcional x86</h3><p>Protótipo baseado no modelo DLL + OPL carregado pelo OMSI. O CI já compila e valida o pacote experimental.</p></article>
-        <article><span class="feature-icon">↔</span><h3>Bridge local</h3><p>A próxima etapa usa Windows Named Pipes para trocar dados apenas entre o cliente NavBR e o plugin no mesmo computador, sem abrir outra porta pública.</p></article>
-        <article><span class="feature-icon">BUS</span><h3>Primeiro objetivo</h3><p>Depois do teste de carga: representar um único jogador remoto com posição e heading, medir estabilidade e só então avançar para vários veículos.</p></article>
+        <article><span class="feature-icon">↔</span><h3>Bridge local</h3><p>A alpha.10 experimental já implementa Windows Named Pipes entre cliente e plugin, restrito ao usuário atual e sem abrir outra porta pública. Falta validar esse fluxo no OMSI real.</p></article>
+        <article><span class="feature-icon">BUS</span><h3>Primeiro objetivo</h3><p>Depois do teste de carga e do bridge: representar um único jogador remoto com posição e heading, medir estabilidade e só então avançar para vários veículos.</p></article>
         <article><span class="feature-icon">+</span><h3>Estados futuros</h3><p>Portas, articulação, luzes, setas, buzina, linha, destino e matriz só entram depois que posição/orientação estiverem estáveis.</p></article>
       </div>
       <p class="release-note"><strong>Importante:</strong> o código do plugin permanece separado da release alpha.9 até ser validado no OMSI 2.3.004 sem crashes ou regressões perceptíveis.</p>
@@ -139,7 +140,7 @@
       </div>
     </section>
 
-    <section id="roadmap" class="section shell"><span class="eyebrow">Roadmap de desenvolvimento</span><h2>O que vem depois</h2><div class="roadmap-grid"><article><b>Agora</b><h3>Validar Alpha.9</h3><p>HUD, rota, telemetria, multiplayer PC ↔ PC, chat, voz, atalhos e reconexão.</p></article><article><b>Em paralelo</b><h3>Plugin OMSI experimental</h3><p>Validar carregamento x86 e bridge local antes de tentar criar um veículo remoto dentro do simulador.</p></article><article><b>Depois</b><h3>Beta e expansão</h3><p>Correções dos testes, ETA/distância, diagnóstico de rede, NAT traversal e evolução do multiplayer visual.</p></article></div></section>
+    <section id="roadmap" class="section shell"><span class="eyebrow">Roadmap de desenvolvimento</span><h2>O que vem depois</h2><div class="roadmap-grid"><article><b>Agora</b><h3>Validar Alpha.9</h3><p>HUD, rota, telemetria, multiplayer PC ↔ PC, chat, voz, atalhos e reconexão.</p></article><article><b>Em paralelo</b><h3>Alpha.10 experimental</h3><p>Lista de mapas/roadmaps, carregamento do plugin x86 e bridge local antes de tentar criar um veículo remoto dentro do simulador.</p></article><article><b>Depois</b><h3>Beta e expansão</h3><p>Correções dos testes, ETA/distância, diagnóstico de rede, NAT traversal e evolução do multiplayer visual.</p></article></div></section>
   </main>
 
   <footer><div class="shell footer-grid"><div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2.</p></div><div><a href="#mapas">Preparar mapas</a><a href="#plugin">Plugin experimental</a><a href="#feedback">Enviar feedback</a><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
