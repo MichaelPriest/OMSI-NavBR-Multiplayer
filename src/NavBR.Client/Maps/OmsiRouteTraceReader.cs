@@ -13,6 +13,7 @@ public sealed record OmsiRouteTracePoint(int GridX, int GridY, double TileX, dou
 /// </summary>
 public static class OmsiRouteTraceReader
 {
+    private const double MaxDetailedGapMeters = 120d;
     private static readonly object DiagnosticLock = new();
     private static string? _lastDiagnosticSignature;
 
@@ -75,7 +76,7 @@ public static class OmsiRouteTraceReader
             }
 
             var splineTrace = OmsiRouteSplineGeometryReader.TryBuild(map, layout, entries);
-            if (splineTrace.Count >= 2)
+            if (splineTrace.Count >= 2 && IsDetailedTraceContinuous(splineTrace, tileSize))
             {
                 WriteDiagnostics(
                     map,
@@ -94,7 +95,7 @@ public static class OmsiRouteTraceReader
                 trackPath,
                 activeLine,
                 activeTrackOrTarget,
-                "tile-fallback",
+                splineTrace.Count >= 2 ? "tile-fallback-gap" : "tile-fallback",
                 entries.Count,
                 fallback.Count);
             return fallback;
@@ -123,6 +124,30 @@ public static class OmsiRouteTraceReader
                 0);
             return Array.Empty<OmsiRouteTracePoint>();
         }
+    }
+
+    private static bool IsDetailedTraceContinuous(
+        IReadOnlyList<OmsiRouteTracePoint> points,
+        double tileSize)
+    {
+        var maxGapSquared = MaxDetailedGapMeters * MaxDetailedGapMeters;
+        for (var index = 1; index < points.Count; index++)
+        {
+            var previous = points[index - 1];
+            var current = points[index];
+            var previousX = previous.GridX * tileSize + previous.TileX;
+            var previousY = previous.GridY * tileSize + previous.TileY;
+            var currentX = current.GridX * tileSize + current.TileX;
+            var currentY = current.GridY * tileSize + current.TileY;
+            var dx = currentX - previousX;
+            var dy = currentY - previousY;
+            if (dx * dx + dy * dy > maxGapSquared)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static List<OmsiRouteTrackEntry> ReadTrackEntries(string[] lines)
