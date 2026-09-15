@@ -9,6 +9,8 @@ Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
 Site oficial: **https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/**
 
+Manual de uso: **[docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md)**
+
 ## Objetivo
 
 O OMSI NavBR Multiplayer é um aplicativo Windows externo ao jogo, projetado para:
@@ -141,6 +143,7 @@ src/
   NavBR.Shared/   DTOs e protocolo compartilhado
 
 docs/
+  MANUAL_DE_USO.md
   ARCHITECTURE.md
   ROADMAP.md
   TELEMETRY.md
