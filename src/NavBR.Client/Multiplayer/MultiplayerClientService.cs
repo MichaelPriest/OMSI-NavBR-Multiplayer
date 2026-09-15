@@ -76,6 +76,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             }
 
             _joinRequest = null;
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             throw;
         }
@@ -121,6 +122,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         var connection = _connection;
         _connection = null;
         _joinRequest = null;
+        _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
         {
@@ -153,7 +155,11 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         connection.On<PlayerPresence>("playerJoined", player => PlayerJoined?.Invoke(player));
         connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
-        connection.On<string>("playerLeft", playerId => PlayerLeft?.Invoke(playerId));
+        connection.On<string>("playerLeft", playerId =>
+        {
+            PlayerLeft?.Invoke(playerId);
+            _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
+        });
         connection.On<PlayerTelemetryFrame>("telemetry", frame =>
         {
             TelemetryReceived?.Invoke(frame);
@@ -164,6 +170,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         connection.Reconnecting += _ =>
         {
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
             return Task.CompletedTask;
         };
@@ -181,6 +188,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         connection.Closed += _ =>
         {
+            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
