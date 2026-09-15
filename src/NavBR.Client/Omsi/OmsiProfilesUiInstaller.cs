@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Ghost;
+using NavBR.Client.Maps;
+using NavBR.Client.Windows;
 
 namespace NavBR.Client.Omsi;
 
@@ -9,40 +11,61 @@ internal static class OmsiProfilesUiInstaller
 {
     private const string ProfilesButtonName = "OmsiProfilesButton";
     private const string GhostButtonName = "GhostToolsButton";
+    private const string RoadmapButtonName = "RoadmapStudioButton";
 
     public static void Install(MainWindow mainWindow)
     {
-        if (mainWindow.FindName("MultiplayerButton") is not Button multiplayerButton ||
-            multiplayerButton.Parent is not StackPanel parent)
+        var toolsPanel = mainWindow.FindName("Alpha11ToolsPanel") as StackPanel;
+        if (toolsPanel is null)
         {
-            return;
+            if (mainWindow.FindName("MultiplayerButton") is not Button multiplayerButton ||
+                multiplayerButton.Parent is not StackPanel fallback)
+            {
+                return;
+            }
+
+            toolsPanel = fallback;
         }
 
-        var insertIndex = Math.Max(0, parent.Children.IndexOf(multiplayerButton));
+        if (mainWindow.FindName(RoadmapButtonName) is null)
+        {
+            var roadmapButton = CreateToolButton(
+                "▦  Roadmap Studio",
+                "Gerar whole.roadmap.bmp sem depender do OMSI Editor");
+            roadmapButton.Name = RoadmapButtonName;
+            roadmapButton.Click += (_, _) =>
+            {
+                var window = new RoadmapStudioWindow(mainWindow.GetMapsForAlpha11Tools())
+                {
+                    Owner = mainWindow
+                };
+                window.Show();
+            };
+            toolsPanel.Children.Add(roadmapButton);
+            mainWindow.RegisterName(RoadmapButtonName, roadmapButton);
+        }
 
         if (mainWindow.FindName(ProfilesButtonName) is null)
         {
-            var profilesButton = CreateHeaderButton(
-                ProfilesButtonName,
-                "Instalações OMSI",
-                "Detectar, escolher e iniciar instalações/perfis do OMSI",
-                multiplayerButton);
+            var profilesButton = CreateToolButton(
+                "▤  Instalações OMSI",
+                "Detectar, escolher e iniciar instalações/perfis do OMSI");
+            profilesButton.Name = ProfilesButtonName;
             profilesButton.Click += (_, _) =>
             {
                 var window = new OmsiProfilesWindow { Owner = mainWindow };
                 window.ShowDialog();
             };
-            parent.Children.Insert(insertIndex++, profilesButton);
+            toolsPanel.Children.Add(profilesButton);
             mainWindow.RegisterName(ProfilesButtonName, profilesButton);
         }
 
         if (mainWindow.FindName(GhostButtonName) is null)
         {
-            var ghostButton = CreateHeaderButton(
-                GhostButtonName,
-                "Ghost 3D",
-                "Gravar/reproduzir viagens e validar o futuro ônibus remoto físico",
-                multiplayerButton);
+            var ghostButton = CreateToolButton(
+                "◈  Ghost 3D",
+                "Gravar/reproduzir viagens e validar o futuro ônibus remoto físico");
+            ghostButton.Name = GhostButtonName;
             ghostButton.Click += (_, _) =>
             {
                 var window = new GhostToolsWindow(mainWindow.GetCurrentTelemetryForAlpha11)
@@ -51,24 +74,24 @@ internal static class OmsiProfilesUiInstaller
                 };
                 window.Show();
             };
-            parent.Children.Insert(insertIndex, ghostButton);
+            toolsPanel.Children.Add(ghostButton);
             mainWindow.RegisterName(GhostButtonName, ghostButton);
         }
     }
 
-    private static Button CreateHeaderButton(
-        string name,
-        string text,
-        string tooltip,
-        Button reference)
+    private static Button CreateToolButton(string text, string tooltip)
     {
+        var shellButton = Alpha11ShellUiInstaller.CreateToolButton(text, tooltip);
+        if (shellButton is not null)
+        {
+            return shellButton;
+        }
+
         return new Button
         {
-            Name = name,
             Content = text,
             MinWidth = 118,
-            Height = reference.Height > 0 ? reference.Height : double.NaN,
-            Margin = new Thickness(0, 0, 8, 0),
+            Margin = new Thickness(0, 0, 8, 7),
             Padding = new Thickness(12, 7, 12, 7),
             Background = new SolidColorBrush(Color.FromRgb(18, 38, 56)),
             Foreground = Brushes.White,
