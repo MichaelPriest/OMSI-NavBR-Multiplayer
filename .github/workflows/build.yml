@@ -57,15 +57,13 @@ jobs:
           $native = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
           $opl = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl"
           $runtimeConfig = "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPluginExperimental.runtimeconfig.json"
+          $installer = "artifacts/NavBR.OmsiPlugin.Experimental/Install-NavBROmsiPlugin.ps1"
+          $remover = "artifacts/NavBR.OmsiPlugin.Experimental/Remove-NavBROmsiPlugin.ps1"
 
-          if (-not (Test-Path $native)) {
-            throw "Native OMSI plugin entry DLL was not generated: $native"
-          }
-          if (-not (Test-Path $opl)) {
-            throw "OMSI plugin OPL file was not generated: $opl"
-          }
-          if (-not (Test-Path $runtimeConfig)) {
-            throw "OMSI plugin runtimeconfig was not generated: $runtimeConfig"
+          foreach ($required in @($native, $opl, $runtimeConfig, $installer, $remover)) {
+            if (-not (Test-Path $required)) {
+              throw "Required experimental plugin package file was not generated: $required"
+            }
           }
 
           Write-Host "Experimental OMSI plugin package validated."
