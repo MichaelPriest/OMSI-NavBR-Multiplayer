@@ -4,11 +4,13 @@
 
 1. **Sem dependência da Steam**: o cliente encontra `Omsi.exe` em execução e deriva a instalação pelo caminho do processo.
 2. **Integração desacoplada**: telemetria, mapa, navegação, HUD, voz e multiplayer são módulos separados.
-3. **Compatibilidade por perfil**: cada build suportada do OMSI terá um perfil de leitura/assinaturas próprio.
-4. **Sem DRM bypass**: o projeto não modifica ativação/licenciamento do OMSI.
-5. **Peer-host por padrão**: o PC que cria a sala executa o host multiplayer embutido.
-6. **Servidor dedicado opcional**: `NavBR.Server` continua podendo ser executado separadamente.
-7. **Localização desde a base**: módulos de domínio não dependem de texto de interface; idiomas são tratados no cliente por recursos.
+3. **Compatibilidade por perfil**: cada build suportada do OMSI possui um perfil de leitura próprio.
+4. **Somente leitura no OMSI**: o NavBR não injeta código e não grava na memória do simulador.
+5. **Sem DRM bypass**: o projeto não modifica ativação/licenciamento do OMSI.
+6. **Peer-host por padrão**: o PC que cria a sala executa o host multiplayer embutido.
+7. **Servidor dedicado opcional**: `NavBR.Server` continua podendo ser executado separadamente.
+8. **Localização desde a base**: módulos de domínio não dependem de texto de interface; idiomas são tratados no cliente por recursos.
+9. **Fallback seguro**: quando uma geometria/estrutura não pode ser resolvida com segurança, o NavBR prefere reduzir precisão em vez de inventar dados.
 
 ## Fluxo
 
@@ -16,15 +18,15 @@
 Omsi.exe
   │
   ├─ Process detector
-  ├─ Version detector
-  └─ Telemetry provider
+  ├─ Version/profile detector
+  └─ Telemetry provider (read-only)
          │
          ▼
    NavBR.Client
      ├─ Localization
-     ├─ Map reader / fingerprint
-     ├─ TTData reader
-     ├─ Navigation engine
+     ├─ Map catalog / fingerprint
+     ├─ TTData / route trace reader
+     ├─ Navigation state
      ├─ GPS / HUD overlay
      ├─ Text + voice chat
      └─ Multiplayer client
@@ -43,27 +45,39 @@ Omsi.exe
 
 ## Cliente
 
-O cliente é WPF em `net10.0-windows`, inicialmente compilado em x86 para acompanhar o OMSI 2, que é um processo de 32 bits.
+O cliente é WPF em .NET 10 para Windows, compilado em **x86** para acompanhar a arquitetura do OMSI 2.
 
 ### Camadas principais
 
 - `OmsiProcessDetector`: encontra PID, executável, versão e pasta da instalação.
-- `ICompatibilityProfile`: identifica uma build conhecida.
-- `ITelemetryProvider`: abstrai leitura de memória/plugin.
+- perfis de compatibilidade: isolam offsets/estruturas por build do OMSI.
+- `ITelemetryProvider`: abstrai leitura externa do processo.
 - `LocalizationService`: detecta idioma, carrega recursos e persiste preferência.
-- `OmsiMapCatalog`: `global.cfg`, tiles, roadmap e fingerprint de compatibilidade.
-- `TtDataReader`: `Busstops.cfg`, `.ttr`, `.ttp`, `.ttl`.
-- `NavigationEngine`: próxima parada, progresso da viagem, distância e ETA.
+- catálogo/leitor de mapas: `global.cfg`, tiles, roadmaps e fingerprint de compatibilidade.
+- leitor de rota/TTData: resolve `TTData`, `Chrono/*/TTData`, `.ttp -> .ttr` e a sequência de entradas do trajeto.
+- leitor de geometria: associa índice de tile, `ObjectId`, `PathId`, tiles `.map`, splines `.sli` e crossings `.sco`.
+- navegação/HUD: linha, destino, próxima parada, traçado da viagem e renderização do minimapa.
 - `MultiplayerClientService`: sala, presença, telemetria, chat e voz.
 - `RoomHostService`: inicia/encerra o servidor da sala no PC do criador.
 - `VoiceChatService`: captura/reprodução e codec Opus.
 - `HudOverlayWindow`: minimapa, chat e presença de voz sobre o OMSI.
 
+### Itens ainda não completos na navegação
+
+O código atual não deve ser descrito como tendo uma engine completa de operação. Ainda faltam, entre outros:
+
+- parser dedicado de `Busstops.cfg`;
+- parser dedicado de `.ttl`, se necessário;
+- distância restante;
+- ETA;
+- atraso/adiantamento;
+- instruções avançadas de navegação por trecho/manobra.
+
 ## Internacionalização
 
-A interface usa `ResourceManager` e arquivos `.resx` no namespace `NavBR.Client.Resources`.
+A interface usa `ResourceManager` e arquivos `.resx` no namespace de recursos do cliente.
 
-Idiomas iniciais:
+Idiomas atuais:
 
 ```text
 pt-BR  Português (Brasil)
@@ -84,85 +98,153 @@ Regras:
 
 ## Telemetria
 
-O primeiro backend é um leitor externo e somente leitura do processo OMSI. A implementação usa detecção de versão e mantém offsets/perfis isolados do restante do aplicativo.
+O backend principal é um leitor externo e somente leitura do processo OMSI. A implementação usa detecção de versão/perfil e mantém offsets isolados do restante do aplicativo.
 
-GPS, HUD e multiplayer consomem `VehicleTelemetry`, sem conhecer como a telemetria foi obtida.
+GPS, HUD e multiplayer consomem dados de telemetria sem conhecer como eles foram obtidos.
+
+Perfis atuais:
+
+- **2.3.004** — alvo principal;
+- **2.2.032** — suporte técnico existente, ainda aguardando validação real mais ampla.
+
+## Mapas e rota
+
+O NavBR lê diretamente os arquivos instalados do mapa.
+
+Fluxo simplificado:
+
+```text
+global.cfg
+  ├─ tiles .map
+  └─ ordem dos blocos [map]
+
+TTData / Chrono/*/TTData
+  └─ .ttp -> .ttr
+          │
+          ├─ ObjectId
+          ├─ PathId
+          └─ TileIndex
+                 │
+                 ▼
+         global.cfg [map]
+                 │
+                 ▼
+        GridX/GridY + tile
+                 │
+        ┌────────┴─────────┐
+        ▼                  ▼
+    splines .sli      crossings .sco
+        │                  │
+        └────────┬─────────┘
+                 ▼
+           rota no GPS/HUD
+```
+
+Na alpha.9, o terceiro campo relevante de `[track_entry]` é tratado como **índice de tile**, resolvido pela ordem dos blocos `[map]` do `global.cfg`.
+
+Se a geometria detalhada não puder ser resolvida de forma confiável, o renderer mantém fallback por tiles.
 
 ## Multiplayer peer-host
 
-O modo padrão deixa de depender de um servidor público central. Ao criar uma sala:
+O modo padrão não depende de um servidor público central. Ao criar uma sala:
 
-1. `RoomHostService` inicia `NavBRServerApplication` dentro do processo do cliente;
-2. Kestrel escuta em `0.0.0.0:27730`;
-3. o jogador host conecta localmente por `127.0.0.1`;
+1. `RoomHostService` inicia a aplicação de servidor dentro do processo do cliente;
+2. Kestrel escuta inicialmente em `0.0.0.0:27730`;
+3. o jogador host conecta localmente;
 4. os convidados conectam ao IPv4/endereço alcançável do host;
-5. o host distribui presença, telemetria, chat e frames de voz somente aos membros da sala.
+5. o host distribui presença, telemetria, chat e frames de voz aos membros da sala.
 
-O servidor dedicado continua usando a mesma aplicação ASP.NET Core, evitando duas implementações diferentes do protocolo.
+O servidor dedicado continua usando a mesma base ASP.NET Core/SignalR para evitar protocolos paralelos.
+
+### Convites
+
+O cliente usa um formato de convite versionado:
+
+```text
+NAVBR_INVITE_V1
+```
+
+O objetivo é permitir evolução futura sem quebrar convites antigos de forma silenciosa.
 
 ### Rede
 
 A porta padrão inicial é **TCP 27730**.
 
 - em LAN, o aplicativo lista endereços IPv4 utilizáveis;
-- pela Internet, esta alpha pode exigir regra no Windows Firewall e port forwarding/NAT no roteador do host;
-- UPnP/PCP/NAT-PMP ou outra estratégia de NAT traversal poderá ser adicionada depois;
+- pela Internet, a alpha pode exigir regra no Windows Firewall e port forwarding/NAT no roteador do host;
+- UPnP/NAT traversal continua pendente;
+- reconnect automático continua pendente;
+- rate limiting e códigos de erro de rede mais estruturados continuam pendentes;
 - nenhuma identidade Steam é necessária.
 
 ## Chat de texto
 
-Mensagens têm limite inicial de 280 caracteres. O servidor aplica identidade/nickname a partir da presença da conexão e distribui a mensagem pela sala.
+Mensagens têm limite inicial de **280 caracteres**. O servidor aplica identidade/nickname a partir da presença da conexão e distribui a mensagem pela sala.
 
-O HUD expõe `T` como atalho inicial para abrir a entrada de texto. Enquanto fechado, o overlay fica click-through para não capturar comandos do OMSI.
+O HUD usa atualmente **F9** como atalho padrão para abrir o chat. As combinações podem ser configuradas e são verificadas contra `Inputs/keyboard.cfg` do OMSI.
+
+Enquanto o campo de chat está fechado, o overlay permanece voltado a não capturar comandos desnecessários do simulador.
 
 ## Chat por voz
 
-Pipeline inicial:
+Pipeline atual:
 
 ```text
 Microfone
   ↓ NAudio / PCM 48 kHz mono
 Opus / Concentus
-  ↓ frames de 20 ms ~24 kbit/s
+  ↓ frames de 20 ms
 SignalR / WebSocket
   ↓
 PC host da sala
   ↓
 Clientes remotos
-  ↓ Opus decode + mixer NAudio
+  ↓ Opus decode + NAudio
 Áudio do jogador
 ```
 
-`N` é o push-to-talk inicial. Apenas enquanto a tecla está pressionada o cliente codifica e transmite áudio.
+O push-to-talk usa **F10** como atalho padrão. Chat e PTT precisam usar combinações diferentes.
 
-SignalR/WebSocket foi escolhido para reduzir complexidade nesta alpha. Para reduzir latência e head-of-line blocking, a voz poderá migrar para UDP/WebRTC mantendo os mesmos conceitos de sala e identidade.
+SignalR/WebSocket foi escolhido para reduzir complexidade nesta alpha. Para reduzir latência e head-of-line blocking, a voz poderá futuramente migrar para UDP/WebRTC sem alterar os conceitos de sala e identidade.
+
+Voz e latência ainda precisam de validação real entre computadores.
 
 ## HUD sobre o OMSI
 
-O HUD é uma janela WPF transparente, sem moldura, sempre acima do OMSI, que acompanha posição/tamanho da janela do simulador.
+O HUD é uma janela WPF transparente e sem moldura que acompanha a janela de gameplay do simulador.
 
-Modo normal:
+Na alpha.9, o lifecycle do HUD aprende o HWND real de gameplay quando o OMSI está em primeiro plano e tenta diferenciar essa superfície de janelas auxiliares do mesmo processo.
 
-- click-through;
-- minimapa no canto inferior esquerdo;
-- chat temporário acima do minimapa;
-- indicador de conexão e voz;
-- outros jogadores no minimapa.
+Objetivos atuais:
 
-Modo de entrada de chat:
+- mostrar o HUD durante a condução;
+- ocultar sobre menus/opções/timetable/diálogos auxiliares;
+- reaparecer quando o usuário retorna ao gameplay;
+- manter minimapa, chat, jogadores e indicador de voz disponíveis sem interferir na condução.
 
-- o overlay fica interativo temporariamente;
-- recebe texto;
-- Enter envia;
-- Esc fecha e restaura click-through.
-
-A composição é inspirada em convenções de HUD de jogos de mundo aberto, mas usa identidade, formas e assets próprios do NavBR. Fullscreen exclusivo ainda precisa de validação; janela/borderless é o alvo inicial.
+Fullscreen exclusivo ainda precisa de validação; janela/borderless é o alvo inicial.
 
 ## Compatibilidade de mapas
 
 Cada mapa recebe um identificador SHA-256 baseado em arquivos estruturais disponíveis localmente. A presença do jogador carrega esse identificador junto com o nome do mapa.
 
-Jogadores com identificadores diferentes não são sobrepostos como se estivessem no mesmo mapa, mesmo que o nome textual seja igual. Isso reduz erros quando há versões/modificações diferentes do mesmo mapa.
+Jogadores com identificadores diferentes não devem ser sobrepostos como se estivessem usando exatamente a mesma versão do mapa.
+
+## Estado de validação da alpha.9
+
+O CI confirma build/publicação, mas não substitui teste no OMSI real.
+
+Ainda precisam de validação end-to-end:
+
+- HUD e menus;
+- posição/velocidade/heading;
+- traçado detalhado;
+- destino/próxima parada;
+- multiplayer entre dois computadores;
+- voz/PTT;
+- atalhos;
+- Internet/NAT;
+- servidor dedicado em outro computador.
 
 ## Licenças
 
@@ -174,4 +256,4 @@ THIRD_PARTY_NOTICES.md
 licenses/
 ```
 
-Os pacotes de release devem preservar esses arquivos quando as licenças das dependências exigirem aviso em redistribuição binária.
+Os pacotes de release preservam esses avisos legais.
