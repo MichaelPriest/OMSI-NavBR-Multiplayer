@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      TEST_TAG: v0.3.0-alpha.10-test.3
+      TEST_TAG: v0.3.0-alpha.10-test.4
 
     steps:
       - uses: actions/checkout@v4
@@ -190,11 +190,12 @@ jobs:
             "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
             ""
             "NAO E A ALPHA.10 FINAL."
+            "Inclui novo icone, HUD moderno, GPS heading-up, chat acoplado, setas de manobra e log automatico."
             "O plugin ainda nao cria nem movimenta onibus fisicos dentro do OMSI."
             "Leia LEIA-ME-TESTE-ALPHA10.md antes de instalar o plugin."
           ) | Set-Content -LiteralPath (Join-Path $bundleDir "BUILD-INFO.txt") -Encoding UTF8
 
-          $integrationZip = Join-Path $releaseDir "OMSI-NavBR-alpha10-test.3-integration-win-x86.zip"
+          $integrationZip = Join-Path $releaseDir "OMSI-NavBR-alpha10-test.4-integration-win-x86.zip"
           Compress-Archive -Path "$bundleDir/*" -DestinationPath $integrationZip -Force
 
           Copy-Item LICENSE (Join-Path $releaseDir "LICENSE") -Force
@@ -212,11 +213,24 @@ jobs:
 
           **PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**
 
-          Esta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86, o diagnostico da instalacao, a verificacao do .NET 10 Runtime x86 e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.
+          Esta build existe para validar no OMSI 2.3.004 a nova interface em jogo e a base do plugin experimental.
+
+          ## Novidades desta test.4
+
+          - novo icone oficial incorporado ao aplicativo/EXE;
+          - barra superior translucida com status, jogadores, chat, PTT e atalhos;
+          - GPS heading-up: o marcador do onibus fica apontando para cima e o mapa/rota giram;
+          - linha, destino e proxima parada separados da area do mapa;
+          - setas de manobra quando existe geometria detalhada suficiente;
+          - chat visual acoplado abaixo do GPS;
+          - bloqueio de clique no jogo enquanto o chat esta em modo de digitacao;
+          - mais opcoes de atalhos, mantendo F5-F8 fora da lista;
+          - `navbr.log` gerado automaticamente em toda execucao;
+          - preflight do .NET 10 Runtime x86 mantido no instalador do plugin.
 
           ## Para o teste recomendado
 
-          Baixe `OMSI-NavBR-alpha10-test.3-integration-win-x86.zip`.
+          Baixe `OMSI-NavBR-alpha10-test.4-integration-win-x86.zip`.
 
           O pacote contem:
 
@@ -236,11 +250,9 @@ jobs:
           - `heartbeat=LIVE`;
           - `callbacks` aumentando.
 
-          O instalador agora valida um .NET 10 Runtime x86 real antes de copiar o plugin.
-
           O plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**
 
-          A alpha.9 continua sendo a ultima prerelease geral. Esta `test.3` e somente para os testes da alpha.10. As `test.1` e `test.2` permanecem preservadas para rastreabilidade.
+          A alpha.9 continua sendo a ultima prerelease geral. Esta `test.4` e somente para os testes da alpha.10. As `test.1`, `test.2` e `test.3` permanecem preservadas para rastreabilidade.
           "@ | Set-Content -LiteralPath "artifacts/release-notes.md" -Encoding UTF8
 
       - name: Create permanent GitHub prerelease
