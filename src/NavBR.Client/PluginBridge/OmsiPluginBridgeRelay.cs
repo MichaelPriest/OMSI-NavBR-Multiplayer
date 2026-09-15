@@ -7,17 +7,34 @@ namespace NavBR.Client.PluginBridge;
 
 public static class OmsiPluginBridgeRelay
 {
+    public static string? ResolveCurrentMapCompatibilityId(string? fallback = null)
+    {
+        if (Application.Current?.MainWindow is MainWindow mainWindow)
+        {
+            var current = mainWindow.GetCurrentMapCompatibilityIdForPlugin();
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                return current;
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
+
     public static Task ForwardLocalTelemetryAsync(
         VehicleTelemetry telemetry,
         string? mapCompatibilityId = null,
         CancellationToken cancellationToken = default)
     {
+        var currentCompatibilityId = ResolveCurrentMapCompatibilityId(
+            telemetry.MapCompatibilityId ?? mapCompatibilityId);
+
         var message = new PluginBridgeMessage(
             PluginBridgeProtocol.LocalVehicleState,
             PluginBridgeProtocol.Version,
             PlayerId: telemetry.PlayerId,
             MapName: telemetry.MapName,
-            MapCompatibilityId: mapCompatibilityId ?? telemetry.MapCompatibilityId,
+            MapCompatibilityId: currentCompatibilityId,
             TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
             X: telemetry.X,
             Y: telemetry.Y,
@@ -44,7 +61,7 @@ public static class OmsiPluginBridgeRelay
             PlayerId: frame.Player.PlayerId,
             DisplayName: frame.Player.DisplayName,
             MapName: telemetry.MapName ?? frame.Player.MapName,
-            MapCompatibilityId: frame.Player.MapCompatibilityId ?? telemetry.MapCompatibilityId,
+            MapCompatibilityId: telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId,
             TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
             X: telemetry.X,
             Y: telemetry.Y,
