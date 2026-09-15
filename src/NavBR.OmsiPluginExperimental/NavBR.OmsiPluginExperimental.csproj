@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="DNNE" Version="2.1.2" />
+    <ProjectReference Include="..\NavBR.Shared\NavBR.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
