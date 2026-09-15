@@ -237,14 +237,17 @@ internal static class OmsiRouteSplineGeometryReader
             var lines = File.ReadAllLines(splineFilePath);
             for (var i = 0; i < lines.Length; i++)
             {
-                if (!string.Equals(lines[i].Trim(), "[path]", StringComparison.OrdinalIgnoreCase))
+                var keyword = lines[i].Trim();
+                if (!string.Equals(keyword, "[path]", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(keyword, "[path_2]", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                // [path] -> type, lateral X, Z, width, direction.
-                // Preserve the list index even when a malformed offset occurs,
-                // because TTR PathId is zero-based against this path list.
+                // Both spline path formats start with path type followed by the
+                // 2D offset (X/Z). The first offset component is the lateral
+                // displacement from the spline centre. Count both commands so
+                // zero-based TTR PathId remains aligned with OMSI's path list.
                 result.Add(
                     i + 2 < lines.Length && TryParseDouble(lines[i + 2], out var offset)
                         ? offset
