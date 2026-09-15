@@ -7,9 +7,9 @@ public sealed record OmsiRouteTracePoint(int GridX, int GridY, double TileX, dou
 
 /// <summary>
 /// Reads the tile sequence of an OMSI timetable track (.ttr). The track data
-/// is never modified. The first implementation deliberately uses the centre
-/// of each real route tile; this gives a trustworthy route trace without
-/// inventing geometry that OMSI has not exposed to NavBR yet.
+/// is never modified. The current renderer deliberately uses the centre of
+/// each real route tile; this gives a trustworthy route trace without
+/// inventing detailed spline geometry that NavBR has not decoded yet.
 /// </summary>
 public static class OmsiRouteTraceReader
 {
@@ -41,12 +41,6 @@ public static class OmsiRouteTraceReader
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            var tilesByGlobalLine = ReadGlobalTileIndex(map.GlobalConfigPath);
-            if (tilesByGlobalLine.Count == 0)
-            {
-                return Array.Empty<OmsiRouteTracePoint>();
-            }
-
             var lines = File.ReadAllLines(trackPath);
             var points = new List<OmsiRouteTracePoint>();
             (int X, int Y)? previousGrid = null;
@@ -58,15 +52,32 @@ public static class OmsiRouteTraceReader
                     continue;
                 }
 
-                // OMSI TTR entry layout begins with:
-                // object/id, path index, global.cfg tile index, path id, length...
-                if (i + 3 >= lines.Length ||
-                    !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tileIndex) ||
-                    !tilesByGlobalLine.TryGetValue(tileIndex, out var grid))
+                // OMSI TTR [track_entry] layout:
+                // object/spline id
+                // path id
+                // tile X
+                // tile Y
+                // approximate path length
+                // flags/reserved
+                //
+                // Older NavBR builds incorrectly treated tile X as an index
+                // into global.cfg. TTR already stores the real grid coordinates.
+                if (i + 4 >= lines.Length ||
+                    !int.TryParse(
+                        lines[i + 3].Trim(),
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var gridX) ||
+                    !int.TryParse(
+                        lines[i + 4].Trim(),
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var gridY))
                 {
                     continue;
                 }
 
+                var grid = (X: gridX, Y: gridY);
                 if (previousGrid == grid)
                 {
                     continue;
@@ -74,8 +85,8 @@ public static class OmsiRouteTraceReader
 
                 previousGrid = grid;
                 points.Add(new OmsiRouteTracePoint(
-                    grid.X,
-                    grid.Y,
+                    gridX,
+                    gridY,
                     tileSize / 2d,
                     tileSize / 2d));
             }
@@ -274,29 +285,6 @@ public static class OmsiRouteTraceReader
         }
 
         return timetableDirectories;
-    }
-
-    private static Dictionary<int, (int X, int Y)> ReadGlobalTileIndex(string globalConfigPath)
-    {
-        var result = new Dictionary<int, (int X, int Y)>();
-        var lines = File.ReadAllLines(globalConfigPath);
-
-        // TTR stores the zero-based source-line index of the [map] block.
-        // This is also how established OMSI tooling associates timetable
-        // track entries with map tiles.
-        for (var i = 0; i < lines.Length - 2; i++)
-        {
-            if (!string.Equals(lines[i].Trim(), "[map]", StringComparison.OrdinalIgnoreCase) ||
-                !int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) ||
-                !int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
-            {
-                continue;
-            }
-
-            result[i] = (gridX, gridY);
-        }
-
-        return result;
     }
 
     private static string Normalize(string value) =>
