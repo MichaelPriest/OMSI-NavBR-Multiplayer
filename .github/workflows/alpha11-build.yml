@@ -1,0 +1,105 @@
+name: alpha11-build
+
+on:
+  push:
+    branches: [ feature/alpha11-deep-omsi-integration ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '.github/workflows/alpha11-build.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML colors
+        shell: pwsh
+        run: .\scripts\validate-xaml-colors.ps1
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/NavBR.OmsiPlugin.Experimental
+
+      - name: Validate Native AOT plugin x86
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
+          $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
+          if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "Plugin is not PE/MZ." }
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "Invalid PE signature." }
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0x014C) { throw ("Plugin must be x86; machine=0x{0:X4}" -f $machine) }
+
+      - name: Prepare embedded plugin
+        shell: pwsh
+        run: >-
+          .\scripts\prepare-embedded-plugin.ps1
+          -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental"
+          -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+      - name: Build client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+      - name: Smoke-test bridge v2
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/NavBR.PluginBridgeSmokeTest
+          & "artifacts/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
+
+      - name: Publish standalone client
+        shell: pwsh
+        run: >-
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj
+          -c Release -r win-x86 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None -p:DebugSymbols=false
+          -o artifacts/NavBR.Client.Single
+
+      - name: Upload alpha.11 standalone candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-alpha11-standalone-win-x86
+          path: artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe
+          if-no-files-found: error
+          retention-days: 14
