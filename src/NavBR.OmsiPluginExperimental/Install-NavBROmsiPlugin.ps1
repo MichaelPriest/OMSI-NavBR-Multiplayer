@@ -90,8 +90,8 @@ $pluginsRoot = Join-Path $root 'plugins'
 New-Item -ItemType Directory -Path $pluginsRoot -Force | Out-Null
 
 $files = @(
-    Get-Item -LiteralPath $nativeDll,
-    Get-Item -LiteralPath $opl
+    (Get-Item -LiteralPath $nativeDll),
+    (Get-Item -LiteralPath $opl)
 )
 
 $manifestPath = Join-Path $pluginsRoot 'NavBR.OmsiPlugin.install-manifest.txt'
