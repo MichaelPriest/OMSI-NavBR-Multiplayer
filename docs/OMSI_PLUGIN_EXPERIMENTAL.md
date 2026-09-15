@@ -103,12 +103,12 @@ Características atuais:
 - handshake `plugin-hello` / `client-hello`;
 - reconexão automática local;
 - limite de tamanho das mensagens;
-- telemetria remota recebida pelo SignalR pode ser encaminhada ao plugin;
+- telemetria local e remota pode ser encaminhada ao plugin;
 - mensagens de remoção de jogador e limpeza da sala evitam estado remoto fantasma;
 - falha do bridge não derruba a sessão multiplayer;
 - o plugin continua sem aplicar qualquer dado ao OMSI nesta fase.
 
-Fluxo de diagnóstico atual:
+Fluxo atual:
 
 ```text
 Jogador remoto
@@ -119,23 +119,53 @@ Named Pipe local
    ↓
 NavBR.OmsiPlugin
    ↓
+registro remoto / diagnóstico
+   ↓
 navbr-plugin.log
 ```
 
-O heartbeat do plugin pode registrar a quantidade de jogadores remotos recebidos e um resumo do último estado remoto.
+## Filtro de compatibilidade antes do futuro spawn
+
+A alpha.10 também envia ao plugin o contexto do veículo local, incluindo mapa e `MapCompatibilityId` quando disponível.
+
+Antes de um remoto ser considerado candidato a futura representação física:
+
+1. jogador local deve estar em jogo;
+2. jogador remoto deve estar em jogo;
+3. se ambos possuem `MapCompatibilityId`, os IDs precisam ser iguais;
+4. se o fingerprint não estiver disponível, o nome do mapa precisa coincidir;
+5. remotos incompatíveis continuam podendo existir no multiplayer/HUD, mas não são selecionados pelo plugin para futuro spawn.
+
+Isso evita tentar representar fisicamente um jogador que esteja em outro mapa ou em uma versão incompatível do mesmo mapa.
+
+## Registro seguro de veículos remotos
+
+O plugin experimental mantém um registro local temporário dos estados recebidos.
+
+Proteções atuais:
+
+- máximo de **64 estados remotos** mantidos simultaneamente;
+- validação de `PlayerId` e tamanho dos campos de texto;
+- rejeição de coordenadas, heading ou velocidade com `NaN`/`Infinity`;
+- remoção explícita quando o jogador sai;
+- limpeza ao perder/reiniciar a sessão;
+- expiração automática após **5 segundos** sem atualização;
+- heartbeat informa total recebido e total compatível com o mapa local.
+
+Esses limites existem antes mesmo da criação de qualquer entidade física no OMSI.
 
 ## Fase 2 — um veículo remoto de teste
 
 Só depois de validar carga e bridge no OMSI real:
 
-1. selecionar um único jogador remoto;
-2. transmitir um estado mínimo;
+1. selecionar um único jogador remoto compatível;
+2. usar o estado já validado/interpolado;
 3. investigar criação/associação segura de uma entidade experimental;
 4. aplicar posição e orientação;
-5. remover a entidade ao desconectar;
+5. remover a entidade ao desconectar ou expirar;
 6. medir estabilidade e performance.
 
-Estado mínimo pretendido:
+Estado mínimo:
 
 ```text
 PlayerId
@@ -144,24 +174,33 @@ Timestamp
 Position X/Y/Z
 Heading
 Speed
-VehicleCompatibilityId
+VehicleCompatibilityId (futuro)
 ```
 
-O `VehicleCompatibilityId` ainda é futuro. A primeira etapa do bridge já transporta os dados de posição/orientação disponíveis no contrato multiplayer.
+## Suavização de movimento
 
-## Fase 3 — suavização dentro do OMSI
+A base de suavização já está implementada na alpha.10 **antes de qualquer escrita no OMSI**.
 
-A rede não deve mover o ônibus remoto diretamente a cada pacote.
+Para cada jogador remoto, o plugin mantém os dois snapshots mais recentes e amostra o movimento com atraso de interpolação de aproximadamente **100 ms**.
 
-O cliente/plugin deverá manter snapshots e usar:
+Já são interpolados:
 
-- interpolação temporal;
-- limite de extrapolação;
-- snap somente quando o erro ultrapassar um limite seguro;
-- timeout para remover/frear entidade sem atualização;
-- frequência limitada para reduzir custo dentro do OMSI.
+- X;
+- Y;
+- Z;
+- velocidade;
+- heading pelo menor arco angular.
 
-## Fase 4 — estados adicionais
+A intenção é que o primeiro ônibus remoto experimental consuma esse estado suavizado, e não os pacotes brutos da rede.
+
+Ainda ficam para uma etapa posterior:
+
+- extrapolação limitada para perda curta de pacotes;
+- snap somente acima de erro máximo seguro;
+- política de distância/LOD;
+- frequência de aplicação dentro do OMSI.
+
+## Estados adicionais
 
 Somente após posição/orientação serem estáveis:
 
@@ -210,11 +249,15 @@ Regras obrigatórias:
 
 - ✅ projeto x86 experimental criado;
 - ✅ exports/callbacks básicos implementados;
-- ✅ CI compila e valida o pacote do plugin;
+- ✅ CI compila e valida o pacote do plugin em commits anteriores;
 - ✅ artefato experimental de CI é gerado separadamente;
-- ✅ bridge local NavBR ↔ plugin implementado por Named Pipe na alpha.10 em desenvolvimento;
-- ✅ protocolo inclui atualização, remoção e limpeza de estados remotos;
+- ✅ bridge local NavBR ↔ plugin implementado por Named Pipe na alpha.10;
+- ✅ protocolo inclui contexto local, atualização, remoção e limpeza de estados remotos;
 - ✅ frames remotos do multiplayer são encaminhados ao bridge em modo diagnóstico;
+- ✅ limite de 64 remotos + timeout de 5 s;
+- ✅ filtro por mapa / fingerprint antes do futuro spawn;
+- ✅ interpolação básica de posição, velocidade e heading implementada;
+- 🧪 CI do bloco mais recente ainda precisa permanecer verde após estas mudanças;
 - 🧪 falta validar carregamento real do plugin no OMSI 2.3.004;
 - 🧪 falta validar handshake e fluxo SignalR → cliente → pipe → plugin em dois PCs;
 - ⬜ criação de uma entidade remota experimental;
