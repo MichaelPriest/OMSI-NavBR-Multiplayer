@@ -167,16 +167,12 @@ function Find-DotNet10X86Runtime {
             continue
         }
 
-        $runtime = Get-LatestMajorVersionDirectory \
-            (Join-Path $root 'shared\Microsoft.NETCore.App') \
-            $RequiredRuntimeMajor
+        $runtime = Get-LatestMajorVersionDirectory (Join-Path $root 'shared\Microsoft.NETCore.App') $RequiredRuntimeMajor
         if ($null -eq $runtime) {
             continue
         }
 
-        $hostFxr = Get-LatestMajorVersionDirectory \
-            (Join-Path $root 'host\fxr') \
-            $RequiredRuntimeMajor
+        $hostFxr = Get-LatestMajorVersionDirectory (Join-Path $root 'host\fxr') $RequiredRuntimeMajor
         if ($null -eq $hostFxr) {
             continue
         }
