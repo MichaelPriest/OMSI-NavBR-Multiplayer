@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Microsoft.Win32;
+using NavBR.Client.PluginInstaller;
 
 namespace NavBR.Client;
 
@@ -10,6 +12,8 @@ public partial class MainWindow
 {
     private DispatcherTimer? _pluginDiagnosticsTimer;
     private TextBlock? _pluginDiagnosticsStatusText;
+    private Button? _pluginInstallButton;
+    private Button? _pluginRemoveButton;
     private bool _pluginDiagnosticsUiCreated;
 
     internal string? GetCurrentMapCompatibilityIdForPlugin() =>
@@ -45,6 +49,28 @@ public partial class MainWindow
             Foreground = TryFindResource("NavTextBrush") as Brush ?? Brushes.White
         });
 
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 9, 0, 4)
+        };
+
+        _pluginInstallButton = new Button
+        {
+            MinWidth = 170,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        _pluginInstallButton.Click += PluginInstallButton_Click;
+        actions.Children.Add(_pluginInstallButton);
+
+        _pluginRemoveButton = new Button
+        {
+            MinWidth = 130
+        };
+        _pluginRemoveButton.Click += PluginRemoveButton_Click;
+        actions.Children.Add(_pluginRemoveButton);
+        parent.Children.Add(actions);
+
         _pluginDiagnosticsStatusText = new TextBlock
         {
             Margin = new Thickness(0, 6, 0, 0),
@@ -63,11 +89,134 @@ public partial class MainWindow
         _pluginDiagnosticsTimer.Start();
 
         Closed += PluginDiagnosticsWindow_Closed;
+        RefreshPluginActionText();
         RenderPluginBridgeDiagnostics();
     }
 
-    private void PluginDiagnosticsTimer_Tick(object? sender, EventArgs e) =>
+    private void PluginDiagnosticsTimer_Tick(object? sender, EventArgs e)
+    {
+        RefreshPluginActionText();
         RenderPluginBridgeDiagnostics();
+    }
+
+    private void RefreshPluginActionText()
+    {
+        var language = Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName;
+
+        if (_pluginInstallButton is not null)
+        {
+            _pluginInstallButton.Content = language switch
+            {
+                "pt" => "Instalar / atualizar plugin",
+                "es" => "Instalar / actualizar plugin",
+                "de" => "Plugin installieren / aktualisieren",
+                "fr" => "Installer / mettre à jour le plugin",
+                _ => "Install / update plugin"
+            };
+            _pluginInstallButton.IsEnabled = OmsiPluginInstallationService.HasEmbeddedPackage;
+        }
+
+        if (_pluginRemoveButton is not null)
+        {
+            _pluginRemoveButton.Content = language switch
+            {
+                "pt" => "Remover plugin",
+                "es" => "Eliminar plugin",
+                "de" => "Plugin entfernen",
+                "fr" => "Supprimer le plugin",
+                _ => "Remove plugin"
+            };
+        }
+    }
+
+    private void PluginInstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var root = ResolveOmsiRootForPluginAction();
+            if (root is null)
+            {
+                return;
+            }
+
+            var result = OmsiPluginInstallationService.InstallOrUpdate(root);
+            MessageBox.Show(
+                $"Plugin NavBR instalado/atualizado com sucesso.\n\nOMSI: {result.OmsiRoot}\nDestino: {result.PluginsDirectory}\nArquivos: {result.InstalledFiles}",
+                "OMSI NavBR Multiplayer",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            RenderPluginBridgeDiagnostics();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "OMSI NavBR Multiplayer",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void PluginRemoveButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var root = ResolveOmsiRootForPluginAction();
+            if (root is null)
+            {
+                return;
+            }
+
+            var result = OmsiPluginInstallationService.Remove(root);
+            MessageBox.Show(
+                $"Plugin NavBR removido.\n\nOMSI: {result.OmsiRoot}\nArquivos removidos: {result.RemovedFiles}",
+                "OMSI NavBR Multiplayer",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            RenderPluginBridgeDiagnostics();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "OMSI NavBR Multiplayer",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private string? ResolveOmsiRootForPluginAction()
+    {
+        var detected = OmsiPluginInstallationService.ResolveOmsiRoot(_currentOmsi?.InstallDirectory);
+        if (!string.IsNullOrWhiteSpace(detected))
+        {
+            return detected;
+        }
+
+        var picker = new OpenFolderDialog
+        {
+            Title = "Selecione a pasta que contém Omsi.exe",
+            Multiselect = false
+        };
+
+        if (picker.ShowDialog(this) != true)
+        {
+            return null;
+        }
+
+        detected = OmsiPluginInstallationService.ResolveOmsiRoot(picker.FolderName);
+        if (!string.IsNullOrWhiteSpace(detected))
+        {
+            return detected;
+        }
+
+        MessageBox.Show(
+            "Omsi.exe não foi encontrado na pasta selecionada.",
+            "OMSI NavBR Multiplayer",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+        return null;
+    }
 
     private void PluginDiagnosticsWindow_Closed(object? sender, EventArgs e)
     {
@@ -131,7 +280,7 @@ public partial class MainWindow
             : "-";
 
         _pluginDiagnosticsStatusText.Text =
-            $"install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
+            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
             $"status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
@@ -153,7 +302,8 @@ public partial class MainWindow
 
     private PluginInstallDiagnostics GetPluginInstallDiagnostics()
     {
-        var installDirectory = _currentOmsi?.InstallDirectory;
+        var installDirectory = _currentOmsi?.InstallDirectory ??
+                               OmsiPluginInstallationService.ResolveOmsiRoot();
         if (string.IsNullOrWhiteSpace(installDirectory))
         {
             return new PluginInstallDiagnostics("UNKNOWN", 0, "UNKNOWN", "-");
