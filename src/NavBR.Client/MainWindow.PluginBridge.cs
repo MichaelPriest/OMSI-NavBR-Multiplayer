@@ -141,7 +141,7 @@ public partial class MainWindow
 
             var result = OmsiPluginInstallationService.InstallOrUpdate(root);
             MessageBox.Show(
-                $"Plugin NavBR instalado/atualizado com sucesso.\n\nOMSI: {result.OmsiRoot}\nDestino: {result.PluginsDirectory}\nArquivos: {result.InstalledFiles}",
+                $"Plugin NavBR Native AOT instalado/atualizado com sucesso.\n\nOMSI: {result.OmsiRoot}\nDestino: {result.PluginsDirectory}\nArquivos: {result.InstalledFiles}\n\nNão é necessário instalar .NET Runtime x86 separadamente.",
                 "OMSI NavBR Multiplayer",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -280,8 +280,8 @@ public partial class MainWindow
             : "-";
 
         _pluginDiagnosticsStatusText.Text =
-            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
-            $"status={status}  protocol=v1\n" +
+            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  deployment=NATIVE-AOT-X86  install={install.State}  files={install.RequiredFilesFound}/2  manifest={install.Manifest}\n" +
+            $"runtime=BUILT-IN  status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
             $"heartbeat={heartbeatState}  age={heartbeatAgeText}  callbacks={callbackCount}  system-var={systemVariable}\n" +
@@ -315,8 +315,7 @@ public partial class MainWindow
             var requiredFiles = new[]
             {
                 "NavBR.OmsiPlugin.dll",
-                "NavBR.OmsiPlugin.opl",
-                "NavBR.OmsiPluginExperimental.runtimeconfig.json"
+                "NavBR.OmsiPlugin.opl"
             };
 
             var found = requiredFiles.Count(file =>
@@ -329,8 +328,8 @@ public partial class MainWindow
             var state = found switch
             {
                 0 => "MISSING",
-                3 when hasManifest => "INSTALLED",
-                3 => "UNTRACKED",
+                2 when hasManifest => "INSTALLED",
+                2 => "UNTRACKED",
                 _ => "PARTIAL"
             };
 
