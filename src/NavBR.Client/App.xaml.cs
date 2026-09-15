@@ -2,21 +2,39 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
 
 namespace NavBR.Client;
 
 public partial class App : Application
 {
+    internal OmsiPluginBridgeServer PluginBridge { get; } = new();
+
     protected override void OnStartup(StartupEventArgs e)
     {
         LocalizationService.Initialize();
+        PluginBridge.Start();
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         EventManager.RegisterClassHandler(
             typeof(Window),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(Window_Loaded));
         base.OnStartup(e);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try
+        {
+            PluginBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Experimental bridge shutdown must never prevent application exit.
+        }
+
+        base.OnExit(e);
     }
 
     private static void Window_Loaded(object sender, RoutedEventArgs e)
