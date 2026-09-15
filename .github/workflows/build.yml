@@ -68,6 +68,42 @@ jobs:
 
           Write-Host "Experimental OMSI plugin package validated."
 
+      - name: Smoke-test experimental plugin install and removal
+        shell: pwsh
+        run: |
+          $fakeOmsi = Join-Path $env:RUNNER_TEMP "NavBR-Omsi-Smoke"
+          if (Test-Path $fakeOmsi) {
+            Remove-Item $fakeOmsi -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $fakeOmsi -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $fakeOmsi "Omsi.exe") -Force | Out-Null
+
+          $package = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental"
+          & (Join-Path $package "Install-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
+
+          $plugins = Join-Path $fakeOmsi "plugins"
+          $manifest = Join-Path $plugins "NavBR.OmsiPlugin.install-manifest.txt"
+          $installedDll = Join-Path $plugins "NavBR.OmsiPlugin.dll"
+          $installedOpl = Join-Path $plugins "NavBR.OmsiPlugin.opl"
+
+          foreach ($installed in @($manifest, $installedDll, $installedOpl)) {
+            if (-not (Test-Path $installed)) {
+              throw "Plugin installer smoke test did not create: $installed"
+            }
+          }
+
+          & (Join-Path $package "Remove-NavBROmsiPlugin.ps1") -OmsiRoot $fakeOmsi
+
+          foreach ($removed in @($manifest, $installedDll, $installedOpl)) {
+            if (Test-Path $removed) {
+              throw "Plugin remover smoke test left file behind: $removed"
+            }
+          }
+
+          Remove-Item $fakeOmsi -Recurse -Force
+          Write-Host "Experimental plugin install/remove smoke test passed."
+
       - name: Publish Windows x86 client
         run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
 
