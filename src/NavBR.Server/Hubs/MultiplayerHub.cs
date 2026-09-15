@@ -12,10 +12,17 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
     private const int MaxMapNameLength = 256;
     private const int MaxMapCompatibilityIdLength = 256;
     private const int MaxVehicleNameLength = 256;
+    private const int MaxVehiclePathLength = 512;
+    private const int MaxCompatibilityIdLength = 256;
+    private const int MaxHofNameLength = 256;
     private const int MaxLineLength = 128;
     private const int MaxRouteLength = 128;
     private const int MaxStopNameLength = 256;
     private const int MaxDestinationLength = 256;
+    private const int MaxVersionLength = 64;
+    private const int MaxDeploymentLength = 64;
+    private const int MaxCapabilities = 32;
+    private const int MaxCapabilityLength = 64;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -29,6 +36,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             request.MapCompatibilityId,
             MaxMapCompatibilityIdLength,
             "map compatibility id");
+        var compatibility = NormalizeCompatibility(request.Compatibility, mapName, mapCompatibilityId);
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -43,7 +51,8 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             playerId,
             displayName,
             mapName,
-            mapCompatibilityId);
+            mapCompatibilityId,
+            compatibility);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
@@ -84,6 +93,16 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
                 MaxMapCompatibilityIdLength,
                 "map compatibility id"),
             VehicleName = NormalizeOptional(telemetry.VehicleName, MaxVehicleNameLength, "vehicle name"),
+            VehiclePath = NormalizeOptional(telemetry.VehiclePath, MaxVehiclePathLength, "vehicle path"),
+            VehicleCompatibilityId = NormalizeOptional(
+                telemetry.VehicleCompatibilityId,
+                MaxCompatibilityIdLength,
+                "vehicle compatibility id"),
+            HofName = NormalizeOptional(telemetry.HofName, MaxHofNameLength, "HOF name"),
+            HofCompatibilityId = NormalizeOptional(
+                telemetry.HofCompatibilityId,
+                MaxCompatibilityIdLength,
+                "HOF compatibility id"),
             Line = NormalizeOptional(telemetry.Line, MaxLineLength, "line"),
             Route = NormalizeOptional(telemetry.Route, MaxRouteLength, "route"),
             NextStopName = NormalizeOptional(telemetry.NextStopName, MaxStopNameLength, "next stop"),
@@ -194,6 +213,59 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         return normalized;
     }
 
+    private static OmsiCompatibilityManifest? NormalizeCompatibility(
+        OmsiCompatibilityManifest? compatibility,
+        string? normalizedMapName,
+        string? normalizedMapCompatibilityId)
+    {
+        if (compatibility is null)
+        {
+            return null;
+        }
+
+        if (compatibility.PluginProtocolVersion is < 1 or > 100)
+        {
+            throw new HubException("Invalid plugin protocol version.");
+        }
+
+        var capabilities = (compatibility.Capabilities ?? Array.Empty<string>())
+            .Select(value => NormalizeRequired(value, MaxCapabilityLength, "capability"))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxCapabilities + 1)
+            .ToArray();
+
+        if (capabilities.Length > MaxCapabilities)
+        {
+            throw new HubException("Too many compatibility capabilities.");
+        }
+
+        return compatibility with
+        {
+            OmsiVersion = NormalizeOptional(compatibility.OmsiVersion, MaxVersionLength, "OMSI version"),
+            NavBRVersion = NormalizeOptional(compatibility.NavBRVersion, MaxVersionLength, "NavBR version"),
+            MapName = normalizedMapName ?? NormalizeOptional(compatibility.MapName, MaxMapNameLength, "map name"),
+            MapCompatibilityId = normalizedMapCompatibilityId ?? NormalizeOptional(
+                compatibility.MapCompatibilityId,
+                MaxMapCompatibilityIdLength,
+                "map compatibility id"),
+            VehiclePath = NormalizeOptional(compatibility.VehiclePath, MaxVehiclePathLength, "vehicle path"),
+            VehicleCompatibilityId = NormalizeOptional(
+                compatibility.VehicleCompatibilityId,
+                MaxCompatibilityIdLength,
+                "vehicle compatibility id"),
+            HofName = NormalizeOptional(compatibility.HofName, MaxHofNameLength, "HOF name"),
+            HofCompatibilityId = NormalizeOptional(
+                compatibility.HofCompatibilityId,
+                MaxCompatibilityIdLength,
+                "HOF compatibility id"),
+            PluginDeployment = NormalizeOptional(
+                compatibility.PluginDeployment,
+                MaxDeploymentLength,
+                "plugin deployment"),
+            Capabilities = capabilities
+        };
+    }
+
     private static void ValidateTelemetry(VehicleTelemetry telemetry)
     {
         if (!double.IsFinite(telemetry.X) ||
@@ -205,10 +277,19 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             throw new HubException("Telemetry contains invalid numeric values.");
         }
 
-        if ((telemetry.TileX is double tileX && !double.IsFinite(tileX)) ||
-            (telemetry.TileY is double tileY && !double.IsFinite(tileY)))
+        ValidateOptionalFinite(telemetry.TileX, "tile X");
+        ValidateOptionalFinite(telemetry.TileY, "tile Y");
+        ValidateOptionalFinite(telemetry.AccelerationMps2, "acceleration");
+        ValidateOptionalFinite(telemetry.FuelPercent, "fuel");
+        ValidateOptionalFinite(telemetry.ThrottlePercent, "throttle");
+        ValidateOptionalFinite(telemetry.BrakePercent, "brake");
+        ValidateOptionalFinite(telemetry.SteeringDegrees, "steering");
+
+        if (telemetry.FuelPercent is < 0 or > 100 ||
+            telemetry.ThrottlePercent is < 0 or > 100 ||
+            telemetry.BrakePercent is < 0 or > 100)
         {
-            throw new HubException("Telemetry contains invalid tile coordinates.");
+            throw new HubException("Telemetry contains invalid percentage values.");
         }
 
         _ = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name");
@@ -217,9 +298,21 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             MaxMapCompatibilityIdLength,
             "map compatibility id");
         _ = NormalizeOptional(telemetry.VehicleName, MaxVehicleNameLength, "vehicle name");
+        _ = NormalizeOptional(telemetry.VehiclePath, MaxVehiclePathLength, "vehicle path");
+        _ = NormalizeOptional(telemetry.VehicleCompatibilityId, MaxCompatibilityIdLength, "vehicle compatibility id");
+        _ = NormalizeOptional(telemetry.HofName, MaxHofNameLength, "HOF name");
+        _ = NormalizeOptional(telemetry.HofCompatibilityId, MaxCompatibilityIdLength, "HOF compatibility id");
         _ = NormalizeOptional(telemetry.Line, MaxLineLength, "line");
         _ = NormalizeOptional(telemetry.Route, MaxRouteLength, "route");
         _ = NormalizeOptional(telemetry.NextStopName, MaxStopNameLength, "next stop");
         _ = NormalizeOptional(telemetry.DestinationName, MaxDestinationLength, "destination");
+    }
+
+    private static void ValidateOptionalFinite(double? value, string fieldName)
+    {
+        if (value is double number && !double.IsFinite(number))
+        {
+            throw new HubException($"Telemetry contains invalid {fieldName}.");
+        }
     }
 }
