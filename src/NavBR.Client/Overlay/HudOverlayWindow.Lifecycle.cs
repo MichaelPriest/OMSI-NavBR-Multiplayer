@@ -36,8 +36,6 @@ public partial class HudOverlayWindow
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
 
-        // Começa oculto e só aparece quando o OMSI realmente estiver ativo.
-        // Isso evita um flash do HUD no desktop durante a criação da janela.
         OverlayRoot.Visibility = Visibility.Collapsed;
         _hudVisibleForOmsi = false;
 
@@ -48,9 +46,6 @@ public partial class HudOverlayWindow
         _hudVisibilityTimer.Tick += HudVisibilityTimer_Tick;
         _hudVisibilityTimer.Start();
 
-        // O construtor antigo ainda inicia um timer de posicionamento de 250 ms.
-        // Desliga esse loop depois que todos os handlers de Loaded terminarem e
-        // deixa este lifecycle como fonte única de geometria/z-order do HUD.
         _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FinalizeHudLifecycleInitialization);
 
         RefreshHudChrome();
@@ -83,10 +78,6 @@ public partial class HudOverlayWindow
         RefreshOmsiHotkeyConflicts();
         RefreshHudChrome();
         RefreshHudVisibility();
-
-        // Presentation-only refresh. Bitmap geometry is owned exclusively by
-        // RenderMiniMap(), preventing alpha.7's competing Width/Height/Left/Top
-        // updates from making the roadmap alternate/flicker.
         RenderEnhancedMiniMap();
     }
 
@@ -159,17 +150,23 @@ public partial class HudOverlayWindow
                 return;
             }
 
-            // Keep a single canonical OMSI surface. Dialogs and auxiliary OMSI
-            // windows belong to the same process but must never become the HUD
-            // reference window, otherwise the minimap appears on top of menus.
-            var mainOmsiHandle = process.MainWindowHandle;
-            if (!IsUsableOmsiWindow(mainOmsiHandle))
+            // Keep the OMSI gameplay HWND stable. Auxiliary dialogs can belong
+            // to Omsi.exe too, so never replace a still-valid primary handle
+            // just because Process.MainWindowHandle changes while a dialog opens.
+            var mainOmsiHandle = _omsiWindowHandle;
+            if (!IsUsableOmsiWindow(mainOmsiHandle) ||
+                !WindowBelongsToProcess(mainOmsiHandle, processId))
             {
-                HideHudForOmsiState();
-                return;
-            }
+                mainOmsiHandle = process.MainWindowHandle;
+                if (!IsUsableOmsiWindow(mainOmsiHandle) ||
+                    !WindowBelongsToProcess(mainOmsiHandle, processId))
+                {
+                    HideHudForOmsiState();
+                    return;
+                }
 
-            _omsiWindowHandle = mainOmsiHandle;
+                _omsiWindowHandle = mainOmsiHandle;
+            }
 
             var now = DateTimeOffset.UtcNow;
             var foreground = GetForegroundWindow();
@@ -180,10 +177,6 @@ public partial class HudOverlayWindow
                                         overlayHandle != IntPtr.Zero &&
                                         foreground == overlayHandle;
 
-            // NavBR dialogs/windows are not part of the game HUD surface. Hide
-            // immediately when one of them has focus so the minimap does not
-            // appear on top of Settings, Multiplayer, Feedback or new windows.
-            // Chat input and layout edit are intentional interactive exceptions.
             if (foregroundBelongsToNavBr &&
                 !overlayOwnsForeground &&
                 !_hudLayoutEditMode)
@@ -194,9 +187,8 @@ public partial class HudOverlayWindow
 
             if (foregroundBelongsToOmsi)
             {
-                // Only the primary OMSI window is the gameplay surface. Any
-                // other top-level HWND owned by Omsi.exe is treated as an
-                // in-game dialog/menu and hides the HUD immediately.
+                // A different top-level OMSI HWND is a menu/dialog surface, not
+                // the gameplay render surface. Hide immediately with no grace.
                 if (foreground != mainOmsiHandle)
                 {
                     HideHudForOmsiState();
@@ -276,9 +268,6 @@ public partial class HudOverlayWindow
             _hudVisibleForOmsi = true;
         }
 
-        // Não reaplica TOPMOST a cada tick. Isso evita churn de z-order que
-        // pode causar piscadas em DirectX/WPF. Só reforça ao mostrar ou quando
-        // a janela de referência do OMSI muda.
         if (becomingVisible || _lastTopmostReferenceHandle != omsiHandle)
         {
             EnsureOverlayTopmost(overlayHandle);
