@@ -23,10 +23,23 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
     public bool IsConnected => State == HubConnectionState.Connected;
 
-    public async Task<RoomSnapshot> ConnectAsync(
+    public Task<RoomSnapshot> ConnectAsync(
         MultiplayerSettings settings,
         string? currentMapName,
         string? currentMapCompatibilityId = null,
+        CancellationToken cancellationToken = default) =>
+        ConnectAsync(
+            settings,
+            currentMapName,
+            currentMapCompatibilityId,
+            compatibility: null,
+            cancellationToken);
+
+    public async Task<RoomSnapshot> ConnectAsync(
+        MultiplayerSettings settings,
+        string? currentMapName,
+        string? currentMapCompatibilityId,
+        OmsiCompatibilityManifest? compatibility,
         CancellationToken cancellationToken = default)
     {
         await DisconnectAsync();
@@ -37,7 +50,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             settings.PlayerId.Trim(),
             settings.DisplayName.Trim(),
             NormalizeOptional(currentMapName),
-            NormalizeOptional(currentMapCompatibilityId));
+            NormalizeOptional(currentMapCompatibilityId),
+            compatibility);
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
