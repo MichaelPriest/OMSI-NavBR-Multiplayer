@@ -117,7 +117,8 @@ public partial class HudOverlayWindow
         }
 
         var last = _chatMessages.LastOrDefault();
-        var fingerprint = $"{_chatMessages.Count}|{last?.TimestampUtc.UtcTicks}|{last?.PlayerId}|{last?.Text}|{_chatInteractive}";
+        var lastTimestamp = last is null ? 0L : last.TimestampUtc.ToUnixTimeMilliseconds();
+        var fingerprint = $"{_chatMessages.Count}|{lastTimestamp}|{last?.PlayerId}|{last?.Text}|{_chatInteractive}";
         if (!force && string.Equals(fingerprint, _visualChatFingerprint, StringComparison.Ordinal))
         {
             return;
