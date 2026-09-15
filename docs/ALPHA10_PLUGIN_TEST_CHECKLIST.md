@@ -8,11 +8,7 @@ Use a prerelease permanente de integração:
 v0.3.0-alpha.10-test.4
 ```
 
-Pacote recomendado:
-
-```text
-OMSI-NavBR-alpha10-test.4-integration-win-x86.zip
-```
+Para o teste normal, o recomendado passa a ser o **EXE standalone**. O pacote integrado continua disponível como fallback técnico.
 
 As `test.1`, `test.2` e `test.3` permanecem publicadas para rastreabilidade e não são sobrescritas.
 
@@ -29,7 +25,11 @@ Além da validação do plugin/bridge já presente na test.3, esta rodada inclui
 - bloqueio de clique no OMSI enquanto o campo de chat está aberto;
 - mais combinações configuráveis para chat/PTT, sem F5-F8;
 - `navbr.log` criado automaticamente em toda execução;
-- preflight de .NET 10 Runtime x86 mantido no instalador do plugin.
+- pacote do plugin embutido dentro do próprio cliente;
+- instalação/atualização/remoção do plugin pelo próprio NavBR;
+- detecção automática do OMSI em bibliotecas Steam/unidades diferentes;
+- seletor de pasta somente se a detecção automática falhar;
+- preflight de .NET 10 Runtime x86 antes de qualquer cópia para o OMSI.
 
 **Ainda não existe ônibus remoto físico dentro do mundo 3D do OMSI.**
 
@@ -38,40 +38,64 @@ Além da validação do plugin/bridge já presente na test.3, esta rodada inclui
 - Feche o OMSI antes de instalar/atualizar o plugin.
 - Feche outras cópias do NavBR.
 - Preserve um backup de `OMSI\plugins` por precaução.
-- Use a pasta `Plugin` completa do bundle.
 - O plugin atual requer **.NET 10 Runtime x86**.
+- Não é necessário copiar o NavBR para dentro da pasta do OMSI.
 
-## 2. Instalação do plugin
+## 2. Instalação do plugin pelo próprio EXE
 
-Na pasta `Plugin` do bundle:
+Abra o `OMSI.NavBR.Multiplayer.exe`.
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\Install-NavBROmsiPlugin.ps1 -OmsiRoot "G:\Games\OMSI 2 Steam Edition"
+No painel:
+
+```text
+PLUGIN BRIDGE v1 • EXP
 ```
 
-Ajuste o caminho para sua instalação real.
+use:
 
-O instalador deve:
+```text
+Instalar / atualizar plugin
+```
 
-- encontrar `Omsi.exe`;
-- recusar instalação se o OMSI estiver aberto;
-- validar um .NET 10 Runtime x86 real antes de copiar arquivos;
-- criar o manifesto da instalação;
-- não sobrescrever arquivos não rastreados.
+O NavBR deve:
 
-## 3. Validação do novo ícone
+1. usar a instalação do OMSI já detectada pelo cliente, quando disponível;
+2. procurar o OMSI pelo Steam e por todas as bibliotecas configuradas;
+3. aceitar instalações em qualquer unidade (`C:`, `D:`, `G:` etc.);
+4. abrir um seletor de pasta apenas se a detecção automática falhar;
+5. confirmar que a pasta contém `Omsi.exe`;
+6. recusar instalação se o OMSI estiver aberto;
+7. validar um .NET 10 Runtime x86 real antes de copiar arquivos;
+8. extrair o pacote embutido somente para `OMSI\plugins`;
+9. criar o manifesto da instalação;
+10. não sobrescrever arquivos não rastreados de terceiros.
+
+O fluxo normal **não exige PowerShell nem a pasta `Plugin` do ZIP**.
+
+A pasta `Plugin` do pacote integrado permanece apenas como fallback técnico/diagnóstico.
+
+## 3. Remoção pelo próprio EXE
+
+Com o OMSI fechado, use:
+
+```text
+Remover plugin
+```
+
+O NavBR deve remover somente os arquivos registrados no manifesto da instalação NavBR.
+
+## 4. Validação do novo ícone
 
 Antes de abrir o OMSI, confira o `OMSI.NavBR.Multiplayer.exe`:
 
 - Explorer deve mostrar o novo ícone NavBR;
 - a janela principal deve usar o mesmo ícone;
 - a janela Multiplayer também deve usar o mesmo ícone;
+- a barra de tarefas deve usar o mesmo ícone;
+- o workflow da `test.4` deve recusar a publicação se o asset de origem não for o novo ícone aprovado;
 - se o Windows ainda exibir o antigo por cache, renomeie temporariamente o EXE ou reinicie o Explorer para confirmar o recurso embutido.
 
-O CI da test.4 também valida o ícone embutido no EXE.
-
-## 4. HUD moderno / GPS
+## 5. HUD moderno / GPS
 
 Abra o NavBR, o OMSI 2.3.004, carregue um mapa e um ônibus.
 
@@ -88,7 +112,7 @@ Confirme no jogo:
 - setas de manobra aparecem apenas quando houver geometria detalhada suficiente;
 - em rota grosseira/tile-fallback, é aceitável a seta ficar escondida.
 
-## 5. Chat em jogo
+## 6. Chat em jogo
 
 Atalho padrão: `F9`.
 
@@ -98,11 +122,12 @@ Teste:
 2. o campo deve abrir abaixo do GPS;
 3. clique fora do campo: o clique **não deve atingir o OMSI** enquanto o chat estiver aberto;
 4. digite letras/números normalmente;
-5. `Enter` envia;
-6. `Esc` fecha sem enviar;
-7. ao fechar, o foco deve retornar ao OMSI e o overlay voltar a ser click-through.
+5. as teclas digitadas **não devem acionar funções do OMSI**;
+6. `Enter` envia;
+7. `Esc` fecha sem enviar;
+8. ao fechar, o foco deve retornar ao OMSI e o overlay voltar a ser click-through.
 
-## 6. Atalhos
+## 7. Atalhos
 
 Na janela Multiplayer, teste combinações diferentes para chat e PTT.
 
@@ -116,7 +141,7 @@ A lista inclui:
 
 F5-F8 permanecem fora da lista. Se a combinação estiver ocupada em `Inputs/keyboard.cfg`, o NavBR deve bloqueá-la e mostrar o conflito.
 
-## 7. Logs automáticos
+## 8. Logs automáticos
 
 Ao abrir o cliente, deve existir automaticamente:
 
@@ -134,11 +159,18 @@ navbr-plugin.log
 navbr-error.log
 ```
 
-## 8. Plugin bridge
+## 9. Plugin bridge
 
-No painel `PLUGIN BRIDGE v1 • EXP`, após instalar e abrir OMSI + NavBR, confirme:
+No painel `PLUGIN BRIDGE v1 • EXP`, antes da instalação confirme:
 
 ```text
+package=EMBEDDED
+```
+
+Depois de instalar e abrir OMSI + NavBR, confirme:
+
+```text
+package=EMBEDDED
 install=INSTALLED
 files=3/3
 manifest=YES
@@ -153,9 +185,9 @@ Também confira:
 - `plugin-pid` igual ao PID do `Omsi.exe`;
 - `remote` e `compatible` coerentes;
 - `map` e fingerprint corretos;
-- `plugin-dir` apontando para a instalação real.
+- `plugin-dir` apontando para a instalação real do OMSI, independentemente da unidade.
 
-## 9. Dois computadores
+## 10. Dois computadores
 
 Depois do teste local passar nos dois PCs:
 
@@ -171,12 +203,13 @@ Depois do teste local passar nos dois PCs:
 
 **Nenhum ônibus remoto físico deve aparecer dentro do OMSI nesta rodada.**
 
-## 10. O que enviar se houver problema
+## 11. O que enviar se houver problema
 
 Informe:
 
 - tag usada: `v0.3.0-alpha.10-test.4`;
 - versão do OMSI;
+- caminho onde seu OMSI está instalado;
 - mapa e ônibus;
 - print/foto do HUD se o problema for visual;
 - valores do painel `PLUGIN BRIDGE v1 • EXP`;
@@ -192,8 +225,9 @@ A representação física futura só deve avançar depois de confirmar:
 
 - HUD/GPS estável sem regressão;
 - ícone correto no build publicado;
-- chat sem vazamento de clique para o OMSI;
+- chat sem vazamento de clique/teclado para o OMSI;
 - logs automáticos funcionando;
+- instalador interno detectando instalações do OMSI em diferentes unidades;
 - plugin instalado e carregado com bridge estável;
 - dois PCs funcionando no mesmo mapa;
 - filtro de compatibilidade funcionando;
