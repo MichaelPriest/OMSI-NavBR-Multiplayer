@@ -142,6 +142,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Voz push-to-talk
 - ✅ NAudio + Concentus/Opus
 - ✅ Indicador de quem está falando
+- ✅ Reconexão automática SignalR com reentrada na sala
 - ✅ Servidor dedicado opcional
 - ✅ Detecção de endereços IPv4 locais do host
 - ✅ Fluxo de configuração de firewall previsto pelo cliente
@@ -154,11 +155,11 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - 🧪 Validação de chat sob uso real
 - 🧪 Validação de voz, microfone, reprodução e latência
 - 🧪 Validação dos atalhos F9/F10 e combinações modificadas
+- 🧪 Validar reconexão e reentrada automática após queda temporária
 - 🧪 Teste do servidor dedicado separado do PC do jogador
 
 ### Ainda pendente
 
-- ⬜ Reconnect automático
 - ⬜ Diagnóstico de conectividade/porta mais completo
 - ⬜ Rate limiting
 - ⬜ Códigos de erro de rede estruturados e independentes de idioma
@@ -196,9 +197,9 @@ Antes de abrir uma nova frente grande de desenvolvimento:
 2. 🧪 validar o novo parser/traçado `.ttr` em mapas reais;
 3. 🧪 validar destino e próxima parada;
 4. 🧪 testar multiplayer entre dois computadores;
-5. 🧪 testar chat/voz/PTT;
+5. 🧪 testar chat/voz/PTT e reconexão;
 6. corrigir os problemas encontrados;
-7. só então avançar para ETA/distância, reconnect, diagnóstico de rede e UPnP/NAT traversal.
+7. só então avançar para ETA/distância, diagnóstico de rede e UPnP/NAT traversal.
 
 ## Localização contínua
 
