@@ -26,12 +26,18 @@ public static class NavBRServerApplication
         }
 
         builder.Services.AddSingleton<MultiplayerRoomRegistry>();
+        builder.Services.AddSingleton<RoomAccessPolicyStore>();
         builder.Services.AddSingleton<DiagnosticsIngestStore>();
-        builder.Services.AddSignalR(options =>
-        {
-            options.MaximumReceiveMessageSize = 64 * 1024;
-            options.EnableDetailedErrors = false;
-        });
+        builder.Services
+            .AddSignalR(options =>
+            {
+                options.MaximumReceiveMessageSize = 64 * 1024;
+                options.EnableDetailedErrors = false;
+            })
+            .AddHubOptions<MultiplayerHub>(options =>
+            {
+                options.AddFilter<RoomPrivacyHubFilter>();
+            });
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = 429;
