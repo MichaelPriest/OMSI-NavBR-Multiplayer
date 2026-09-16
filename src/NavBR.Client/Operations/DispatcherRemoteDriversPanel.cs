@@ -50,7 +50,6 @@ internal static class DispatcherRemoteDriversPanel
             Child = content
         };
 
-        // Keep the remote operation panel before the informational note at the bottom.
         var insertIndex = Math.Max(0, body.Children.Count - 1);
         body.Children.Insert(insertIndex, panel);
 
@@ -66,7 +65,7 @@ internal static class DispatcherRemoteDriversPanel
                 : Text("OfflineStatus");
 
             var signature = string.Join('|', snapshot.RemoteDrivers.Select(driver =>
-                $"{driver.PlayerId}:{driver.ReceivedAt.UtcTicks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}"));
+                $"{driver.PlayerId}:{driver.ReceivedAtUtc.UtcTicks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}"));
             signature = $"{snapshot.Connected}:{signature}:{LocalizationService.CurrentCulture.Name}";
             if (string.Equals(signature, lastSignature, StringComparison.Ordinal))
             {
