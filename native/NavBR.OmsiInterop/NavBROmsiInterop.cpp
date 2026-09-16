@@ -13,12 +13,15 @@ namespace
 
     constexpr std::uintptr_t RvaGetMem = 0x00404614u - PreferredImageBase;
     constexpr std::uintptr_t RvaFreeMem = 0x00404630u - PreferredImageBase;
+    constexpr std::uintptr_t RvaSetCriticalSectionLock = 0x00562AF8u - PreferredImageBase;
+    constexpr std::uintptr_t RvaReleaseCriticalSectionLock = 0x00562B30u - PreferredImageBase;
     constexpr std::uintptr_t RvaMakeVehicle = 0x0070A250u - PreferredImageBase;
     constexpr std::uintptr_t RvaTempRvListCreate = 0x0074A0E0u - PreferredImageBase;
     constexpr std::uintptr_t RvaCopyTempListIntoMainList = 0x0074A240u - PreferredImageBase;
 
     constexpr std::uintptr_t RvaTempRvListClass = 0x0074802Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
+    constexpr int ProgramManagerMakeVehicleCriticalSectionOffset = 0x1B4;
 
     std::uintptr_t ImageBase()
     {
@@ -126,6 +129,23 @@ namespace
         }
         return result;
     }
+
+    bool CallCriticalSection(std::uintptr_t target, int criticalSectionAddress)
+    {
+        if (!IsExecutableAddress(target) ||
+            !IsReadableAddress(static_cast<std::uintptr_t>(criticalSectionAddress)))
+        {
+            return false;
+        }
+
+        __asm
+        {
+            mov eax, criticalSectionAddress
+            mov edx, target
+            call edx
+        }
+        return true;
+    }
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetAbiVersion()
@@ -148,6 +168,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeOmsi23004Addresses()
 
     if (!IsExecutableAddress(Resolve(RvaGetMem)) ||
         !IsExecutableAddress(Resolve(RvaFreeMem)) ||
+        !IsExecutableAddress(Resolve(RvaSetCriticalSectionLock)) ||
+        !IsExecutableAddress(Resolve(RvaReleaseCriticalSectionLock)) ||
         !IsExecutableAddress(Resolve(RvaMakeVehicle)) ||
         !IsExecutableAddress(Resolve(RvaTempRvListCreate)) ||
         !IsExecutableAddress(Resolve(RvaCopyTempListIntoMainList)) ||
@@ -168,6 +190,38 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetMem(int bytes)
 extern "C" __declspec(dllexport) int __cdecl NavBR_FreeMem(int address)
 {
     return CallFreeMem(address);
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_LockMakeVehicle(int programManager)
+{
+    if (programManager == 0)
+    {
+        return 0;
+    }
+
+    const int criticalSectionAddress =
+        programManager + ProgramManagerMakeVehicleCriticalSectionOffset;
+    return CallCriticalSection(
+        Resolve(RvaSetCriticalSectionLock),
+        criticalSectionAddress)
+        ? 1
+        : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_UnlockMakeVehicle(int programManager)
+{
+    if (programManager == 0)
+    {
+        return 0;
+    }
+
+    const int criticalSectionAddress =
+        programManager + ProgramManagerMakeVehicleCriticalSectionOffset;
+    return CallCriticalSection(
+        Resolve(RvaReleaseCriticalSectionLock),
+        criticalSectionAddress)
+        ? 1
+        : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_AllocateAnsiString(const wchar_t* value)
