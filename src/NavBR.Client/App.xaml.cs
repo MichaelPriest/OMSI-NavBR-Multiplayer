@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Driver;
 using NavBR.Client.Localization;
+using NavBR.Client.Multiplayer;
 using NavBR.Client.Omsi;
 using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
@@ -117,6 +118,7 @@ public partial class App : Application
             OmsiProfilesUiInstaller.Install(mainWindow);
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
             Alpha12ExperienceInstaller.Install(mainWindow);
+            Alpha12MultiplayerStatusInstaller.Install(mainWindow);
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
             DispatcherInstaller.Install(mainWindow);
