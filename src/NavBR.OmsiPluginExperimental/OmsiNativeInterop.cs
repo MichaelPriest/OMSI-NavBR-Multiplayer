@@ -1,0 +1,141 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+namespace NavBR.OmsiPluginExperimental;
+
+/// <summary>
+/// Narrow P/Invoke boundary for the x86 helper that translates ordinary C
+/// calls into OMSI's Borland register ABI. Nothing here is invoked unless the
+/// physical-write backend is explicitly enabled and the runtime passes the
+/// 2.3.004 guards.
+/// </summary>
+internal static class OmsiNativeInterop
+{
+    private const string LibraryName = "NavBR.OmsiInterop.dll";
+    private const int ExpectedAbiVersion = 1;
+
+    public static bool IsCandidateOmsi23004Runtime
+    {
+        get
+        {
+            if (Environment.Is64BitProcess ||
+                !string.Equals(
+                    Environment.ProcessPath is { } path
+                        ? Path.GetFileNameWithoutExtension(path)
+                        : null,
+                    "Omsi",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            try
+            {
+                var executable = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(executable))
+                {
+                    return false;
+                }
+
+                var version = FileVersionInfo.GetVersionInfo(executable).FileVersion;
+                return !string.IsNullOrWhiteSpace(version) &&
+                       (version.Contains("2.3.004", StringComparison.OrdinalIgnoreCase) ||
+                        version.Contains("2.3.4", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    public static bool IsShimReady
+    {
+        get
+        {
+            if (!IsCandidateOmsi23004Runtime)
+            {
+                return false;
+            }
+
+            try
+            {
+                return GetAbiVersion() == ExpectedAbiVersion &&
+                       ProbeOmsi23004Addresses() == 1;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+            catch (BadImageFormatException)
+            {
+                return false;
+            }
+        }
+    }
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetAbiVersion")]
+    private static extern int GetAbiVersion();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeOmsi23004Addresses")]
+    private static extern int ProbeOmsi23004Addresses();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetImageBase")]
+    internal static extern uint GetImageBase();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetMem")]
+    internal static extern int GetMem(int bytes);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_FreeMem")]
+    internal static extern int FreeMem(int address);
+
+    [DllImport(
+        LibraryName,
+        CallingConvention = CallingConvention.Cdecl,
+        CharSet = CharSet.Ansi,
+        BestFitMapping = false,
+        ThrowOnUnmappableChar = true,
+        EntryPoint = "NavBR_AllocateAnsiString")]
+    internal static extern int AllocateAnsiString(string value);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_FreeAnsiString")]
+    internal static extern int FreeAnsiString(int stringData);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_TempRoadVehicleListCreate")]
+    internal static extern int TempRoadVehicleListCreate(int capacity);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_CopyTempRoadVehicleListIntoMain")]
+    internal static extern int CopyTempRoadVehicleListIntoMain(int tempList);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MakeVehicle")]
+    internal static extern int MakeVehicle(
+        int programManager,
+        int vehicleList,
+        int roadVehicleTypes,
+        int onlyVehicleList,
+        int cs,
+        int timetableTimeBits,
+        int situationLoad,
+        int dialog,
+        int setDriver,
+        int thread,
+        int licensePlateIndex,
+        int initCall,
+        int startDay,
+        int trainBuildDirection,
+        int reverse,
+        int groupHof,
+        int type,
+        int tour,
+        int line,
+        int paintScheme,
+        int scheduled,
+        int aiRoadVehicle,
+        int randomLicensePlate,
+        int randomPaintScheme,
+        int filenameAnsiString);
+}
