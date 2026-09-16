@@ -80,6 +80,13 @@ public static class PluginExports
         {
             Interlocked.Increment(ref _systemVariableCallbacks);
 
+            // Commands arrive through the named-pipe worker, but every raw OMSI
+            // write is handed off here. Process only one per callback so a burst
+            // cannot stall the simulator frame for an unbounded amount of time.
+            OmsiThreadCommandQueue.Drain(
+                1,
+                PluginBridgeClient.QueueCommandResult);
+
             var now = DateTimeOffset.UtcNow;
             if (now - _lastHeartbeat < TimeSpan.FromSeconds(5))
             {
@@ -118,6 +125,9 @@ public static class PluginExports
                 $"callbacks={callbacks} " +
                 $"remoteCount={PluginBridgeClient.RemoteVehicleCount} " +
                 $"compatibleRemoteCount={PluginBridgeClient.CompatibleRemoteVehicleCount} " +
+                $"trafficCount={PluginBridgeClient.TrafficVehicleCount} " +
+                $"trafficAuthority={PluginBridgeClient.TrafficAuthorityPlayerId ?? "-"} " +
+                $"physicalQueue={OmsiThreadCommandQueue.Count} " +
                 $"staleRemoved={staleRemoved} {remoteSummary}");
         }
         catch (Exception ex)
