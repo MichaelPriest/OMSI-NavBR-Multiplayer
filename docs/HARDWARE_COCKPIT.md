@@ -60,6 +60,8 @@ O plugin solicita a variável local `haltewunsch` e a converte para `stopRequest
 
 Quando `stopRequested=true`, um painel físico pode acender a lâmpada/LED de **PARADA SOLICITADA**. O estado é enviado pelo bridge em baixa latência e incorporado ao pacote serial.
 
+O valor é considerado válido somente enquanto o OMSI continua entregando callbacks recentes dessa variável. Assim, ao trocar para um ônibus que não expõe `haltewunsch`, o estado anterior não fica preso no bridge.
+
 Nem todo ônibus/add-on é obrigado a usar exatamente o mesmo nome de variável. O suporte inicial cobre `haltewunsch`; perfis/aliases específicos de ônibus poderão ser adicionados quando necessário.
 
 ## Exemplo Arduino / ESP32
@@ -86,11 +88,41 @@ Algumas placas reiniciam ao abrir a porta serial. Nesse caso, os primeiros frame
 
 ## Rua atual
 
-`currentStreet` já faz parte do protocolo, mas não é inventado quando o mapa não fornece informação confiável. A resolução de rua será ligada ao map matcher do NavBR, usando posição/tile e dados reais do mapa/perfil, em vez de reverse geocoding externo que poderia divergir de mapas fictícios ou modificados do OMSI.
+OMSI fornece a geometria dos caminhos/splines, mas não há um campo padrão confiável de nome amigável da rua para todos os mapas. Por isso o NavBR não transforma automaticamente o nome técnico de um `.sli` em nome de rua.
+
+A Alpha.11 suporta perfis `NavBR.streets.json`. O resolver compara a posição/tile atual do ônibus com os segmentos nomeados do perfil e usa o mais próximo dentro da tolerância configurada.
+
+O perfil pode ficar em um destes locais:
+
+- `%LOCALAPPDATA%\OMSI NavBR Multiplayer\StreetProfiles\<pasta-do-mapa>.json` — tem prioridade e não modifica o mapa;
+- `<pasta-do-mapa>\NavBR.streets.json` — útil quando o próprio perfil acompanha a distribuição do mapa.
+
+Exemplo:
+
+```json
+{
+  "version": 1,
+  "maxDistanceMeters": 35,
+  "streets": [
+    {
+      "name": "Av. Santo Amaro",
+      "points": [
+        { "gridX": 0, "gridY": 0, "tileX": 42.5, "tileY": 18.2 },
+        { "gridX": 0, "gridY": 0, "tileX": 96.1, "tileY": 85.4 },
+        { "gridX": 0, "gridY": 1, "tileX": 112.0, "tileY": 12.7 }
+      ]
+    }
+  ]
+}
+```
+
+Os pontos usam o mesmo sistema `GridX/GridY/TileX/TileY` da telemetria do NavBR. Quando nenhum segmento do perfil estiver próximo o suficiente, `currentStreet` permanece `null`/`—`.
+
+O objetivo é permitir perfis confiáveis para mapas reais e fictícios sem depender de reverse geocoding externo.
 
 ## Próximas etapas
 
-- resolver `currentStreet` por geometria/metadados do mapa;
+- gerar/importar perfis `NavBR.streets.json` para mapas suportados;
 - adicionar perfis de variáveis para ônibus que não usam `haltewunsch`;
 - transporte Wi-Fi para ESP32 por UDP/WebSocket;
 - exemplos para OLED/LCD/matriz de LED e letreiro dianteiro/lateral/traseiro;
