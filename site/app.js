@@ -1,38 +1,37 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const test2Tag = 'v0.3.0-alpha.11-test.2';
-const pixKey = 'b07a9cc9-b10d-48a8-b201-d28bddc4399a';
+const currentTag = 'v0.3.0-alpha.11-test.4';
 
 const fallbackRelease = {
-  tag_name: test2Tag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.11-test.2 — community test',
+  tag_name: currentTag,
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.11-test.4 — community test',
   prerelease: true,
-  published_at: '2026-09-16T04:14:10Z',
-  html_url: `https://github.com/${repo}/releases/tag/${test2Tag}`,
-  body: 'Alpha.11 Test 2: velocidade corrigida, HUD compacto e transparente, paradas filtradas pela rota ativa, manual interno para iniciantes, diagnósticos opcionais e ônibus remoto físico 3D experimental.',
+  published_at: '2026-09-16T13:39:20Z',
+  html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
+  body: 'Alpha.11 Test 4: interface reorganizada, velocidade corrigida pelo Tacho do OMSI, Hardware Cockpit USB/Serial, parada solicitada via haltewunsch e suporte a perfis de rua.',
   download_count: 0,
   assets: [
     {
-      name: `OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.exe`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.exe`,
-      size: 84623924,
+      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
+      size: 84703103,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.zip`,
-      size: 85173058,
+      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
+      size: 85234075,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Plugin-${test2Tag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Plugin-${test2Tag}-win-x86.zip`,
-      size: 5305530,
+      name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
+      size: 5264535,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Server-${test2Tag}-win-x64.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Server-${test2Tag}-win-x64.zip`,
-      size: 50196767,
+      name: `OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
+      size: 50197099,
       download_count: 0
     }
   ]
@@ -85,15 +84,15 @@ function assetLabel(name = '') {
   if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
-  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI experimental';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI x86';
   return name;
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar, criar/entrar em salas e testar a Alpha.11. O plugin pode ser instalado pelo próprio NavBR.';
-  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP. Não é necessário baixar junto com o EXE.';
-  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Somente para servidor dedicado separado. O modo normal é peer-host.';
-  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 + interop experimental.';
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.11. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
+  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
+  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI.';
   return '';
 }
 
@@ -125,7 +124,7 @@ function renderRelease(release) {
       </div>
       <h3>${escapeHtml(release.name || release.tag_name)}</h3>
       <div class="release-downloads">↓ ${escapeHtml(formatNumber(releaseDownloadCount(release)))} downloads desta versão</div>
-      <p>${escapeHtml(summary).slice(0, 260)}${summary.length > 260 ? '…' : ''}</p>
+      <p>${escapeHtml(summary).slice(0, 280)}${summary.length > 280 ? '…' : ''}</p>
       <div class="asset-list">${assetLinks || `<a href="${escapeHtml(release.html_url)}" target="_blank" rel="noreferrer"><span>Abrir release no GitHub</span><small>→</small></a>`}</div>
     </article>`;
 }
@@ -146,62 +145,37 @@ async function loadReleases() {
       }
     }
   } catch (_) {
-    // Fallback abaixo mantém o portal utilizável mesmo durante um deploy do catálogo.
+    // O fallback abaixo mantém o portal utilizável durante deploys do catálogo.
   }
 
-  if (!releases.some(release => release?.tag_name === test2Tag)) {
+  if (!releases.some(release => release?.tag_name === currentTag)) {
     releases.push(fallbackRelease);
   }
 
   releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
-  if (!totalDownloads) totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
+  if (!totalDownloads) {
+    totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
+  }
 
-  const test2 = releases.find(release => release?.tag_name === test2Tag) || fallbackRelease;
+  const current = releases.find(release => release?.tag_name === currentTag) || fallbackRelease;
   const versionElement = document.getElementById('latest-version');
   const summaryElement = document.getElementById('latest-summary');
   const downloadsElement = document.getElementById('total-downloads');
   const downloadButton = document.getElementById('latest-download');
   const releaseList = document.getElementById('release-list');
 
-  if (versionElement) versionElement.textContent = test2.tag_name || test2.name;
-  if (summaryElement) summaryElement.textContent = summarizeBody(test2.body).slice(0, 190);
+  if (versionElement) versionElement.textContent = current.tag_name || current.name;
+  if (summaryElement) summaryElement.textContent = summarizeBody(current.body).slice(0, 220);
   if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
 
-  const standalone = (test2.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
-  if (downloadButton) downloadButton.href = standalone?.browser_download_url || test2.html_url;
-  if (releaseList) releaseList.innerHTML = [test2, ...releases.filter(release => release !== test2)].slice(0, 6).map(renderRelease).join('');
-}
-
-function setupTopPixBanner() {
-  const hero = document.getElementById('inicio');
-  if (!hero || document.getElementById('top-pix-support')) return;
-
-  const section = document.createElement('section');
-  section.id = 'top-pix-support';
-  section.className = 'shell';
-  section.style.paddingTop = '22px';
-  section.innerHTML = `
-    <div style="display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:18px 20px;border:1px solid rgba(34,199,122,.35);border-radius:16px;background:linear-gradient(135deg,rgba(34,199,122,.12),rgba(255,255,255,.025));box-shadow:0 16px 40px rgba(0,0,0,.18)">
-      <div style="min-width:260px;flex:1">
-        <div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#22c77a;margin-bottom:5px">💚 Apoie o OMSI NavBR Multiplayer</div>
-        <div style="font-size:16px;font-weight:700;word-break:break-all">Pix: ${pixKey}</div>
-        <div style="margin-top:4px;opacity:.72;font-size:13px">Apoio voluntário ao desenvolvimento, infraestrutura e testes da comunidade. O projeto continua público no GitHub.</div>
-      </div>
-      <button id="copy-pix-top" class="button primary" type="button" aria-label="Copiar chave Pix">Copiar chave Pix</button>
-    </div>`;
-
-  hero.insertAdjacentElement('beforebegin', section);
-  const button = document.getElementById('copy-pix-top');
-  button?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(pixKey);
-      const previous = button.textContent;
-      button.textContent = 'Chave copiada ✓';
-      setTimeout(() => { button.textContent = previous; }, 1800);
-    } catch (_) {
-      window.prompt('Copie a chave Pix:', pixKey);
-    }
-  });
+  const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
+  if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
+  if (releaseList) {
+    releaseList.innerHTML = [current, ...releases.filter(release => release !== current)]
+      .slice(0, 6)
+      .map(renderRelease)
+      .join('');
+  }
 }
 
 function setupPix() {
@@ -214,15 +188,13 @@ function setupPix() {
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(key);
-      const previous = button.textContent;
-      button.textContent = 'Chave copiada ✓';
-      setTimeout(() => { button.textContent = previous; }, 1800);
+      status.textContent = 'Chave copiada ✓';
+      setTimeout(() => { status.textContent = ''; }, 1800);
     } catch (_) {
       window.prompt('Copie a chave Pix:', key);
     }
   });
 }
 
-setupTopPixBanner();
 loadReleases();
 setupPix();
