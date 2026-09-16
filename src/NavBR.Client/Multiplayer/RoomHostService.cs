@@ -13,7 +13,7 @@ public sealed class RoomHostService : IAsyncDisposable
 
     public bool IsRunning => _app is not null;
     public int Port { get; private set; }
-    public UpnpMappingResult? LastUpnpResult { get; private set; }
+    internal UpnpMappingResult? LastUpnpResult { get; private set; }
 
     public string LocalServerUrl => $"http://127.0.0.1:{Port}";
 
