@@ -120,6 +120,7 @@ public partial class App : Application
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
             DispatcherInstaller.Install(mainWindow);
+            SessionHealthInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
