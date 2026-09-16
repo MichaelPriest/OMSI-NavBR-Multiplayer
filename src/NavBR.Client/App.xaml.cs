@@ -125,6 +125,7 @@ public partial class App : Application
             SessionHealthInstaller.Install(mainWindow);
             Alpha12NavigationPolishInstaller.Install(mainWindow);
             Alpha12DashboardPolishInstaller.Install(mainWindow);
+            Alpha12VisualAccentInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
