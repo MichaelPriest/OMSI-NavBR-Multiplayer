@@ -5,6 +5,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Driver;
 using NavBR.Client.Localization;
 using NavBR.Client.Omsi;
+using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
@@ -117,6 +118,7 @@ public partial class App : Application
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
             Alpha12ExperienceInstaller.Install(mainWindow);
             DriverProfileInstaller.Install(mainWindow);
+            VirtualCompanyInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
