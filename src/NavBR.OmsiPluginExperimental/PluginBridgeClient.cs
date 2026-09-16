@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -12,6 +13,7 @@ internal static class PluginBridgeClient
     private static readonly object StatusSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
     private static readonly TrafficVehicleRegistry TrafficVehicles = new();
+    private static readonly ConcurrentQueue<PluginBridgeMessage> OutboundCommandResults = new();
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
@@ -55,10 +57,24 @@ internal static class PluginBridgeClient
         _loopTask = null;
         ClearAllState();
         ClearPendingStatus();
+        ClearOutboundCommandResults();
     }
 
     public static int PruneStaleRemoteStates() =>
         RemoteVehicles.PruneStale() + TrafficVehicles.PruneStale();
+
+    public static void QueueCommandResult(PluginBridgeMessage result)
+    {
+        if (!string.Equals(result.Type, PluginBridgeProtocol.CommandResult, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        OutboundCommandResults.Enqueue(result);
+        Log(
+            $"vehicle-command-result id={result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
+            $"success={result.Success} error={result.ErrorCode ?? "-"}");
+    }
 
     public static void ReportRuntimeStatus(
         long systemVariableCallbacks,
@@ -132,6 +148,7 @@ internal static class PluginBridgeClient
                     continue;
                 }
 
+                ClearOutboundCommandResults();
                 Log($"bridge conectado clientPid={response.ProcessId} protocol={response.ProtocolVersion}");
 
                 var capabilities = new PluginBridgeMessage(
@@ -146,8 +163,8 @@ internal static class PluginBridgeClient
                 await writer.FlushAsync(cancellationToken);
 
                 using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var statusSender = Task.Run(
-                    () => SendPendingStatusLoopAsync(writer, connectionCts.Token),
+                var outboundSender = Task.Run(
+                    () => SendPendingOutboundLoopAsync(writer, connectionCts.Token),
                     connectionCts.Token);
 
                 try
@@ -170,12 +187,7 @@ internal static class PluginBridgeClient
                         var result = ApplyMessage(message);
                         if (result is not null)
                         {
-                            var json = SerializeMessage(result);
-                            if (json.Length <= PluginBridgeProtocol.MaxMessageChars)
-                            {
-                                await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
-                                await writer.FlushAsync(cancellationToken);
-                            }
+                            QueueCommandResult(result);
                         }
                     }
                 }
@@ -184,7 +196,7 @@ internal static class PluginBridgeClient
                     connectionCts.Cancel();
                     try
                     {
-                        await statusSender;
+                        await outboundSender;
                     }
                     catch (OperationCanceledException)
                     {
@@ -192,6 +204,7 @@ internal static class PluginBridgeClient
                 }
 
                 ClearAllState();
+                ClearOutboundCommandResults();
                 Log("bridge desconectado");
             }
             catch (TimeoutException)
@@ -205,16 +218,19 @@ internal static class PluginBridgeClient
             catch (IOException ex)
             {
                 ClearAllState();
+                ClearOutboundCommandResults();
                 Log($"bridge io: {ex.Message}");
             }
             catch (UnauthorizedAccessException ex)
             {
                 ClearAllState();
+                ClearOutboundCommandResults();
                 Log($"bridge acesso negado: {ex.Message}");
             }
             catch (Exception ex)
             {
                 ClearAllState();
+                ClearOutboundCommandResults();
                 Log($"bridge erro: {ex.GetType().Name}: {ex.Message}");
             }
 
@@ -222,24 +238,43 @@ internal static class PluginBridgeClient
         }
     }
 
-    private static async Task SendPendingStatusLoopAsync(
+    private static async Task SendPendingOutboundLoopAsync(
         StreamWriter writer,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var pending = TakePendingStatus();
-            if (pending is not null)
+            var wroteMessage = false;
+            var resultCount = 0;
+            while (resultCount < 16 && OutboundCommandResults.TryDequeue(out var result))
             {
-                var json = SerializeMessage(pending);
-                if (json.Length <= PluginBridgeProtocol.MaxMessageChars)
+                var resultJson = SerializeMessage(result);
+                if (resultJson.Length <= PluginBridgeProtocol.MaxMessageChars)
                 {
-                    await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
-                    await writer.FlushAsync(cancellationToken);
+                    await writer.WriteLineAsync(resultJson.AsMemory(), cancellationToken);
+                    wroteMessage = true;
+                }
+
+                resultCount++;
+            }
+
+            var pendingStatus = TakePendingStatus();
+            if (pendingStatus is not null)
+            {
+                var statusJson = SerializeMessage(pendingStatus);
+                if (statusJson.Length <= PluginBridgeProtocol.MaxMessageChars)
+                {
+                    await writer.WriteLineAsync(statusJson.AsMemory(), cancellationToken);
+                    wroteMessage = true;
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+            if (wroteMessage)
+            {
+                await writer.FlushAsync(cancellationToken);
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
         }
     }
 
@@ -258,6 +293,13 @@ internal static class PluginBridgeClient
         lock (StatusSync)
         {
             _pendingStatus = null;
+        }
+    }
+
+    private static void ClearOutboundCommandResults()
+    {
+        while (OutboundCommandResults.TryDequeue(out _))
+        {
         }
     }
 
@@ -306,11 +348,25 @@ internal static class PluginBridgeClient
 
         if (IsVehicleCommand(message.Type))
         {
-            var result = ExperimentalVehicleCommandProcessor.Process(message);
+            if (ExperimentalVehicleCommandProcessor.TryRejectBeforeOmsiThread(message, out var rejection))
+            {
+                return rejection;
+            }
+
+            if (!OmsiThreadCommandQueue.TryEnqueue(message))
+            {
+                return ExperimentalVehicleCommandProcessor.Result(
+                    message,
+                    false,
+                    "command-queue-full",
+                    "The OMSI physical command queue is full.");
+            }
+
             Log(
-                $"vehicle-command type={message.Type} id={message.VehicleInstanceId ?? message.PlayerId ?? "-"} " +
-                $"success={result.Success} error={result.ErrorCode ?? "-"}");
-            return result;
+                $"vehicle-command queued type={message.Type} " +
+                $"id={message.VehicleInstanceId ?? message.PlayerId ?? "-"} " +
+                $"pending={OmsiThreadCommandQueue.Count}");
+            return null;
         }
 
         return null;
@@ -345,6 +401,7 @@ internal static class PluginBridgeClient
         SetLocalState(null);
         RemoteVehicles.Clear();
         TrafficVehicles.Clear();
+        OmsiThreadCommandQueue.Clear();
     }
 
     private static bool IsValidLocalState(PluginBridgeMessage message)
