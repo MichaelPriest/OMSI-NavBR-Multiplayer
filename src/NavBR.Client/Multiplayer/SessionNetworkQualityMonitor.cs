@@ -191,7 +191,7 @@ internal sealed class SessionNetworkQualityMonitor : IAsyncDisposable
             .Select(sample => sample.RoundTripMs!.Value)
             .ToArray();
         var loss = 100d * samples.Count(sample => !sample.Success) / samples.Length;
-        var roundTrip = successful.Length == 0 ? null : successful.Average();
+        double? roundTrip = successful.Length == 0 ? null : successful.Average();
         double? jitter = null;
         if (successful.Length >= 2)
         {
