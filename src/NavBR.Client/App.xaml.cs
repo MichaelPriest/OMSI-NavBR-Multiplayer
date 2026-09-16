@@ -119,6 +119,7 @@ public partial class App : Application
             Alpha12ExperienceInstaller.Install(mainWindow);
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
+            DispatcherInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
