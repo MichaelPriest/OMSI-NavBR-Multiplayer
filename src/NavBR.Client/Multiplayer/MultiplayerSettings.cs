@@ -29,6 +29,8 @@ public sealed record MultiplayerSettings(
     string VoiceChannel = "general",
     double VoiceProximityMeters = 120d,
     bool VoiceDeafened = false,
+    int VoiceInputDeviceNumber = 0,
+    int VoiceOutputDeviceNumber = -1,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
