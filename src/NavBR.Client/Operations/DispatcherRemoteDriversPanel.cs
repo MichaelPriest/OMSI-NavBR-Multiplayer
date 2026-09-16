@@ -65,7 +65,7 @@ internal static class DispatcherRemoteDriversPanel
                 : Text("OfflineStatus");
 
             var signature = string.Join('|', snapshot.RemoteDrivers.Select(driver =>
-                $"{driver.PlayerId}:{driver.ReceivedAtUtc.UtcTicks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}"));
+                $"{driver.PlayerId}:{driver.ReceivedAtUtc.UtcDateTime.Ticks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}"));
             signature = $"{snapshot.Connected}:{signature}:{LocalizationService.CurrentCulture.Name}";
             if (string.Equals(signature, lastSignature, StringComparison.Ordinal))
             {
