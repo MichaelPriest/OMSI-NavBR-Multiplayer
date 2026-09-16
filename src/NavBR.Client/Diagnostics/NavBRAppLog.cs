@@ -29,7 +29,13 @@ internal static class NavBRAppLog
 
     public static void Error(string eventName, Exception exception)
     {
-        Write(eventName, $"type={exception.GetType().Name} message={Sanitize(exception.Message)}");
+        var details = $"type={exception.GetType().Name} message={Sanitize(exception.Message)}";
+        Write(eventName, details);
+        RemoteDiagnosticsService.Record(
+            "app-error",
+            "error",
+            $"event={Sanitize(eventName)} {details}");
+
         try
         {
             lock (Sync)
