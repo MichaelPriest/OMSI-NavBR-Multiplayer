@@ -5,6 +5,11 @@ on:
     branches: [ main ]
     tags:
       - 'v*'
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'site/**'
+      - '.github/workflows/pages.yml'
 
 permissions:
   contents: write
