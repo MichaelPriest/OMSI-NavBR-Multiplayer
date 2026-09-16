@@ -60,7 +60,7 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
-    public IReadOnlyList<PublicRoomSummary> GetPublicRoomSummaries(RoomAccessPolicyStore policies)
+    internal IReadOnlyList<PublicRoomSummary> GetPublicRoomSummaries(RoomAccessPolicyStore policies)
     {
         ArgumentNullException.ThrowIfNull(policies);
 
