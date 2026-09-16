@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "provider": "adsense",
+  "adsense": {
+    "client": "",
+    "slots": {
+      "top": "",
+      "content": ""
+    }
+  },
+  "notes": "Ative somente após aprovação do site no Google AdSense. Preencha client com ca-pub-... e os IDs dos blocos responsivos."
+}
