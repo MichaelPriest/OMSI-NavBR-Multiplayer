@@ -3,6 +3,8 @@ namespace NavBR.Shared.Multiplayer;
 public static class ExperimentalFeatureFlags
 {
     private const string EnableFileName = "experimental-physical-vehicles.enabled";
+    private const string WritesEnvironmentVariable = "NAVBR_OMSI_EXPERIMENTAL_WRITES";
+    private const string BackendEnvironmentVariable = "NAVBR_OMSI_PHYSICAL_BACKEND";
 
     public static string PhysicalVehiclesFlagPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -18,14 +20,22 @@ public static class ExperimentalFeatureFlags
                 return true;
             }
 
-            // Keep the original developer opt-in path for controlled tests.
-            return IsTruthy(Environment.GetEnvironmentVariable("NAVBR_OMSI_EXPERIMENTAL_WRITES")) &&
-                   IsTruthy(Environment.GetEnvironmentVariable("NAVBR_OMSI_PHYSICAL_BACKEND"));
+            return IsTruthy(Environment.GetEnvironmentVariable(WritesEnvironmentVariable)) &&
+                   IsTruthy(Environment.GetEnvironmentVariable(BackendEnvironmentVariable));
         }
     }
 
     public static void SetPhysicalVehiclesEnabled(bool enabled)
     {
+        var value = enabled ? "1" : null;
+
+        // Process scope covers OMSI launched as a child after the option is
+        // changed. User scope covers a separately launched OMSI after restart.
+        Environment.SetEnvironmentVariable(WritesEnvironmentVariable, value);
+        Environment.SetEnvironmentVariable(BackendEnvironmentVariable, value);
+        TrySetUserEnvironmentVariable(WritesEnvironmentVariable, value);
+        TrySetUserEnvironmentVariable(BackendEnvironmentVariable, value);
+
         var path = PhysicalVehiclesFlagPath;
         if (enabled)
         {
@@ -44,6 +54,19 @@ public static class ExperimentalFeatureFlags
         if (File.Exists(path))
         {
             File.Delete(path);
+        }
+    }
+
+    private static void TrySetUserEnvironmentVariable(string name, string? value)
+    {
+        try
+        {
+            Environment.SetEnvironmentVariable(name, value, EnvironmentVariableTarget.User);
+        }
+        catch (Exception)
+        {
+            // The marker file and process-level value still provide a safe
+            // fallback when user environment persistence is restricted.
         }
     }
 
