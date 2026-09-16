@@ -1,0 +1,3 @@
+# Modelo para ativação do Google AdSense.
+# Substitua pub-0000000000000000 pelo publisher ID real antes de publicar como /ads.txt.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
