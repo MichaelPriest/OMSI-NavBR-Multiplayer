@@ -47,20 +47,34 @@ jobs:
       - name: Build OMSI native interop x86
         shell: pwsh
         run: |
-          msbuild native\NavBR.OmsiInterop\NavBR.OmsiInterop.vcxproj `
-            /p:Configuration=Release `
-            /p:Platform=Win32 `
-            /m
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
 
       - name: Verify native interop exports
         shell: pwsh
         run: |
-          $dll = Resolve-Path "native\NavBR.OmsiInterop\Release\NavBR.OmsiInterop.dll"
-          dumpbin /headers $dll | Select-String 'machine \(x86\)' | Out-Null
-          if (-not $?) { throw "NavBR.OmsiInterop.dll is not x86" }
-          $exports = dumpbin /exports $dll | Out-String
-          foreach ($name in @('NavBR_CreateRoadVehicle','NavBR_RemoveRoadVehicle','NavBR_SetMovingObjectPose')) {
-            if ($exports -notmatch [regex]::Escape($name)) { throw "Missing native export: $name" }
+          $dll = Resolve-Path "artifacts/interop/NavBR.OmsiInterop.dll"
+          $headers = (& dumpbin /nologo /headers $dll) -join "`n"
+          if ($headers -notmatch 'machine \(x86\)') { throw "NavBR.OmsiInterop.dll is not x86" }
+          $exports = (& dumpbin /nologo /exports $dll) -join "`n"
+          foreach ($name in @(
+            'NavBR_GetAbiVersion',
+            'NavBR_GetStateInteropVersion',
+            'NavBR_GetRoadVehicleCount',
+            'NavBR_GetRoadVehicleAt',
+            'NavBR_IsRoadVehiclePointer',
+            'NavBR_MakeVehicle',
+            'NavBR_SetVehicleTransform',
+            'NavBR_SetVehicleVisualState',
+            'NavBR_MarkVehicleForKilling'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") { throw "Missing native export: $name" }
           }
 
       - name: Restore projects
