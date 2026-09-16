@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
@@ -136,12 +135,11 @@ internal static partial class RemoteDiagnosticsService
                     Content = JsonContent.Create(batch)
                 };
 
-                if (!string.IsNullOrWhiteSpace(target.AuthorizationToken))
+                if (!string.IsNullOrWhiteSpace(target.CollectorToken))
                 {
-                    request.Headers.Authorization = new AuthenticationHeaderValue(
-                        "Bearer",
-                        target.AuthorizationToken);
-                    request.Headers.TryAddWithoutValidation("apikey", target.AuthorizationToken);
+                    request.Headers.TryAddWithoutValidation(
+                        "X-NavBR-Collector-Key",
+                        target.CollectorToken);
                 }
 
                 using var response = await Http.SendAsync(
@@ -288,7 +286,7 @@ internal static partial class RemoteDiagnosticsService
         {
             return new DiagnosticsEndpoint(
                 overrideUri,
-                Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_AUTH_TOKEN"));
+                Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_COLLECTOR_TOKEN"));
         }
 
         if (_discovery is not null &&
@@ -323,7 +321,7 @@ internal static partial class RemoteDiagnosticsService
 
         return new DiagnosticsEndpoint(
             endpoint,
-            SanitizeToken(discovery.AuthorizationToken));
+            SanitizeToken(discovery.CollectorToken));
     }
 
     private static bool IsHttpEndpoint(Uri uri) =>
@@ -346,7 +344,7 @@ internal static partial class RemoteDiagnosticsService
     private static string? SanitizeToken(string? value)
     {
         var token = value?.Trim();
-        if (string.IsNullOrWhiteSpace(token) || token.Length > 4096 ||
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 512 ||
             token.Contains('\r') || token.Contains('\n'))
         {
             return null;
@@ -366,11 +364,11 @@ internal static partial class RemoteDiagnosticsService
     private sealed record DiagnosticsDiscovery(
         bool Enabled,
         string? Endpoint,
-        string? AuthorizationToken);
+        string? CollectorToken);
 
     private sealed record DiagnosticsEndpoint(
         Uri Endpoint,
-        string? AuthorizationToken);
+        string? CollectorToken);
 
     private sealed record DiagnosticContext(
         string? OmsiVersion,
