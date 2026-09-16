@@ -33,7 +33,7 @@ public static class NavBRFeatureCatalog
         new("hardware-cockpit", "Arduino/ESP32 Hardware Cockpit", NavBRFeatureState.InDevelopment, true),
         new("driver-profile", "Driver profile and statistics", NavBRFeatureState.InDevelopment, true),
         new("virtual-companies", "Virtual companies", NavBRFeatureState.InDevelopment, true, false, "Local-first company profile and fleet management are being implemented in Alpha.12."),
-        new("dispatcher", "CCO / Dispatcher", NavBRFeatureState.Planned, true),
+        new("dispatcher", "CCO / Dispatcher", NavBRFeatureState.InDevelopment, true, false, "Alpha.12 now includes a local read-only operations center; multiplayer dispatch and assignments come next."),
         new("session-sync", "Session time/date/weather sync", NavBRFeatureState.Planned, true),
         new("fleet-identity", "Fleet, garage and vehicle identity", NavBRFeatureState.InDevelopment, true, false, "Local fleet registration can identify the active OMSI bus; shared garage sync comes later."),
         new("compatibility-manifest", "Map/mod/dependency compatibility manifest", NavBRFeatureState.InDevelopment, true),
