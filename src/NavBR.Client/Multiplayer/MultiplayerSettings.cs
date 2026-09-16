@@ -28,6 +28,7 @@ public sealed record MultiplayerSettings(
     bool EnableAutomaticUpnp = false,
     string VoiceChannel = "general",
     double VoiceProximityMeters = 120d,
+    bool VoiceDeafened = false,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
