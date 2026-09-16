@@ -127,11 +127,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleRotationOffset));
 
-            // OmsiPhysObjInst.Velocity lives at 0x174. The previous profile
-            // incorrectly read 0x1C0 (Turn_Velocity), which can stay near zero
-            // while the bus travels in a straight line and made the HUD report
-            // 0 km/h. Groundspeed is an independent OMSI scalar and is used as
-            // the preferred display value when it is finite/plausible.
+            // OMSI maintains three useful motion values here. Tacho is the
+            // speedometer/script-facing speed and follows the same km/h unit as
+            // the built-in Velocity variable used by bus scripts. Groundspeed
+            // and the physical velocity vector stay as independent fallbacks.
+            var tachoKph = Math.Abs(memory.ReadSingle(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleTachoOffset)));
+
             var velocity = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleVelocityOffset));
@@ -145,7 +148,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleGroundSpeedOffset)));
 
-            var speedMps = ResolveVehicleSpeedMps(linearSpeedMps, groundSpeedMps);
+            var speedKph = ResolveVehicleSpeedKph(
+                tachoKph,
+                linearSpeedMps * 3.6d,
+                groundSpeedMps * 3.6d);
 
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
@@ -187,7 +193,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 Y: absolutePosition.Y,
                 Z: absolutePosition.Z,
                 HeadingDegrees: heading,
-                SpeedKph: speedMps * 3.6,
+                SpeedKph: speedKph,
                 IsInGame: mapLoaded,
                 GridX: gridX,
                 GridY: gridY,
@@ -218,29 +224,51 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
     }
 
-    private static double ResolveVehicleSpeedMps(double linearSpeedMps, double groundSpeedMps)
+    private static double ResolveVehicleSpeedKph(
+        double tachoKph,
+        double linearSpeedKph,
+        double groundSpeedKph)
     {
-        var linearValid = double.IsFinite(linearSpeedMps) && linearSpeedMps >= 0d && linearSpeedMps <= 150d;
-        var groundValid = double.IsFinite(groundSpeedMps) && groundSpeedMps >= 0d && groundSpeedMps <= 150d;
+        const double maximumPlausibleKph = 220d;
+        const double movingThresholdKph = 0.5d;
 
-        if (groundValid)
+        var tachoValid = double.IsFinite(tachoKph) &&
+                         tachoKph >= 0d &&
+                         tachoKph <= maximumPlausibleKph;
+        var linearValid = double.IsFinite(linearSpeedKph) &&
+                          linearSpeedKph >= 0d &&
+                          linearSpeedKph <= maximumPlausibleKph;
+        var groundValid = double.IsFinite(groundSpeedKph) &&
+                          groundSpeedKph >= 0d &&
+                          groundSpeedKph <= maximumPlausibleKph;
+
+        // Prefer OMSI's speedometer value. This is closest to what the driver
+        // sees in the bus and avoids unit/axis differences between vehicles.
+        if (tachoValid && tachoKph >= movingThresholdKph)
         {
-            // Groundspeed is the scalar OMSI itself maintains for the moving
-            // vehicle and is the best source for a speedometer/HUD. If a
-            // particular vehicle leaves it at zero while the physics velocity
-            // is clearly moving, fall back to the vector magnitude.
-            if (groundSpeedMps > 0.05d || !linearValid || linearSpeedMps <= 0.05d)
-            {
-                return groundSpeedMps;
-            }
+            return tachoKph;
         }
 
-        if (linearValid)
+        // Some buses can leave Tacho at zero during initialization. In that
+        // case, use the physics values only while they clearly indicate motion.
+        if (groundValid && groundSpeedKph >= movingThresholdKph)
         {
-            return linearSpeedMps;
+            return groundSpeedKph;
         }
 
-        return groundValid ? groundSpeedMps : 0d;
+        if (linearValid && linearSpeedKph >= movingThresholdKph)
+        {
+            return linearSpeedKph;
+        }
+
+        // When all sources agree that the vehicle is effectively stopped, keep
+        // a clean zero instead of exposing floating-point jitter in HUD/hardware.
+        if (tachoValid || groundValid || linearValid)
+        {
+            return 0d;
+        }
+
+        return 0d;
     }
 
     private static nint ResolvePlayerVehicleAddress(
