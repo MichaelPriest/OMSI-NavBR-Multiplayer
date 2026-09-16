@@ -24,6 +24,7 @@ public partial class MultiplayerWindow
             VoiceProximityMeters = radius
         };
         VoiceChannelSession.Configure(channel, radius, ShouldReceiveProximityVoice);
+        _voiceChat.SetDeafened(_settings.VoiceDeafened);
 
         if (_voiceChannelButton is null && VoiceEnabledCheckBox.Parent is Grid settingsGrid)
         {
@@ -51,9 +52,17 @@ public partial class MultiplayerWindow
 
     private void VoiceChannelButton_Click(object sender, RoutedEventArgs e)
     {
+        var remotePlayers = _players.Values
+            .Where(player => !string.Equals(player.PlayerId, _settings.PlayerId, StringComparison.OrdinalIgnoreCase))
+            .Select(player => (player.PlayerId, player.DisplayName))
+            .ToArray();
+
         var dialog = new VoiceOptionsWindow(
             _settings.VoiceChannel,
-            _settings.VoiceProximityMeters)
+            _settings.VoiceProximityMeters,
+            _settings.VoiceDeafened,
+            remotePlayers,
+            _voiceChat)
         {
             Owner = this
         };
@@ -66,13 +75,15 @@ public partial class MultiplayerWindow
         _settings = _settings with
         {
             VoiceChannel = dialog.SelectedChannel,
-            VoiceProximityMeters = dialog.ProximityMeters
+            VoiceProximityMeters = dialog.ProximityMeters,
+            VoiceDeafened = dialog.Deafened
         };
         MultiplayerSettingsStore.Save(_settings);
         VoiceChannelSession.Configure(
             _settings.VoiceChannel,
             _settings.VoiceProximityMeters,
             ShouldReceiveProximityVoice);
+        _voiceChat.SetDeafened(_settings.VoiceDeafened);
         RenderVoiceChannelButton();
     }
 
@@ -132,7 +143,10 @@ public partial class MultiplayerWindow
             _ => T("Geral", "General", "General", "Allgemein", "Général")
         };
 
-        _voiceChannelButton.Content = $"{T("Voz", "Voice", "Voz", "Sprache", "Voix")}: {label}";
+        var deafen = _settings.VoiceDeafened
+            ? $" • {T("silenciado", "deafened", "silenciado", "stumm", "sourdine")}"
+            : string.Empty;
+        _voiceChannelButton.Content = $"{T("Voz", "Voice", "Voz", "Sprache", "Voix")}: {label}{deafen}";
     }
 
     private void VoiceChannels_WindowClosed(object? sender, EventArgs e)
