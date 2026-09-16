@@ -2,6 +2,64 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.11-test.2] — teste comunitário, HUD corrigido e 3D experimental
+
+### Corrigido
+
+- velocidade do HUD passa a usar o `Groundspeed` do OMSI com fallback para a velocidade linear real;
+- offset da velocidade linear do OMSI 2.3.004 corrigido para `0x174`; `0x1C0` permanece identificado como velocidade de rotação/turn;
+- conflito de hooks `OnContentRendered` eliminado na tela principal;
+- servidor dedicado volta a publicar corretamente como `win-x64` no pipeline da Test 2;
+- smoke test bidirecional do bridge v2 ajustado para leitura/escrita concorrente no Named Pipe.
+
+### Adicionado
+
+- primeira rodada pública do **ônibus remoto físico 3D experimental**, com opt-in explícito e desligado por padrão;
+- fluxo de `spawn → atualização → despawn` protegido pelo plugin/interop x86;
+- registro `VehicleInstanceId → ponteiro OMSI` para impedir writes em veículos que não foram criados pelo NavBR;
+- validação do ponteiro contra a lista `RoadVehicles` antes de alterações físicas;
+- limite inicial de até 32 veículos remotos físicos registrados pelo caminho experimental;
+- diagnóstico remoto opcional com consentimento, fila offline limitada, envio em lotes e sanitização de dados;
+- coletor de diagnóstico desacoplado por `diagnostics.json` do portal;
+- manual para iniciantes **dentro do aplicativo**, disponível offline em Português, English, Español, Deutsch e Français;
+- créditos visíveis no app: **Desenvolvedor: MichaelPriest • Com apoio da IA ChatGPT**;
+- checklist público `docs/ALPHA11_TEST2_COMMUNITY.md`;
+- pacote separado do plugin experimental com `NavBR.OmsiPlugin.dll`, `.opl` e `NavBR.OmsiInterop.dll`.
+
+### Melhorado
+
+- HUD principal mais compacto e menos invasivo;
+- painel do ônibus reduzido e fundos mais transparentes sem reduzir a legibilidade dos textos principais;
+- quando existe uma viagem/rota ativa, o HUD mostra somente as paradas daquela rota; todas as paradas do mapa ficam reservadas ao estado sem rota ativa;
+- leitura das paradas usa a sequência `[station]` do `.ttp` quando possível e a geometria ativa como fallback seguro;
+- visibilidade do HUD continua baseada na janela real de gameplay aprendida a partir do `GetForegroundWindow()` do próprio `Omsi.exe`, evitando depender rigidamente de `Process.MainWindowHandle`;
+- documentação, README e portal atualizados para a série Alpha.11;
+- portal passa a destacar explicitamente a Test 2 e seus pacotes mesmo durante atrasos de atualização do catálogo de releases.
+
+### Multiplayer
+
+- meta inicial de até **32 jogadores por sala**;
+- peer-host continua usando TCP `27730`;
+- servidor dedicado continua opcional;
+- snapshots de tráfego permanecem separados da contagem de jogadores, com até 48 veículos relevantes por snapshot;
+- chat de texto e voz push-to-talk permanecem disponíveis.
+
+### Diagnóstico e privacidade
+
+- envio automático fica **desligado por padrão** e exige consentimento;
+- não envia conteúdo do chat, áudio/voz, senhas, tokens ou arquivos pessoais;
+- caminhos locais e identificadores sensíveis são sanitizados antes de entrar na fila;
+- erros do bridge, comandos físicos e exceções do aplicativo podem entrar na telemetria técnica quando o usuário autoriza.
+
+### Experimental / validação necessária
+
+- ônibus remoto 3D ainda pode apresentar posicionamento incorreto entre tiles;
+- compatibilidade com ônibus/add-ons precisa de teste comunitário amplo;
+- movimento, quaternion, luzes, setas, freio, remoção e impacto em FPS ainda precisam de validação no OMSI real;
+- cada computador precisa possuir legalmente e localmente o mesmo modelo de ônibus do jogador remoto no caminho relativo compatível em `Vehicles\`;
+- o NavBR não transfere nem redistribui ônibus pagos/proprietários;
+- tráfego IA físico compartilhado completo ainda não deve ser considerado finalizado.
+
 ## [0.3.0-alpha.10-test.4] — HUD moderno, GPS heading-up e novo ícone
 
 ### Adicionado
