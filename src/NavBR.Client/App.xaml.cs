@@ -123,6 +123,7 @@ public partial class App : Application
             VirtualCompanyInstaller.Install(mainWindow);
             DispatcherInstaller.Install(mainWindow);
             SessionHealthInstaller.Install(mainWindow);
+            Alpha12NavigationPolishInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
