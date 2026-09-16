@@ -1,7 +1,7 @@
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <cstdint>
 #include <cstring>
+#include <cwchar>
 
 #if !defined(_M_IX86)
 #error NavBR.OmsiInterop must be compiled for x86.
@@ -67,9 +67,16 @@ namespace
             return false;
         }
 
-        const DWORD executable =
-            PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
-        return (info.Protect & executable) != 0;
+        switch (info.Protect & 0xFFu)
+        {
+        case PAGE_EXECUTE:
+        case PAGE_EXECUTE_READ:
+        case PAGE_EXECUTE_READWRITE:
+        case PAGE_EXECUTE_WRITECOPY:
+            return true;
+        default:
+            return false;
+        }
     }
 
     int CallGetMem(int bytes)
@@ -163,22 +170,35 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_FreeMem(int address)
     return CallFreeMem(address);
 }
 
-extern "C" __declspec(dllexport) int __cdecl NavBR_AllocateAnsiString(const char* value)
+extern "C" __declspec(dllexport) int __cdecl NavBR_AllocateAnsiString(const wchar_t* value)
 {
     if (value == nullptr)
     {
         return 0;
     }
 
-    const auto length = std::strlen(value);
-    if (length > 4096u)
+    const auto characterLength = std::wcslen(value);
+    if (characterLength > 4096u)
     {
         return 0;
     }
 
-    // Delphi AnsiString data returned to OMSI points 12 bytes after the
-    // metadata header: code page, character size, reference count and length.
-    const auto allocationSize = static_cast<int>(length + 13u);
+    BOOL usedDefaultCharacter = FALSE;
+    const int byteLength = WideCharToMultiByte(
+        1252,
+        WC_NO_BEST_FIT_CHARS,
+        value,
+        static_cast<int>(characterLength),
+        nullptr,
+        0,
+        nullptr,
+        &usedDefaultCharacter);
+    if (byteLength < 0 || usedDefaultCharacter)
+    {
+        return 0;
+    }
+
+    const auto allocationSize = byteLength + 13;
     const int allocation = CallGetMem(allocationSize);
     if (allocation == 0)
     {
@@ -189,15 +209,33 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_AllocateAnsiString(const char
     const std::uint16_t codePage = 1252;
     const std::uint16_t characterSize = 1;
     const std::int32_t referenceCount = 1;
-    const std::int32_t characterLength = static_cast<std::int32_t>(length);
+    const std::int32_t delphiLength = byteLength;
 
     std::memcpy(header + 0, &codePage, sizeof(codePage));
     std::memcpy(header + 2, &characterSize, sizeof(characterSize));
     std::memcpy(header + 4, &referenceCount, sizeof(referenceCount));
-    std::memcpy(header + 8, &characterLength, sizeof(characterLength));
-    std::memcpy(header + 12, value, length);
-    header[12 + length] = 0;
+    std::memcpy(header + 8, &delphiLength, sizeof(delphiLength));
 
+    if (byteLength > 0)
+    {
+        usedDefaultCharacter = FALSE;
+        const int written = WideCharToMultiByte(
+            1252,
+            WC_NO_BEST_FIT_CHARS,
+            value,
+            static_cast<int>(characterLength),
+            reinterpret_cast<char*>(header + 12),
+            byteLength,
+            nullptr,
+            &usedDefaultCharacter);
+        if (written != byteLength || usedDefaultCharacter)
+        {
+            CallFreeMem(allocation);
+            return 0;
+        }
+    }
+
+    header[12 + byteLength] = 0;
     return allocation + 12;
 }
 
@@ -309,6 +347,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
     int result = 0;
     __asm
     {
+        // ESI is non-volatile under cdecl, so preserve it around the Borland call.
+        push esi
+
         // Borland register calling convention: EAX, EDX and ECX carry the
         // first three eligible parameters. Remaining DWORDs are pushed right
         // to left and removed by the Delphi/Borland callee.
@@ -340,6 +381,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
         mov ecx, roadVehicleTypes
         mov esi, target
         call esi
+
+        // The Borland callee removes the 22 stack parameters. Our saved ESI is
+        // therefore back on top of the stack here.
+        pop esi
         mov result, eax
     }
 
