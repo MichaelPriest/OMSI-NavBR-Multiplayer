@@ -1,0 +1,228 @@
+name: alpha12 test1 community prerelease
+
+on:
+  push:
+    branches:
+      - test/alpha12-test1
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: alpha12-test1-community-release
+  cancel-in-progress: true
+
+jobs:
+  publish-test-release:
+    runs-on: windows-latest
+    env:
+      TEST_TAG: v0.3.0-alpha.12-test.1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Test 1 version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $tag = "v$([string]$group.VersionPrefix)-$([string]$group.VersionSuffix)"
+          if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
+
+      - name: Reserve Test 1 as private draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json tagName,isDraft 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            $global:LASTEXITCODE = 0
+            gh release create $env:TEST_TAG `
+              --repo "${{ github.repository }}" `
+              --target "$env:GITHUB_SHA" `
+              --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
+              --notes "Draft reservado enquanto a Alpha.12 Test 1 passa pela validação automática." `
+              --prerelease --draft
+            if ($LASTEXITCODE -ne 0) { throw "Could not reserve Test 1 draft." }
+          }
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and site JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          node --check site/app.js
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+      - name: Restore projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) { if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" } }
+
+      - name: Validate plugin binaries are x86
+        shell: pwsh
+        run: |
+          foreach ($candidate in @("artifacts/plugin/NavBR.OmsiPlugin.dll","artifacts/plugin/NavBR.OmsiInterop.dll")) {
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $candidate).Path)
+            if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "$candidate is not PE/MZ." }
+            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+            if ($machine -ne 0x014C) { throw ("$candidate must be x86; machine=0x{0:X4}" -f $machine) }
+          }
+
+      - name: Embed plugin into client
+        shell: pwsh
+        run: .\scripts\prepare-embedded-plugin.ps1 -PluginDirectory "artifacts/plugin" -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+      - name: Build client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+      - name: Smoke-test bridge v2
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
+
+      - name: Publish client and standalone EXE
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/client
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None -p:DebugSymbols=false `
+            -o artifacts/client-single
+
+      - name: Publish dedicated server
+        shell: pwsh
+        run: dotnet publish src/NavBR.Server/NavBR.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/server
+
+      - name: Prepare release assets and notes
+        shell: pwsh
+        run: |
+          $releaseDir = "artifacts/release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          foreach ($target in @("artifacts/client","artifacts/server","artifacts/plugin")) {
+            Copy-Item LICENSE (Join-Path $target "LICENSE") -Force
+            Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $target "THIRD_PARTY_NOTICES.md") -Force
+          }
+          $standalone = "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          if (-not (Test-Path $standalone)) { throw "Standalone client missing." }
+          Copy-Item $standalone (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.exe") -Force
+          Compress-Archive -Path "artifacts/client/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.zip") -Force
+          Compress-Archive -Path "artifacts/server/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Server-$env:TEST_TAG-win-x64.zip") -Force
+          Compress-Archive -Path "artifacts/plugin/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Plugin-$env:TEST_TAG-win-x86.zip") -Force
+          Copy-Item docs/ALPHA12_TEST1_COMMUNITY.md (Join-Path $releaseDir "ALPHA12_TEST1_COMMUNITY.md") -Force
+          Copy-Item docs/ALPHA12_MASTER_SCOPE.md (Join-Path $releaseDir "ALPHA12_MASTER_SCOPE.md") -Force
+          Copy-Item docs/HARDWARE_COCKPIT.md (Join-Path $releaseDir "HARDWARE_COCKPIT.md") -Force
+          Copy-Item LICENSE (Join-Path $releaseDir "LICENSE") -Force
+          Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $releaseDir "THIRD_PARTY_NOTICES.md") -Force
+          $hashLines = foreach ($file in Get-ChildItem $releaseDir -File | Sort-Object Name) {
+            if ($file.Name -eq "SHA256SUMS.txt") { continue }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
+          @"
+          # OMSI NavBR Multiplayer $env:TEST_TAG
+
+          **PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.12 Test 1**
+
+          Primeira build pública da Alpha.12. Esta versão permite validar a nova base enquanto recursos adicionais continuam marcados como **Em desenvolvimento** ou **Experimental**.
+
+          ## Destaques
+          - novo shell e HUD Alpha.12;
+          - perfil, estatísticas, empresa/frota e CCO básico;
+          - peer-host TCP 27730 com diagnóstico de rede e UPnP opt-in;
+          - salas privadas com senha efêmera e navegador de salas públicas do servidor;
+          - voz Geral, Empresa/Equipe, CCO e Proximidade;
+          - mute, deafen, ganho individual e seleção de dispositivos de áudio;
+          - plugin/bridge experimental preservado;
+          - Hardware Cockpit Serial preservado.
+
+          ## Importante
+          Esta não é a Alpha.12 final. Multiplayer 3D completo, tráfego IA, Hardware Wi-Fi, Replay/Ghost, mapa web, permissões, SDK, Workshop e outros módulos continuam em desenvolvimento.
+
+          Consulte `ALPHA12_TEST1_COMMUNITY.md` para o checklist de testes.
+          "@ | Set-Content "artifacts/release-notes.md" -Encoding UTF8
+
+      - name: Upload assets and publish prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = Get-ChildItem "artifacts/release" -File | ForEach-Object { $_.FullName }
+          gh release upload $env:TEST_TAG @assets --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload Alpha.12 Test 1 assets." }
+          gh release edit $env:TEST_TAG `
+            --repo "${{ github.repository }}" `
+            --target "$env:GITHUB_SHA" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — community test" `
+            --notes-file "artifacts/release-notes.md" `
+            --prerelease --draft=false
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:TEST_TAG." }
+
+      - name: Refresh GitHub Pages release catalog
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref main
