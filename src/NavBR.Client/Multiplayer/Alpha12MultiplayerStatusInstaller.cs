@@ -78,6 +78,11 @@ internal static class Alpha12MultiplayerStatusInstaller
         natButton.Margin = new Thickness(10d, 0d, 0d, 0d);
         natButton.Click += (_, _) => new NatDiagnosticsWindow(window).ShowDialog();
 
+        var externalProbeButton = SecondaryButton();
+        externalProbeButton.Content = ExternalPortProbeWindow.ButtonText();
+        externalProbeButton.Margin = new Thickness(10d, 8d, 0d, 0d);
+        externalProbeButton.Click += (_, _) => new ExternalPortProbeWindow(window).ShowDialog();
+
         var actions = new WrapPanel
         {
             Margin = new Thickness(0d, 14d, 0d, 0d)
@@ -85,6 +90,7 @@ internal static class Alpha12MultiplayerStatusInstaller
         actions.Children.Add(healthButton);
         actions.Children.Add(connectivityButton);
         actions.Children.Add(natButton);
+        actions.Children.Add(externalProbeButton);
 
         var body = new StackPanel();
         body.Children.Add(state);
@@ -135,6 +141,7 @@ internal static class Alpha12MultiplayerStatusInstaller
             healthButton.Content = Text("OpenHealth");
             connectivityButton.Content = Alpha12ConnectivityWindow.ButtonText();
             natButton.Content = NatDiagnosticsWindow.ButtonText();
+            externalProbeButton.Content = ExternalPortProbeWindow.ButtonText();
         }
 
         SelectionChangedEventHandler languageChanged = (_, _) => Refresh();
