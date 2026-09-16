@@ -4,6 +4,14 @@
 
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam.
 
+## 💚 Apoie o desenvolvimento
+
+O **OMSI NavBR Multiplayer** é um projeto independente e público. Se você quiser ajudar com desenvolvimento, infraestrutura e testes da comunidade, a contribuição é voluntária.
+
+**Pix — chave aleatória:** `b07a9cc9-b10d-48a8-b201-d28bddc4399a`
+
+> Toda contribuição é opcional. O projeto continua público no GitHub e o código próprio do NavBR permanece sob licença MIT.
+
 > Versão em desenvolvimento: **0.3.0-alpha.11**  
 > Teste público atual: **[v0.3.0-alpha.11-test.2](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.2)**  
 > Release oficial anterior: **[v0.3.0-alpha.10](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10)**
