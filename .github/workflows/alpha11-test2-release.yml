@@ -9,6 +9,10 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: alpha11-test2-community-release
+  cancel-in-progress: true
+
 jobs:
   publish-test-release:
     runs-on: windows-latest
