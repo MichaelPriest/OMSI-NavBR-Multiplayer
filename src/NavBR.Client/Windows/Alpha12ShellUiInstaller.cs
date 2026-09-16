@@ -100,6 +100,12 @@ internal static class Alpha12ShellUiInstaller
             "Mapa, rota, paradas e acompanhamento da viagem em um único lugar."));
         navigationStack.Children.Add(navigationCard);
 
+        var multiplayerStack = new StackPanel { Margin = new Thickness(28d, 22d, 28d, 28d) };
+        multiplayerStack.Children.Add(BuildSectionTitle(
+            "Multiplayer",
+            "Jogue com outras pessoas sem precisar entender a parte técnica da rede."));
+        multiplayerStack.Children.Add(BuildMultiplayerLanding(window));
+
         var hardwareStack = new StackPanel { Margin = new Thickness(28d, 22d, 28d, 28d) };
         hardwareStack.Children.Add(BuildSectionTitle(
             "Hardware cockpit",
@@ -120,6 +126,7 @@ internal static class Alpha12ShellUiInstaller
 
         var homePage = NewPage(homeStack);
         var navigationPage = NewPage(navigationStack);
+        var multiplayerPage = NewPage(multiplayerStack);
         var hardwarePage = NewPage(hardwareStack);
         var featuresPage = NewPage(featuresStack);
         var diagnosticsPage = NewPage(diagnosticsStack);
@@ -127,16 +134,157 @@ internal static class Alpha12ShellUiInstaller
         var host = new Grid();
         host.Children.Add(homePage);
         host.Children.Add(navigationPage);
+        host.Children.Add(multiplayerPage);
         host.Children.Add(hardwarePage);
         host.Children.Add(featuresPage);
         host.Children.Add(diagnosticsPage);
 
         navigationPage.Visibility = Visibility.Hidden;
+        multiplayerPage.Visibility = Visibility.Hidden;
         hardwarePage.Visibility = Visibility.Hidden;
         featuresPage.Visibility = Visibility.Hidden;
         diagnosticsPage.Visibility = Visibility.Hidden;
 
-        return new ShellPages(host, homePage, navigationPage, hardwarePage, featuresPage, diagnosticsPage);
+        return new ShellPages(
+            host,
+            homePage,
+            navigationPage,
+            multiplayerPage,
+            hardwarePage,
+            featuresPage,
+            diagnosticsPage);
+    }
+
+    private static FrameworkElement BuildMultiplayerLanding(MainWindow window)
+    {
+        var stack = new StackPanel();
+
+        var flow = new Grid { Margin = new Thickness(0d, 0d, 0d, 18d) };
+        flow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        flow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14d) });
+        flow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+
+        var hostCard = BuildSimpleActionCard(
+            "CRIAR UMA SALA",
+            "Você vira o host da própria sala. O NavBR inicia o servidor no seu PC e mostra as informações para convidar seus amigos.",
+            "PEER-HOST • TCP 27730",
+            Brush(255, 164, 75));
+        Grid.SetColumn(hostCard, 0);
+        flow.Children.Add(hostCard);
+
+        var joinCard = BuildSimpleActionCard(
+            "ENTRAR EM UMA SALA",
+            "Recebeu um convite? Abra a Central Multiplayer e cole os dados do host. O NavBR cuida da conexão, presença, chat e voz.",
+            "CONVITE • CHAT • VOZ",
+            Brush(103, 188, 255));
+        Grid.SetColumn(joinCard, 2);
+        flow.Children.Add(joinCard);
+        stack.Children.Add(flow);
+
+        var publicRooms = BuildSimpleActionCard(
+            "SALAS PÚBLICAS",
+            "O navegador de salas públicas faz parte da Alpha.12. Enquanto ele é desenvolvido, o modo peer-host atual continua sendo o caminho principal.",
+            "ALPHA.12 • EM DESENVOLVIMENTO",
+            Brush(159, 139, 255));
+        publicRooms.Margin = new Thickness(0d, 0d, 0d, 18d);
+        stack.Children.Add(publicRooms);
+
+        var cta = new Border
+        {
+            Padding = new Thickness(18d),
+            Background = Brush(12, 21, 27),
+            BorderBrush = Brush(38, 57, 69),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(14d)
+        };
+        var ctaGrid = new Grid();
+        ctaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        ctaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var explanation = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        explanation.Children.Add(new TextBlock
+        {
+            Text = "Central Multiplayer",
+            Foreground = Brushes.White,
+            FontSize = 15d,
+            FontWeight = FontWeights.SemiBold
+        });
+        explanation.Children.Add(new TextBlock
+        {
+            Text = "Aqui ficam criação/entrada de sala, jogadores, chat, voz e opções de conexão.",
+            Foreground = Brush(142, 160, 173),
+            FontSize = 10.5d,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0d, 4d, 16d, 0d)
+        });
+        Grid.SetColumn(explanation, 0);
+        ctaGrid.Children.Add(explanation);
+
+        DetachFromParent(window.MultiplayerButton);
+        window.MultiplayerButton.Content = "Abrir Central Multiplayer";
+        window.MultiplayerButton.MinWidth = 230d;
+        window.MultiplayerButton.HorizontalAlignment = HorizontalAlignment.Right;
+        window.MultiplayerButton.HorizontalContentAlignment = HorizontalAlignment.Center;
+        NormalizePrimaryButton(window.MultiplayerButton);
+        Grid.SetColumn(window.MultiplayerButton, 1);
+        ctaGrid.Children.Add(window.MultiplayerButton);
+
+        cta.Child = ctaGrid;
+        stack.Children.Add(cta);
+
+        var note = new TextBlock
+        {
+            Text = "Dica: para uma primeira experiência, teste entre dois PCs na mesma rede antes de configurar acesso pela Internet.",
+            Foreground = Brush(117, 137, 151),
+            FontSize = 10d,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(3d, 12d, 3d, 0d)
+        };
+        stack.Children.Add(note);
+
+        return stack;
+    }
+
+    private static Border BuildSimpleActionCard(
+        string title,
+        string body,
+        string status,
+        Brush accent)
+    {
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = title,
+            Foreground = Brushes.White,
+            FontSize = 13d,
+            FontWeight = FontWeights.Bold
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = body,
+            Foreground = Brush(152, 170, 182),
+            FontSize = 10.8d,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0d, 8d, 0d, 13d)
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = status,
+            Foreground = accent,
+            FontSize = 9d,
+            FontWeight = FontWeights.Bold
+        });
+
+        return new Border
+        {
+            MinHeight = 142d,
+            Padding = new Thickness(17d),
+            Background = Brush(10, 18, 24),
+            BorderBrush = Brush(31, 47, 57),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(14d),
+            Child = stack
+        };
     }
 
     private static Border BuildWorkspaceHeader()
@@ -443,11 +591,7 @@ internal static class Alpha12ShellUiInstaller
         var homeButton = NewPageButton("⌂  Início", pages.Home, pages, pageButtons);
         body.Children.Add(homeButton);
         body.Children.Add(NewPageButton("⌖  Navegação", pages.Navigation, pages, pageButtons));
-
-        MoveToPanel(window.MultiplayerButton, body);
-        window.MultiplayerButton.Content = "●  Multiplayer";
-        NormalizePrimaryButton(window.MultiplayerButton);
-
+        body.Children.Add(NewPageButton("●  Multiplayer", pages.Multiplayer, pages, pageButtons));
         body.Children.Add(NewPageButton("▣  Hardware", pages.Hardware, pages, pageButtons));
 
         body.Children.Add(NewSeparator());
@@ -750,11 +894,12 @@ internal static class Alpha12ShellUiInstaller
         Grid Host,
         FrameworkElement Home,
         FrameworkElement Navigation,
+        FrameworkElement Multiplayer,
         FrameworkElement Hardware,
         FrameworkElement Features,
         FrameworkElement Diagnostics)
     {
         public IReadOnlyList<FrameworkElement> All { get; } =
-            new[] { Home, Navigation, Hardware, Features, Diagnostics };
+            new[] { Home, Navigation, Multiplayer, Hardware, Features, Diagnostics };
     }
 }
