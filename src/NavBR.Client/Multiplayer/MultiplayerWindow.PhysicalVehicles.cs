@@ -11,9 +11,8 @@ public partial class MultiplayerWindow
     private CheckBox? _physicalVehiclesCheckBox;
     private bool _physicalVehiclesUiInstalled;
 
-    protected override void OnContentRendered(EventArgs e)
+    private void InitializePhysicalVehiclesPublicTest()
     {
-        base.OnContentRendered(e);
         EnsurePhysicalVehiclesUi();
         HookPhysicalVehicleLifecycle();
     }
@@ -67,8 +66,6 @@ public partial class MultiplayerWindow
 
     private void HookPhysicalVehicleLifecycle()
     {
-        // OnContentRendered may run again after a visual rebuild. Event wiring
-        // is guarded by the same flag used for UI installation.
         if (_physicalVehiclesCheckBox?.Tag is "hooked")
         {
             return;
