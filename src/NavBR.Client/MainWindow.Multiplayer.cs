@@ -114,7 +114,7 @@ public partial class MainWindow
         window.ChatMessageReceived += hud.AddChatMessage;
         window.RemoteSpeakerActive += hud.MarkRemoteSpeaker;
         window.VoiceError += hud.SetVoiceError;
-        Action<bool> connectionChangedHandler = connected =>
+        Action<bool, string?> connectionChangedHandler = (connected, _) =>
         {
             DispatcherSessionFeed.SetConnected(connected);
             hud.SetConnectionState(connected);
