@@ -53,6 +53,7 @@ internal static class SessionNetworkQualityFeed
 
 internal sealed class SessionNetworkQualityMonitor : IAsyncDisposable
 {
+    private readonly object _sampleSync = new();
     private readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(2)
@@ -91,7 +92,10 @@ internal sealed class SessionNetworkQualityMonitor : IAsyncDisposable
             cts.Dispose();
         }
 
-        _samples.Clear();
+        lock (_sampleSync)
+        {
+            _samples.Clear();
+        }
         Publish(SessionNetworkQualitySnapshot.Empty);
     }
 
@@ -159,16 +163,21 @@ internal sealed class SessionNetworkQualityMonitor : IAsyncDisposable
             stopwatch.Stop();
         }
 
-        _samples.Enqueue(new ProbeSample(success, roundTripMs));
-        while (_samples.Count > 20)
+        SessionNetworkQualitySnapshot snapshot;
+        lock (_sampleSync)
         {
-            _samples.Dequeue();
+            _samples.Enqueue(new ProbeSample(success, roundTripMs));
+            while (_samples.Count > 20)
+            {
+                _samples.Dequeue();
+            }
+            snapshot = CalculateSnapshotUnsafe();
         }
 
-        Publish(CalculateSnapshot());
+        Publish(snapshot);
     }
 
-    private SessionNetworkQualitySnapshot CalculateSnapshot()
+    private SessionNetworkQualitySnapshot CalculateSnapshotUnsafe()
     {
         var samples = _samples.ToArray();
         if (samples.Length == 0)
