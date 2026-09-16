@@ -48,6 +48,7 @@ jobs:
           New-Item -ItemType Directory -Force "artifacts/NavBR.OmsiInterop" | Out-Null
           cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
             native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
             /link `
             /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
             /OUT:artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll
@@ -57,12 +58,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not inspect native OMSI interop exports." }
           foreach ($expected in @(
             "NavBR_GetAbiVersion",
+            "NavBR_GetStateInteropVersion",
             "NavBR_GetImageBase",
             "NavBR_ProbeOmsi23004Addresses",
             "NavBR_GetProgramManager",
             "NavBR_GetRoadVehicleTypes",
             "NavBR_GetRoadVehicleCount",
             "NavBR_GetRoadVehicleAt",
+            "NavBR_IsRoadVehiclePointer",
             "NavBR_GetMem",
             "NavBR_FreeMem",
             "NavBR_LockMakeVehicle",
@@ -71,7 +74,10 @@ jobs:
             "NavBR_FreeAnsiString",
             "NavBR_TempRoadVehicleListCreate",
             "NavBR_CopyTempRoadVehicleListIntoMain",
-            "NavBR_MakeVehicle"
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetVehicleVisualState",
+            "NavBR_MarkVehicleForKilling"
           )) {
             if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
               throw "Missing native OMSI interop export: $expected"
