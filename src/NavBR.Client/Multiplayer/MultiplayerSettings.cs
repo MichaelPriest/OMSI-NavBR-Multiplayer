@@ -26,6 +26,8 @@ public sealed record MultiplayerSettings(
     string? StopCustomIconPath = null,
     bool ExperimentalPhysicalVehiclesEnabled = false,
     bool EnableAutomaticUpnp = false,
+    string VoiceChannel = "general",
+    double VoiceProximityMeters = 120d,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
