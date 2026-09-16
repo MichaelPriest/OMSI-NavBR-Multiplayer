@@ -133,6 +133,9 @@ internal static class ExperimentalVehicleCommandProcessor
 
 internal static class PhysicalVehicleBackend
 {
+    private const int MaxRetainedVehiclePathStrings = 256;
+    private static int _retainedVehiclePathStrings;
+
     public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
 
     public static bool IsAvailable =>
@@ -204,6 +207,17 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "omsi-runtime-unavailable", "OMSI ProgramManager or RoadVehicleTypes is unavailable.");
         }
 
+        // Omsi-Extensions does not establish a safe point at which the Delphi
+        // AnsiString passed to MakeVehicle can be released. Retain a bounded
+        // number for the lifetime of Omsi.exe rather than risking use-after-free.
+        if (Volatile.Read(ref _retainedVehiclePathStrings) >= MaxRetainedVehiclePathStrings)
+        {
+            return Fail(
+                command,
+                "spawn-resource-limit",
+                "The experimental vehicle path retention limit was reached. Restart OMSI before creating more remote vehicles.");
+        }
+
         var tempList = OmsiNativeInterop.TempRoadVehicleListCreate(1);
         if (tempList == 0)
         {
@@ -217,6 +231,7 @@ internal static class PhysicalVehicleBackend
         }
 
         var locked = false;
+        var handedToOmsi = false;
         try
         {
             locked = OmsiNativeInterop.LockMakeVehicle(programManager) == 1;
@@ -225,6 +240,7 @@ internal static class PhysicalVehicleBackend
                 return Fail(command, "makevehicle-lock-failed", "Could not enter OMSI's MakeVehicle critical section.");
             }
 
+            handedToOmsi = true;
             _ = OmsiNativeInterop.MakeVehicle(
                 programManager,
                 tempList,
@@ -261,7 +277,14 @@ internal static class PhysicalVehicleBackend
                 _ = OmsiNativeInterop.UnlockMakeVehicle(programManager);
             }
 
-            _ = OmsiNativeInterop.FreeAnsiString(filename);
+            if (handedToOmsi)
+            {
+                Interlocked.Increment(ref _retainedVehiclePathStrings);
+            }
+            else
+            {
+                _ = OmsiNativeInterop.FreeAnsiString(filename);
+            }
         }
 
         if (!OmsiNativeInterop.TryFindNewRoadVehicle(before, out var vehiclePointer))
