@@ -13,7 +13,12 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'docs/**'
+      - 'examples/**'
       - '.github/workflows/alpha11-build.yml'
+
+concurrency:
+  group: alpha11-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
