@@ -202,7 +202,12 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             return;
         }
 
-        await connection.SendAsync("PublishVoiceFrame", sequence, opusPayload, cancellationToken);
+        await connection.SendAsync(
+            "PublishVoiceFrame",
+            sequence,
+            opusPayload,
+            VoiceChannelSession.CurrentChannel,
+            cancellationToken);
     }
 
     public async Task DisconnectAsync()
