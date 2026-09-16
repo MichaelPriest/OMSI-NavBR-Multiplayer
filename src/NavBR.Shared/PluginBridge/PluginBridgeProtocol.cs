@@ -82,6 +82,7 @@ public sealed record PluginBridgeMessage(
     double? SteeringDegrees = null,
     int? DelaySeconds = null,
     int? CurrentStopIndex = null,
+    bool? StopRequested = null,
     int? DoorFlags = null,
     int? LightFlags = null,
     int? TurnSignal = null,
