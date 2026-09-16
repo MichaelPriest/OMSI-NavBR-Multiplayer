@@ -13,6 +13,7 @@ public partial class MultiplayerWindow
 
         SyncDraftSettings();
         InitializePhysicalVehiclesPublicTest();
+        HookDiagnosticsLifecycle();
     }
 
     private void RoomTextBox_SettingsChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
