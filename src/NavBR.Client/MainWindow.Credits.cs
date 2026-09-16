@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
@@ -6,13 +7,30 @@ namespace NavBR.Client;
 
 public partial class MainWindow
 {
+    private static readonly bool CreditsHandlerRegistered = RegisterCreditsHandler();
     private bool _creditsHooked;
 
-    protected override void OnContentRendered(EventArgs e)
+    private static bool RegisterCreditsHandler()
     {
-        base.OnContentRendered(e);
+        EventManager.RegisterClassHandler(
+            typeof(MainWindow),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is MainWindow window)
+                {
+                    window.InitializeCreditsFooter();
+                }
+            }));
 
+        return true;
+    }
+
+    private void InitializeCreditsFooter()
+    {
+        _ = CreditsHandlerRegistered;
         ApplyCreditsFooter();
+
         if (_creditsHooked)
         {
             return;
@@ -42,7 +60,7 @@ public partial class MainWindow
             _ => "Developer: MichaelPriest • With AI assistance from ChatGPT"
         };
 
-        PhaseFooterText.TextWrapping = System.Windows.TextWrapping.Wrap;
+        PhaseFooterText.TextWrapping = TextWrapping.Wrap;
         PhaseFooterText.Text = $"{LocalizationService.Get("PhaseFooter")}{Environment.NewLine}{credits}";
     }
 }
