@@ -10,6 +10,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using NavBR.Client.Maps;
 using NavBR.Client.Multiplayer;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Overlay;
 
@@ -17,10 +18,14 @@ public partial class HudOverlayWindow
 {
     private readonly Dictionary<string, FrameworkElement> _busStopMarkers = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<OmsiBusStopPoint> _busStops = Array.Empty<OmsiBusStopPoint>();
+    private IReadOnlySet<string> _activeRouteStopNames = new HashSet<string>(StringComparer.Ordinal);
+    private IReadOnlyList<OmsiRouteTracePoint> _activeRouteStopTrace = Array.Empty<OmsiRouteTracePoint>();
     private DispatcherTimer? _busStopRenderTimer;
     private Button? _stopIconSettingsButton;
     private string? _busStopMapKey;
     private string? _busStopMarkerStyleKey;
+    private string? _busStopRouteKey;
+    private bool _busStopRouteActive;
     private BitmapSource? _customBusStopIcon;
 
     private void InitializeBusStopHud()
@@ -254,6 +259,7 @@ public partial class HudOverlayWindow
         if (!string.Equals(mapKey, _busStopMapKey, StringComparison.OrdinalIgnoreCase))
         {
             _busStopMapKey = mapKey;
+            _busStopRouteKey = null;
             _busStops = OmsiBusStopReader.TryRead(map);
             foreach (var marker in _busStopMarkers.Values)
             {
@@ -274,6 +280,9 @@ public partial class HudOverlayWindow
             _busStopMarkerStyleKey = styleKey;
         }
 
+        RefreshActiveRouteStopFilter(map, layout, telemetry);
+        var stopsToRender = GetStopsForActiveRoute(layout, telemetry.NextStopName);
+
         const double canvasWidth = 296d;
         const double canvasHeight = 186d;
         const double sourceViewWidth = 900d;
@@ -285,10 +294,11 @@ public partial class HudOverlayWindow
             localGridX,
             localGridY,
             localTileX,
-            localTileY);
+            localTileY,
+            stopsToRender);
         var visibleKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var stop in _busStops)
+        foreach (var stop in stopsToRender)
         {
             if (!RoadmapTransform.TryToPixel(
                     layout,
@@ -330,13 +340,156 @@ public partial class HudOverlayWindow
         }
     }
 
+    private void RefreshActiveRouteStopFilter(
+        OmsiMapInfo map,
+        OmsiMapLayout layout,
+        VehicleTelemetry telemetry)
+    {
+        var routeActive = HasActiveRoute(telemetry);
+        var routeKey = routeActive
+            ? $"{map.DirectoryPath}|{telemetry.Line}|{telemetry.Route}|{telemetry.DestinationName}"
+            : $"{map.DirectoryPath}|<all-stops>";
+
+        if (string.Equals(routeKey, _busStopRouteKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _busStopRouteKey = routeKey;
+        _busStopRouteActive = routeActive;
+        _activeRouteStopNames = new HashSet<string>(StringComparer.Ordinal);
+        _activeRouteStopTrace = Array.Empty<OmsiRouteTracePoint>();
+
+        if (!routeActive)
+        {
+            return;
+        }
+
+        var resolved = OmsiActiveRouteStopReader.TryRead(
+            map,
+            telemetry.Route,
+            telemetry.Line,
+            telemetry.DestinationName);
+        _activeRouteStopNames = resolved.StopNames;
+
+        var lookupTarget = !string.IsNullOrWhiteSpace(telemetry.Route)
+            ? telemetry.Route
+            : telemetry.DestinationName;
+        _activeRouteStopTrace = OmsiRouteTraceReader.TryRead(
+            map,
+            layout,
+            lookupTarget,
+            telemetry.Line);
+    }
+
+    private IReadOnlyList<OmsiBusStopPoint> GetStopsForActiveRoute(
+        OmsiMapLayout layout,
+        string? nextStopName)
+    {
+        if (!_busStopRouteActive)
+        {
+            return _busStops;
+        }
+
+        var nextStopNormalized = NormalizeStopName(nextStopName ?? string.Empty);
+        var selected = new List<OmsiBusStopPoint>();
+        foreach (var stop in _busStops)
+        {
+            var normalizedName = NormalizeStopName(stop.Name);
+            var belongsToTrip = normalizedName.Length > 0 &&
+                                _activeRouteStopNames.Contains(normalizedName);
+            var isNextStop = nextStopNormalized.Length > 0 &&
+                             StopNamesMatch(normalizedName, nextStopNormalized);
+
+            if (belongsToTrip || isNextStop)
+            {
+                selected.Add(stop);
+                continue;
+            }
+
+            // Older/custom maps may use [station_typ2] or incomplete TTData
+            // that cannot be resolved to names. In that case use the active
+            // track geometry as a strict fallback instead of showing every stop.
+            if (_activeRouteStopNames.Count == 0 && IsStopNearActiveRoute(stop, layout))
+            {
+                selected.Add(stop);
+            }
+        }
+
+        return selected;
+    }
+
+    private bool IsStopNearActiveRoute(OmsiBusStopPoint stop, OmsiMapLayout layout)
+    {
+        if (_activeRouteStopTrace.Count < 2 || layout.TileSize is not double tileSize)
+        {
+            return false;
+        }
+
+        const double maxDistanceMeters = 70d;
+        var maxDistanceSquared = maxDistanceMeters * maxDistanceMeters;
+        var stopX = stop.GridX * tileSize + stop.TileX;
+        var stopY = stop.GridY * tileSize + stop.TileY;
+
+        for (var index = 1; index < _activeRouteStopTrace.Count; index++)
+        {
+            var previous = _activeRouteStopTrace[index - 1];
+            var current = _activeRouteStopTrace[index];
+            var ax = previous.GridX * tileSize + previous.TileX;
+            var ay = previous.GridY * tileSize + previous.TileY;
+            var bx = current.GridX * tileSize + current.TileX;
+            var by = current.GridY * tileSize + current.TileY;
+            if (DistanceToSegmentSquared(stopX, stopY, ax, ay, bx, by) <= maxDistanceSquared)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static double DistanceToSegmentSquared(
+        double px,
+        double py,
+        double ax,
+        double ay,
+        double bx,
+        double by)
+    {
+        var dx = bx - ax;
+        var dy = by - ay;
+        var lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared <= 0.000001d)
+        {
+            var pointDx = px - ax;
+            var pointDy = py - ay;
+            return pointDx * pointDx + pointDy * pointDy;
+        }
+
+        var projection = ((px - ax) * dx + (py - ay) * dy) / lengthSquared;
+        projection = Math.Clamp(projection, 0d, 1d);
+        var nearestX = ax + projection * dx;
+        var nearestY = ay + projection * dy;
+        var nearestDx = px - nearestX;
+        var nearestDy = py - nearestY;
+        return nearestDx * nearestDx + nearestDy * nearestDy;
+    }
+
+    private static bool HasActiveRoute(VehicleTelemetry telemetry) =>
+        !string.IsNullOrWhiteSpace(telemetry.Route) ||
+        (!string.IsNullOrWhiteSpace(telemetry.Line) &&
+         (!string.IsNullOrWhiteSpace(telemetry.DestinationName) ||
+          !string.IsNullOrWhiteSpace(telemetry.NextStopName) ||
+          telemetry.CurrentStopIndex.HasValue));
+
     private string? FindNearestNextStopKey(
         string? nextStopName,
         OmsiMapLayout layout,
         int localGridX,
         int localGridY,
         double localTileX,
-        double localTileY)
+        double localTileY,
+        IReadOnlyList<OmsiBusStopPoint> candidates)
     {
         if (string.IsNullOrWhiteSpace(nextStopName) || layout.TileSize is not double tileSize)
         {
@@ -354,13 +507,10 @@ public partial class HudOverlayWindow
         OmsiBusStopPoint? nearest = null;
         var nearestDistanceSquared = double.MaxValue;
 
-        foreach (var stop in _busStops)
+        foreach (var stop in candidates)
         {
             var normalizedName = NormalizeStopName(stop.Name);
-            if (normalizedName.Length == 0 ||
-                (!string.Equals(normalizedName, normalizedTarget, StringComparison.Ordinal) &&
-                 !normalizedName.Contains(normalizedTarget, StringComparison.Ordinal) &&
-                 !normalizedTarget.Contains(normalizedName, StringComparison.Ordinal)))
+            if (!StopNamesMatch(normalizedName, normalizedTarget))
             {
                 continue;
             }
@@ -539,6 +689,13 @@ public partial class HudOverlayWindow
             "fr" => fr,
             _ => en
         };
+
+    private static bool StopNamesMatch(string normalizedName, string normalizedTarget) =>
+        normalizedName.Length > 0 &&
+        normalizedTarget.Length > 0 &&
+        (string.Equals(normalizedName, normalizedTarget, StringComparison.Ordinal) ||
+         normalizedName.Contains(normalizedTarget, StringComparison.Ordinal) ||
+         normalizedTarget.Contains(normalizedName, StringComparison.Ordinal));
 
     private static string NormalizeStopName(string value) =>
         new(value
