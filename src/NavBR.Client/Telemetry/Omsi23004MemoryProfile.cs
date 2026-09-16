@@ -45,9 +45,45 @@ internal static class Omsi23004MemoryProfile
     // OmsiMapObjInst / OmsiPhysObjInst / OmsiMovingMapObjInst fields.
     public const int VehiclePositionOffset = 0x004;
     public const int VehicleRotationOffset = 0x050;
+    public const int VehicleKachelOffset = 0x074;
     public const int VehicleAbsPositionOffset = 0x078;
-    public const int VehicleVelocityOffset = 0x1C0;
+
+    // OmsiPhysObjInst: Velocity is the actual linear/world velocity. 0x1C0 is
+    // Turn_Velocity and must not be used for the HUD speedometer because it can
+    // remain near zero while the bus is travelling straight.
+    public const int VehicleVelocityOffset = 0x174;
+    public const int VehicleTurnVelocityOffset = 0x1C0;
+    public const int VehicleLocalVelocityOffset = 0x1CC;
+
+    public const int MovingVehicleIndexOffset = 0x258;
+    public const int MovingVehicleUserTrainOffset = 0x26C;
+
+    // OmsiMovingMapObjInst runtime speed fields. Tacho is the speedometer value
+    // exposed in km/h and matches OMSI's built-in/script Velocity semantics.
+    // Groundspeed remains available as a physics fallback in m/s.
+    public const int VehicleTachoOffset = 0x424;
     public const int VehicleGroundSpeedOffset = 0x428;
+
+    // File/object identity. OmsiComplMapObjInst.MyFileObject points to the
+    // source object entry and OmsiRoadVehicleInst.RoadVehicle points to the
+    // loaded .bus/.ovh definition. These reads are used only for compatibility
+    // fingerprints; the external telemetry provider remains read-only.
+    public const int VehicleFileObjectOffset = 0x1E8;
+    public const int FileObjectPathOffset = 0x018;
+    public const int RoadVehicleDefinitionOffset = 0x710;
+    public const int RoadVehicleFriendlyNameOffset = 0x19C;
+    public const int RoadVehicleMyPathOffset = 0x1A8;
+
+    // Driver controls / AI visual state exposed on OmsiVehicleInst. These are
+    // read-only in NavBR and guarded by range checks before entering telemetry.
+    public const int VehicleThrottleOffset = 0x5DC;
+    public const int VehicleBrakePedalOffset = 0x5E0;
+    public const int VehiclePaiOffset = 0x624;
+    public const int VehicleAiLightOffset = 0x634;
+    public const int VehicleAiInteriorLightOffset = 0x638;
+    public const int VehicleAiBlinkerLeftOffset = 0x63C;
+    public const int VehicleAiBlinkerRightOffset = 0x640;
+    public const int VehicleAiBrakeLightOffset = 0x644;
 
     // Active timetable state on TRVInst (read-only).
     public const int VehicleScheduleInfoValidOffset = 0x65C;
@@ -55,8 +91,13 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleScheduleTripIndexOffset = 0x66C;
     public const int VehicleScheduleTargetIndexOffset = 0x674;
     public const int VehicleScheduleNextStopOffset = 0x680;
+    public const int VehicleScheduleNextStopIndexOffset = 0x6A8;
     public const int VehicleScheduleNextStopNameOffset = 0x6AC;
     public const int VehicleScheduleDelayOffset = 0x6BC;
+
+    // OmsiRoadVehicleInst runtime state.
+    public const int VehicleCurrentStationOffset = 0x7A0;
+    public const int VehicleFuelPercentOffset = 0x7CC;
 
     // TTimeTableMan dynamic arrays and TTTTrip layout.
     public const int TimeTableTripsOffset = 0x00C;
@@ -82,6 +123,8 @@ internal static class Omsi23004MemoryProfile
     public const int NavigationTileXOffset = 0x018;
     public const int NavigationTileYOffset = 0x020;
 
+    // OmsiMyOmsiList<T> -> TList backing store.
     public const int OmsiListFListOffset = 0x028;
+    public const int OmsiListCountOffset = 0x02C;
     public const int TListItemsOffset = 0x004;
 }

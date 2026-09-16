@@ -74,16 +74,19 @@ Assert-OmsiClosed
 
 $sourceRoot = $PSScriptRoot
 $nativeDll = Join-Path $sourceRoot 'NavBR.OmsiPlugin.dll'
+$interopDll = Join-Path $sourceRoot 'NavBR.OmsiInterop.dll'
 $opl = Join-Path $sourceRoot 'NavBR.OmsiPlugin.opl'
 
-foreach ($required in @($nativeDll, $opl)) {
+foreach ($required in @($nativeDll, $interopDll, $opl)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Pacote Native AOT inválido: arquivo não encontrado: $required"
     }
 }
 
-if (-not (Test-X86PortableExecutable $nativeDll)) {
-    throw 'Pacote inválido: NavBR.OmsiPlugin.dll não é uma DLL x86 compatível com o OMSI 2.'
+foreach ($x86Dll in @($nativeDll, $interopDll)) {
+    if (-not (Test-X86PortableExecutable $x86Dll)) {
+        throw "Pacote inválido: $([System.IO.Path]::GetFileName($x86Dll)) não é uma DLL x86 compatível com o OMSI 2."
+    }
 }
 
 $pluginsRoot = Join-Path $root 'plugins'
@@ -91,6 +94,7 @@ New-Item -ItemType Directory -Path $pluginsRoot -Force | Out-Null
 
 $files = @(
     (Get-Item -LiteralPath $nativeDll),
+    (Get-Item -LiteralPath $interopDll),
     (Get-Item -LiteralPath $opl)
 )
 
@@ -127,7 +131,7 @@ foreach ($file in $files) {
 @(
     '# OMSI NavBR Plugin experimental - arquivos instalados'
     "# Instalado em: $(Get-Date -Format o)"
-    '# Deployment: Native AOT x86 (self-contained; no .NET x86 runtime required)'
+    '# Deployment: Native AOT x86 + NavBR OMSI ABI interop x86'
     $installed
 ) | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 
@@ -137,6 +141,7 @@ Write-Host "OMSI: $root"
 Write-Host "Destino: $pluginsRoot"
 Write-Host "Arquivos: $($installed.Count)"
 Write-Host 'Runtime .NET x86: não necessário (embutido no plugin Native AOT).'
+Write-Host 'Interop OMSI: NavBR.OmsiInterop.dll x86 instalado junto ao plugin.'
 Write-Host ''
 Write-Host 'Após iniciar o OMSI, confira o painel PLUGIN BRIDGE v1 • EXP e o log:'
 Write-Host '%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log'

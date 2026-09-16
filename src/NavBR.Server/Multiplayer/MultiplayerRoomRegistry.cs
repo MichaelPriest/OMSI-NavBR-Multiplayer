@@ -14,7 +14,8 @@ public sealed class MultiplayerRoomRegistry
         string playerId,
         string displayName,
         string? mapName,
-        string? mapCompatibilityId)
+        string? mapCompatibilityId,
+        OmsiCompatibilityManifest? compatibility = null)
     {
         var presence = new PlayerPresence(
             playerId,
@@ -22,7 +23,8 @@ public sealed class MultiplayerRoomRegistry
             roomId,
             NormalizeOptional(mapName),
             DateTimeOffset.UtcNow,
-            NormalizeOptional(mapCompatibilityId));
+            NormalizeOptional(mapCompatibilityId),
+            compatibility);
 
         _connections[connectionId] = presence;
         return presence;
@@ -48,6 +50,31 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
+    public string? GetTrafficAuthorityPlayerId(string roomId)
+    {
+        return _connections.Values
+            .Where(player => string.Equals(player.RoomId, roomId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(player => player.ConnectedAtUtc)
+            .ThenBy(player => player.PlayerId, StringComparer.OrdinalIgnoreCase)
+            .Select(player => player.PlayerId)
+            .FirstOrDefault();
+    }
+
+    public bool IsTrafficAuthority(string connectionId)
+    {
+        if (!TryGet(connectionId, out var presence) || presence is null)
+        {
+            return false;
+        }
+
+        var authorityPlayerId = GetTrafficAuthorityPlayerId(presence.RoomId);
+        return !string.IsNullOrWhiteSpace(authorityPlayerId) &&
+               string.Equals(
+                   authorityPlayerId,
+                   presence.PlayerId,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
     public PlayerPresence? UpdateMap(
         string connectionId,
         string? mapName,
@@ -63,10 +90,19 @@ public sealed class MultiplayerRoomRegistry
                 return null;
             }
 
+            var compatibility = current.Compatibility is null
+                ? null
+                : current.Compatibility with
+                {
+                    MapName = normalizedMap,
+                    MapCompatibilityId = normalizedCompatibilityId
+                };
+
             var updated = current with
             {
                 MapName = normalizedMap,
-                MapCompatibilityId = normalizedCompatibilityId
+                MapCompatibilityId = normalizedCompatibilityId,
+                Compatibility = compatibility
             };
 
             if (_connections.TryUpdate(connectionId, updated, current))

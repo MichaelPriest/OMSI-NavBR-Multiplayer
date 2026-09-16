@@ -3,21 +3,31 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Localization;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
+using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client;
 
 public partial class App : Application
 {
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
+    internal NavBRTrayIconService TrayIcon { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
         NavBRAppLog.StartSession();
         LocalizationService.Initialize();
+
+        RemoteDiagnosticsService.Initialize();
+        RemoteDiagnosticsService.Record("session", "info", "client-start");
+
+        PluginBridge.ConnectionStateChanged += PluginBridge_ConnectionStateChanged;
+        PluginBridge.CommandResultReceived += PluginBridge_CommandResultReceived;
         PluginBridge.Start();
         NavBRAppLog.Info("plugin-bridge-start");
+
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         EventManager.RegisterClassHandler(
             typeof(Window),
@@ -26,8 +36,19 @@ public partial class App : Application
         base.OnStartup(e);
     }
 
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        TrayIcon.PrepareForSystemExit();
+        base.OnSessionEnding(e);
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        TrayIcon.PrepareForSystemExit();
+        TrayIcon.Dispose();
+
+        RemoteDiagnosticsService.Record("session", "info", "client-stop");
+
         try
         {
             PluginBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -36,23 +57,72 @@ public partial class App : Application
         catch (Exception ex)
         {
             NavBRAppLog.Error("plugin-bridge-stop-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-bridge",
+                "error",
+                $"stop-error type={ex.GetType().Name} message={ex.Message}");
+        }
+
+        try
+        {
+            using var flushCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            RemoteDiagnosticsService.TryFlushAsync(flushCts.Token).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Diagnostics are strictly best effort during shutdown.
         }
 
         NavBRAppLog.EndSession();
         base.OnExit(e);
     }
 
-    private static void Window_Loaded(object sender, RoutedEventArgs e)
+    private static void PluginBridge_ConnectionStateChanged(bool connected)
     {
-        if (sender is Window window)
+        RemoteDiagnosticsService.Record(
+            "plugin-bridge",
+            connected ? "info" : "warning",
+            connected ? "connected" : "disconnected");
+    }
+
+    private static void PluginBridge_CommandResultReceived(PluginBridgeMessage message)
+    {
+        if (message.Success != false)
         {
-            WindowsThemeService.ApplyDarkTitleBar(window);
+            return;
+        }
+
+        RemoteDiagnosticsService.Record(
+            "plugin-command",
+            "error",
+            $"error={message.ErrorCode ?? "unknown"} detail={message.ErrorMessage ?? string.Empty}");
+    }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Window window)
+        {
+            return;
+        }
+
+        WindowsThemeService.ApplyDarkTitleBar(window);
+
+        if (window is MainWindow mainWindow)
+        {
+            Alpha11ShellUiInstaller.Install(mainWindow);
+            Alpha11VisualTuning.Apply(mainWindow);
+            OmsiProfilesUiInstaller.Install(mainWindow);
+            TrayIcon.Attach(mainWindow);
         }
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         NavBRAppLog.Error("dispatcher-unhandled", e.Exception);
+        RemoteDiagnosticsService.Record(
+            "unhandled-exception",
+            "error",
+            $"type={e.Exception.GetType().Name} message={e.Exception.Message}");
 
         try
         {

@@ -12,6 +12,8 @@ public partial class MultiplayerWindow
         NicknameTextBox.TextChanged += NicknameTextBox_SettingsChanged;
 
         SyncDraftSettings();
+        InitializePhysicalVehiclesPublicTest();
+        HookDiagnosticsLifecycle();
     }
 
     private void RoomTextBox_SettingsChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)

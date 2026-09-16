@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using NavBR.Client.Omsi;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Telemetry;
@@ -45,6 +46,36 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
     }
 
+    public IReadOnlyList<TrafficVehicleState> ReadRoadTraffic(
+        int maxVehicles = OmsiRoadTrafficReader.DefaultMaxVehicles,
+        double radiusMeters = OmsiRoadTrafficReader.DefaultRadiusMeters)
+    {
+        var memory = _memory;
+        var processInfo = _processInfo;
+        if (memory is null || processInfo is null || !processInfo.IsOmsi23004Exact)
+        {
+            return Array.Empty<TrafficVehicleState>();
+        }
+
+        try
+        {
+            if (Process.GetProcessById(memory.ProcessId).HasExited)
+            {
+                return Array.Empty<TrafficVehicleState>();
+            }
+
+            return OmsiRoadTrafficReader.Read(
+                memory,
+                processInfo,
+                maxVehicles,
+                radiusMeters);
+        }
+        catch
+        {
+            return Array.Empty<TrafficVehicleState>();
+        }
+    }
+
     public VehicleTelemetry? Read(string playerId)
     {
         var memory = _memory;
@@ -79,6 +110,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return null;
             }
 
+            // Keep both representations. AbsPosition is useful for cross-tile
+            // distance calculations, while Position/Rotation are the exact
+            // native pose that the alpha.11 physical multiplayer backend can
+            // apply to another OMSI instance without guessing coordinate axes.
+            var localPosition = memory.ReadVector3(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehiclePositionOffset));
+
             var absolutePosition = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleAbsPositionOffset +
@@ -88,26 +127,35 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleRotationOffset));
 
+            // OMSI maintains three useful motion values here. Tacho is the
+            // speedometer/script-facing speed and follows the same km/h unit as
+            // the built-in Velocity variable used by bus scripts. Groundspeed
+            // and the physical velocity vector stay as independent fallbacks.
+            var tachoKph = Math.Abs(memory.ReadSingle(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleTachoOffset)));
+
             var velocity = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleVelocityOffset));
 
-            var speedMps = Math.Sqrt(
+            var linearSpeedMps = Math.Sqrt(
                 velocity.X * velocity.X +
                 velocity.Y * velocity.Y +
                 velocity.Z * velocity.Z);
 
-            var groundSpeed = Math.Abs(memory.ReadSingle(nint.Add(
+            var groundSpeedMps = Math.Abs(memory.ReadSingle(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleGroundSpeedOffset)));
 
-            if (!double.IsFinite(speedMps) || speedMps > 150)
-            {
-                speedMps = groundSpeed;
-            }
+            var speedKph = ResolveVehicleSpeedKph(
+                tachoKph,
+                linearSpeedMps * 3.6d,
+                groundSpeedMps * 3.6d);
 
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
+            var vehicleIdentity = OmsiVehicleIdentityReader.Read(memory, _processInfo, vehicleAddress);
 
             int? gridX = null;
             int? gridY = null;
@@ -138,21 +186,30 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 PlayerId: playerId,
                 Timestamp: DateTimeOffset.UtcNow,
                 MapName: mapName,
-                VehicleName: null,
+                VehicleName: vehicleIdentity.Name,
                 Line: line,
                 Route: route,
                 X: absolutePosition.X,
                 Y: absolutePosition.Y,
                 Z: absolutePosition.Z,
                 HeadingDegrees: heading,
-                SpeedKph: speedMps * 3.6,
+                SpeedKph: speedKph,
                 IsInGame: mapLoaded,
                 GridX: gridX,
                 GridY: gridY,
                 TileX: tileX,
                 TileY: tileY,
                 NextStopName: nextStopName,
-                DestinationName: destinationName);
+                DestinationName: destinationName,
+                VehiclePath: vehicleIdentity.RelativePath,
+                VehicleCompatibilityId: vehicleIdentity.CompatibilityId,
+                LocalX: localPosition.X,
+                LocalY: localPosition.Y,
+                LocalZ: localPosition.Z,
+                RotationX: rotation.X,
+                RotationY: rotation.Y,
+                RotationZ: rotation.Z,
+                RotationW: rotation.W);
         }
         catch (ArgumentException)
         {
@@ -165,6 +222,53 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
         }
+    }
+
+    private static double ResolveVehicleSpeedKph(
+        double tachoKph,
+        double linearSpeedKph,
+        double groundSpeedKph)
+    {
+        const double maximumPlausibleKph = 220d;
+        const double movingThresholdKph = 0.5d;
+
+        var tachoValid = double.IsFinite(tachoKph) &&
+                         tachoKph >= 0d &&
+                         tachoKph <= maximumPlausibleKph;
+        var linearValid = double.IsFinite(linearSpeedKph) &&
+                          linearSpeedKph >= 0d &&
+                          linearSpeedKph <= maximumPlausibleKph;
+        var groundValid = double.IsFinite(groundSpeedKph) &&
+                          groundSpeedKph >= 0d &&
+                          groundSpeedKph <= maximumPlausibleKph;
+
+        // Prefer OMSI's speedometer value. This is closest to what the driver
+        // sees in the bus and avoids unit/axis differences between vehicles.
+        if (tachoValid && tachoKph >= movingThresholdKph)
+        {
+            return tachoKph;
+        }
+
+        // Some buses can leave Tacho at zero during initialization. In that
+        // case, use the physics values only while they clearly indicate motion.
+        if (groundValid && groundSpeedKph >= movingThresholdKph)
+        {
+            return groundSpeedKph;
+        }
+
+        if (linearValid && linearSpeedKph >= movingThresholdKph)
+        {
+            return linearSpeedKph;
+        }
+
+        // When all sources agree that the vehicle is effectively stopped, keep
+        // a clean zero instead of exposing floating-point jitter in HUD/hardware.
+        if (tachoValid || groundValid || linearValid)
+        {
+            return 0d;
+        }
+
+        return 0d;
     }
 
     private static nint ResolvePlayerVehicleAddress(
@@ -228,9 +332,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return false;
             }
 
-            // The scheduled next-stop name is stored directly on TRVInst.
-            // OMSI versions/addons can expose it as Unicode or ANSI, so use a
-            // defensive read-only fallback without making trip detection fail.
             nextStopName = memory.ReadNullTerminatedUnicodeStringField(
                                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
                                maxCharacters: 128)
@@ -273,9 +374,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
             catch
             {
-                // The record bounds are a defensive check only. If a patched
-                // runtime stores the Delphi array header differently, the
-                // actual trip record read below remains authoritative.
+                // Bounds check only; patched runtimes can store headers differently.
             }
 
             var tripPointer = nint.Add(
@@ -292,10 +391,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tripPointer,
                 Omsi23004MemoryProfile.TripTargetOffset));
 
-            // Route remains the technical track identifier when available because
-            // the roadmap reader uses it to resolve the actual .ttr. Destination
-            // is exposed separately so the HUD never has to show that technical
-            // identifier to the driver.
             route = !string.IsNullOrWhiteSpace(trackName) ? trackName : destinationName;
             return !string.IsNullOrWhiteSpace(line) ||
                    !string.IsNullOrWhiteSpace(route) ||

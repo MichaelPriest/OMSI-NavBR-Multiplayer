@@ -1,0 +1,251 @@
+using System.Windows;
+using System.Windows.Controls;
+using Microsoft.AspNetCore.SignalR.Client;
+using NavBR.Client.Diagnostics;
+using NavBR.Shared.Multiplayer;
+
+namespace NavBR.Client.Multiplayer;
+
+public partial class MultiplayerWindow
+{
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
+    private CheckBox? _physicalVehiclesCheckBox;
+    private CheckBox? _diagnosticsCheckBox;
+    private bool _physicalVehiclesUiInstalled;
+
+    private void InitializePhysicalVehiclesPublicTest()
+    {
+        EnsurePhysicalVehiclesUi();
+        HookPhysicalVehicleLifecycle();
+        RefreshDiagnosticsContext();
+    }
+
+    private void EnsurePhysicalVehiclesUi()
+    {
+        if (_physicalVehiclesUiInstalled)
+        {
+            return;
+        }
+
+        _physicalVehiclesUiInstalled = true;
+
+        // Persisted user consent is the public-test opt-in consumed by both the
+        // desktop client and the Native AOT plugin running inside Omsi.exe.
+        ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
+            _settings.ExperimentalPhysicalVehiclesEnabled);
+
+        if (VoiceEnabledCheckBox.Parent is not Grid parent)
+        {
+            return;
+        }
+
+        parent.Children.Remove(VoiceEnabledCheckBox);
+
+        var options = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 11)
+        };
+        Grid.SetRow(options, 2);
+        Grid.SetColumn(options, 2);
+        Grid.SetColumnSpan(options, 2);
+
+        VoiceEnabledCheckBox.Margin = new Thickness(0, 0, 0, 6);
+        options.Children.Add(VoiceEnabledCheckBox);
+
+        _physicalVehiclesCheckBox = new CheckBox
+        {
+            IsChecked = _settings.ExperimentalPhysicalVehiclesEnabled,
+            Content = PhysicalVehiclesLabel(),
+            ToolTip = PhysicalVehiclesWarning(),
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        _physicalVehiclesCheckBox.Click += PhysicalVehiclesCheckBox_Click;
+        options.Children.Add(_physicalVehiclesCheckBox);
+
+        _diagnosticsCheckBox = new CheckBox
+        {
+            IsChecked = DiagnosticsConsentStore.IsEnabled,
+            Content = DiagnosticsLabel(),
+            ToolTip = DiagnosticsWarning(),
+            FontWeight = FontWeights.SemiBold
+        };
+        _diagnosticsCheckBox.Click += DiagnosticsCheckBox_Click;
+        options.Children.Add(_diagnosticsCheckBox);
+
+        parent.Children.Add(options);
+    }
+
+    private void HookPhysicalVehicleLifecycle()
+    {
+        if (_physicalVehiclesCheckBox?.Tag is "hooked")
+        {
+            return;
+        }
+
+        if (_physicalVehiclesCheckBox is not null)
+        {
+            _physicalVehiclesCheckBox.Tag = "hooked";
+        }
+
+        _client.TelemetryReceived += frame => Dispatcher.BeginInvoke(() =>
+        {
+            _physicalVehicles.SetLocalManifest(
+                OmsiCompatibilityManifestFactory.Create(
+                    _telemetrySource(),
+                    _activeMapSource()));
+            _ = _physicalVehicles.ApplyAsync(frame);
+        });
+
+        _client.PlayerLeft += playerId => Dispatcher.BeginInvoke(() =>
+            _ = _physicalVehicles.DespawnAsync(playerId));
+
+        _client.ConnectionStateChanged += state =>
+        {
+            if (state == HubConnectionState.Disconnected)
+            {
+                _ = Dispatcher.BeginInvoke(() => _ = _physicalVehicles.ClearAsync());
+            }
+        };
+
+        Closed += (_, _) => _ = _physicalVehicles.ClearAsync();
+    }
+
+    private async void PhysicalVehiclesCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (_physicalVehiclesCheckBox is null)
+        {
+            return;
+        }
+
+        var enabled = _physicalVehiclesCheckBox.IsChecked == true;
+        _settings = _settings with { ExperimentalPhysicalVehiclesEnabled = enabled };
+        MultiplayerSettingsStore.Save(_settings);
+        ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(enabled);
+        RefreshDiagnosticsContext();
+        RemoteDiagnosticsService.Record(
+            "physical-vehicle",
+            "info",
+            enabled ? "experimental-3d-enabled" : "experimental-3d-disabled");
+
+        if (!enabled)
+        {
+            // Despawn is deliberately accepted by the plugin even after the
+            // opt-in flag is removed, so disabling this switch always cleans up.
+            await _physicalVehicles.ClearAsync();
+        }
+
+        StatusDetailText.Text = enabled
+            ? PhysicalVehiclesEnabledMessage()
+            : PhysicalVehiclesDisabledMessage();
+    }
+
+    private void DiagnosticsCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosticsCheckBox is null)
+        {
+            return;
+        }
+
+        var enabled = _diagnosticsCheckBox.IsChecked == true;
+        DiagnosticsConsentStore.SetEnabled(enabled);
+        RemoteDiagnosticsService.OnConsentChanged(enabled);
+        RefreshDiagnosticsContext();
+
+        StatusDetailText.Text = enabled
+            ? DiagnosticsEnabledMessage()
+            : DiagnosticsDisabledMessage();
+    }
+
+    private void RefreshDiagnosticsContext()
+    {
+        var telemetry = _telemetrySource();
+        RemoteDiagnosticsService.UpdateContext(
+            omsiVersion: null,
+            mapName: telemetry?.MapName ?? _activeMapSource()?.FolderName,
+            vehicleId: telemetry?.VehiclePath ?? telemetry?.VehicleName,
+            physicalVehiclesEnabled: ExperimentalFeatureFlags.PhysicalVehiclesEnabled);
+    }
+
+    private static string PhysicalVehiclesLabel() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Ônibus remoto 3D (EXPERIMENTAL)",
+            "es" => "Autobús remoto 3D (EXPERIMENTAL)",
+            "de" => "Entfernter 3D-Bus (EXPERIMENTELL)",
+            "fr" => "Bus distant 3D (EXPÉRIMENTAL)",
+            _ => "Remote 3D bus (EXPERIMENTAL)"
+        };
+
+    private static string PhysicalVehiclesWarning() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Teste público da Alpha.11. Requer OMSI 2.3.004, plugin NavBR instalado e o mesmo veículo disponível localmente. Pode causar instabilidade; desligue se houver travamentos.",
+            "es" => "Prueba pública Alpha.11. Requiere OMSI 2.3.004, el plugin NavBR y el mismo vehículo instalado localmente. Puede ser inestable.",
+            "de" => "Öffentlicher Alpha.11-Test. Erfordert OMSI 2.3.004, das NavBR-Plugin und dasselbe lokal installierte Fahrzeug. Kann instabil sein.",
+            "fr" => "Test public Alpha.11. Nécessite OMSI 2.3.004, le plugin NavBR et le même véhicule installé localement. Peut être instable.",
+            _ => "Alpha.11 public test. Requires OMSI 2.3.004, the NavBR plugin and the same vehicle installed locally. May be unstable."
+        };
+
+    private static string DiagnosticsLabel() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Enviar diagnósticos automáticos do teste",
+            "es" => "Enviar diagnósticos automáticos de la prueba",
+            "de" => "Automatische Testdiagnosen senden",
+            "fr" => "Envoyer les diagnostics automatiques du test",
+            _ => "Send automatic test diagnostics"
+        };
+
+    private static string DiagnosticsWarning() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Opcional. Envia versão, mapa/ônibus técnicos, estado do plugin/3D e erros. Não envia chat, voz, senhas, tokens nem arquivos pessoais. Pode ser desligado a qualquer momento.",
+            "es" => "Opcional. Envía versión, mapa/vehículo técnicos, estado del plugin/3D y errores. No envía chat, voz, contraseñas, tokens ni archivos personales.",
+            "de" => "Optional. Sendet Version, technische Karten/Fahrzeugdaten, Plugin-/3D-Status und Fehler. Kein Chat, Audio, Passwörter, Tokens oder persönliche Dateien.",
+            "fr" => "Optionnel. Envoie la version, les données techniques carte/véhicule, l’état plugin/3D et les erreurs. Aucun chat, audio, mot de passe, jeton ou fichier personnel.",
+            _ => "Optional. Sends version, technical map/vehicle identifiers, plugin/3D state and errors. No chat, voice, passwords, tokens or personal files."
+        };
+
+    private static string PhysicalVehiclesEnabledMessage() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Ônibus remoto 3D experimental ativado. Jogadores compatíveis poderão aparecer fisicamente no OMSI.",
+            "es" => "Autobús remoto 3D experimental activado.",
+            "de" => "Experimenteller entfernter 3D-Bus aktiviert.",
+            "fr" => "Bus distant 3D expérimental activé.",
+            _ => "Experimental remote 3D bus enabled."
+        };
+
+    private static string PhysicalVehiclesDisabledMessage() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Ônibus remoto 3D experimental desativado.",
+            "es" => "Autobús remoto 3D experimental desactivado.",
+            "de" => "Experimenteller entfernter 3D-Bus deaktiviert.",
+            "fr" => "Bus distant 3D expérimental désactivé.",
+            _ => "Experimental remote 3D bus disabled."
+        };
+
+    private static string DiagnosticsEnabledMessage() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Diagnósticos automáticos ativados. Os eventos técnicos serão enviados quando o coletor oficial estiver disponível.",
+            "es" => "Diagnósticos automáticos activados.",
+            "de" => "Automatische Diagnosen aktiviert.",
+            "fr" => "Diagnostics automatiques activés.",
+            _ => "Automatic diagnostics enabled."
+        };
+
+    private static string DiagnosticsDisabledMessage() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Diagnósticos automáticos desativados e fila local apagada.",
+            "es" => "Diagnósticos automáticos desactivados y cola local eliminada.",
+            "de" => "Automatische Diagnosen deaktiviert und lokale Warteschlange gelöscht.",
+            "fr" => "Diagnostics automatiques désactivés et file locale supprimée.",
+            _ => "Automatic diagnostics disabled and local queue cleared."
+        };
+}

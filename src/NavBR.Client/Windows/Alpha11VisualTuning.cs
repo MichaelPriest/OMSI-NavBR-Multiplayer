@@ -1,0 +1,85 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+
+namespace NavBR.Client.Windows;
+
+internal static class Alpha11VisualTuning
+{
+    private static readonly HashSet<MainWindow> Applied = new();
+
+    public static void Apply(MainWindow window)
+    {
+        if (!Applied.Add(window))
+        {
+            return;
+        }
+
+        HideLegacyHeader(window);
+        ResetWorkspaceGridPlacement(window);
+        CompactMainMapVehicleMarker(window);
+        window.InitializeRouteOverviewFeature();
+    }
+
+    private static void HideLegacyHeader(MainWindow window)
+    {
+        // The alpha.11 shell already has its own brand/navigation rail. The old
+        // top header would duplicate the logo/title and leave empty spaces after
+        // Multiplayer/language are moved into the sidebar.
+        DependencyObject? current = window.TaglineText;
+        while (current is not null)
+        {
+            current = VisualTreeHelper.GetParent(current);
+            if (current is Grid grid && Grid.GetRow(grid) == 0)
+            {
+                grid.Visibility = Visibility.Collapsed;
+                break;
+            }
+        }
+    }
+
+    private static void ResetWorkspaceGridPlacement(MainWindow window)
+    {
+        // Alpha11ShellUiInstaller reuses the existing cards inside new focused
+        // pages. Clear Grid.Row/Grid.Column values inherited from MainWindow.xaml
+        // so, for example, the former right-column GPS card cannot be positioned
+        // outside the single-column navigation page.
+        ResetAncestorGridPlacement(window.StatusHeadingText);
+        ResetAncestorGridPlacement(window.TelemetryHeadingText);
+        ResetAncestorGridPlacement(window.GpsHeadingText);
+        ResetAncestorGridPlacement(window.MilestoneHeadingText);
+    }
+
+    private static void ResetAncestorGridPlacement(DependencyObject child)
+    {
+        DependencyObject? current = child;
+        while (current is not null)
+        {
+            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
+            if (current is Border card)
+            {
+                Grid.SetRow(card, 0);
+                Grid.SetColumn(card, 0);
+                Grid.SetRowSpan(card, 1);
+                Grid.SetColumnSpan(card, 1);
+                return;
+            }
+        }
+    }
+
+    private static void CompactMainMapVehicleMarker(MainWindow window)
+    {
+        // MainWindow calculates the marker's logical size from the source
+        // roadmap so positioning remains resolution-independent. Alpha.11
+        // keeps that logical geometry for centering but renders the complete
+        // marker (orange disc + arrow + outline) at a compact scale.
+        // This avoids changing the GPS coordinate math or the heading updates.
+        var headingRotation = window.VehicleHeadingTransform;
+        var transforms = new TransformGroup();
+        transforms.Children.Add(new ScaleTransform(0.32d, 0.32d));
+        transforms.Children.Add(headingRotation);
+
+        window.VehicleMarker.RenderTransformOrigin = new Point(0.5d, 0.5d);
+        window.VehicleMarker.RenderTransform = transforms;
+    }
+}

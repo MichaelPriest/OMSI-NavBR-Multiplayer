@@ -2,12 +2,13 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using NavBR.Client.PluginBridge;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 
 await using var server = new OmsiPluginBridgeServer();
 server.Start();
 
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 await using var pipe = new NamedPipeClientStream(
     ".",
     PluginBridgeProtocol.PipeName,
@@ -53,11 +54,13 @@ var pluginStatus = new PluginBridgeMessage(
     ProcessId: 4242,
     ComponentVersion: "smoke-test",
     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    SpeedKph: 37.5,
     SystemVariableCallbacks: 123,
     RemoteVehicleCount: 2,
     CompatibleRemoteVehicleCount: 1,
     StaleRemovedCount: 3,
-    LastSystemVariableIndex: 7);
+    LastSystemVariableIndex: 7,
+    StopRequested: true);
 
 await writer.WriteLineAsync(JsonSerializer.Serialize(pluginStatus));
 
@@ -83,6 +86,8 @@ Require(info.LastStatus.RemoteVehicleCount == 2, "remote count mismatch");
 Require(info.LastStatus.CompatibleRemoteVehicleCount == 1, "compatible remote count mismatch");
 Require(info.LastStatus.StaleRemovedCount == 3, "stale count mismatch");
 Require(info.LastStatus.LastSystemVariableIndex == 7, "system variable index mismatch");
+Require(info.LastStatus.SpeedKph == 37.5, "plugin Velocity status mismatch");
+Require(info.LastStatus.StopRequested == true, "stop request status mismatch");
 
 var spoofedStatus = pluginStatus with
 {
@@ -110,7 +115,59 @@ var afterInvalidCounters = server.GetConnectionInfo();
 Require(afterInvalidCounters.LastStatus?.SystemVariableCallbacks == 123,
     "runtime status with invalid counters was accepted");
 
-Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime status + rejection checks.");
+var trafficVehicle = new TrafficVehicleState(
+    "traffic-17",
+    "Vehicles\\MAN_NL_NG\\MAN_NL263.bus",
+    "sha256:test-vehicle",
+    1234.5,
+    2345.6,
+    12.3,
+    34.5,
+    45.6,
+    12.3,
+    0,
+    0,
+    0,
+    1,
+    37.5,
+    LightFlags: 3,
+    TurnSignal: 1);
+
+var trafficMessage = new PluginBridgeMessage(
+    PluginBridgeProtocol.TrafficSnapshotState,
+    PluginBridgeProtocol.Version,
+    MapName: "Berlin-Spandau",
+    MapCompatibilityId: "sha256:test-map",
+    TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    AuthorityPlayerId: "host-player",
+    Sequence: 42,
+    TrafficVehicles: [trafficVehicle]);
+
+var trafficRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(trafficMessage, cts.Token);
+var trafficLine = await trafficRead;
+var receivedTraffic = JsonSerializer.Deserialize<PluginBridgeMessage>(
+    trafficLine ?? throw new InvalidOperationException("traffic snapshot not received"));
+
+Require(receivedTraffic?.Type == PluginBridgeProtocol.TrafficSnapshotState,
+    "unexpected traffic message type");
+Require(receivedTraffic?.AuthorityPlayerId == "host-player", "traffic authority mismatch");
+Require(receivedTraffic?.Sequence == 42, "traffic sequence mismatch");
+Require(receivedTraffic?.TrafficVehicles?.Length == 1, "traffic vehicle count mismatch");
+Require(receivedTraffic?.TrafficVehicles?[0].TrafficId == "traffic-17", "traffic vehicle id mismatch");
+
+var clearTraffic = new PluginBridgeMessage(
+    PluginBridgeProtocol.ClearTrafficVehicles,
+    PluginBridgeProtocol.Version);
+var clearRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(clearTraffic, cts.Token);
+var clearLine = await clearRead;
+var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
+    clearLine ?? throw new InvalidOperationException("traffic clear not received"));
+Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
+    "traffic clear message type mismatch");
+
+Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime/hardware status + traffic delivery + rejection checks.");
 
 static void Require(bool condition, string message)
 {

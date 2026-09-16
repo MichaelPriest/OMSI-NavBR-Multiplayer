@@ -10,7 +10,19 @@ public sealed record MultiplayerSettings(
     double HudX = 0.02d,
     double HudY = 1.0d,
     double HudZoom = 1.0d,
-    double HudMapOpacity = 0.58d)
+    double HudMapOpacity = 0.52d,
+    int DashboardSettingsVersion = 2,
+    bool DashboardEnabled = true,
+    double DashboardX = 0.02d,
+    double DashboardY = 0.58d,
+    double DashboardScale = 0.82d,
+    double DashboardOpacity = 0.78d,
+    bool DashboardShowFuel = true,
+    bool DashboardShowPedals = true,
+    bool DashboardShowStatus = true,
+    string StopIconStyle = "omsi",
+    string? StopCustomIconPath = null,
+    bool ExperimentalPhysicalVehiclesEnabled = false)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
@@ -22,5 +34,17 @@ public sealed record MultiplayerSettings(
         0.02d,
         1.0d,
         1.0d,
-        0.58d);
+        0.52d,
+        2,
+        true,
+        0.02d,
+        0.58d,
+        0.82d,
+        0.78d,
+        true,
+        true,
+        true,
+        "omsi",
+        null,
+        false);
 }
