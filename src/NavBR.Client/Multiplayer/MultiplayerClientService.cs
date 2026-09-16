@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
@@ -26,6 +27,12 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
     public bool IsConnected => State == HubConnectionState.Connected;
     public string? TrafficAuthorityPlayerId { get; private set; }
+    public bool CurrentRoomIsPrivate { get; private set; }
+    public string? RoomOwnerPlayerId { get; private set; }
+    public bool IsRoomOwner =>
+        _joinRequest is not null &&
+        !string.IsNullOrWhiteSpace(RoomOwnerPlayerId) &&
+        string.Equals(_joinRequest.PlayerId, RoomOwnerPlayerId, StringComparison.OrdinalIgnoreCase);
     public bool IsTrafficAuthority =>
         _joinRequest is not null &&
         !string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId) &&
@@ -60,14 +67,25 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         await DisconnectAsync();
 
-        var hubUrl = NormalizeHubUrl(settings.ServerUrl);
+        string hubUrl;
+        try
+        {
+            hubUrl = NormalizeHubUrl(settings.ServerUrl);
+        }
+        catch (Exception ex)
+        {
+            throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
+        }
+
         _joinRequest = new JoinRoomRequest(
             settings.RoomId.Trim(),
             settings.PlayerId.Trim(),
             settings.DisplayName.Trim(),
             NormalizeOptional(currentMapName),
             NormalizeOptional(currentMapCompatibilityId),
-            compatibility);
+            compatibility,
+            settings.EphemeralRoomPassword,
+            settings.EphemeralCreatePrivateRoom);
         _physicalVehicles.SetLocalManifest(compatibility);
 
         var connection = new HubConnectionBuilder()
@@ -99,7 +117,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             RoomSnapshotReceived?.Invoke(snapshot);
             return snapshot;
         }
-        catch
+        catch (Exception ex)
         {
             await DisposeConnectionAsync(connection);
             if (ReferenceEquals(_connection, connection))
@@ -108,12 +126,17 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             }
 
             _joinRequest = null;
-            SetTrafficAuthority(null);
+            ResetRoomMetadata();
             _physicalVehicles.SetLocalManifest(null);
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
-            throw;
+
+            if (ex is HubException)
+            {
+                throw;
+            }
+            throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
         }
     }
 
@@ -184,7 +207,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         var connection = _connection;
         _connection = null;
         _joinRequest = null;
-        SetTrafficAuthority(null);
+        ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
@@ -272,7 +295,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         connection.Closed += error =>
         {
-            SetTrafficAuthority(null);
+            ResetRoomMetadata();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
@@ -283,6 +306,15 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     private void ApplyRoomSnapshotMetadata(RoomSnapshot snapshot)
     {
         SetTrafficAuthority(snapshot.TrafficAuthorityPlayerId);
+        CurrentRoomIsPrivate = snapshot.IsPrivate;
+        RoomOwnerPlayerId = NormalizeOptional(snapshot.OwnerPlayerId);
+    }
+
+    private void ResetRoomMetadata()
+    {
+        SetTrafficAuthority(null);
+        CurrentRoomIsPrivate = false;
+        RoomOwnerPlayerId = null;
     }
 
     private void SetTrafficAuthority(string? playerId)
