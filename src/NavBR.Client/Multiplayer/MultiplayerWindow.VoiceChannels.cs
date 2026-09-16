@@ -51,6 +51,7 @@ public partial class MultiplayerWindow
         if (!_voiceChannelLifecycleHooked)
         {
             _voiceChannelLifecycleHooked = true;
+            _voiceChat.VoiceQualityChanged += VoiceChat_QualityChanged;
             Closed += VoiceChannels_WindowClosed;
         }
     }
@@ -158,12 +159,43 @@ public partial class MultiplayerWindow
         var deafen = _settings.VoiceDeafened
             ? $" • {T("silenciado", "deafened", "silenciado", "stumm", "sourdine")}"
             : string.Empty;
-        _voiceChannelButton.Content = $"{T("Voz", "Voice", "Voz", "Sprache", "Voix")}: {label}{deafen}";
+
+        var quality = _voiceChat.GetQualitySnapshot();
+        var qualitySuffix = quality.ActiveStreams > 0
+            ? $" • {(quality.IsDegraded ? "⚠" : "✓")} {quality.AverageJitterMilliseconds:0} ms / {quality.EstimatedLossPercent:0.#}%"
+            : string.Empty;
+
+        _voiceChannelButton.Content = $"{T("Voz", "Voice", "Voz", "Sprache", "Voix")}: {label}{deafen}{qualitySuffix}";
+        _voiceChannelButton.ToolTip = quality.ActiveStreams > 0
+            ? T(
+                $"Qualidade da voz: jitter {quality.AverageJitterMilliseconds:0} ms • perda estimada {quality.EstimatedLossPercent:0.#}% • FEC recuperados {quality.FecRecoveredPackets} • buffer {quality.TargetBufferMilliseconds} ms",
+                $"Voice quality: jitter {quality.AverageJitterMilliseconds:0} ms • estimated loss {quality.EstimatedLossPercent:0.#}% • FEC recovered {quality.FecRecoveredPackets} • buffer {quality.TargetBufferMilliseconds} ms",
+                $"Calidad de voz: jitter {quality.AverageJitterMilliseconds:0} ms • pérdida estimada {quality.EstimatedLossPercent:0.#}% • FEC recuperados {quality.FecRecoveredPackets} • búfer {quality.TargetBufferMilliseconds} ms",
+                $"Sprachqualität: Jitter {quality.AverageJitterMilliseconds:0} ms • geschätzter Verlust {quality.EstimatedLossPercent:0.#}% • FEC wiederhergestellt {quality.FecRecoveredPackets} • Puffer {quality.TargetBufferMilliseconds} ms",
+                $"Qualité vocale : jitter {quality.AverageJitterMilliseconds:0} ms • perte estimée {quality.EstimatedLossPercent:0.#}% • FEC récupérés {quality.FecRecoveredPackets} • tampon {quality.TargetBufferMilliseconds} ms")
+            : T(
+                "A qualidade aparecerá quando chegar áudio de outro jogador.",
+                "Voice quality appears after audio arrives from another player.",
+                "La calidad aparecerá cuando llegue audio de otro jugador.",
+                "Die Sprachqualität erscheint nach dem Empfang von Audio eines anderen Spielers.",
+                "La qualité apparaîtra après réception de l’audio d’un autre joueur.");
+    }
+
+    private void VoiceChat_QualityChanged(VoiceQualitySnapshot snapshot)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            RenderVoiceChannelButton();
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(RenderVoiceChannelButton);
     }
 
     private void VoiceChannels_WindowClosed(object? sender, EventArgs e)
     {
         VoiceChannelSession.SetProximityFilter(null);
+        _voiceChat.VoiceQualityChanged -= VoiceChat_QualityChanged;
     }
 
     private static string T(string pt, string en, string es, string de, string fr) =>
