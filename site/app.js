@@ -1,37 +1,37 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.12-test.1';
+const fallbackTag = 'v0.3.0-alpha.12-test.2';
 
 const fallbackRelease = {
-  tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.1 — community test',
+  tag_name: fallbackTag,
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.2 — community test',
   prerelease: true,
-  published_at: '2026-09-16T19:06:31Z',
-  html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.12 Test 1: novo shell/HUD, perfil e empresa virtual, CCO, peer-host, salas públicas/privadas, diagnóstico de rede, voz avançada e recursos experimentais da nova geração.',
+  published_at: '2026-09-16T23:12:58Z',
+  html_url: `https://github.com/${repo}/releases/tag/${fallbackTag}`,
+  body: 'Alpha.12 Test 2: corrige o pacote interno do plugin OMSI e traz a nova interface operacional com Home, Navegação, Central Multiplayer, CCO, Perfil, Empresa/Frota e Configurações remodeladas.',
   download_count: 0,
   assets: [
     {
-      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      size: 85048515,
+      name: `OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.exe`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.exe`,
+      size: 84535986,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      size: 85380173,
+      name: `OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.zip`,
+      size: 85487145,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      size: 5283624,
+      name: `OMSI-NavBR-Plugin-${fallbackTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Plugin-${fallbackTag}-win-x86.zip`,
+      size: 5274632,
       download_count: 0
     },
     {
-      name: `OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
-      size: 0,
+      name: `OMSI-NavBR-Server-${fallbackTag}-win-x64.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Server-${fallbackTag}-win-x64.zip`,
+      size: 50216520,
       download_count: 0
     }
   ]
@@ -103,6 +103,11 @@ function releaseDownloadCount(release) {
     .reduce((total, asset) => total + (Number(asset.download_count) || 0), 0);
 }
 
+function releaseTimestamp(release) {
+  const value = new Date(release?.published_at || release?.created_at || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
 function renderRelease(release) {
   const assets = (release.assets || []).filter(asset => /\.(exe|zip)$/i.test(asset.name || ''));
   const assetLinks = assets.map(asset => {
@@ -148,16 +153,21 @@ async function loadReleases() {
     // O fallback abaixo mantém o portal utilizável durante deploys do catálogo.
   }
 
-  if (!releases.some(release => release?.tag_name === currentTag)) {
+  releases = releases.filter(release => release && !release.draft);
+  releases.sort((a, b) => releaseTimestamp(b) - releaseTimestamp(a));
+
+  // A release publicada mais recentemente é a versão principal do portal.
+  // O fallback só é injetado quando o catálogo não está disponível, evitando
+  // que uma tag fixa antiga sobrescreva uma Alpha/Test recém-publicada.
+  if (releases.length === 0) {
     releases.push(fallbackRelease);
   }
 
-  releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
   if (!totalDownloads) {
     totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
   }
 
-  const current = releases.find(release => release?.tag_name === currentTag) || fallbackRelease;
+  const current = releases[0] || fallbackRelease;
   const versionElement = document.getElementById('latest-version');
   const summaryElement = document.getElementById('latest-summary');
   const downloadsElement = document.getElementById('total-downloads');
@@ -171,7 +181,7 @@ async function loadReleases() {
   const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
   if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
   if (releaseList) {
-    releaseList.innerHTML = [current, ...releases.filter(release => release !== current)]
+    releaseList.innerHTML = releases
       .slice(0, 6)
       .map(renderRelease)
       .join('');
