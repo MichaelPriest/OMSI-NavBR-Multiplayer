@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 
 namespace NavBR.Client.Windows;
@@ -19,22 +20,44 @@ internal static class Alpha12HudThemeService
         EventHandler? layoutUpdated = null;
         layoutUpdated = (_, _) =>
         {
-            if (TryApply(window, Alpha12PreferencesStore.Load().HudTheme) && layoutUpdated is not null)
+            var settings = MultiplayerSettingsStore.Load();
+            if (TryApply(window, settings.DashboardTheme) && layoutUpdated is not null)
             {
                 window.LayoutUpdated -= layoutUpdated;
             }
         };
         window.LayoutUpdated += layoutUpdated;
 
-        Action<Alpha12Preferences> preferencesSaved = preferences =>
+        Action<MultiplayerSettings> dashboardSettingsSaved = settings =>
         {
             if (window.Dispatcher.CheckAccess())
             {
-                TryApply(window, preferences.HudTheme);
+                TryApply(window, settings.DashboardTheme);
             }
             else
             {
-                _ = window.Dispatcher.BeginInvoke(() => TryApply(window, preferences.HudTheme));
+                _ = window.Dispatcher.BeginInvoke(() => TryApply(window, settings.DashboardTheme));
+            }
+        };
+        MultiplayerSettingsStore.SettingsSaved += dashboardSettingsSaved;
+
+        Action<Alpha12Preferences> preferencesSaved = preferences =>
+        {
+            var mappedTheme = MapLegacyTheme(preferences.HudTheme);
+            var current = MultiplayerSettingsStore.Load();
+            if (!string.Equals(current.DashboardTheme, mappedTheme, StringComparison.OrdinalIgnoreCase))
+            {
+                MultiplayerSettingsStore.Save(current with { DashboardTheme = mappedTheme });
+                return;
+            }
+
+            if (window.Dispatcher.CheckAccess())
+            {
+                TryApply(window, mappedTheme);
+            }
+            else
+            {
+                _ = window.Dispatcher.BeginInvoke(() => TryApply(window, mappedTheme));
             }
         };
         Alpha12PreferencesStore.PreferencesSaved += preferencesSaved;
@@ -45,6 +68,7 @@ internal static class Alpha12HudThemeService
             {
                 window.LayoutUpdated -= layoutUpdated;
             }
+            MultiplayerSettingsStore.SettingsSaved -= dashboardSettingsSaved;
             Alpha12PreferencesStore.PreferencesSaved -= preferencesSaved;
             Attached.Remove(window);
         };
@@ -57,9 +81,16 @@ internal static class Alpha12HudThemeService
             return;
         }
 
+        var mappedTheme = MapLegacyTheme(theme);
+        var settings = MultiplayerSettingsStore.Load();
+        if (!string.Equals(settings.DashboardTheme, mappedTheme, StringComparison.OrdinalIgnoreCase))
+        {
+            MultiplayerSettingsStore.Save(settings with { DashboardTheme = mappedTheme });
+        }
+
         foreach (var hud in Application.Current.Windows.OfType<HudOverlayWindow>())
         {
-            TryApply(hud, theme);
+            TryApply(hud, mappedTheme);
         }
     }
 
@@ -70,14 +101,15 @@ internal static class Alpha12HudThemeService
             return;
         }
 
+        var theme = MultiplayerSettingsStore.Load().DashboardTheme;
         foreach (var hud in Application.Current.Windows.OfType<HudOverlayWindow>())
         {
             Alpha12ExperienceInstaller.TagAndTranslateTree(hud);
-            TryApply(hud, Alpha12PreferencesStore.Load().HudTheme);
+            TryApply(hud, theme);
         }
     }
 
-    private static bool TryApply(HudOverlayWindow window, string theme)
+    private static bool TryApply(HudOverlayWindow window, string? theme)
     {
         var dashboard = FindDashboardRoot(window);
         if (dashboard is null)
@@ -99,10 +131,10 @@ internal static class Alpha12HudThemeService
 
             if (palette.Minimal)
             {
-                border.Background = new SolidColorBrush(Color.FromArgb(75, 0, 0, 0));
+                border.Background = new SolidColorBrush(Color.FromArgb(72, palette.Panel.R, palette.Panel.G, palette.Panel.B));
                 if (border.BorderThickness != new Thickness(0d))
                 {
-                    border.BorderBrush = new SolidColorBrush(Color.FromArgb(55, palette.Accent.R, palette.Accent.G, palette.Accent.B));
+                    border.BorderBrush = new SolidColorBrush(Color.FromArgb(70, palette.Accent.R, palette.Accent.G, palette.Accent.B));
                 }
             }
             else if (border.Background is SolidColorBrush)
@@ -144,14 +176,10 @@ internal static class Alpha12HudThemeService
 
     private static Border? FindDashboardRoot(DependencyObject root)
     {
-        foreach (var border in EnumerateVisualChildren<Border>(root))
-        {
-            if (Math.Abs(border.Width - 370d) < 0.5d && Panel.GetZIndex(border) >= 1000)
-            {
-                return border;
-            }
-        }
-        return null;
+        return EnumerateVisualChildren<Border>(root)
+            .FirstOrDefault(border =>
+                Panel.GetZIndex(border) >= 1000 &&
+                border.Child is StackPanel);
     }
 
     private static IEnumerable<T> EnumerateVisualChildren<T>(DependencyObject root)
@@ -171,6 +199,15 @@ internal static class Alpha12HudThemeService
         }
     }
 
+    private static string MapLegacyTheme(string? theme) => theme?.Trim().ToLowerInvariant() switch
+    {
+        "classic" => "bus-panel",
+        "amber" => "amber-classic",
+        "minimal" => "navbr-modern",
+        "navbr-modern" or "bus-panel" or "lcd" or "amber-classic" or "light" => theme.Trim().ToLowerInvariant(),
+        _ => HudProfileCatalog.DefaultTheme
+    };
+
     private sealed record Palette(
         Color Background,
         Color Panel,
@@ -180,15 +217,23 @@ internal static class Alpha12HudThemeService
         Color SecondaryText,
         bool Minimal)
     {
-        public static Palette For(string? theme) => theme?.Trim().ToLowerInvariant() switch
+        public static Palette For(string? theme) => MapLegacyTheme(theme) switch
         {
-            "amber" => new(
-                Color.FromArgb(242, 8, 6, 2),
-                Color.FromArgb(215, 18, 12, 4),
-                Color.FromArgb(210, 255, 147, 35),
-                Color.FromRgb(255, 166, 53),
-                Color.FromRgb(255, 199, 112),
-                Color.FromRgb(227, 157, 75),
+            "bus-panel" => new(
+                Color.FromArgb(242, 7, 9, 10),
+                Color.FromArgb(215, 15, 18, 19),
+                Color.FromArgb(185, 118, 79, 36),
+                Color.FromRgb(255, 174, 67),
+                Color.FromRgb(255, 255, 255),
+                Color.FromRgb(199, 211, 217),
+                false),
+            "amber-classic" => new(
+                Color.FromArgb(245, 14, 8, 2),
+                Color.FromArgb(220, 22, 12, 3),
+                Color.FromArgb(210, 137, 81, 10),
+                Color.FromRgb(255, 174, 34),
+                Color.FromRgb(255, 205, 105),
+                Color.FromRgb(231, 167, 69),
                 false),
             "lcd" => new(
                 Color.FromArgb(238, 6, 20, 25),
@@ -198,22 +243,22 @@ internal static class Alpha12HudThemeService
                 Color.FromRgb(220, 255, 244),
                 Color.FromRgb(148, 207, 199),
                 false),
-            "minimal" => new(
-                Color.FromArgb(205, 8, 10, 12),
-                Color.FromArgb(72, 0, 0, 0),
-                Color.FromArgb(65, 255, 255, 255),
-                Color.FromRgb(235, 239, 242),
-                Color.FromRgb(255, 255, 255),
-                Color.FromRgb(190, 199, 205),
-                true),
+            "light" => new(
+                Color.FromArgb(245, 232, 239, 244),
+                Color.FromArgb(230, 245, 248, 250),
+                Color.FromArgb(200, 139, 166, 185),
+                Color.FromRgb(25, 112, 181),
+                Color.FromRgb(18, 37, 52),
+                Color.FromRgb(68, 91, 107),
+                false),
             _ => new(
-                Color.FromArgb(235, 8, 13, 18),
-                Color.FromArgb(165, 0, 0, 0),
-                Color.FromArgb(120, 255, 255, 255),
-                Color.FromRgb(255, 157, 36),
+                Color.FromArgb(232, 6, 23, 34),
+                Color.FromArgb(190, 7, 27, 40),
+                Color.FromArgb(150, 35, 70, 95),
+                Color.FromRgb(74, 171, 244),
                 Color.FromRgb(255, 255, 255),
-                Color.FromRgb(205, 214, 221),
-                false)
+                Color.FromRgb(190, 211, 225),
+                true)
         };
     }
 }
