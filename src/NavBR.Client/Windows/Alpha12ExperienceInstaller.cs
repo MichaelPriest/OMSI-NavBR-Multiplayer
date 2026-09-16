@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -164,7 +163,7 @@ internal static class Alpha12ExperienceInstaller
 
     private static void ApplyRuntimeVersionBadge(MainWindow window)
     {
-        var versionText = $"v{GetRuntimeVersion()}";
+        var versionText = NavBRVersionInfo.Display;
         var candidates = EnumerateVisualChildren<TextBlock>(window).ToArray();
         var badge = candidates.FirstOrDefault(textBlock =>
             textBlock.Tag as string == RuntimeVersionTag)
@@ -180,24 +179,6 @@ internal static class Alpha12ExperienceInstaller
         badge.Tag = RuntimeVersionTag;
         badge.Text = versionText;
         badge.ToolTip = $"OMSI NavBR Multiplayer {versionText}";
-    }
-
-    private static string GetRuntimeVersion()
-    {
-        var assembly = typeof(Alpha12ExperienceInstaller).Assembly;
-        var informational = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-            .InformationalVersion;
-
-        if (!string.IsNullOrWhiteSpace(informational))
-        {
-            var metadataIndex = informational.IndexOf('+');
-            return metadataIndex >= 0
-                ? informational[..metadataIndex]
-                : informational;
-        }
-
-        return assembly.GetName().Version?.ToString(3) ?? "0.3.0";
     }
 
     internal static void TagAndTranslateTree(DependencyObject root)
