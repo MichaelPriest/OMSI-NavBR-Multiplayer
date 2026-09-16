@@ -1,37 +1,37 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.11-test.4';
+const currentTag = 'v0.3.0-alpha.12-test.1';
 
 const fallbackRelease = {
   tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.11-test.4 — community test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.1 — community test',
   prerelease: true,
-  published_at: '2026-09-16T13:39:20Z',
+  published_at: '2026-09-16T19:06:31Z',
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.11 Test 4: interface reorganizada, velocidade corrigida pelo Tacho do OMSI, Hardware Cockpit USB/Serial, parada solicitada via haltewunsch e suporte a perfis de rua.',
+  body: 'Alpha.12 Test 1: novo shell/HUD, perfil e empresa virtual, CCO, peer-host, salas públicas/privadas, diagnóstico de rede, voz avançada e recursos experimentais da nova geração.',
   download_count: 0,
   assets: [
     {
       name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      size: 84703103,
+      size: 85048515,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      size: 85234075,
+      size: 85380173,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      size: 5264535,
+      size: 5283624,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
-      size: 50197099,
+      size: 0,
       download_count: 0
     }
   ]
@@ -89,7 +89,7 @@ function assetLabel(name = '') {
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.11. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.12. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI.';
