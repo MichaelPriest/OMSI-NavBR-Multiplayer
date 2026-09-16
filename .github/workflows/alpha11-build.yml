@@ -123,7 +123,12 @@ jobs:
 
       - name: Plugin bridge v2 smoke test
         shell: pwsh
-        run: dotnet run --project src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -c Release -r win-x86 --no-restore
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
 
       - name: Publish client smoke artifact
         shell: pwsh
