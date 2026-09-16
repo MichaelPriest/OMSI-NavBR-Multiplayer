@@ -1,26 +1,81 @@
 # v0.3.0-alpha.11 — desenvolvimento
 
-A alpha.11 permanece em desenvolvimento na branch:
+A alpha.11 continua em desenvolvimento. A rodada atual de interface e hardware está na branch:
 
 ```text
-feature/alpha11-deep-omsi-integration
+feature/alpha11-ui-refresh-hardware
 ```
 
-A `main` e a release oficial `v0.3.0-alpha.10` não devem ser alteradas até a validação real desta fase.
+Ela parte diretamente da `test/alpha11-test3`, preservando as correções já validadas da Alpha.11 Test 3. A `main` não deve receber esta fase antes da validação real.
 
 ## Objetivos desta rodada
 
+- simplificar a interface principal e reduzir a sensação de excesso de controles;
+- separar uso cotidiano de ferramentas técnicas/experimentais;
 - aprofundar a integração com dados reais do OMSI;
-- melhorar HUD/GPS sem regredir o comportamento de janela aprendido na alpha.8/alpha.10;
+- melhorar HUD/GPS sem regredir o comportamento de janela aprendido nas versões anteriores;
 - adicionar informações úteis do veículo sem inventar valores;
 - melhorar ferramentas de mapa/roadmap;
-- preparar a base para Ghost Bus e, depois, representação física de veículos remotos.
+- preparar a base para Ghost Bus e representação física de veículos remotos;
+- iniciar o Hardware Cockpit Bridge para Arduino/ESP32.
+
+## Nova organização da interface
+
+O shell da Alpha.11 deixa de apresentar todas as funções no mesmo nível.
+
+### Navegação principal
+
+A lateral passa a destacar apenas as áreas de uso mais frequente:
+
+- **Visão geral** — estado do OMSI e telemetria essencial;
+- **Navegação** — GPS, mapa e rota;
+- **Multiplayer** — salas, chat, voz e sincronização;
+- **Hardware cockpit** — telemetria destinada a painéis físicos.
+
+### Ferramentas avançadas
+
+Recursos de desenvolvimento/manutenção ficam recolhidos em **Ferramentas avançadas**, reduzindo ruído visual:
+
+- diagnóstico técnico;
+- Roadmap Studio;
+- instalações/perfis OMSI;
+- Ghost 3D;
+- outras ferramentas experimentais futuras.
+
+A barra lateral mantém rolagem vertical automática e o rodapé de idioma/minimização continua fixo.
+
+## Hardware Cockpit Bridge
+
+A Alpha.11 passa a reservar uma área própria para integração de hardware físico.
+
+O primeiro contrato é `NAVBR_HW_V1`. A tela de Hardware Cockpit mostra em tempo real o pacote que será enviado aos dispositivos e já reserva os seguintes dados:
+
+- mapa;
+- linha e rota;
+- destino;
+- rua atual;
+- próxima parada;
+- parada solicitada;
+- velocidade;
+- atraso;
+- portas;
+- seta/pisca.
+
+Os campos `CurrentStreetName` e `StopRequested` foram adicionados à telemetria como campos opcionais/seguros. Nesta etapa eles ainda dependem da implementação do resolvedor de rua e da leitura específica da solicitação de parada do ônibus.
+
+Transportes planejados:
+
+1. **USB / Serial** para Arduino Uno, Mega, Nano e ESP32;
+2. **Wi-Fi** para ESP32, inicialmente via UDP ou WebSocket;
+3. protocolo versionado para que projetos físicos antigos continuem compatíveis com versões futuras do NavBR.
+
+A arquitetura permanece prioritariamente **NavBR → hardware**, sem exigir que o microcontrolador leia memória do OMSI. Escrita de hardware de volta ao simulador será uma fase separada e opcional.
 
 ## HUD e GPS
 
 ### Pontos de parada
 
-O HUD passa a ler objetos funcionais de parada diretamente das tiles `.map` do mapa ativo.
+O HUD lê objetos funcionais de parada diretamente das tiles `.map` do mapa ativo.
 
 A implementação atual:
 
@@ -65,9 +120,9 @@ O texto do botão possui versões em pt-BR, inglês, espanhol, alemão e francê
 
 ## Roadmap Studio
 
-O modo de montagem por tiles passa a usar o `global.cfg` como fonte oficial dos limites da grade.
+O modo de montagem por tiles usa o `global.cfg` como fonte oficial dos limites da grade.
 
-Isso corrige um caso importante: se uma imagem `.roadmap.bmp` de uma tile de borda estiver ausente, o gerador não deve reduzir os limites do mapa e deslocar todas as coordenadas do GPS.
+Isso corrige o caso em que uma imagem `.roadmap.bmp` de uma tile de borda está ausente: o gerador não deve reduzir os limites do mapa e deslocar as coordenadas do GPS.
 
 Agora a análise diferencia:
 
@@ -88,7 +143,10 @@ Para entender formatos públicos do OMSI, foram consultados projetos abertos já
 
 ## Validação obrigatória antes da alpha.11 oficial
 
-- CI `alpha11-build` verde;
+- build/CI verde;
+- menu lateral permanece utilizável em janelas pequenas e escalas diferentes do Windows;
+- navegação por páginas não perde controles nem quebra a atualização de telemetria;
+- Hardware Cockpit mostra o `NAVBR_HW_V1` sem interferir no loop de telemetria;
 - OMSI 2.3.004 real: HUD aparece durante gameplay e some em menus/diálogos;
 - paradas aparecem nas posições corretas em mapas diferentes;
 - próxima parada é destacada corretamente;
