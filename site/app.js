@@ -1,39 +1,40 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
+const test2Tag = 'v0.3.0-alpha.11-test.2';
+
 const fallbackRelease = {
-  tag_name: 'v0.3.0-alpha.10',
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.10',
+  tag_name: test2Tag,
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.11-test.2 — community test',
   prerelease: true,
-  published_at: '2026-09-15T18:48:07Z',
-  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10`,
-  body: 'Alpha.10 oficial promovida byte-for-byte da test.6 validada: plugin Native AOT x86 embutido, sem Runtime x86 separado, HUD/GPS moderno, chat, voz e peer-host.',
+  published_at: '2026-09-16T04:14:10Z',
+  html_url: `https://github.com/${repo}/releases/tag/${test2Tag}`,
+  body: 'Alpha.11 Test 2: velocidade corrigida, HUD compacto e transparente, paradas filtradas pela rota ativa, manual interno para iniciantes, diagnósticos opcionais e ônibus remoto físico 3D experimental.',
   download_count: 0,
   assets: [
     {
-      name: 'OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe',
-      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe`,
-      size: 84032681,
+      name: `OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.exe`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.exe`,
+      size: 84623924,
       download_count: 0
     },
     {
-      name: 'OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip',
-      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip`,
-      size: 84719078,
+      name: `OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Multiplayer-${test2Tag}-win-x86.zip`,
+      size: 85173058,
       download_count: 0
     },
     {
-      name: 'OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip',
-      browser_download_url: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip`,
-      size: 50167193,
+      name: `OMSI-NavBR-Plugin-${test2Tag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Plugin-${test2Tag}-win-x86.zip`,
+      size: 5305530,
+      download_count: 0
+    },
+    {
+      name: `OMSI-NavBR-Server-${test2Tag}-win-x64.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${test2Tag}/OMSI-NavBR-Server-${test2Tag}-win-x64.zip`,
+      size: 50196767,
       download_count: 0
     }
   ]
-};
-
-const alpha10Official = {
-  tag: 'v0.3.0-alpha.10',
-  releaseUrl: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10`,
-  exeUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe`,
-  bundleUrl: `https://github.com/${repo}/releases/download/v0.3.0-alpha.10/OMSI-NavBR-alpha10-integration-win-x86.zip`
 };
 
 function escapeHtml(value = '') {
@@ -83,24 +84,15 @@ function assetLabel(name = '') {
   if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
-  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI — fallback técnico';
-  if (/integration.*win-x86\.zip$/i.test(name)) return 'Pacote integrado — fallback técnico';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI experimental';
   return name;
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) {
-    return 'Use para jogar, entrar em salas ou criar uma sala no próprio PC. O plugin Native AOT x86 vem embutido no cliente.';
-  }
-  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) {
-    return 'Mesmo cliente em pacote ZIP. É uma alternativa ao EXE standalone; não é necessário baixar os dois.';
-  }
-  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) {
-    return 'Somente para servidor dedicado em outra máquina/processo. Não é necessário para criar sala pelo cliente NavBR.';
-  }
-  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name) || /integration.*win-x86\.zip$/i.test(name)) {
-    return 'Pacote técnico/fallback. No uso normal, prefira o EXE standalone e instale/atualize o plugin pelo próprio NavBR.';
-  }
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar, criar/entrar em salas e testar a Alpha.11. O plugin pode ser instalado pelo próprio NavBR.';
+  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP. Não é necessário baixar junto com o EXE.';
+  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Somente para servidor dedicado separado. O modo normal é peer-host.';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 + interop experimental.';
   return '';
 }
 
@@ -114,9 +106,7 @@ function releaseDownloadCount(release) {
 function renderRelease(release) {
   const assets = (release.assets || []).filter(asset => /\.(exe|zip)$/i.test(asset.name || ''));
   const assetLinks = assets.map(asset => {
-    const size = formatBytes(asset.size);
-    const downloads = `${formatNumber(asset.download_count)} download${Number(asset.download_count) === 1 ? '' : 's'}`;
-    const meta = [size, downloads].filter(Boolean).join(' • ');
+    const meta = [formatBytes(asset.size), `${formatNumber(asset.download_count)} downloads`].filter(Boolean).join(' • ');
     const help = assetHelp(asset.name);
     return `
       <a href="${escapeHtml(asset.browser_download_url)}" target="_blank" rel="noreferrer">
@@ -124,21 +114,18 @@ function renderRelease(release) {
         <small>${escapeHtml(meta)}</small>
       </a>`;
   }).join('');
-  const summary = summarizeBody(release.body);
-  const releaseDownloads = releaseDownloadCount(release);
 
+  const summary = summarizeBody(release.body);
   return `
     <article class="release-card">
       <div class="release-meta">
-        <span class="tag">${release.prerelease ? 'ALPHA' : 'ESTÁVEL'}</span>
+        <span class="tag">${release.prerelease ? 'PRÉ-RELEASE' : 'RELEASE'}</span>
         <small>${escapeHtml(formatDate(release.published_at))}</small>
       </div>
       <h3>${escapeHtml(release.name || release.tag_name)}</h3>
-      <div class="release-downloads">↓ ${escapeHtml(formatNumber(releaseDownloads))} downloads desta versão</div>
-      <p>${escapeHtml(summary).slice(0, 250)}${summary.length > 250 ? '…' : ''}</p>
-      <div class="asset-list">
-        ${assetLinks || `<a href="${escapeHtml(release.html_url)}" target="_blank" rel="noreferrer"><span>Abrir release no GitHub</span><small>→</small></a>`}
-      </div>
+      <div class="release-downloads">↓ ${escapeHtml(formatNumber(releaseDownloadCount(release)))} downloads desta versão</div>
+      <p>${escapeHtml(summary).slice(0, 260)}${summary.length > 260 ? '…' : ''}</p>
+      <div class="asset-list">${assetLinks || `<a href="${escapeHtml(release.html_url)}" target="_blank" rel="noreferrer"><span>Abrir release no GitHub</span><small>→</small></a>`}</div>
     </article>`;
 }
 
@@ -158,60 +145,30 @@ async function loadReleases() {
       }
     }
   } catch (_) {
-    // O fallback mantém o site funcional mesmo se o catálogo ainda não estiver disponível.
+    // Fallback abaixo mantém o portal utilizável mesmo durante um deploy do catálogo.
   }
 
-  if (!Array.isArray(releases) || releases.length === 0) releases = [fallbackRelease];
+  if (!releases.some(release => release?.tag_name === test2Tag)) {
+    releases.push(fallbackRelease);
+  }
+
   releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
   if (!totalDownloads) totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
 
-  const latest = releases[0];
-  document.getElementById('latest-version').textContent = latest.tag_name || latest.name;
-  document.getElementById('latest-summary').textContent = summarizeBody(latest.body).slice(0, 190);
+  const test2 = releases.find(release => release?.tag_name === test2Tag) || fallbackRelease;
+  const versionElement = document.getElementById('latest-version');
+  const summaryElement = document.getElementById('latest-summary');
+  const downloadsElement = document.getElementById('total-downloads');
+  const downloadButton = document.getElementById('latest-download');
+  const releaseList = document.getElementById('release-list');
 
-  const totalDownloadsElement = document.getElementById('total-downloads');
-  if (totalDownloadsElement) totalDownloadsElement.textContent = formatNumber(totalDownloads);
+  if (versionElement) versionElement.textContent = test2.tag_name || test2.name;
+  if (summaryElement) summaryElement.textContent = summarizeBody(test2.body).slice(0, 190);
+  if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
 
-  const standalone = (latest.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
-  const latestDownload = document.getElementById('latest-download');
-  latestDownload.href = standalone?.browser_download_url || latest.html_url || `https://github.com/${repo}/releases`;
-
-  document.getElementById('release-list').innerHTML = releases.slice(0, 6).map(renderRelease).join('');
-}
-
-function setupAlpha10Official() {
-  const pluginSection = document.getElementById('plugin');
-  const featureGrid = pluginSection?.querySelector('.feature-grid');
-  if (!pluginSection || !featureGrid) return;
-
-  let card = document.getElementById('alpha10-integration-test');
-  if (!card) {
-    card = document.createElement('div');
-    card.id = 'alpha10-integration-test';
-    card.className = 'validation-card';
-    card.style.marginBottom = '20px';
-    featureGrid.before(card);
-  }
-
-  card.innerHTML = `
-    <div>
-      <span class="eyebrow">Alpha oficial atual</span>
-      <h2>${escapeHtml(alpha10Official.tag)} disponível</h2>
-    </div>
-    <div>
-      <p><strong>A alpha.10 oficial foi promovida byte-for-byte da test.6 validada.</strong> O plugin Native AOT x86 vem embutido no cliente, pode ser instalado/atualizado pelo painel do NavBR e <strong>não exige instalação separada do .NET Runtime x86</strong>. A detecção do OMSI considera caminho conhecido, registro Aerosoft e bibliotecas Steam. A futura representação física de ônibus remotos no OMSI 3D está sendo desenvolvida na alpha.11.</p>
-      <div class="actions">
-        <a class="button primary" href="${escapeHtml(alpha10Official.exeUrl)}" target="_blank" rel="noreferrer">Baixar EXE da alpha.10</a>
-        <a class="button secondary" href="${escapeHtml(alpha10Official.bundleUrl)}" target="_blank" rel="noreferrer">Pacote integrado / fallback</a>
-        <a class="button secondary" href="${escapeHtml(alpha10Official.releaseUrl)}" target="_blank" rel="noreferrer">Abrir release</a>
-      </div>
-    </div>`;
-
-  document.querySelectorAll('.trust-grid b').forEach(element => {
-    if (/alpha\.10(?:-test\.\d+)?/i.test(element.textContent || '')) {
-      element.textContent = 'alpha.10';
-    }
-  });
+  const standalone = (test2.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
+  if (downloadButton) downloadButton.href = standalone?.browser_download_url || test2.html_url;
+  if (releaseList) releaseList.innerHTML = [test2, ...releases.filter(release => release !== test2)].slice(0, 6).map(renderRelease).join('');
 }
 
 function setupPix() {
@@ -228,29 +185,10 @@ function setupPix() {
       button.textContent = 'Chave copiada ✓';
       setTimeout(() => { button.textContent = previous; }, 1800);
     } catch (_) {
-      status.textContent = key;
       window.prompt('Copie a chave Pix:', key);
     }
   });
 }
 
-function loadModernExperience() {
-  if (!document.querySelector('link[href="modern.css"]')) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'modern.css';
-    document.head.appendChild(link);
-  }
-
-  if (!document.querySelector('script[src="modern.js"]')) {
-    const script = document.createElement('script');
-    script.src = 'modern.js';
-    script.defer = true;
-    document.body.appendChild(script);
-  }
-}
-
 loadReleases();
-setupAlpha10Official();
 setupPix();
-loadModernExperience();
