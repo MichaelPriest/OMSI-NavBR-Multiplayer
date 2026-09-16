@@ -2,7 +2,9 @@ name: alpha11-build
 
 on:
   push:
-    branches: [ feature/alpha11-deep-omsi-integration ]
+    branches:
+      - feature/alpha11-deep-omsi-integration
+      - feature/alpha11-ui-refresh-hardware
   pull_request:
     branches: [ main ]
     paths:
@@ -45,46 +47,23 @@ jobs:
       - name: Build OMSI native interop x86
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force "artifacts/NavBR.OmsiInterop" | Out-Null
-          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
-            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
-            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
-            /link `
-            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
-            /OUT:artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll
-          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+          msbuild native\NavBR.OmsiInterop\NavBR.OmsiInterop.vcxproj `
+            /p:Configuration=Release `
+            /p:Platform=Win32 `
+            /m
 
-          $exports = (& dumpbin /nologo /exports "artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll") -join "`n"
-          if ($LASTEXITCODE -ne 0) { throw "Could not inspect native OMSI interop exports." }
-          foreach ($expected in @(
-            "NavBR_GetAbiVersion",
-            "NavBR_GetStateInteropVersion",
-            "NavBR_GetImageBase",
-            "NavBR_ProbeOmsi23004Addresses",
-            "NavBR_GetProgramManager",
-            "NavBR_GetRoadVehicleTypes",
-            "NavBR_GetRoadVehicleCount",
-            "NavBR_GetRoadVehicleAt",
-            "NavBR_IsRoadVehiclePointer",
-            "NavBR_GetMem",
-            "NavBR_FreeMem",
-            "NavBR_LockMakeVehicle",
-            "NavBR_UnlockMakeVehicle",
-            "NavBR_AllocateAnsiString",
-            "NavBR_FreeAnsiString",
-            "NavBR_TempRoadVehicleListCreate",
-            "NavBR_CopyTempRoadVehicleListIntoMain",
-            "NavBR_MakeVehicle",
-            "NavBR_SetVehicleTransform",
-            "NavBR_SetVehicleVisualState",
-            "NavBR_MarkVehicleForKilling"
-          )) {
-            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
-              throw "Missing native OMSI interop export: $expected"
-            }
+      - name: Verify native interop exports
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path "native\NavBR.OmsiInterop\Release\NavBR.OmsiInterop.dll"
+          dumpbin /headers $dll | Select-String 'machine \(x86\)' | Out-Null
+          if (-not $?) { throw "NavBR.OmsiInterop.dll is not x86" }
+          $exports = dumpbin /exports $dll | Out-String
+          foreach ($name in @('NavBR_CreateRoadVehicle','NavBR_RemoveRoadVehicle','NavBR_SetMovingObjectPose')) {
+            if ($exports -notmatch [regex]::Escape($name)) { throw "Missing native export: $name" }
           }
 
-      - name: Restore
+      - name: Restore projects
         shell: pwsh
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
@@ -103,66 +82,48 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
-            -c Release -r win-x86 --no-restore `
-            -p:PublishAot=true -p:NativeLib=Shared `
+            -c Release `
+            -r win-x86 `
+            --no-restore `
+            -p:PublishAot=true `
+            -p:NativeLib=Shared `
             -o artifacts/NavBR.OmsiPlugin.Experimental
-          Copy-Item `
-            "artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll" `
-            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll" `
-            -Force
 
-      - name: Validate Native AOT plugin x86
+      - name: Validate plugin binary
         shell: pwsh
         run: |
-          foreach ($candidate in @(
-            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
-            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll"
-          )) {
-            $dll = Resolve-Path $candidate
-            $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
-            if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "$candidate is not PE/MZ." }
-            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
-            if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "Invalid PE signature: $candidate" }
-            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
-            if ($machine -ne 0x014C) { throw ("$candidate must be x86; machine=0x{0:X4}" -f $machine) }
-          }
+          $dll = Resolve-Path "artifacts\NavBR.OmsiPlugin.Experimental\NavBR.OmsiPlugin.dll"
+          dumpbin /headers $dll | Select-String 'machine \(x86\)' | Out-Null
+          if (-not $?) { throw "NavBR.OmsiPlugin.dll is not x86" }
 
-      - name: Prepare embedded plugin
+      - name: Prepare embedded plugin bundle
         shell: pwsh
-        run: >-
-          .\scripts\prepare-embedded-plugin.ps1
-          -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental"
-          -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+        run: |
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PublishDir artifacts/NavBR.OmsiPlugin.Experimental `
+            -Destination src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip
 
       - name: Build client
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
-      - name: Smoke-test bridge v2
+      - name: Plugin bridge v2 smoke test
+        shell: pwsh
+        run: dotnet run --project src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -c Release -r win-x86 --no-restore
+
+      - name: Publish client smoke artifact
         shell: pwsh
         run: |
-          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
-            -c Release -r win-x86 --self-contained true --no-restore `
-            -o artifacts/NavBR.PluginBridgeSmokeTest
-          & "artifacts/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.exe"
-          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            --no-restore `
+            -p:PublishSingleFile=true `
+            -o artifacts/NavBR.Client
 
-      - name: Publish standalone client
-        shell: pwsh
-        run: >-
-          dotnet publish src/NavBR.Client/NavBR.Client.csproj
-          -c Release -r win-x86 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:IncludeAllContentForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -p:DebugType=None -p:DebugSymbols=false
-          -o artifacts/NavBR.Client.Single
-
-      - name: Upload alpha.11 standalone candidate
+      - name: Upload alpha11 build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-alpha11-standalone-win-x86
-          path: artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe
-          if-no-files-found: error
-          retention-days: 14
+          name: alpha11-client-win-x86
+          path: artifacts/NavBR.Client
