@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
 using NavBR.Shared.Multiplayer;
 
@@ -53,6 +54,7 @@ public partial class MainWindow
         {
             StopHudRefreshTimer();
             StopRemoteMotionTimer();
+            DispatcherSessionFeed.SetConnected(false);
 
             if (_hudOverlay is not null)
             {
@@ -93,23 +95,31 @@ public partial class MainWindow
 
         window.RemoteTelemetryReceived += frame =>
         {
+            DispatcherSessionFeed.Update(frame);
             RenderRemotePlayer(frame);
             hud.UpdateRemotePlayerSmooth(frame);
         };
         window.RemotePlayerLeft += playerId =>
         {
+            DispatcherSessionFeed.Remove(playerId);
             RemoveRemotePlayerMarker(playerId);
             hud.RemoveRemotePlayerSmooth(playerId);
         };
         window.RemotePlayersReset += () =>
         {
+            DispatcherSessionFeed.Clear();
             ClearRemotePlayerMarkers();
             hud.ClearRemotePlayersSmooth();
         };
         window.ChatMessageReceived += hud.AddChatMessage;
         window.RemoteSpeakerActive += hud.MarkRemoteSpeaker;
         window.VoiceError += hud.SetVoiceError;
-        window.MultiplayerConnectionChanged += hud.SetConnectionState;
+        Action<bool> connectionChangedHandler = connected =>
+        {
+            DispatcherSessionFeed.SetConnected(connected);
+            hud.SetConnectionState(connected);
+        };
+        window.MultiplayerConnectionChanged += connectionChangedHandler;
         window.LocalDisplayNameChanged += hud.SetLocalDisplayName;
 
         Action<string> chatSubmittedHandler = text => _ = window.SendChatFromOverlayAsync(text);
@@ -121,6 +131,8 @@ public partial class MainWindow
         {
             hud.ChatSubmitted -= chatSubmittedHandler;
             hud.PushToTalkChanged -= pushToTalkHandler;
+            window.MultiplayerConnectionChanged -= connectionChangedHandler;
+            DispatcherSessionFeed.SetConnected(false);
             hud.SetConnectionState(false);
             hud.ClearRemotePlayersSmooth();
             ClearRemotePlayerMarkers();
