@@ -44,7 +44,8 @@ public sealed record VehicleTelemetry(
     double? RotationX = null,
     double? RotationY = null,
     double? RotationZ = null,
-    double? RotationW = null);
+    double? RotationW = null,
+    int? OmsiTileIndex = null);
 
 [Flags]
 public enum VehicleDoorFlags
