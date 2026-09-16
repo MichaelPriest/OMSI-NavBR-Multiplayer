@@ -45,6 +45,27 @@ public static class NavBRServerApplication
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+            options.AddPolicy("network-probe", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 90,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            options.AddPolicy("multiplayer-connect", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 40,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 2,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        AutoReplenishment = true
+                    }));
         });
         builder.Services.AddCors(options =>
         {
@@ -67,6 +88,13 @@ public static class NavBRServerApplication
             hosting = "peer-host",
             diagnostics = "available"
         }));
+
+        app.MapGet("/api/ping", () => Results.Ok(new
+            {
+                status = "ok",
+                serverUtc = DateTimeOffset.UtcNow
+            }))
+            .RequireRateLimiting("network-probe");
 
         app.MapPost(
                 "/api/diagnostics",
@@ -91,7 +119,8 @@ public static class NavBRServerApplication
                 })
             .RequireRateLimiting("diagnostics");
 
-        app.MapHub<MultiplayerHub>("/hubs/multiplayer");
+        app.MapHub<MultiplayerHub>("/hubs/multiplayer")
+            .RequireRateLimiting("multiplayer-connect");
 
         return app;
     }
