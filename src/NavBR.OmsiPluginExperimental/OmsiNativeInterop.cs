@@ -13,6 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
+    private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
     private static nint _shimHandle;
 
@@ -80,6 +81,56 @@ internal static class OmsiNativeInterop
         }
     }
 
+    internal static bool TrySnapshotRoadVehicles(out int[] vehiclePointers)
+    {
+        vehiclePointers = [];
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            var count = GetRoadVehicleCount();
+            if (count < 0 || count > MaxReasonableRoadVehicles)
+            {
+                return false;
+            }
+
+            if (count == 0)
+            {
+                return true;
+            }
+
+            var pointers = new int[count];
+            for (var index = 0; index < count; index++)
+            {
+                var pointer = GetRoadVehicleAt(index);
+                if (pointer == 0)
+                {
+                    return false;
+                }
+
+                pointers[index] = pointer;
+            }
+
+            vehiclePointers = pointers;
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     private static bool EnsureShimLoaded()
     {
         lock (ShimLoadSync)
@@ -132,6 +183,18 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetImageBase")]
     internal static extern uint GetImageBase();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetProgramManager")]
+    internal static extern int GetProgramManager();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleTypes")]
+    internal static extern int GetRoadVehicleTypes();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleCount")]
+    private static extern int GetRoadVehicleCount();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleAt")]
+    private static extern int GetRoadVehicleAt(int index);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetMem")]
     internal static extern int GetMem(int bytes);
