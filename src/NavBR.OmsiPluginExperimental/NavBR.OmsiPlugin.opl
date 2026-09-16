@@ -1,6 +1,11 @@
 [dll]
 NavBR.OmsiPlugin.dll
 
+[varlist]
+2
+Velocity
+haltewunsch
+
 [systemvarlist]
 1
 Time
