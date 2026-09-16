@@ -21,7 +21,14 @@ namespace
 
     constexpr std::uintptr_t RvaTempRvListClass = 0x0074802Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
+    constexpr std::uintptr_t RvaRoadVehicleTypesPointer = 0x008615A8u - PreferredImageBase;
+    constexpr std::uintptr_t RvaProgramManagerPointer = 0x00862F28u - PreferredImageBase;
+
     constexpr int ProgramManagerMakeVehicleCriticalSectionOffset = 0x1B4;
+    constexpr int RoadVehicleListItemsOffset = 0x28;
+    constexpr int RoadVehicleListCountOffset = 0x2C;
+    constexpr int ObjectListItemsPointerOffset = 0x04;
+    constexpr int MaxReasonableRoadVehicles = 4096;
 
     std::uintptr_t ImageBase()
     {
@@ -34,9 +41,9 @@ namespace
         return imageBase == 0 ? 0 : imageBase + rva;
     }
 
-    bool IsReadableAddress(std::uintptr_t address)
+    bool IsReadableRange(std::uintptr_t address, std::size_t bytes)
     {
-        if (address == 0)
+        if (address == 0 || bytes == 0)
         {
             return false;
         }
@@ -52,7 +59,19 @@ namespace
             return false;
         }
 
-        return true;
+        const auto regionStart = reinterpret_cast<std::uintptr_t>(info.BaseAddress);
+        const auto regionEnd = regionStart + info.RegionSize;
+        if (regionEnd < regionStart || address < regionStart)
+        {
+            return false;
+        }
+
+        return bytes <= regionEnd - address;
+    }
+
+    bool IsReadableAddress(std::uintptr_t address)
+    {
+        return IsReadableRange(address, sizeof(std::uint32_t));
     }
 
     bool IsExecutableAddress(std::uintptr_t address)
@@ -80,6 +99,79 @@ namespace
         default:
             return false;
         }
+    }
+
+    int ReadPointerAtRva(std::uintptr_t rva)
+    {
+        const auto address = Resolve(rva);
+        if (!IsReadableRange(address, sizeof(int)))
+        {
+            return 0;
+        }
+
+        return *reinterpret_cast<const int*>(address);
+    }
+
+    int GetRoadVehicleMainList()
+    {
+        return ReadPointerAtRva(RvaRoadVehiclesPointer);
+    }
+
+    bool TryGetRoadVehicleItems(int& count, int& itemArray)
+    {
+        count = 0;
+        itemArray = 0;
+
+        const int mainList = GetRoadVehicleMainList();
+        if (mainList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset,
+                sizeof(int)) ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int currentCount = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset);
+        const int objectList = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset);
+
+        if (currentCount < 0 || currentCount > MaxReasonableRoadVehicles)
+        {
+            return false;
+        }
+
+        if (currentCount == 0)
+        {
+            count = 0;
+            itemArray = 0;
+            return true;
+        }
+
+        if (objectList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int items = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset);
+        if (items == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(items),
+                static_cast<std::size_t>(currentCount) * sizeof(int)))
+        {
+            return false;
+        }
+
+        count = currentCount;
+        itemArray = items;
+        return true;
     }
 
     int CallGetMem(int bytes)
@@ -133,7 +225,7 @@ namespace
     bool CallCriticalSection(std::uintptr_t target, int criticalSectionAddress)
     {
         if (!IsExecutableAddress(target) ||
-            !IsReadableAddress(static_cast<std::uintptr_t>(criticalSectionAddress)))
+            !IsReadableRange(static_cast<std::uintptr_t>(criticalSectionAddress), sizeof(int)))
         {
             return false;
         }
@@ -174,12 +266,45 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeOmsi23004Addresses()
         !IsExecutableAddress(Resolve(RvaTempRvListCreate)) ||
         !IsExecutableAddress(Resolve(RvaCopyTempListIntoMainList)) ||
         !IsReadableAddress(Resolve(RvaTempRvListClass)) ||
-        !IsReadableAddress(Resolve(RvaRoadVehiclesPointer)))
+        !IsReadableAddress(Resolve(RvaRoadVehiclesPointer)) ||
+        !IsReadableAddress(Resolve(RvaRoadVehicleTypesPointer)) ||
+        !IsReadableAddress(Resolve(RvaProgramManagerPointer)))
     {
         return 0;
     }
 
     return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetProgramManager()
+{
+    return ReadPointerAtRva(RvaProgramManagerPointer);
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleTypes()
+{
+    return ReadPointerAtRva(RvaRoadVehicleTypesPointer);
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleCount()
+{
+    int count = 0;
+    int items = 0;
+    return TryGetRoadVehicleItems(count, items) ? count : -1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleAt(int index)
+{
+    int count = 0;
+    int items = 0;
+    if (!TryGetRoadVehicleItems(count, items) || index < 0 || index >= count)
+    {
+        return 0;
+    }
+
+    return *reinterpret_cast<const int*>(
+        static_cast<std::uintptr_t>(items) +
+        static_cast<std::uintptr_t>(index) * sizeof(int));
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetMem(int bytes)
@@ -336,15 +461,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_CopyTempRoadVehicleListIntoMa
         return 0;
     }
 
-    const auto roadVehiclesPointerAddress = Resolve(RvaRoadVehiclesPointer);
+    const int mainList = GetRoadVehicleMainList();
     const auto target = Resolve(RvaCopyTempListIntoMainList);
-    if (!IsReadableAddress(roadVehiclesPointerAddress) || !IsExecutableAddress(target))
-    {
-        return 0;
-    }
-
-    const int mainList = *reinterpret_cast<const int*>(roadVehiclesPointerAddress);
-    if (mainList == 0)
+    if (mainList == 0 || !IsExecutableAddress(target))
     {
         return 0;
     }
@@ -399,14 +518,17 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
     }
 
     int result = 0;
+    int restoreEsp = 0;
     __asm
     {
-        // ESI is non-volatile under cdecl, so preserve it around the Borland call.
+        // Preserve ESI for the cdecl caller and remember the exact stack state.
+        // We restore ESP explicitly after the Delphi/Borland call so the shim
+        // does not depend on undocumented assumptions about callee cleanup.
         push esi
+        mov restoreEsp, esp
 
         // Borland register calling convention: EAX, EDX and ECX carry the
-        // first three eligible parameters. Remaining DWORDs are pushed right
-        // to left and removed by the Delphi/Borland callee.
+        // first three parameters. Remaining DWORDs are pushed right to left.
         push filenameAnsiString
         push randomPaintScheme
         push randomLicensePlate
@@ -435,11 +557,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
         mov ecx, roadVehicleTypes
         mov esi, target
         call esi
-
-        // The Borland callee removes the 22 stack parameters. Our saved ESI is
-        // therefore back on top of the stack here.
-        pop esi
         mov result, eax
+
+        mov esp, restoreEsp
+        pop esi
     }
 
     return result;
