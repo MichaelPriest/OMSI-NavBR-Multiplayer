@@ -127,23 +127,25 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleRotationOffset));
 
+            // OmsiPhysObjInst.Velocity lives at 0x174. The previous profile
+            // incorrectly read 0x1C0 (Turn_Velocity), which can stay near zero
+            // while the bus travels in a straight line and made the HUD report
+            // 0 km/h. Groundspeed is an independent OMSI scalar and is used as
+            // the preferred display value when it is finite/plausible.
             var velocity = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleVelocityOffset));
 
-            var speedMps = Math.Sqrt(
+            var linearSpeedMps = Math.Sqrt(
                 velocity.X * velocity.X +
                 velocity.Y * velocity.Y +
                 velocity.Z * velocity.Z);
 
-            var groundSpeed = Math.Abs(memory.ReadSingle(nint.Add(
+            var groundSpeedMps = Math.Abs(memory.ReadSingle(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleGroundSpeedOffset)));
 
-            if (!double.IsFinite(speedMps) || speedMps > 150)
-            {
-                speedMps = groundSpeed;
-            }
+            var speedMps = ResolveVehicleSpeedMps(linearSpeedMps, groundSpeedMps);
 
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
@@ -214,6 +216,31 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
         }
+    }
+
+    private static double ResolveVehicleSpeedMps(double linearSpeedMps, double groundSpeedMps)
+    {
+        var linearValid = double.IsFinite(linearSpeedMps) && linearSpeedMps >= 0d && linearSpeedMps <= 150d;
+        var groundValid = double.IsFinite(groundSpeedMps) && groundSpeedMps >= 0d && groundSpeedMps <= 150d;
+
+        if (groundValid)
+        {
+            // Groundspeed is the scalar OMSI itself maintains for the moving
+            // vehicle and is the best source for a speedometer/HUD. If a
+            // particular vehicle leaves it at zero while the physics velocity
+            // is clearly moving, fall back to the vector magnitude.
+            if (groundSpeedMps > 0.05d || !linearValid || linearSpeedMps <= 0.05d)
+            {
+                return groundSpeedMps;
+            }
+        }
+
+        if (linearValid)
+        {
+            return linearSpeedMps;
+        }
+
+        return groundValid ? groundSpeedMps : 0d;
     }
 
     private static nint ResolvePlayerVehicleAddress(
