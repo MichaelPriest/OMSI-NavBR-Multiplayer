@@ -93,6 +93,12 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_FreeMem")]
     internal static extern int FreeMem(int address);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_LockMakeVehicle")]
+    internal static extern int LockMakeVehicle(int programManager);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_UnlockMakeVehicle")]
+    internal static extern int UnlockMakeVehicle(int programManager);
+
     [DllImport(
         LibraryName,
         CallingConvention = CallingConvention.Cdecl,
