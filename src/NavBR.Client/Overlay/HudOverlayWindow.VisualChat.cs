@@ -17,6 +17,7 @@ public partial class HudOverlayWindow
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
+        ApplyCompactHudPresentation();
         InitializeVisualChat();
         EnsureBusDashboard();
         InitializeBusStopHud();
