@@ -42,15 +42,18 @@ internal static class Alpha12MultiplayerStatusInstaller
         var room = MetricValue();
         var drivers = MetricValue();
         var telemetry = MetricValue();
+        var roomLabel = MetricLabel();
+        var driversLabel = MetricLabel();
+        var telemetryLabel = MetricLabel();
 
         var metricGrid = new Grid { Margin = new Thickness(0d, 14d, 0d, 0d) };
         for (var i = 0; i < 3; i++)
         {
             metricGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         }
-        metricGrid.Children.Add(Metric(Text("Room"), room, 0));
-        metricGrid.Children.Add(Metric(Text("Drivers"), drivers, 1));
-        metricGrid.Children.Add(Metric(Text("Telemetry"), telemetry, 2));
+        metricGrid.Children.Add(Metric(roomLabel, room, 0));
+        metricGrid.Children.Add(Metric(driversLabel, drivers, 1));
+        metricGrid.Children.Add(Metric(telemetryLabel, telemetry, 2));
 
         var healthButton = new Button
         {
@@ -106,6 +109,9 @@ internal static class Alpha12MultiplayerStatusInstaller
             state.Text = snapshot.Connected ? Text("Connected") : Text("Disconnected");
             state.Foreground = snapshot.Connected ? Brush(101, 224, 154) : Brush(168, 180, 188);
             detail.Text = snapshot.Connected ? Text("ConnectedBody") : Text("DisconnectedBody");
+            roomLabel.Text = Text("Room");
+            driversLabel.Text = Text("Drivers");
+            telemetryLabel.Text = Text("Telemetry");
             room.Text = string.IsNullOrWhiteSpace(snapshot.RoomId) ? "—" : snapshot.RoomId;
             drivers.Text = snapshot.Connected ? snapshot.RemoteDrivers.Count.ToString() : "—";
 
@@ -137,16 +143,10 @@ internal static class Alpha12MultiplayerStatusInstaller
         timer.Start();
     }
 
-    private static Border Metric(string label, TextBlock value, int column)
+    private static Border Metric(TextBlock label, TextBlock value, int column)
     {
         var stack = new StackPanel();
-        stack.Children.Add(new TextBlock
-        {
-            Text = label,
-            Foreground = Brush(116, 137, 151),
-            FontSize = 8.8d,
-            FontWeight = FontWeights.Bold
-        });
+        stack.Children.Add(label);
         stack.Children.Add(value);
         var border = new Border
         {
@@ -161,6 +161,13 @@ internal static class Alpha12MultiplayerStatusInstaller
         Grid.SetColumn(border, column);
         return border;
     }
+
+    private static TextBlock MetricLabel() => new()
+    {
+        Foreground = Brush(116, 137, 151),
+        FontSize = 8.8d,
+        FontWeight = FontWeights.Bold
+    };
 
     private static TextBlock MetricValue() => new()
     {
