@@ -57,6 +57,11 @@ internal static class Omsi23004MemoryProfile
 
     public const int MovingVehicleIndexOffset = 0x258;
     public const int MovingVehicleUserTrainOffset = 0x26C;
+
+    // OmsiMovingMapObjInst runtime speed fields. Tacho is the speedometer value
+    // exposed in km/h and matches OMSI's built-in/script Velocity semantics.
+    // Groundspeed remains available as a physics fallback in m/s.
+    public const int VehicleTachoOffset = 0x424;
     public const int VehicleGroundSpeedOffset = 0x428;
 
     // File/object identity. OmsiComplMapObjInst.MyFileObject points to the
