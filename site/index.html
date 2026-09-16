@@ -4,14 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#050505" />
-  <meta name="description" content="OMSI NavBR Multiplayer — GPS, HUD, salas peer-host, chat e voz para OMSI 2. Jogadores remotos já aparecem no NavBR; ônibus remotos dentro do mundo 3D do OMSI ainda estão em desenvolvimento." />
-  <meta property="og:title" content="OMSI NavBR Multiplayer" />
-  <meta property="og:description" content="Navegação, HUD e multiplayer externo para OMSI 2, com alpha.10 experimental preparando a futura representação de veículos remotos no simulador." />
+  <meta name="description" content="OMSI NavBR Multiplayer — GPS, HUD, salas peer-host, chat, voz e Alpha.11 Test 2 com ônibus remoto 3D experimental para OMSI 2." />
+  <meta property="og:title" content="OMSI NavBR Multiplayer — Alpha.11 Test 2" />
+  <meta property="og:description" content="Teste público da Alpha.11: velocidade corrigida, HUD compacto, paradas por rota ativa, manual interno, diagnóstico opcional e ônibus remoto 3D experimental." />
   <meta property="og:image" content="assets/navbr-hero.webp" />
-  <title>OMSI NavBR Multiplayer</title>
+  <title>OMSI NavBR Multiplayer — Alpha.11 Test 2</title>
   <link rel="icon" href="assets/navbr.ico" type="image/x-icon" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="omsi-theme.css" />
+  <link rel="stylesheet" href="modern.css" />
 </head>
 <body>
   <header class="topbar">
@@ -20,15 +21,14 @@
       <span class="brand-copy"><b>NavBR</b><small>OMSI Multiplayer</small></span>
     </a>
     <nav aria-label="Navegação principal">
-      <a href="#contribua">Contribua</a>
-      <a href="#estado">Estado atual</a>
+      <a href="#estado">Alpha.11</a>
       <a href="#download">Download</a>
       <a href="#recursos">Recursos</a>
-      <a href="#mapas">Mapas</a>
       <a href="#multiplayer">Multiplayer</a>
-      <a href="#plugin">Alpha.10</a>
-      <a href="#feedback">Feedback</a>
-      <a href="#roadmap">Roadmap</a>
+      <a href="#plugin">3D experimental</a>
+      <a href="#manual">Manual</a>
+      <a href="#diagnosticos">Diagnósticos</a>
+      <a href="#contribua">Contribua</a>
       <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">GitHub</a>
     </nav>
   </header>
@@ -36,41 +36,142 @@
   <main>
     <section id="inicio" class="hero shell hero-project">
       <div class="hero-copy">
-        <div class="hero-kicker"><span class="live-dot"></span> Projeto alpha em desenvolvimento ativo</div>
-        <h1>Navegação e multiplayer <span>para OMSI 2.</span></h1>
-        <p class="hero-lead">GPS, HUD, mapa compartilhado, sala hospedada pelo próprio criador, chat e voz em um aplicativo independente da Steam. A integração física com outros ônibus dentro do OMSI está sendo desenvolvida separadamente.</p>
+        <div class="hero-kicker"><span class="live-dot"></span> Alpha.11 Test 2 • teste público da comunidade</div>
+        <h1>Navegação e multiplayer <span>mais integrados ao OMSI 2.</span></h1>
+        <p class="hero-lead">GPS, HUD, velocidade corrigida, paradas da rota ativa, salas peer-host, chat, voz e a primeira rodada pública do ônibus remoto físico 3D experimental.</p>
         <div class="actions">
-          <a id="latest-download" class="button primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Baixar cliente recomendado — EXE standalone</a>
-          <a class="button secondary" href="#estado">Ver o que já funciona</a>
+          <a id="latest-download" class="button primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.2" target="_blank" rel="noreferrer">Baixar Alpha.11 Test 2 — EXE standalone</a>
+          <a class="button secondary" href="#manual">Como usar</a>
         </div>
         <div class="hero-meta">
-          <span>Windows x86</span>
-          <span>.NET 10</span>
-          <span>Peer-host TCP 27730</span>
           <span>OMSI 2.3.004</span>
+          <span>Cliente x86</span>
+          <span>Peer-host TCP 27730</span>
+          <span>Até 32 jogadores — meta inicial</span>
           <span>5 idiomas</span>
         </div>
       </div>
-
       <div class="hero-media">
         <figure class="hero-visual">
-          <img src="assets/navbr-hero.webp" alt="Conceito visual do OMSI NavBR mostrando GPS, HUD, chat, voz e marcadores de jogadores no aplicativo" />
-          <figcaption>Visual conceitual do NavBR: os remotos aparecem no GPS/HUD do aplicativo. Isso não representa ônibus remotos 3D já disponíveis no OMSI.</figcaption>
+          <img src="assets/navbr-hero.webp" alt="OMSI NavBR Multiplayer com GPS, HUD e multiplayer" />
+          <figcaption>Alpha.11 Test 2: o 3D remoto está disponível somente como recurso experimental e opt-in.</figcaption>
         </figure>
-        <div class="project-console" aria-label="Estado atual do OMSI NavBR Multiplayer">
-          <div class="console-head"><span>NAVBR • SESSION STATUS</span><span class="console-live"><i></i> DEVELOPMENT</span></div>
+        <div class="project-console" aria-label="Estado atual do projeto">
+          <div class="console-head"><span>NAVBR • ALPHA.11 TEST 2</span><span class="console-live"><i></i> COMMUNITY TEST</span></div>
           <div class="console-body">
-            <div class="console-row ok"><span>GPS / HUD</span><strong>ATIVO</strong></div>
-            <div class="console-row ok"><span>Peer-host / SignalR</span><strong>IMPLEMENTADO</strong></div>
-            <div class="console-row ok"><span>Jogadores no mapa NavBR</span><strong>SIM</strong></div>
-            <div class="console-row ok"><span>Chat / PTT</span><strong>IMPLEMENTADO</strong></div>
+            <div class="console-row ok"><span>HUD / GPS</span><strong>ATIVO</strong></div>
+            <div class="console-row ok"><span>Velocidade</span><strong>CORRIGIDA</strong></div>
+            <div class="console-row ok"><span>Paradas da rota ativa</span><strong>FILTRADAS</strong></div>
+            <div class="console-row ok"><span>Peer-host / Chat / PTT</span><strong>IMPLEMENTADO</strong></div>
             <div class="console-divider"></div>
-            <div class="console-row exp"><span>Plugin OMSI x86</span><strong>EXPERIMENTAL</strong></div>
-            <div class="console-row exp"><span>Bridge local / heartbeat</span><strong>ALPHA.10</strong></div>
-            <div class="console-row no"><span>Ônibus remoto no mundo 3D</span><strong>AINDA NÃO</strong></div>
+            <div class="console-row exp"><span>Plugin Native AOT x86</span><strong>EXPERIMENTAL</strong></div>
+            <div class="console-row exp"><span>Ônibus remoto físico 3D</span><strong>TESTE PÚBLICO</strong></div>
+            <div class="console-row exp"><span>Diagnóstico automático</span><strong>OPT-IN</strong></div>
           </div>
-          <div class="console-foot">O marcador remoto no GPS/HUD não significa que outro ônibus já foi criado fisicamente dentro do OMSI.</div>
+          <div class="console-foot">O 3D remoto ainda pode ter incompatibilidades, posicionamento incorreto ou crash. Comece os testes com poucos jogadores.</div>
         </div>
+      </div>
+    </section>
+
+    <section class="trust-strip">
+      <div class="shell trust-grid">
+        <div><b id="latest-version">v0.3.0-alpha.11-test.2</b><span>teste público atual</span></div>
+        <div><b>v0.3.0-alpha.10</b><span>release oficial anterior</span></div>
+        <div><b id="total-downloads">—</b><span>downloads oficiais</span></div>
+        <div><b>MIT</b><span>código do NavBR</span></div>
+      </div>
+    </section>
+
+    <section id="estado" class="section shell state-section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Estado da Alpha.11</span>
+          <h2>Test 2 pronta para validação da comunidade.</h2>
+          <p class="section-lead">A Alpha.11 reúne correções de HUD e telemetria com uma camada experimental de integração física. Recursos marcados como experimentais ainda não são considerados estáveis.</p>
+        </div>
+      </div>
+      <div class="status-grid">
+        <article class="status-card status-ready"><span class="status-label">PRONTO PARA TESTAR</span><h3>HUD e navegação</h3><p>HUD mais compacto/transparente, velocidade corrigida e visibilidade ligada à janela real de gameplay.</p><ul><li>Groundspeed + fallback linear</li><li>HUD some em menus/opções</li><li>Próxima parada destacada</li><li>Rota completa</li></ul></article>
+        <article class="status-card status-ready"><span class="status-label">PRONTO PARA TESTAR</span><h3>Paradas da linha ativa</h3><p>Com viagem ativa, o NavBR mostra somente as paradas daquela rota. Sem rota, pode mostrar todas as paradas válidas.</p><ul><li>Leitura de .ttp</li><li>Fallback pela geometria</li><li>Menos poluição no minimapa</li><li>Próxima parada preservada</li></ul></article>
+        <article class="status-card status-exp"><span class="status-label">EXPERIMENTAL</span><h3>Ônibus remoto físico 3D</h3><p>Primeira rodada pública de spawn, atualização e remoção de ônibus remotos através do plugin x86.</p><ul><li>Opt-in explícito</li><li>Mesmo mapa/build</li><li>Mesmo ônibus instalado localmente</li><li>Testar inicialmente com poucos jogadores</li></ul></article>
+      </div>
+    </section>
+
+    <section id="download" class="section shell">
+      <div class="section-head">
+        <div><span class="eyebrow">Builds oficiais</span><h2>Baixe a Alpha.11 Test 2.</h2><p id="latest-summary" class="section-lead">Pré-release comunitária com HUD corrigido, manual interno, diagnóstico opcional e 3D experimental.</p></div>
+        <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Todas as releases →</a>
+      </div>
+      <div class="download-guide">
+        <article class="download-choice recommended"><span>RECOMENDADO</span><h3>Cliente — EXE standalone</h3><p>Para jogar, criar/entrar em salas e testar a Alpha.11. O pacote é self-contained.</p></article>
+        <article class="download-choice"><span>ALTERNATIVA</span><h3>Cliente ZIP</h3><p>Mesmo cliente em pasta completa para quem prefere distribuição extraída.</p></article>
+        <article class="download-choice"><span>OPCIONAL</span><h3>Servidor dedicado</h3><p>Somente para hospedar separadamente. No uso normal, quem cria a sala já é o host.</p></article>
+      </div>
+      <div id="release-list" class="release-grid"><article class="release-card"><p>Carregando releases…</p></article></div>
+    </section>
+
+    <section id="recursos" class="section shell">
+      <span class="eyebrow">O que a Test 2 traz</span>
+      <h2>Recursos atuais.</h2>
+      <div class="feature-grid">
+        <article><span class="feature-icon">⌖</span><h3>GPS e rota</h3><p>Roadmap do mapa, posição, heading, rota ativa, linha, destino e próxima parada quando disponíveis.</p></article>
+        <article><span class="feature-icon">▣</span><h3>HUD compacto</h3><p>Mais transparente e menor, preservando informações essenciais e ocultando-se em janelas auxiliares do OMSI.</p></article>
+        <article><span class="feature-icon">H</span><h3>Paradas inteligentes</h3><p>Rota ativa mostra apenas as suas paradas; sem rota ativa, o mapa completo pode ser exibido.</p></article>
+        <article><span class="feature-icon">⇄</span><h3>Peer-host</h3><p>Quem cria a sala hospeda a sessão no próprio PC pela porta TCP 27730.</p></article>
+        <article><span class="feature-icon">◉</span><h3>Chat e voz</h3><p>Chat de texto com F9 e voz push-to-talk com F10.</p></article>
+        <article><span class="feature-icon">?</span><h3>Manual dentro do app</h3><p>Guia offline para iniciantes, disponível em cinco idiomas.</p></article>
+      </div>
+    </section>
+
+    <section id="multiplayer" class="section shell split-section">
+      <div>
+        <span class="eyebrow">Multiplayer</span>
+        <h2>Sala hospedada pelo próprio criador.</h2>
+        <p class="section-lead">O modo principal continua peer-host. O servidor dedicado permanece como alternativa.</p>
+        <div class="project-note"><strong>Meta inicial:</strong> até 32 jogadores por sala. Os snapshots de tráfego IA usam um limite separado de até 48 veículos relevantes.</div>
+      </div>
+      <div class="steps">
+        <article><b>01</b><div><h3>Crie a sala</h3><p>Seu PC inicia o host local.</p></div></article>
+        <article><b>02</b><div><h3>Compartilhe o convite</h3><p>Endereço, porta e sala identificam a sessão.</p></div></article>
+        <article><b>03</b><div><h3>Entre no mesmo mapa</h3><p>O NavBR valida compatibilidade antes de misturar estados.</p></div></article>
+        <article><b>04</b><div><h3>Teste HUD, voz e 3D</h3><p>O 3D é opcional e experimental.</p></div></article>
+      </div>
+    </section>
+
+    <section id="plugin" class="section shell">
+      <div class="section-head"><div><span class="eyebrow">Alpha.11 • integração profunda</span><h2>Ônibus remoto físico 3D — experimental.</h2><p class="section-lead">A Test 2 abre o primeiro teste público da camada física. Não é um recurso estável e pode falhar com determinados mapas ou add-ons.</p></div></div>
+      <div class="validation-card" id="alpha11-test2-card">
+        <div><span class="eyebrow">Pré-release comunitária</span><h2>v0.3.0-alpha.11-test.2</h2></div>
+        <div><p>Para testar o 3D, use OMSI 2.3.004, instale o plugin pelo NavBR, entre no mesmo mapa/build e tenha localmente o mesmo modelo de ônibus do jogador remoto. O NavBR não distribui conteúdo pago/proprietário.</p><div class="actions"><a class="button primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.2" target="_blank" rel="noreferrer">Abrir Test 2</a><a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA11_TEST2_COMMUNITY.md" target="_blank" rel="noreferrer">Checklist de teste</a></div></div>
+      </div>
+      <div class="feature-grid">
+        <article><h3>Plugin Native AOT x86</h3><p>Carregado pelo OMSI e conectado ao cliente por Named Pipe local.</p></article>
+        <article><h3>Interop C++ x86</h3><p>Camada isolada para o ABI Borland/Delphi do OMSI 2.3.004.</p></article>
+        <article><h3>Proteções</h3><p>Registro de instâncias próprias, validação de ponteiros e execução no callback/thread do OMSI.</p></article>
+      </div>
+    </section>
+
+    <section id="manual" class="section shell">
+      <div class="section-head"><div><span class="eyebrow">Para iniciantes</span><h2>Manual de uso dentro do aplicativo.</h2><p class="section-lead">A Alpha.11 inclui um guia offline com passos simples para quem nunca usou o NavBR.</p></div></div>
+      <div class="feature-grid">
+        <article><h3>Primeiros passos</h3><p>Como abrir NavBR + OMSI e confirmar a telemetria.</p></article>
+        <article><h3>HUD e GPS</h3><p>Velocidade, rota, paradas e solução de problemas básicos.</p></article>
+        <article><h3>Multiplayer</h3><p>Como criar sala, entrar, usar chat/voz e liberar a porta quando necessário.</p></article>
+        <article><h3>3D e diagnóstico</h3><p>Como ativar os recursos de teste e o que observar.</p></article>
+      </div>
+      <div class="actions"><a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MANUAL_DE_USO.md" target="_blank" rel="noreferrer">Ler manual completo no GitHub</a></div>
+    </section>
+
+    <section id="diagnosticos" class="section shell split-section">
+      <div>
+        <span class="eyebrow">Teste comunitário</span>
+        <h2>Diagnóstico automático opcional.</h2>
+        <p class="section-lead">O envio vem desligado por padrão. Quem aceitar ajuda o desenvolvimento a receber erros técnicos do HUD, bridge e 3D sem copiar logs manualmente.</p>
+      </div>
+      <div class="steps">
+        <article><b>✓</b><div><h3>Pode enviar</h3><p>Versões, mapa, identificação técnica do veículo, estado do plugin/bridge/3D e erros.</p></div></article>
+        <article><b>×</b><div><h3>Não envia</h3><p>Chat, áudio/voz, senha, token, arquivos pessoais ou nome do usuário do Windows.</p></div></article>
+        <article><b>↻</b><div><h3>Fila offline</h3><p>Eventos ficam temporariamente em fila limitada quando não há conexão.</p></div></article>
       </div>
     </section>
 
@@ -78,137 +179,25 @@
       <div class="support-card featured-support-card">
         <div class="support-brand">
           <img src="assets/navbr.ico" alt="Ícone do OMSI NavBR Multiplayer" />
-          <div><span class="eyebrow">Projeto independente</span><h2>Ajude o NavBR a continuar evoluindo.</h2><p>Contribuições ajudam diretamente no desenvolvimento, testes entre computadores, compatibilidade com mapas/ônibus, infraestrutura e evolução do multiplayer visual.</p></div>
+          <div><span class="eyebrow">Projeto independente</span><h2>Ajude o NavBR a continuar evoluindo.</h2><p>Contribuições ajudam no desenvolvimento, infraestrutura e testes com a comunidade.</p></div>
         </div>
         <div class="pix-box pix-box-featured" data-pix="b07a9cc9-b10d-48a8-b201-d28bddc4399a">
           <span>CONTRIBUA VIA PIX • CHAVE ALEATÓRIA</span>
           <strong id="pix-status">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong>
           <button id="copy-pix" class="button primary" type="button">Copiar chave Pix</button>
-          <small>O apoio é voluntário. O projeto continua público e o código do NavBR permanece disponível no GitHub.</small>
+          <small>O apoio é voluntário. O projeto continua público no GitHub.</small>
         </div>
       </div>
     </section>
 
-    <section class="trust-strip"><div class="shell trust-grid"><div><b id="latest-version">Carregando…</b><span>release geral publicada</span></div><div><b>alpha.10-test.2</b><span>teste permanente atual</span></div><div><b id="total-downloads">—</b><span>downloads oficiais</span></div><div><b>MIT</b><span>código do NavBR</span></div></div></section>
-
-    <section id="estado" class="section shell state-section">
-      <div class="section-head">
-        <div><span class="eyebrow">Estado real do projeto</span><h2>Multiplayer conectado não significa, ainda, ônibus dentro do OMSI.</h2><p class="section-lead">O NavBR já troca telemetria entre jogadores e mostra os remotos na própria interface. A representação física no mundo 3D do simulador é a próxima fronteira técnica e continua experimental.</p></div>
-        <a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MULTIPLAYER_STATUS.md" target="_blank" rel="noreferrer">Ler estado completo →</a>
-      </div>
-      <div class="status-grid">
-        <article class="status-card status-ready"><span class="status-label">FUNCIONA HOJE</span><h3>Multiplayer externo</h3><p>Sala, presença, telemetria, jogadores no GPS/minimapa/HUD do NavBR, chat, voz e reconexão automática.</p><ul><li>Host no PC do criador</li><li>TCP 27730 / SignalR</li><li>Mapa + fingerprint compartilhados</li><li>Servidor dedicado opcional</li></ul></article>
-        <article class="status-card status-pending"><span class="status-label">AINDA NÃO</span><h3>Multiplayer visual 3D</h3><p>O NavBR ainda não cria outro jogador como ônibus físico/AI dentro do cenário do OMSI.</p><ul><li>Sem ônibus remoto 3D</li><li>Sem colisões compartilhadas</li><li>Sem portas/luzes/matriz remotas</li><li>Sem tráfego/passageiros sincronizados</li></ul></article>
-        <article class="status-card status-exp"><span class="status-label">ALPHA.10 EXPERIMENTAL</span><h3>Preparação do plugin</h3><p>Plugin x86 opcional, Named Pipe local, heartbeat, filtro por mapa, estados remotos e interpolação antes de qualquer entidade física.</p><ul><li>Bridge v1 implementado</li><li>PID/process-match</li><li>Timeout e limite de remotos</li><li>Sem escrita no OMSI</li></ul></article>
-      </div>
-    </section>
-
-    <section id="download" class="section shell">
-      <div class="section-head"><div><span class="eyebrow">Builds oficiais</span><h2>Escolha o pacote certo.</h2><p id="latest-summary" class="section-lead">Consultando as releases publicadas no GitHub.</p></div><a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Todas as releases →</a></div>
-      <div class="download-guide">
-        <article class="download-choice recommended"><span>RECOMENDADO</span><h3>Cliente — EXE standalone</h3><p>Para jogar, entrar em salas ou criar sua própria sala. É self-contained e não exige baixar o servidor dedicado.</p></article>
-        <article class="download-choice"><span>ALTERNATIVA</span><h3>Cliente ZIP</h3><p>Mesmo cliente em pasta completa. Use se preferir uma distribuição extraída ou precisar diagnosticar arquivos.</p></article>
-        <article class="download-choice"><span>OPCIONAL</span><h3>Servidor dedicado</h3><p>Somente para executar o host separado do cliente. Não é necessário no modo peer-host normal.</p></article>
-      </div>
-      <div id="release-list" class="release-grid"><article class="release-card"><p>Carregando releases…</p></article></div>
-    </section>
-
-    <section id="recursos" class="section shell">
-      <span class="eyebrow">Experiência NavBR</span><h2>Uma camada de navegação e comunicação ao redor do OMSI.</h2>
-      <div class="feature-grid">
-        <article><span class="feature-icon">⌖</span><h3>GPS integrado</h3><p>Roadmap real do mapa, posição, heading, zoom de até 10×, rota ativa, destino e próxima parada quando disponíveis.</p></article>
-        <article><span class="feature-icon">▣</span><h3>HUD sobre o OMSI</h3><p>Minimapa móvel, chat visual, atalhos, contador de jogadores e indicador de voz.</p></article>
-        <article><span class="feature-icon">⇄</span><h3>Peer-host</h3><p>Quem cria a sala hospeda a sessão no próprio PC. Servidor dedicado continua como alternativa.</p></article>
-        <article><span class="feature-icon">◉</span><h3>Voz Opus</h3><p>NAudio + Concentus, 48 kHz mono, frames de 20 ms e push-to-talk configurável.</p></article>
-        <article><span class="feature-icon">⌨</span><h3>Atalhos protegidos</h3><p>F9/F10 e modificadores são comparados com o <code>keyboard.cfg</code> real do OMSI antes de serem ativados.</p></article>
-        <article><span class="feature-icon">◎</span><h3>Sem Steam API</h3><p>O NavBR encontra o <code>Omsi.exe</code> em execução e deriva a instalação diretamente do processo.</p></article>
-      </div>
-    </section>
-
-    <section class="section shell architecture-section">
-      <div class="section-head"><div><span class="eyebrow">Arquitetura atual</span><h2>O caminho dos dados hoje.</h2><p class="section-lead">A rede já leva telemetria entre computadores. No destino, esses dados alimentam a interface do NavBR; na alpha.10 eles também podem chegar ao plugin experimental para diagnóstico.</p></div></div>
-      <div class="architecture-flow">
-        <div class="flow-node"><small>PC A</small><strong>OMSI 2</strong><span>telemetria local</span></div><div class="flow-arrow">→</div>
-        <div class="flow-node accent"><small>PC A</small><strong>NavBR</strong><span>SignalR / host</span></div><div class="flow-arrow">⇄</div>
-        <div class="flow-node accent"><small>PC B</small><strong>NavBR</strong><span>GPS / HUD / chat / voz</span></div><div class="flow-arrow dashed">⇢</div>
-        <div class="flow-node experimental"><small>PC B • EXP</small><strong>Plugin x86</strong><span>estado remoto / heartbeat</span></div>
-      </div>
-      <p class="architecture-note"><strong>Importante:</strong> a seta ainda termina no registro/diagnóstico do plugin. Ela não termina em um segundo ônibus renderizado pelo OMSI.</p>
-    </section>
-
-    <section id="mapas" class="section shell split-section">
-      <div>
-        <span class="eyebrow">Mapas e navegação</span>
-        <h2>Roadmap visual, geometria e timetable são camadas diferentes.</h2>
-        <p class="section-lead">O NavBR lê a instalação real do mapa. O fundo recomendado do GPS é <code>texture\map\whole.roadmap.bmp</code>; a rota vem de TTData, tiles, splines, paths e objetos do mapa.</p>
-        <div class="project-note"><strong>Alpha.10:</strong> todos os mapas instalados são separados entre <b>roadmap pronto</b> e <b>roadmap ausente</b>. Roadmaps individuais de tiles não contam como roadmap global pronto.</div>
-        <div class="actions"><a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/GERAR_ROADMAP_MAPAS.md" target="_blank" rel="noreferrer">Como gerar whole.roadmap.bmp</a></div>
-      </div>
-      <div class="steps">
-        <article><b>01</b><div><h3>Mapa detectado</h3><p><code>global.cfg</code> e tiles permitem ao NavBR catalogar a instalação.</p></div></article>
-        <article><b>02</b><div><h3>Roadmap global</h3><p><code>whole.roadmap.bmp</code> fornece o fundo 2D do GPS.</p></div></article>
-        <article><b>03</b><div><h3>TTData + geometria</h3><p><code>.ttp/.ttr</code>, splines e paths alimentam o traçado detalhado quando resolvíveis.</p></div></article>
-        <article><b>04</b><div><h3>Compatibilidade multiplayer</h3><p>Mapa e fingerprint ajudam a separar jogadores compatíveis, mas não criam ônibus físicos no OMSI.</p></div></article>
-      </div>
-    </section>
-
-    <section id="multiplayer" class="section shell multiplayer-section">
-      <div class="section-head"><div><span class="eyebrow">Multiplayer peer-host</span><h2>O PC de quem cria a sala é o host.</h2><p class="section-lead">O cliente inicia ASP.NET Core + SignalR localmente e o criador entra automaticamente na própria sala. O servidor dedicado é apenas uma opção adicional.</p></div><a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/PEER_HOST.md" target="_blank" rel="noreferrer">Documentação de sala →</a></div>
-      <div class="multiplayer-grid">
-        <article><span>01</span><h3>Criar sala</h3><p>O NavBR abre o host em <code>TCP 27730</code> e gera os dados de convite da sessão.</p></article>
-        <article><span>02</span><h3>Compartilhar estado</h3><p>Presença, telemetria, mapa/fingerprint, chat e voz trafegam pelo host.</p></article>
-        <article><span>03</span><h3>Mostrar no NavBR</h3><p>Jogadores compatíveis podem ser desenhados no GPS/minimapa/HUD com suavização.</p></article>
-        <article class="not-yet"><span>04</span><h3>Mostrar no OMSI 3D</h3><p><strong>Ainda não implementado.</strong> Esta etapa depende da validação do plugin e de uma estratégia segura de veículo AI/instância equivalente.</p></article>
-      </div>
-      <div class="warning-band"><strong>Não confundir:</strong> “jogador visível no mapa” significa hoje o <b>mapa/minimapa do NavBR</b>. O mundo 3D do OMSI ainda não recebe o ônibus remoto.</div>
-    </section>
-
-    <section id="plugin" class="section shell plugin-section">
-      <div class="section-head">
-        <div><span class="eyebrow">Alpha.10 experimental</span><h2>Preparando a ponte para o OMSI — sem fingir que o spawn já existe.</h2><p class="section-lead">A integração x86 é opcional. O objetivo atual é provar carga, heartbeat e transporte seguro dos estados remotos antes de qualquer tentativa de entidade física.</p></div>
-        <div class="actions"><a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md" target="_blank" rel="noreferrer">Documento técnico →</a><a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist de teste →</a></div>
-      </div>
-
-      <div id="alpha10-integration-test" class="integration-test-card">
-        <div><span class="eyebrow">Prerelease permanente de integração</span><h3>v0.3.0-alpha.10-test.2</h3><p>Snapshot de teste separado da alpha.9. Inclui cliente standalone, plugin completo, instalador/removedor e checklist.</p></div>
-        <div class="actions"><a class="button primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-alpha10-test.2-integration-win-x86.zip" target="_blank" rel="noreferrer">Baixar pacote integrado test.2</a><a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.2" target="_blank" rel="noreferrer">Abrir prerelease</a></div>
-      </div>
-
-      <div class="feature-grid">
-        <article><span class="feature-icon">DLL</span><h3>Plugin x86 opcional</h3><p>DLL + OPL com callbacks do OMSI e log de heartbeat. Não cria nem move veículos nesta fase.</p></article>
-        <article><span class="feature-icon">↔</span><h3>Named Pipe v1</h3><p>Bridge local restrito ao usuário atual, com handshake, reconexão e mensagem de status de volta ao cliente.</p></article>
-        <article><span class="feature-icon">HB</span><h3>Painel técnico</h3><p><code>install</code>, PID, <code>process-match</code>, heartbeat, callbacks, mapa, fingerprint e remotos compatíveis.</p></article>
-        <article><span class="feature-icon">64</span><h3>Registro seguro</h3><p>Máximo de 64 estados remotos, validação de dados, remoção explícita e timeout para evitar estados fantasma.</p></article>
-        <article><span class="feature-icon">≈</span><h3>Interpolação</h3><p>Snapshots remotos já podem ser suavizados antes de uma futura camada de representação física.</p></article>
-        <article><span class="feature-icon">AI</span><h3>Próxima investigação</h3><p>Veículo AI/instância equivalente, com fallback de modelo. Sem patch/injeção para forçar uma API de spawn inexistente.</p></article>
-      </div>
-      <div class="project-note"><strong>Critério para avançar:</strong> validar em OMSI 2.3.004 real <code>install=INSTALLED</code>, <code>status=CONNECTED</code>, <code>process-match=YES</code>, <code>heartbeat=LIVE</code> e bridge estável entre dois PCs.</div>
-    </section>
-
-    <section class="section shell validation"><div class="validation-card"><div><span class="eyebrow">Transparência de testes</span><h2>CI verde não substitui o OMSI real.</h2></div><div><p>Builds automatizados validam compilação, pacotes, EXE, bridge e instalador. <strong>HUD, rota, próxima parada, rede entre PCs, voz, atalhos e plugin continuam dependendo de testes reais no simulador.</strong></p></div></div></section>
-
-    <section id="feedback" class="section shell feedback-section">
-      <div class="section-head"><div><span class="eyebrow">Comunidade</span><h2>Teste, encontre falhas e ajude a priorizar.</h2><p class="section-lead">Relatos reais de mapas, redes, ônibus e versões do OMSI são parte importante do desenvolvimento.</p></div><a class="text-link" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/issues" target="_blank" rel="noreferrer">Ver feedback público →</a></div>
-      <div class="feedback-grid">
-        <article class="feedback-card"><span class="feedback-icon">!</span><div><h3>Relatar um bug</h3><p>Informe versão do NavBR, OMSI, mapa, passos para reproduzir e logs quando possível.</p></div><a class="button primary feedback-action" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/issues/new?template=bug.yml" target="_blank" rel="noreferrer">Relatar problema</a></article>
-        <article class="feedback-card"><span class="feedback-icon">+</span><div><h3>Sugerir uma melhoria</h3><p>Envie ideias para HUD, navegação, multiplayer, plugin, chat, voz, instalação ou site.</p></div><a class="button secondary feedback-action" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/issues/new?template=suggestion.yml" target="_blank" rel="noreferrer">Enviar sugestão</a></article>
-        <article class="feedback-card"><span class="feedback-icon">★</span><div><h3>Dar feedback geral</h3><p>Conte o que funcionou, o que precisa melhorar e qual área deveria receber prioridade.</p></div><a class="button secondary feedback-action" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/issues/new?template=feedback.yml" target="_blank" rel="noreferrer">Avaliar o projeto</a></article>
-      </div>
-      <p class="feedback-note">Os relatos são públicos no GitHub. Não publique senhas, tokens ou dados privados nos formulários e anexos.</p>
-    </section>
-
-    <section id="roadmap" class="section shell roadmap-section">
-      <span class="eyebrow">Roadmap de desenvolvimento</span><h2>Da telemetria compartilhada ao multiplayer visual.</h2>
-      <div class="roadmap-grid">
-        <article class="done"><b>AGORA</b><h3>Validar a base</h3><p>Alpha.9: HUD, rota, peer-host, chat e voz. Alpha.10: lista de roadmaps, plugin, bridge e heartbeat.</p></article>
-        <article class="active"><b>PRÓXIMO MARCO</b><h3>Plugin no OMSI real</h3><p>Confirmar carga x86, PID correto, callbacks, heartbeat e transporte remoto entre dois computadores sem crash.</p></article>
-        <article><b>DEPOIS</b><h3>Primeiro ônibus remoto</h3><p>Investigar veículo AI/instância equivalente, posição/orientação, remoção segura e compatibilidade/fallback de modelo.</p></article>
-        <article><b>MAIS ADIANTE</b><h3>Sincronização avançada</h3><p>Portas, luzes, setas, matriz, articulação, LOD, otimização de rede, NAT traversal e recursos de beta.</p></article>
-      </div>
+    <section class="section shell">
+      <span class="eyebrow">Créditos</span>
+      <h2>Projeto OMSI NavBR Multiplayer</h2>
+      <p class="section-lead"><strong>Desenvolvedor: MichaelPriest</strong><br />Com apoio da IA ChatGPT no desenvolvimento e documentação.</p>
     </section>
   </main>
 
-  <footer><div class="shell footer-grid"><div><b>OMSI NavBR Multiplayer</b><p>Projeto independente para OMSI 2. Multiplayer externo em desenvolvimento; representação 3D de ônibus remotos ainda experimental.</p></div><div><a href="#contribua">Contribua via Pix</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MULTIPLAYER_STATUS.md" target="_blank" rel="noreferrer">Estado real do multiplayer</a><a href="#mapas">Preparar mapas</a><a href="#plugin">Alpha.10 experimental</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" target="_blank" rel="noreferrer">Checklist alpha.10</a><a href="#feedback">Enviar feedback</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank" rel="noreferrer">Código no GitHub</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases" target="_blank" rel="noreferrer">Releases</a></div></div></footer>
-  <script src="app.js"></script>
+  <footer class="site-footer"><div class="shell"><strong>OMSI NavBR Multiplayer</strong><span>Projeto independente • MIT • OMSI e demais marcas pertencem aos respectivos titulares.</span></div></footer>
+  <script src="app.js" defer></script>
 </body>
 </html>
