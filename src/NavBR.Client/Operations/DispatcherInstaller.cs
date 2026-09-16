@@ -41,7 +41,13 @@ internal static class DispatcherInstaller
         button.Click += (_, _) =>
         {
             var dispatcher = new DispatcherWindow(window, window.GetCurrentTelemetryForAlpha11);
-            DispatcherRemoteDriversPanel.Attach(dispatcher);
+            RoutedEventHandler? loaded = null;
+            loaded = (_, _) =>
+            {
+                dispatcher.Loaded -= loaded;
+                DispatcherRemoteDriversPanel.Attach(dispatcher);
+            };
+            dispatcher.Loaded += loaded;
             dispatcher.ShowDialog();
         };
 
