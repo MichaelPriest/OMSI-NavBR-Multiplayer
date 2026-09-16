@@ -38,11 +38,51 @@ internal static class ExperimentalVehicleCommandProcessor
         return capabilities.ToArray();
     }
 
-    public static PluginBridgeMessage Process(PluginBridgeMessage command)
+    /// <summary>
+    /// Performs only cheap/fail-closed checks that are safe on the bridge worker.
+    /// If this returns false, the command is eligible to be queued for OMSI's
+    /// plugin callback thread; no raw simulator function has been called yet.
+    /// </summary>
+    public static bool TryRejectBeforeOmsiThread(
+        PluginBridgeMessage command,
+        out PluginBridgeMessage? rejection)
+    {
+        rejection = ValidateCommand(command);
+        return rejection is not null;
+    }
+
+    /// <summary>
+    /// Executes a validated physical command. This method is only called while
+    /// draining <see cref="OmsiThreadCommandQueue"/> from an OMSI callback.
+    /// </summary>
+    public static PluginBridgeMessage ProcessOnOmsiThread(PluginBridgeMessage command)
+    {
+        var rejection = ValidateCommand(command);
+        if (rejection is not null)
+        {
+            return rejection;
+        }
+
+        try
+        {
+            return PhysicalVehicleBackend.Execute(command);
+        }
+        catch (Exception ex)
+        {
+            return Result(command, false, "backend-error", ex.Message);
+        }
+    }
+
+    private static PluginBridgeMessage? ValidateCommand(PluginBridgeMessage command)
     {
         if (!IsVehicleCommand(command.Type))
         {
             return Result(command, false, "unsupported-command", "Unsupported physical vehicle command.");
+        }
+
+        if (string.IsNullOrWhiteSpace(command.CommandId) || command.CommandId.Length > 128)
+        {
+            return Result(command, false, "invalid-command-id", "Physical vehicle commands require a bounded command id.");
         }
 
         if (!WritesEnabled)
@@ -63,14 +103,7 @@ internal static class ExperimentalVehicleCommandProcessor
                 "The physical OMSI vehicle backend is not available for this build/runtime.");
         }
 
-        try
-        {
-            return PhysicalVehicleBackend.Execute(command);
-        }
-        catch (Exception ex)
-        {
-            return Result(command, false, "backend-error", ex.Message);
-        }
+        return null;
     }
 
     private static bool IsVehicleCommand(string type) =>
