@@ -56,6 +56,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock x:Name="ServerLabelText" Grid.Row="0" Grid.Column="0" Margin="0,0,10,11" VerticalAlignment="Center" FontWeight="SemiBold" />
@@ -128,7 +129,26 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4">
+                <Border Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4"
+                        Background="#091521"
+                        CornerRadius="9"
+                        Padding="11"
+                        Margin="0,0,0,12">
+                    <StackPanel>
+                        <CheckBox x:Name="UpnpEnabledCheckBox"
+                                  FontWeight="SemiBold"
+                                  Loaded="UpnpEnabledCheckBox_Loaded"
+                                  Checked="UpnpEnabledCheckBox_Changed"
+                                  Unchecked="UpnpEnabledCheckBox_Changed" />
+                        <TextBlock x:Name="UpnpDescriptionText"
+                                   Margin="22,4,0,0"
+                                   Style="{StaticResource NavMutedText}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
