@@ -6,12 +6,16 @@ namespace NavBR.OmsiPluginExperimental;
 
 public static class PluginExports
 {
+    private const long VehicleVariableFreshnessMs = 1_000;
+
     private static readonly object LogSync = new();
     private static DateTimeOffset _lastHeartbeat = DateTimeOffset.MinValue;
     private static DateTimeOffset _lastStatusReport = DateTimeOffset.MinValue;
     private static long _systemVariableCallbacks;
     private static float _pluginVelocityKph = float.NaN;
     private static int _stopRequested;
+    private static long _lastVelocityTickMs;
+    private static long _lastStopRequestTickMs;
 
     private static string LogDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -28,6 +32,8 @@ public static class PluginExports
             _lastStatusReport = DateTimeOffset.MinValue;
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
+            Interlocked.Exchange(ref _lastVelocityTickMs, 0);
+            Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
             PluginBridgeClient.Start(Log);
         }
@@ -45,6 +51,8 @@ public static class PluginExports
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
+            Interlocked.Exchange(ref _lastVelocityTickMs, 0);
+            Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
             Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
         }
         catch (Exception ex)
@@ -73,17 +81,20 @@ public static class PluginExports
                 return;
             }
 
+            var tick = Environment.TickCount64;
             switch (variableIndex)
             {
                 // [varlist] index 0 = Velocity (km/h).
                 case 0:
                     Volatile.Write(ref _pluginVelocityKph, Math.Abs(variableValue));
+                    Interlocked.Exchange(ref _lastVelocityTickMs, tick);
                     break;
 
                 // [varlist] index 1 = haltewunsch. OMSI buses conventionally
                 // expose the active stop request as a positive value.
                 case 1:
                     Volatile.Write(ref _stopRequested, variableValue > 0.5f ? 1 : 0);
+                    Interlocked.Exchange(ref _lastStopRequestTickMs, tick);
                     break;
             }
         }
@@ -134,11 +145,17 @@ public static class PluginExports
                 _lastStatusReport = now;
                 staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
 
+                var tick = Environment.TickCount64;
+                var velocityAge = AgeMilliseconds(tick, Interlocked.Read(ref _lastVelocityTickMs));
+                var stopAge = AgeMilliseconds(tick, Interlocked.Read(ref _lastStopRequestTickMs));
                 var pluginVelocity = Volatile.Read(ref _pluginVelocityKph);
-                var speedKph = float.IsFinite(pluginVelocity)
+
+                var speedKph = velocityAge <= VehicleVariableFreshnessMs && float.IsFinite(pluginVelocity)
                     ? (double?)Math.Abs(pluginVelocity)
                     : null;
-                var stopRequested = Volatile.Read(ref _stopRequested) != 0;
+                bool? stopRequested = stopAge <= VehicleVariableFreshnessMs
+                    ? Volatile.Read(ref _stopRequested) != 0
+                    : null;
 
                 PluginBridgeClient.ReportRuntimeStatus(
                     Interlocked.Read(ref _systemVariableCallbacks),
@@ -175,11 +192,21 @@ public static class PluginExports
             var remoteSummary = remote is null
                 ? "remote=none"
                 : $"remote={remote.PlayerId} map={remote.MapName ?? "-"} pos=({remote.X:F2},{remote.Y:F2},{remote.Z:F2}) heading={remote.HeadingDegrees:F1} speed={remote.SpeedKph:F1}";
+
+            var heartbeatTick = Environment.TickCount64;
             var localVelocity = Volatile.Read(ref _pluginVelocityKph);
-            var localSpeedSummary = float.IsFinite(localVelocity)
+            var velocityFresh = AgeMilliseconds(
+                heartbeatTick,
+                Interlocked.Read(ref _lastVelocityTickMs)) <= VehicleVariableFreshnessMs;
+            var stopFresh = AgeMilliseconds(
+                heartbeatTick,
+                Interlocked.Read(ref _lastStopRequestTickMs)) <= VehicleVariableFreshnessMs;
+            var localSpeedSummary = velocityFresh && float.IsFinite(localVelocity)
                 ? localVelocity.ToString("F1")
-                : "-";
-            var stopSummary = Volatile.Read(ref _stopRequested) != 0 ? "1" : "0";
+                : "unsupported/stale";
+            var stopSummary = stopFresh
+                ? (Volatile.Read(ref _stopRequested) != 0 ? "1" : "0")
+                : "unsupported/stale";
 
             Log(
                 $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
@@ -196,6 +223,16 @@ public static class PluginExports
         {
             Log($"AccessSystemVariable erro: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private static long AgeMilliseconds(long nowTick, long lastTick)
+    {
+        if (lastTick <= 0 || nowTick < lastTick)
+        {
+            return long.MaxValue;
+        }
+
+        return nowTick - lastTick;
     }
 
     private static void Log(string message)
