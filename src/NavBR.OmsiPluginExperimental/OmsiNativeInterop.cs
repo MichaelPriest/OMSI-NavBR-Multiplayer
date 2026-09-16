@@ -12,7 +12,7 @@ namespace NavBR.OmsiPluginExperimental;
 internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
-    private const int ExpectedAbiVersion = 1;
+    private const int ExpectedAbiVersion = 2;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
     private static nint _shimHandle;
@@ -131,6 +131,27 @@ internal static class OmsiNativeInterop
         }
     }
 
+    internal static bool TryFindNewRoadVehicle(
+        IReadOnlyCollection<int> before,
+        out int vehiclePointer)
+    {
+        vehiclePointer = 0;
+        if (!TrySnapshotRoadVehicles(out var after))
+        {
+            return false;
+        }
+
+        var known = new HashSet<int>(before);
+        var added = after.Where(pointer => !known.Contains(pointer)).Distinct().ToArray();
+        if (added.Length != 1 || added[0] == 0 || IsRoadVehiclePointer(added[0]) != 1)
+        {
+            return false;
+        }
+
+        vehiclePointer = added[0];
+        return true;
+    }
+
     private static bool EnsureShimLoaded()
     {
         lock (ShimLoadSync)
@@ -196,6 +217,9 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleAt")]
     private static extern int GetRoadVehicleAt(int index);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
+    internal static extern int IsRoadVehiclePointer(int vehiclePointer);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetMem")]
     internal static extern int GetMem(int bytes);
 
@@ -251,4 +275,25 @@ internal static class OmsiNativeInterop
         int randomLicensePlate,
         int randomPaintScheme,
         int filenameAnsiString);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetVehicleTransform")]
+    internal static extern int SetVehicleTransform(
+        int vehiclePointer,
+        float x,
+        float y,
+        float z,
+        float rotationX,
+        float rotationY,
+        float rotationZ,
+        float rotationW,
+        float groundSpeedMps);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetVehicleVisualState")]
+    internal static extern int SetVehicleVisualState(
+        int vehiclePointer,
+        int lightFlags,
+        int turnSignal);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MarkVehicleForKilling")]
+    internal static extern int MarkVehicleForKilling(int vehiclePointer);
 }
