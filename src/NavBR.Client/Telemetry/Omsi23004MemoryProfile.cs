@@ -47,7 +47,14 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleRotationOffset = 0x050;
     public const int VehicleKachelOffset = 0x074;
     public const int VehicleAbsPositionOffset = 0x078;
-    public const int VehicleVelocityOffset = 0x1C0;
+
+    // OmsiPhysObjInst: Velocity is the actual linear/world velocity. 0x1C0 is
+    // Turn_Velocity and must not be used for the HUD speedometer because it can
+    // remain near zero while the bus is travelling straight.
+    public const int VehicleVelocityOffset = 0x174;
+    public const int VehicleTurnVelocityOffset = 0x1C0;
+    public const int VehicleLocalVelocityOffset = 0x1CC;
+
     public const int MovingVehicleIndexOffset = 0x258;
     public const int MovingVehicleUserTrainOffset = 0x26C;
     public const int VehicleGroundSpeedOffset = 0x428;
