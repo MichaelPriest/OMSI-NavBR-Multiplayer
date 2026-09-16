@@ -19,7 +19,7 @@ public sealed class RoomHostService : IAsyncDisposable
 
     public async Task StartAsync(
         int port = 27730,
-        bool enableAutomaticUpnp = false,
+        bool? enableAutomaticUpnp = null,
         CancellationToken cancellationToken = default)
     {
         if (_app is not null)
@@ -50,7 +50,8 @@ public sealed class RoomHostService : IAsyncDisposable
         LastUpnpResult = null;
         _mappedGateway = null;
 
-        if (!enableAutomaticUpnp)
+        var useUpnp = enableAutomaticUpnp ?? MultiplayerSettingsStore.Load().EnableAutomaticUpnp;
+        if (!useUpnp)
         {
             return;
         }
@@ -81,7 +82,7 @@ public sealed class RoomHostService : IAsyncDisposable
 
         try
         {
-            return Dns.GetHostEntry(Dns.GetHostName())
+            var values = Dns.GetHostEntry(Dns.GetHostName())
                 .AddressList
                 .Where(address =>
                     address.AddressFamily == AddressFamily.InterNetwork &&
@@ -89,11 +90,21 @@ public sealed class RoomHostService : IAsyncDisposable
                 .Select(address => $"http://{address}:{Port}")
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+                .ToList();
+
+            var internet = GetInternetInviteAddress();
+            if (!string.IsNullOrWhiteSpace(internet) &&
+                !values.Contains(internet, StringComparer.OrdinalIgnoreCase))
+            {
+                values.Add(internet);
+            }
+
+            return values;
         }
         catch
         {
-            return Array.Empty<string>();
+            var internet = GetInternetInviteAddress();
+            return string.IsNullOrWhiteSpace(internet) ? Array.Empty<string>() : [internet];
         }
     }
 
