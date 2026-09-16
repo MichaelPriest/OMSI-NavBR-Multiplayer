@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace NavBR.Client.Multiplayer;
 
 public sealed record MultiplayerSettings(
@@ -23,7 +25,9 @@ public sealed record MultiplayerSettings(
     string StopIconStyle = "omsi",
     string? StopCustomIconPath = null,
     bool ExperimentalPhysicalVehiclesEnabled = false,
-    bool EnableAutomaticUpnp = false)
+    bool EnableAutomaticUpnp = false,
+    [property: JsonIgnore] string? EphemeralRoomPassword = null,
+    [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
