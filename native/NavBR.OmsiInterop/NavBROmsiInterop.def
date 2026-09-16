@@ -3,6 +3,10 @@ EXPORTS
     NavBR_GetAbiVersion
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
+    NavBR_GetProgramManager
+    NavBR_GetRoadVehicleTypes
+    NavBR_GetRoadVehicleCount
+    NavBR_GetRoadVehicleAt
     NavBR_GetMem
     NavBR_FreeMem
     NavBR_LockMakeVehicle
