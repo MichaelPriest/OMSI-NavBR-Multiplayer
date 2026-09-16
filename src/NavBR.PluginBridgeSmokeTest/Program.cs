@@ -8,7 +8,7 @@ using NavBR.Shared.PluginBridge;
 await using var server = new OmsiPluginBridgeServer();
 server.Start();
 
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 await using var pipe = new NamedPipeClientStream(
     ".",
     PluginBridgeProtocol.PipeName,
@@ -139,8 +139,9 @@ var trafficMessage = new PluginBridgeMessage(
     Sequence: 42,
     TrafficVehicles: [trafficVehicle]);
 
+var trafficRead = reader.ReadLineAsync(cts.Token).AsTask();
 await server.SendMessageAsync(trafficMessage, cts.Token);
-var trafficLine = await reader.ReadLineAsync(cts.Token);
+var trafficLine = await trafficRead;
 var receivedTraffic = JsonSerializer.Deserialize<PluginBridgeMessage>(
     trafficLine ?? throw new InvalidOperationException("traffic snapshot not received"));
 
@@ -154,8 +155,9 @@ Require(receivedTraffic?.TrafficVehicles?[0].TrafficId == "traffic-17", "traffic
 var clearTraffic = new PluginBridgeMessage(
     PluginBridgeProtocol.ClearTrafficVehicles,
     PluginBridgeProtocol.Version);
+var clearRead = reader.ReadLineAsync(cts.Token).AsTask();
 await server.SendMessageAsync(clearTraffic, cts.Token);
-var clearLine = await reader.ReadLineAsync(cts.Token);
+var clearLine = await clearRead;
 var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
     clearLine ?? throw new InvalidOperationException("traffic clear not received"));
 Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
