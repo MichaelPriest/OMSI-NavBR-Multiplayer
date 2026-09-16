@@ -193,7 +193,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_AllocateAnsiString(const wcha
         0,
         nullptr,
         &usedDefaultCharacter);
-    if (byteLength < 0 || usedDefaultCharacter)
+    if ((characterLength > 0u && byteLength <= 0) || usedDefaultCharacter)
     {
         return 0;
     }
