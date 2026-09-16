@@ -13,10 +13,12 @@ $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
 $outputDirectory = Split-Path -Parent $outputFullPath
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
-# Native AOT x86: the OMSI plugin is a self-contained native DLL. No .NET x86
-# runtimeconfig/deps/managed companion assemblies are required on the user's PC.
+# Native AOT removes the managed runtime dependency, but the OMSI plugin still
+# calls the native NavBR ABI bridge. The embedded payload must therefore contain
+# both x86 DLLs plus the OMSI .opl descriptor.
 $required = @(
     'NavBR.OmsiPlugin.dll',
+    'NavBR.OmsiInterop.dll',
     'NavBR.OmsiPlugin.opl'
 )
 
@@ -38,6 +40,21 @@ try {
     }
 
     Compress-Archive -Path (Join-Path $temp '*') -DestinationPath $outputFullPath -CompressionLevel Optimal
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($outputFullPath)
+    try {
+        $entryNames = @($archive.Entries | ForEach-Object { $_.Name })
+        foreach ($name in $required) {
+            if ($entryNames -notcontains $name) {
+                throw "Embedded plugin bundle verification failed: missing $name"
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
     $hash = (Get-FileHash -LiteralPath $outputFullPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $size = (Get-Item -LiteralPath $outputFullPath).Length
 
