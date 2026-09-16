@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Localization;
 using NavBR.Client.Omsi;
+using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
 using NavBR.Shared.PluginBridge;
@@ -113,7 +114,13 @@ public partial class App : Application
             Alpha11VisualTuning.Apply(mainWindow);
             OmsiProfilesUiInstaller.Install(mainWindow);
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
+            Alpha12ExperienceInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
+        }
+
+        if (window is HudOverlayWindow hudOverlay)
+        {
+            Alpha12HudThemeService.Attach(hudOverlay);
         }
     }
 
