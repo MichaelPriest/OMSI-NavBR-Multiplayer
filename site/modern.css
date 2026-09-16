@@ -15,10 +15,11 @@ body{overflow-x:hidden}
 
 .navbr-ad-slot{margin-top:36px;margin-bottom:36px}
 .navbr-ad-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:#6f7e89;text-align:center;margin-bottom:7px;font-weight:800}
-.navbr-ad-content{min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px;border:1px dashed #394955;border-radius:15px;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(0,0,0,.12));padding:18px;color:#8595a0}
+.navbr-ad-content{min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px;border:1px solid #263744;border-radius:15px;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(0,0,0,.12));padding:12px;color:#8595a0;overflow:hidden}
 .navbr-ad-content strong{color:#a9bac5;font-size:.88rem}
 .navbr-ad-content span{font-size:.76rem;max-width:620px}
-.navbr-ad-content .adsbygoogle{width:100%;min-height:90px}
+.navbr-native-ad>div{width:100%;max-width:100%;margin-inline:auto}
+.navbr-native-ad iframe,.navbr-native-ad img{max-width:100%}
 
 .reveal-ready{opacity:0;transform:translateY(24px);transition:opacity .65s cubic-bezier(.2,.7,.2,1),transform .65s cubic-bezier(.2,.7,.2,1)}
 .reveal-ready.is-visible{opacity:1;transform:none}
@@ -75,7 +76,7 @@ body{overflow-x:hidden}
   .navbr-support-strip-inner a{padding:6px 10px;font-size:.72rem}
   .navbr-support-enabled .topbar{top:48px}
   .navbr-ad-slot{margin-top:24px;margin-bottom:24px}
-  .navbr-ad-content{min-height:90px;padding:12px}
+  .navbr-ad-content{min-height:90px;padding:8px}
   .alpha11-grid,.alpha11-pipeline{grid-template-columns:1fr}
 }
 
