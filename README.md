@@ -2,150 +2,80 @@
 
 [![Downloads](https://img.shields.io/github/downloads/MichaelPriest/OMSI-NavBR-Multiplayer/total?label=downloads&color=22c77a)](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases)
 
-Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam, com HUD/GPS, salas peer-host, chat, voz, integração experimental com o OMSI e suporte a cockpit físico via Arduino/ESP32.
+Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam, com HUD/GPS, peer-host, salas públicas/privadas, chat, voz, CCO, integração experimental com o OMSI e Hardware Cockpit.
 
-> Versão em desenvolvimento: **0.3.0-alpha.11**  
-> Teste público atual: **[v0.3.0-alpha.11-test.4](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.4)**  
-> Release oficial anterior: **[v0.3.0-alpha.10](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10)**
+> Versão em desenvolvimento: **0.3.0-alpha.12**  
+> Teste público atual: **[v0.3.0-alpha.12-test.1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1)**  
+> Release anterior: **[v0.3.0-alpha.11-test.4](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.4)**
 
 **Site oficial:** https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/  
-**Todas as releases:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases  
-**Manual:** [docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md)  
-**Checklist da Test 4:** [docs/ALPHA11_TEST4_COMMUNITY.md](docs/ALPHA11_TEST4_COMMUNITY.md)  
+**Releases:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases  
+**Checklist Alpha.12 Test 1:** [docs/ALPHA12_TEST1_COMMUNITY.md](docs/ALPHA12_TEST1_COMMUNITY.md)  
+**Escopo mestre Alpha.12:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/feature/alpha12-full-expansion/docs/ALPHA12_MASTER_SCOPE.md  
 **Hardware Cockpit:** [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md)
 
-## Alpha.11 Test 4
+## Alpha.12 Test 1
 
-A `v0.3.0-alpha.11-test.4` é a pré-release pública atual para validação da comunidade. Ela reúne a modernização da interface, correções de telemetria e a primeira versão funcional do **Hardware Cockpit Bridge**.
+A `v0.3.0-alpha.12-test.1` é a primeira pré-release pública da Alpha.12. Ela permite validar a nova base enquanto os módulos restantes continuam sendo incorporados e aparecem como **Em desenvolvimento** ou **Experimental**.
 
-Principais mudanças:
+### Incluído nesta Alpha
 
-- nova navegação da janela principal com foco em **Visão geral**, **Navegação**, **Multiplayer**, **Hardware cockpit** e **Ferramentas avançadas**;
-- menu lateral com rolagem vertical e menos poluição visual;
-- velocidade corrigida usando o `Tacho` do OMSI em km/h como fonte principal, com `Groundspeed` e vetor físico como fallback;
-- Hardware Cockpit por USB/Serial, com seleção de porta COM, baud rate e conexão/desconexão;
-- protocolo `NAVBR_HW_V1` em JSON Lines, aproximadamente a 5 Hz;
-- leitura de `haltewunsch` para `stopRequested`, permitindo LED físico de **PARADA SOLICITADA**;
-- exemplo Arduino/ESP32 incluído em `examples/NavBR.Hardware.Serial/NavBR_Hardware_Serial.ino`;
-- suporte a `currentStreet` através de perfis `NavBR.streets.json`, sem inventar nomes de ruas quando o mapa não fornece dados confiáveis;
-- plugin Native AOT x86 atualizado para observar `Velocity` e `haltewunsch`;
-- CI atualizado para cancelar builds antigos substituídos por commits mais novos da mesma branch.
+- novo shell Alpha.12 e HUD redesenhado;
+- perfil local do motorista e estatísticas;
+- empresa virtual, frota e CCO básico;
+- multiplayer peer-host TCP `27730`;
+- diagnóstico de conectividade, UPnP opt-in e saúde da sessão;
+- salas privadas com senha efêmera e navegador de salas públicas do servidor;
+- chat e PTT;
+- voz Geral, Empresa/Equipe, CCO e Proximidade;
+- mute, deafen, ganho por jogador e seleção de dispositivos de áudio;
+- plugin Native AOT x86 e bridge v2 experimentais;
+- Hardware Cockpit Serial preservado.
 
-### Teste prioritário: velocidade
+### Em desenvolvimento na Alpha.12
 
-Compare durante aceleração, velocidade constante e frenagem:
-
-1. velocímetro do ônibus no OMSI;
-2. velocidade exibida pelo NavBR/HUD;
-3. `speedKph` no preview do Hardware Cockpit.
-
-Se houver diferença relevante, informe o modelo exato do ônibus para ajustarmos o perfil sem quebrar os demais veículos.
-
-## Hardware Cockpit Bridge
-
-O NavBR pode enviar sua telemetria normalizada para Arduino/ESP32 sem o microcontrolador acessar a memória do OMSI.
-
-Configuração inicial recomendada:
-
-```text
-Protocolo: NAVBR_HW_V1
-Transporte: USB / Serial
-Baud rate: 115200
-Formato: JSON Lines
-Frequência: ~5 Hz
-Fluxo: OMSI -> NavBR -> Arduino/ESP32
-```
-
-Entre os campos disponíveis estão:
-
-- linha e rota;
-- destino;
-- próxima parada;
-- rua atual quando houver perfil confiável;
-- velocidade;
-- atraso;
-- portas;
-- luzes e setas;
-- buzina e limpadores;
-- freio de estacionamento e marcha à ré;
-- `stopRequested` para a luz de parada solicitada.
-
-A fase atual é **somente saída para o hardware**. Botões físicos enviando comandos de volta ao OMSI ficam para uma etapa posterior e separada.
-
-Consulte [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md) para protocolo, configuração e perfil de ruas.
-
-## HUD, GPS e rota
-
-A Alpha.11 trabalha com:
-
-- posição local e absoluta do veículo;
-- `GridX/GridY` + coordenadas locais de tile;
-- heading/quaternion;
-- velocidade;
-- linha/track, destino e próxima parada quando o timetable fornece os dados;
-- rota ativa a partir de `.ttp/.ttr`, tiles `.map`, splines `.sli` e paths de objetos/crossings `.sco`;
-- roadmaps como `whole.roadmap.bmp` quando disponíveis;
-- marcadores de jogadores remotos suavizados;
-- ocultação do HUD em menus e janelas auxiliares do OMSI.
-
-### Regra das paradas
-
-- **Rota/viagem ativa:** somente as paradas daquela rota devem aparecer.
-- **Sem rota ativa:** todas as paradas válidas do mapa podem aparecer.
-- O NavBR tenta resolver a sequência real de `[station]` no `.ttp`; quando isso não é possível, usa a geometria da rota como fallback.
+- presença global e descoberta opcional de salas pela Internet;
+- NAT traversal/fallback avançado;
+- ônibus remoto físico 3D completo e tráfego IA compartilhado;
+- Hardware Cockpit Wi-Fi/ESP32, displays e entradas físicas;
+- navegação avançada com ETA/distâncias/manobras;
+- CCO avançado, permissões e moderação;
+- replay/Ghost, mapa web ao vivo e eventos;
+- SDK/API, workshop e companion/mobile.
 
 ## Multiplayer
 
-O fluxo principal é **peer-host**:
+O fluxo principal continua **peer-host**: quem cria a sala hospeda no próprio PC pela porta TCP `27730`. O servidor dedicado x64 permanece opcional. A Alpha.12 adiciona salas privadas e um navegador das salas públicas anunciadas pelo servidor configurado; salas privadas não aparecem nesse diretório.
 
-1. quem cria a sala hospeda o servidor no próprio PC;
-2. porta inicial: TCP `27730`;
-3. convidados entram pelo endereço do host e sala;
-4. SignalR transporta presença, telemetria, chat, voz e estados compartilhados;
-5. servidor dedicado x64 continua disponível como alternativa.
-
-Meta inicial: **até 32 jogadores por sala**. O limite de até 48 veículos de tráfego IA por snapshot é separado do número de jogadores.
+## Voz
 
 Atalhos padrão:
 
-- `F9` — chat de texto;
+- `F9` — chat;
 - `F10` — segurar para falar.
 
-## Plugin e integração OMSI
+A Test 1 inclui canais Geral, Empresa/Equipe, CCO e Proximidade, além de mute/deafen, ganho individual e seleção de microfone/saída.
 
-A camada experimental inclui:
+## HUD, GPS e OMSI
 
-- plugin Native AOT x86;
-- `.opl` carregado pelo OMSI;
-- Named Pipe local cliente ↔ plugin;
-- protocolo bridge versionado;
-- telemetria rápida de `Velocity` e `haltewunsch`;
-- fila de comandos executada no callback/thread do OMSI;
-- shim C++ x86 para o ABI Borland/Delphi do OMSI 2.3.004;
-- registro protegido `VehicleInstanceId → ponteiro OMSI` para veículos criados pelo NavBR;
-- validação de ponteiros e lista `RoadVehicles` antes de writes físicos;
-- opt-in explícito para operações experimentais.
+O HUD preserva a janela real de gameplay do OMSI e deve ficar oculto em menus, opções e janelas auxiliares. A telemetria normal permanece prioritariamente de leitura; operações físicas continuam isoladas atrás de opt-in experimental.
 
-A telemetria normal continua prioritariamente de leitura. Escritas físicas permanecem isoladas no caminho experimental do plugin.
-
-## Pacotes da Test 4
-
-A pré-release publica:
+## Pacotes da Alpha.12 Test 1
 
 ```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.11-test.4-win-x64.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.4-win-x86.zip
-ALPHA11_TEST4_COMMUNITY.md
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.exe
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.zip
+OMSI-NavBR-Server-v0.3.0-alpha.12-test.1-win-x64.zip
+OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.1-win-x86.zip
+ALPHA12_TEST1_COMMUNITY.md
+ALPHA12_MASTER_SCOPE.md
 HARDWARE_COCKPIT.md
-NavBR_Hardware_Serial.ino
 SHA256SUMS.txt
 LICENSE
 THIRD_PARTY_NOTICES.md
 ```
 
-Para a maioria dos usuários, o **EXE standalone x86** é o arquivo recomendado.
+Para a maioria dos usuários, o **EXE standalone x86** é o pacote recomendado.
 
 ## Compatibilidade
 
@@ -153,26 +83,14 @@ Para a maioria dos usuários, o **EXE standalone x86** é o arquivo recomendado.
 - OMSI 2.3.004 como alvo principal;
 - cliente WPF x86;
 - servidor dedicado x64 opcional;
-- .NET 10 self-contained nos pacotes publicados;
-- independente de Steam API/Steamworks.
-
-## Stack
-
-- .NET 10 / C# / WPF x86
-- ASP.NET Core / Kestrel / SignalR
-- NAudio + Concentus/Opus
-- Windows Named Pipes
-- System.IO.Ports / Serial
-- Native AOT
-- C++/MSVC x86 no interop experimental
-- `.resx` / `ResourceManager`
+- .NET 10 self-contained;
+- independente da Steam API/Steamworks.
 
 ## Documentação
 
-- [Manual de uso](docs/MANUAL_DE_USO.md)
-- [Alpha.11 Test 4 — comunidade](docs/ALPHA11_TEST4_COMMUNITY.md)
+- [Alpha.12 Test 1 — comunidade](docs/ALPHA12_TEST1_COMMUNITY.md)
 - [Hardware Cockpit Bridge](docs/HARDWARE_COCKPIT.md)
-- [Desenvolvimento Alpha.11](docs/ALPHA11_DEVELOPMENT.md)
+- [Manual de uso](docs/MANUAL_DE_USO.md)
 - [Plugin OMSI experimental](docs/OMSI_PLUGIN_EXPERIMENTAL.md)
 - [HUD e voz](docs/HUD_AND_VOICE.md)
 - [Telemetria](docs/TELEMETRY.md)
@@ -185,8 +103,6 @@ Para a maioria dos usuários, o **EXE standalone x86** é o arquivo recomendado.
 O **OMSI NavBR Multiplayer** é um projeto independente e público. Contribuições são voluntárias e ajudam com desenvolvimento, infraestrutura e testes da comunidade.
 
 **Pix — chave aleatória:** `b07a9cc9-b10d-48a8-b201-d28bddc4399a`
-
-O projeto continua público no GitHub e o código próprio do NavBR permanece sob licença MIT.
 
 ## Créditos
 
