@@ -1,5 +1,6 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
 const test2Tag = 'v0.3.0-alpha.11-test.2';
+const pixKey = 'b07a9cc9-b10d-48a8-b201-d28bddc4399a';
 
 const fallbackRelease = {
   tag_name: test2Tag,
@@ -171,6 +172,38 @@ async function loadReleases() {
   if (releaseList) releaseList.innerHTML = [test2, ...releases.filter(release => release !== test2)].slice(0, 6).map(renderRelease).join('');
 }
 
+function setupTopPixBanner() {
+  const hero = document.getElementById('inicio');
+  if (!hero || document.getElementById('top-pix-support')) return;
+
+  const section = document.createElement('section');
+  section.id = 'top-pix-support';
+  section.className = 'shell';
+  section.style.paddingTop = '22px';
+  section.innerHTML = `
+    <div style="display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:18px 20px;border:1px solid rgba(34,199,122,.35);border-radius:16px;background:linear-gradient(135deg,rgba(34,199,122,.12),rgba(255,255,255,.025));box-shadow:0 16px 40px rgba(0,0,0,.18)">
+      <div style="min-width:260px;flex:1">
+        <div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#22c77a;margin-bottom:5px">💚 Apoie o OMSI NavBR Multiplayer</div>
+        <div style="font-size:16px;font-weight:700;word-break:break-all">Pix: ${pixKey}</div>
+        <div style="margin-top:4px;opacity:.72;font-size:13px">Apoio voluntário ao desenvolvimento, infraestrutura e testes da comunidade. O projeto continua público no GitHub.</div>
+      </div>
+      <button id="copy-pix-top" class="button primary" type="button" aria-label="Copiar chave Pix">Copiar chave Pix</button>
+    </div>`;
+
+  hero.insertAdjacentElement('beforebegin', section);
+  const button = document.getElementById('copy-pix-top');
+  button?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      const previous = button.textContent;
+      button.textContent = 'Chave copiada ✓';
+      setTimeout(() => { button.textContent = previous; }, 1800);
+    } catch (_) {
+      window.prompt('Copie a chave Pix:', pixKey);
+    }
+  });
+}
+
 function setupPix() {
   const box = document.querySelector('.pix-box');
   const button = document.getElementById('copy-pix');
@@ -190,5 +223,6 @@ function setupPix() {
   });
 }
 
+setupTopPixBanner();
 loadReleases();
 setupPix();
