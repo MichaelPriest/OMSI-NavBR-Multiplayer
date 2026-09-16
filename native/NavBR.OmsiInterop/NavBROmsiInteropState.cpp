@@ -1,5 +1,5 @@
+#define NOMINMAX
 #include <windows.h>
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -263,7 +263,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         rotationZ * inverseLength,
         rotationW * inverseLength
     };
-    const float speed = std::min(std::max(std::fabs(groundSpeedMps), 0.0f), 150.0f);
+
+    float speed = std::fabs(groundSpeedMps);
+    if (speed > 150.0f)
+    {
+        speed = 150.0f;
+    }
+
     const unsigned char disabled = 0;
 
     return WriteValue(vehiclePointer, PositionOffset, position) &&
