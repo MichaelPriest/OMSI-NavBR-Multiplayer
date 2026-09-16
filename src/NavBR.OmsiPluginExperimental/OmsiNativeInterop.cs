@@ -13,6 +13,8 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
+    private static readonly object ShimLoadSync = new();
+    private static nint _shimHandle;
 
     public static bool IsCandidateOmsi23004Runtime
     {
@@ -53,7 +55,7 @@ internal static class OmsiNativeInterop
     {
         get
         {
-            if (!IsCandidateOmsi23004Runtime)
+            if (!IsCandidateOmsi23004Runtime || !EnsureShimLoaded())
             {
                 return false;
             }
@@ -72,6 +74,50 @@ internal static class OmsiNativeInterop
                 return false;
             }
             catch (BadImageFormatException)
+            {
+                return false;
+            }
+        }
+    }
+
+    private static bool EnsureShimLoaded()
+    {
+        lock (ShimLoadSync)
+        {
+            if (_shimHandle != 0)
+            {
+                return true;
+            }
+
+            try
+            {
+                var executable = Environment.ProcessPath;
+                var omsiRoot = string.IsNullOrWhiteSpace(executable)
+                    ? null
+                    : Path.GetDirectoryName(executable);
+                if (string.IsNullOrWhiteSpace(omsiRoot))
+                {
+                    return false;
+                }
+
+                var shimPath = Path.Combine(omsiRoot, "plugins", LibraryName);
+                if (!File.Exists(shimPath))
+                {
+                    return false;
+                }
+
+                _shimHandle = NativeLibrary.Load(shimPath);
+                return _shimHandle != 0;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (BadImageFormatException)
+            {
+                return false;
+            }
+            catch (FileLoadException)
             {
                 return false;
             }
