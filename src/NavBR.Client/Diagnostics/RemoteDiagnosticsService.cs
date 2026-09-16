@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
@@ -98,8 +99,8 @@ internal static partial class RemoteDiagnosticsService
 
         try
         {
-            var endpoint = await ResolveEndpointAsync(cancellationToken).ConfigureAwait(false);
-            if (endpoint is null)
+            var target = await ResolveEndpointAsync(cancellationToken).ConfigureAwait(false);
+            if (target is null)
             {
                 return;
             }
@@ -130,9 +131,22 @@ internal static partial class RemoteDiagnosticsService
                     first.SessionId,
                     batchItems.Select(item => item.Event).ToArray());
 
-                using var response = await Http.PostAsJsonAsync(
-                    endpoint,
-                    batch,
+                using var request = new HttpRequestMessage(HttpMethod.Post, target.Endpoint)
+                {
+                    Content = JsonContent.Create(batch)
+                };
+
+                if (!string.IsNullOrWhiteSpace(target.AuthorizationToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue(
+                        "Bearer",
+                        target.AuthorizationToken);
+                    request.Headers.TryAddWithoutValidation("apikey", target.AuthorizationToken);
+                }
+
+                using var response = await Http.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
                     cancellationToken).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -266,19 +280,21 @@ internal static partial class RemoteDiagnosticsService
         File.WriteAllLines(QueuePath, lines.TakeLast(MaxQueuedEvents));
     }
 
-    private static async Task<Uri?> ResolveEndpointAsync(CancellationToken cancellationToken)
+    private static async Task<DiagnosticsEndpoint?> ResolveEndpointAsync(CancellationToken cancellationToken)
     {
         var environmentEndpoint = Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_ENDPOINT");
         if (Uri.TryCreate(environmentEndpoint, UriKind.Absolute, out var overrideUri) &&
             IsHttpEndpoint(overrideUri))
         {
-            return overrideUri;
+            return new DiagnosticsEndpoint(
+                overrideUri,
+                Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_AUTH_TOKEN"));
         }
 
         if (_discovery is not null &&
             DateTimeOffset.UtcNow - _discoveryCheckedUtc < DiscoveryCacheDuration)
         {
-            return DiscoveryToUri(_discovery);
+            return DiscoveryToEndpoint(_discovery);
         }
 
         _discoveryCheckedUtc = DateTimeOffset.UtcNow;
@@ -290,13 +306,13 @@ internal static partial class RemoteDiagnosticsService
         }
         catch
         {
-            _discovery = new DiagnosticsDiscovery(false, null);
+            _discovery = new DiagnosticsDiscovery(false, null, null);
         }
 
-        return DiscoveryToUri(_discovery);
+        return DiscoveryToEndpoint(_discovery);
     }
 
-    private static Uri? DiscoveryToUri(DiagnosticsDiscovery? discovery)
+    private static DiagnosticsEndpoint? DiscoveryToEndpoint(DiagnosticsDiscovery? discovery)
     {
         if (discovery?.Enabled != true ||
             !Uri.TryCreate(discovery.Endpoint, UriKind.Absolute, out var endpoint) ||
@@ -305,7 +321,9 @@ internal static partial class RemoteDiagnosticsService
             return null;
         }
 
-        return endpoint;
+        return new DiagnosticsEndpoint(
+            endpoint,
+            SanitizeToken(discovery.AuthorizationToken));
     }
 
     private static bool IsHttpEndpoint(Uri uri) =>
@@ -325,6 +343,18 @@ internal static partial class RemoteDiagnosticsService
         return sanitized.Length <= maxLength ? sanitized : sanitized[..maxLength];
     }
 
+    private static string? SanitizeToken(string? value)
+    {
+        var token = value?.Trim();
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 4096 ||
+            token.Contains('\r') || token.Contains('\n'))
+        {
+            return null;
+        }
+
+        return token;
+    }
+
     [GeneratedRegex(@"(?i)C:\\Users\\[^\\\s]+")]
     private static partial Regex UserProfilePathRegex();
 
@@ -333,7 +363,14 @@ internal static partial class RemoteDiagnosticsService
         string SessionId,
         DiagnosticEvent Event);
 
-    private sealed record DiagnosticsDiscovery(bool Enabled, string? Endpoint);
+    private sealed record DiagnosticsDiscovery(
+        bool Enabled,
+        string? Endpoint,
+        string? AuthorizationToken);
+
+    private sealed record DiagnosticsEndpoint(
+        Uri Endpoint,
+        string? AuthorizationToken);
 
     private sealed record DiagnosticContext(
         string? OmsiVersion,
