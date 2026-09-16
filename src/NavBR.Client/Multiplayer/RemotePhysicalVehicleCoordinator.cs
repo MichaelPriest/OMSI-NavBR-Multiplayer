@@ -8,14 +8,19 @@ namespace NavBR.Client.Multiplayer;
 
 internal sealed class RemotePhysicalVehicleCoordinator
 {
+    private const int MaxPhysicalRemotePlayers = 32;
+
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _inFlight = new(StringComparer.OrdinalIgnoreCase);
     private OmsiCompatibilityManifest? _localManifest;
 
     public bool IsPhysicalMultiplayerAvailable
     {
         get
         {
-            if (Application.Current is not App app || !app.PluginBridge.IsConnected)
+            if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled ||
+                Application.Current is not App app ||
+                !app.PluginBridge.IsConnected)
             {
                 return false;
             }
@@ -34,10 +39,35 @@ internal sealed class RemotePhysicalVehicleCoordinator
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken = default)
     {
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            !_inFlight.TryAdd(playerId, 0))
+        {
+            return;
+        }
+
+        try
+        {
+            await ApplyCoreAsync(frame, cancellationToken);
+        }
+        finally
+        {
+            _inFlight.TryRemove(playerId, out _);
+        }
+    }
+
+    private async Task ApplyCoreAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken)
+    {
         if (!IsPhysicalMultiplayerAvailable ||
             !frame.Telemetry.IsInGame ||
             string.IsNullOrWhiteSpace(frame.Player.PlayerId))
         {
+            if (_spawned.ContainsKey(frame.Player.PlayerId))
+            {
+                await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            }
             return;
         }
 
@@ -63,6 +93,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (!report.IsCompatible)
         {
             await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            return;
+        }
+
+        if (!_spawned.ContainsKey(frame.Player.PlayerId) &&
+            _spawned.Count >= MaxPhysicalRemotePlayers)
+        {
             return;
         }
 
