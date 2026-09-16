@@ -39,7 +39,11 @@ internal static class DispatcherInstaller
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
         button.Click += (_, _) =>
-            new DispatcherWindow(window, window.GetCurrentTelemetryForAlpha11).ShowDialog();
+        {
+            var dispatcher = new DispatcherWindow(window, window.GetCurrentTelemetryForAlpha11);
+            DispatcherRemoteDriversPanel.Attach(dispatcher);
+            dispatcher.ShowDialog();
+        };
 
         var companyButton = FindButtons(window).FirstOrDefault(candidate =>
             candidate.Tag as string == "alpha12-company-fleet");
