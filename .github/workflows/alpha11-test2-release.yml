@@ -21,6 +21,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify Test 2 version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $tag = "v$([string]$group.VersionPrefix)-$([string]$group.VersionSuffix)"
+          if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
+
+      - name: Reserve Test 2 as private draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json tagName,isDraft 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            $global:LASTEXITCODE = 0
+            gh release create $env:TEST_TAG `
+              --repo "${{ github.repository }}" `
+              --target "$env:GITHUB_SHA" `
+              --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
+              --notes "Draft reservado enquanto o Test 2 passa pela validação automática." `
+              --prerelease `
+              --draft
+            if ($LASTEXITCODE -ne 0) { throw "Could not reserve Test 2 draft." }
+          }
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
@@ -30,23 +56,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
-
-      - name: Verify Test 2 version
-        shell: pwsh
-        run: |
-          [xml]$props = Get-Content "Directory.Build.props"
-          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
-          $tag = "v$([string]$group.VersionPrefix)-$([string]$group.VersionSuffix)"
-          if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
-
-      - name: Refuse to overwrite permanent prerelease
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json tagName 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) { throw "Prerelease $env:TEST_TAG already exists." }
-          $global:LASTEXITCODE = 0
 
       - name: Generate NavBR icon
         shell: pwsh
@@ -228,7 +237,7 @@ jobs:
 
           ## Teste do ônibus 3D
 
-          O recurso vem **desligado por padrão**. Marque `Ônibus remoto 3D (EXPERIMENTAL)` e reinicie o OMSI na primeira ativação. Os computadores precisam ter o mesmo mapa compatível e possuir localmente o modelo de ônibus usado pelo outro jogador no mesmo caminho relativo em `Vehicles\\`.
+          O recurso vem **desligado por padrão**. Marque `Ônibus remoto 3D (EXPERIMENTAL)`. Os computadores precisam ter o mesmo mapa compatível e possuir localmente o modelo de ônibus usado pelo outro jogador no mesmo caminho relativo em `Vehicles\\`.
 
           O NavBR não transfere nem redistribui ônibus pagos/proprietários.
 
@@ -237,21 +246,23 @@ jobs:
           Consulte `ALPHA11_TEST2_COMMUNITY.md` anexado para o checklist completo.
           "@ | Set-Content "artifacts/release-notes.md" -Encoding UTF8
 
-      - name: Create permanent GitHub prerelease
+      - name: Upload assets into reserved draft
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $assets = Get-ChildItem "artifacts/release" -File | ForEach-Object { $_.FullName }
-          $args = @("release", "create", $env:TEST_TAG) + $assets + @(
-            "--repo", "${{ github.repository }}",
-            "--target", "$env:GITHUB_SHA",
-            "--title", "OMSI NavBR Multiplayer $env:TEST_TAG — community test",
-            "--notes-file", "artifacts/release-notes.md",
-            "--prerelease"
-          )
-          & gh @args
-          if ($LASTEXITCODE -ne 0) { throw "Failed to create $env:TEST_TAG." }
+          gh release upload $env:TEST_TAG @assets --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload Test 2 assets." }
+
+          gh release edit $env:TEST_TAG `
+            --repo "${{ github.repository }}" `
+            --target "$env:GITHUB_SHA" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — community test" `
+            --notes-file "artifacts/release-notes.md" `
+            --prerelease `
+            --draft=false
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:TEST_TAG." }
 
       - name: Refresh GitHub Pages release catalog
         shell: pwsh
