@@ -207,7 +207,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         await Clients.Group(presence.RoomId).SendAsync("chatMessage", message);
     }
 
-    public async Task PublishVoiceFrame(long sequence, byte[] opusPayload)
+    public async Task PublishVoiceFrame(long sequence, byte[] opusPayload, string? channel = null)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
         {
@@ -221,11 +221,13 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             throw new HubException("Invalid voice frame.");
         }
 
+        var normalizedChannel = NormalizeVoiceChannel(channel);
         var frame = new VoiceFrame(
             presence.PlayerId,
             sequence,
             opusPayload,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            normalizedChannel);
 
         await Clients
             .OthersInGroup(presence.RoomId)
@@ -344,6 +346,19 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         }
 
         return normalized;
+    }
+
+    private static string NormalizeVoiceChannel(string? value)
+    {
+        var normalized = (value ?? "general").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" or "general" => "general",
+            "company" or "team" => "company",
+            "dispatch" or "cco" => "dispatch",
+            "proximity" => "proximity",
+            _ => throw new HubException("Invalid voice channel.")
+        };
     }
 
     private static OmsiCompatibilityManifest? NormalizeCompatibility(
