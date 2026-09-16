@@ -96,9 +96,7 @@ internal static class OmsiNativeInterop
     [DllImport(
         LibraryName,
         CallingConvention = CallingConvention.Cdecl,
-        CharSet = CharSet.Ansi,
-        BestFitMapping = false,
-        ThrowOnUnmappableChar = true,
+        CharSet = CharSet.Unicode,
         EntryPoint = "NavBR_AllocateAnsiString")]
     internal static extern int AllocateAnsiString(string value);
 
