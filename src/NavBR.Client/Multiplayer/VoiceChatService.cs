@@ -103,7 +103,10 @@ public sealed class VoiceChatService : IDisposable
 
     public void Receive(VoiceFrame frame)
     {
-        if (!_started || frame.OpusPayload is null || frame.OpusPayload.Length == 0)
+        if (!_started ||
+            frame.OpusPayload is null ||
+            frame.OpusPayload.Length == 0 ||
+            !VoiceChannelSession.ShouldReceive(frame))
         {
             return;
         }
