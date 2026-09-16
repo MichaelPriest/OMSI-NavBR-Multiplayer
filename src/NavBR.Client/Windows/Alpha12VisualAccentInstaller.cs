@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -7,6 +8,8 @@ namespace NavBR.Client.Windows;
 internal static class Alpha12VisualAccentInstaller
 {
     private static readonly HashSet<MainWindow> Installed = new();
+    private static readonly ConditionalWeakTable<Button, object> WiredButtons = new();
+    private static readonly object WiredMarker = new();
 
     public static void Install(MainWindow window)
     {
@@ -16,14 +19,7 @@ internal static class Alpha12VisualAccentInstaller
         }
 
         Apply(window);
-        window.LayoutUpdated += Window_LayoutUpdated;
-        window.Closed += (_, _) =>
-        {
-            window.LayoutUpdated -= Window_LayoutUpdated;
-            Installed.Remove(window);
-        };
-
-        void Window_LayoutUpdated(object? sender, EventArgs e) => Apply(window);
+        window.Closed += (_, _) => Installed.Remove(window);
     }
 
     private static void Apply(MainWindow window)
@@ -53,14 +49,21 @@ internal static class Alpha12VisualAccentInstaller
         var pageButtons = Enumerate<Button>(window)
             .Where(IsShellPageButton)
             .ToArray();
+
         foreach (var button in pageButtons)
         {
-            if (button.Tag as string == "alpha12-blue-handler")
+            var wasSelected = button.BorderThickness.Left >= 2d;
+            if (wasSelected)
+            {
+                StyleSelectedButton(button);
+            }
+
+            if (WiredButtons.TryGetValue(button, out _))
             {
                 continue;
             }
 
-            button.Tag = "alpha12-blue-handler";
+            WiredButtons.Add(button, WiredMarker);
             button.Click += (_, _) =>
             {
                 foreach (var candidate in pageButtons)
