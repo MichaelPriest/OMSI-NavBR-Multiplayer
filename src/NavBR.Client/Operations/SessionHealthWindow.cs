@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Client.Multiplayer;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Telemetry;
 
@@ -19,6 +20,10 @@ internal sealed class SessionHealthWindow : Window
     private readonly TextBlock _pluginState = new();
     private readonly TextBlock _remoteState = new();
     private readonly TextBlock _freshnessState = new();
+    private readonly TextBlock _latencyState = new();
+    private readonly TextBlock _jitterState = new();
+    private readonly TextBlock _lossState = new();
+    private readonly TextBlock _rateState = new();
 
     public SessionHealthWindow(
         Window owner,
@@ -30,9 +35,9 @@ internal sealed class SessionHealthWindow : Window
         _pluginInfoProvider = pluginInfoProvider;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Width = 780d;
-        Height = 610d;
+        Height = 660d;
         MinWidth = 720d;
-        MinHeight = 560d;
+        MinHeight = 580d;
         Background = Brush(6, 11, 16);
         Content = BuildContent();
         ApplyLocalization();
@@ -97,6 +102,10 @@ internal sealed class SessionHealthWindow : Window
         metrics.Children.Add(BuildMetricCard("Plugin", _pluginState));
         metrics.Children.Add(BuildMetricCard("Remote", _remoteState));
         metrics.Children.Add(BuildMetricCard("Freshness", _freshnessState));
+        metrics.Children.Add(BuildMetricCard("Latency", _latencyState));
+        metrics.Children.Add(BuildMetricCard("Jitter", _jitterState));
+        metrics.Children.Add(BuildMetricCard("Loss", _lossState));
+        metrics.Children.Add(BuildMetricCard("TelemetryRate", _rateState));
         body.Children.Add(metrics);
 
         body.Children.Add(new Border
@@ -158,6 +167,7 @@ internal sealed class SessionHealthWindow : Window
         var telemetry = _telemetryProvider();
         var plugin = _pluginInfoProvider();
         var multiplayer = DispatcherSessionFeed.Snapshot();
+        var network = SessionNetworkQualityFeed.Snapshot();
         var now = DateTimeOffset.UtcNow;
 
         var omsiActive = telemetry?.IsInGame == true;
@@ -185,10 +195,43 @@ internal sealed class SessionHealthWindow : Window
                 : string.Format(Text("SecondsAgo"), Math.Round(age));
         }
 
-        _summary.Text = BuildSummary(omsiActive, multiplayer.Connected, multiplayer.RemoteDrivers.Count);
+        if (!multiplayer.Connected || network.Samples < 2 || network.RoundTripMs is null)
+        {
+            _latencyState.Text = "—";
+            _jitterState.Text = "—";
+            _lossState.Text = "—";
+            _rateState.Text = "—";
+        }
+        else
+        {
+            _latencyState.Text = $"{network.RoundTripMs.Value:F0} ms";
+            _jitterState.Text = network.JitterMs is null ? "—" : $"{network.JitterMs.Value:F0} ms";
+            _lossState.Text = $"{network.LossPercent:F1}%";
+            _rateState.Text = network.Level switch
+            {
+                SessionNetworkQualityLevel.Poor => "~1.5 Hz",
+                SessionNetworkQualityLevel.Degraded => "~2.5 Hz",
+                _ => "~4 Hz"
+            };
+        }
+
+        var networkHealthy = network.Level is SessionNetworkQualityLevel.Good or SessionNetworkQualityLevel.Unknown;
+        _latencyState.Foreground = networkHealthy ? Brushes.White : Brush(255, 187, 91);
+        _jitterState.Foreground = networkHealthy ? Brushes.White : Brush(255, 187, 91);
+        _lossState.Foreground = network.Level == SessionNetworkQualityLevel.Poor
+            ? Brush(255, 112, 112)
+            : network.Level == SessionNetworkQualityLevel.Degraded
+                ? Brush(255, 187, 91)
+                : Brushes.White;
+
+        _summary.Text = BuildSummary(omsiActive, multiplayer.Connected, multiplayer.RemoteDrivers.Count, network.Level);
     }
 
-    private static string BuildSummary(bool omsiActive, bool multiplayerConnected, int remoteDrivers)
+    private static string BuildSummary(
+        bool omsiActive,
+        bool multiplayerConnected,
+        int remoteDrivers,
+        SessionNetworkQualityLevel networkLevel)
     {
         if (!omsiActive)
         {
@@ -197,6 +240,14 @@ internal sealed class SessionHealthWindow : Window
         if (!multiplayerConnected)
         {
             return Text("SummaryLocalReady");
+        }
+        if (networkLevel == SessionNetworkQualityLevel.Poor)
+        {
+            return Text("SummaryNetworkPoor");
+        }
+        if (networkLevel == SessionNetworkQualityLevel.Degraded)
+        {
+            return Text("SummaryNetworkDegraded");
         }
         if (remoteDrivers == 0)
         {
@@ -245,55 +296,70 @@ internal sealed class SessionHealthWindow : Window
     }
 
     private static readonly IReadOnlyDictionary<string, string> En = T(
-        ("Title", "Session health"), ("Subtitle", "A simple view of OMSI, multiplayer and the optional plugin bridge."),
+        ("Title", "Session health"), ("Subtitle", "A simple view of OMSI, multiplayer, network quality and the optional plugin bridge."),
         ("Omsi", "OMSI"), ("Multiplayer", "Multiplayer"), ("Plugin", "Plugin bridge"), ("Remote", "Remote drivers"), ("Freshness", "Remote telemetry"),
+        ("Latency", "LATENCY"), ("Jitter", "JITTER"), ("Loss", "EST. LOSS"), ("TelemetryRate", "TELEMETRY RATE"),
         ("Active", "Active"), ("Waiting", "Waiting for OMSI"), ("Connected", "Connected"), ("Disconnected", "Disconnected"), ("OptionalOffline", "Optional • offline"),
         ("DriversCount", "{0} driver(s)"), ("Now", "Receiving now"), ("SecondsAgo", "{0} s ago"),
         ("SummaryWaitingOmsi", "Open a trip in OMSI to start the operational checks."),
         ("SummaryLocalReady", "OMSI is active. Local navigation is ready; multiplayer is currently offline."),
         ("SummaryConnectedWaiting", "OMSI and multiplayer are active. Waiting for telemetry from another driver."),
         ("SummaryHealthy", "Session is receiving telemetry from {0} remote driver(s)."),
-        ("Note", "The OMSI plugin is optional for the normal GPS/HUD and direct multiplayer flow. Ping, jitter and packet-loss indicators will only appear after NavBR has a real active measurement; this screen does not invent network values."));
+        ("SummaryNetworkDegraded", "The multiplayer link is degraded. NavBR reduced telemetry frequency to improve stability."),
+        ("SummaryNetworkPoor", "The multiplayer link is poor. NavBR reduced telemetry traffic while the connection recovers."),
+        ("Note", "Network values come from real lightweight probes to the same NavBR peer-host. Loss is estimated from the recent probe window; telemetry frequency adapts automatically without opening a second SignalR connection."));
     private static readonly IReadOnlyDictionary<string, string> Pt = T(
-        ("Title", "Saúde da sessão"), ("Subtitle", "Uma visão simples do OMSI, multiplayer e do bridge/plugin opcional."),
+        ("Title", "Saúde da sessão"), ("Subtitle", "Uma visão simples do OMSI, multiplayer, qualidade de rede e do bridge/plugin opcional."),
         ("Omsi", "OMSI"), ("Multiplayer", "Multiplayer"), ("Plugin", "Bridge/plugin"), ("Remote", "Motoristas remotos"), ("Freshness", "Telemetria remota"),
+        ("Latency", "LATÊNCIA"), ("Jitter", "JITTER"), ("Loss", "PERDA EST."), ("TelemetryRate", "TAXA DE TELEMETRIA"),
         ("Active", "Ativo"), ("Waiting", "Aguardando OMSI"), ("Connected", "Conectado"), ("Disconnected", "Desconectado"), ("OptionalOffline", "Opcional • offline"),
         ("DriversCount", "{0} motorista(s)"), ("Now", "Recebendo agora"), ("SecondsAgo", "há {0} s"),
         ("SummaryWaitingOmsi", "Abra uma viagem no OMSI para iniciar as verificações operacionais."),
         ("SummaryLocalReady", "OMSI ativo. A navegação local está pronta; o multiplayer está desconectado."),
         ("SummaryConnectedWaiting", "OMSI e multiplayer ativos. Aguardando telemetria de outro motorista."),
         ("SummaryHealthy", "Sessão recebendo telemetria de {0} motorista(s) remoto(s)."),
-        ("Note", "O plugin do OMSI é opcional para o fluxo normal de GPS/HUD e multiplayer direto. Ping, jitter e perda de pacotes só serão mostrados quando o NavBR tiver medição real ativa; esta tela não inventa valores de rede."));
+        ("SummaryNetworkDegraded", "A conexão multiplayer está degradada. O NavBR reduziu a frequência de telemetria para melhorar a estabilidade."),
+        ("SummaryNetworkPoor", "A conexão multiplayer está ruim. O NavBR reduziu o tráfego de telemetria enquanto a rede se recupera."),
+        ("Note", "Os valores de rede vêm de sondagens leves reais para o mesmo peer-host do NavBR. A perda é estimada pela janela recente de sondagens; a frequência de telemetria se adapta sem abrir uma segunda conexão SignalR."));
     private static readonly IReadOnlyDictionary<string, string> Es = T(
-        ("Title", "Salud de la sesión"), ("Subtitle", "Una vista simple de OMSI, multijugador y el bridge/plugin opcional."),
+        ("Title", "Salud de la sesión"), ("Subtitle", "Una vista simple de OMSI, multijugador, calidad de red y el bridge/plugin opcional."),
         ("Omsi", "OMSI"), ("Multiplayer", "Multijugador"), ("Plugin", "Bridge/plugin"), ("Remote", "Conductores remotos"), ("Freshness", "Telemetría remota"),
+        ("Latency", "LATENCIA"), ("Jitter", "JITTER"), ("Loss", "PÉRDIDA EST."), ("TelemetryRate", "TASA DE TELEMETRÍA"),
         ("Active", "Activo"), ("Waiting", "Esperando OMSI"), ("Connected", "Conectado"), ("Disconnected", "Desconectado"), ("OptionalOffline", "Opcional • offline"),
         ("DriversCount", "{0} conductor(es)"), ("Now", "Recibiendo ahora"), ("SecondsAgo", "hace {0} s"),
         ("SummaryWaitingOmsi", "Abre un viaje en OMSI para iniciar las comprobaciones operativas."),
         ("SummaryLocalReady", "OMSI está activo. La navegación local está lista; el multijugador está desconectado."),
         ("SummaryConnectedWaiting", "OMSI y multijugador activos. Esperando telemetría de otro conductor."),
         ("SummaryHealthy", "La sesión recibe telemetría de {0} conductor(es) remoto(s)."),
-        ("Note", "El plugin de OMSI es opcional para GPS/HUD y multijugador directo. Ping, jitter y pérdida solo aparecerán cuando exista una medición real activa; esta pantalla no inventa valores de red."));
+        ("SummaryNetworkDegraded", "La conexión multijugador está degradada. NavBR redujo la frecuencia de telemetría para mejorar la estabilidad."),
+        ("SummaryNetworkPoor", "La conexión multijugador es deficiente. NavBR redujo el tráfico de telemetría mientras la red se recupera."),
+        ("Note", "Los valores de red provienen de sondeos ligeros reales al mismo peer-host de NavBR. La pérdida se estima con la ventana reciente; la frecuencia de telemetría se adapta sin abrir una segunda conexión SignalR."));
     private static readonly IReadOnlyDictionary<string, string> De = T(
-        ("Title", "Sitzungsstatus"), ("Subtitle", "Eine einfache Übersicht über OMSI, Mehrspieler und die optionale Plugin-Bridge."),
+        ("Title", "Sitzungsstatus"), ("Subtitle", "Eine einfache Übersicht über OMSI, Mehrspieler, Netzwerkqualität und die optionale Plugin-Bridge."),
         ("Omsi", "OMSI"), ("Multiplayer", "Mehrspieler"), ("Plugin", "Plugin-Bridge"), ("Remote", "Remote-Fahrer"), ("Freshness", "Remote-Telemetrie"),
+        ("Latency", "LATENZ"), ("Jitter", "JITTER"), ("Loss", "GESCH. VERLUST"), ("TelemetryRate", "TELEMETRIE-RATE"),
         ("Active", "Aktiv"), ("Waiting", "Warte auf OMSI"), ("Connected", "Verbunden"), ("Disconnected", "Getrennt"), ("OptionalOffline", "Optional • offline"),
         ("DriversCount", "{0} Fahrer"), ("Now", "Empfang läuft"), ("SecondsAgo", "vor {0} s"),
         ("SummaryWaitingOmsi", "Eine Fahrt in OMSI öffnen, um die Betriebsprüfungen zu starten."),
         ("SummaryLocalReady", "OMSI ist aktiv. Lokale Navigation ist bereit; Mehrspieler ist offline."),
         ("SummaryConnectedWaiting", "OMSI und Mehrspieler sind aktiv. Warte auf Telemetrie eines anderen Fahrers."),
         ("SummaryHealthy", "Sitzung empfängt Telemetrie von {0} Remote-Fahrer(n)."),
-        ("Note", "Das OMSI-Plugin ist für GPS/HUD und direkten Mehrspieler optional. Ping, Jitter und Paketverlust werden erst mit einer echten aktiven Messung angezeigt; diese Ansicht erfindet keine Netzwerkwerte."));
+        ("SummaryNetworkDegraded", "Die Mehrspieler-Verbindung ist beeinträchtigt. NavBR hat die Telemetrie-Frequenz zur Stabilisierung reduziert."),
+        ("SummaryNetworkPoor", "Die Mehrspieler-Verbindung ist schlecht. NavBR reduziert den Telemetrieverkehr, bis sich das Netzwerk erholt."),
+        ("Note", "Die Netzwerkwerte stammen aus echten leichten Abfragen an denselben NavBR-Peer-Host. Verlust wird aus dem jüngsten Messfenster geschätzt; die Telemetrie-Frequenz passt sich ohne zweite SignalR-Verbindung an."));
     private static readonly IReadOnlyDictionary<string, string> Fr = T(
-        ("Title", "Santé de session"), ("Subtitle", "Une vue simple d’OMSI, du multijoueur et du bridge/plugin optionnel."),
+        ("Title", "Santé de session"), ("Subtitle", "Une vue simple d’OMSI, du multijoueur, de la qualité réseau et du bridge/plugin optionnel."),
         ("Omsi", "OMSI"), ("Multiplayer", "Multijoueur"), ("Plugin", "Bridge/plugin"), ("Remote", "Conducteurs distants"), ("Freshness", "Télémétrie distante"),
+        ("Latency", "LATENCE"), ("Jitter", "JITTER"), ("Loss", "PERTE EST."), ("TelemetryRate", "TAUX TÉLÉMÉTRIE"),
         ("Active", "Actif"), ("Waiting", "En attente d’OMSI"), ("Connected", "Connecté"), ("Disconnected", "Déconnecté"), ("OptionalOffline", "Optionnel • hors ligne"),
         ("DriversCount", "{0} conducteur(s)"), ("Now", "Réception en cours"), ("SecondsAgo", "il y a {0} s"),
         ("SummaryWaitingOmsi", "Ouvrez un service dans OMSI pour démarrer les vérifications opérationnelles."),
         ("SummaryLocalReady", "OMSI est actif. La navigation locale est prête; le multijoueur est déconnecté."),
         ("SummaryConnectedWaiting", "OMSI et multijoueur actifs. En attente de la télémétrie d’un autre conducteur."),
         ("SummaryHealthy", "La session reçoit la télémétrie de {0} conducteur(s) distant(s)."),
-        ("Note", "Le plugin OMSI est optionnel pour le GPS/HUD et le multijoueur direct. Ping, jitter et perte de paquets n’apparaîtront qu’avec une mesure réelle active; cet écran n’invente aucune valeur réseau."));
+        ("SummaryNetworkDegraded", "La connexion multijoueur est dégradée. NavBR a réduit la fréquence de télémétrie pour améliorer la stabilité."),
+        ("SummaryNetworkPoor", "La connexion multijoueur est mauvaise. NavBR réduit le trafic de télémétrie pendant la récupération du réseau."),
+        ("Note", "Les valeurs réseau proviennent de sondes légères réelles vers le même peer-host NavBR. La perte est estimée sur la fenêtre récente; la fréquence de télémétrie s’adapte sans ouvrir une seconde connexion SignalR."));
 
     private static IReadOnlyDictionary<string, string> T(params (string Key, string Value)[] values) =>
         values.ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
