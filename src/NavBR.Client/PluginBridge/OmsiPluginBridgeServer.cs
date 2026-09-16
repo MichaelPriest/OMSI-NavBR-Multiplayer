@@ -303,6 +303,8 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.TrafficSnapshotState, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.ClearTrafficVehicles, StringComparison.Ordinal) ||
         IsCommandType(type);
 
     private static bool IsCommandType(string type) =>
