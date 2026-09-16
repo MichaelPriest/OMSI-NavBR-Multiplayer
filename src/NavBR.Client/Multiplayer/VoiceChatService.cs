@@ -29,10 +29,12 @@ public sealed class VoiceChatService : IDisposable
     private bool _pushToTalk;
     private bool _deafened;
     private long _sequence;
+    private long _qualityNotificationCounter;
 
     public event Action<long, byte[]>? EncodedFrameReady;
     public event Action<string>? RemoteSpeakerActive;
     public event Action<string>? VoiceError;
+    public event Action<VoiceQualitySnapshot>? VoiceQualityChanged;
 
     public bool IsPushToTalkActive => _pushToTalk;
     public bool IsDeafened => _deafened;
@@ -190,6 +192,28 @@ public sealed class VoiceChatService : IDisposable
             : 1d;
     }
 
+    public VoiceQualitySnapshot GetQualitySnapshot()
+    {
+        var snapshots = _remoteStreams.Values
+            .Select(stream => stream.JitterBuffer.Snapshot())
+            .ToArray();
+        if (snapshots.Length == 0)
+        {
+            return VoiceQualitySnapshot.Empty;
+        }
+
+        return new VoiceQualitySnapshot(
+            ActiveStreams: snapshots.Length,
+            ReceivedPackets: snapshots.Sum(snapshot => snapshot.ReceivedPackets),
+            PlayedPackets: snapshots.Sum(snapshot => snapshot.PlayedPackets),
+            FecRecoveredPackets: snapshots.Sum(snapshot => snapshot.FecRecoveredPackets),
+            EstimatedLostPackets: snapshots.Sum(snapshot => snapshot.EstimatedLostPackets),
+            LatePackets: snapshots.Sum(snapshot => snapshot.LatePackets),
+            DuplicatePackets: snapshots.Sum(snapshot => snapshot.DuplicatePackets),
+            AverageJitterMilliseconds: snapshots.Average(snapshot => snapshot.AverageJitterMilliseconds),
+            TargetBufferMilliseconds: snapshots.Max(snapshot => snapshot.TargetBufferMilliseconds));
+    }
+
     public void Receive(VoiceFrame frame)
     {
         if (!_started ||
@@ -212,24 +236,7 @@ public sealed class VoiceChatService : IDisposable
             var stream = _remoteStreams.GetOrAdd(
                 playerId,
                 id => CreateRemoteStream(id));
-
-            var pcm = new short[5760 * Channels];
-            var decodedSamples = stream.Decoder.Decode(
-                frame.OpusPayload,
-                pcm,
-                5760,
-                decode_fec: false);
-
-            if (decodedSamples <= 0)
-            {
-                return;
-            }
-
-            var byteCount = decodedSamples * Channels * sizeof(short);
-            var bytes = new byte[byteCount];
-            Buffer.BlockCopy(pcm, 0, bytes, 0, byteCount);
-            stream.Buffer.AddSamples(bytes, 0, bytes.Length);
-            RemoteSpeakerActive?.Invoke(playerId);
+            stream.JitterBuffer.Enqueue(frame, DateTimeOffset.UtcNow);
         }
         catch (Exception ex)
         {
@@ -249,6 +256,7 @@ public sealed class VoiceChatService : IDisposable
         {
             _mixer.RemoveMixerInput(stream.SampleProvider);
             stream.Dispose();
+            VoiceQualityChanged?.Invoke(GetQualitySnapshot());
         }
     }
 
@@ -373,10 +381,74 @@ public sealed class VoiceChatService : IDisposable
             ReadFully = false
         };
         var volume = new VolumeSampleProvider(buffer.ToSampleProvider());
-        var stream = new RemoteVoiceStream(playerId, decoder, buffer, volume);
+        var stream = new RemoteVoiceStream(
+            playerId,
+            decoder,
+            buffer,
+            volume,
+            new AdaptiveVoiceJitterBuffer());
         ApplyPreference(playerId, stream);
         _mixer.AddMixerInput(stream.SampleProvider);
+        stream.StartPlayout(() => DrainRemoteStream(stream));
         return stream;
+    }
+
+    private void DrainRemoteStream(RemoteVoiceStream stream)
+    {
+        string? activePlayerId = null;
+        try
+        {
+            lock (stream.SyncRoot)
+            {
+                if (stream.IsDisposed)
+                {
+                    return;
+                }
+
+                var packet = stream.JitterBuffer.TryTake(DateTimeOffset.UtcNow);
+                if (packet is null)
+                {
+                    return;
+                }
+
+                var decodedSamples = stream.Decoder.Decode(
+                    packet.Value.Frame.OpusPayload,
+                    stream.PcmBuffer,
+                    5760,
+                    decode_fec: packet.Value.Mode == VoiceDecodeMode.FecRecovery);
+
+                if (decodedSamples <= 0)
+                {
+                    return;
+                }
+
+                if (packet.Value.Mode == VoiceDecodeMode.FecRecovery)
+                {
+                    stream.JitterBuffer.ReportFecRecovered();
+                }
+
+                var byteCount = decodedSamples * Channels * sizeof(short);
+                var bytes = new byte[byteCount];
+                Buffer.BlockCopy(stream.PcmBuffer, 0, bytes, 0, byteCount);
+                stream.Buffer.AddSamples(bytes, 0, bytes.Length);
+                activePlayerId = stream.PlayerId;
+            }
+        }
+        catch (Exception ex)
+        {
+            VoiceError?.Invoke(ex.Message);
+            return;
+        }
+
+        if (activePlayerId is not null)
+        {
+            RemoteSpeakerActive?.Invoke(activePlayerId);
+        }
+
+        if (Interlocked.Increment(ref _qualityNotificationCounter) % 50 == 0)
+        {
+            VoiceQualityChanged?.Invoke(GetQualitySnapshot());
+        }
     }
 
     private void ApplyPreference(string playerId, RemoteVoiceStream stream)
@@ -398,18 +470,58 @@ public sealed class VoiceChatService : IDisposable
         public static RemoteVoicePreference Default { get; } = new(false, 1f);
     }
 
-    private sealed class RemoteVoiceStream(
-        string playerId,
-        IOpusDecoder decoder,
-        BufferedWaveProvider buffer,
-        VolumeSampleProvider volume) : IDisposable
+    private sealed class RemoteVoiceStream : IDisposable
     {
-        public string PlayerId { get; } = playerId;
-        public IOpusDecoder Decoder { get; } = decoder;
-        public BufferedWaveProvider Buffer { get; } = buffer;
-        public VolumeSampleProvider Volume { get; } = volume;
-        public ISampleProvider SampleProvider => Volume;
+        private System.Threading.Timer? _playoutTimer;
 
-        public void Dispose() => Decoder.Dispose();
+        public RemoteVoiceStream(
+            string playerId,
+            IOpusDecoder decoder,
+            BufferedWaveProvider buffer,
+            VolumeSampleProvider volume,
+            AdaptiveVoiceJitterBuffer jitterBuffer)
+        {
+            PlayerId = playerId;
+            Decoder = decoder;
+            Buffer = buffer;
+            Volume = volume;
+            JitterBuffer = jitterBuffer;
+            PcmBuffer = new short[5760 * Channels];
+        }
+
+        public object SyncRoot { get; } = new();
+        public string PlayerId { get; }
+        public IOpusDecoder Decoder { get; }
+        public BufferedWaveProvider Buffer { get; }
+        public VolumeSampleProvider Volume { get; }
+        public AdaptiveVoiceJitterBuffer JitterBuffer { get; }
+        public short[] PcmBuffer { get; }
+        public ISampleProvider SampleProvider => Volume;
+        public bool IsDisposed { get; private set; }
+
+        public void StartPlayout(Action tick)
+        {
+            _playoutTimer = new System.Threading.Timer(
+                _ => tick(),
+                null,
+                TimeSpan.FromMilliseconds(FrameMilliseconds),
+                TimeSpan.FromMilliseconds(FrameMilliseconds));
+        }
+
+        public void Dispose()
+        {
+            lock (SyncRoot)
+            {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
+                IsDisposed = true;
+                _playoutTimer?.Dispose();
+                _playoutTimer = null;
+                Decoder.Dispose();
+            }
+        }
     }
 }
