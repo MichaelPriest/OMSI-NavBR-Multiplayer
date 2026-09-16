@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -8,6 +9,7 @@ namespace NavBR.Client.Windows;
 internal static class Alpha12ExperienceInstaller
 {
     private const string TagPrefix = "alpha12-text:";
+    private const string RuntimeVersionTag = "alpha12-runtime-version";
     private static readonly HashSet<MainWindow> Installed = new();
 
     public static void Install(MainWindow window)
@@ -21,10 +23,15 @@ internal static class Alpha12ExperienceInstaller
         var advancedToggle = FindAdvancedToggle(window);
         ApplyPreferences(window, advancedToggle, Alpha12PreferencesStore.Load());
         ApplyLocalization(window, settingsButton);
+        ApplyRuntimeVersionBadge(window);
 
         SelectionChangedEventHandler languageChanged = (_, _) =>
             _ = window.Dispatcher.BeginInvoke(
-                () => ApplyLocalization(window, settingsButton),
+                () =>
+                {
+                    ApplyLocalization(window, settingsButton);
+                    ApplyRuntimeVersionBadge(window);
+                },
                 DispatcherPriority.Loaded);
         window.LanguageComboBox.SelectionChanged += languageChanged;
 
@@ -67,6 +74,7 @@ internal static class Alpha12ExperienceInstaller
             var dialog = new Alpha12SettingsWindow(window);
             dialog.ShowDialog();
             ApplyLocalization(window, button);
+            ApplyRuntimeVersionBadge(window);
         };
 
         if (window.LanguageLabelText.Parent is Panel footer)
@@ -93,6 +101,7 @@ internal static class Alpha12ExperienceInstaller
         var wizard = new Alpha12FirstRunWindow(window);
         wizard.ShowDialog();
         ApplyLocalization(window, FindSettingsButton(window));
+        ApplyRuntimeVersionBadge(window);
     }
 
     private static Button? FindSettingsButton(MainWindow window) =>
@@ -153,6 +162,44 @@ internal static class Alpha12ExperienceInstaller
         Alpha12HudThemeService.RefreshOpenHudLocalization();
     }
 
+    private static void ApplyRuntimeVersionBadge(MainWindow window)
+    {
+        var versionText = $"v{GetRuntimeVersion()}";
+        var candidates = EnumerateVisualChildren<TextBlock>(window).ToArray();
+        var badge = candidates.FirstOrDefault(textBlock =>
+            textBlock.Tag as string == RuntimeVersionTag)
+            ?? candidates.FirstOrDefault(textBlock =>
+                string.Equals(textBlock.Text, "ALPHA.12 • DEV", StringComparison.OrdinalIgnoreCase)
+                || textBlock.Text.StartsWith("v0.3.0-alpha.12", StringComparison.OrdinalIgnoreCase));
+
+        if (badge is null)
+        {
+            return;
+        }
+
+        badge.Tag = RuntimeVersionTag;
+        badge.Text = versionText;
+        badge.ToolTip = $"OMSI NavBR Multiplayer {versionText}";
+    }
+
+    private static string GetRuntimeVersion()
+    {
+        var assembly = typeof(Alpha12ExperienceInstaller).Assembly;
+        var informational = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            var metadataIndex = informational.IndexOf('+');
+            return metadataIndex >= 0
+                ? informational[..metadataIndex]
+                : informational;
+        }
+
+        return assembly.GetName().Version?.ToString(3) ?? "0.3.0";
+    }
+
     internal static void TagAndTranslateTree(DependencyObject root)
     {
         if (root is TextBlock textBlock)
@@ -172,6 +219,11 @@ internal static class Alpha12ExperienceInstaller
 
     private static void TranslateTextBlock(TextBlock textBlock)
     {
+        if (textBlock.Tag as string == RuntimeVersionTag)
+        {
+            return;
+        }
+
         var key = ResolveTaggedKey(textBlock.Tag) ?? ResolveKey(textBlock.Text);
         if (key is null)
         {
