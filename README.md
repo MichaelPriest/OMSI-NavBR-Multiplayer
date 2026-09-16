@@ -1,114 +1,103 @@
 # OMSI NavBR Multiplayer
 
-[![Downloads](https://img.shields.io/github/downloads/MichaelPriest/OMSI-NavBR-Multiplayer/total?label=downloads&color=22c77a)](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases)
+Companion app independente da Steam para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, integração experimental com veículos remotos no OMSI e Hardware Cockpit.
 
-Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam, com HUD/GPS, peer-host, salas públicas/privadas, chat, voz, CCO, integração experimental com o OMSI e Hardware Cockpit.
+## Versão pública para testes
 
-> Versão em desenvolvimento: **0.3.0-alpha.12**  
-> Teste público atual: **[v0.3.0-alpha.12-test.1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1)**  
-> Release anterior: **[v0.3.0-alpha.11-test.4](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.4)**
+A pré-release atual é **`v0.3.0-alpha.12-test.1`**.
 
-**Site oficial:** https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/  
-**Releases:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases  
-**Checklist Alpha.12 Test 1:** [docs/ALPHA12_TEST1_COMMUNITY.md](docs/ALPHA12_TEST1_COMMUNITY.md)  
-**Escopo mestre Alpha.12:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/feature/alpha12-full-expansion/docs/ALPHA12_MASTER_SCOPE.md  
-**Hardware Cockpit:** [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md)
+- [Baixar / ver a release Alpha.12 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1)
+- cliente principal: **EXE standalone Windows x86**;
+- também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
 
-## Alpha.12 Test 1
+> A Alpha.12 ainda está em desenvolvimento. Recursos incompletos aparecem no aplicativo como **Em desenvolvimento** ou **Experimental** em vez de ficarem escondidos do escopo da versão.
 
-A `v0.3.0-alpha.12-test.1` é a primeira pré-release pública da Alpha.12. Ela permite validar a nova base enquanto os módulos restantes continuam sendo incorporados e aparecem como **Em desenvolvimento** ou **Experimental**.
+## Destaques da Alpha.12 Test 1
 
-### Incluído nesta Alpha
+- novo shell e HUD Alpha.12;
+- lógica de HUD baseada na janela real de gameplay do OMSI;
+- GPS, mapa, rota, linha, destino e próxima parada;
+- perfil do motorista e estatísticas locais;
+- empresa virtual e frota local;
+- CCO/Dispatcher local com monitoramento multiplayer;
+- multiplayer peer-host na porta TCP `27730`;
+- diagnóstico de conectividade e saúde da sessão;
+- salas privadas com senha efêmera e salas públicas do servidor configurado;
+- UPnP opt-in;
+- chat e voz PTT;
+- canais Geral, Empresa/Equipe, CCO e Proximidade;
+- mute, deafen, ganho individual e seleção de dispositivos;
+- plugin/bridge v2 e ônibus remoto físico experimental;
+- Hardware Cockpit Serial para Arduino/ESP32;
+- interface em pt-BR, English, Español, Deutsch e Français.
 
-- novo shell Alpha.12 e HUD redesenhado;
-- perfil local do motorista e estatísticas;
-- empresa virtual, frota e CCO básico;
-- multiplayer peer-host TCP `27730`;
-- diagnóstico de conectividade, UPnP opt-in e saúde da sessão;
-- salas privadas com senha efêmera e navegador de salas públicas do servidor;
-- chat e PTT;
-- voz Geral, Empresa/Equipe, CCO e Proximidade;
-- mute, deafen, ganho por jogador e seleção de dispositivos de áudio;
-- plugin Native AOT x86 e bridge v2 experimentais;
-- Hardware Cockpit Serial preservado.
+## Desenvolvimento após a Test 1
 
-### Em desenvolvimento na Alpha.12
+A branch `feature/alpha12-full-expansion` continua evoluindo depois da primeira pré-release. A voz multiplayer agora possui **jitter buffer adaptativo**, reordenação por sequência, recuperação FEC para perda isolada e indicadores ao vivo de jitter/perda na Central Multiplayer. Esses avanços ainda precisam de validação em sessão real entre dois ou mais PCs antes de serem considerados estáveis.
 
-- presença global e descoberta opcional de salas pela Internet;
-- NAT traversal/fallback avançado;
-- ônibus remoto físico 3D completo e tráfego IA compartilhado;
-- Hardware Cockpit Wi-Fi/ESP32, displays e entradas físicas;
-- navegação avançada com ETA/distâncias/manobras;
-- CCO avançado, permissões e moderação;
-- replay/Ghost, mapa web ao vivo e eventos;
-- SDK/API, workshop e companion/mobile.
+Detalhes técnicos: [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md).
+
+## Status do projeto
+
+- versão de desenvolvimento: `0.3.0-alpha.12-dev`;
+- OMSI alvo inicial: **2.3.004**;
+- perfil técnico legado preservado: **2.2.032**;
+- cliente: **.NET 10 / C# / WPF x86**;
+- servidor: **ASP.NET Core + SignalR**;
+- host da sala: o próprio PC de quem cria a sala;
+- servidor dedicado continua disponível como alternativa;
+- projeto público e em desenvolvimento ativo.
+
+## Alpha.12
+
+O escopo consolidado da Alpha.12 está em:
+
+- [`docs/ALPHA12_MASTER_SCOPE.md`](docs/ALPHA12_MASTER_SCOPE.md)
+
+Entre os módulos da Alpha.12 estão multiplayer/rede, voz avançada, ônibus remotos 3D, tráfego IA compartilhado, Hardware Cockpit, perfil, empresas virtuais, CCO, replay/Ghost, mapa web, eventos, permissões, SDK, workshop e base para companion/mobile.
+
+## Instalação rápida
+
+1. Baixe o **EXE standalone x86** da release Alpha.12 Test 1.
+2. Execute o NavBR.
+3. Confirme a instalação do OMSI ou ajuste o perfil se necessário.
+4. Abra o OMSI e carregue mapa/ônibus.
+5. Use **Navegação** para HUD/GPS ou **Multiplayer** para criar/entrar em uma sala.
+
+O plugin experimental de escrita no OMSI continua separado e protegido por opt-in. Ele não é obrigatório para usar telemetria, GPS, chat ou o multiplayer básico.
 
 ## Multiplayer
 
-O fluxo principal continua **peer-host**: quem cria a sala hospeda no próprio PC pela porta TCP `27730`. O servidor dedicado x64 permanece opcional. A Alpha.12 adiciona salas privadas e um navegador das salas públicas anunciadas pelo servidor configurado; salas privadas não aparecem nesse diretório.
+O computador de quem cria a sala pode funcionar como servidor da própria sessão.
 
-## Voz
+- porta padrão: `TCP 27730`;
+- telemetria, presença, chat e voz passam pelo SignalR;
+- salas privadas não aparecem no navegador público;
+- UPnP é opcional;
+- CGNAT/NAT/roteadores ainda podem exigir configuração adicional para acesso pela Internet.
 
-Atalhos padrão:
+Para começar, prefira testar primeiro entre dois PCs na mesma rede local.
 
-- `F9` — chat;
-- `F10` — segurar para falar.
+## Segurança
 
-A Test 1 inclui canais Geral, Empresa/Equipe, CCO e Proximidade, além de mute/deafen, ganho individual e seleção de microfone/saída.
+A leitura de telemetria do OMSI permanece **read-only**. Escritas experimentais no simulador ficam isoladas no plugin/bridge, exigem ativação explícita e continuam marcadas como experimentais.
 
-## HUD, GPS e OMSI
-
-O HUD preserva a janela real de gameplay do OMSI e deve ficar oculto em menus, opções e janelas auxiliares. A telemetria normal permanece prioritariamente de leitura; operações físicas continuam isoladas atrás de opt-in experimental.
-
-## Pacotes da Alpha.12 Test 1
-
-```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.12-test.1-win-x64.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.1-win-x86.zip
-ALPHA12_TEST1_COMMUNITY.md
-ALPHA12_MASTER_SCOPE.md
-HARDWARE_COCKPIT.md
-SHA256SUMS.txt
-LICENSE
-THIRD_PARTY_NOTICES.md
-```
-
-Para a maioria dos usuários, o **EXE standalone x86** é o pacote recomendado.
-
-## Compatibilidade
-
-- Windows;
-- OMSI 2.3.004 como alvo principal;
-- cliente WPF x86;
-- servidor dedicado x64 opcional;
-- .NET 10 self-contained;
-- independente da Steam API/Steamworks.
+O projeto não redistribui mapas, ônibus ou outros conteúdos proprietários/pagos do OMSI.
 
 ## Documentação
 
-- [Alpha.12 Test 1 — comunidade](docs/ALPHA12_TEST1_COMMUNITY.md)
-- [Hardware Cockpit Bridge](docs/HARDWARE_COCKPIT.md)
-- [Manual de uso](docs/MANUAL_DE_USO.md)
-- [Plugin OMSI experimental](docs/OMSI_PLUGIN_EXPERIMENTAL.md)
-- [HUD e voz](docs/HUD_AND_VOICE.md)
-- [Telemetria](docs/TELEMETRY.md)
-- [Arquitetura](docs/ARCHITECTURE.md)
-- [Releases](docs/RELEASES.md)
-- [Roadmap](docs/ROADMAP.md)
+- [`docs/ALPHA12_TEST1_COMMUNITY.md`](docs/ALPHA12_TEST1_COMMUNITY.md) — checklist da Test 1;
+- [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md) — jitter buffer, FEC e métricas de voz;
+- [`docs/HARDWARE_COCKPIT.md`](docs/HARDWARE_COCKPIT.md) — protocolo e exemplo físico;
+- [`docs/NETWORKING.md`](docs/NETWORKING.md) — rede;
+- [`docs/PEER_HOST.md`](docs/PEER_HOST.md) — host local;
+- [`docs/OMSI_PLUGIN_EXPERIMENTAL.md`](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin/bridge experimental;
+- [`docs/MANUAL_DE_USO.md`](docs/MANUAL_DE_USO.md) — manual de uso.
 
-## Apoie o desenvolvimento
+## Portal
 
-O **OMSI NavBR Multiplayer** é um projeto independente e público. Contribuições são voluntárias e ajudam com desenvolvimento, infraestrutura e testes da comunidade.
-
-**Pix — chave aleatória:** `b07a9cc9-b10d-48a8-b201-d28bddc4399a`
-
-## Créditos
-
-**Desenvolvedor:** MichaelPriest  
-**Apoio ao desenvolvimento:** IA ChatGPT
+O GitHub Pages do projeto concentra download, visão geral da Alpha.12, links de documentação, contribuição e apoio ao desenvolvimento.
 
 ## Licença
 
-O código próprio do OMSI NavBR Multiplayer é disponibilizado sob licença **MIT**. Dependências e avisos de terceiros estão em `THIRD_PARTY_NOTICES.md` e `licenses/`.
+Consulte [`LICENSE`](LICENSE) e [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
