@@ -31,7 +31,7 @@ public static class NavBRFeatureCatalog
         new("physical-vehicles", "Physical remote vehicles in OMSI", NavBRFeatureState.Experimental, true, true),
         new("shared-traffic", "Shared AI traffic", NavBRFeatureState.Experimental, true, true),
         new("hardware-cockpit", "Arduino/ESP32 Hardware Cockpit", NavBRFeatureState.InDevelopment, true),
-        new("driver-profile", "Driver profile and statistics", NavBRFeatureState.Planned, true),
+        new("driver-profile", "Driver profile and statistics", NavBRFeatureState.InDevelopment, true),
         new("virtual-companies", "Virtual companies", NavBRFeatureState.Planned, true),
         new("dispatcher", "CCO / Dispatcher", NavBRFeatureState.Planned, true),
         new("session-sync", "Session time/date/weather sync", NavBRFeatureState.Planned, true),
