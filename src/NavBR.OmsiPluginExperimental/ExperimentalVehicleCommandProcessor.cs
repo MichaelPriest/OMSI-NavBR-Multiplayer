@@ -1,20 +1,12 @@
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 
 namespace NavBR.OmsiPluginExperimental;
 
 internal static class ExperimentalVehicleCommandProcessor
 {
-    private static readonly bool WritesEnabled =
-        string.Equals(
-            Environment.GetEnvironmentVariable("NAVBR_OMSI_EXPERIMENTAL_WRITES"),
-            "1",
-            StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(
-            Environment.GetEnvironmentVariable("NAVBR_OMSI_EXPERIMENTAL_WRITES"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
-
-    public static bool ExperimentalWritesEnabled => WritesEnabled;
+    public static bool ExperimentalWritesEnabled =>
+        ExperimentalFeatureFlags.PhysicalVehiclesEnabled;
 
     public static string[] GetCapabilities()
     {
@@ -24,9 +16,10 @@ internal static class ExperimentalVehicleCommandProcessor
             PluginBridgeProtocol.CapabilityTimetableState
         };
 
-        // Physical writes stay opt-in while alpha.11 validates the complete
-        // create/update/despawn lifecycle against OMSI 2.3.004.
-        if (WritesEnabled && PhysicalVehicleBackend.IsAvailable)
+        // Capabilities describe what this plugin/runtime can do. The actual
+        // physical writes remain behind the explicit user opt-in and are
+        // re-checked for every command.
+        if (PhysicalVehicleBackend.IsRuntimeSupported)
         {
             capabilities.Add(PluginBridgeProtocol.CapabilityGhostReplay);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleSpawn);
@@ -84,22 +77,28 @@ internal static class ExperimentalVehicleCommandProcessor
             return Result(command, false, "invalid-command-id", "Physical vehicle commands require a bounded command id.");
         }
 
-        if (!WritesEnabled)
-        {
-            return Result(
-                command,
-                false,
-                "writes-disabled",
-                "Physical OMSI writes are disabled. Enable the alpha.11 experimental write mode only for controlled tests.");
-        }
-
-        if (!PhysicalVehicleBackend.IsAvailable)
+        if (!PhysicalVehicleBackend.IsRuntimeSupported)
         {
             return Result(
                 command,
                 false,
                 "backend-unavailable",
                 "The physical OMSI vehicle backend is not available for this build/runtime.");
+        }
+
+        var isDespawn =
+            string.Equals(command.Type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
+            string.Equals(command.Type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
+
+        // Despawn stays allowed after the user turns the experiment off so the
+        // client can safely remove every NavBR-owned vehicle already in OMSI.
+        if (!ExperimentalWritesEnabled && !isDespawn)
+        {
+            return Result(
+                command,
+                false,
+                "writes-disabled",
+                "Physical OMSI writes are disabled. Enable Remote 3D bus (EXPERIMENTAL) in the multiplayer window.");
         }
 
         return null;
@@ -126,7 +125,7 @@ internal static class ExperimentalVehicleCommandProcessor
             PlayerId: command.PlayerId,
             CommandId: command.CommandId,
             VehicleInstanceId: command.VehicleInstanceId,
-            ExperimentalWritesEnabled: WritesEnabled,
+            ExperimentalWritesEnabled: ExperimentalWritesEnabled,
             Success: success,
             ErrorCode: errorCode,
             ErrorMessage: errorMessage);
@@ -134,17 +133,10 @@ internal static class ExperimentalVehicleCommandProcessor
 
 internal static class PhysicalVehicleBackend
 {
-    private static readonly bool BackendOptIn =
-        string.Equals(
-            Environment.GetEnvironmentVariable("NAVBR_OMSI_PHYSICAL_BACKEND"),
-            "1",
-            StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(
-            Environment.GetEnvironmentVariable("NAVBR_OMSI_PHYSICAL_BACKEND"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
+    public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
 
-    public static bool IsAvailable => BackendOptIn && OmsiNativeInterop.IsShimReady;
+    public static bool IsAvailable =>
+        ExperimentalFeatureFlags.PhysicalVehiclesEnabled && IsRuntimeSupported;
 
     public static PluginBridgeMessage Execute(PluginBridgeMessage command)
     {
@@ -329,8 +321,6 @@ internal static class PhysicalVehicleBackend
 
         if (OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) != 1)
         {
-            // Put the entry back so a later despawn can retry instead of losing
-            // ownership of a live OMSI pointer.
             PhysicalVehicleInstanceRegistry.TryAdd(instance);
             return Fail(command, "despawn-mark-failed", "Could not mark the NavBR-owned OMSI vehicle for removal.");
         }
