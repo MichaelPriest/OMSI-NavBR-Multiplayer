@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using NavBR.Client.Localization;
 
 namespace NavBR.Client.Windows;
 
@@ -65,6 +66,18 @@ internal static class Alpha11ShellUiInstaller
         body.Children.Add(NewNavigationButton("⌂  Visão geral", () => BringIntoView(window.StatusHeadingText)));
         body.Children.Add(NewNavigationButton("⌖  GPS e mapas", () => BringIntoView(window.RoadmapScrollViewer)));
         body.Children.Add(NewNavigationButton("◫  Plugin e diagnóstico", () => BringIntoView(window.ProcessDetailsText)));
+
+        var manualButton = NewNavigationButton(GetManualButtonText(), () =>
+        {
+            var manual = new NavBRManualWindow
+            {
+                Owner = window
+            };
+            manual.ShowDialog();
+        });
+        body.Children.Add(manualButton);
+        window.LanguageComboBox.SelectionChanged += (_, _) => manualButton.Content = GetManualButtonText();
+
         body.Children.Add(NewSeparator());
         body.Children.Add(BuildSectionLabel("FERRAMENTAS ALPHA.11"));
 
@@ -83,6 +96,16 @@ internal static class Alpha11ShellUiInstaller
             Child = panel
         };
     }
+
+    private static string GetManualButtonText() =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "?  Manual de uso",
+            "es" => "?  Manual de uso",
+            "de" => "?  Benutzerhandbuch",
+            "fr" => "?  Manuel d’utilisation",
+            _ => "?  User manual"
+        };
 
     private static UIElement BuildBrand()
     {
