@@ -17,6 +17,8 @@ internal sealed class Alpha12SettingsWindow : Window
     private readonly TextBlock _languageLabel = new();
     private readonly TextBlock _themeLabel = new();
     private readonly TextBlock _advancedBody = new();
+    private readonly TextBlock _versionLabel = new();
+    private readonly TextBlock _versionValue = new();
     private readonly Button _saveButton = new();
     private readonly Button _cancelButton = new();
 
@@ -26,9 +28,9 @@ internal sealed class Alpha12SettingsWindow : Window
         Owner = owner;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Width = 650d;
-        Height = 560d;
+        Height = 610d;
         MinWidth = 560d;
-        MinHeight = 500d;
+        MinHeight = 540d;
         ResizeMode = ResizeMode.CanResize;
         Background = Brush(7, 12, 17);
 
@@ -94,6 +96,24 @@ internal sealed class Alpha12SettingsWindow : Window
         _tipsCheck.FontSize = 12.5d;
         tipsCard.Child = _tipsCheck;
         body.Children.Add(tipsCard);
+
+        var versionCard = NewCard();
+        var versionGrid = new Grid();
+        versionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        versionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _versionLabel.Foreground = Brush(174, 190, 201);
+        _versionLabel.FontSize = 10d;
+        _versionLabel.FontWeight = FontWeights.Bold;
+        _versionValue.Foreground = Brush(255, 164, 75);
+        _versionValue.FontSize = 12d;
+        _versionValue.FontWeight = FontWeights.Bold;
+        _versionValue.Text = NavBRVersionInfo.Display;
+        Grid.SetColumn(_versionLabel, 0);
+        Grid.SetColumn(_versionValue, 1);
+        versionGrid.Children.Add(_versionLabel);
+        versionGrid.Children.Add(_versionValue);
+        versionCard.Child = versionGrid;
+        body.Children.Add(versionCard);
 
         Grid.SetRow(scroller, 1);
         root.Children.Add(scroller);
@@ -186,9 +206,20 @@ internal sealed class Alpha12SettingsWindow : Window
         _advancedCheck.Content = Alpha12Text.Get("AdvancedMode");
         _advancedBody.Text = Alpha12Text.Get("AdvancedModeBody");
         _tipsCheck.Content = Alpha12Text.Get("DrivingTips");
+        _versionLabel.Text = VersionLabel();
+        _versionValue.Text = NavBRVersionInfo.Display;
         _saveButton.Content = Alpha12Text.Get("Save");
         _cancelButton.Content = Alpha12Text.Get("Cancel");
     }
+
+    private static string VersionLabel() => LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+    {
+        "pt" => "VERSÃO DO NAVBR",
+        "es" => "VERSIÓN DE NAVBR",
+        "de" => "NAVBR-VERSION",
+        "fr" => "VERSION DE NAVBR",
+        _ => "NAVBR VERSION"
+    };
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
