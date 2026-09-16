@@ -48,8 +48,31 @@ jobs:
           New-Item -ItemType Directory -Force "artifacts/NavBR.OmsiInterop" | Out-Null
           cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
             native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
-            /link /OUT:artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll
           if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/NavBR.OmsiInterop/NavBR.OmsiInterop.dll") -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect native OMSI interop exports." }
+          foreach ($expected in @(
+            "NavBR_GetAbiVersion",
+            "NavBR_GetImageBase",
+            "NavBR_ProbeOmsi23004Addresses",
+            "NavBR_GetMem",
+            "NavBR_FreeMem",
+            "NavBR_LockMakeVehicle",
+            "NavBR_UnlockMakeVehicle",
+            "NavBR_AllocateAnsiString",
+            "NavBR_FreeAnsiString",
+            "NavBR_TempRoadVehicleListCreate",
+            "NavBR_CopyTempRoadVehicleListIntoMain",
+            "NavBR_MakeVehicle"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing native OMSI interop export: $expected"
+            }
+          }
 
       - name: Restore
         shell: pwsh
