@@ -55,20 +55,8 @@ internal static class Alpha12MultiplayerStatusInstaller
         metricGrid.Children.Add(Metric(driversLabel, drivers, 1));
         metricGrid.Children.Add(Metric(telemetryLabel, telemetry, 2));
 
-        var healthButton = new Button
-        {
-            Content = Text("OpenHealth"),
-            Height = 36d,
-            MinWidth = 175d,
-            Padding = new Thickness(14d, 6d, 14d, 6d),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(0d, 14d, 0d, 0d),
-            Background = Brush(14, 27, 35),
-            Foreground = Brush(218, 230, 238),
-            BorderBrush = Brush(44, 65, 78),
-            BorderThickness = new Thickness(1d),
-            Cursor = System.Windows.Input.Cursors.Hand
-        };
+        var healthButton = SecondaryButton();
+        healthButton.Content = Text("OpenHealth");
         healthButton.Click += (_, _) =>
         {
             if (Application.Current is App app)
@@ -80,11 +68,24 @@ internal static class Alpha12MultiplayerStatusInstaller
             }
         };
 
+        var connectivityButton = SecondaryButton();
+        connectivityButton.Content = Alpha12ConnectivityWindow.ButtonText();
+        connectivityButton.Margin = new Thickness(10d, 0d, 0d, 0d);
+        connectivityButton.Click += (_, _) => new Alpha12ConnectivityWindow(window).ShowDialog();
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0d, 14d, 0d, 0d)
+        };
+        actions.Children.Add(healthButton);
+        actions.Children.Add(connectivityButton);
+
         var body = new StackPanel();
         body.Children.Add(state);
         body.Children.Add(detail);
         body.Children.Add(metricGrid);
-        body.Children.Add(healthButton);
+        body.Children.Add(actions);
 
         var card = new Border
         {
@@ -127,6 +128,7 @@ internal static class Alpha12MultiplayerStatusInstaller
             }
 
             healthButton.Content = Text("OpenHealth");
+            connectivityButton.Content = Alpha12ConnectivityWindow.ButtonText();
         }
 
         SelectionChangedEventHandler languageChanged = (_, _) => Refresh();
@@ -142,6 +144,19 @@ internal static class Alpha12MultiplayerStatusInstaller
         Refresh();
         timer.Start();
     }
+
+    private static Button SecondaryButton() => new()
+    {
+        Height = 36d,
+        MinWidth = 175d,
+        Padding = new Thickness(14d, 6d, 14d, 6d),
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Background = Brush(14, 27, 35),
+        Foreground = Brush(218, 230, 238),
+        BorderBrush = Brush(44, 65, 78),
+        BorderThickness = new Thickness(1d),
+        Cursor = System.Windows.Input.Cursors.Hand
+    };
 
     private static Border Metric(TextBlock label, TextBlock value, int column)
     {
