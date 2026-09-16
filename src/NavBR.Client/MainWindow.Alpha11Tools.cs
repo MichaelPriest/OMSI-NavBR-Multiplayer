@@ -10,7 +10,23 @@ public partial class MainWindow
     internal VehicleTelemetry? GetCurrentTelemetryForAlpha11()
     {
         var telemetry = _lastTelemetry;
-        if (telemetry is null || Application.Current is not App app)
+        if (telemetry is null)
+        {
+            return null;
+        }
+
+        var streetName = OmsiStreetProfileResolver.Resolve(
+            GetActiveMapForMultiplayer(),
+            telemetry);
+        if (!string.IsNullOrWhiteSpace(streetName))
+        {
+            telemetry = telemetry with
+            {
+                CurrentStreetName = streetName
+            };
+        }
+
+        if (Application.Current is not App app)
         {
             return telemetry;
         }
