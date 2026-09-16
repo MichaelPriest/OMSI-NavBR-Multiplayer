@@ -8,9 +8,8 @@ public partial class MultiplayerWindow
     private readonly SessionNetworkQualityMonitor _networkQuality = new();
     private bool _networkQualityHooked;
 
-    protected override void OnContentRendered(EventArgs e)
+    private void InitializeNetworkQualityLifecycle()
     {
-        base.OnContentRendered(e);
         if (_networkQualityHooked)
         {
             return;
