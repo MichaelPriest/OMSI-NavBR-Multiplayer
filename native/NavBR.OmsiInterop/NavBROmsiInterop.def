@@ -1,12 +1,14 @@
 LIBRARY "NavBR.OmsiInterop"
 EXPORTS
     NavBR_GetAbiVersion
+    NavBR_GetStateInteropVersion
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
     NavBR_GetProgramManager
     NavBR_GetRoadVehicleTypes
     NavBR_GetRoadVehicleCount
     NavBR_GetRoadVehicleAt
+    NavBR_IsRoadVehiclePointer
     NavBR_GetMem
     NavBR_FreeMem
     NavBR_LockMakeVehicle
@@ -16,3 +18,6 @@ EXPORTS
     NavBR_TempRoadVehicleListCreate
     NavBR_CopyTempRoadVehicleListIntoMain
     NavBR_MakeVehicle
+    NavBR_SetVehicleTransform
+    NavBR_SetVehicleVisualState
+    NavBR_MarkVehicleForKilling
