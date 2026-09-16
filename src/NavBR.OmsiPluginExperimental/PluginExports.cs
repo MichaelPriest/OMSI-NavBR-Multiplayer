@@ -8,7 +8,10 @@ public static class PluginExports
 {
     private static readonly object LogSync = new();
     private static DateTimeOffset _lastHeartbeat = DateTimeOffset.MinValue;
+    private static DateTimeOffset _lastStatusReport = DateTimeOffset.MinValue;
     private static long _systemVariableCallbacks;
+    private static float _pluginVelocityKph = float.NaN;
+    private static int _stopRequested;
 
     private static string LogDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -21,6 +24,10 @@ public static class PluginExports
     {
         try
         {
+            _lastHeartbeat = DateTimeOffset.MinValue;
+            _lastStatusReport = DateTimeOffset.MinValue;
+            Volatile.Write(ref _pluginVelocityKph, float.NaN);
+            Volatile.Write(ref _stopRequested, 0);
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
             PluginBridgeClient.Start(Log);
         }
@@ -36,6 +43,8 @@ public static class PluginExports
         try
         {
             PluginBridgeClient.Stop();
+            Volatile.Write(ref _pluginVelocityKph, float.NaN);
+            Volatile.Write(ref _stopRequested, 0);
             Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
         }
         catch (Exception ex)
@@ -50,7 +59,38 @@ public static class PluginExports
         IntPtr value,
         IntPtr writeValue)
     {
-        // O bridge pode receber estado remoto, mas esta fase ainda não escreve no OMSI.
+        // Read-only hardware telemetry. Never write through writeValue here.
+        if (value == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            var variableValue = BitConverter.Int32BitsToSingle(Marshal.ReadInt32(value));
+            if (!float.IsFinite(variableValue))
+            {
+                return;
+            }
+
+            switch (variableIndex)
+            {
+                // [varlist] index 0 = Velocity (km/h).
+                case 0:
+                    Volatile.Write(ref _pluginVelocityKph, Math.Abs(variableValue));
+                    break;
+
+                // [varlist] index 1 = haltewunsch. OMSI buses conventionally
+                // expose the active stop request as a positive value.
+                case 1:
+                    Volatile.Write(ref _stopRequested, variableValue > 0.5f ? 1 : 0);
+                    break;
+            }
+        }
+        catch
+        {
+            // A malformed/unsupported bus variable must never affect OMSI.
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(AccessTrigger))]
@@ -88,6 +128,28 @@ public static class PluginExports
                 PluginBridgeClient.QueueCommandResult);
 
             var now = DateTimeOffset.UtcNow;
+            var staleRemoved = 0;
+            if (now - _lastStatusReport >= TimeSpan.FromMilliseconds(200))
+            {
+                _lastStatusReport = now;
+                staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
+
+                var pluginVelocity = Volatile.Read(ref _pluginVelocityKph);
+                var speedKph = float.IsFinite(pluginVelocity)
+                    ? (double?)Math.Abs(pluginVelocity)
+                    : null;
+                var stopRequested = Volatile.Read(ref _stopRequested) != 0;
+
+                PluginBridgeClient.ReportRuntimeStatus(
+                    Interlocked.Read(ref _systemVariableCallbacks),
+                    variableIndex,
+                    staleRemoved,
+                    speedKph,
+                    stopRequested);
+            }
+
+            // Keep the verbose file heartbeat sparse. Hardware/status delivery is
+            // handled above at 5 Hz and is intentionally independent from logging.
             if (now - _lastHeartbeat < TimeSpan.FromSeconds(5))
             {
                 return;
@@ -109,20 +171,20 @@ public static class PluginExports
             }
 
             var callbacks = Interlocked.Read(ref _systemVariableCallbacks);
-            var staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
             var remote = PluginBridgeClient.LatestRemoteState;
             var remoteSummary = remote is null
                 ? "remote=none"
                 : $"remote={remote.PlayerId} map={remote.MapName ?? "-"} pos=({remote.X:F2},{remote.Y:F2},{remote.Z:F2}) heading={remote.HeadingDegrees:F1} speed={remote.SpeedKph:F1}";
-
-            PluginBridgeClient.ReportRuntimeStatus(
-                callbacks,
-                variableIndex,
-                staleRemoved);
+            var localVelocity = Volatile.Read(ref _pluginVelocityKph);
+            var localSpeedSummary = float.IsFinite(localVelocity)
+                ? localVelocity.ToString("F1")
+                : "-";
+            var stopSummary = Volatile.Read(ref _stopRequested) != 0 ? "1" : "0";
 
             Log(
                 $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
                 $"callbacks={callbacks} " +
+                $"localVelocityKph={localSpeedSummary} stopRequested={stopSummary} " +
                 $"remoteCount={PluginBridgeClient.RemoteVehicleCount} " +
                 $"compatibleRemoteCount={PluginBridgeClient.CompatibleRemoteVehicleCount} " +
                 $"trafficCount={PluginBridgeClient.TrafficVehicleCount} " +
