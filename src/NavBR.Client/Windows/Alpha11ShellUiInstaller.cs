@@ -59,7 +59,17 @@ internal static class Alpha11ShellUiInstaller
 
         var body = new StackPanel();
         body.LayoutUpdated += (_, _) => NormalizeSidebarButtons(body);
-        panel.Children.Add(body);
+
+        var bodyScroller = new ScrollViewer
+        {
+            Content = body,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false,
+            PanningMode = PanningMode.VerticalOnly,
+            Focusable = false
+        };
+        panel.Children.Add(bodyScroller);
 
         body.Children.Add(BuildBrand());
         body.Children.Add(BuildSectionLabel("NAVEGAÇÃO"));
