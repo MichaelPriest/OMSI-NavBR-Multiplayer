@@ -1,0 +1,403 @@
+# Alpha.12 — escopo mestre de expansão
+
+A **Alpha.12** consolida em uma única versão de desenvolvimento todos os recursos que estavam espalhados entre roadmap, ideias futuras e módulos experimentais do OMSI NavBR Multiplayer.
+
+Branch de desenvolvimento:
+
+```text
+feature/alpha12-full-expansion
+```
+
+Versão de desenvolvimento:
+
+```text
+0.3.0-alpha.12-dev
+```
+
+## Regra da Alpha.12
+
+Todos os itens abaixo fazem parte do escopo da próxima versão. Recursos que ainda não tiverem validação suficiente podem permanecer atrás de **feature flags experimentais**, mas não devem desaparecer do backlog.
+
+Legenda:
+
+- ✅ já existe na base e será preservado;
+- 🚧 entra em desenvolvimento na Alpha.12;
+- 🧪 existe parcialmente/experimental e precisa ser concluído/validado;
+- 🔒 deve ficar protegido por opt-in/feature flag enquanto não for estável.
+
+---
+
+## 1. Núcleo, interface e experiência do usuário
+
+- ✅ cliente WPF x86 independente da Steam;
+- ✅ servidor SignalR e modo peer-host;
+- ✅ EXE standalone e pacotes ZIP;
+- ✅ GitHub Releases e GitHub Pages;
+- ✅ suporte a pt-BR, English, Español, Deutsch e Français;
+- 🚧 remover textos hardcoded da interface Alpha.11/12 e mover tudo para recursos localizados;
+- 🚧 dashboard principal mais limpo e orientado ao motorista;
+- 🚧 Multiplayer como página integrada ao shell principal;
+- 🚧 Configurações centralizadas;
+- 🚧 central de notificações/status;
+- 🚧 tela de saúde do sistema e da sessão;
+- 🚧 modo espectador;
+- 🚧 perfis visuais/HUD configuráveis;
+- 🚧 acessibilidade e melhor suporte a escalas do Windows;
+- 🚧 atalhos totalmente configuráveis e verificados contra conflitos do OMSI.
+
+## 2. Telemetria OMSI e compatibilidade
+
+- ✅ leitura read-only de processo;
+- ✅ mapa, veículo, posição, Grid/Tile, heading e velocidade;
+- ✅ OMSI 2.3.004 como alvo principal;
+- ✅ base técnica 2.2.032;
+- 🧪 validação ampla de offsets em diferentes instalações;
+- 🚧 allowlist de hashes conhecidos;
+- 🚧 signature scanning para builds futuras;
+- 🚧 perfis de ônibus/add-ons para variáveis específicas;
+- 🚧 catálogo de capacidades por modelo de ônibus;
+- 🚧 diagnóstico automático de incompatibilidade;
+- 🚧 fallback seguro quando uma variável não existir.
+
+## 3. GPS, HUD, TTData e navegação
+
+- ✅ roadmap, zoom, pan e follow vehicle;
+- ✅ rota ativa, linha, destino e próxima parada;
+- ✅ leitura `.ttp`, `.ttr`, Chrono, splines e crossings;
+- ✅ filtro de paradas da viagem ativa;
+- ✅ visão geral da rota;
+- 🚧 distância restante total;
+- 🚧 distância até a próxima parada;
+- 🚧 ETA da próxima parada;
+- 🚧 ETA de chegada ao terminal;
+- 🚧 atraso/adiantamento por viagem;
+- 🚧 atraso/adiantamento por parada;
+- 🚧 instruções de navegação por trecho/manobra;
+- 🚧 aviso antecipado de curva/saída;
+- 🚧 nomes de vias via perfis `NavBR.streets.json`;
+- 🚧 gerador/editor/importador de perfis de ruas no Roadmap Studio;
+- 🚧 melhor experiência para mapas sem `whole.roadmap.bmp`;
+- 🚧 geração automática/vetorial de roadmap sem depender do OMSI Editor;
+- 🚧 cache de geometria e otimização de mapas grandes.
+
+## 4. Multiplayer peer-host
+
+- ✅ host local no PC de quem cria a sala;
+- ✅ porta inicial TCP 27730;
+- ✅ criar/entrar em sala;
+- ✅ presença, telemetria, chat e PTT;
+- ✅ jogadores remotos no mapa;
+- ✅ reconexão automática;
+- ✅ servidor dedicado opcional;
+- 🚧 diagnóstico de conectividade/porta;
+- 🚧 teste automático de porta acessível externamente;
+- 🚧 UPnP quando disponível;
+- 🚧 NAT traversal/fallback seguro;
+- 🚧 códigos de erro de rede estruturados;
+- 🚧 rate limiting;
+- 🚧 limites e proteção contra abuso;
+- 🚧 métricas de ping, jitter e perda;
+- 🚧 frequência adaptativa de telemetria;
+- 🚧 LOD/culling por distância;
+- 🚧 extrapolação curta para perda de pacotes;
+- 🚧 snap seguro quando o erro ultrapassar tolerância;
+- 🚧 testes progressivos até 32 jogadores.
+
+## 5. Salas públicas, privadas e infraestrutura online opcional
+
+- 🚧 navegador público de salas/servidores;
+- 🚧 filtros por mapa, região, versão e quantidade de jogadores;
+- 🚧 ping visível antes de entrar;
+- 🚧 favoritos;
+- 🚧 salas privadas;
+- 🚧 senha/convite gerenciado;
+- 🚧 presence service global;
+- 🚧 autenticação opcional;
+- 🚧 persistência mínima de perfil e preferências online;
+- 🚧 serviço de descoberta separado do peer-host;
+- 🔒 toda infraestrutura online deve continuar opcional para quem só quiser host direto.
+
+## 6. Voz e comunicação
+
+- ✅ chat de texto;
+- ✅ push-to-talk;
+- ✅ Opus/NAudio;
+- 🚧 voz por proximidade;
+- 🚧 canais de voz separados;
+- 🚧 canal da sala;
+- 🚧 canal de empresa;
+- 🚧 canal CCO/dispatcher;
+- 🚧 mute/deafen;
+- 🚧 seleção de dispositivos de entrada/saída;
+- 🚧 ganho individual por jogador;
+- 🚧 indicadores de qualidade da voz;
+- 🚧 jitter buffer adaptativo e tratamento de perda.
+
+## 7. Veículos remotos físicos dentro do OMSI
+
+- ✅ plugin Native AOT x86;
+- ✅ Named Pipe local;
+- ✅ protocolo bridge versionado;
+- ✅ shim C++ x86;
+- ✅ spawn/update/despawn experimental;
+- ✅ posição, rotação e estados básicos;
+- 🧪 sincronização entre tiles;
+- 🚧 articulação de ônibus;
+- 🚧 portas;
+- 🚧 matriz/linha/destino;
+- 🚧 faróis, freio, setas e alerta com perfis por veículo;
+- 🚧 limpadores e outros estados visuais;
+- 🚧 rodas/animações quando tecnicamente seguro;
+- 🚧 fallback de modelo de ônibus;
+- 🚧 validação de modelo/HOF/dependências;
+- 🚧 limite de distância para spawn físico;
+- 🚧 LOD/culling;
+- 🚧 limpeza stale validada;
+- 🚧 sincronização de vários veículos simultâneos;
+- 🔒 escrita no OMSI permanece isolada, opt-in e experimental até validação ampla.
+
+## 8. Tráfego IA compartilhado
+
+- ✅ leitura de tráfego e snapshots experimentais;
+- 🚧 autoridade de tráfego por sessão;
+- 🚧 seleção de veículos relevantes por distância;
+- 🚧 sincronização de transform e estados;
+- 🚧 spawn/despawn remoto de tráfego quando seguro;
+- 🚧 limitação por desempenho;
+- 🚧 política de ownership para evitar duplicação;
+- 🚧 fallback para somente visualização quando a sincronização física não for segura.
+
+## 9. Hardware Cockpit — Arduino/ESP32
+
+- ✅ `NAVBR_HW_V1`;
+- ✅ USB/Serial;
+- ✅ COM/baud/conectar/desconectar;
+- ✅ JSON Lines ~5 Hz;
+- ✅ velocidade, linha, rota, destino, próxima parada e estados;
+- ✅ `stopRequested` via `haltewunsch`;
+- ✅ exemplo Arduino com LED de parada;
+- 🚧 persistência de COM/baud;
+- 🚧 auto-reconnect;
+- 🚧 perfis/aliases de variáveis por ônibus;
+- 🚧 Wi-Fi ESP32 via UDP;
+- 🚧 WebSocket para ESP32;
+- 🚧 OLED;
+- 🚧 LCD;
+- 🚧 matriz de LED;
+- 🚧 letreiro dianteiro/lateral/traseiro;
+- 🚧 velocímetro físico;
+- 🚧 indicadores de porta, seta, farol e freio;
+- 🚧 buzzer/avisos;
+- 🚧 exemplos de projetos físicos documentados;
+- 🔒 fase bidirecional opcional: botões físicos -> NavBR -> OMSI;
+- 🚧 isolamento e autorização explícita para qualquer escrita vinda do hardware.
+
+## 10. Perfil do motorista
+
+- 🚧 perfil local do motorista;
+- 🚧 nickname/identidade de sessão;
+- 🚧 horas dirigidas;
+- 🚧 quilômetros rodados;
+- 🚧 linhas operadas;
+- 🚧 mapas utilizados;
+- 🚧 histórico de viagens;
+- 🚧 pontualidade;
+- 🚧 estatísticas de condução quando os dados forem confiáveis;
+- 🚧 conquistas/medalhas opcionais;
+- 🚧 exportação/importação do perfil;
+- 🚧 sincronização online opcional.
+
+## 11. Empresas virtuais
+
+- 🚧 criação de empresa virtual;
+- 🚧 nome, sigla e identidade visual;
+- 🚧 cargos;
+- 🚧 motoristas;
+- 🚧 frota;
+- 🚧 prefixos;
+- 🚧 garagem;
+- 🚧 veículos autorizados;
+- 🚧 linhas/serviços atribuídos;
+- 🚧 escala/operação;
+- 🚧 estatísticas da empresa;
+- 🚧 permissões por cargo;
+- 🚧 integração opcional com salas privadas/públicas.
+
+## 12. CCO / Dispatcher
+
+- 🚧 painel operacional da sessão;
+- 🚧 mapa ao vivo de motoristas;
+- 🚧 linha/viagem atual;
+- 🚧 atraso/adiantamento;
+- 🚧 intervalo entre veículos;
+- 🚧 mensagens operacionais;
+- 🚧 despacho de motoristas;
+- 🚧 atribuição de linha/veículo;
+- 🚧 incidentes/avisos;
+- 🚧 canais de voz do CCO;
+- 🚧 permissões específicas de dispatcher;
+- 🚧 modo somente observação para supervisores.
+
+## 13. Sincronização de sessão
+
+- 🚧 hora da sessão;
+- 🚧 data da sessão;
+- 🚧 clima opcional;
+- 🚧 política de autoridade do host;
+- 🚧 possibilidade de seguir o host ou manter tempo/clima local;
+- 🚧 sincronização de eventos operacionais;
+- 🚧 mensagens globais da sessão.
+
+## 14. Identificação de frota e veículo
+
+- 🚧 prefixo/frota;
+- 🚧 garagem;
+- 🚧 matrícula;
+- 🚧 número interno;
+- 🚧 empresa virtual vinculada;
+- 🚧 HOF ativo;
+- 🚧 modelo e variante do ônibus;
+- 🚧 exibição desses dados no HUD/CCO quando permitido.
+
+## 15. Compatibilidade de mapas/mods/dependências
+
+- ✅ fingerprint de mapa básico;
+- 🚧 manifesto versionado de compatibilidade;
+- 🚧 hashes de arquivos relevantes;
+- 🚧 detecção de HOF;
+- 🚧 detecção de ônibus/modelos necessários;
+- 🚧 lista do que está ausente antes de entrar na sala;
+- 🚧 comparação de versões;
+- 🚧 política de compatibilidade estrita/opcional;
+- 🚧 nunca redistribuir conteúdo pago/proprietário sem permissão.
+
+## 16. Replay e Ghost Bus
+
+- ✅ base de Ghost Recorder/Replay já existe no código;
+- 🚧 transformar Ghost em recurso final do usuário;
+- 🚧 gravar viagem completa;
+- 🚧 salvar rota e telemetria;
+- 🚧 reproduzir viagem no mapa;
+- 🚧 Ghost Bus visual;
+- 🚧 comparação de tempo/desempenho;
+- 🚧 compartilhamento de replay quando permitido;
+- 🚧 integração futura com eventos e treinamento.
+
+## 17. Mapa web ao vivo
+
+- 🚧 servidor web opcional da sessão;
+- 🚧 mapa ao vivo no navegador;
+- 🚧 jogadores e veículos relevantes;
+- 🚧 linha/destino;
+- 🚧 status da sessão;
+- 🚧 CCO web somente leitura inicialmente;
+- 🚧 autenticação/permissões quando houver controle operacional;
+- 🔒 desativado por padrão para preservar privacidade e superfície de rede.
+
+## 18. Eventos e operações especiais
+
+- 🚧 criação de eventos;
+- 🚧 comboios/operações programadas;
+- 🚧 slots de motorista;
+- 🚧 regras de evento;
+- 🚧 briefing;
+- 🚧 CCO de evento;
+- 🚧 resultados/estatísticas opcionais;
+- 🚧 modo comunidade/RP.
+
+## 19. Permissões e moderação
+
+- 🚧 admin;
+- 🚧 moderador;
+- 🚧 CCO;
+- 🚧 motorista;
+- 🚧 visitante;
+- 🚧 espectador;
+- 🚧 permissões por ação;
+- 🚧 kick/ban da sessão;
+- 🚧 mute de chat/voz;
+- 🚧 logs operacionais mínimos;
+- 🚧 controles de privacidade.
+
+## 20. Painel de saúde da sessão
+
+- 🚧 ping;
+- 🚧 jitter;
+- 🚧 perda de pacotes;
+- 🚧 frequência de telemetria;
+- 🚧 FPS local quando disponível;
+- 🚧 estado do plugin;
+- 🚧 estado do bridge;
+- 🚧 fila de comandos físicos;
+- 🚧 tráfego/veículos sincronizados;
+- 🚧 alertas de incompatibilidade;
+- 🚧 exportação de diagnóstico sanitizado.
+
+## 21. SDK / API NavBR
+
+- 🚧 API local versionada;
+- 🚧 eventos de telemetria;
+- 🚧 eventos multiplayer;
+- 🚧 API para dashboards;
+- 🚧 API para bots;
+- 🚧 API para ferramentas de CCO;
+- 🚧 documentação pública;
+- 🚧 versionamento/compatibilidade do SDK;
+- 🔒 nenhuma API externa pode permitir escrita insegura no OMSI por padrão.
+
+## 22. Workshop / conteúdo comunitário
+
+- 🚧 perfis de ônibus;
+- 🚧 perfis de ruas;
+- 🚧 perfis de Hardware Cockpit;
+- 🚧 layouts de HUD permitidos;
+- 🚧 traduções;
+- 🚧 configurações de mapa;
+- 🚧 metadados de compatibilidade;
+- 🚧 importação/exportação;
+- 🚧 validação de schema;
+- 🚧 não hospedar/republicar assets proprietários sem autorização.
+
+## 23. Site/portal Alpha.12
+
+- ✅ download e catálogo de releases;
+- ✅ contador de downloads;
+- ✅ documentação e feedback;
+- 🚧 página específica da Alpha.12;
+- 🚧 matriz de funcionalidades/estado;
+- 🚧 compatibilidade conhecida;
+- 🚧 status das features experimentais;
+- 🚧 navegador de salas quando a infraestrutura online existir;
+- 🚧 documentação do Hardware Cockpit;
+- 🚧 documentação do SDK;
+- 🚧 área comunitária futura.
+
+## 24. Companion/mobile futuro dentro do escopo Alpha.12
+
+- 🚧 definir API para companion;
+- 🚧 painel móvel de sessão/CCO;
+- 🚧 telemetria somente leitura no celular;
+- 🚧 mapa ao vivo;
+- 🚧 preparação técnica para eventual Android;
+- 🚧 avaliar publicação futura no Google Play somente depois de a base desktop estar estável.
+
+## Ordem interna de implementação
+
+A Alpha.12 contém todo o escopo acima, mas será construída em ondas para evitar regressões:
+
+1. fundação: localização, feature flags, modelos compartilhados e saúde da sessão;
+2. navegação: ETA, distância, atraso, ruas e Roadmap Studio;
+3. rede: diagnóstico, rate limit, NAT/UPnP, métricas e otimização;
+4. multiplayer 3D: tiles, LOD, portas, articulação, matriz e estados;
+5. Hardware Cockpit: aliases, persistência, Wi-Fi e displays;
+6. perfil do motorista e compatibilidade/mod manifest;
+7. salas públicas/privadas e presença global opcional;
+8. empresas virtuais e CCO;
+9. replay/Ghost, mapa web, eventos e permissões;
+10. SDK, workshop e companion.
+
+## Gate de release
+
+A Alpha.12 pode publicar testes intermediários (`alpha.12-test.N`) durante o desenvolvimento. Um módulo pode entrar no pacote marcado como experimental antes de estar apto para uso padrão.
+
+Nenhum recurso experimental deve tornar obrigatório o plugin físico para quem quiser apenas GPS/HUD/multiplayer externo.
