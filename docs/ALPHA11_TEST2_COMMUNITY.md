@@ -64,6 +64,15 @@ Quando ativada, pode enviar ao coletor oficial do NavBR:
 
 O diagnóstico automático **não envia** conteúdo do chat, áudio/voz, senhas, tokens, arquivos pessoais ou o nome do usuário do Windows. Caminhos locais são sanitizados antes de entrar na fila de envio. Se estiver sem internet, os eventos ficam temporariamente em uma fila local limitada; ao desativar a opção, essa fila é apagada.
 
+## Manual dentro do aplicativo
+
+A Alpha.11 Test 2 inclui um botão **Manual de uso** na barra lateral. O guia funciona offline e foi escrito para usuários leigos, com passos de primeiros testes, HUD/GPS, multiplayer, chat/voz, 3D experimental, diagnósticos e solução de problemas.
+
+## Créditos
+
+**Desenvolvedor:** MichaelPriest  
+**Com apoio da IA:** ChatGPT
+
 ## Limitações conhecidas
 
 - Backend 3D é experimental e pode ser instável.

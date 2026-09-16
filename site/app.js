@@ -1,13 +1,40 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
+const currentTag = 'v0.3.0-alpha.11-test.4';
+
 const fallbackRelease = {
-  tag_name: 'v0.3.0-alpha.10',
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.10',
+  tag_name: currentTag,
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.11-test.4 — community test',
   prerelease: true,
-  published_at: '2026-09-15T18:00:00Z',
-  html_url: `https://github.com/${repo}/releases/tag/v0.3.0-alpha.10`,
-  body: 'Alpha.10 oficial com plugin Native AOT x86, instalação pelo próprio NavBR, HUD/GPS, multiplayer peer-host, chat e voz.',
+  published_at: '2026-09-16T13:39:20Z',
+  html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
+  body: 'Alpha.11 Test 4: interface reorganizada, velocidade corrigida pelo Tacho do OMSI, Hardware Cockpit USB/Serial, parada solicitada via haltewunsch e suporte a perfis de rua.',
   download_count: 0,
-  assets: []
+  assets: [
+    {
+      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
+      size: 84703103,
+      download_count: 0
+    },
+    {
+      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
+      size: 85234075,
+      download_count: 0
+    },
+    {
+      name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
+      size: 5264535,
+      download_count: 0
+    },
+    {
+      name: `OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
+      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
+      size: 50197099,
+      download_count: 0
+    }
+  ]
 };
 
 function escapeHtml(value = '') {
@@ -57,20 +84,15 @@ function assetLabel(name = '') {
   if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
-  if (/Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI — diagnóstico / fallback';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI x86';
   return name;
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) {
-    return 'Use para jogar, entrar em salas ou criar uma sala no próprio PC. O plugin pode ser instalado pelo próprio NavBR.';
-  }
-  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) {
-    return 'Mesmo cliente em pacote ZIP. É uma alternativa ao EXE standalone; não é necessário baixar os dois.';
-  }
-  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) {
-    return 'Somente para servidor dedicado em outra máquina/processo. Não é necessário para criar sala pelo cliente NavBR.';
-  }
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.11. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
+  if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
+  if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI.';
   return '';
 }
 
@@ -84,9 +106,7 @@ function releaseDownloadCount(release) {
 function renderRelease(release) {
   const assets = (release.assets || []).filter(asset => /\.(exe|zip)$/i.test(asset.name || ''));
   const assetLinks = assets.map(asset => {
-    const size = formatBytes(asset.size);
-    const downloads = `${formatNumber(asset.download_count)} download${Number(asset.download_count) === 1 ? '' : 's'}`;
-    const meta = [size, downloads].filter(Boolean).join(' • ');
+    const meta = [formatBytes(asset.size), `${formatNumber(asset.download_count)} downloads`].filter(Boolean).join(' • ');
     const help = assetHelp(asset.name);
     return `
       <a href="${escapeHtml(asset.browser_download_url)}" target="_blank" rel="noreferrer">
@@ -94,21 +114,18 @@ function renderRelease(release) {
         <small>${escapeHtml(meta)}</small>
       </a>`;
   }).join('');
-  const summary = summarizeBody(release.body);
-  const releaseDownloads = releaseDownloadCount(release);
 
+  const summary = summarizeBody(release.body);
   return `
-    <article class="release-card motion-reveal">
+    <article class="release-card">
       <div class="release-meta">
-        <span class="tag">${release.prerelease ? 'ALPHA / TESTE' : 'ESTÁVEL'}</span>
+        <span class="tag">${release.prerelease ? 'PRÉ-RELEASE' : 'RELEASE'}</span>
         <small>${escapeHtml(formatDate(release.published_at))}</small>
       </div>
       <h3>${escapeHtml(release.name || release.tag_name)}</h3>
-      <div class="release-downloads">↓ ${escapeHtml(formatNumber(releaseDownloads))} downloads desta versão</div>
-      <p>${escapeHtml(summary).slice(0, 250)}${summary.length > 250 ? '…' : ''}</p>
-      <div class="asset-list">
-        ${assetLinks || `<a href="${escapeHtml(release.html_url)}" target="_blank" rel="noreferrer"><span>Abrir release no GitHub</span><small>→</small></a>`}
-      </div>
+      <div class="release-downloads">↓ ${escapeHtml(formatNumber(releaseDownloadCount(release)))} downloads desta versão</div>
+      <p>${escapeHtml(summary).slice(0, 280)}${summary.length > 280 ? '…' : ''}</p>
+      <div class="asset-list">${assetLinks || `<a href="${escapeHtml(release.html_url)}" target="_blank" rel="noreferrer"><span>Abrir release no GitHub</span><small>→</small></a>`}</div>
     </article>`;
 }
 
@@ -128,41 +145,37 @@ async function loadReleases() {
       }
     }
   } catch (_) {
-    // O fallback mantém o site funcional mesmo se o catálogo ainda não estiver disponível.
+    // O fallback abaixo mantém o portal utilizável durante deploys do catálogo.
   }
 
-  if (!Array.isArray(releases) || releases.length === 0) releases = [fallbackRelease];
-  releases = releases
-    .filter(release => !/alpha\.10-test\./i.test(release?.tag_name || ''))
-    .sort((a, b) => new Date(b?.published_at || 0) - new Date(a?.published_at || 0));
-  if (releases.length === 0) releases = [fallbackRelease];
-  if (!totalDownloads) totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
+  if (!releases.some(release => release?.tag_name === currentTag)) {
+    releases.push(fallbackRelease);
+  }
 
-  const latest = releases[0];
-  const latestVersion = document.getElementById('latest-version');
-  const latestSummary = document.getElementById('latest-summary');
-  if (latestVersion) latestVersion.textContent = latest.tag_name || latest.name;
-  if (latestSummary) latestSummary.textContent = summarizeBody(latest.body).slice(0, 190);
+  releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+  if (!totalDownloads) {
+    totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
+  }
 
-  const totalDownloadsElement = document.getElementById('total-downloads');
-  if (totalDownloadsElement) totalDownloadsElement.textContent = formatNumber(totalDownloads);
-
-  const standalone = (latest.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
-  const latestDownload = document.getElementById('latest-download');
-  if (latestDownload) latestDownload.href = standalone?.browser_download_url || latest.html_url || `https://github.com/${repo}/releases`;
-
+  const current = releases.find(release => release?.tag_name === currentTag) || fallbackRelease;
+  const versionElement = document.getElementById('latest-version');
+  const summaryElement = document.getElementById('latest-summary');
+  const downloadsElement = document.getElementById('total-downloads');
+  const downloadButton = document.getElementById('latest-download');
   const releaseList = document.getElementById('release-list');
-  if (releaseList) releaseList.innerHTML = releases.slice(0, 6).map(renderRelease).join('');
 
-  document.querySelectorAll('.trust-grid > div').forEach((item, index) => {
-    if (index === 1) {
-      const strong = item.querySelector('b');
-      const span = item.querySelector('span');
-      if (strong) strong.textContent = 'alpha.11';
-      if (span) span.textContent = 'próxima alpha em desenvolvimento';
-    }
-  });
-  observeMotionElements();
+  if (versionElement) versionElement.textContent = current.tag_name || current.name;
+  if (summaryElement) summaryElement.textContent = summarizeBody(current.body).slice(0, 220);
+  if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
+
+  const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
+  if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
+  if (releaseList) {
+    releaseList.innerHTML = [current, ...releases.filter(release => release !== current)]
+      .slice(0, 6)
+      .map(renderRelease)
+      .join('');
+  }
 }
 
 function setupPix() {
@@ -175,119 +188,13 @@ function setupPix() {
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(key);
-      const previous = button.textContent;
-      button.textContent = 'Chave copiada ✓';
-      setTimeout(() => { button.textContent = previous; }, 1800);
+      status.textContent = 'Chave copiada ✓';
+      setTimeout(() => { status.textContent = ''; }, 1800);
     } catch (_) {
-      status.textContent = key;
       window.prompt('Copie a chave Pix:', key);
     }
   });
 }
 
-function installModernStyles() {
-  if (document.querySelector('link[data-navbr-modern]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'modern.css';
-  link.dataset.navbrModern = 'true';
-  document.head.appendChild(link);
-}
-
-function setupAlpha11Preview() {
-  if (document.getElementById('alpha11-preview')) return;
-  const anchor = document.getElementById('roadmap');
-  if (!anchor) return;
-
-  const section = document.createElement('section');
-  section.id = 'alpha11-preview';
-  section.className = 'section shell alpha11-preview motion-reveal';
-  section.innerHTML = `
-    <div class="alpha11-preview-head">
-      <div>
-        <span class="alpha11-version-pill"><i></i> ALPHA.11 • EM DESENVOLVIMENTO</span>
-        <h2>A próxima fase transforma o NavBR em uma central completa do OMSI.</h2>
-        <p class="lead">A alpha.11 está sendo construída sobre a alpha.10 oficial, usando OMSI Launcher, OmsiHook/Omsi-Extensions e outros projetos OMSI públicos como referência técnica. Os recursos abaixo ainda estão em desenvolvimento e entram por snapshots testáveis.</p>
-      </div>
-      <aside class="alpha11-preview-note"><strong>Alpha.10 continua sendo o download recomendado.</strong>O conteúdo desta seção mostra o trabalho em andamento. Recursos experimentais de escrita/spawn físico permanecem bloqueados até passarem por testes locais e CI.</aside>
-    </div>
-    <div class="alpha11-grid">
-      <article class="alpha11-card motion-reveal"><span class="icon">▦</span><h3>Roadmap Studio</h3><p>Gera <code>whole.roadmap.bmp</code> dentro do NavBR. Pode montar tiles existentes ou desenhar uma versão vetorial diretamente das splines, sem abrir o OMSI Editor.</p><small>SEM EDITOR • PREVIEW • BACKUP</small></article>
-      <article class="alpha11-card motion-reveal"><span class="icon">◉</span><h3>Painel de ônibus móvel</h3><p>Velocidade, combustível, acelerador, freio, portas, setas, luzes e outros estados em um painel independente que pode ser movido, redimensionado e desativado.</p><small>HUD MODULAR • POSIÇÃO SALVA</small></article>
-      <article class="alpha11-card motion-reveal"><span class="icon">◇</span><h3>Ghost 3D</h3><p>Grava e reproduz trajetos pela mesma bridge que será usada pelo multiplayer físico. É a bancada de testes antes de colocar ônibus remotos reais na rede.</p><small>REPLAY • INTERPOLAÇÃO • BRIDGE V2</small></article>
-      <article class="alpha11-card motion-reveal"><span class="icon">⇄</span><h3>Integração OMSI profunda</h3><p>Perfis de instalação, telemetria avançada, manifesto de compatibilidade e protocolo de capabilities para habilitar somente o que cada instalação suporta.</p><small>OMSIHOOK / OMSILAUNCH • FAIL-CLOSED</small></article>
-    </div>
-    <div class="roadmap-studio-band motion-reveal">
-      <div><h3>Roadmap sem OMSI Editor</h3><p>O novo fluxo lê <code>global.cfg</code>, a grade de tiles e os <code>[spline]</code>/<code>[spline_h]</code>. Quando roadmaps por tile já existem, também consegue combiná-los automaticamente.</p></div>
-      <div class="roadmap-flow"><b>global.cfg</b><span>→</span><b>tiles .map</b><span>→</span><b>splines</b><span>→</span><b>whole.roadmap.bmp</b></div>
-    </div>`;
-  anchor.parentNode.insertBefore(section, anchor);
-
-  const nav = document.querySelector('.topbar nav');
-  if (nav && !nav.querySelector('a[href="#alpha11-preview"]')) {
-    const link = document.createElement('a');
-    link.href = '#alpha11-preview';
-    link.textContent = 'Alpha.11';
-    const roadmapLink = nav.querySelector('a[href="#roadmap"]');
-    nav.insertBefore(link, roadmapLink || nav.lastElementChild);
-  }
-}
-
-let motionObserver;
-function observeMotionElements() {
-  const targets = document.querySelectorAll('.section, .feature-grid article, .status-card, .download-choice, .feedback-card, .roadmap-grid article, .release-card, .integration-test-card, .alpha11-card, .roadmap-studio-band');
-  targets.forEach(target => target.classList.add('motion-reveal'));
-
-  if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    targets.forEach(target => target.classList.add('is-visible'));
-    return;
-  }
-
-  motionObserver ??= new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        motionObserver.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.10, rootMargin: '0px 0px -5% 0px' });
-
-  targets.forEach(target => {
-    if (!target.classList.contains('is-visible')) motionObserver.observe(target);
-  });
-}
-
-function setupScrollExperience() {
-  const progress = document.createElement('div');
-  progress.className = 'scroll-progress';
-  document.body.appendChild(progress);
-
-  const navLinks = [...document.querySelectorAll('.topbar nav a[href^="#"]')];
-  const sections = navLinks
-    .map(link => ({ link, target: document.querySelector(link.getAttribute('href')) }))
-    .filter(item => item.target);
-
-  const update = () => {
-    const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    progress.style.width = `${Math.min(100, Math.max(0, window.scrollY / scrollable * 100))}%`;
-
-    const marker = window.scrollY + 150;
-    let active = sections[0];
-    for (const section of sections) {
-      if (section.target.offsetTop <= marker) active = section;
-    }
-    navLinks.forEach(link => link.classList.remove('active'));
-    active?.link.classList.add('active');
-  };
-
-  window.addEventListener('scroll', update, { passive: true });
-  window.addEventListener('resize', update);
-  update();
-}
-
-installModernStyles();
-setupAlpha11Preview();
-setupPix();
-setupScrollExperience();
-observeMotionElements();
 loadReleases();
+setupPix();

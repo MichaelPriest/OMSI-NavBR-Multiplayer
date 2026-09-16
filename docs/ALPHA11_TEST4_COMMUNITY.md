@@ -97,6 +97,6 @@ Também confirme que continuam funcionando:
 ## Arquivos para Arduino/ESP32
 
 - documentação: `HARDWARE_COCKPIT.md`
-- exemplo: `NavBR_Hardware_Serial.ino`
+- exemplo: `examples/NavBR.Hardware.Serial/NavBR_Hardware_Serial.ino`
 
 O transporte Wi-Fi/ESP32 e controles físicos de entrada para o OMSI ficam para fases posteriores. A saída Serial desta Test 4 permanece somente leitura do simulador.
