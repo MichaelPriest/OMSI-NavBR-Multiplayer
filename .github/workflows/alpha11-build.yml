@@ -114,8 +114,8 @@ jobs:
         shell: pwsh
         run: |
           .\scripts\prepare-embedded-plugin.ps1 `
-            -PublishDir artifacts/NavBR.OmsiPlugin.Experimental `
-            -Destination src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip
+            -PluginDirectory artifacts/NavBR.OmsiPlugin.Experimental `
+            -OutputPath src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip
 
       - name: Build client
         shell: pwsh
