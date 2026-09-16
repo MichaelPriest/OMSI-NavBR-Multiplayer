@@ -17,13 +17,18 @@ public partial class MultiplayerWindow
             double.IsFinite(_settings.VoiceProximityMeters) ? _settings.VoiceProximityMeters : 120d,
             20d,
             1000d);
+        var inputDevice = VoiceAudioDeviceCatalog.NormalizeInputDevice(_settings.VoiceInputDeviceNumber);
+        var outputDevice = VoiceAudioDeviceCatalog.NormalizeOutputDevice(_settings.VoiceOutputDeviceNumber);
 
         _settings = _settings with
         {
             VoiceChannel = channel,
-            VoiceProximityMeters = radius
+            VoiceProximityMeters = radius,
+            VoiceInputDeviceNumber = inputDevice,
+            VoiceOutputDeviceNumber = outputDevice
         };
         VoiceChannelSession.Configure(channel, radius, ShouldReceiveProximityVoice);
+        _voiceChat.ConfigureDevices(inputDevice, outputDevice);
         _voiceChat.SetDeafened(_settings.VoiceDeafened);
 
         if (_voiceChannelButton is null && VoiceEnabledCheckBox.Parent is Grid settingsGrid)
@@ -61,6 +66,8 @@ public partial class MultiplayerWindow
             _settings.VoiceChannel,
             _settings.VoiceProximityMeters,
             _settings.VoiceDeafened,
+            _settings.VoiceInputDeviceNumber,
+            _settings.VoiceOutputDeviceNumber,
             remotePlayers,
             _voiceChat)
         {
@@ -76,13 +83,18 @@ public partial class MultiplayerWindow
         {
             VoiceChannel = dialog.SelectedChannel,
             VoiceProximityMeters = dialog.ProximityMeters,
-            VoiceDeafened = dialog.Deafened
+            VoiceDeafened = dialog.Deafened,
+            VoiceInputDeviceNumber = dialog.InputDeviceNumber,
+            VoiceOutputDeviceNumber = dialog.OutputDeviceNumber
         };
         MultiplayerSettingsStore.Save(_settings);
         VoiceChannelSession.Configure(
             _settings.VoiceChannel,
             _settings.VoiceProximityMeters,
             ShouldReceiveProximityVoice);
+        _voiceChat.ConfigureDevices(
+            _settings.VoiceInputDeviceNumber,
+            _settings.VoiceOutputDeviceNumber);
         _voiceChat.SetDeafened(_settings.VoiceDeafened);
         RenderVoiceChannelButton();
     }
