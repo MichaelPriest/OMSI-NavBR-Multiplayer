@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using NavBR.Client.Driver;
 
 namespace NavBR.Client.Operations;
 
@@ -43,11 +44,17 @@ internal static class VirtualCompanyStore
     public static void Save(VirtualCompanyData company)
     {
         company = Normalize(company);
+        VirtualCompanyData previous;
+
         lock (Sync)
         {
+            _cached ??= LoadCore();
+            previous = _cached;
             _cached = company;
             Persist(company);
         }
+
+        SyncDriverProfileCompany(previous.Name, company.Name);
         CompanyChanged?.Invoke(company);
     }
 
@@ -119,6 +126,28 @@ internal static class VirtualCompanyStore
             Persist(updated);
         }
         CompanyChanged?.Invoke(updated);
+    }
+
+    private static void SyncDriverProfileCompany(string previousCompanyName, string newCompanyName)
+    {
+        var previous = previousCompanyName?.Trim() ?? string.Empty;
+        var next = newCompanyName?.Trim() ?? string.Empty;
+        var profile = DriverProfileStore.Load();
+
+        if (!string.IsNullOrWhiteSpace(next))
+        {
+            if (!string.Equals(profile.CompanyName, next, StringComparison.Ordinal))
+            {
+                DriverProfileStore.Save(profile with { CompanyName = next });
+            }
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previous) &&
+            string.Equals(profile.CompanyName, previous, StringComparison.Ordinal))
+        {
+            DriverProfileStore.Save(profile with { CompanyName = null });
+        }
     }
 
     private static VirtualCompanyData LoadCore()
