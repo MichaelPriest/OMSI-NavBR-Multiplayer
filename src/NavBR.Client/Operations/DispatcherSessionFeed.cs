@@ -14,7 +14,8 @@ internal sealed record DispatcherRemoteDriver(
     string? NextStop,
     double SpeedKph,
     int? DelaySeconds,
-    DateTimeOffset Timestamp);
+    DateTimeOffset TelemetryTimestamp,
+    DateTimeOffset ReceivedAtUtc);
 
 internal sealed record DispatcherSessionSnapshot(
     bool Connected,
@@ -45,6 +46,7 @@ internal static class DispatcherSessionFeed
     public static void Update(PlayerTelemetryFrame frame)
     {
         var telemetry = frame.Telemetry;
+        var receivedAt = DateTimeOffset.UtcNow;
         var driver = new DispatcherRemoteDriver(
             frame.Player.PlayerId,
             frame.Player.DisplayName,
@@ -57,13 +59,14 @@ internal static class DispatcherSessionFeed
             telemetry.NextStopName,
             Math.Clamp(double.IsFinite(telemetry.SpeedKph) ? telemetry.SpeedKph : 0d, 0d, 220d),
             telemetry.DelaySeconds,
-            telemetry.Timestamp);
+            telemetry.Timestamp,
+            receivedAt);
 
         lock (Sync)
         {
             Drivers[driver.PlayerId] = driver;
             _connected = true;
-            _updatedAt = DateTimeOffset.UtcNow;
+            _updatedAt = receivedAt;
         }
     }
 
@@ -91,7 +94,7 @@ internal static class DispatcherSessionFeed
         {
             var now = DateTimeOffset.UtcNow;
             var stale = Drivers
-                .Where(pair => now - pair.Value.Timestamp > TimeSpan.FromSeconds(10d))
+                .Where(pair => now - pair.Value.ReceivedAtUtc > TimeSpan.FromSeconds(10d))
                 .Select(pair => pair.Key)
                 .ToArray();
             foreach (var playerId in stale)
