@@ -15,6 +15,7 @@ public partial class MultiplayerWindow
         InitializePhysicalVehiclesPublicTest();
         HookDiagnosticsLifecycle();
         InitializeNetworkQualityLifecycle();
+        InitializePublicRoomBrowser();
     }
 
     private void RoomTextBox_SettingsChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
