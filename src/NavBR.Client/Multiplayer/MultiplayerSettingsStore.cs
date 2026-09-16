@@ -79,6 +79,7 @@ public static class MultiplayerSettingsStore
         }
 
         var legacyDashboard = settings.DashboardSettingsVersion <= 0;
+        var compactDashboardMigration = settings.DashboardSettingsVersion < 2;
         var stopIconStyle = settings.StopIconStyle?.Trim().ToLowerInvariant() switch
         {
             "dot" => "dot",
@@ -100,8 +101,8 @@ public static class MultiplayerSettingsStore
             HudX = Math.Clamp(double.IsFinite(settings.HudX) ? settings.HudX : 0.02d, 0d, 1d),
             HudY = Math.Clamp(double.IsFinite(settings.HudY) ? settings.HudY : 1d, 0d, 1d),
             HudZoom = Math.Clamp(double.IsFinite(settings.HudZoom) ? settings.HudZoom : 1d, 0.65d, 10d),
-            HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.58d, 0.30d, 0.90d),
-            DashboardSettingsVersion = 1,
+            HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.52d, 0.30d, 0.90d),
+            DashboardSettingsVersion = 2,
             DashboardEnabled = legacyDashboard || settings.DashboardEnabled,
             DashboardX = Math.Clamp(
                 legacyDashboard ? 0.02d : double.IsFinite(settings.DashboardX) ? settings.DashboardX : 0.02d,
@@ -112,11 +113,15 @@ public static class MultiplayerSettingsStore
                 0d,
                 1d),
             DashboardScale = Math.Clamp(
-                legacyDashboard ? 1d : double.IsFinite(settings.DashboardScale) ? settings.DashboardScale : 1d,
+                compactDashboardMigration
+                    ? 0.82d
+                    : double.IsFinite(settings.DashboardScale) ? settings.DashboardScale : 0.82d,
                 0.70d,
                 1.60d),
             DashboardOpacity = Math.Clamp(
-                legacyDashboard ? 0.92d : double.IsFinite(settings.DashboardOpacity) ? settings.DashboardOpacity : 0.92d,
+                compactDashboardMigration
+                    ? 0.78d
+                    : double.IsFinite(settings.DashboardOpacity) ? settings.DashboardOpacity : 0.78d,
                 0.45d,
                 1d),
             DashboardShowFuel = legacyDashboard || settings.DashboardShowFuel,
