@@ -1,0 +1,138 @@
+name: alpha12-build
+
+on:
+  push:
+    branches:
+      - feature/alpha12-full-expansion
+  workflow_dispatch:
+
+concurrency:
+  group: alpha12-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and site JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          node --check site/app.js
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetAbiVersion",
+            "NavBR_GetStateInteropVersion",
+            "NavBR_GetRoadVehicleCount",
+            "NavBR_GetRoadVehicleAt",
+            "NavBR_IsRoadVehiclePointer",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetVehicleVisualState",
+            "NavBR_MarkVehicleForKilling"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing native OMSI interop export: $expected"
+            }
+          }
+
+      - name: Restore projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+
+      - name: Validate plugin x86
+        shell: pwsh
+        run: |
+          foreach ($candidate in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll"
+          )) {
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $candidate).Path)
+            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+            if ($machine -ne 0x014C) { throw ("$candidate must be x86; machine=0x{0:X4}" -f $machine) }
+          }
+
+      - name: Prepare embedded plugin
+        shell: pwsh
+        run: |
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PluginDirectory "artifacts/plugin" `
+            -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+      - name: Build client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+      - name: Bridge v2 smoke test
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
+
+      - name: Publish Alpha.12 client artifact
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -p:PublishSingleFile=true `
+            -o artifacts/NavBR.Client
+
+      - name: Upload Alpha.12 build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha12-client-win-x86
+          path: artifacts/NavBR.Client
