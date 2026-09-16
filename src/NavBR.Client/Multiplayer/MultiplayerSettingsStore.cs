@@ -80,6 +80,10 @@ public static class MultiplayerSettingsStore
 
         var legacyDashboard = settings.DashboardSettingsVersion <= 0;
         var compactDashboardMigration = settings.DashboardSettingsVersion < 2;
+        var modularDashboardMigration = settings.DashboardSettingsVersion < 3;
+        var preset = HudProfileCatalog.ResolvePreset(settings.DashboardPreset);
+        var theme = HudProfileCatalog.ResolveTheme(settings.DashboardTheme);
+        var anchor = HudProfileCatalog.ResolveAnchor(settings.DashboardAnchor);
         var stopIconStyle = settings.StopIconStyle?.Trim().ToLowerInvariant() switch
         {
             "dot" => "dot",
@@ -94,6 +98,13 @@ public static class MultiplayerSettingsStore
             stopIconStyle = "omsi";
         }
 
+        var dashboardWidth = modularDashboardMigration
+            ? preset.Width
+            : double.IsFinite(settings.DashboardWidth) ? settings.DashboardWidth : preset.Width;
+        var dashboardHeight = modularDashboardMigration
+            ? 0d
+            : double.IsFinite(settings.DashboardHeight) ? settings.DashboardHeight : 0d;
+
         return settings with
         {
             ChatHotkey = chat,
@@ -102,7 +113,7 @@ public static class MultiplayerSettingsStore
             HudY = Math.Clamp(double.IsFinite(settings.HudY) ? settings.HudY : 1d, 0d, 1d),
             HudZoom = Math.Clamp(double.IsFinite(settings.HudZoom) ? settings.HudZoom : 1d, 0.65d, 10d),
             HudMapOpacity = Math.Clamp(double.IsFinite(settings.HudMapOpacity) ? settings.HudMapOpacity : 0.52d, 0.30d, 0.90d),
-            DashboardSettingsVersion = 2,
+            DashboardSettingsVersion = 3,
             DashboardEnabled = legacyDashboard || settings.DashboardEnabled,
             DashboardX = Math.Clamp(
                 legacyDashboard ? 0.02d : double.IsFinite(settings.DashboardX) ? settings.DashboardX : 0.02d,
@@ -115,18 +126,39 @@ public static class MultiplayerSettingsStore
             DashboardScale = Math.Clamp(
                 compactDashboardMigration
                     ? 0.82d
-                    : double.IsFinite(settings.DashboardScale) ? settings.DashboardScale : 0.82d,
-                0.70d,
-                1.60d),
+                    : double.IsFinite(settings.DashboardScale) ? settings.DashboardScale : preset.Scale,
+                0.60d,
+                1.80d),
             DashboardOpacity = Math.Clamp(
                 compactDashboardMigration
                     ? 0.78d
-                    : double.IsFinite(settings.DashboardOpacity) ? settings.DashboardOpacity : 0.78d,
-                0.45d,
+                    : double.IsFinite(settings.DashboardOpacity) ? settings.DashboardOpacity : preset.Opacity,
+                0.35d,
                 1d),
             DashboardShowFuel = legacyDashboard || settings.DashboardShowFuel,
             DashboardShowPedals = legacyDashboard || settings.DashboardShowPedals,
             DashboardShowStatus = legacyDashboard || settings.DashboardShowStatus,
+            DashboardPreset = preset.Id,
+            DashboardTheme = theme.Id,
+            DashboardAnchor = anchor,
+            DashboardWidth = Math.Clamp(dashboardWidth, 280d, 960d),
+            DashboardHeight = Math.Clamp(dashboardHeight, 0d, 720d),
+            DashboardMinimapScale = Math.Clamp(
+                double.IsFinite(settings.DashboardMinimapScale) ? settings.DashboardMinimapScale : 1d,
+                0.55d,
+                2d),
+            DashboardMultiplayerScale = Math.Clamp(
+                double.IsFinite(settings.DashboardMultiplayerScale) ? settings.DashboardMultiplayerScale : 1d,
+                0.55d,
+                2d),
+            DashboardAlertsScale = Math.Clamp(
+                double.IsFinite(settings.DashboardAlertsScale) ? settings.DashboardAlertsScale : 1d,
+                0.55d,
+                2d),
+            DashboardSideIndicatorsScale = Math.Clamp(
+                double.IsFinite(settings.DashboardSideIndicatorsScale) ? settings.DashboardSideIndicatorsScale : 1d,
+                0.55d,
+                2d),
             StopIconStyle = stopIconStyle,
             StopCustomIconPath = customIconPath
         };
