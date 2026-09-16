@@ -4,4 +4,5 @@ public sealed record VoiceFrame(
     string PlayerId,
     long Sequence,
     byte[] OpusPayload,
-    DateTimeOffset TimestampUtc);
+    DateTimeOffset TimestampUtc,
+    string Channel = "general");
