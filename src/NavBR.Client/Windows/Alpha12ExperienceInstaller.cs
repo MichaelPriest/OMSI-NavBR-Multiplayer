@@ -149,6 +149,8 @@ internal static class Alpha12ExperienceInstaller
             settingsButton.Tag = TagPrefix + "SettingsButton";
             settingsButton.Content = Alpha12Text.Get("SettingsButton");
         }
+
+        Alpha12HudThemeService.RefreshOpenHudLocalization();
     }
 
     internal static void TagAndTranslateTree(DependencyObject root)
