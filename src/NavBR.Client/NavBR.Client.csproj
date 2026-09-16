@@ -21,6 +21,7 @@
     <ProjectReference Include="..\NavBR.Server\NavBR.Server.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
     <PackageReference Include="NAudio" Version="2.4.0" />
     <PackageReference Include="Concentus" Version="2.2.2" />
   </ItemGroup>
