@@ -2,7 +2,10 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class PhysicalVehicleInstanceRegistry
 {
-    private const int MaxOwnedVehicles = 96;
+    // Keep the public Alpha.11 experiment bounded to the same initial room
+    // target. This limits pointer ownership, OMSI object pressure and any
+    // unresolved temporary allocations while the community validates 3D sync.
+    private const int MaxOwnedVehicles = 32;
     private static readonly object Sync = new();
     private static readonly Dictionary<string, PhysicalVehicleInstance> Entries =
         new(StringComparer.OrdinalIgnoreCase);
