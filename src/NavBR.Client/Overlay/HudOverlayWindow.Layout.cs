@@ -103,6 +103,7 @@ public partial class HudOverlayWindow
         ApplyHudLayoutPosition();
         StartEnhancedMapRendering();
         InstallMainWindowLayoutButton();
+        ApplyAlpha12BusDashboardSkin();
     }
 
     private void InstallMainWindowLayoutButton()
