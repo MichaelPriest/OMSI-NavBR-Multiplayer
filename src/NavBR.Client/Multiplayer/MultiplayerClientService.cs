@@ -134,8 +134,11 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
             if (ex is HubException)
             {
-                throw;
+                throw new InvalidOperationException(
+                    RoomPrivacyText.DescribeServerError(ex.Message),
+                    ex);
             }
+
             throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
         }
     }
