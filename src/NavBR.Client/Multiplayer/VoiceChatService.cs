@@ -17,14 +17,14 @@ public sealed class VoiceChatService : IDisposable
     private const int RemoteBufferMilliseconds = 300;
 
     private readonly IOpusEncoder _encoder;
-    private readonly WaveInEvent _capture;
-    private readonly WaveOutEvent _output;
     private readonly MixingSampleProvider _mixer;
     private readonly ConcurrentDictionary<string, RemoteVoiceStream> _remoteStreams =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RemoteVoicePreference> _remotePreferences =
         new(StringComparer.OrdinalIgnoreCase);
 
+    private WaveInEvent _capture;
+    private WaveOutEvent _output;
     private bool _started;
     private bool _pushToTalk;
     private bool _deafened;
@@ -36,6 +36,8 @@ public sealed class VoiceChatService : IDisposable
 
     public bool IsPushToTalkActive => _pushToTalk;
     public bool IsDeafened => _deafened;
+    public int InputDeviceNumber { get; private set; }
+    public int OutputDeviceNumber { get; private set; }
 
     public VoiceChatService()
     {
@@ -52,33 +54,16 @@ public sealed class VoiceChatService : IDisposable
         _encoder.SignalType = OpusSignal.OPUS_SIGNAL_VOICE;
         _encoder.Complexity = 5;
 
-        _capture = new WaveInEvent
-        {
-            WaveFormat = new WaveFormat(SampleRate, 16, Channels),
-            BufferMilliseconds = FrameMilliseconds,
-            NumberOfBuffers = 3
-        };
-        _capture.DataAvailable += Capture_DataAvailable;
-        _capture.RecordingStopped += (_, e) =>
-        {
-            if (e.Exception is not null)
-            {
-                VoiceError?.Invoke(e.Exception.Message);
-            }
-        };
-
         _mixer = new MixingSampleProvider(
             WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, Channels))
         {
             ReadFully = true
         };
 
-        _output = new WaveOutEvent
-        {
-            DesiredLatency = 80,
-            NumberOfBuffers = 3
-        };
-        _output.Init(new SampleToWaveProvider(_mixer));
+        InputDeviceNumber = VoiceAudioDeviceCatalog.NormalizeInputDevice(0);
+        OutputDeviceNumber = VoiceAudioDeviceCatalog.NormalizeOutputDevice(-1);
+        _capture = CreateCapture(InputDeviceNumber);
+        _output = CreateOutput(OutputDeviceNumber);
     }
 
     public void Start()
@@ -93,6 +78,41 @@ public sealed class VoiceChatService : IDisposable
             _output.Play();
             _capture.StartRecording();
             _started = true;
+        }
+        catch (Exception ex)
+        {
+            VoiceError?.Invoke(ex.Message);
+        }
+    }
+
+    public void ConfigureDevices(int inputDeviceNumber, int outputDeviceNumber)
+    {
+        var safeInput = VoiceAudioDeviceCatalog.NormalizeInputDevice(inputDeviceNumber);
+        var safeOutput = VoiceAudioDeviceCatalog.NormalizeOutputDevice(outputDeviceNumber);
+        if (safeInput == InputDeviceNumber && safeOutput == OutputDeviceNumber)
+        {
+            return;
+        }
+
+        var restart = _started;
+        if (restart)
+        {
+            Stop();
+        }
+
+        try
+        {
+            _capture.Dispose();
+            _output.Dispose();
+            InputDeviceNumber = safeInput;
+            OutputDeviceNumber = safeOutput;
+            _capture = CreateCapture(InputDeviceNumber);
+            _output = CreateOutput(OutputDeviceNumber);
+
+            if (restart)
+            {
+                Start();
+            }
         }
         catch (Exception ex)
         {
@@ -270,6 +290,38 @@ public sealed class VoiceChatService : IDisposable
         _capture.Dispose();
         _output.Dispose();
         _encoder.Dispose();
+    }
+
+    private WaveInEvent CreateCapture(int deviceNumber)
+    {
+        var capture = new WaveInEvent
+        {
+            DeviceNumber = deviceNumber,
+            WaveFormat = new WaveFormat(SampleRate, 16, Channels),
+            BufferMilliseconds = FrameMilliseconds,
+            NumberOfBuffers = 3
+        };
+        capture.DataAvailable += Capture_DataAvailable;
+        capture.RecordingStopped += (_, e) =>
+        {
+            if (e.Exception is not null)
+            {
+                VoiceError?.Invoke(e.Exception.Message);
+            }
+        };
+        return capture;
+    }
+
+    private WaveOutEvent CreateOutput(int deviceNumber)
+    {
+        var output = new WaveOutEvent
+        {
+            DeviceNumber = deviceNumber,
+            DesiredLatency = 80,
+            NumberOfBuffers = 3
+        };
+        output.Init(new SampleToWaveProvider(_mixer));
+        return output;
     }
 
     private void Capture_DataAvailable(object? sender, WaveInEventArgs e)
