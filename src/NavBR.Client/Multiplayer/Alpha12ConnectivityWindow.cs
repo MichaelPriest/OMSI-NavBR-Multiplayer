@@ -202,11 +202,7 @@ internal sealed class Alpha12ConnectivityWindow : Window
         {
             return Text("SummaryFirewall");
         }
-        if (connected)
-        {
-            return Text("SummaryConnected");
-        }
-        return Text("SummaryLanReady");
+        return connected ? Text("SummaryConnected") : Text("SummaryLanReady");
     }
 
     private void ApplyLocalization()
@@ -214,10 +210,18 @@ internal sealed class Alpha12ConnectivityWindow : Window
         Title = Text("Title");
         foreach (var textBlock in Enumerate<TextBlock>(this))
         {
-            if (textBlock.Tag as string == "title") textBlock.Text = Text("Title");
-            else if (textBlock.Tag as string == "subtitle") textBlock.Text = Text("Subtitle");
+            if (textBlock.Tag as string == "title")
+            {
+                textBlock.Text = Text("Title");
+            }
+            else if (textBlock.Tag as string == "subtitle")
+            {
+                textBlock.Text = Text("Subtitle");
+            }
             else if (textBlock.Tag is string tag && tag.StartsWith("metric:", StringComparison.Ordinal))
+            {
                 textBlock.Text = Text(tag["metric:".Length..]);
+            }
         }
     }
 
@@ -236,6 +240,7 @@ internal sealed class Alpha12ConnectivityWindow : Window
         value.FontWeight = FontWeights.SemiBold;
         value.TextWrapping = TextWrapping.Wrap;
         value.Margin = new Thickness(0d, 6d, 0d, 0d);
+
         var stack = new StackPanel();
         stack.Children.Add(label);
         stack.Children.Add(value);
@@ -280,11 +285,17 @@ internal sealed class Alpha12ConnectivityWindow : Window
 
     private static IEnumerable<T> Enumerate<T>(DependencyObject root) where T : DependencyObject
     {
-        if (root is T match) yield return match;
+        if (root is T match)
+        {
+            yield return match;
+        }
+
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
         {
             foreach (var child in Enumerate<T>(VisualTreeHelper.GetChild(root, index)))
+            {
                 yield return child;
+            }
         }
     }
 
@@ -323,31 +334,99 @@ internal sealed class Alpha12ConnectivityWindow : Window
             ("pt", "SummaryFirewall") => "Rede local detectada. Falta permitir a porta do NavBR no Windows Firewall.",
             ("pt", "SummaryConnected") => "A sessão está conectada e os requisitos locais de hospedagem estão prontos.",
             ("pt", "SummaryLanReady") => "Este PC está pronto para testes na rede local. Para Internet, ainda será necessário confirmar roteador/NAT.",
-            ("pt", "InternetNote") => "Esta tela não afirma que sua porta está acessível pela Internet. Encaminhamento no roteador, CGNAT e NAT podem impedir conexões externas. A Alpha.12 terá diagnóstico externo e UPnP/NAT traversal em etapas posteriores."),
+            ("pt", "InternetNote") => "Esta tela não afirma que sua porta está acessível pela Internet. Encaminhamento no roteador, CGNAT e NAT podem impedir conexões externas. A Alpha.12 terá diagnóstico externo e UPnP/NAT traversal em etapas posteriores.",
 
             ("es", "Title") => "Conectividad multijugador",
             ("es", "Subtitle") => "Comprobación simple de red local y requisitos para alojar una sala NavBR.",
-            ("es", "LocalNetwork") => "RED LOCAL", ("es", "Firewall") => "FIREWALL DE WINDOWS", ("es", "Port") => "PUERTO NAVBR", ("es", "Room") => "SALA ACTUAL", ("es", "Internet") => "ACCESO A INTERNET",
-            ("es", "NoNetwork") => "Ningún IPv4 privado detectado", ("es", "Ready") => "Listo", ("es", "NeedsAttention") => "Requiere permiso", ("es", "Connected") => "Conectado", ("es", "Offline") => "Sin sesión", ("es", "NotVerified") => "Aún no verificado", ("es", "Requesting") => "Solicitando permiso…", ("es", "Failed") => "No confirmado", ("es", "AllowFirewall") => "Permitir TCP 27730 en Firewall", ("es", "FirewallReadyButton") => "Firewall listo",
-            ("es", "SummaryNoNetwork") => "NavBR no encontró una red IPv4 privada activa.", ("es", "SummaryFirewall") => "Red local detectada. Falta permitir el puerto de NavBR en Windows Firewall.", ("es", "SummaryConnected") => "La sesión está conectada y los requisitos locales están listos.", ("es", "SummaryLanReady") => "Este PC está listo para pruebas en red local; Internet aún requiere verificar router/NAT.", ("es", "InternetNote") => "Esta pantalla no afirma que el puerto sea accesible desde Internet. Router, CGNAT y NAT pueden impedir conexiones externas; el diagnóstico externo y UPnP/NAT llegarán por etapas."),
+            ("es", "LocalNetwork") => "RED LOCAL",
+            ("es", "Firewall") => "FIREWALL DE WINDOWS",
+            ("es", "Port") => "PUERTO NAVBR",
+            ("es", "Room") => "SALA ACTUAL",
+            ("es", "Internet") => "ACCESO A INTERNET",
+            ("es", "NoNetwork") => "Ningún IPv4 privado detectado",
+            ("es", "Ready") => "Listo",
+            ("es", "NeedsAttention") => "Requiere permiso",
+            ("es", "Connected") => "Conectado",
+            ("es", "Offline") => "Sin sesión",
+            ("es", "NotVerified") => "Aún no verificado",
+            ("es", "Requesting") => "Solicitando permiso…",
+            ("es", "Failed") => "No confirmado",
+            ("es", "AllowFirewall") => "Permitir TCP 27730 en Firewall",
+            ("es", "FirewallReadyButton") => "Firewall listo",
+            ("es", "SummaryNoNetwork") => "NavBR no encontró una red IPv4 privada activa.",
+            ("es", "SummaryFirewall") => "Red local detectada. Falta permitir el puerto de NavBR en Windows Firewall.",
+            ("es", "SummaryConnected") => "La sesión está conectada y los requisitos locales están listos.",
+            ("es", "SummaryLanReady") => "Este PC está listo para pruebas en red local; Internet aún requiere verificar router/NAT.",
+            ("es", "InternetNote") => "Esta pantalla no afirma que el puerto sea accesible desde Internet. Router, CGNAT y NAT pueden impedir conexiones externas; el diagnóstico externo y UPnP/NAT llegarán por etapas.",
 
             ("de", "Title") => "Mehrspieler-Verbindung",
             ("de", "Subtitle") => "Einfache Prüfung des lokalen Netzwerks und der Voraussetzungen zum Hosten eines NavBR-Raums.",
-            ("de", "LocalNetwork") => "LOKALES NETZ", ("de", "Firewall") => "WINDOWS-FIREWALL", ("de", "Port") => "NAVBR-PORT", ("de", "Room") => "AKTUELLER RAUM", ("de", "Internet") => "INTERNETZUGRIFF",
-            ("de", "NoNetwork") => "Keine private IPv4-Adresse erkannt", ("de", "Ready") => "Bereit", ("de", "NeedsAttention") => "Freigabe nötig", ("de", "Connected") => "Verbunden", ("de", "Offline") => "Keine Sitzung", ("de", "NotVerified") => "Noch nicht geprüft", ("de", "Requesting") => "Berechtigung wird angefordert…", ("de", "Failed") => "Nicht bestätigt", ("de", "AllowFirewall") => "TCP 27730 in Firewall erlauben", ("de", "FirewallReadyButton") => "Firewall bereit",
-            ("de", "SummaryNoNetwork") => "NavBR hat derzeit kein aktives privates IPv4-Netzwerk gefunden.", ("de", "SummaryFirewall") => "Lokales Netzwerk erkannt. Der NavBR-Port muss noch in der Windows-Firewall erlaubt werden.", ("de", "SummaryConnected") => "Die Sitzung ist verbunden und die lokalen Hosting-Voraussetzungen sind bereit.", ("de", "SummaryLanReady") => "Dieser PC ist für Tests im lokalen Netz bereit; Internetzugriff muss noch über Router/NAT geprüft werden.", ("de", "InternetNote") => "Diese Ansicht behauptet nicht, dass der Port aus dem Internet erreichbar ist. Router, CGNAT und NAT können externe Verbindungen blockieren; externe Diagnose und UPnP/NAT folgen später."),
+            ("de", "LocalNetwork") => "LOKALES NETZ",
+            ("de", "Firewall") => "WINDOWS-FIREWALL",
+            ("de", "Port") => "NAVBR-PORT",
+            ("de", "Room") => "AKTUELLER RAUM",
+            ("de", "Internet") => "INTERNETZUGRIFF",
+            ("de", "NoNetwork") => "Keine private IPv4-Adresse erkannt",
+            ("de", "Ready") => "Bereit",
+            ("de", "NeedsAttention") => "Freigabe nötig",
+            ("de", "Connected") => "Verbunden",
+            ("de", "Offline") => "Keine Sitzung",
+            ("de", "NotVerified") => "Noch nicht geprüft",
+            ("de", "Requesting") => "Berechtigung wird angefordert…",
+            ("de", "Failed") => "Nicht bestätigt",
+            ("de", "AllowFirewall") => "TCP 27730 in Firewall erlauben",
+            ("de", "FirewallReadyButton") => "Firewall bereit",
+            ("de", "SummaryNoNetwork") => "NavBR hat derzeit kein aktives privates IPv4-Netzwerk gefunden.",
+            ("de", "SummaryFirewall") => "Lokales Netzwerk erkannt. Der NavBR-Port muss noch in der Windows-Firewall erlaubt werden.",
+            ("de", "SummaryConnected") => "Die Sitzung ist verbunden und die lokalen Hosting-Voraussetzungen sind bereit.",
+            ("de", "SummaryLanReady") => "Dieser PC ist für Tests im lokalen Netz bereit; Internetzugriff muss noch über Router/NAT geprüft werden.",
+            ("de", "InternetNote") => "Diese Ansicht behauptet nicht, dass der Port aus dem Internet erreichbar ist. Router, CGNAT und NAT können externe Verbindungen blockieren; externe Diagnose und UPnP/NAT folgen später.",
 
             ("fr", "Title") => "Connectivité multijoueur",
             ("fr", "Subtitle") => "Vérification simple du réseau local et des prérequis pour héberger une salle NavBR.",
-            ("fr", "LocalNetwork") => "RÉSEAU LOCAL", ("fr", "Firewall") => "PARE-FEU WINDOWS", ("fr", "Port") => "PORT NAVBR", ("fr", "Room") => "SALLE ACTUELLE", ("fr", "Internet") => "ACCÈS INTERNET",
-            ("fr", "NoNetwork") => "Aucune IPv4 privée détectée", ("fr", "Ready") => "Prêt", ("fr", "NeedsAttention") => "Autorisation requise", ("fr", "Connected") => "Connecté", ("fr", "Offline") => "Aucune session", ("fr", "NotVerified") => "Pas encore vérifié", ("fr", "Requesting") => "Demande d’autorisation…", ("fr", "Failed") => "Non confirmé", ("fr", "AllowFirewall") => "Autoriser TCP 27730 dans le pare-feu", ("fr", "FirewallReadyButton") => "Pare-feu prêt",
-            ("fr", "SummaryNoNetwork") => "NavBR n’a détecté aucun réseau IPv4 privé actif.", ("fr", "SummaryFirewall") => "Réseau local détecté. Le port NavBR doit encore être autorisé dans le pare-feu Windows.", ("fr", "SummaryConnected") => "La session est connectée et les prérequis locaux sont prêts.", ("fr", "SummaryLanReady") => "Ce PC est prêt pour les tests en réseau local; Internet nécessite encore une vérification routeur/NAT.", ("fr", "InternetNote") => "Cette vue n’affirme pas que le port est accessible depuis Internet. Routeur, CGNAT et NAT peuvent bloquer les connexions externes; diagnostic externe et UPnP/NAT seront ajoutés par étapes."),
+            ("fr", "LocalNetwork") => "RÉSEAU LOCAL",
+            ("fr", "Firewall") => "PARE-FEU WINDOWS",
+            ("fr", "Port") => "PORT NAVBR",
+            ("fr", "Room") => "SALLE ACTUELLE",
+            ("fr", "Internet") => "ACCÈS INTERNET",
+            ("fr", "NoNetwork") => "Aucune IPv4 privée détectée",
+            ("fr", "Ready") => "Prêt",
+            ("fr", "NeedsAttention") => "Autorisation requise",
+            ("fr", "Connected") => "Connecté",
+            ("fr", "Offline") => "Aucune session",
+            ("fr", "NotVerified") => "Pas encore vérifié",
+            ("fr", "Requesting") => "Demande d’autorisation…",
+            ("fr", "Failed") => "Non confirmé",
+            ("fr", "AllowFirewall") => "Autoriser TCP 27730 dans le pare-feu",
+            ("fr", "FirewallReadyButton") => "Pare-feu prêt",
+            ("fr", "SummaryNoNetwork") => "NavBR n’a détecté aucun réseau IPv4 privé actif.",
+            ("fr", "SummaryFirewall") => "Réseau local détecté. Le port NavBR doit encore être autorisé dans le pare-feu Windows.",
+            ("fr", "SummaryConnected") => "La session est connectée et les prérequis locaux sont prêts.",
+            ("fr", "SummaryLanReady") => "Ce PC est prêt pour les tests en réseau local; Internet nécessite encore une vérification routeur/NAT.",
+            ("fr", "InternetNote") => "Cette vue n’affirme pas que le port est accessible depuis Internet. Routeur, CGNAT et NAT peuvent bloquer les connexions externes; diagnostic externe et UPnP/NAT seront ajoutés par étapes.",
 
             (_, "Title") => "Multiplayer connectivity",
             (_, "Subtitle") => "Simple local-network and hosting-requirement checks for a NavBR room.",
-            (_, "LocalNetwork") => "LOCAL NETWORK", (_, "Firewall") => "WINDOWS FIREWALL", (_, "Port") => "NAVBR PORT", (_, "Room") => "CURRENT ROOM", (_, "Internet") => "INTERNET ACCESS",
-            (_, "NoNetwork") => "No private IPv4 detected", (_, "Ready") => "Ready", (_, "NeedsAttention") => "Permission needed", (_, "Connected") => "Connected", (_, "Offline") => "No session", (_, "NotVerified") => "Not verified yet", (_, "Requesting") => "Requesting permission…", (_, "Failed") => "Not confirmed", (_, "AllowFirewall") => "Allow TCP 27730 in Firewall", (_, "FirewallReadyButton") => "Firewall ready",
-            (_, "SummaryNoNetwork") => "NavBR did not find an active private IPv4 network right now.", (_, "SummaryFirewall") => "Local network detected. The NavBR port still needs to be allowed in Windows Firewall.", (_, "SummaryConnected") => "The session is connected and local hosting requirements are ready.", (_, "SummaryLanReady") => "This PC is ready for local-network tests; Internet access still requires router/NAT verification.", (_, "InternetNote") => "This screen does not claim that your port is reachable from the Internet. Router forwarding, CGNAT and NAT can block external connections. External diagnostics and UPnP/NAT traversal will be added in later Alpha.12 stages."),
+            (_, "LocalNetwork") => "LOCAL NETWORK",
+            (_, "Firewall") => "WINDOWS FIREWALL",
+            (_, "Port") => "NAVBR PORT",
+            (_, "Room") => "CURRENT ROOM",
+            (_, "Internet") => "INTERNET ACCESS",
+            (_, "NoNetwork") => "No private IPv4 detected",
+            (_, "Ready") => "Ready",
+            (_, "NeedsAttention") => "Permission needed",
+            (_, "Connected") => "Connected",
+            (_, "Offline") => "No session",
+            (_, "NotVerified") => "Not verified yet",
+            (_, "Requesting") => "Requesting permission…",
+            (_, "Failed") => "Not confirmed",
+            (_, "AllowFirewall") => "Allow TCP 27730 in Firewall",
+            (_, "FirewallReadyButton") => "Firewall ready",
+            (_, "SummaryNoNetwork") => "NavBR did not find an active private IPv4 network right now.",
+            (_, "SummaryFirewall") => "Local network detected. The NavBR port still needs to be allowed in Windows Firewall.",
+            (_, "SummaryConnected") => "The session is connected and local hosting requirements are ready.",
+            (_, "SummaryLanReady") => "This PC is ready for local-network tests; Internet access still requires router/NAT verification.",
+            (_, "InternetNote") => "This screen does not claim that your port is reachable from the Internet. Router forwarding, CGNAT and NAT can block external connections. External diagnostics and UPnP/NAT traversal will be added in later Alpha.12 stages.",
             _ => key
         };
     }
