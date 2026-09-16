@@ -286,7 +286,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
     int trainBuildDirection,
     int reverse,
     int groupHof,
-    int type,
+    int vehicleType,
     int tour,
     int line,
     int paintScheme,
@@ -320,7 +320,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
         push paintScheme
         push line
         push tour
-        push type
+        push vehicleType
         push groupHof
         push reverse
         push trainBuildDirection
