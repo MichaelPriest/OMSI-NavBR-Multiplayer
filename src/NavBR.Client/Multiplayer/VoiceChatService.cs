@@ -22,9 +22,12 @@ public sealed class VoiceChatService : IDisposable
     private readonly MixingSampleProvider _mixer;
     private readonly ConcurrentDictionary<string, RemoteVoiceStream> _remoteStreams =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RemoteVoicePreference> _remotePreferences =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private bool _started;
     private bool _pushToTalk;
+    private bool _deafened;
     private long _sequence;
 
     public event Action<long, byte[]>? EncodedFrameReady;
@@ -32,6 +35,7 @@ public sealed class VoiceChatService : IDisposable
     public event Action<string>? VoiceError;
 
     public bool IsPushToTalkActive => _pushToTalk;
+    public bool IsDeafened => _deafened;
 
     public VoiceChatService()
     {
@@ -101,9 +105,75 @@ public sealed class VoiceChatService : IDisposable
         _pushToTalk = active && _started;
     }
 
+    public void SetDeafened(bool deafened)
+    {
+        _deafened = deafened;
+        foreach (var stream in _remoteStreams.Values)
+        {
+            ApplyPreference(stream.PlayerId, stream);
+        }
+    }
+
+    public void SetRemoteMuted(string playerId, bool muted)
+    {
+        var normalized = NormalizePlayerId(playerId);
+        if (normalized is null)
+        {
+            return;
+        }
+
+        _remotePreferences.AddOrUpdate(
+            normalized,
+            _ => new RemoteVoicePreference(muted, 1f),
+            (_, current) => current with { Muted = muted });
+
+        if (_remoteStreams.TryGetValue(normalized, out var stream))
+        {
+            ApplyPreference(normalized, stream);
+        }
+    }
+
+    public bool IsRemoteMuted(string playerId)
+    {
+        var normalized = NormalizePlayerId(playerId);
+        return normalized is not null &&
+               _remotePreferences.TryGetValue(normalized, out var preference) &&
+               preference.Muted;
+    }
+
+    public void SetRemoteGain(string playerId, double gain)
+    {
+        var normalized = NormalizePlayerId(playerId);
+        if (normalized is null)
+        {
+            return;
+        }
+
+        var safeGain = (float)Math.Clamp(double.IsFinite(gain) ? gain : 1d, 0d, 2d);
+        _remotePreferences.AddOrUpdate(
+            normalized,
+            _ => new RemoteVoicePreference(false, safeGain),
+            (_, current) => current with { Gain = safeGain });
+
+        if (_remoteStreams.TryGetValue(normalized, out var stream))
+        {
+            ApplyPreference(normalized, stream);
+        }
+    }
+
+    public double GetRemoteGain(string playerId)
+    {
+        var normalized = NormalizePlayerId(playerId);
+        return normalized is not null &&
+               _remotePreferences.TryGetValue(normalized, out var preference)
+            ? preference.Gain
+            : 1d;
+    }
+
     public void Receive(VoiceFrame frame)
     {
         if (!_started ||
+            _deafened ||
             frame.OpusPayload is null ||
             frame.OpusPayload.Length == 0 ||
             !VoiceChannelSession.ShouldReceive(frame))
@@ -111,11 +181,17 @@ public sealed class VoiceChatService : IDisposable
             return;
         }
 
+        var playerId = NormalizePlayerId(frame.PlayerId);
+        if (playerId is null || IsRemoteMuted(playerId))
+        {
+            return;
+        }
+
         try
         {
             var stream = _remoteStreams.GetOrAdd(
-                frame.PlayerId,
-                _ => CreateRemoteStream());
+                playerId,
+                id => CreateRemoteStream(id));
 
             var pcm = new short[5760 * Channels];
             var decodedSamples = stream.Decoder.Decode(
@@ -133,7 +209,7 @@ public sealed class VoiceChatService : IDisposable
             var bytes = new byte[byteCount];
             Buffer.BlockCopy(pcm, 0, bytes, 0, byteCount);
             stream.Buffer.AddSamples(bytes, 0, bytes.Length);
-            RemoteSpeakerActive?.Invoke(frame.PlayerId);
+            RemoteSpeakerActive?.Invoke(playerId);
         }
         catch (Exception ex)
         {
@@ -143,7 +219,13 @@ public sealed class VoiceChatService : IDisposable
 
     public void RemoveRemotePlayer(string playerId)
     {
-        if (_remoteStreams.TryRemove(playerId, out var stream))
+        var normalized = NormalizePlayerId(playerId);
+        if (normalized is null)
+        {
+            return;
+        }
+
+        if (_remoteStreams.TryRemove(normalized, out var stream))
         {
             _mixer.RemoveMixerInput(stream.SampleProvider);
             stream.Dispose();
@@ -227,7 +309,7 @@ public sealed class VoiceChatService : IDisposable
         }
     }
 
-    private RemoteVoiceStream CreateRemoteStream()
+    private RemoteVoiceStream CreateRemoteStream(string playerId)
     {
         var decoder = OpusCodecFactory.CreateDecoder(SampleRate, Channels);
         var waveFormat = new WaveFormat(SampleRate, 16, Channels);
@@ -238,19 +320,43 @@ public sealed class VoiceChatService : IDisposable
             DiscardOnBufferOverflow = true,
             ReadFully = false
         };
-        var sampleProvider = buffer.ToSampleProvider();
-        _mixer.AddMixerInput(sampleProvider);
-        return new RemoteVoiceStream(decoder, buffer, sampleProvider);
+        var volume = new VolumeSampleProvider(buffer.ToSampleProvider());
+        var stream = new RemoteVoiceStream(playerId, decoder, buffer, volume);
+        ApplyPreference(playerId, stream);
+        _mixer.AddMixerInput(stream.SampleProvider);
+        return stream;
+    }
+
+    private void ApplyPreference(string playerId, RemoteVoiceStream stream)
+    {
+        var preference = _remotePreferences.TryGetValue(playerId, out var stored)
+            ? stored
+            : RemoteVoicePreference.Default;
+        stream.Volume.Volume = _deafened || preference.Muted ? 0f : preference.Gain;
+    }
+
+    private static string? NormalizePlayerId(string? playerId)
+    {
+        var normalized = playerId?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private sealed record RemoteVoicePreference(bool Muted, float Gain)
+    {
+        public static RemoteVoicePreference Default { get; } = new(false, 1f);
     }
 
     private sealed class RemoteVoiceStream(
+        string playerId,
         IOpusDecoder decoder,
         BufferedWaveProvider buffer,
-        ISampleProvider sampleProvider) : IDisposable
+        VolumeSampleProvider volume) : IDisposable
     {
+        public string PlayerId { get; } = playerId;
         public IOpusDecoder Decoder { get; } = decoder;
         public BufferedWaveProvider Buffer { get; } = buffer;
-        public ISampleProvider SampleProvider { get; } = sampleProvider;
+        public VolumeSampleProvider Volume { get; } = volume;
+        public ISampleProvider SampleProvider => Volume;
 
         public void Dispose() => Decoder.Dispose();
     }
