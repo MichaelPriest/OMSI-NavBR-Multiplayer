@@ -196,5 +196,112 @@ function setupPix() {
   });
 }
 
+function createFundingBar() {
+  if (document.querySelector('.navbr-support-strip')) return;
+
+  const strip = document.createElement('aside');
+  strip.className = 'navbr-support-strip';
+  strip.setAttribute('aria-label', 'Apoie o desenvolvimento do NavBR');
+  strip.innerHTML = `
+    <div class="navbr-support-strip-inner shell">
+      <span><strong>NavBR é um projeto independente.</strong> Ajude a manter desenvolvimento, testes e infraestrutura.</span>
+      <a href="#contribua">❤ Contribua</a>
+    </div>`;
+
+  const topbar = document.querySelector('.topbar');
+  if (topbar) {
+    topbar.before(strip);
+    document.body.classList.add('navbr-support-enabled');
+  } else {
+    document.body.prepend(strip);
+  }
+}
+
+function createAdSlot(slotName) {
+  const wrapper = document.createElement('aside');
+  wrapper.className = 'navbr-ad-slot shell';
+  wrapper.dataset.navbrAdSlot = slotName;
+  wrapper.setAttribute('aria-label', 'Publicidade');
+  wrapper.innerHTML = `
+    <div class="navbr-ad-label">Publicidade</div>
+    <div class="navbr-ad-content">
+      <strong>Espaço publicitário</strong>
+      <span>Este espaço ajudará a financiar o desenvolvimento e a infraestrutura do NavBR.</span>
+    </div>`;
+  return wrapper;
+}
+
+function mountAdSlots() {
+  if (document.querySelector('[data-navbr-ad-slot="top"]')) return;
+
+  const trustStrip = document.querySelector('.trust-strip');
+  const hardware = document.getElementById('hardware');
+  const topAd = createAdSlot('top');
+  const contentAd = createAdSlot('content');
+
+  if (trustStrip) trustStrip.after(topAd);
+  else document.querySelector('main')?.prepend(topAd);
+
+  if (hardware) hardware.before(contentAd);
+  else document.getElementById('contribua')?.before(contentAd);
+}
+
+function loadAdSense(config) {
+  const client = config?.adsense?.client?.trim();
+  if (!client || document.querySelector('script[data-navbr-adsense]')) return false;
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  script.dataset.navbrAdsense = 'true';
+  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
+  document.head.appendChild(script);
+
+  const slots = config.adsense.slots || {};
+  document.querySelectorAll('[data-navbr-ad-slot]').forEach(wrapper => {
+    const slotName = wrapper.dataset.navbrAdSlot;
+    const slotId = slots[slotName]?.trim();
+    if (!slotId) return;
+
+    const content = wrapper.querySelector('.navbr-ad-content');
+    if (!content) return;
+    content.innerHTML = '';
+
+    const ad = document.createElement('ins');
+    ad.className = 'adsbygoogle';
+    ad.style.display = 'block';
+    ad.dataset.adClient = client;
+    ad.dataset.adSlot = slotId;
+    ad.dataset.adFormat = 'auto';
+    ad.dataset.fullWidthResponsive = 'true';
+    content.appendChild(ad);
+
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (_) {
+      // O placeholder permanece estruturalmente seguro mesmo se a rede não responder.
+    }
+  });
+
+  return true;
+}
+
+async function setupMonetization() {
+  createFundingBar();
+  mountAdSlots();
+
+  try {
+    const response = await fetch('monetization.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    const config = await response.json();
+    if (config?.enabled === true && config?.provider === 'adsense') {
+      loadAdSense(config);
+    }
+  } catch (_) {
+    // Sem configuração, o site mostra apenas os espaços publicitários reservados.
+  }
+}
+
 loadReleases();
 setupPix();
+setupMonetization();
