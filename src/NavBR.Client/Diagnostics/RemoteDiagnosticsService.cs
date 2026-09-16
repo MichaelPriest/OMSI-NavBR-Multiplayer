@@ -11,6 +11,7 @@ internal static partial class RemoteDiagnosticsService
 {
     private const int MaxQueuedEvents = 500;
     private const int MaxBatchEvents = 50;
+    private const string CollectorProtocol = "navbr-alpha11-test2";
     private static readonly TimeSpan DiscoveryCacheDuration = TimeSpan.FromMinutes(15);
     private static readonly Uri DiscoveryUri = new(
         "https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/diagnostics.json");
@@ -98,8 +99,8 @@ internal static partial class RemoteDiagnosticsService
 
         try
         {
-            var target = await ResolveEndpointAsync(cancellationToken).ConfigureAwait(false);
-            if (target is null)
+            var endpoint = await ResolveEndpointAsync(cancellationToken).ConfigureAwait(false);
+            if (endpoint is null)
             {
                 return;
             }
@@ -130,17 +131,11 @@ internal static partial class RemoteDiagnosticsService
                     first.SessionId,
                     batchItems.Select(item => item.Event).ToArray());
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, target.Endpoint)
+                using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
                 {
                     Content = JsonContent.Create(batch)
                 };
-
-                if (!string.IsNullOrWhiteSpace(target.CollectorToken))
-                {
-                    request.Headers.TryAddWithoutValidation(
-                        "X-NavBR-Collector-Key",
-                        target.CollectorToken);
-                }
+                request.Headers.TryAddWithoutValidation("X-NavBR-Collector", CollectorProtocol);
 
                 using var response = await Http.SendAsync(
                     request,
@@ -278,21 +273,19 @@ internal static partial class RemoteDiagnosticsService
         File.WriteAllLines(QueuePath, lines.TakeLast(MaxQueuedEvents));
     }
 
-    private static async Task<DiagnosticsEndpoint?> ResolveEndpointAsync(CancellationToken cancellationToken)
+    private static async Task<Uri?> ResolveEndpointAsync(CancellationToken cancellationToken)
     {
         var environmentEndpoint = Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_ENDPOINT");
         if (Uri.TryCreate(environmentEndpoint, UriKind.Absolute, out var overrideUri) &&
             IsHttpEndpoint(overrideUri))
         {
-            return new DiagnosticsEndpoint(
-                overrideUri,
-                Environment.GetEnvironmentVariable("NAVBR_DIAGNOSTICS_COLLECTOR_TOKEN"));
+            return overrideUri;
         }
 
         if (_discovery is not null &&
             DateTimeOffset.UtcNow - _discoveryCheckedUtc < DiscoveryCacheDuration)
         {
-            return DiscoveryToEndpoint(_discovery);
+            return DiscoveryToUri(_discovery);
         }
 
         _discoveryCheckedUtc = DateTimeOffset.UtcNow;
@@ -304,13 +297,13 @@ internal static partial class RemoteDiagnosticsService
         }
         catch
         {
-            _discovery = new DiagnosticsDiscovery(false, null, null);
+            _discovery = new DiagnosticsDiscovery(false, null);
         }
 
-        return DiscoveryToEndpoint(_discovery);
+        return DiscoveryToUri(_discovery);
     }
 
-    private static DiagnosticsEndpoint? DiscoveryToEndpoint(DiagnosticsDiscovery? discovery)
+    private static Uri? DiscoveryToUri(DiagnosticsDiscovery? discovery)
     {
         if (discovery?.Enabled != true ||
             !Uri.TryCreate(discovery.Endpoint, UriKind.Absolute, out var endpoint) ||
@@ -319,9 +312,7 @@ internal static partial class RemoteDiagnosticsService
             return null;
         }
 
-        return new DiagnosticsEndpoint(
-            endpoint,
-            SanitizeToken(discovery.CollectorToken));
+        return endpoint;
     }
 
     private static bool IsHttpEndpoint(Uri uri) =>
@@ -341,18 +332,6 @@ internal static partial class RemoteDiagnosticsService
         return sanitized.Length <= maxLength ? sanitized : sanitized[..maxLength];
     }
 
-    private static string? SanitizeToken(string? value)
-    {
-        var token = value?.Trim();
-        if (string.IsNullOrWhiteSpace(token) || token.Length > 512 ||
-            token.Contains('\r') || token.Contains('\n'))
-        {
-            return null;
-        }
-
-        return token;
-    }
-
     [GeneratedRegex(@"(?i)C:\\Users\\[^\\\s]+")]
     private static partial Regex UserProfilePathRegex();
 
@@ -361,14 +340,7 @@ internal static partial class RemoteDiagnosticsService
         string SessionId,
         DiagnosticEvent Event);
 
-    private sealed record DiagnosticsDiscovery(
-        bool Enabled,
-        string? Endpoint,
-        string? CollectorToken);
-
-    private sealed record DiagnosticsEndpoint(
-        Uri Endpoint,
-        string? CollectorToken);
+    private sealed record DiagnosticsDiscovery(bool Enabled, string? Endpoint);
 
     private sealed record DiagnosticContext(
         string? OmsiVersion,
