@@ -175,7 +175,7 @@ namespace
             return false;
         }
 
-        for (var index = 0; index < count; ++index)
+        for (int index = 0; index < count; ++index)
         {
             const int current = *reinterpret_cast<const int*>(
                 static_cast<std::uintptr_t>(items) +
@@ -263,7 +263,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         rotationZ * inverseLength,
         rotationW * inverseLength
     };
-    const float speed = std::clamp(std::fabs(groundSpeedMps), 0.0f, 150.0f);
+    const float speed = std::min(std::max(std::fabs(groundSpeedMps), 0.0f), 150.0f);
     const unsigned char disabled = 0;
 
     return WriteValue(vehiclePointer, PositionOffset, position) &&
