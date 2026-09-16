@@ -12,7 +12,8 @@ namespace NavBR.OmsiPluginExperimental;
 internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
-    private const int ExpectedAbiVersion = 2;
+    private const int ExpectedAbiVersion = 1;
+    private const int ExpectedStateInteropVersion = 1;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
     private static nint _shimHandle;
@@ -64,6 +65,7 @@ internal static class OmsiNativeInterop
             try
             {
                 return GetAbiVersion() == ExpectedAbiVersion &&
+                       GetStateInteropVersion() == ExpectedStateInteropVersion &&
                        ProbeOmsi23004Addresses() == 1;
             }
             catch (DllNotFoundException)
@@ -198,6 +200,9 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetAbiVersion")]
     private static extern int GetAbiVersion();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetStateInteropVersion")]
+    private static extern int GetStateInteropVersion();
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeOmsi23004Addresses")]
     private static extern int ProbeOmsi23004Addresses();
