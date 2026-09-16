@@ -15,6 +15,7 @@ internal static class OmsiPluginInstallationService
     private static readonly string[] RequiredPluginFiles =
     [
         "NavBR.OmsiPlugin.dll",
+        "NavBR.OmsiInterop.dll",
         "NavBR.OmsiPlugin.opl"
     ];
 
@@ -144,7 +145,7 @@ internal static class OmsiPluginInstallationService
                 "# OMSI NavBR Plugin experimental - arquivos instalados",
                 $"# Instalado em: {DateTimeOffset.Now:O}",
                 $"# NavBR: {version}",
-                "# Deployment: Native AOT x86 (self-contained; no .NET x86 runtime required)",
+                "# Deployment: Native AOT x86 + NavBR OMSI ABI interop x86",
                 .. RequiredPluginFiles
             ]);
 
