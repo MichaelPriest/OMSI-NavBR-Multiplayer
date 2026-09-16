@@ -114,9 +114,9 @@ public partial class MainWindow
         window.ChatMessageReceived += hud.AddChatMessage;
         window.RemoteSpeakerActive += hud.MarkRemoteSpeaker;
         window.VoiceError += hud.SetVoiceError;
-        Action<bool, string?> connectionChangedHandler = (connected, _) =>
+        Action<bool, string?> connectionChangedHandler = (connected, roomId) =>
         {
-            DispatcherSessionFeed.SetConnected(connected);
+            DispatcherSessionFeed.SetConnected(connected, roomId);
             hud.SetConnectionState(connected);
         };
         window.MultiplayerConnectionChanged += connectionChangedHandler;
