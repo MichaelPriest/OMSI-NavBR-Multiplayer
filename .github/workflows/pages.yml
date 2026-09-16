@@ -50,12 +50,11 @@ jobs:
         run: |
           gh api "repos/${{ github.repository }}/releases?per_page=100" \
             | jq '
-                (map(select((.tag_name | test("-test(\\.|-|$)"; "i")) | not))
-                 | sort_by(.published_at // .created_at)
-                 | reverse) as $official
+                (sort_by(.published_at // .created_at) | reverse) as $all
+                | ($all | map(select((.tag_name | test("-test(\\.|-|$)"; "i")) | not))) as $official
                 | {
                     total_downloads: ([$official[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
-                    releases: ($official[:6] | map({
+                    releases: ($all[:8] | map({
                       tag_name,
                       name,
                       prerelease,
