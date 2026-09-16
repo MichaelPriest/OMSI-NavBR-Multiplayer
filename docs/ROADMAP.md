@@ -1,6 +1,6 @@
 # Roadmap
 
-Este roadmap reflete o estado da **v0.3.0-alpha.10 em desenvolvimento**. A última release publicada continua sendo **v0.3.0-alpha.9**.
+Este roadmap reflete o estado da série **v0.3.0-alpha.11** e separa claramente o que é prioridade antes da primeira versão estável do que fica planejado para depois do **v1.0**.
 
 Legenda:
 
@@ -28,7 +28,7 @@ Legenda:
 - ✅ ZIP do servidor dedicado x64
 - ✅ GitHub Pages com catálogo de releases e contador de downloads
 - ✅ Seção de feedback da comunidade
-- ✅ Seção Contribua via Pix no site
+- ✅ Seção Contribua via Pix no site e no README
 
 ## Fase 1 — Telemetria local
 
@@ -53,7 +53,7 @@ Legenda:
 
 ### Critério de aceite
 
-Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, direção e velocidade mudando em tempo real sem Steam API e sem permissão de escrita no processo. O código já existe; falta consolidar a validação real.
+Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, direção e velocidade mudando em tempo real sem Steam API. Escritas físicas permanecem restritas ao caminho experimental do plugin.
 
 ## Fase 2 — GPS e HUD local
 
@@ -61,8 +61,8 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Catalogar mapas com `global.cfg`
 - ✅ Detectar `whole.roadmap.bmp` / `roadmap.bmp`
 - ✅ Mostrar mapas e roadmaps disponíveis no cliente
-- ✅ Na alpha.10, separar todos os mapas em **roadmap pronto** e **roadmap ausente**
-- ✅ Na alpha.10, mostrar nome, pasta, quantidade de tiles e BMP global encontrado
+- ✅ Separar mapas em **roadmap pronto** e **roadmap ausente**
+- ✅ Mostrar nome, pasta, quantidade de tiles e BMP global encontrado
 - ✅ Não considerar roadmap individual de tile como roadmap global pronto
 - ✅ Localizar textos do GPS nos cinco idiomas atuais
 - ✅ Ler grade de tiles do `global.cfg`
@@ -79,13 +79,13 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Chat visual, jogadores e indicador de voz no HUD
 - ✅ Proteção dos atalhos usando `Inputs/keyboard.cfg`
 - ✅ Aprendizado da janela real de gameplay do OMSI para controlar a visibilidade do HUD
+- ✅ HUD Alpha.11 mais compacto e transparente
 - ✅ Guia de geração de roadmap em `docs/GERAR_ROADMAP_MAPAS.md`
 - 🧪 Validar visualmente marcador/heading em mapas reais
 - 🧪 Validar a nova lista de roadmaps em uma instalação grande de OMSI
 - 🧪 Validar `[worldcoordinates]` em mapas reais
 - 🧪 Validar ocultação/reexibição do HUD em menus, opções e timetable
 - 🧪 Validar fullscreen exclusivo
-- ⬜ Modo heading-up com rotação do mapa inteiro
 - ⬜ Tratamento visual aprimorado para mapas sem roadmap
 
 ## Fase 3 — TTData e navegação
@@ -107,6 +107,8 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Uso de `ObjectId` e `PathId`
 - ✅ Paths `[path]` / `[path_2]`
 - ✅ Resolução de objetos/crossings `.sco` quando possível
+- ✅ Filtrar paradas pela viagem/rota ativa
+- ✅ Mostrar todas as paradas somente quando não houver rota ativa
 
 ### Aguardando validação real
 
@@ -116,11 +118,10 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - 🧪 Confirmar crossings/paths de objetos
 - 🧪 Confirmar destino e próxima parada em diferentes mapas/ônibus
 - 🧪 Testar mapas com TTData não convencional e Chronos ativos
+- 🧪 Confirmar filtro de paradas em linhas que compartilham terminais e corredores
 
-### Ainda pendente
+### Ainda pendente antes da estabilidade
 
-- ⬜ Parser dedicado de `Busstops.cfg`
-- ⬜ Parser dedicado de `.ttl`, se necessário para recursos futuros
 - ⬜ Distância restante
 - ⬜ ETA
 - ⬜ Atraso/adiantamento
@@ -152,6 +153,7 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - ✅ Servidor dedicado opcional
 - ✅ Detecção de endereços IPv4 locais do host
 - ✅ Fluxo de configuração de firewall previsto pelo cliente
+- ✅ Meta inicial documentada de até 32 jogadores por sala
 
 ### Aguardando validação real
 
@@ -164,8 +166,9 @@ Com o OMSI 2.3.004 aberto e um ônibus ativo, o NavBR deve mostrar mapa, X/Y/Z, 
 - 🧪 Validação dos atalhos F9/F10 e combinações modificadas
 - 🧪 Validar reconexão e reentrada automática após queda temporária
 - 🧪 Teste do servidor dedicado separado do PC do jogador
+- 🧪 Testes progressivos de carga até o alvo de 32 jogadores
 
-### Ainda pendente
+### Ainda pendente antes da estabilidade
 
 - ⬜ Diagnóstico de conectividade/porta mais completo
 - ⬜ Rate limiting
@@ -187,68 +190,102 @@ O peer-host é o modo principal da série 0.3. Esta fase é complementar, não r
 
 ## Fase 6 — Veículos remotos dentro do OMSI (experimental)
 
-Esta fase avança na **alpha.10 experimental**, mas o plugin continua opcional e não faz parte da alpha.9 publicada.
+A Alpha.11 abre o primeiro teste público da camada física, mas o plugin continua opcional.
 
 ### Implementado na base experimental
 
-- ✅ Confirmar a interface de plugins do OMSI (`.dll` + `.opl` em `OMSI\plugins`)
-- ✅ Definir plugin experimental como módulo opcional, separado do cliente estável
-- ✅ Criar projeto x86 `NavBR.OmsiPluginExperimental`
-- ✅ Exportar callbacks básicos esperados pelo OMSI
-- ✅ Criar `.opl` mínimo usando uma system variable para heartbeat
-- ✅ Implementar log/heartbeat em `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log`
-- ✅ Manter o protótipo sem escrita de variáveis/triggers
-- ✅ Adicionar compilação/artefato do plugin experimental ao CI
+- ✅ Interface de plugins OMSI (`.dll` + `.opl` em `OMSI\plugins`)
+- ✅ Projeto x86 `NavBR.OmsiPluginExperimental`
+- ✅ Plugin Native AOT x86
 - ✅ Windows Named Pipe local restrito ao usuário atual
-- ✅ Protocolo versionado com handshake cliente/plugin
+- ✅ Protocolo bridge versionado
 - ✅ Reconexão local do bridge
-- ✅ Encaminhar contexto do veículo local ao plugin
-- ✅ Encaminhar frames remotos do SignalR ao plugin
-- ✅ Propagar remoção de jogador e limpeza da sala
-- ✅ Limitar o registro a 64 estados remotos
-- ✅ Expirar estado remoto após 5 s sem atualização
-- ✅ Rejeitar números não finitos e campos excessivos
-- ✅ Filtrar candidatos remotos por mapa/fingerprint compatível
-- ✅ Interpolar X/Y/Z, velocidade e heading com atraso aproximado de 100 ms
+- ✅ Encaminhamento de contexto do veículo local
+- ✅ Encaminhamento de frames remotos do SignalR ao plugin
+- ✅ Propagação de remoção de jogador e limpeza da sala
+- ✅ Registro protegido de instâncias físicas do NavBR
+- ✅ Shim C++ x86 para chamadas nativas do OMSI 2.3.004
+- ✅ Spawn/update/despawn experimental disponível por opt-in
+- ✅ Atualização experimental de posição, rotação, velocidade e estados visuais básicos
+- ✅ Diagnósticos automáticos opcionais para o teste comunitário
 
 ### Aguardando validação real
 
-- 🧪 Confirmar que o OMSI 2.3.004 carrega a DLL x86
-- 🧪 Confirmar `PluginStart`, callbacks periódicos e `PluginFinalize`
-- 🧪 Confirmar que o plugin não causa instabilidade ou queda de FPS perceptível
-- 🧪 Confirmar handshake `plugin-hello` / `client-hello`
-- 🧪 Validar fluxo SignalR → NavBR.Client → Named Pipe → plugin em dois PCs
-- 🧪 Confirmar filtro por mapa/fingerprint no log (`compatibleRemoteCount`)
-- 🧪 Confirmar timeout e remoção de estados remotos em runtime
+- 🧪 Confirmar spawn físico em dois computadores reais
+- 🧪 Confirmar posição correta em tiles diferentes
+- 🧪 Confirmar rotação/quaternion e suavização
+- 🧪 Confirmar faróis, freio e setas
+- 🧪 Confirmar remoção segura quando jogador sai/desconecta
+- 🧪 Confirmar compatibilidade com diferentes ônibus/add-ons
+- 🧪 Confirmar estabilidade e impacto em FPS
+- 🧪 Confirmar comportamento com vários ônibus físicos simultâneos
 
-### Próximas etapas experimentais
+### Próximas etapas antes da estabilidade
 
-- ⬜ Investigar criação/controle seguro de **uma única** entidade remota no OMSI
-- ⬜ Aplicar posição/orientação do estado já validado/interpolado
+- ⬜ Fechar sincronização confiável entre tiles
 - ⬜ Extrapolação curta e limitada para perda de pacotes
 - ⬜ Política de snap por erro máximo seguro
 - ⬜ Compatibilidade/fallback de modelo de ônibus
 - ⬜ Articulação
 - ⬜ Portas
-- ⬜ Luzes/setas/pisca-alerta/buzina
 - ⬜ Linha/destino/matriz quando tecnicamente seguro
 - ⬜ Limites de distância/LOD e performance para entidades físicas
-- ⬜ Procedimento automático de instalação/remoção do plugin
+- ⬜ Limpeza stale totalmente validada em runtime
 
-Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper estado do simulador e sem tornar o plugin obrigatório para quem quiser apenas GPS/HUD/multiplayer externo.
+Esta fase só será promovida a funcionalidade oficial se funcionar sem corromper o estado do simulador e sem tornar o plugin obrigatório para quem quiser apenas GPS/HUD/multiplayer externo.
 
-## Prioridade imediata
+## Prioridade até a primeira versão estável
 
-O plugin pode avançar em paralelo apenas como experimento isolado. Para o produto principal, a prioridade continua:
+Antes de abrir recursos de gestão/comunidade mais amplos, a prioridade é:
 
-1. 🧪 validar HUD e telemetria no OMSI real;
-2. 🧪 validar o parser/traçado `.ttr` em mapas reais;
-3. 🧪 validar destino e próxima parada;
-4. 🧪 testar multiplayer entre dois computadores;
-5. 🧪 testar chat/voz/PTT, reconexão e troca de mapa;
-6. 🧪 validar carregamento e bridge do plugin experimental;
-7. corrigir os problemas encontrados;
-8. só então avançar para ETA/distância, diagnóstico de rede, UPnP/NAT traversal e criação real de veículo remoto.
+1. 🧪 validar HUD, velocidade e telemetria no OMSI real;
+2. 🧪 validar rota, TTData e paradas em vários mapas;
+3. 🧪 testar multiplayer entre dois ou mais computadores;
+4. 🧪 testar chat/voz/PTT, reconexão e troca de mapa;
+5. 🧪 validar o ônibus remoto 3D experimental;
+6. 🧪 validar estabilidade, tiles, add-ons e desempenho;
+7. ⬜ fechar diagnóstico de rede, rate limiting e NAT traversal;
+8. ⬜ corrigir problemas apontados pela comunidade;
+9. ⬜ promover somente recursos validados para a primeira versão estável.
+
+## Pós-v1.0 — Plataforma comunitária OMSI
+
+Os recursos abaixo ficam deliberadamente **depois da primeira versão estável**, para não desviar o foco da estabilidade do núcleo atual:
+
+- ⬜ navegador público de servidores/salas com ping, mapa, versão, região e favoritos;
+- ⬜ perfil do motorista com horas, quilômetros, linhas e histórico;
+- ⬜ empresas virtuais, cargos, frota e garagem;
+- ⬜ CCO/dispatcher com mapa operacional, atrasos, intervalos e mensagens;
+- ⬜ pontualidade por parada, atraso e adiantamento;
+- ⬜ sincronização opcional de hora/data/clima da sessão;
+- ⬜ identificação de frota, prefixo, garagem e matrícula;
+- ⬜ voz por proximidade e canais separados;
+- ⬜ mapa web ao vivo opcional da sessão;
+- ⬜ replay de viagens;
+- ⬜ eventos e operações especiais comunitárias;
+- ⬜ verificação automática de compatibilidade antes de entrar em uma sala;
+- ⬜ manifesto de mods/dependências com hashes, sem redistribuir conteúdo sem permissão;
+- ⬜ SDK/API NavBR para dashboards, bots e ferramentas de terceiros;
+- ⬜ workshop comunitário para perfis, mapas, HUD e traduções permitidas;
+- ⬜ painel de saúde da sessão com ping, perda, FPS e estado do bridge;
+- ⬜ LOD/culling e frequência adaptativa por distância;
+- ⬜ sincronização ampliada de portas, matriz, animações e estados do veículo;
+- ⬜ autoridade de tráfego físico compartilhado mais avançada;
+- ⬜ permissões de servidor: admin, moderador, CCO, motorista e visitante.
+
+## Apoio ao projeto
+
+### Brasil
+
+- ✅ Pix continua como canal direto principal de apoio voluntário.
+- ✅ A chave Pix aparece no portal e no README.
+
+### Internacional / futuro
+
+- ⬜ Estudar uma presença oficial do NavBR no Google Play após a consolidação da versão estável e de um eventual app/companion Android.
+- ⬜ Se houver vendas, compras no app ou assinaturas pelo Google Play, usar o perfil de pagamentos oficial e direcionar os recebimentos para a **mesma conta bancária brasileira vinculada à chave Pix**, centralizando a tesouraria em uma única conta.
+- ⬜ Não tratar Google Play como transferência direta para uma chave Pix: os repasses de comerciante seguem o sistema de pagamentos bancários do Google.
+- ⬜ Manter qualquer apoio opcional separado dos recursos gratuitos essenciais do NavBR, salvo decisão futura explícita sobre produtos pagos adicionais.
 
 ## Localização contínua
 
