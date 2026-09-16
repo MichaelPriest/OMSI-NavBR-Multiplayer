@@ -11,6 +11,7 @@ internal static class PluginBridgeClient
     private static readonly object LocalStateSync = new();
     private static readonly object StatusSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
+    private static readonly TrafficVehicleRegistry TrafficVehicles = new();
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
@@ -21,10 +22,19 @@ internal static class PluginBridgeClient
     public static PluginBridgeMessage? LatestRemoteState =>
         RemoteVehicles.LatestCompatible(GetLocalState());
 
+    public static PluginBridgeMessage? LatestTrafficSnapshot =>
+        TrafficVehicles.LatestCompatible(GetLocalState());
+
     public static int RemoteVehicleCount => RemoteVehicles.Count;
 
     public static int CompatibleRemoteVehicleCount =>
         RemoteVehicles.CountCompatible(GetLocalState());
+
+    public static int TrafficVehicleCount => TrafficVehicles.Count;
+
+    public static string? TrafficAuthorityPlayerId => TrafficVehicles.AuthorityPlayerId;
+
+    public static long? TrafficSequence => TrafficVehicles.Sequence;
 
     public static void Start(Action<string> log)
     {
@@ -47,7 +57,8 @@ internal static class PluginBridgeClient
         ClearPendingStatus();
     }
 
-    public static int PruneStaleRemoteStates() => RemoteVehicles.PruneStale();
+    public static int PruneStaleRemoteStates() =>
+        RemoteVehicles.PruneStale() + TrafficVehicles.PruneStale();
 
     public static void ReportRuntimeStatus(
         long systemVariableCallbacks,
@@ -264,6 +275,23 @@ internal static class PluginBridgeClient
             return null;
         }
 
+        if (string.Equals(message.Type, PluginBridgeProtocol.ClearTrafficVehicles, StringComparison.Ordinal))
+        {
+            TrafficVehicles.Clear();
+            return null;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.TrafficSnapshotState, StringComparison.Ordinal))
+        {
+            if (!TrafficVehicles.TryApply(message, GetLocalState(), out var rejectionReason) &&
+                !string.Equals(rejectionReason, "stale-sequence", StringComparison.Ordinal))
+            {
+                Log($"traffic-snapshot rejeitado reason={rejectionReason ?? "unknown"}");
+            }
+
+            return null;
+        }
+
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
             RemoteVehicles.Remove(message.PlayerId);
@@ -316,6 +344,7 @@ internal static class PluginBridgeClient
     {
         SetLocalState(null);
         RemoteVehicles.Clear();
+        TrafficVehicles.Clear();
     }
 
     private static bool IsValidLocalState(PluginBridgeMessage message)
