@@ -1,6 +1,20 @@
 (() => {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  function moveContributeToStart() {
+    const nav = document.querySelector('.topbar nav');
+    const contributeLink = nav?.querySelector('a[href="#contribua"]');
+    if (nav && contributeLink) {
+      nav.prepend(contributeLink);
+    }
+
+    const main = document.querySelector('main');
+    const contributeSection = document.getElementById('contribua');
+    if (main && contributeSection && main.firstElementChild !== contributeSection) {
+      main.prepend(contributeSection);
+    }
+  }
+
   function addProgressBar() {
     if (document.querySelector('.site-progress')) return;
 
@@ -96,6 +110,7 @@
   }
 
   function boot() {
+    moveContributeToStart();
     addProgressBar();
     setupRevealAnimations();
     setupActiveNavigation();
