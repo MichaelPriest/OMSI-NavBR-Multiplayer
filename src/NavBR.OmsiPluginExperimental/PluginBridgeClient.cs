@@ -79,7 +79,9 @@ internal static class PluginBridgeClient
     public static void ReportRuntimeStatus(
         long systemVariableCallbacks,
         int lastSystemVariableIndex,
-        int staleRemovedCount)
+        int staleRemovedCount,
+        double? speedKph = null,
+        bool? stopRequested = null)
     {
         var status = new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -87,11 +89,13 @@ internal static class PluginBridgeClient
             ProcessId: Environment.ProcessId,
             ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
             RemoteVehicleCount: RemoteVehicleCount,
             CompatibleRemoteVehicleCount: CompatibleRemoteVehicleCount,
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
+            StopRequested: stopRequested,
             ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled);
 
         lock (StatusSync)
