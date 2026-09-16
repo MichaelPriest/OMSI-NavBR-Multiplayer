@@ -13,6 +13,8 @@ internal sealed class VoiceOptionsWindow : Window
     private readonly TextBlock _distanceLabel = new();
     private readonly TextBlock _hint = new();
     private readonly CheckBox _deafen = new();
+    private readonly ComboBox _inputDevice = new();
+    private readonly ComboBox _outputDevice = new();
     private readonly ComboBox _player = new();
     private readonly CheckBox _mutePlayer = new();
     private readonly Slider _gain = new();
@@ -22,11 +24,15 @@ internal sealed class VoiceOptionsWindow : Window
     public string SelectedChannel { get; private set; }
     public double ProximityMeters { get; private set; }
     public bool Deafened { get; private set; }
+    public int InputDeviceNumber { get; private set; }
+    public int OutputDeviceNumber { get; private set; }
 
     public VoiceOptionsWindow(
         string selectedChannel,
         double proximityMeters,
         bool deafened,
+        int inputDeviceNumber,
+        int outputDeviceNumber,
         IReadOnlyList<(string PlayerId, string DisplayName)> players,
         VoiceChatService voiceChat)
     {
@@ -37,12 +43,14 @@ internal sealed class VoiceOptionsWindow : Window
             20d,
             1000d);
         Deafened = deafened;
+        InputDeviceNumber = VoiceAudioDeviceCatalog.NormalizeInputDevice(inputDeviceNumber);
+        OutputDeviceNumber = VoiceAudioDeviceCatalog.NormalizeOutputDevice(outputDeviceNumber);
 
         Title = T("Configurações de voz", "Voice settings", "Configuración de voz", "Spracheinstellungen", "Paramètres vocaux");
-        Width = 520;
-        Height = 590;
-        MinHeight = 520;
-        ResizeMode = ResizeMode.CanMinimize;
+        Width = 540;
+        Height = 720;
+        MinHeight = 560;
+        ResizeMode = ResizeMode.CanResizeWithGrip;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         var scroll = new ScrollViewer
@@ -114,15 +122,60 @@ internal sealed class VoiceOptionsWindow : Window
         _deafen.Margin = new Thickness(0, 18, 0, 0);
         root.Children.Add(_deafen);
 
-        var separator = new Border
+        AddSeparator(root);
+        root.Children.Add(new TextBlock
         {
-            Height = 1,
-            Opacity = 0.25,
-            Margin = new Thickness(0, 18, 0, 16),
-            Background = System.Windows.Media.Brushes.Gray
-        };
-        root.Children.Add(separator);
+            Text = T("Dispositivos de áudio", "Audio devices", "Dispositivos de audio", "Audiogeräte", "Périphériques audio"),
+            FontSize = 17,
+            FontWeight = FontWeights.SemiBold
+        });
 
+        root.Children.Add(CreateLabel(T("Microfone", "Microphone", "Micrófono", "Mikrofon", "Microphone")));
+        var inputs = VoiceAudioDeviceCatalog.GetInputDevices().ToArray();
+        if (inputs.Length == 0)
+        {
+            inputs =
+            [
+                new VoiceAudioDevice(
+                    0,
+                    T("Nenhum microfone detectado", "No microphone detected", "No se detectó micrófono", "Kein Mikrofon erkannt", "Aucun microphone détecté"))
+            ];
+            _inputDevice.IsEnabled = false;
+        }
+        _inputDevice.ItemsSource = inputs;
+        _inputDevice.DisplayMemberPath = nameof(VoiceAudioDevice.DisplayName);
+        _inputDevice.SelectedValuePath = nameof(VoiceAudioDevice.DeviceNumber);
+        _inputDevice.SelectedValue = inputs.Any(device => device.DeviceNumber == InputDeviceNumber)
+            ? InputDeviceNumber
+            : inputs[0].DeviceNumber;
+        root.Children.Add(_inputDevice);
+
+        root.Children.Add(CreateLabel(T("Saída de áudio", "Audio output", "Salida de audio", "Audioausgabe", "Sortie audio")));
+        var outputs = VoiceAudioDeviceCatalog.GetOutputDevices(
+            T("Padrão do Windows", "Windows default", "Predeterminado de Windows", "Windows-Standard", "Par défaut Windows"))
+            .ToArray();
+        _outputDevice.ItemsSource = outputs;
+        _outputDevice.DisplayMemberPath = nameof(VoiceAudioDevice.DisplayName);
+        _outputDevice.SelectedValuePath = nameof(VoiceAudioDevice.DeviceNumber);
+        _outputDevice.SelectedValue = outputs.Any(device => device.DeviceNumber == OutputDeviceNumber)
+            ? OutputDeviceNumber
+            : -1;
+        root.Children.Add(_outputDevice);
+
+        root.Children.Add(new TextBlock
+        {
+            Text = T(
+                "Ao aplicar uma troca de dispositivo durante a sessão, apenas o áudio é reiniciado.",
+                "When changing a device during a session, only the audio subsystem is restarted.",
+                "Al cambiar un dispositivo durante la sesión, solo se reinicia el subsistema de audio.",
+                "Beim Gerätewechsel während einer Sitzung wird nur das Audiosystem neu gestartet.",
+                "Lors d’un changement de périphérique en session, seul le sous-système audio redémarre."),
+            Margin = new Thickness(0, 7, 0, 0),
+            Opacity = 0.72,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        AddSeparator(root);
         root.Children.Add(new TextBlock
         {
             Text = T("Mixer por jogador", "Player mixer", "Mezclador por jugador", "Spieler-Mixer", "Mixeur par joueur"),
@@ -251,6 +304,12 @@ internal sealed class VoiceOptionsWindow : Window
         SelectedChannel = channel;
         ProximityMeters = Math.Clamp(distance, 20d, 1000d);
         Deafened = _deafen.IsChecked == true;
+        InputDeviceNumber = _inputDevice.SelectedValue is int input
+            ? VoiceAudioDeviceCatalog.NormalizeInputDevice(input)
+            : InputDeviceNumber;
+        OutputDeviceNumber = _outputDevice.SelectedValue is int output
+            ? VoiceAudioDeviceCatalog.NormalizeOutputDevice(output)
+            : OutputDeviceNumber;
         DialogResult = true;
         Close();
     }
@@ -302,6 +361,24 @@ internal sealed class VoiceOptionsWindow : Window
         }
 
         _voiceChat.SetRemoteGain(player.PlayerId, _gain.Value);
+    }
+
+    private static TextBlock CreateLabel(string text) => new()
+    {
+        Text = text,
+        Margin = new Thickness(0, 12, 0, 5),
+        FontWeight = FontWeights.SemiBold
+    };
+
+    private static void AddSeparator(Panel root)
+    {
+        root.Children.Add(new Border
+        {
+            Height = 1,
+            Opacity = 0.25,
+            Margin = new Thickness(0, 18, 0, 16),
+            Background = System.Windows.Media.Brushes.Gray
+        });
     }
 
     private static string T(string pt, string en, string es, string de, string fr) =>
