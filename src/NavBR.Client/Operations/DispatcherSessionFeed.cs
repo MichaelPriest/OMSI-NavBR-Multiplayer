@@ -19,6 +19,7 @@ internal sealed record DispatcherRemoteDriver(
 
 internal sealed record DispatcherSessionSnapshot(
     bool Connected,
+    string? RoomId,
     IReadOnlyList<DispatcherRemoteDriver> RemoteDrivers,
     DateTimeOffset UpdatedAt);
 
@@ -28,13 +29,15 @@ internal static class DispatcherSessionFeed
     private static readonly Dictionary<string, DispatcherRemoteDriver> Drivers =
         new(StringComparer.OrdinalIgnoreCase);
     private static bool _connected;
+    private static string? _roomId;
     private static DateTimeOffset _updatedAt = DateTimeOffset.UtcNow;
 
-    public static void SetConnected(bool connected)
+    public static void SetConnected(bool connected, string? roomId = null)
     {
         lock (Sync)
         {
             _connected = connected;
+            _roomId = connected && !string.IsNullOrWhiteSpace(roomId) ? roomId.Trim() : connected ? _roomId : null;
             _updatedAt = DateTimeOffset.UtcNow;
             if (!connected)
             {
@@ -66,6 +69,10 @@ internal static class DispatcherSessionFeed
         {
             Drivers[driver.PlayerId] = driver;
             _connected = true;
+            if (!string.IsNullOrWhiteSpace(driver.RoomId))
+            {
+                _roomId = driver.RoomId.Trim();
+            }
             _updatedAt = receivedAt;
         }
     }
@@ -104,6 +111,7 @@ internal static class DispatcherSessionFeed
 
             return new DispatcherSessionSnapshot(
                 _connected,
+                _roomId,
                 Drivers.Values
                     .OrderBy(driver => driver.DisplayName, StringComparer.CurrentCultureIgnoreCase)
                     .ToArray(),
