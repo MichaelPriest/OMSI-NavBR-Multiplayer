@@ -50,6 +50,54 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
+    public IReadOnlyList<string> GetActiveRoomIds()
+    {
+        return _connections.Values
+            .Select(player => player.RoomId)
+            .Where(roomId => !string.IsNullOrWhiteSpace(roomId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(roomId => roomId, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public IReadOnlyList<PublicRoomSummary> GetPublicRoomSummaries(RoomAccessPolicyStore policies)
+    {
+        ArgumentNullException.ThrowIfNull(policies);
+
+        var now = DateTimeOffset.UtcNow;
+        var rooms = new List<PublicRoomSummary>();
+        foreach (var roomId in GetActiveRoomIds())
+        {
+            var descriptor = policies.Describe(roomId, this);
+            if (descriptor.IsPrivate)
+            {
+                continue;
+            }
+
+            var players = GetRoomPlayers(roomId);
+            if (players.Count == 0)
+            {
+                continue;
+            }
+
+            var mapName = players
+                .Select(player => NormalizeOptional(player.MapName))
+                .FirstOrDefault(value => value is not null);
+            var mapCompatibilityId = players
+                .Select(player => NormalizeOptional(player.MapCompatibilityId))
+                .FirstOrDefault(value => value is not null);
+
+            rooms.Add(new PublicRoomSummary(
+                roomId,
+                players.Count,
+                mapName,
+                mapCompatibilityId,
+                now));
+        }
+
+        return rooms;
+    }
+
     public string? GetTrafficAuthorityPlayerId(string roomId)
     {
         return _connections.Values
