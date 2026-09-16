@@ -62,6 +62,16 @@ public static class NavBRServerApplication
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+            options.AddPolicy("room-directory", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
             options.AddPolicy("multiplayer-connect", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -102,6 +112,12 @@ public static class NavBRServerApplication
                 serverUtc = DateTimeOffset.UtcNow
             }))
             .RequireRateLimiting("network-probe");
+
+        app.MapGet(
+                "/api/rooms",
+                (MultiplayerRoomRegistry registry, RoomAccessPolicyStore policies) =>
+                    Results.Ok(registry.GetPublicRoomSummaries(policies)))
+            .RequireRateLimiting("room-directory");
 
         app.MapPost(
                 "/api/diagnostics",
