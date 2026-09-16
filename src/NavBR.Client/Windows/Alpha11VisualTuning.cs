@@ -16,6 +16,7 @@ internal static class Alpha11VisualTuning
         }
 
         HideLegacyHeader(window);
+        ResetWorkspaceGridPlacement(window);
         CompactMainMapVehicleMarker(window);
         window.InitializeRouteOverviewFeature();
     }
@@ -33,6 +34,35 @@ internal static class Alpha11VisualTuning
             {
                 grid.Visibility = Visibility.Collapsed;
                 break;
+            }
+        }
+    }
+
+    private static void ResetWorkspaceGridPlacement(MainWindow window)
+    {
+        // Alpha11ShellUiInstaller reuses the existing cards inside new focused
+        // pages. Clear Grid.Row/Grid.Column values inherited from MainWindow.xaml
+        // so, for example, the former right-column GPS card cannot be positioned
+        // outside the single-column navigation page.
+        ResetAncestorGridPlacement(window.StatusHeadingText);
+        ResetAncestorGridPlacement(window.TelemetryHeadingText);
+        ResetAncestorGridPlacement(window.GpsHeadingText);
+        ResetAncestorGridPlacement(window.MilestoneHeadingText);
+    }
+
+    private static void ResetAncestorGridPlacement(DependencyObject child)
+    {
+        DependencyObject? current = child;
+        while (current is not null)
+        {
+            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
+            if (current is Border card)
+            {
+                Grid.SetRow(card, 0);
+                Grid.SetColumn(card, 0);
+                Grid.SetRowSpan(card, 1);
+                Grid.SetColumnSpan(card, 1);
+                return;
             }
         }
     }
