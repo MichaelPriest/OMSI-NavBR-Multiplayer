@@ -22,7 +22,8 @@ public sealed record MultiplayerSettings(
     bool DashboardShowStatus = true,
     string StopIconStyle = "omsi",
     string? StopCustomIconPath = null,
-    bool ExperimentalPhysicalVehiclesEnabled = false)
+    bool ExperimentalPhysicalVehiclesEnabled = false,
+    bool EnableAutomaticUpnp = false)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
@@ -46,5 +47,6 @@ public sealed record MultiplayerSettings(
         true,
         "omsi",
         null,
+        false,
         false);
 }
