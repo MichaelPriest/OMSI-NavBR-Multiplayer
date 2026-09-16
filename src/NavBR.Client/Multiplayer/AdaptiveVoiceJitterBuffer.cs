@@ -150,8 +150,9 @@ internal sealed class AdaptiveVoiceJitterBuffer
             }
 
             var nextSequence = _nextSequence.Value;
-            if (_pending.Remove(nextSequence, out var expected))
+            if (_pending.TryGetValue(nextSequence, out var expected))
             {
+                _pending.Remove(nextSequence);
                 _nextSequence = nextSequence + 1;
                 _playedPackets++;
                 return new BufferedVoicePacket(expected.Frame, VoiceDecodeMode.Normal);
