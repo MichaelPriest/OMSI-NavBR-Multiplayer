@@ -54,11 +54,13 @@ var pluginStatus = new PluginBridgeMessage(
     ProcessId: 4242,
     ComponentVersion: "smoke-test",
     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    SpeedKph: 37.5,
     SystemVariableCallbacks: 123,
     RemoteVehicleCount: 2,
     CompatibleRemoteVehicleCount: 1,
     StaleRemovedCount: 3,
-    LastSystemVariableIndex: 7);
+    LastSystemVariableIndex: 7,
+    StopRequested: true);
 
 await writer.WriteLineAsync(JsonSerializer.Serialize(pluginStatus));
 
@@ -84,6 +86,8 @@ Require(info.LastStatus.RemoteVehicleCount == 2, "remote count mismatch");
 Require(info.LastStatus.CompatibleRemoteVehicleCount == 1, "compatible remote count mismatch");
 Require(info.LastStatus.StaleRemovedCount == 3, "stale count mismatch");
 Require(info.LastStatus.LastSystemVariableIndex == 7, "system variable index mismatch");
+Require(info.LastStatus.SpeedKph == 37.5, "plugin Velocity status mismatch");
+Require(info.LastStatus.StopRequested == true, "stop request status mismatch");
 
 var spoofedStatus = pluginStatus with
 {
@@ -163,7 +167,7 @@ var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
 Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
     "traffic clear message type mismatch");
 
-Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime status + traffic delivery + rejection checks.");
+Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime/hardware status + traffic delivery + rejection checks.");
 
 static void Require(bool condition, string message)
 {
