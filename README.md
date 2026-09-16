@@ -11,12 +11,12 @@ Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam, 
 **Site oficial:** https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/  
 **Releases:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases  
 **Checklist Alpha.12 Test 1:** [docs/ALPHA12_TEST1_COMMUNITY.md](docs/ALPHA12_TEST1_COMMUNITY.md)  
-**Escopo mestre Alpha.12:** [docs/ALPHA12_MASTER_SCOPE.md](docs/ALPHA12_MASTER_SCOPE.md)  
+**Escopo mestre Alpha.12:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/feature/alpha12-full-expansion/docs/ALPHA12_MASTER_SCOPE.md  
 **Hardware Cockpit:** [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md)
 
 ## Alpha.12 Test 1
 
-A `v0.3.0-alpha.12-test.1` é a primeira pré-release pública da Alpha.12. Ela foi criada para validar a nova base enquanto os módulos restantes continuam sendo incorporados e podem aparecer como **Em desenvolvimento** ou **Experimental**.
+A `v0.3.0-alpha.12-test.1` é a primeira pré-release pública da Alpha.12. Ela permite validar a nova base enquanto os módulos restantes continuam sendo incorporados e aparecem como **Em desenvolvimento** ou **Experimental**.
 
 ### Incluído nesta Alpha
 
@@ -45,15 +45,7 @@ A `v0.3.0-alpha.12-test.1` é a primeira pré-release pública da Alpha.12. Ela 
 
 ## Multiplayer
 
-O fluxo principal continua **peer-host**:
-
-1. quem cria a sala hospeda no próprio PC;
-2. porta inicial TCP `27730`;
-3. convidados entram pelo endereço do host;
-4. SignalR transporta presença, telemetria, chat, voz e estados compartilhados;
-5. servidor dedicado x64 continua opcional.
-
-A Alpha.12 adiciona salas privadas e um navegador das salas públicas anunciadas pelo servidor configurado. Salas privadas não aparecem nesse diretório.
+O fluxo principal continua **peer-host**: quem cria a sala hospeda no próprio PC pela porta TCP `27730`. O servidor dedicado x64 permanece opcional. A Alpha.12 adiciona salas privadas e um navegador das salas públicas anunciadas pelo servidor configurado; salas privadas não aparecem nesse diretório.
 
 ## Voz
 
@@ -62,26 +54,11 @@ Atalhos padrão:
 - `F9` — chat;
 - `F10` — segurar para falar.
 
-A Alpha.12 Test 1 inclui canais Geral, Empresa/Equipe, CCO e Proximidade. Também há mute, deafen, ganho individual e seleção de microfone/saída.
+A Test 1 inclui canais Geral, Empresa/Equipe, CCO e Proximidade, além de mute/deafen, ganho individual e seleção de microfone/saída.
 
 ## HUD, GPS e OMSI
 
-O HUD continua aprendendo e preservando a janela real de gameplay do OMSI e deve ficar oculto em menus, opções e janelas auxiliares. A telemetria normal permanece prioritariamente de leitura; operações físicas continuam isoladas atrás de opt-in experimental.
-
-## Hardware Cockpit
-
-Base atual:
-
-```text
-Protocolo: NAVBR_HW_V1
-Transporte: USB / Serial
-Baud rate: 115200
-Formato: JSON Lines
-Frequência: ~5 Hz
-Fluxo: OMSI -> NavBR -> Arduino/ESP32
-```
-
-Consulte [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md).
+O HUD preserva a janela real de gameplay do OMSI e deve ficar oculto em menus, opções e janelas auxiliares. A telemetria normal permanece prioritariamente de leitura; operações físicas continuam isoladas atrás de opt-in experimental.
 
 ## Pacotes da Alpha.12 Test 1
 
@@ -91,6 +68,7 @@ OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.zip
 OMSI-NavBR-Server-v0.3.0-alpha.12-test.1-win-x64.zip
 OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.1-win-x86.zip
 ALPHA12_TEST1_COMMUNITY.md
+ALPHA12_MASTER_SCOPE.md
 HARDWARE_COCKPIT.md
 SHA256SUMS.txt
 LICENSE
@@ -108,22 +86,11 @@ Para a maioria dos usuários, o **EXE standalone x86** é o pacote recomendado.
 - .NET 10 self-contained;
 - independente da Steam API/Steamworks.
 
-## Stack
-
-- .NET 10 / C# / WPF x86
-- ASP.NET Core / Kestrel / SignalR
-- NAudio + Concentus/Opus
-- Windows Named Pipes
-- System.IO.Ports / Serial
-- Native AOT
-- C++/MSVC x86 para o interop experimental
-
 ## Documentação
 
 - [Alpha.12 Test 1 — comunidade](docs/ALPHA12_TEST1_COMMUNITY.md)
-- [Escopo mestre Alpha.12](docs/ALPHA12_MASTER_SCOPE.md)
-- [Manual de uso](docs/MANUAL_DE_USO.md)
 - [Hardware Cockpit Bridge](docs/HARDWARE_COCKPIT.md)
+- [Manual de uso](docs/MANUAL_DE_USO.md)
 - [Plugin OMSI experimental](docs/OMSI_PLUGIN_EXPERIMENTAL.md)
 - [HUD e voz](docs/HUD_AND_VOICE.md)
 - [Telemetria](docs/TELEMETRY.md)
