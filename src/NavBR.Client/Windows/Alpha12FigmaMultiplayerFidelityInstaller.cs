@@ -27,28 +27,68 @@ internal static class Alpha12FigmaMultiplayerFidelityInstaller
             return;
         }
 
-        if (roomsCard.Parent is Grid bodyGrid && bodyGrid.ColumnDefinitions.Count >= 3)
+        Border? detailCard = null;
+        Grid? bodyGrid = null;
+        if (roomsCard.Parent is Grid resolvedGrid && resolvedGrid.ColumnDefinitions.Count >= 3)
         {
+            bodyGrid = resolvedGrid;
             bodyGrid.ColumnDefinitions[0].Width = new GridLength(1d, GridUnitType.Star);
             bodyGrid.ColumnDefinitions[1].Width = new GridLength(20d);
             bodyGrid.ColumnDefinitions[2].Width = new GridLength(500d);
             bodyGrid.Margin = new Thickness(0d, 16d, 0d, 0d);
+            bodyGrid.VerticalAlignment = VerticalAlignment.Stretch;
 
             StyleCard(roomsCard);
-            var detailCard = bodyGrid.Children
+            EnsureScrollableCard(roomsCard);
+            detailCard = bodyGrid.Children
                 .OfType<Border>()
                 .FirstOrDefault(border => !ReferenceEquals(border, roomsCard));
             if (detailCard is not null)
             {
                 StyleCard(detailCard);
+                EnsureScrollableCard(detailCard);
             }
         }
 
         var page = FindAncestor<ScrollViewer>(roomsBody);
+        SizeChangedEventHandler? sizeChanged = null;
         if (page?.Content is StackPanel pageStack)
         {
             StyleTabs(pageStack);
             page.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+
+            if (bodyGrid is not null)
+            {
+                void ApplySizing()
+                {
+                    var viewportHeight = page.ViewportHeight > 1d
+                        ? page.ViewportHeight
+                        : Math.Max(0d, window.ActualHeight - 150d);
+                    var targetHeight = Math.Clamp(viewportHeight - 106d, 500d, 820d);
+
+                    var viewportWidth = page.ViewportWidth > 1d
+                        ? page.ViewportWidth
+                        : Math.Max(0d, window.ActualWidth - 300d);
+                    var detailWidth = viewportWidth switch
+                    {
+                        < 880d => 340d,
+                        < 1060d => 390d,
+                        < 1280d => 440d,
+                        _ => 500d
+                    };
+
+                    bodyGrid.ColumnDefinitions[2].Width = new GridLength(detailWidth);
+                    roomsCard.Height = targetHeight;
+                    if (detailCard is not null)
+                    {
+                        detailCard.Height = targetHeight;
+                    }
+                }
+
+                sizeChanged = (_, _) => ApplySizing();
+                page.SizeChanged += sizeChanged;
+                ApplySizing();
+            }
         }
 
         // Keep the real action visually aligned with the primary button from
@@ -62,7 +102,15 @@ internal static class Alpha12FigmaMultiplayerFidelityInstaller
         window.MultiplayerButton.BorderThickness = new Thickness(1d);
         window.MultiplayerButton.FontWeight = FontWeights.SemiBold;
 
-        window.Closed += (_, _) => Installed.Remove(window);
+        window.Closed += (_, _) =>
+        {
+            if (page is not null && sizeChanged is not null)
+            {
+                page.SizeChanged -= sizeChanged;
+            }
+
+            Installed.Remove(window);
+        };
     }
 
     private static void StyleTabs(StackPanel pageStack)
@@ -101,6 +149,29 @@ internal static class Alpha12FigmaMultiplayerFidelityInstaller
                 text.FontWeight = FontWeights.SemiBold;
             }
         }
+    }
+
+    private static void EnsureScrollableCard(Border card)
+    {
+        if (card.Child is ScrollViewer)
+        {
+            return;
+        }
+
+        if (card.Child is not StackPanel body)
+        {
+            return;
+        }
+
+        card.Child = null;
+        card.Child = new ScrollViewer
+        {
+            Content = body,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            PanningMode = PanningMode.VerticalOnly,
+            Background = Brushes.Transparent
+        };
     }
 
     private static void StyleCard(Border card)
