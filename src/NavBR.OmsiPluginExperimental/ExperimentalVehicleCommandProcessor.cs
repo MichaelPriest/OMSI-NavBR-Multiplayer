@@ -27,6 +27,12 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleVisualState);
         }
 
+        if (RoleplayCharacterCommandProcessor.IsRuntimeSupported)
+        {
+            capabilities.Add(PluginBridgeProtocol.CapabilityCharacterPossession);
+            capabilities.Add(PluginBridgeProtocol.CapabilityCharacterTransform);
+        }
+
         return capabilities.ToArray();
     }
 
