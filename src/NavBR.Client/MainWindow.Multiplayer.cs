@@ -84,7 +84,8 @@ public partial class MainWindow
 
         var window = new MultiplayerWindow(
             () => _lastTelemetry,
-            GetActiveMapForMultiplayer)
+            GetActiveMapForMultiplayer,
+            _telemetryProvider.ReadRoleplayCharacterOptions)
         {
             Owner = this
         };
