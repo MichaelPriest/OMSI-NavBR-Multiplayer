@@ -100,11 +100,11 @@ internal static class DispatcherSessionFeed
         lock (Sync)
         {
             var now = DateTimeOffset.UtcNow;
-            var stale = Drivers
-                .Where(pair => now - pair.Value.ReceivedAtUtc > TimeSpan.FromSeconds(10d))
+            var expired = Drivers
+                .Where(pair => now - pair.Value.ReceivedAtUtc > TimeSpan.FromSeconds(60d))
                 .Select(pair => pair.Key)
                 .ToArray();
-            foreach (var playerId in stale)
+            foreach (var playerId in expired)
             {
                 Drivers.Remove(playerId);
             }
