@@ -6,6 +6,8 @@ namespace NavBR.Server.Hubs;
 public sealed partial class MultiplayerHub
 {
     private const double MaxRoleplayCharacterSpeedMps = 12d;
+    private const int MaxRoleplayCharacterIdLength = 512;
+    private const int MaxRoleplayCharacterNameLength = 128;
 
     public async Task PublishRoleplayCharacter(RoleplayCharacterState character)
     {
@@ -37,6 +39,14 @@ public sealed partial class MultiplayerHub
             MapCompatibilityId = mapCompatibilityId ?? presence.MapCompatibilityId,
             SpeedMps = Math.Clamp(character.SpeedMps, 0d, MaxRoleplayCharacterSpeedMps),
             IsActive = true,
+            CharacterId = NormalizeOptional(
+                character.CharacterId,
+                MaxRoleplayCharacterIdLength,
+                "roleplay character id"),
+            CharacterName = NormalizeOptional(
+                character.CharacterName,
+                MaxRoleplayCharacterNameLength,
+                "roleplay character name"),
             // Human array indexes are local OMSI implementation details and
             // must never be treated as portable identifiers across clients.
             HumanIndex = null
@@ -69,6 +79,15 @@ public sealed partial class MultiplayerHub
         {
             throw new HubException("Roleplay character contains invalid numeric values.");
         }
+
+        _ = NormalizeOptional(
+            character.CharacterId,
+            MaxRoleplayCharacterIdLength,
+            "roleplay character id");
+        _ = NormalizeOptional(
+            character.CharacterName,
+            MaxRoleplayCharacterNameLength,
+            "roleplay character name");
 
         if (Math.Abs(character.LocalX) > 100000d ||
             Math.Abs(character.LocalY) > 100000d ||
