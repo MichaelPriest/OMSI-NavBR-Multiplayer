@@ -8,6 +8,8 @@ namespace NavBR.Client.Multiplayer;
 
 internal sealed class PublicRoomBrowserWindow : Window
 {
+    private const string AllFilterKey = "__all__";
+
     private readonly string _serverUrl;
     private readonly OmsiCompatibilityManifest? _localManifest;
     private readonly PublicRoomDirectoryClient _directory = new();
@@ -21,9 +23,12 @@ internal sealed class PublicRoomBrowserWindow : Window
     private readonly Button _selectButton = new();
     private readonly TextBox _filterBox = new();
     private readonly CheckBox _favoritesOnly = new();
+    private readonly ComboBox _mapFilter = new();
+    private readonly ComboBox _navbrVersionFilter = new();
     private readonly ComboBox _compatibilityFilter = new();
     private readonly ComboBox _minimumPlayersFilter = new();
     private IReadOnlyList<PublicRoomSummary> _currentRooms = Array.Empty<PublicRoomSummary>();
+    private bool _updatingDynamicFilters;
 
     public string? SelectedRoomId { get; private set; }
     public PublicRoomSummary? SelectedRoom { get; private set; }
@@ -33,10 +38,10 @@ internal sealed class PublicRoomBrowserWindow : Window
         _serverUrl = serverUrl;
         _localManifest = localManifest;
         Title = Pick("Salas públicas", "Public rooms", "Salas públicas", "Öffentliche Räume", "Salons publics");
-        Width = 900;
-        Height = 700;
-        MinWidth = 720;
-        MinHeight = 560;
+        Width = 980;
+        Height = 720;
+        MinWidth = 760;
+        MinHeight = 580;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 10, 14);
         Foreground = Brushes.White;
@@ -76,7 +81,7 @@ internal sealed class PublicRoomBrowserWindow : Window
         });
 
         var filters = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
-        _filterBox.Width = 250;
+        _filterBox.Width = 220;
         _filterBox.Height = 34;
         _filterBox.Padding = new Thickness(9, 5, 9, 5);
         _filterBox.Background = Brush(13, 26, 36);
@@ -84,13 +89,39 @@ internal sealed class PublicRoomBrowserWindow : Window
         _filterBox.BorderBrush = Brush(35, 53, 65);
         _filterBox.BorderThickness = new Thickness(1);
         _filterBox.ToolTip = Pick(
-            "Filtrar por sala, mapa, versão, ônibus ou HOF",
-            "Filter by room, map, version, bus or HOF",
-            "Filtrar por sala, mapa, versión, autobús o HOF",
-            "Nach Raum, Karte, Version, Bus oder HOF filtern",
-            "Filtrer par salon, carte, version, bus ou HOF");
+            "Buscar por sala, mapa, versão, ônibus ou HOF",
+            "Search by room, map, version, bus or HOF",
+            "Buscar por sala, mapa, versión, autobús o HOF",
+            "Nach Raum, Karte, Version, Bus oder HOF suchen",
+            "Rechercher par salon, carte, version, bus ou HOF");
         _filterBox.TextChanged += (_, _) => RenderRooms();
         filters.Children.Add(_filterBox);
+
+        ConfigureDynamicFilter(
+            _mapFilter,
+            170,
+            Pick("Filtrar pelo mapa anunciado pela sala.", "Filter by the room's advertised map.", "Filtrar por el mapa anunciado por la sala.", "Nach der vom Raum gemeldeten Karte filtern.", "Filtrer par la carte annoncée par le salon."));
+        _mapFilter.SelectionChanged += (_, _) =>
+        {
+            if (!_updatingDynamicFilters)
+            {
+                RenderRooms();
+            }
+        };
+        filters.Children.Add(_mapFilter);
+
+        ConfigureDynamicFilter(
+            _navbrVersionFilter,
+            150,
+            Pick("Filtrar pela versão NavBR anunciada pela sala.", "Filter by the room's advertised NavBR version.", "Filtrar por la versión NavBR anunciada por la sala.", "Nach der vom Raum gemeldeten NavBR-Version filtern.", "Filtrer par la version NavBR annoncée par le salon."));
+        _navbrVersionFilter.SelectionChanged += (_, _) =>
+        {
+            if (!_updatingDynamicFilters)
+            {
+                RenderRooms();
+            }
+        };
+        filters.Children.Add(_navbrVersionFilter);
 
         _compatibilityFilter.Width = 180;
         _compatibilityFilter.Height = 34;
@@ -228,6 +259,7 @@ internal sealed class PublicRoomBrowserWindow : Window
         root.Children.Add(actions);
         Content = root;
 
+        RefreshDynamicFilterChoices();
         Loaded += async (_, _) => await RefreshAsync();
         Closed += (_, _) => _directory.Dispose();
     }
@@ -248,12 +280,14 @@ internal sealed class PublicRoomBrowserWindow : Window
         try
         {
             _currentRooms = await _directory.GetRoomsAsync(_serverUrl);
+            RefreshDynamicFilterChoices();
             RenderRooms();
             UpdateStatus();
         }
         catch (Exception ex)
         {
             _currentRooms = Array.Empty<PublicRoomSummary>();
+            RefreshDynamicFilterChoices();
             _rooms.ItemsSource = null;
             _status.Text = Pick(
                 $"Não foi possível carregar as salas públicas: {ex.Message}",
@@ -269,17 +303,73 @@ internal sealed class PublicRoomBrowserWindow : Window
         }
     }
 
+    private void RefreshDynamicFilterChoices()
+    {
+        var previousMap = _mapFilter.SelectedValue as string ?? AllFilterKey;
+        var previousVersion = _navbrVersionFilter.SelectedValue as string ?? AllFilterKey;
+
+        _updatingDynamicFilters = true;
+        try
+        {
+            var mapChoices = BuildFilterChoices(
+                _currentRooms.Select(room => room.MapName),
+                Pick("Todos os mapas", "All maps", "Todos los mapas", "Alle Karten", "Toutes les cartes"));
+            var versionChoices = BuildFilterChoices(
+                _currentRooms.Select(room => room.NavBRVersion),
+                Pick("Todas as versões", "All versions", "Todas las versiones", "Alle Versionen", "Toutes les versions"));
+
+            _mapFilter.ItemsSource = mapChoices;
+            _navbrVersionFilter.ItemsSource = versionChoices;
+            _mapFilter.SelectedValue = mapChoices.Any(choice => string.Equals(choice.Key, previousMap, StringComparison.OrdinalIgnoreCase))
+                ? previousMap
+                : AllFilterKey;
+            _navbrVersionFilter.SelectedValue = versionChoices.Any(choice => string.Equals(choice.Key, previousVersion, StringComparison.OrdinalIgnoreCase))
+                ? previousVersion
+                : AllFilterKey;
+        }
+        finally
+        {
+            _updatingDynamicFilters = false;
+        }
+    }
+
+    private static IReadOnlyList<DynamicFilterChoice> BuildFilterChoices(IEnumerable<string?> values, string allLabel)
+    {
+        var choices = new List<DynamicFilterChoice> { new(AllFilterKey, allLabel) };
+        choices.AddRange(values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase)
+            .Select(value => new DynamicFilterChoice(value, value)));
+        return choices;
+    }
+
+    private static void ConfigureDynamicFilter(ComboBox filter, double width, string toolTip)
+    {
+        filter.Width = width;
+        filter.Height = 34;
+        filter.Margin = new Thickness(10, 0, 0, 0);
+        filter.DisplayMemberPath = nameof(DynamicFilterChoice.Label);
+        filter.SelectedValuePath = nameof(DynamicFilterChoice.Key);
+        filter.ToolTip = toolTip;
+    }
+
     private void RenderRooms(string? keepSelectedRoomId = null)
     {
         keepSelectedRoomId ??= (_rooms.SelectedItem as PublicRoomListItem)?.Room.RoomId;
         var query = _filterBox.Text?.Trim();
         var favoritesOnly = _favoritesOnly.IsChecked == true;
+        var mapFilter = _mapFilter.SelectedValue as string ?? AllFilterKey;
+        var navbrVersionFilter = _navbrVersionFilter.SelectedValue as string ?? AllFilterKey;
         var compatibilityFilter = _compatibilityFilter.SelectedValue as string ?? "all";
         var minimumPlayers = _minimumPlayersFilter.SelectedValue is int value ? value : 0;
 
         var items = _currentRooms
             .Where(room => !favoritesOnly || PublicRoomFavoritesStore.IsFavorite(room.RoomId))
             .Where(room => room.PlayerCount >= minimumPlayers)
+            .Where(room => MatchesExactFilter(room.MapName, mapFilter))
+            .Where(room => MatchesExactFilter(room.NavBRVersion, navbrVersionFilter))
             .Where(room => MatchesFilter(room, query))
             .Where(room => MatchesCompatibilityFilter(room, compatibilityFilter))
             .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
@@ -339,6 +429,10 @@ internal sealed class PublicRoomBrowserWindow : Window
                Contains(room.VehiclePath, query) ||
                Contains(room.HofName, query);
     }
+
+    private static bool MatchesExactFilter(string? value, string key) =>
+        string.Equals(key, AllFilterKey, StringComparison.Ordinal) ||
+        (!string.IsNullOrWhiteSpace(value) && string.Equals(value.Trim(), key, StringComparison.CurrentCultureIgnoreCase));
 
     private bool MatchesCompatibilityFilter(PublicRoomSummary room, string key)
     {
@@ -592,6 +686,7 @@ internal sealed class PublicRoomBrowserWindow : Window
     }
 
     private sealed record PublicRoomListItem(PublicRoomSummary Room, string DisplayText);
+    private sealed record DynamicFilterChoice(string Key, string Label);
     private sealed record CompatibilityFilterChoice(string Key, string Label);
     private sealed record PlayerFilterChoice(int MinimumPlayers, string Label);
 }
