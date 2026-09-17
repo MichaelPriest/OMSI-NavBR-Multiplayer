@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Localization;
+using NavBR.Client.Windows;
 
 namespace NavBR.Client.Operations;
 
@@ -51,6 +52,12 @@ internal static class SessionHealthInstaller
                 window.GetCurrentTelemetryForAlpha11,
                 app.PluginBridge.GetConnectionInfo).ShowDialog();
         };
+
+        if (window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel system)
+        {
+            system.Children.Add(button);
+            return button;
+        }
 
         var dispatcherButton = FindButtons(window).FirstOrDefault(candidate =>
             candidate.Tag as string == "alpha12-dispatcher");
