@@ -44,8 +44,15 @@ public partial class MultiplayerWindow : Window
 
     public MultiplayerWindow(
         Func<VehicleTelemetry?> telemetrySource,
+        Func<OmsiMapInfo?> activeMapSource)
+        : this(telemetrySource, activeMapSource, null)
+    {
+    }
+
+    internal MultiplayerWindow(
+        Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource,
-        Func<IReadOnlyList<RoleplayCharacterOption>>? roleplayCharacterOptionsSource = null)
+        Func<IReadOnlyList<RoleplayCharacterOption>>? roleplayCharacterOptionsSource)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
