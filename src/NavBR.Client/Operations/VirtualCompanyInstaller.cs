@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Localization;
+using NavBR.Client.Windows;
 
 namespace NavBR.Client.Operations;
 
@@ -40,6 +41,12 @@ internal static class VirtualCompanyInstaller
         StyleButton(button);
         button.Click += (_, _) =>
             new VirtualCompanyWindow(window, window.GetCurrentTelemetryForAlpha11).ShowDialog();
+
+        if (window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operations)
+        {
+            operations.Children.Add(button);
+            return button;
+        }
 
         var driverButton = FindButtons(window).FirstOrDefault(candidate =>
             candidate.Tag as string == "alpha12-driver-profile");
