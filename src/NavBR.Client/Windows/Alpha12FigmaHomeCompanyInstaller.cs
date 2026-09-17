@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Driver;
+using NavBR.Client.Localization;
 using NavBR.Client.Network;
 using NavBR.Shared.Network;
 
@@ -42,7 +43,7 @@ internal static class Alpha12FigmaHomeCompanyInstaller
 
         var name = new TextBlock
         {
-            Text = "Sem empresa",
+            Text = T("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise"),
             Foreground = Brushes.White,
             FontSize = 17d,
             FontWeight = FontWeights.SemiBold,
@@ -51,7 +52,7 @@ internal static class Alpha12FigmaHomeCompanyInstaller
         };
         var detail = new TextBlock
         {
-            Text = "Nenhuma Company Network vinculada",
+            Text = T("Nenhuma Company Network vinculada", "No Company Network linked", "Ninguna Company Network vinculada", "Kein Company Network verknüpft", "Aucun Company Network lié"),
             Foreground = Brush(151, 171, 185),
             FontSize = 12d,
             Margin = new Thickness(0d, 9d, 0d, 0d),
@@ -71,8 +72,8 @@ internal static class Alpha12FigmaHomeCompanyInstaller
             {
                 name.Text = membership.CompanyName;
                 detail.Text = runtime.CompanyNode.IsRunning
-                    ? $"{RoleText(membership.Role)} • Company Node online neste PC"
-                    : $"{RoleText(membership.Role)} • vínculo Company Network";
+                    ? $"{RoleText(membership.Role)} • {T("Company Node online neste PC", "Company Node online on this PC", "Company Node online en este PC", "Company Node auf diesem PC online", "Company Node en ligne sur ce PC")}"
+                    : $"{RoleText(membership.Role)} • {T("vínculo Company Network", "Company Network membership", "vínculo Company Network", "Company-Network-Verknüpfung", "liaison Company Network")}";
                 detail.Foreground = runtime.CompanyNode.IsRunning
                     ? Brush(56, 201, 140)
                     : Brush(151, 171, 185);
@@ -83,8 +84,8 @@ internal static class Alpha12FigmaHomeCompanyInstaller
             {
                 name.Text = hosted.Name;
                 detail.Text = runtime.CompanyNode.IsRunning
-                    ? "Presidente • Company Node online neste PC"
-                    : "Presidente • Company Node offline";
+                    ? $"{T("Presidente", "President", "Presidente", "Präsident", "Président")} • {T("Company Node online neste PC", "Company Node online on this PC", "Company Node online en este PC", "Company Node auf diesem PC online", "Company Node en ligne sur ce PC")}"
+                    : $"{T("Presidente", "President", "Presidente", "Präsident", "Président")} • Company Node offline";
                 detail.Foreground = runtime.CompanyNode.IsRunning
                     ? Brush(56, 201, 140)
                     : Brush(242, 184, 75);
@@ -92,11 +93,11 @@ internal static class Alpha12FigmaHomeCompanyInstaller
             }
 
             name.Text = string.IsNullOrWhiteSpace(profile.CompanyName)
-                ? "Sem empresa"
+                ? T("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise")
                 : profile.CompanyName;
             detail.Text = string.IsNullOrWhiteSpace(profile.CompanyName)
-                ? "Nenhuma Company Network vinculada"
-                : "Empresa do perfil local • sem Company Network";
+                ? T("Nenhuma Company Network vinculada", "No Company Network linked", "Ninguna Company Network vinculada", "Kein Company Network verknüpft", "Aucun Company Network lié")
+                : T("Empresa do perfil local • sem Company Network", "Local profile company • no Company Network", "Empresa del perfil local • sin Company Network", "Unternehmen aus lokalem Profil • kein Company Network", "Entreprise du profil local • sans Company Network");
             detail.Foreground = Brush(151, 171, 185);
         }
 
@@ -114,16 +115,26 @@ internal static class Alpha12FigmaHomeCompanyInstaller
 
     private static string RoleText(CompanyRole role) => role switch
     {
-        CompanyRole.President => "Presidente",
-        CompanyRole.VicePresident => "Vice-Presidente",
-        CompanyRole.Director => "Diretoria",
-        CompanyRole.OperationsManager => "Gerente Operacional",
+        CompanyRole.President => T("Presidente", "President", "Presidente", "Präsident", "Président"),
+        CompanyRole.VicePresident => T("Vice-Presidente", "Vice President", "Vicepresidente", "Vizepräsident", "Vice-président"),
+        CompanyRole.Director => T("Diretoria", "Director", "Dirección", "Direktion", "Direction"),
+        CompanyRole.OperationsManager => T("Gerente Operacional", "Operations Manager", "Gerente Operacional", "Betriebsleiter", "Responsable des opérations"),
         CompanyRole.Dispatcher => "CCO / Dispatcher",
-        CompanyRole.Supervisor => "Fiscal / Supervisor",
-        CompanyRole.SeniorDriver => "Motorista Sênior",
-        CompanyRole.Driver => "Motorista",
-        _ => "Aprendiz"
+        CompanyRole.Supervisor => T("Fiscal / Supervisor", "Supervisor", "Fiscal / Supervisor", "Aufsicht", "Superviseur"),
+        CompanyRole.SeniorDriver => T("Motorista Sênior", "Senior Driver", "Conductor Sénior", "Senior-Fahrer", "Conducteur senior"),
+        CompanyRole.Driver => T("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur"),
+        _ => T("Aprendiz", "Trainee", "Aprendiz", "Auszubildender", "Apprenti")
     };
+
+    private static string T(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static IEnumerable<T> Enumerate<T>(DependencyObject root) where T : DependencyObject
     {
