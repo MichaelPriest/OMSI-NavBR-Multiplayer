@@ -23,6 +23,13 @@
                 Background="#01000000"
                 Visibility="{Binding ElementName=ChatInputPanel, Path=Visibility}" />
 
+        <Canvas x:Name="RemotePlayerNameCanvas"
+                Panel.ZIndex="600"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="False"
+                ClipToBounds="True" />
+
         <StackPanel x:Name="HudDock"
                     Panel.ZIndex="1000"
                     HorizontalAlignment="Left"
