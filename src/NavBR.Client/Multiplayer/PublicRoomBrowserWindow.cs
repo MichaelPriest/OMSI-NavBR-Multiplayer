@@ -21,6 +21,8 @@ internal sealed class PublicRoomBrowserWindow : Window
     private readonly Button _selectButton = new();
     private readonly TextBox _filterBox = new();
     private readonly CheckBox _favoritesOnly = new();
+    private readonly ComboBox _compatibilityFilter = new();
+    private readonly ComboBox _minimumPlayersFilter = new();
     private IReadOnlyList<PublicRoomSummary> _currentRooms = Array.Empty<PublicRoomSummary>();
 
     public string? SelectedRoomId { get; private set; }
@@ -31,10 +33,10 @@ internal sealed class PublicRoomBrowserWindow : Window
         _serverUrl = serverUrl;
         _localManifest = localManifest;
         Title = Pick("Salas públicas", "Public rooms", "Salas públicas", "Öffentliche Räume", "Salons publics");
-        Width = 820;
-        Height = 660;
-        MinWidth = 660;
-        MinHeight = 520;
+        Width = 900;
+        Height = 700;
+        MinWidth = 720;
+        MinHeight = 560;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 10, 14);
         Foreground = Brushes.White;
@@ -74,7 +76,7 @@ internal sealed class PublicRoomBrowserWindow : Window
         });
 
         var filters = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
-        _filterBox.Width = 280;
+        _filterBox.Width = 250;
         _filterBox.Height = 34;
         _filterBox.Padding = new Thickness(9, 5, 9, 5);
         _filterBox.Background = Brush(13, 26, 36);
@@ -89,6 +91,49 @@ internal sealed class PublicRoomBrowserWindow : Window
             "Filtrer par salon, carte, version, bus ou HOF");
         _filterBox.TextChanged += (_, _) => RenderRooms();
         filters.Children.Add(_filterBox);
+
+        _compatibilityFilter.Width = 180;
+        _compatibilityFilter.Height = 34;
+        _compatibilityFilter.Margin = new Thickness(10, 0, 0, 0);
+        _compatibilityFilter.ItemsSource = new[]
+        {
+            new CompatibilityFilterChoice("all", Pick("Toda compatibilidade", "Any compatibility", "Toda compatibilidad", "Alle Kompatibilität", "Toute compatibilité")),
+            new CompatibilityFilterChoice("compatible", Pick("Somente compatíveis", "Compatible only", "Solo compatibles", "Nur kompatibel", "Compatibles uniquement")),
+            new CompatibilityFilterChoice("joinable", Pick("Compatíveis / parciais", "Compatible / partial", "Compatibles / parciales", "Kompatibel / teilweise", "Compatibles / partiels")),
+            new CompatibilityFilterChoice("blocked", Pick("Somente bloqueadas", "Blocked only", "Solo bloqueadas", "Nur gesperrt", "Bloqués uniquement"))
+        };
+        _compatibilityFilter.DisplayMemberPath = nameof(CompatibilityFilterChoice.Label);
+        _compatibilityFilter.SelectedValuePath = nameof(CompatibilityFilterChoice.Key);
+        _compatibilityFilter.SelectedValue = "all";
+        _compatibilityFilter.IsEnabled = _localManifest is not null;
+        _compatibilityFilter.ToolTip = _localManifest is null
+            ? Pick(
+                "Carregue uma configuração local para filtrar por compatibilidade.",
+                "Load a local setup to filter by compatibility.",
+                "Carga una configuración local para filtrar por compatibilidad.",
+                "Lade eine lokale Konfiguration, um nach Kompatibilität zu filtern.",
+                "Chargez une configuration locale pour filtrer par compatibilité.")
+            : null;
+        _compatibilityFilter.SelectionChanged += (_, _) => RenderRooms();
+        filters.Children.Add(_compatibilityFilter);
+
+        _minimumPlayersFilter.Width = 140;
+        _minimumPlayersFilter.Height = 34;
+        _minimumPlayersFilter.Margin = new Thickness(10, 0, 0, 0);
+        _minimumPlayersFilter.ItemsSource = new[]
+        {
+            new PlayerFilterChoice(0, Pick("Qualquer lotação", "Any players", "Cualquier cantidad", "Beliebige Spielerzahl", "Tout nombre")),
+            new PlayerFilterChoice(1, Pick("1+ jogador", "1+ player", "1+ jugador", "1+ Spieler", "1+ joueur")),
+            new PlayerFilterChoice(2, Pick("2+ jogadores", "2+ players", "2+ jugadores", "2+ Spieler", "2+ joueurs")),
+            new PlayerFilterChoice(4, Pick("4+ jogadores", "4+ players", "4+ jugadores", "4+ Spieler", "4+ joueurs")),
+            new PlayerFilterChoice(8, Pick("8+ jogadores", "8+ players", "8+ jugadores", "8+ Spieler", "8+ joueurs")),
+            new PlayerFilterChoice(16, Pick("16+ jogadores", "16+ players", "16+ jugadores", "16+ Spieler", "16+ joueurs"))
+        };
+        _minimumPlayersFilter.DisplayMemberPath = nameof(PlayerFilterChoice.Label);
+        _minimumPlayersFilter.SelectedValuePath = nameof(PlayerFilterChoice.MinimumPlayers);
+        _minimumPlayersFilter.SelectedValue = 0;
+        _minimumPlayersFilter.SelectionChanged += (_, _) => RenderRooms();
+        filters.Children.Add(_minimumPlayersFilter);
 
         _favoritesOnly.Content = Pick(
             "Somente favoritos",
@@ -229,9 +274,14 @@ internal sealed class PublicRoomBrowserWindow : Window
         keepSelectedRoomId ??= (_rooms.SelectedItem as PublicRoomListItem)?.Room.RoomId;
         var query = _filterBox.Text?.Trim();
         var favoritesOnly = _favoritesOnly.IsChecked == true;
+        var compatibilityFilter = _compatibilityFilter.SelectedValue as string ?? "all";
+        var minimumPlayers = _minimumPlayersFilter.SelectedValue is int value ? value : 0;
+
         var items = _currentRooms
             .Where(room => !favoritesOnly || PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+            .Where(room => room.PlayerCount >= minimumPlayers)
             .Where(room => MatchesFilter(room, query))
+            .Where(room => MatchesCompatibilityFilter(room, compatibilityFilter))
             .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
             .ThenByDescending(room => room.PlayerCount)
             .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
@@ -266,7 +316,7 @@ internal sealed class PublicRoomBrowserWindow : Window
             return;
         }
 
-        var shown = visibleCount ?? (_rooms.Items.Count);
+        var shown = visibleCount ?? _rooms.Items.Count;
         _status.Text = Pick(
             $"{shown} de {_currentRooms.Count} sala(s) exibida(s) • favoritos locais: {PublicRoomFavoritesStore.Count}.",
             $"{shown} of {_currentRooms.Count} public room(s) shown • local favorites: {PublicRoomFavoritesStore.Count}.",
@@ -288,6 +338,46 @@ internal sealed class PublicRoomBrowserWindow : Window
                Contains(room.NavBRVersion, query) ||
                Contains(room.VehiclePath, query) ||
                Contains(room.HofName, query);
+    }
+
+    private bool MatchesCompatibilityFilter(PublicRoomSummary room, string key)
+    {
+        if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase) || _localManifest is null)
+        {
+            return true;
+        }
+
+        var level = EvaluateCompatibility(room);
+        return key switch
+        {
+            "compatible" => level == RoomCompatibilityLevel.Compatible,
+            "joinable" => level is RoomCompatibilityLevel.Compatible or RoomCompatibilityLevel.Warning,
+            "blocked" => level == RoomCompatibilityLevel.Blocked,
+            _ => true
+        };
+    }
+
+    private RoomCompatibilityLevel EvaluateCompatibility(PublicRoomSummary room)
+    {
+        if (!HasRequiredMap(room))
+        {
+            return RoomCompatibilityLevel.Blocked;
+        }
+        if (_localManifest is null)
+        {
+            return RoomCompatibilityLevel.Unknown;
+        }
+
+        var report = OmsiCompatibilityEvaluator.Compare(_localManifest, ToManifest(room));
+        if (report.HasBlockingIssues)
+        {
+            return RoomCompatibilityLevel.Blocked;
+        }
+        if (report.Issues.Any(issue => issue.Severity == CompatibilityIssueSeverity.Warning))
+        {
+            return RoomCompatibilityLevel.Warning;
+        }
+        return RoomCompatibilityLevel.Compatible;
     }
 
     private static bool Contains(string? value, string query) =>
@@ -417,19 +507,7 @@ internal sealed class PublicRoomBrowserWindow : Window
                 Brush(240, 194, 105));
         }
 
-        var remote = new OmsiCompatibilityManifest(
-            room.OmsiVersion,
-            room.NavBRVersion,
-            room.MapName,
-            room.MapCompatibilityId,
-            room.VehiclePath,
-            room.VehicleCompatibilityId,
-            room.HofName,
-            room.HofCompatibilityId,
-            room.PluginProtocolVersion,
-            null,
-            null);
-        var report = OmsiCompatibilityEvaluator.Compare(_localManifest, remote);
+        var report = OmsiCompatibilityEvaluator.Compare(_localManifest, ToManifest(room));
 
         if (report.HasBlockingIssues)
         {
@@ -465,6 +543,19 @@ internal sealed class PublicRoomBrowserWindow : Window
             Brush(110, 216, 153));
     }
 
+    private static OmsiCompatibilityManifest ToManifest(PublicRoomSummary room) => new(
+        room.OmsiVersion,
+        room.NavBRVersion,
+        room.MapName,
+        room.MapCompatibilityId,
+        room.VehiclePath,
+        room.VehicleCompatibilityId,
+        room.HofName,
+        room.HofCompatibilityId,
+        room.PluginProtocolVersion,
+        null,
+        null);
+
     private static string ValueOrNotReported(string? value) => string.IsNullOrWhiteSpace(value)
         ? Pick("não informado", "not reported", "no informado", "nicht gemeldet", "non indiqué")
         : value.Trim();
@@ -492,5 +583,15 @@ internal sealed class PublicRoomBrowserWindow : Window
             _ => en
         };
 
+    private enum RoomCompatibilityLevel
+    {
+        Unknown,
+        Compatible,
+        Warning,
+        Blocked
+    }
+
     private sealed record PublicRoomListItem(PublicRoomSummary Room, string DisplayText);
+    private sealed record CompatibilityFilterChoice(string Key, string Label);
+    private sealed record PlayerFilterChoice(int MinimumPlayers, string Label);
 }
