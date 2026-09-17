@@ -153,6 +153,7 @@ public partial class App : Application
             Alpha12NavigationPolishInstaller.Install(mainWindow);
             Alpha12FigmaNavigationModeInstaller.Install(mainWindow);
             Alpha12FigmaLiveDataInstaller.Install(mainWindow);
+            Alpha12FigmaMultiplayerFidelityInstaller.Install(mainWindow);
             Alpha12FigmaOrderedStopsInstaller.Install(mainWindow);
             Alpha12FigmaHomeCompanyInstaller.Install(mainWindow);
             Alpha12FigmaHomeMultiplayerInstaller.Install(mainWindow);
