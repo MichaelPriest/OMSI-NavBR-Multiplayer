@@ -64,27 +64,33 @@ public partial class MultiplayerWindow
             return;
         }
 
-        var browser = new PublicRoomBrowserWindow(serverUrl)
+        var localManifest = OmsiCompatibilityManifestFactory.Create(
+            _telemetrySource(),
+            _activeMapSource());
+        var browser = new PublicRoomBrowserWindow(serverUrl, localManifest)
         {
             Owner = this
         };
 
-        if (browser.ShowDialog() != true || string.IsNullOrWhiteSpace(browser.SelectedRoomId))
+        if (browser.ShowDialog() != true ||
+            string.IsNullOrWhiteSpace(browser.SelectedRoomId) ||
+            browser.SelectedRoom is null)
         {
             return;
         }
 
-        RoomTextBox.Text = browser.SelectedRoomId;
+        var selectedRoom = browser.SelectedRoom;
+        RoomTextBox.Text = selectedRoom.RoomId;
         PrivateRoomCheckBox.IsChecked = false;
         RoomPasswordBox.Password = string.Empty;
         _settings = _settings with
         {
-            RoomId = browser.SelectedRoomId,
+            RoomId = selectedRoom.RoomId,
             EphemeralRoomPassword = null,
             EphemeralCreatePrivateRoom = false
         };
         RoomPrivacyStateText.Text = RoomPrivacyText.DraftPublic;
-        StatusDetailText.Text = PublicRoomSelectedText(browser.SelectedRoomId);
+        StatusDetailText.Text = PublicRoomSelectedText(selectedRoom.RoomId, selectedRoom.MapName);
     }
 
     private static string PublicRoomsButtonText() =>
@@ -100,20 +106,23 @@ public partial class MultiplayerWindow
     private static string PublicRoomsToolTipText() =>
         LocalizationService.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
         {
-            "pt" => "Procurar salas públicas disponíveis no servidor configurado.",
-            "es" => "Buscar salas públicas disponibles en el servidor configurado.",
-            "de" => "Öffentliche Räume auf dem konfigurierten Server suchen.",
-            "fr" => "Rechercher les salons publics disponibles sur le serveur configuré.",
-            _ => "Browse public rooms available on the configured server."
+            "pt" => "Procurar salas públicas e conferir o mapa obrigatório antes de entrar.",
+            "es" => "Buscar salas públicas y comprobar el mapa obligatorio antes de entrar.",
+            "de" => "Öffentliche Räume suchen und die erforderliche Karte vor dem Beitritt prüfen.",
+            "fr" => "Rechercher les salons publics et vérifier la carte requise avant de rejoindre.",
+            _ => "Browse public rooms and check the required map before joining."
         };
 
-    private static string PublicRoomSelectedText(string roomId) =>
-        LocalizationService.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
+    private static string PublicRoomSelectedText(string roomId, string? mapName)
+    {
+        var map = string.IsNullOrWhiteSpace(mapName) ? "—" : mapName.Trim();
+        return LocalizationService.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
         {
-            "pt" => $"Sala pública selecionada: {roomId}. Confirme seu nome e entre na sala.",
-            "es" => $"Sala pública seleccionada: {roomId}. Confirma tu nombre y entra en la sala.",
-            "de" => $"Öffentlicher Raum ausgewählt: {roomId}. Namen prüfen und Raum beitreten.",
-            "fr" => $"Salon public sélectionné : {roomId}. Vérifiez votre nom puis rejoignez la salle.",
-            _ => $"Public room selected: {roomId}. Confirm your name and join the room."
+            "pt" => $"Sala pública selecionada: {roomId} • Mapa obrigatório: {map}. Carregue esse mapa no OMSI antes de conectar.",
+            "es" => $"Sala pública seleccionada: {roomId} • Mapa obligatorio: {map}. Carga ese mapa en OMSI antes de conectar.",
+            "de" => $"Öffentlicher Raum ausgewählt: {roomId} • Erforderliche Karte: {map}. Lade diese Karte in OMSI, bevor du verbindest.",
+            "fr" => $"Salon public sélectionné : {roomId} • Carte requise : {map}. Chargez cette carte dans OMSI avant la connexion.",
+            _ => $"Public room selected: {roomId} • Required map: {map}. Load this map in OMSI before connecting."
         };
+    }
 }

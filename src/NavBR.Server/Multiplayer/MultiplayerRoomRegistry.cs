@@ -80,19 +80,32 @@ public sealed class MultiplayerRoomRegistry
                 continue;
             }
 
-            var mapName = players
-                .Select(player => NormalizeOptional(player.MapName))
-                .FirstOrDefault(value => value is not null);
-            var mapCompatibilityId = players
-                .Select(player => NormalizeOptional(player.MapCompatibilityId))
-                .FirstOrDefault(value => value is not null);
+            var authorityPlayerId = GetTrafficAuthorityPlayerId(roomId);
+            var authority = players.FirstOrDefault(player =>
+                string.Equals(player.PlayerId, authorityPlayerId, StringComparison.OrdinalIgnoreCase));
+            var requirements = authority?.Compatibility ??
+                               players.Select(player => player.Compatibility).FirstOrDefault(value => value is not null);
+
+            var mapName = NormalizeOptional(requirements?.MapName) ??
+                          NormalizeOptional(authority?.MapName) ??
+                          players.Select(player => NormalizeOptional(player.MapName)).FirstOrDefault(value => value is not null);
+            var mapCompatibilityId = NormalizeOptional(requirements?.MapCompatibilityId) ??
+                                     NormalizeOptional(authority?.MapCompatibilityId) ??
+                                     players.Select(player => NormalizeOptional(player.MapCompatibilityId)).FirstOrDefault(value => value is not null);
 
             rooms.Add(new PublicRoomSummary(
-                roomId,
-                players.Count,
-                mapName,
-                mapCompatibilityId,
-                now));
+                RoomId: roomId,
+                PlayerCount: players.Count,
+                MapName: mapName,
+                MapCompatibilityId: mapCompatibilityId,
+                UpdatedAtUtc: now,
+                OmsiVersion: NormalizeOptional(requirements?.OmsiVersion),
+                NavBRVersion: NormalizeOptional(requirements?.NavBRVersion),
+                VehiclePath: NormalizeOptional(requirements?.VehiclePath),
+                VehicleCompatibilityId: NormalizeOptional(requirements?.VehicleCompatibilityId),
+                HofName: NormalizeOptional(requirements?.HofName),
+                HofCompatibilityId: NormalizeOptional(requirements?.HofCompatibilityId),
+                PluginProtocolVersion: requirements?.PluginProtocolVersion ?? 0));
         }
 
         return rooms;
