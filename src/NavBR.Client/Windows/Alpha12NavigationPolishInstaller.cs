@@ -15,6 +15,24 @@ internal static class Alpha12NavigationPolishInstaller
             return;
         }
 
+        // The professional Alpha.12 shell already owns the information
+        // architecture (DIRIGIR / OPERAÇÃO / SISTEMA / AVANÇADO). Do not
+        // re-parent its buttons: older polish logic used to flatten CCO,
+        // profile, company, hardware and settings beside Multiplayer, which
+        // conflicts with the approved Figma navigation model.
+        var hasProfessionalShell =
+            window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel &&
+            window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel;
+
+        if (hasProfessionalShell)
+        {
+            HideNextVersionLabel(window);
+            Alpha12Navigation3DInstaller.Install(window);
+            window.Closed += (_, _) => Installed.Remove(window);
+            return;
+        }
+
+        // Legacy fallback kept for older/alternate shells.
         var buttons = Enumerate<Button>(window).ToArray();
         var home = FindByTagOrPrefix(buttons, "alpha12-text:Home", "⌂");
         var multiplayer = FindByTagOrPrefix(buttons, "alpha12-text:MultiplayerMenu", "●");
@@ -28,13 +46,13 @@ internal static class Alpha12NavigationPolishInstaller
 
         if (home?.Parent is not Panel mainPanel || multiplayer is null)
         {
+            Alpha12Navigation3DInstaller.Install(window);
+            window.Closed += (_, _) => Installed.Remove(window);
             return;
         }
 
         var advancedPanel = diagnostics?.Parent as Panel;
 
-        // The public Alpha.12 shell should read like an operations console, not
-        // a developer toolbox. Keep the everyday destinations together.
         var dailyButtons = new[]
         {
             dispatcher,
@@ -57,8 +75,6 @@ internal static class Alpha12NavigationPolishInstaller
             mainPanel.Children.Insert(Math.Min(insertIndex++, mainPanel.Children.Count), button);
         }
 
-        // Alpha.12 feature catalog remains available, but becomes an advanced
-        // destination instead of competing with driving/operations screens.
         if (features is not null && advancedPanel is not null)
         {
             Detach(features);
@@ -67,10 +83,7 @@ internal static class Alpha12NavigationPolishInstaller
             HideNextVersionLabel(window);
         }
 
-        // Navigation owns the 2D/3D experience. Install the 3D entry point only
-        // after the shell has finished moving the original navigation card.
         Alpha12Navigation3DInstaller.Install(window);
-
         window.Closed += (_, _) => Installed.Remove(window);
     }
 
