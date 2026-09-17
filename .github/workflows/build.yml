@@ -18,9 +18,49 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
       - name: Generate compact NavBR app icon
         shell: pwsh
         run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and site JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          node --check site/app.js
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetAbiVersion",
+            "NavBR_GetStateInteropVersion",
+            "NavBR_GetRoadVehicleCount",
+            "NavBR_GetRoadVehicleAt",
+            "NavBR_IsRoadVehiclePointer",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetVehicleVisualState",
+            "NavBR_MarkVehicleForKilling"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing native OMSI interop export: $expected"
+            }
+          }
 
       - name: Restore projects
         shell: pwsh
@@ -48,8 +88,12 @@ jobs:
             -p:NativeLib=Shared `
             -o artifacts/NavBR.OmsiPlugin.Experimental
 
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" `
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll" -Force
+
           foreach ($required in @(
             "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll",
             "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl",
             "artifacts/NavBR.OmsiPlugin.Experimental/Install-NavBROmsiPlugin.ps1",
             "artifacts/NavBR.OmsiPlugin.Experimental/Remove-NavBROmsiPlugin.ps1"
@@ -62,25 +106,20 @@ jobs:
       - name: Validate Native AOT x86 DLL and OMSI exports
         shell: pwsh
         run: |
+          foreach ($candidate in @(
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll"
+          )) {
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $candidate).Path)
+            if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "$candidate is not PE/MZ." }
+            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+            if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "$candidate has invalid PE signature." }
+            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+            if ($machine -ne 0x014C) { throw ("$candidate must be x86/I386; machine=0x{0:X4}" -f $machine) }
+          }
+
           $dll = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
-
-          $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
-          if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "Plugin is not PE/MZ." }
-          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
-          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "Plugin has invalid PE signature." }
-          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
-          if ($machine -ne 0x014C) { throw ("Plugin must be x86/I386; machine=0x{0:X4}" -f $machine) }
-
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
-          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
-          if (-not $vsRoot) { throw "Visual Studio VC tools not found for export validation." }
-          $dumpbin = Get-ChildItem (Join-Path $vsRoot "VC/Tools/MSVC") -Recurse -Filter dumpbin.exe |
-            Where-Object { $_.FullName -match 'Hostx64\\x86\\dumpbin\.exe$' } |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-          if (-not $dumpbin) { throw "dumpbin.exe x86 not found." }
-
-          $exports = (& $dumpbin.FullName /nologo /exports $dll.Path) -join "`n"
+          $exports = (& dumpbin /nologo /exports $dll.Path) -join "`n"
           foreach ($name in @(
             'PluginStart',
             'PluginFinalize',
@@ -94,7 +133,7 @@ jobs:
             }
           }
 
-          Write-Host "Native AOT plugin validated: x86 + all OMSI exports."
+          Write-Host "Native AOT plugin and interop validated: x86 + required exports."
 
       - name: Smoke-test Native AOT plugin install and removal without .NET x86
         shell: pwsh
@@ -115,6 +154,7 @@ jobs:
           foreach ($installed in @(
             $manifest,
             (Join-Path $plugins "NavBR.OmsiPlugin.dll"),
+            (Join-Path $plugins "NavBR.OmsiInterop.dll"),
             (Join-Path $plugins "NavBR.OmsiPlugin.opl")
           )) {
             if (-not (Test-Path $installed)) { throw "Native AOT installer did not create: $installed" }
@@ -132,6 +172,7 @@ jobs:
           foreach ($removed in @(
             $manifest,
             (Join-Path $plugins "NavBR.OmsiPlugin.dll"),
+            (Join-Path $plugins "NavBR.OmsiInterop.dll"),
             (Join-Path $plugins "NavBR.OmsiPlugin.opl")
           )) {
             if (Test-Path $removed) { throw "Plugin remover left file behind: $removed" }
