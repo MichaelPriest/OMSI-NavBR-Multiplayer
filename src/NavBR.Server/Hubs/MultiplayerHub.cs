@@ -5,7 +5,7 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Server.Hubs;
 
-public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
+public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 {
     private const int MaxChatLength = 280;
     private const int MaxVoicePayloadBytes = 1500;
