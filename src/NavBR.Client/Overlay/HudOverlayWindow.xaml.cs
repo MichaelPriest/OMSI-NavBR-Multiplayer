@@ -130,6 +130,7 @@ public partial class HudOverlayWindow : Window
             MiniMapCanvas.Children.Remove(marker);
         }
 
+        RemoveRemoteNameplate(playerId);
         RenderVoiceState();
     }
 
@@ -144,6 +145,7 @@ public partial class HudOverlayWindow : Window
         }
 
         _remoteMarkers.Clear();
+        ClearRemoteNameplates();
         RenderVoiceState();
     }
 
