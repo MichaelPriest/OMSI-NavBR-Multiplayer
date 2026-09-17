@@ -48,6 +48,7 @@ public static class PluginExports
     {
         try
         {
+            RoleplayCharacterBackend.ReleaseAllBestEffort();
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
