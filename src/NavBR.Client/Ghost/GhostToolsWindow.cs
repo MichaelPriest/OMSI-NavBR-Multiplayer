@@ -22,6 +22,7 @@ internal sealed class GhostToolsWindow : Window
     private readonly Button _compareButton;
     private readonly Button _playButton;
     private readonly Button _exportButton;
+    private readonly Button _libraryButton;
     private readonly ComboBox _speedCombo;
     private readonly CheckBox _loopCheck;
 
@@ -29,10 +30,10 @@ internal sealed class GhostToolsWindow : Window
     {
         _telemetrySource = telemetrySource;
         Title = "NavBR Ghost / Replay — Alpha.12";
-        Width = 900d;
-        Height = 620d;
-        MinWidth = 740d;
-        MinHeight = 540d;
+        Width = 920d;
+        Height = 630d;
+        MinWidth = 760d;
+        MinHeight = 550d;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 16, 26);
         Foreground = Brush(218, 230, 238);
@@ -45,6 +46,7 @@ internal sealed class GhostToolsWindow : Window
         _compareButton = CreateButton("Comparar replays", Compare_Click, primary: false);
         _playButton = CreateButton("Reproduzir Ghost 3D", Play_Click, primary: true);
         _exportButton = CreateButton("Exportar cópia", ExportCopy_Click, primary: false);
+        _libraryButton = CreateButton("Biblioteca de Replays", Library_Click, primary: false);
 
         _speedCombo = new ComboBox
         {
@@ -104,7 +106,7 @@ internal sealed class GhostToolsWindow : Window
         });
         headingText.Children.Add(new TextBlock
         {
-            Text = "Grave a telemetria real da sua viagem, analise e compare replays localmente ou reproduza pelo bridge físico experimental.",
+            Text = "Grave a telemetria real da sua viagem, organize, analise e compare replays localmente ou reproduza pelo bridge físico experimental.",
             Margin = new Thickness(0d, 5d, 18d, 0d),
             Foreground = Brush(151, 171, 185),
             FontSize = 12d,
@@ -142,7 +144,7 @@ internal sealed class GhostToolsWindow : Window
             Margin = new Thickness(0d, 0d, 0d, 16d),
             Child = new TextBlock
             {
-                Text = "Gravação, análise, comparação e exportação são locais. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
+                Text = "Gravação, biblioteca, análise, comparação e exportação são locais. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brush(242, 184, 75),
                 FontSize = 11.5d
@@ -164,6 +166,7 @@ internal sealed class GhostToolsWindow : Window
         var actions = new WrapPanel();
         actions.Children.Add(_recordButton);
         actions.Children.Add(_stopButton);
+        actions.Children.Add(_libraryButton);
         actions.Children.Add(_previewButton);
         actions.Children.Add(_compareButton);
         actions.Children.Add(_playButton);
@@ -244,6 +247,14 @@ internal sealed class GhostToolsWindow : Window
         };
         button.Click += handler;
         return button;
+    }
+
+    private void Library_Click(object sender, RoutedEventArgs e)
+    {
+        new GhostReplayLibraryWindow
+        {
+            Owner = this
+        }.ShowDialog();
     }
 
     private void Record_Click(object sender, RoutedEventArgs e)
@@ -499,6 +510,7 @@ internal sealed class GhostToolsWindow : Window
     {
         _recordButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _stopButton.IsEnabled = _recorder.IsRecording;
+        _libraryButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _previewButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _compareButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _playButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
