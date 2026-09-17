@@ -28,6 +28,9 @@ public static class PluginBridgeProtocol
     public const string SpawnGhostVehicle = "spawn-ghost-vehicle";
     public const string UpdateGhostVehicle = "update-ghost-vehicle";
     public const string DespawnGhostVehicle = "despawn-ghost-vehicle";
+    public const string AcquireRoleplayCharacter = "acquire-roleplay-character";
+    public const string UpdateRoleplayCharacter = "update-roleplay-character";
+    public const string ReleaseRoleplayCharacter = "release-roleplay-character";
     public const string CommandResult = "command-result";
 
     public const string CapabilityAdvancedTelemetry = "advanced-telemetry";
@@ -37,6 +40,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityTimetableState = "timetable-state";
     public const string CapabilityTrafficSync = "traffic-sync";
+    public const string CapabilityCharacterPossession = "character-possession";
+    public const string CapabilityCharacterTransform = "character-transform";
 }
 
 public sealed record PluginBridgeMessage(
@@ -102,6 +107,11 @@ public sealed record PluginBridgeMessage(
     double? RotationY = null,
     double? RotationZ = null,
     double? RotationW = null,
+    string? CharacterInstanceId = null,
+    int? CharacterHumanIndex = null,
+    string? CharacterActivity = null,
+    double? SpeedMps = null,
+    bool? CharacterActive = null,
     string? AuthorityPlayerId = null,
     long? Sequence = null,
     TrafficVehicleState[]? TrafficVehicles = null);
