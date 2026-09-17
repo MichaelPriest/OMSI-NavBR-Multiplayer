@@ -31,6 +31,24 @@ O primeiro marco da Alpha.13 é permitir que dois ou mais jogadores na mesma ses
 - ✅ Central Multiplayer usa o mesmo formato/tamanho de marcador para host e remotos, diferenciando somente a cor;
 - ✅ manifesto físico local é atualizado a partir da telemetria real publicada, acompanhando mapa, ônibus e HOF sem exigir reconexão.
 
+### Modo Personagem / RP experimental
+
+- ✅ disponível também no modo normal/single-player; multiplayer não é requisito;
+- ✅ entrada própria **Personagem / RP** em DIRIGIR e ação rápida na Home;
+- ✅ após o mapa carregar, o NavBR lê somente a lista real `Drivers` exposta pelo mapa do OMSI;
+- ✅ seletor de personagem é liberado apenas com mapa carregado e opções reais disponíveis;
+- ✅ quando o RP já estiver habilitado, o seletor pode abrir automaticamente uma vez por mapa até o jogador escolher;
+- ✅ a seleção é compartilhada entre modo normal e Central Multiplayer;
+- ✅ ponteiro da definição do personagem é usado somente na sessão local e nunca é persistido nem enviado pela rede;
+- ✅ backend experimental exige que o personagem escolhido corresponda ao motorista humano real vinculado ao ônibus do jogador;
+- ✅ ao ativar o modo a pé, o motorista é destacado temporariamente do ônibus, com snapshot de vínculo/IA para restauração;
+- ✅ controles iniciais: **W/S** frente/trás, **A/D** giro, **Shift** corrida e **Esc** retorno ao ônibus;
+- ✅ escrita de personagem permanece opt-in e é executada somente no callback/thread seguro do plugin OMSI;
+- ✅ em multiplayer, o estado RP usa canal separado da telemetria do ônibus e é publicado no máximo a 10 Hz;
+- 🧪 primeira Alpha limita o deslocamento a uma área próxima ao ônibus e mantém a altura atual do motorista;
+- 🚧 câmera dedicada acompanhando o personagem, ajuste de terreno inclinado, animações/gestos, entrar/sentar/interagir e criação física de personagens remotos ainda exigem desenvolvimento e validação;
+- 🔒 se o personagem selecionado não for o motorista humano ativo do ônibus, o NavBR recusa a posse em vez de escolher outro NPC.
+
 ### Depois da validação básica
 
 - 🚧 portas por perfil de compatibilidade do ônibus;
