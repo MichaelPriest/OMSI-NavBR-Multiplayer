@@ -61,6 +61,16 @@ internal sealed class CompanyNodeHostService : IAsyncDisposable
             var result = CompanyNodeStore.TryJoin(request);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         });
+        app.MapPost("/api/company/members/role", (CompanyRoleChangeRequest request) =>
+        {
+            var result = CompanyNodeStore.TryChangeRole(request);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
+        app.MapPost("/api/company/members/remove", (CompanyMemberRemoveRequest request) =>
+        {
+            var result = CompanyNodeStore.TryRemoveMember(request);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
 
         try
         {
@@ -244,10 +254,77 @@ internal sealed class NavBRNetworkRuntime : IAsyncDisposable
         return result;
     }
 
+    public async Task<CompanyNodeSnapshot> GetCompanySnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        var url = ResolveNodeUrl();
+        return await _http.GetFromJsonAsync<CompanyNodeSnapshot>($"{url}/api/company", cancellationToken)
+            ?? throw new InvalidOperationException("O Company Node não retornou a empresa.");
+    }
+
+    public async Task<CompanyMemberActionResponse> ChangeCompanyMemberRoleAsync(
+        string targetPlayerId,
+        CompanyRole newRole,
+        CancellationToken cancellationToken = default)
+    {
+        var company = await GetCompanySnapshotAsync(cancellationToken);
+        var identity = Identity;
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var request = new CompanyRoleChangeRequest(
+            company.CompanyId,
+            identity,
+            targetPlayerId,
+            newRole,
+            timestamp,
+            NavBRIdentityStore.SignRoleChangeRequest(company.CompanyId, targetPlayerId, newRole, timestamp));
+
+        using var response = await _http.PostAsJsonAsync(
+            $"{ResolveNodeUrl()}/api/company/members/role",
+            request,
+            cancellationToken);
+        return await response.Content.ReadFromJsonAsync<CompanyMemberActionResponse>(cancellationToken: cancellationToken)
+               ?? new CompanyMemberActionResponse(false, "invalid_response", null);
+    }
+
+    public async Task<CompanyMemberActionResponse> RemoveCompanyMemberAsync(
+        string targetPlayerId,
+        CancellationToken cancellationToken = default)
+    {
+        var company = await GetCompanySnapshotAsync(cancellationToken);
+        var identity = Identity;
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var request = new CompanyMemberRemoveRequest(
+            company.CompanyId,
+            identity,
+            targetPlayerId,
+            timestamp,
+            NavBRIdentityStore.SignMemberRemoveRequest(company.CompanyId, targetPlayerId, timestamp));
+
+        using var response = await _http.PostAsJsonAsync(
+            $"{ResolveNodeUrl()}/api/company/members/remove",
+            request,
+            cancellationToken);
+        return await response.Content.ReadFromJsonAsync<CompanyMemberActionResponse>(cancellationToken: cancellationToken)
+               ?? new CompanyMemberActionResponse(false, "invalid_response", null);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await CompanyNode.DisposeAsync();
         _http.Dispose();
+    }
+
+    private string ResolveNodeUrl()
+    {
+        if (CompanyNode.IsRunning)
+        {
+            return CompanyNode.LocalUrl;
+        }
+        var membership = Membership;
+        if (membership is not null)
+        {
+            return NormalizeNodeUrl(membership.NodeUrl);
+        }
+        throw new InvalidOperationException("Nenhuma Empresa Online está conectada. Inicie o Company Node ou entre em uma empresa.");
     }
 
     private static string NormalizeNodeUrl(string value)
