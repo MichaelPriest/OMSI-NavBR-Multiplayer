@@ -77,7 +77,8 @@ Todo o trabalho consolidado da Alpha.12 permanece na Alpha.13:
 - ✅ Central Multiplayer com painéis principais responsivos, alturas alinhadas e rolagem interna;
 - ✅ estados da Home para Multiplayer e Empresa/Company Network localizados em pt-BR, inglês, espanhol, alemão e francês;
 - ✅ CI leve dedicado à interface da Alpha.13 compila o cliente x86 sem publicar release;
-- 🚧 próximos passes de fidelidade: Home, CCO e demais superfícies de Operação/Sistema.
+- ✅ CCO com mapa real mais dominante, proporções de operação refinadas e status do mapa/rota/remotos nos 5 idiomas;
+- 🚧 próximos passes de fidelidade: Home e demais superfícies de Operação/Sistema.
 
 ## 4. Licenciamento e distribuição futura
 
