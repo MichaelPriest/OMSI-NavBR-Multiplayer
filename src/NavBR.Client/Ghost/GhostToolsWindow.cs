@@ -21,6 +21,7 @@ internal sealed class GhostToolsWindow : Window
     private readonly Button _previewButton;
     private readonly Button _compareButton;
     private readonly Button _playButton;
+    private readonly Button _exportButton;
     private readonly ComboBox _speedCombo;
     private readonly CheckBox _loopCheck;
 
@@ -29,9 +30,9 @@ internal sealed class GhostToolsWindow : Window
         _telemetrySource = telemetrySource;
         Title = "NavBR Ghost / Replay — Alpha.12";
         Width = 900d;
-        Height = 610d;
+        Height = 620d;
         MinWidth = 740d;
-        MinHeight = 530d;
+        MinHeight = 540d;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 16, 26);
         Foreground = Brush(218, 230, 238);
@@ -43,6 +44,7 @@ internal sealed class GhostToolsWindow : Window
         _previewButton = CreateButton("Visualizar trajeto", Preview_Click, primary: false);
         _compareButton = CreateButton("Comparar replays", Compare_Click, primary: false);
         _playButton = CreateButton("Reproduzir Ghost 3D", Play_Click, primary: true);
+        _exportButton = CreateButton("Exportar cópia", ExportCopy_Click, primary: false);
 
         _speedCombo = new ComboBox
         {
@@ -140,7 +142,7 @@ internal sealed class GhostToolsWindow : Window
             Margin = new Thickness(0d, 0d, 0d, 16d),
             Child = new TextBlock
             {
-                Text = "Gravação, análise e comparação são somente leitura. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
+                Text = "Gravação, análise, comparação e exportação são locais. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brush(242, 184, 75),
                 FontSize = 11.5d
@@ -165,6 +167,7 @@ internal sealed class GhostToolsWindow : Window
         actions.Children.Add(_previewButton);
         actions.Children.Add(_compareButton);
         actions.Children.Add(_playButton);
+        actions.Children.Add(_exportButton);
         actions.Children.Add(CreateButton("Abrir pasta de Ghosts", OpenFolder_Click, primary: false));
         controls.Children.Add(actions);
 
@@ -362,6 +365,61 @@ internal sealed class GhostToolsWindow : Window
         }
     }
 
+    private async void ExportCopy_Click(object sender, RoutedEventArgs e)
+    {
+        var sourceDialog = CreateOpenDialog("Escolha o Ghost NavBR para exportar");
+        if (sourceDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await _player.LoadAsync(sourceDialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "O arquivo selecionado não é um replay NavBR válido.";
+            _details.Text = ex.Message;
+            return;
+        }
+
+        var saveDialog = new SaveFileDialog
+        {
+            Title = "Exportar cópia do Ghost NavBR",
+            Filter = $"NavBR Ghost (*{GhostReplayFormat.Extension})|*{GhostReplayFormat.Extension}",
+            FileName = Path.GetFileName(sourceDialog.FileName),
+            AddExtension = true,
+            DefaultExt = GhostReplayFormat.Extension,
+            OverwritePrompt = true
+        };
+        if (saveDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var source = Path.GetFullPath(sourceDialog.FileName);
+            var destination = Path.GetFullPath(saveDialog.FileName);
+            if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+            {
+                _status.Text = "O destino escolhido é o próprio arquivo original.";
+                _details.Text = source;
+                return;
+            }
+
+            File.Copy(source, destination, overwrite: true);
+            _status.Text = "Cópia do replay exportada.";
+            _details.Text = destination;
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "Não foi possível exportar a cópia do replay.";
+            _details.Text = ex.Message;
+        }
+    }
+
     private async void Play_Click(object sender, RoutedEventArgs e)
     {
         var dialog = CreateOpenDialog("Escolha um Ghost NavBR");
@@ -444,6 +502,7 @@ internal sealed class GhostToolsWindow : Window
         _previewButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _compareButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _playButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
+        _exportButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _speedCombo.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _loopCheck.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
 
