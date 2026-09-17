@@ -23,7 +23,7 @@ internal static class DriverTripHistoryStore
 {
     private const string Schema = "navbr-driver-trip-history";
     private const int Version = 1;
-    private const int MaximumTrips = 250;
+    internal const int MaximumTrips = 250;
     private static readonly object Sync = new();
     private static readonly string DirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -45,18 +45,33 @@ internal static class DriverTripHistoryStore
         {
             var trips = LoadCore().ToList();
             trips.Insert(0, entry);
-            if (trips.Count > MaximumTrips)
-            {
-                trips.RemoveRange(MaximumTrips, trips.Count - MaximumTrips);
-            }
-
-            Directory.CreateDirectory(DirectoryPath);
-            var document = new DriverTripHistoryDocument(Schema, Version, trips);
-            var json = JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true });
-            var temporary = FilePath + ".tmp";
-            File.WriteAllText(temporary, json);
-            File.Move(temporary, FilePath, true);
+            WriteCore(trips);
         }
+    }
+
+    public static void ReplaceAll(IEnumerable<DriverTripHistoryEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        lock (Sync)
+        {
+            WriteCore(entries);
+        }
+    }
+
+    private static void WriteCore(IEnumerable<DriverTripHistoryEntry> entries)
+    {
+        var trips = entries
+            .Select(Normalize)
+            .OrderByDescending(entry => entry.StartedAtUtc)
+            .Take(MaximumTrips)
+            .ToArray();
+
+        Directory.CreateDirectory(DirectoryPath);
+        var document = new DriverTripHistoryDocument(Schema, Version, trips);
+        var json = JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true });
+        var temporary = FilePath + ".tmp";
+        File.WriteAllText(temporary, json);
+        File.Move(temporary, FilePath, true);
     }
 
     private static IReadOnlyList<DriverTripHistoryEntry> LoadCore()
