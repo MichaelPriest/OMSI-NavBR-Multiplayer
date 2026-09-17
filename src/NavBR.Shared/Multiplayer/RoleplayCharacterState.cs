@@ -19,4 +19,6 @@ public sealed record RoleplayCharacterState(
     double SpeedMps,
     RoleplayCharacterActivity Activity,
     bool IsActive,
+    string? CharacterId = null,
+    string? CharacterName = null,
     int? HumanIndex = null);
