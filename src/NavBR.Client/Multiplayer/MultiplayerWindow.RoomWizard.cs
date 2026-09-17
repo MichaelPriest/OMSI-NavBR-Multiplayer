@@ -62,7 +62,7 @@ public partial class MultiplayerWindow
         var passwordBox = new PasswordBox
         {
             MaxLength = 128,
-            Padding = new Thickness(10d, 7d),
+            Padding = new Thickness(10d, 7d, 10d, 7d),
             Background = WizardBrush(5, 15, 24),
             Foreground = Brushes.White,
             BorderBrush = WizardBrush(35, 63, 82),
@@ -552,7 +552,7 @@ public partial class MultiplayerWindow
         Text = text ?? string.Empty,
         MaxLength = maxLength,
         Height = 36d,
-        Padding = new Thickness(9d, 6d),
+        Padding = new Thickness(9d, 6d, 9d, 6d),
         Background = WizardBrush(5, 15, 24),
         Foreground = Brushes.White,
         BorderBrush = WizardBrush(35, 63, 82),
