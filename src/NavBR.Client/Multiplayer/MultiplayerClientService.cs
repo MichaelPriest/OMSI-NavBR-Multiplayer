@@ -223,6 +223,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _joinRequest = null;
         ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
+        ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
@@ -260,6 +261,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.On<string>("playerLeft", playerId =>
         {
             PlayerLeft?.Invoke(playerId);
+            RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
@@ -288,9 +290,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
+        connection.On<RoleplayCharacterFrame>("roleplayCharacter", ApplyRoleplayCharacter);
+        connection.On<string>("roleplayCharacterRemoved", RemoveRoleplayCharacter);
 
         connection.Reconnecting += error =>
         {
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
@@ -312,6 +317,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.Closed += error =>
         {
             ResetRoomMetadata();
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
