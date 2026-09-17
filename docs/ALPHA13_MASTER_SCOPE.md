@@ -74,7 +74,10 @@ Todo o trabalho consolidado da Alpha.12 permanece na Alpha.13:
 - ✅ estado real da navegação aparece no cabeçalho da página;
 - ✅ linha/destino, ETA, próxima parada, progresso e distâncias continuam alimentados somente por dados reais;
 - ✅ detalhes técnicos de mapas instalados saem da superfície principal sem alterar o diagnóstico interno;
-- 🚧 próximos passes de fidelidade: Home, Central Multiplayer e superfícies de Operação/Sistema.
+- ✅ Central Multiplayer com painéis principais responsivos, alturas alinhadas e rolagem interna;
+- ✅ estados da Home para Multiplayer e Empresa/Company Network localizados em pt-BR, inglês, espanhol, alemão e francês;
+- ✅ CI leve dedicado à interface da Alpha.13 compila o cliente x86 sem publicar release;
+- 🚧 próximos passes de fidelidade: Home, CCO e demais superfícies de Operação/Sistema.
 
 ## 4. Licenciamento e distribuição futura
 
