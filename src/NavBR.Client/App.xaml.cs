@@ -5,6 +5,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Driver;
 using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Network;
 using NavBR.Client.Omsi;
 using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
@@ -18,6 +19,7 @@ public partial class App : Application
 {
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
     internal NavBRTrayIconService TrayIcon { get; } = new();
+    internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -52,6 +54,16 @@ public partial class App : Application
         TrayIcon.Dispose();
 
         RemoteDiagnosticsService.Record("session", "info", "client-stop");
+
+        try
+        {
+            NetworkRuntime.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            NavBRAppLog.Info("network-runtime-stop");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("network-runtime-stop-error", ex);
+        }
 
         try
         {
@@ -121,6 +133,7 @@ public partial class App : Application
             Alpha12MultiplayerStatusInstaller.Install(mainWindow);
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
+            CompanyNetworkInstaller.Install(mainWindow);
             DispatcherInstaller.Install(mainWindow);
             SessionHealthInstaller.Install(mainWindow);
             Alpha12NavigationPolishInstaller.Install(mainWindow);
