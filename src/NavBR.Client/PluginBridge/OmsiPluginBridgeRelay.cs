@@ -152,6 +152,7 @@ public static class OmsiPluginBridgeRelay
         double localX,
         double localY,
         double localZ,
+        int characterDefinitionPointer,
         CancellationToken cancellationToken = default) =>
         SendCommandBestEffortAsync(
             new PluginBridgeMessage(
@@ -160,6 +161,7 @@ public static class OmsiPluginBridgeRelay
                 PlayerId: playerId,
                 DisplayName: displayName,
                 CharacterInstanceId: characterInstanceId,
+                CharacterDefinitionPointer: characterDefinitionPointer,
                 LocalX: localX,
                 LocalY: localY,
                 LocalZ: localZ,
