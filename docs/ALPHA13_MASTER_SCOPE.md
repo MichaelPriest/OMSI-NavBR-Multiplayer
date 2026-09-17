@@ -82,7 +82,10 @@ Todo o trabalho consolidado da Alpha.12 permanece na Alpha.13:
 - ✅ Configurações com badge da versão real e seleção lateral visualmente sincronizada;
 - ✅ Hardware com preview técnico recolhível e acabamento do expander;
 - ✅ Saúde da Sessão com grade 3×3 responsiva e resumo semântico baseado em estado real;
-- 🚧 próximos passes de fidelidade: Empresa, Rede/Equipe, Perfil e ferramentas avançadas.
+- ✅ Empresa com badge da versão real do NavBR;
+- ✅ Rede da Empresa reorganizada em duas áreas operacionais lado a lado (hospedar / entrar);
+- ✅ Perfil com indicadores de carreira distribuídos uniformemente;
+- 🚧 próximos passes de fidelidade: Equipe, ferramentas avançadas e microinterações finais.
 
 ## 4. Licenciamento e distribuição futura
 
