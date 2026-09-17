@@ -1,3 +1,4 @@
+using System.Windows;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
 
