@@ -58,7 +58,6 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         var staticSidebarText = Enumerate<TextBlock>(sidebar).ToArray();
 
         ApplyFigmaSidebarMeasurements(root, sidebar, dock, body);
-        ApplyFigmaHomeMeasurements(window);
 
         void ApplyState()
         {
@@ -82,6 +81,8 @@ internal static class Alpha12FigmaResponsiveShellInstaller
             {
                 footer.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             }
+
+            ApplyFigmaHomeMeasurements(window);
         }
 
         SizeChangedEventHandler sizeChanged = (_, _) => ApplyState();
@@ -134,19 +135,30 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (omsi is not null && operationCurrent is not null && multiplayer is not null && company is not null &&
             FindParent<Grid>(omsi) is { } topGrid && topGrid.ColumnDefinitions.Count >= 7)
         {
+            var compactWidth = window.ActualWidth > 0d && window.ActualWidth < 1320d;
+            var compactHeight = window.ActualHeight > 0d && window.ActualHeight < 820d;
+
             topGrid.Margin = new Thickness(0d);
-            topGrid.ColumnDefinitions[0].Width = new GridLength(374d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[1].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[2].Width = new GridLength(430d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[3].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[4].Width = new GridLength(330d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[5].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[6].Width = new GridLength(406d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[0].Width = compactWidth
+                ? new GridLength(1d, GridUnitType.Star)
+                : new GridLength(374d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[2].Width = compactWidth
+                ? new GridLength(1.08d, GridUnitType.Star)
+                : new GridLength(430d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[3].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[4].Width = compactWidth
+                ? new GridLength(0.92d, GridUnitType.Star)
+                : new GridLength(330d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[5].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[6].Width = compactWidth
+                ? new GridLength(1d, GridUnitType.Star)
+                : new GridLength(406d, GridUnitType.Star);
 
             foreach (var card in new[] { omsi, operationCurrent, multiplayer, company })
             {
                 card.Margin = new Thickness(0d);
-                card.Height = 174d;
+                card.Height = compactHeight ? 154d : 174d;
             }
         }
 
@@ -158,27 +170,32 @@ internal static class Alpha12FigmaResponsiveShellInstaller
             FindParent<Grid>(operation) is { } operationRow && operationRow.ColumnDefinitions.Count >= 3 &&
             FindParent<Grid>(speed) is { } metrics && metrics.ColumnDefinitions.Count >= 3 && metrics.RowDefinitions.Count >= 3)
         {
-            operationRow.Height = 300d;
-            operationRow.ColumnDefinitions[0].Width = new GridLength(1010d, GridUnitType.Star);
-            operationRow.ColumnDefinitions[1].Width = new GridLength(16d);
-            operationRow.ColumnDefinitions[2].Width = new GridLength(562d, GridUnitType.Star);
-            operation.Height = 300d;
+            var compactWidth = window.ActualWidth > 0d && window.ActualWidth < 1320d;
+            var compactHeight = window.ActualHeight > 0d && window.ActualHeight < 820d;
+            var operationHeight = compactHeight ? 270d : 300d;
+            var metricHeight = compactHeight ? 127d : 142d;
 
-            metrics.ColumnDefinitions[0].Width = new GridLength(270d, GridUnitType.Star);
-            metrics.ColumnDefinitions[1].Width = new GridLength(16d);
-            metrics.ColumnDefinitions[2].Width = new GridLength(276d, GridUnitType.Star);
-            metrics.RowDefinitions[0].Height = new GridLength(142d);
-            metrics.RowDefinitions[1].Height = new GridLength(16d);
-            metrics.RowDefinitions[2].Height = new GridLength(142d);
-            speed.Height = 142d;
-            schedule.Height = 142d;
-            status.Height = 142d;
+            operationRow.Height = operationHeight;
+            operationRow.ColumnDefinitions[0].Width = new GridLength(compactWidth ? 1.75d : 1010d, GridUnitType.Star);
+            operationRow.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            operationRow.ColumnDefinitions[2].Width = new GridLength(compactWidth ? 1d : 562d, GridUnitType.Star);
+            operation.Height = operationHeight;
+
+            metrics.ColumnDefinitions[0].Width = new GridLength(1d, GridUnitType.Star);
+            metrics.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            metrics.ColumnDefinitions[2].Width = new GridLength(1d, GridUnitType.Star);
+            metrics.RowDefinitions[0].Height = new GridLength(metricHeight);
+            metrics.RowDefinitions[1].Height = new GridLength(compactHeight ? 12d : 16d);
+            metrics.RowDefinitions[2].Height = new GridLength(metricHeight);
+            speed.Height = metricHeight;
+            schedule.Height = metricHeight;
+            status.Height = metricHeight;
         }
 
         var quick = FindCard(window, "AÇÕES RÁPIDAS");
         if (quick is not null)
         {
-            quick.Height = 166d;
+            quick.Height = window.ActualHeight > 0d && window.ActualHeight < 820d ? 146d : 166d;
         }
     }
 
