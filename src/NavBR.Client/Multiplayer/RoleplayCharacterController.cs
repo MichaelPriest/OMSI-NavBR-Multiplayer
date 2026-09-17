@@ -38,6 +38,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private DateTimeOffset _lastTickUtc;
     private DateTimeOffset _lastNetworkStateUtc;
     private int _updateInFlight;
+    private int _stopping;
     private int _consecutiveFailures;
     private double _originX;
     private double _originY;
@@ -189,6 +190,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         string reason = "roleplay-stopped",
         CancellationToken cancellationToken = default)
     {
+        if (Interlocked.Exchange(ref _stopping, 1) != 0)
+        {
+            return;
+        }
+
         _timer.Stop();
         DisposeKeyboardHook();
 
@@ -212,6 +218,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         StateChanged?.Invoke(null);
         StatusChanged?.Invoke(reason);
+        Interlocked.Exchange(ref _stopping, 0);
     }
 
     private async Task TickAsync()
