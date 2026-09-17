@@ -37,6 +37,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _localManifest = manifest;
     }
 
+    public bool IsSpawned(string playerId) =>
+        !string.IsNullOrWhiteSpace(playerId) && _spawned.ContainsKey(playerId);
+
     public async Task ApplyAsync(
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken = default)
