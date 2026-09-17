@@ -78,7 +78,11 @@ Todo o trabalho consolidado da Alpha.12 permanece na Alpha.13:
 - ✅ estados da Home para Multiplayer e Empresa/Company Network localizados em pt-BR, inglês, espanhol, alemão e francês;
 - ✅ CI leve dedicado à interface da Alpha.13 compila o cliente x86 sem publicar release;
 - ✅ CCO com mapa real mais dominante, proporções de operação refinadas e status do mapa/rota/remotos nos 5 idiomas;
-- 🚧 próximos passes de fidelidade: Home e demais superfícies de Operação/Sistema.
+- ✅ Home responsiva em largura/altura, saudação neutra e estados dinâmicos localizados;
+- ✅ Configurações com badge da versão real e seleção lateral visualmente sincronizada;
+- ✅ Hardware com preview técnico recolhível e acabamento do expander;
+- ✅ Saúde da Sessão com grade 3×3 responsiva e resumo semântico baseado em estado real;
+- 🚧 próximos passes de fidelidade: Empresa, Rede/Equipe, Perfil e ferramentas avançadas.
 
 ## 4. Licenciamento e distribuição futura
 
