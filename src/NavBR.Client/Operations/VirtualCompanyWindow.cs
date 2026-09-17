@@ -97,7 +97,7 @@ internal sealed class VirtualCompanyWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
-                Text = "EMPRESA • ALPHA.12",
+                Text = $"{Text("CompanyWorkspace").ToUpperInvariant()} • {NavBRVersionInfo.Display}",
                 Foreground = Brush(84, 190, 255),
                 FontSize = 10d,
                 FontWeight = FontWeights.Bold
