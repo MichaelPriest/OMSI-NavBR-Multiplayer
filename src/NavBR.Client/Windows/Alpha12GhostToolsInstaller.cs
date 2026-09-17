@@ -26,7 +26,7 @@ internal static class Alpha12GhostToolsInstaller
         var button = new Button
         {
             Tag = ButtonTag,
-            Content = "Ghost / Replay",
+            Content = GhostToolsWindow.MenuText(),
             Height = 42d,
             MinWidth = 0d,
             Margin = new Thickness(0d, 0d, 0d, 6d),
@@ -40,7 +40,7 @@ internal static class Alpha12GhostToolsInstaller
             FontSize = 11.5d,
             FontWeight = FontWeights.SemiBold,
             Cursor = System.Windows.Input.Cursors.Hand,
-            ToolTip = "Gravar telemetria real e reproduzir Ghost Bus pelo bridge experimental."
+            ToolTip = GhostToolsWindow.MenuToolTip()
         };
         button.Click += (_, _) => Open(window);
         tools.Children.Add(button);
