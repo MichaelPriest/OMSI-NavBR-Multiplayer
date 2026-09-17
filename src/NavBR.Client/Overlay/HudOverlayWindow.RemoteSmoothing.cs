@@ -67,6 +67,8 @@ public partial class HudOverlayWindow
 
     private void UpdateSmoothedRemotePlayers()
     {
+        RenderRemoteNameplates();
+
         var local = _localTelemetry;
         var map = _activeMap;
         var bitmap = _mapBitmap;
