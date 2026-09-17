@@ -165,9 +165,14 @@ internal static class RoleplayCharacterBackend
     private static PluginBridgeMessage Acquire(PluginBridgeMessage command)
     {
         if (!TryGetCharacterId(command, out var instanceId) ||
-            !TryReadAnchor(command, out var anchorX, out var anchorY, out var anchorZ))
+            !TryReadAnchor(command, out var anchorX, out var anchorY, out var anchorZ) ||
+            command.CharacterDefinitionPointer is not int definitionPointer ||
+            definitionPointer <= 0)
         {
-            return Fail(command, "invalid-character-anchor", "A finite local OMSI anchor is required.");
+            return Fail(
+                command,
+                "invalid-character-selection",
+                "A selected OMSI driver character and finite local anchor are required.");
         }
 
         lock (Sync)
@@ -179,7 +184,10 @@ internal static class RoleplayCharacterBackend
 
             if (Owned.Count >= MaxOwnedCharacters)
             {
-                return Fail(command, "character-limit-reached", "The roleplay character ownership limit was reached.");
+                return Fail(
+                    command,
+                    "character-limit-reached",
+                    "The roleplay character ownership limit was reached.");
             }
 
             if (!OmsiNativeInterop.TrySnapshotHumans(out var humans) || humans.Length == 0)
@@ -191,21 +199,23 @@ internal static class RoleplayCharacterBackend
                 .Select(value => value.HumanPointer)
                 .ToHashSet();
 
-            var bestPointer = 0;
-            var bestIndex = -1;
+            var driverPointer = 0;
+            var driverIndex = -1;
             var bestDistance = double.MaxValue;
-            float bestX = 0f;
-            float bestY = 0f;
-            float bestZ = 0f;
-            float bestHeading = 0f;
-            float bestSpeed = 0f;
+            float driverX = 0f;
+            float driverY = 0f;
+            float driverZ = 0f;
+            float driverHeading = 0f;
+            float driverSpeed = 0f;
 
             for (var index = 0; index < humans.Length; index++)
             {
                 var pointer = humans[index];
                 if (pointer == 0 ||
                     usedPointers.Contains(pointer) ||
-                    OmsiNativeInterop.IsHumanControllable(pointer) != 1 ||
+                    OmsiNativeInterop.IsPlayerBusDriverHuman(
+                        pointer,
+                        definitionPointer) != 1 ||
                     OmsiNativeInterop.ReadHumanPose(
                         pointer,
                         out var x,
@@ -217,67 +227,98 @@ internal static class RoleplayCharacterBackend
                     continue;
                 }
 
-                var dz = Math.Abs(z - anchorZ);
-                if (dz > MaxAcquireHeightDifferenceMeters)
-                {
-                    continue;
-                }
-
-                // OMSI uses X/Y as the ground plane and Z as height.
                 var dx = x - anchorX;
                 var dy = y - anchorY;
-                var distance = Math.Sqrt(dx * dx + dy * dy);
-                if (!double.IsFinite(distance) ||
-                    distance > MaxAcquireDistanceMeters ||
-                    distance >= bestDistance)
+                var dz = z - anchorZ;
+                var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                if (!double.IsFinite(distance) || distance >= bestDistance)
                 {
                     continue;
                 }
 
-                bestPointer = pointer;
-                bestIndex = index;
+                driverPointer = pointer;
+                driverIndex = index;
                 bestDistance = distance;
-                bestX = x;
-                bestY = y;
-                bestZ = z;
-                bestHeading = heading;
-                bestSpeed = speed;
+                driverX = x;
+                driverY = y;
+                driverZ = z;
+                driverHeading = heading;
+                driverSpeed = speed;
             }
 
-            if (bestPointer == 0)
+            if (driverPointer == 0)
             {
                 return Fail(
                     command,
-                    "no-controllable-human-nearby",
-                    "No free, in-world OMSI human was found near the requested position.");
+                    "selected-driver-not-active",
+                    "The selected character is not the active human driver of the player's bus.");
             }
 
             if (OmsiNativeInterop.ReadHumanAiState(
-                    bestPointer,
+                    driverPointer,
                     out var aiMode,
                     out var aiModeEx,
                     out var aiSubMode,
                     out var sollSpeed,
-                    out var actSpeed) != 1)
+                    out var actSpeed) != 1 ||
+                OmsiNativeInterop.ReadHumanDriverState(
+                    driverPointer,
+                    out var originalBus,
+                    out var fixDriver,
+                    out var renderMe,
+                    out var inWorld) != 1)
             {
-                return Fail(command, "human-ai-read-failed", "Could not snapshot the NPC AI state.");
+                return Fail(
+                    command,
+                    "driver-state-read-failed",
+                    "Could not snapshot the selected driver's OMSI state.");
+            }
+
+            if (OmsiNativeInterop.DetachHumanForRoleplay(driverPointer) != 1)
+            {
+                return Fail(
+                    command,
+                    "driver-detach-failed",
+                    "OMSI rejected detaching the selected driver from the bus.");
             }
 
             if (OmsiNativeInterop.SetHumanTransform(
-                    bestPointer,
-                    bestX,
-                    bestY,
-                    bestZ,
-                    NormalizeHeading(bestHeading),
+                    driverPointer,
+                    driverX,
+                    driverY,
+                    driverZ,
+                    NormalizeHeading(driverHeading),
                     0f) != 1)
             {
-                return Fail(command, "human-control-failed", "OMSI rejected the initial NPC possession state.");
+                _ = OmsiNativeInterop.RestoreHumanDriverState(
+                    driverPointer,
+                    originalBus,
+                    fixDriver,
+                    renderMe,
+                    inWorld);
+                _ = OmsiNativeInterop.RestoreHumanAiState(
+                    driverPointer,
+                    aiMode,
+                    aiModeEx,
+                    aiSubMode,
+                    sollSpeed,
+                    actSpeed);
+
+                return Fail(
+                    command,
+                    "driver-control-failed",
+                    "OMSI rejected the selected driver roleplay state.");
             }
 
             var instance = new RoleplayCharacterInstance(
                 instanceId,
-                bestPointer,
-                bestIndex,
+                driverPointer,
+                driverIndex,
+                definitionPointer,
+                originalBus,
+                fixDriver,
+                renderMe,
+                inWorld,
                 aiMode,
                 aiModeEx,
                 aiSubMode,
@@ -290,11 +331,11 @@ internal static class RoleplayCharacterBackend
             return RoleplayCharacterCommandProcessor.Result(
                 command,
                 true,
-                humanIndex: bestIndex,
-                x: bestX,
-                y: bestY,
-                z: bestZ,
-                heading: NormalizeHeading(bestHeading),
+                humanIndex: driverIndex,
+                x: driverX,
+                y: driverY,
+                z: driverZ,
+                heading: NormalizeHeading(driverHeading),
                 speed: 0f);
         }
     }
@@ -363,6 +404,12 @@ internal static class RoleplayCharacterBackend
 
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
             {
+                _ = OmsiNativeInterop.RestoreHumanDriverState(
+                    instance.HumanPointer,
+                    instance.OriginalBusPointer,
+                    instance.FixDriver,
+                    instance.RenderMe,
+                    instance.InWorld);
                 _ = OmsiNativeInterop.RestoreHumanAiState(
                     instance.HumanPointer,
                     instance.AiMode,
@@ -384,6 +431,12 @@ internal static class RoleplayCharacterBackend
             {
                 if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
                 {
+                    _ = OmsiNativeInterop.RestoreHumanDriverState(
+                        instance.HumanPointer,
+                        instance.OriginalBusPointer,
+                        instance.FixDriver,
+                        instance.RenderMe,
+                        instance.InWorld);
                     _ = OmsiNativeInterop.RestoreHumanAiState(
                         instance.HumanPointer,
                         instance.AiMode,
@@ -505,6 +558,11 @@ internal static class RoleplayCharacterBackend
         string InstanceId,
         int HumanPointer,
         int HumanIndex,
+        int CharacterDefinitionPointer,
+        int OriginalBusPointer,
+        byte FixDriver,
+        byte RenderMe,
+        byte InWorld,
         byte AiMode,
         byte AiModeEx,
         byte AiSubMode,
