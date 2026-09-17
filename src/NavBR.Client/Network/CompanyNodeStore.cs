@@ -132,17 +132,7 @@ internal static class CompanyNodeStore
                 return new CompanyJoinResponse(false, "company_id_mismatch", null);
             }
 
-            DateTimeOffset requestTime;
-            try
-            {
-                requestTime = DateTimeOffset.FromUnixTimeMilliseconds(request.TimestampUnixMilliseconds);
-            }
-            catch
-            {
-                return new CompanyJoinResponse(false, "invalid_timestamp", null);
-            }
-
-            if (Math.Abs((DateTimeOffset.UtcNow - requestTime).TotalMinutes) > 5d)
+            if (!IsFresh(request.TimestampUnixMilliseconds))
             {
                 return new CompanyJoinResponse(false, "request_expired", null);
             }
@@ -218,6 +208,152 @@ internal static class CompanyNodeStore
             _cached = new CompanyNodeState(company, invites);
             Persist(_cached);
             return new CompanyJoinResponse(true, null, company);
+        }
+    }
+
+    public static CompanyMemberActionResponse TryChangeRole(CompanyRoleChangeRequest request)
+    {
+        lock (Sync)
+        {
+            _cached ??= LoadCore();
+            var validation = ValidateAdministrationRequest(
+                request.CompanyId,
+                request.ActorIdentity,
+                request.TargetPlayerId,
+                request.TimestampUnixMilliseconds,
+                CompanyPermission.ManageRoles,
+                CompanyAdministrationSignatures.VerifyRoleChangeRequest(request));
+            if (validation.Error is not null)
+            {
+                return new CompanyMemberActionResponse(false, validation.Error, _cached?.Company);
+            }
+
+            var actor = validation.Actor!;
+            var target = validation.Target!;
+            if (request.NewRole == CompanyRole.President)
+            {
+                return new CompanyMemberActionResponse(false, "president_role_reserved", _cached!.Company);
+            }
+            if (actor.Role >= request.NewRole)
+            {
+                return new CompanyMemberActionResponse(false, "cannot_assign_equal_or_higher_role", _cached!.Company);
+            }
+
+            var members = _cached!.Company.Members.ToList();
+            var index = members.FindIndex(member =>
+                string.Equals(member.PlayerId, target.PlayerId, StringComparison.OrdinalIgnoreCase));
+            members[index] = target with
+            {
+                Role = request.NewRole,
+                Permissions = CompanyRolePolicy.DefaultPermissions(request.NewRole),
+                LastSeenAtUtc = DateTimeOffset.UtcNow
+            };
+            var company = _cached.Company with
+            {
+                Members = members,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            _cached = _cached with { Company = company };
+            Persist(_cached);
+            return new CompanyMemberActionResponse(true, null, company);
+        }
+    }
+
+    public static CompanyMemberActionResponse TryRemoveMember(CompanyMemberRemoveRequest request)
+    {
+        lock (Sync)
+        {
+            _cached ??= LoadCore();
+            var validation = ValidateAdministrationRequest(
+                request.CompanyId,
+                request.ActorIdentity,
+                request.TargetPlayerId,
+                request.TimestampUnixMilliseconds,
+                CompanyPermission.RemoveMembers,
+                CompanyAdministrationSignatures.VerifyMemberRemoveRequest(request));
+            if (validation.Error is not null)
+            {
+                return new CompanyMemberActionResponse(false, validation.Error, _cached?.Company);
+            }
+
+            var target = validation.Target!;
+            var members = _cached!.Company.Members
+                .Where(member => !string.Equals(member.PlayerId, target.PlayerId, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            var company = _cached.Company with
+            {
+                Members = members,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            _cached = _cached with { Company = company };
+            Persist(_cached);
+            return new CompanyMemberActionResponse(true, null, company);
+        }
+    }
+
+    private static (CompanyMemberRecord? Actor, CompanyMemberRecord? Target, string? Error) ValidateAdministrationRequest(
+        string companyId,
+        NavBRPublicIdentity actorIdentity,
+        string targetPlayerId,
+        long timestampUnixMilliseconds,
+        CompanyPermission requiredPermission,
+        bool signatureValid)
+    {
+        if (_cached is null)
+        {
+            return (null, null, "company_not_configured");
+        }
+        if (!string.Equals(companyId, _cached.Company.CompanyId, StringComparison.OrdinalIgnoreCase))
+        {
+            return (null, null, "company_id_mismatch");
+        }
+        if (!IsFresh(timestampUnixMilliseconds))
+        {
+            return (null, null, "request_expired");
+        }
+        if (!signatureValid)
+        {
+            return (null, null, "invalid_signature");
+        }
+
+        var actor = _cached.Company.Members.FirstOrDefault(member =>
+            string.Equals(member.PlayerId, actorIdentity.PlayerId, StringComparison.OrdinalIgnoreCase));
+        if (actor is null || !string.Equals(actor.PublicKeySpkiBase64, actorIdentity.PublicKeySpkiBase64, StringComparison.Ordinal))
+        {
+            return (null, null, "actor_not_member");
+        }
+        if ((actor.Permissions & requiredPermission) == 0)
+        {
+            return (actor, null, "permission_denied");
+        }
+
+        var target = _cached.Company.Members.FirstOrDefault(member =>
+            string.Equals(member.PlayerId, targetPlayerId, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return (actor, null, "target_not_found");
+        }
+        if (string.Equals(target.PlayerId, _cached.Company.OwnerPlayerId, StringComparison.OrdinalIgnoreCase))
+        {
+            return (actor, target, "owner_is_protected");
+        }
+        if (actor.Role >= target.Role)
+        {
+            return (actor, target, "hierarchy_denied");
+        }
+        return (actor, target, null);
+    }
+
+    private static bool IsFresh(long timestampUnixMilliseconds)
+    {
+        try
+        {
+            var requestTime = DateTimeOffset.FromUnixTimeMilliseconds(timestampUnixMilliseconds);
+            return Math.Abs((DateTimeOffset.UtcNow - requestTime).TotalMinutes) <= 5d;
+        }
+        catch
+        {
+            return false;
         }
     }
 
