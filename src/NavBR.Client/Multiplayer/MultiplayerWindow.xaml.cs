@@ -16,6 +16,7 @@ public partial class MultiplayerWindow : Window
 
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
+    private readonly Func<IReadOnlyList<RoleplayCharacterOption>> _roleplayCharacterOptionsSource;
     private readonly MultiplayerClientService _client = new();
     private readonly RoomHostService _host = new();
     private readonly VoiceChatService _voiceChat = new();
@@ -43,10 +44,13 @@ public partial class MultiplayerWindow : Window
 
     public MultiplayerWindow(
         Func<VehicleTelemetry?> telemetrySource,
-        Func<OmsiMapInfo?> activeMapSource)
+        Func<OmsiMapInfo?> activeMapSource,
+        Func<IReadOnlyList<RoleplayCharacterOption>>? roleplayCharacterOptionsSource = null)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
+        _roleplayCharacterOptionsSource =
+            roleplayCharacterOptionsSource ?? (() => Array.Empty<RoleplayCharacterOption>());
         _settings = MultiplayerSettingsStore.Load();
 
         InitializeComponent();
@@ -108,6 +112,10 @@ public partial class MultiplayerWindow : Window
             RenderConnectionState(HubConnectionState.Disconnected);
             RenderPlayers();
             RenderChat();
+            InitializePhysicalVehiclesPublicTest();
+            HookDiagnosticsLifecycle();
+            InitializePersistentLifetime();
+            InitializeRoleplayCharacterSelector();
         };
 
         Closed += async (_, _) =>
