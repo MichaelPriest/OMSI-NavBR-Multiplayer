@@ -21,6 +21,7 @@ namespace
 
     constexpr std::uintptr_t RvaTempRvListClass = 0x0074802Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
+    constexpr std::uintptr_t RvaHumansPointer = 0x0086172Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaRoadVehicleTypesPointer = 0x008615A8u - PreferredImageBase;
     constexpr std::uintptr_t RvaProgramManagerPointer = 0x00862F28u - PreferredImageBase;
 
@@ -267,6 +268,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeOmsi23004Addresses()
         !IsExecutableAddress(Resolve(RvaCopyTempListIntoMainList)) ||
         !IsReadableAddress(Resolve(RvaTempRvListClass)) ||
         !IsReadableAddress(Resolve(RvaRoadVehiclesPointer)) ||
+        !IsReadableAddress(Resolve(RvaHumansPointer)) ||
         !IsReadableAddress(Resolve(RvaRoadVehicleTypesPointer)) ||
         !IsReadableAddress(Resolve(RvaProgramManagerPointer)))
     {
