@@ -17,6 +17,8 @@ Nesta primeira etapa o foco é deliberadamente limitado:
 - marcador remoto no minimapa/mapa principal deve ter o mesmo formato do marcador local, em cor diferente;
 - nome do usuário deve aparecer acima do marcador remoto;
 - com ônibus físico realmente spawnado, o nome do usuário deve acompanhar a posição projetada acima do ônibus 3D quando ele estiver visível na câmera.
+- trocar/carregar ônibus ou mapa depois de entrar na sala não deve exigir reconexão para atualizar a compatibilidade física;
+- na Central Multiplayer, host e remotos devem ter o mesmo formato/tamanho de ícone, mudando apenas a cor.
 
 Ainda não fazem parte deste teste:
 
