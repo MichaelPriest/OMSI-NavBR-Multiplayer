@@ -85,9 +85,14 @@ function alphaKey(tag = '') {
   return match ? `alpha.${match[1]}`.toLowerCase() : null;
 }
 
-function alphaLabel(tag = '') {
-  const match = String(tag).match(/alpha\.(\d+)/i);
-  return match ? `Alpha.${match[1]}` : 'Alpha atual';
+function alphaNumber(key = '') {
+  const match = String(key).match(/alpha\.(\d+)/i);
+  return match ? Number(match[1]) : -1;
+}
+
+function alphaLabel(tagOrKey = '') {
+  const match = String(tagOrKey).match(/alpha\.(\d+)/i);
+  return match ? `Alpha.${match[1]}` : 'Alpha';
 }
 
 function assetLabel(name = '') {
@@ -118,6 +123,36 @@ function calculateAlphaDownloads(releases, key) {
   return releases
     .filter(release => alphaKey(release?.tag_name) === key)
     .reduce((total, release) => total + releaseDownloadCount(release), 0);
+}
+
+function calculateAllAlphaDownloads(releases) {
+  return releases.reduce((result, release) => {
+    const key = alphaKey(release?.tag_name);
+    if (!key) return result;
+    result[key] = (Number(result[key]) || 0) + releaseDownloadCount(release);
+    return result;
+  }, {});
+}
+
+function renderAlphaDownloadBreakdown(alphaDownloads) {
+  const container = document.getElementById('alpha-download-breakdown');
+  if (!container) return;
+
+  const entries = Object.entries(alphaDownloads || {})
+    .filter(([key]) => alphaNumber(key) >= 0)
+    .sort((a, b) => alphaNumber(b[0]) - alphaNumber(a[0]));
+
+  if (!entries.length) {
+    container.innerHTML = '<p class="alpha-download-empty">As contagens por Alpha aparecerão após a atualização do catálogo.</p>';
+    return;
+  }
+
+  container.innerHTML = entries.map(([key, count]) => `
+    <article class="alpha-download-card${key === alphaKey(currentTag) ? ' current' : ''}">
+      <span>${escapeHtml(alphaLabel(key))}</span>
+      <strong>${escapeHtml(formatNumber(count))}</strong>
+      <small>downloads acumulados</small>
+    </article>`).join('');
 }
 
 function renderRelease(release) {
@@ -177,6 +212,9 @@ async function loadReleases() {
   if (!totalDownloads) {
     totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
   }
+  if (!Object.keys(alphaDownloads).length) {
+    alphaDownloads = calculateAllAlphaDownloads(releases);
+  }
 
   const currentAlphaKey = alphaKey(currentTag);
   const currentAlphaDownloads = Number(alphaDownloads?.[currentAlphaKey]) ||
@@ -195,6 +233,7 @@ async function loadReleases() {
   if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
   if (alphaDownloadsElement) alphaDownloadsElement.textContent = formatNumber(currentAlphaDownloads);
   if (alphaDownloadsLabelElement) alphaDownloadsLabelElement.textContent = `downloads da ${alphaLabel(currentTag)}`;
+  renderAlphaDownloadBreakdown(alphaDownloads);
 
   const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
   if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
