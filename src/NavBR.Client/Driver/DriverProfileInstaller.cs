@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Localization;
+using NavBR.Client.Windows;
 
 namespace NavBR.Client.Driver;
 
@@ -49,9 +50,15 @@ internal static class DriverProfileInstaller
         StyleButton(button);
         button.Click += (_, _) => new DriverProfileWindow(window).ShowDialog();
 
-        var hardwareButton = FindButtons(window).FirstOrDefault(button =>
-            button.Tag as string == "alpha12-text:HardwareMenu" ||
-            button.Content is string content && content.Contains("Hardware", StringComparison.OrdinalIgnoreCase));
+        if (window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operations)
+        {
+            operations.Children.Add(button);
+            return button;
+        }
+
+        var hardwareButton = FindButtons(window).FirstOrDefault(candidate =>
+            candidate.Tag as string == "alpha12-text:HardwareMenu" ||
+            candidate.Content is string content && content.Contains("Hardware", StringComparison.OrdinalIgnoreCase));
 
         if (hardwareButton?.Parent is Panel panel)
         {
