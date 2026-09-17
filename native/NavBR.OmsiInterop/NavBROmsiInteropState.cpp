@@ -13,6 +13,7 @@ namespace
     constexpr std::uintptr_t PreferredImageBase = 0x00400000u;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
     constexpr std::uintptr_t RvaHumansPointer = 0x0086172Cu - PreferredImageBase;
+    constexpr std::uintptr_t RvaPlayerVehicleIndex = 0x00861740u - PreferredImageBase;
 
     constexpr int RoadVehicleListItemsOffset = 0x28;
     constexpr int RoadVehicleListCountOffset = 0x2C;
@@ -36,12 +37,14 @@ namespace
 
     // OmsiHumanBeingInst offsets documented by public OMSI reverse-engineering
     // references. These are guarded by membership in the global Humans array.
+    constexpr int HumanDefinitionOffset = 0x5B0;
     constexpr int HumanRenderMeOffset = 0x5BC;
     constexpr int HumanInWorldOffset = 0x5EF;
     constexpr int HumanSollHeadingOffset = 0x69C;
     constexpr int HumanSollSpeedOffset = 0x6A0;
     constexpr int HumanActSpeedOffset = 0x6A4;
     constexpr int HumanActHeadingOffset = 0x6A8;
+    constexpr int HumanFixDriverOffset = 0x662;
     constexpr int HumanMyBusOffset = 0x6B4;
     constexpr int HumanAiModeOffset = 0x6C4;
     constexpr int HumanAiModeExOffset = 0x6C5;
@@ -247,6 +250,67 @@ namespace
         return false;
     }
 
+    int GetPlayerVehiclePointer()
+    {
+        int count = 0;
+        int items = 0;
+        if (!TryGetRoadVehicleItems(count, items) || count <= 0)
+        {
+            return 0;
+        }
+
+        const auto indexAddress = Resolve(RvaPlayerVehicleIndex);
+        if (!IsReadableRange(indexAddress, sizeof(int)))
+        {
+            return 0;
+        }
+
+        const int index = *reinterpret_cast<const int*>(indexAddress);
+        if (index < 0 || index >= count)
+        {
+            return 0;
+        }
+
+        return *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(items) +
+            static_cast<std::uintptr_t>(index) * sizeof(int));
+    }
+
+    bool IsPlayerBusDriverHuman(int humanPointer, int definitionPointer)
+    {
+        if (!IsHumanPointer(humanPointer) || definitionPointer <= 0)
+        {
+            return false;
+        }
+
+        const int playerVehicle = GetPlayerVehiclePointer();
+        if (playerVehicle == 0)
+        {
+            return false;
+        }
+
+        const auto base = static_cast<std::uintptr_t>(humanPointer);
+        if (!IsReadableRange(base + HumanDefinitionOffset, sizeof(int)) ||
+            !IsReadableRange(base + HumanMyBusOffset, sizeof(int)) ||
+            !IsReadableRange(base + HumanAiModeExOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + HumanFixDriverOffset, sizeof(unsigned char)))
+        {
+            return false;
+        }
+
+        const int humanDefinition = *reinterpret_cast<const int*>(base + HumanDefinitionOffset);
+        const int myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
+        const auto aiModeEx = *reinterpret_cast<const unsigned char*>(base + HumanAiModeExOffset);
+        const auto fixDriver = *reinterpret_cast<const unsigned char*>(base + HumanFixDriverOffset);
+
+        // THAME_DrivingBus == 9 in OMSI's public enum. Some fixed driver
+        // instances expose Activity_FixDriver even while their extended mode
+        // is transitioning, so accept either signal.
+        return humanDefinition == definitionPointer &&
+               myBus == playerVehicle &&
+               (aiModeEx == 9 || fixDriver != 0);
+    }
+
     bool IsHumanControllable(int humanPointer)
     {
         if (!IsHumanPointer(humanPointer))
@@ -414,6 +478,18 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanPointer(int humanPoint
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int humanPointer)
 {
     return IsHumanControllable(humanPointer) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
+{
+    return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_IsPlayerBusDriverHuman(
+    int humanPointer,
+    int definitionPointer)
+{
+    return IsPlayerBusDriverHuman(humanPointer, definitionPointer) ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanPose(
