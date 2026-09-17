@@ -46,6 +46,7 @@ internal static class DispatcherInstaller
             {
                 dispatcher.Loaded -= loaded;
                 DispatcherRemoteDriversPanel.Attach(dispatcher);
+                DispatcherOperationalReportsPanel.Attach(dispatcher);
             };
             dispatcher.Loaded += loaded;
             dispatcher.ShowDialog();
