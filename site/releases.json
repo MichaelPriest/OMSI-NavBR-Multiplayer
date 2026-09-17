@@ -1,6 +1,41 @@
 {
-  "total_downloads": 0,
+  "total_downloads": 21,
   "releases": [
+    {
+      "tag_name": "v0.3.0-alpha.12-test.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.12-test.3 — HUD community test",
+      "prerelease": true,
+      "published_at": "2026-09-17T00:04:33Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.3",
+      "body": "Alpha.12 Test 3 comunitária com HUD modular, shell/CCO, salas públicas/privadas, voz avançada e integração OMSI/Hardware experimental.",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.exe",
+          "size": 84555681,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.zip",
+          "size": 85514242,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.3/OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.3-win-x86.zip",
+          "size": 5300192,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.12-test.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.3/OMSI-NavBR-Server-v0.3.0-alpha.12-test.3-win-x64.zip",
+          "size": 50216522,
+          "download_count": 0
+        }
+      ]
+    },
     {
       "tag_name": "v0.3.0-alpha.11-test.1",
       "name": "OMSI NavBR Multiplayer v0.3.0-alpha.11-test.1 — Test 1",
