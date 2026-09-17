@@ -36,6 +36,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private RoleplayCharacterState? _state;
     private string? _instanceId;
     private DateTimeOffset _lastTickUtc;
+    private DateTimeOffset _lastNetworkStateUtc;
     private int _updateInFlight;
     private int _consecutiveFailures;
     private double _originX;
@@ -175,10 +176,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         _consecutiveFailures = 0;
         _lastTickUtc = DateTimeOffset.UtcNow;
+        _lastNetworkStateUtc = DateTimeOffset.MinValue;
         InstallKeyboardHook();
         _timer.Start();
         StateChanged?.Invoke(_state);
-        NetworkStateReady?.Invoke(_state);
+        EmitNetworkState(_state);
         StatusChanged?.Invoke("roleplay-active");
         return true;
     }
@@ -223,6 +225,15 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         try
         {
+            var mapKey = _mapKeySource();
+            var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+            if (selected is null ||
+                !string.Equals(selected.Id, current.CharacterId, StringComparison.OrdinalIgnoreCase))
+            {
+                await StopAsync("roleplay-map-or-character-changed");
+                return;
+            }
+
             if (!RoleplayKeyboardHook.IsOmsiForeground())
             {
                 return;
@@ -332,12 +343,24 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             };
 
             StateChanged?.Invoke(_state);
-            NetworkStateReady?.Invoke(_state);
+            EmitNetworkState(_state);
         }
         finally
         {
             Interlocked.Exchange(ref _updateInFlight, 0);
         }
+    }
+
+    private void EmitNetworkState(RoleplayCharacterState state)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastNetworkStateUtc < TimeSpan.FromMilliseconds(100d))
+        {
+            return;
+        }
+
+        _lastNetworkStateUtc = now;
+        NetworkStateReady?.Invoke(state);
     }
 
     private void InstallKeyboardHook()
