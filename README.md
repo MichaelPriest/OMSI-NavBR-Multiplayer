@@ -33,9 +33,16 @@ A pré-release atual é **`v0.3.0-alpha.12-test.1`**.
 
 ## Desenvolvimento após a Test 1
 
-A branch `feature/alpha12-full-expansion` continua evoluindo depois da primeira pré-release. A voz multiplayer agora possui **jitter buffer adaptativo**, reordenação por sequência, recuperação FEC para perda isolada e indicadores ao vivo de jitter/perda na Central Multiplayer. Esses avanços ainda precisam de validação em sessão real entre dois ou mais PCs antes de serem considerados estáveis.
+A branch `feature/alpha12-full-expansion` continua evoluindo depois da primeira pré-release.
 
-Detalhes técnicos: [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md).
+A voz multiplayer possui **jitter buffer adaptativo**, reordenação por sequência, recuperação FEC para perda isolada e indicadores ao vivo de jitter/perda na Central Multiplayer. Esses avanços ainda precisam de validação em sessão real entre dois ou mais PCs antes de serem considerados estáveis.
+
+A interface também recebeu o passe **Figma Fidelity Alpha.12**: shell de 252 px, Home operacional, Navegação com seletor `2D | 3D`, Multiplayer integrado, CCO com mapa real, grupo OPERAÇÃO completo e grupo SISTEMA com Hardware, HUD, Configurações e Saúde da Sessão. As telas usam os tokens visuais do design aprovado e mantêm dados reais; quando a fonte não fornece um valor, a interface mostra `—`/indisponível em vez de inventar telemetria.
+
+Detalhes técnicos:
+
+- [`docs/ALPHA12_FIGMA_PREVIEW.md`](docs/ALPHA12_FIGMA_PREVIEW.md)
+- [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md)
 
 ## Status do projeto
 
@@ -87,6 +94,7 @@ O projeto não redistribui mapas, ônibus ou outros conteúdos proprietários/pa
 ## Documentação
 
 - [`docs/ALPHA12_TEST1_COMMUNITY.md`](docs/ALPHA12_TEST1_COMMUNITY.md) — checklist da Test 1;
+- [`docs/ALPHA12_FIGMA_PREVIEW.md`](docs/ALPHA12_FIGMA_PREVIEW.md) — implementação visual e contrato de dados reais;
 - [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md) — jitter buffer, FEC e métricas de voz;
 - [`docs/HARDWARE_COCKPIT.md`](docs/HARDWARE_COCKPIT.md) — protocolo e exemplo físico;
 - [`docs/NETWORKING.md`](docs/NETWORKING.md) — rede;

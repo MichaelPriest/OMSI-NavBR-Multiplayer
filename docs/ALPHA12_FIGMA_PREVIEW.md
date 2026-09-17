@@ -1,10 +1,10 @@
-# Alpha.12 — Figma Preview UI
+# Alpha.12 — Figma Fidelity UI
 
-Este documento registra a implementação visual usada pela Alpha.12 Figma Preview do OMSI NavBR Multiplayer.
+Este documento registra a implementação visual usada pela Alpha.12 do OMSI NavBR Multiplayer na branch `feature/alpha12-full-expansion`.
 
 ## Direção visual
 
-A interface segue o conceito de centro profissional de operação de transporte, evitando aparência de launcher gamer ou painel técnico.
+A interface segue o conceito de centro profissional de operação de transporte, evitando aparência de launcher gamer ou painel técnico genérico.
 
 Paleta base:
 
@@ -21,6 +21,8 @@ Paleta base:
 - texto principal: `#DAE6EE`
 - texto secundário: `#97ABB9`
 
+A fonte preferida é Inter quando disponível, com fallback para Segoe UI Variable/Segoe UI no Windows.
+
 ## Shell
 
 - sidebar expandida: 252 px
@@ -28,6 +30,7 @@ Paleta base:
 - topbar: 64 px
 - conteúdo fluido
 - suporte mínimo previsto para 1366x768
+- ícones vetoriais no menu lateral, sem emoji/Unicode como ícone final
 
 ### DIRIGIR
 
@@ -52,6 +55,20 @@ Paleta base:
 
 Ferramentas técnicas continuam atrás do modo avançado.
 
+## Contrato de dados reais
+
+A camada Figma é somente apresentação. Ela não pode inventar telemetria, ETA, ping, quantidade de membros, compatibilidade ou estado operacional.
+
+Regras:
+
+- valor ausente => `—`, estado indisponível ou mensagem de espera;
+- nenhuma sala pública => estado vazio real, sem cards de demonstração;
+- rota não resolvida => progresso/distâncias/manobras ficam indisponíveis;
+- roadmap/layout ausente => mapa operacional mostra indisponibilidade;
+- compatibilidade Multiplayer é calculada a partir dos manifests reais;
+- CCO usa telemetria local/remota recebida, nunca posições artificiais;
+- recursos planejados continuam explicitamente planejados/experimentais.
+
 ## Home
 
 A Home usa somente informação real disponível no cliente:
@@ -63,17 +80,17 @@ A Home usa somente informação real disponível no cliente:
 - próxima parada
 - rua atual
 - velocidade
-- atraso/adiantamento
+- atraso/adiantamento disponível na telemetria
 - estado do Multiplayer
 - empresa/Company Network
 
-Quando uma fonte não fornece um valor, o componente exibe `—` ou um estado indisponível. Valores de demonstração do Figma nunca são usados como telemetria do aplicativo.
+Os quatro cards superiores e o bloco de operação seguem as proporções do frame aprovado; ações rápidas apontam para os módulos reais do aplicativo.
 
 ## Navegação
 
 O mapa 2D continua usando o roadmap real instalado no OMSI.
 
-O painel de rota usa `NavBRNavigationEngine` para calcular a partir da geometria instalada:
+A página usa mapa dominante + rail lateral de rota. O painel usa `NavBRNavigationEngine` para calcular a partir da geometria instalada:
 
 - progresso da rota
 - distância restante
@@ -82,12 +99,13 @@ O painel de rota usa `NavBRNavigationEngine` para calcular a partir da geometria
 - distância até a manobra
 - saída da rota
 - reaproximação da rota
+- linha e destino reais da telemetria
 
 O seletor `2D | 3D` é o ponto visual do Figma. O modo 3D reaproveita a visualização real existente com roadmap, rota ativa, ônibus local e veículos multiplayer compatíveis.
 
 ## Multiplayer
 
-A página do shell não contém salas fictícias.
+A página do shell não mantém salas fictícias em runtime.
 
 O navegador consulta o diretório real e apresenta, quando informado pelo host:
 
@@ -102,13 +120,15 @@ O navegador consulta o diretório real e apresenta, quando informado pelo host:
 - HOF
 - compatibilidade
 
+A composição usa lista de salas à esquerda e detalhe/entrada da Central à direita, no mesmo ritmo visual do frame aprovado.
+
 Fechar a Central Multiplayer não encerra host, conexão, voz ou telemetria. A sessão continua no mesmo objeto da aplicação até encerramento explícito ou fechamento completo do NavBR.
 
 ## CCO
 
 A antiga grade/rota esquemática não é fonte de dados operacional.
 
-A Figma Preview substitui essa área por:
+A Alpha.12 substitui essa área, após o carregamento da janela, por:
 
 - roadmap real do mapa ativo
 - geometria real da rota instalada
@@ -118,21 +138,64 @@ A Figma Preview substitui essa área por:
 
 Quando roadmap, layout, posição ou rota não estão disponíveis, o CCO mostra o estado indisponível em vez de desenhar uma rota artificial.
 
-## Empresa e Company Network
+## Empresa, Rede, Equipe e Perfil
 
-As janelas de CCO, Empresa, Rede da Empresa, Equipe e Perfil recebem a mesma linguagem visual do shell sem alterar sua lógica de negócio.
+As janelas de CCO, Empresa, Rede da Empresa, Equipe e Perfil compartilham o mesmo styler de fidelidade:
 
-A Home mostra estado real da Company Network sem inventar número de membros online.
+- fundo `#06101A`
+- cards neutros `#0A131A`
+- elevados `#0D1A24`
+- bordas `#1C2A33`
+- ações primárias em azul NavBR
+- ações destrutivas em vermelho semântico
+- dimensões adaptadas à área útil do Windows
 
-O Company Node continua independente da sala multiplayer e usa TCP 27740.
+A camada visual não altera papéis, permissões, assinatura das operações administrativas nem o armazenamento da Company Network.
 
-## Próximos polimentos
+## Sistema
 
-Quando a edição do Figma estiver novamente disponível:
+O grupo SISTEMA mantém quatro entradas funcionais: Hardware, HUD, Configurações e Saúde da Sessão.
 
-- ajustar pixel a pixel espaçamentos e tipografia
-- consolidar hover/pressed/focus/disabled
-- revisar responsividade em 1600x900, 1920x1080, 2560x1440 e ultrawide
-- avaliar incorporação do 3D dentro da própria página em vez de janela separada
-- avançar a migração das telas operacionais de diálogos para páginas do workspace quando isso não comprometer a lógica existente
-- concluir localização das novas strings do shell Figma em pt-BR, inglês, espanhol, alemão e francês
+### Hardware
+
+O Hardware Cockpit preserva o bridge Serial real e a telemetria enviada ao Arduino/ESP32. O passe Figma remove o cabeçalho interno duplicado, aplica os tokens do design e normaliza sucesso/atenção/erro sem alterar protocolo ou transporte.
+
+### HUD
+
+O atalho HUD abre a seção real de HUD nas Configurações. Temas/presets existentes continuam sendo a fonte de verdade do overlay; não há segundo estado de configuração criado apenas para o shell.
+
+### Configurações
+
+A janela centralizada preserva Geral, Aparência, HUD, Navegação, Multiplayer, Voz, Hardware e Avançado, agora dentro da mesma linguagem visual das telas operacionais.
+
+### Saúde da Sessão
+
+A tela usa métricas reais disponíveis: estado OMSI, Multiplayer, plugin, remotos, freshness, latência, jitter, perda e frequência adaptativa de telemetria. Métrica sem amostra suficiente permanece `—`.
+
+## Estado da implementação dos frames salvos
+
+A estrutura dos frames salvos no Figma já está refletida no código para:
+
+- Design System
+- Home Operacional
+- Navegação GPS
+- Multiplayer
+- CCO
+- Empresa
+- Company Network
+- Equipe da Empresa
+- Perfil do Motorista
+- HUD Studio / configuração de HUD
+- Sistema
+
+## Polimentos posteriores
+
+A implementação atual já usa a estrutura e os tokens disponíveis no design salvo. Quando o acesso de edição/consulta do Figma estiver novamente disponível, os ajustes restantes são de acabamento visual, não de substituição de mock por funcionalidade:
+
+- revisão pixel a pixel de espaçamentos e tipografia
+- consolidação visual de hover/pressed/focus/disabled
+- revisão em 1600x900, 1920x1080, 2560x1440 e ultrawide
+- avaliação de incorporação do 3D dentro da própria página em vez de janela separada
+- localização completa das strings novas do shell em pt-BR, inglês, espanhol, alemão e francês
+
+Esses polimentos não autorizam inserir dados de demonstração no runtime.
