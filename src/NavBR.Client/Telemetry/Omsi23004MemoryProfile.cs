@@ -16,6 +16,7 @@ internal static class Omsi23004MemoryProfile
     public static int MapPointerRva { get; private set; } = 0x00861588 - PreferredImageBase;
     public static int TimeTableManagerRva { get; private set; } = 0x008614E8 - PreferredImageBase;
     public static int NavigationVehiclePointerRva { get; private set; } = 0x00862F28 - PreferredImageBase;
+    public static int CameraPointerRva { get; private set; } = 0x008616E0 - PreferredImageBase;
 
     public static bool ConfigureFor(OmsiProcessInfo processInfo)
     {
@@ -26,6 +27,7 @@ internal static class Omsi23004MemoryProfile
             MapPointerRva = 0x00861584 - PreferredImageBase;
             TimeTableManagerRva = 0x008614E4 - PreferredImageBase;
             NavigationVehiclePointerRva = 0x00862F24 - PreferredImageBase;
+            CameraPointerRva = 0; // Camera projection is intentionally enabled only for exact 2.3.004.
             return true;
         }
 
@@ -36,6 +38,7 @@ internal static class Omsi23004MemoryProfile
             MapPointerRva = 0x00861588 - PreferredImageBase;
             TimeTableManagerRva = 0x008614E8 - PreferredImageBase;
             NavigationVehiclePointerRva = 0x00862F28 - PreferredImageBase;
+            CameraPointerRva = 0x008616E0 - PreferredImageBase;
             return true;
         }
 
@@ -112,6 +115,11 @@ internal static class Omsi23004MemoryProfile
     public const int TripStationLinkListOffset = 0x024;
 
     public const int MatrixTranslationOffset = 0x030;
+
+    // OmsiCamera render matrices (read-only). These offsets are only consumed
+    // for exact OMSI 2.3.004 and drive optional screen-space player labels.
+    public const int CameraViewMatrixOffset = 0x03C;
+    public const int CameraProjectionMatrixOffset = 0x07C;
 
     // OmsiMap fields.
     public const int MapLoadedOffset = 0x120;
