@@ -134,6 +134,7 @@ public partial class App : Application
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
             CompanyNetworkInstaller.Install(mainWindow);
+            CompanyMembersInstaller.Install(mainWindow);
             DispatcherInstaller.Install(mainWindow);
             SessionHealthInstaller.Install(mainWindow);
             Alpha12NavigationPolishInstaller.Install(mainWindow);
