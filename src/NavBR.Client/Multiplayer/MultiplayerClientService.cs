@@ -161,6 +161,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             MapCompatibilityId = compatibilityId
         };
 
+        // Keep physical rendering compatibility synchronized with the actual
+        // live OMSI state. Players often connect before the final map/bus/HOF
+        // identity is available, and may change vehicles without reconnecting.
+        _physicalVehicles.SetLocalManifest(
+            OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
             compatibilityId,
