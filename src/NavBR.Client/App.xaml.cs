@@ -141,15 +141,19 @@ public partial class App : Application
             Alpha12ExperienceInstaller.Install(mainWindow);
             Alpha12HudShortcutInstaller.Install(mainWindow);
             Alpha12MultiplayerStatusInstaller.Install(mainWindow);
-            DriverProfileInstaller.Install(mainWindow);
+
+            // Figma OPERAÇÃO order: CCO → Empresa → Rede → Equipe → Perfil.
+            DispatcherInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
             CompanyNetworkInstaller.Install(mainWindow);
             CompanyMembersInstaller.Install(mainWindow);
-            DispatcherInstaller.Install(mainWindow);
+            DriverProfileInstaller.Install(mainWindow);
+
             SessionHealthInstaller.Install(mainWindow);
             Alpha12NavigationPolishInstaller.Install(mainWindow);
             Alpha12FigmaNavigationModeInstaller.Install(mainWindow);
             Alpha12FigmaLiveDataInstaller.Install(mainWindow);
+            Alpha12FigmaHomeCompanyInstaller.Install(mainWindow);
             Alpha12VisualAccentInstaller.Install(mainWindow);
             Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
