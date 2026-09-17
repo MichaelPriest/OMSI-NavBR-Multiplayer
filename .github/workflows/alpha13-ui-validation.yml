@@ -1,0 +1,46 @@
+name: alpha13 ui validation
+
+on:
+  push:
+    branches:
+      - feature/alpha13-online-vehicles
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpha13-ui-validation
+  cancel-in-progress: true
+
+jobs:
+  validate-ui:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and portal JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          node --check site/app.js
+          node --check site/modern.js
+
+      - name: Restore UI projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+
+      - name: Build Windows x86 client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
