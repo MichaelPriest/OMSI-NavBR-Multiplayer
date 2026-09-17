@@ -249,10 +249,14 @@ public partial class MultiplayerWindow : Window
         {
             var localTelemetry = _telemetrySource();
             var activeMap = _activeMapSource();
+            var compatibility = OmsiCompatibilityManifestFactory.Create(
+                localTelemetry,
+                activeMap);
             var snapshot = await _client.ConnectAsync(
                 _settings,
                 localTelemetry?.MapName,
-                activeMap?.CompatibilityId);
+                activeMap?.CompatibilityId,
+                compatibility);
 
             ApplySnapshot(snapshot);
             _publishTimer.Start();
