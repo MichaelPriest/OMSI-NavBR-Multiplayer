@@ -1,6 +1,6 @@
 # OMSI NavBR Multiplayer
 
-Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit e integração experimental com veículos remotos físicos no OMSI.
+Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit, integração experimental com veículos remotos físicos e **modo Personagem/RP** no OMSI.
 
 ## Versão pública para testes
 
@@ -20,6 +20,7 @@ A próxima pré-release é **`v0.3.0-alpha.13-test.1`**.
 - luzes e setas quando suportadas pelo backend atual;
 - coordenador físico único para evitar spawn/update duplicados;
 - sessão continua ativa mesmo ao fechar a Central Multiplayer;
+- novo **Personagem / RP experimental**, disponível também sem multiplayer: após o mapa carregar, o NavBR lê os personagens reais de `Drivers`, permite selecionar o motorista e prepara o controle a pé do motorista humano do próprio ônibus;
 - peer-host TCP `27730` e servidor dedicado opcional;
 - salas públicas/privadas, chat e voz PTT;
 - diagnóstico de NAT, firewall, UPnP, latência, jitter e perda;
@@ -60,6 +61,8 @@ Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instal
 6. Faça o primeiro teste preferencialmente entre dois PCs na mesma rede local.
 
 O plugin de escrita no OMSI não é obrigatório para GPS, HUD, chat, voz ou telemetria multiplayer básica.
+
+O **Modo Personagem/RP** também é opcional e experimental. O seletor funciona a partir do mapa carregado; o controle físico a pé requer OMSI 2.3.004 + plugin NavBR compatível e opt-in explícito.
 
 ## Multiplayer
 
