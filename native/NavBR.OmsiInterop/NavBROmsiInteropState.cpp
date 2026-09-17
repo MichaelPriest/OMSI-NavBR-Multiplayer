@@ -523,6 +523,84 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanPose(
     return 1;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanDriverState(
+    int humanPointer,
+    int* myBus,
+    unsigned char* fixDriver,
+    unsigned char* renderMe,
+    unsigned char* inWorld)
+{
+    if (!IsHumanPointer(humanPointer) ||
+        myBus == nullptr ||
+        fixDriver == nullptr ||
+        renderMe == nullptr ||
+        inWorld == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + HumanMyBusOffset, sizeof(int)) ||
+        !IsReadableRange(base + HumanFixDriverOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanRenderMeOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanInWorldOffset, sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    *myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
+    *fixDriver = *reinterpret_cast<const unsigned char*>(base + HumanFixDriverOffset);
+    *renderMe = *reinterpret_cast<const unsigned char*>(base + HumanRenderMeOffset);
+    *inWorld = *reinterpret_cast<const unsigned char*>(base + HumanInWorldOffset);
+    return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_DetachHumanForRoleplay(int humanPointer)
+{
+    if (!IsHumanPointer(humanPointer))
+    {
+        return 0;
+    }
+
+    const int zeroBus = 0;
+    const unsigned char zero = 0;
+    const unsigned char one = 1;
+
+    return WriteValue(humanPointer, HumanMyBusOffset, zeroBus) &&
+           WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
+           WriteByte(humanPointer, HumanRenderMeOffset, one) &&
+           WriteByte(humanPointer, HumanInWorldOffset, one)
+        ? 1
+        : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_RestoreHumanDriverState(
+    int humanPointer,
+    int myBus,
+    unsigned char fixDriver,
+    unsigned char renderMe,
+    unsigned char inWorld)
+{
+    if (!IsHumanPointer(humanPointer))
+    {
+        return 0;
+    }
+
+    if (myBus != 0 && !IsRoadVehiclePointer(myBus))
+    {
+        // Never restore a stale vehicle pointer after the bus has despawned.
+        myBus = 0;
+        fixDriver = 0;
+    }
+
+    return WriteValue(humanPointer, HumanMyBusOffset, myBus) &&
+           WriteByte(humanPointer, HumanFixDriverOffset, fixDriver) &&
+           WriteByte(humanPointer, HumanRenderMeOffset, renderMe) &&
+           WriteByte(humanPointer, HumanInWorldOffset, inWorld)
+        ? 1
+        : 0;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAiState(
     int humanPointer,
     unsigned char* aiMode,
