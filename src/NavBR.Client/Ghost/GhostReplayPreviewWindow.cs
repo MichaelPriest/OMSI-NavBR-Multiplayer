@@ -21,9 +21,9 @@ internal sealed class GhostReplayPreviewWindow : Window
 
         Title = "NavBR Ghost / Replay — Pré-visualização";
         Width = 1120d;
-        Height = 820d;
+        Height = 860d;
         MinWidth = 860d;
-        MinHeight = 640d;
+        MinHeight = 660d;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 16, 26);
         Foreground = Brush(218, 230, 238);
@@ -97,19 +97,31 @@ internal sealed class GhostReplayPreviewWindow : Window
     private Border BuildMetadataCard()
     {
         var grid = new Grid();
-        for (var i = 0; i < 4; i++)
+        for (var row = 0; row < 2; row++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        for (var column = 0; column < 4; column++)
         {
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         }
 
+        var analytics = GhostReplayAnalyticsCalculator.Analyze(_document);
         var map = string.IsNullOrWhiteSpace(_document.Metadata.MapName) ? "—" : _document.Metadata.MapName;
         var vehicle = string.IsNullOrWhiteSpace(_document.Metadata.VehicleName) ? "—" : _document.Metadata.VehicleName;
-        var duration = TimeSpan.FromSeconds(Math.Max(0d, _document.Metadata.DurationSeconds));
+        var duration = TimeSpan.FromSeconds(Math.Max(0d, analytics.DurationSeconds));
+        var line = _document.Frames
+            .Select(frame => frame.Telemetry.Line)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "—";
 
-        AddMetric(grid, 0, "MAPA", map);
-        AddMetric(grid, 1, "VEÍCULO", vehicle);
-        AddMetric(grid, 2, "DURAÇÃO", duration.TotalHours >= 1d ? duration.ToString("hh\\:mm\\:ss") : duration.ToString("mm\\:ss"));
-        AddMetric(grid, 3, "FRAMES", _document.Metadata.FrameCount.ToString("N0"));
+        AddMetric(grid, 0, 0, "MAPA", map);
+        AddMetric(grid, 0, 1, "VEÍCULO", vehicle);
+        AddMetric(grid, 0, 2, "DURAÇÃO", FormatDuration(duration));
+        AddMetric(grid, 0, 3, "FRAMES", _document.Metadata.FrameCount.ToString("N0"));
+        AddMetric(grid, 1, 0, "DISTÂNCIA EST.", FormatDistance(analytics.EstimatedDistanceKm));
+        AddMetric(grid, 1, 1, "VEL. MÉDIA", $"{analytics.AverageSpeedKph:0.0} km/h");
+        AddMetric(grid, 1, 2, "VEL. MÁXIMA", $"{analytics.MaximumSpeedKph:0.0} km/h");
+        AddMetric(grid, 1, 3, "LINHA", line);
 
         return new Border
         {
@@ -118,14 +130,21 @@ internal sealed class GhostReplayPreviewWindow : Window
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
             Padding = new Thickness(16d),
-            ToolTip = _sourcePath,
+            ToolTip = $"{_sourcePath}\nDistância estimada pela integração da velocidade registrada entre os frames válidos.",
             Child = grid
         };
     }
 
-    private static void AddMetric(Grid grid, int column, string label, string value)
+    private static void AddMetric(Grid grid, int row, int column, string label, string value)
     {
-        var stack = new StackPanel { Margin = new Thickness(column == 0 ? 0d : 12d, 0d, 12d, 0d) };
+        var stack = new StackPanel
+        {
+            Margin = new Thickness(
+                column == 0 ? 0d : 12d,
+                row == 0 ? 0d : 14d,
+                12d,
+                0d)
+        };
         stack.Children.Add(new TextBlock
         {
             Text = label,
@@ -143,6 +162,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             TextTrimming = TextTrimming.CharacterEllipsis,
             ToolTip = value
         });
+        Grid.SetRow(stack, row);
         Grid.SetColumn(stack, column);
         grid.Children.Add(stack);
     }
@@ -261,6 +281,16 @@ internal sealed class GhostReplayPreviewWindow : Window
         Canvas.SetTop(text, (CanvasHeight / 2d) - 20d);
         canvas.Children.Add(text);
     }
+
+    private static string FormatDuration(TimeSpan duration) =>
+        duration.TotalHours >= 1d
+            ? duration.ToString("hh\\:mm\\:ss")
+            : duration.ToString("mm\\:ss");
+
+    private static string FormatDistance(double distanceKm) =>
+        distanceKm < 10d
+            ? $"{distanceKm:0.00} km"
+            : $"{distanceKm:0.0} km";
 
     private static SolidColorBrush Brush(byte r, byte g, byte b) =>
         new(Color.FromRgb(r, g, b));
