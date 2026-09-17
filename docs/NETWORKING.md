@@ -1,61 +1,71 @@
 # Rede multiplayer
 
-> **Escopo atual:** esta camada de rede sincroniza dados entre clientes NavBR. Ela **ainda não cria nem movimenta o ônibus do outro jogador dentro do mundo 3D do OMSI**. Para o estado completo, veja [Estado real do multiplayer](MULTIPLAYER_STATUS.md).
+> **Escopo atual:** esta camada sincroniza dados entre clientes NavBR. Ela ainda não transforma automaticamente a sessão em um mundo 3D compartilhado completo do OMSI. Para o estado detalhado, veja [Estado real do multiplayer](MULTIPLAYER_STATUS.md).
 
-## Modelo atual
+## Modos de transporte
 
-O NavBR usa peer-host no sentido de que o **PC do criador da sala executa o servidor da sessão**. Os demais clientes não se conectam uns aos outros diretamente; todos se conectam ao host da sala.
+A Alpha.12 mantém **peer-host direto** como padrão e adiciona um **relay de aplicação experimental e opt-in** para redes em que o host direto não é viável.
+
+### Peer-host direto — padrão
+
+O PC de quem cria a sala executa o servidor ASP.NET Core + SignalR da própria sessão em `TCP 27730`.
 
 ```text
 Convidado A ─┐
-             ├── TCP 27730 / SignalR ── PC do criador da sala
+             ├── TCP 27730 / SignalR ── PC do criador
 Convidado B ─┘                              ├─ presença
                                             ├─ telemetria
                                             ├─ chat
-                                            └─ voz Opus
+                                            ├─ voz Opus
+                                            └─ tráfego compartilhado experimental
 ```
 
-A telemetria recebida pode alimentar marcadores no GPS/HUD do NavBR e, na alpha.10 experimental, o bridge local do plugin. **Receber essa telemetria não significa que uma entidade física tenha sido criada no OMSI.**
+Na LAN, o NavBR exibe os endereços IPv4 utilizáveis. Pela Internet, o host pode precisar de regra de firewall, UPnP/port forwarding e um IPv4 público alcançável.
 
-## Porta
+### Relay de aplicação — experimental
 
-Padrão inicial: `27730/TCP`.
-
-## LAN
-
-Na mesma rede local, use um dos endereços IPv4 exibidos pelo NavBR, por exemplo:
+No passo **Sala → Privacidade → Rede**, o usuário pode optar por um servidor NavBR remoto como relay. Nesse modo o cliente **não abre o host local nem tenta mapear TCP 27730 via UPnP**. Todos os participantes se conectam ao mesmo Hub SignalR remoto e continuam usando o mesmo protocolo de sala.
 
 ```text
-http://192.168.1.50:27730
+Criador ──────┐
+              ├── HTTPS/HTTP + SignalR ── servidor NavBR configurado
+Convidado A ──┤                              ├─ sala
+Convidado B ──┘                              ├─ telemetria
+                                             ├─ chat
+                                             ├─ voz
+                                             └─ autoridade da sessão
 ```
 
-## Internet
+O criador entra primeiro e continua sendo a autoridade inicial da sessão/tráfego. O relay é transporte; ele não cria um segundo protocolo multiplayer.
 
-Nesta alpha ainda não existe um serviço de rendezvous/NAT traversal. O host precisa estar alcançável. Dependendo da rede isso pode exigir:
+O NavBR **não fornece nesta etapa um endereço público de relay embutido**. O endereço precisa apontar para uma instância NavBR Server configurada pelo operador/usuário. Não invente ou assuma um endpoint público.
 
-- regra de entrada no Windows Firewall;
-- port forwarding TCP 27730 no roteador;
-- IP público ou hostname alcançável.
+## Convites
 
-CGNAT pode impedir port forwarding tradicional. UPnP/PCP/NAT-PMP, relay ou WebRTC/ICE são candidatos para fases futuras.
+O formato `NAVBR_INVITE_V1` agora diferencia:
 
-## O que não é compartilhado pelo servidor atual
+- `mode=peer-host` — endereço do host direto;
+- `mode=relay` — endereço do servidor relay.
 
-O host da sala não transforma o OMSI em um simulador de mundo compartilhado completo. Hoje ele não sincroniza:
+Senha de sala não é colocada no convite. Salas privadas continuam exigindo a senha informada separadamente.
 
-- criação física de ônibus remotos no OMSI;
-- tráfego AI;
-- passageiros;
-- semáforos;
-- colisões;
-- estado global do cenário.
+## NAT, UPnP e CGNAT
 
-Portas, luzes, setas, matriz e outros estados de um futuro ônibus remoto só serão tratados depois que existir uma representação física segura dentro do simulador.
+O NavBR possui diagnóstico local de NAT, firewall e UPnP. O host direto continua preferencial quando a rede permite.
 
-## Segurança atual
+CGNAT (`100.64.0.0/10`) e double NAT podem impedir o encaminhamento tradicional. Nesses casos o relay de aplicação pode ser usado manualmente, desde que exista um servidor NavBR remoto alcançável.
 
-- o servidor associa telemetria/chat/voz à presença da conexão, em vez de confiar somente no PlayerId enviado pelo cliente;
-- tamanhos de chat e frame de voz são limitados;
-- campos de telemetria são validados/normalizados antes da retransmissão;
-- esta alpha ainda não oferece criptografia própria, senha de sala ou autenticação de conta;
-- em Internet pública, um proxy HTTPS/TLS ou uma futura camada segura será necessária antes de classificar o modo como pronto para produção.
+O probe externo opcional é separado do relay. Quando configurado, um servidor NavBR pode testar o alcance de `TCP 27730` usando somente o IP de origem observado e controles de rate limit; ele não recebe uma senha de sala para executar o teste.
+
+## Segurança e privacidade
+
+- o servidor associa telemetria/chat/voz à presença da conexão, em vez de confiar apenas no `PlayerId` enviado pelo cliente;
+- campos e tamanhos de payload são validados antes da retransmissão;
+- salas privadas usam senha efêmera; a senha não é persistida no perfil nem incluída no convite;
+- relay é opt-in e o endereço fica sob controle do usuário/operador;
+- para uso pela Internet, prefira um servidor relay/dedicado atrás de HTTPS/TLS;
+- diagnósticos de UPnP são locais; o probe externo só ocorre quando a infraestrutura correspondente é configurada.
+
+## O que o transporte não resolve sozinho
+
+Conseguir conectar dois jogadores não significa que o OMSI já possua um mundo compartilhado completo. A representação física de ônibus remotos, sincronização integral de passageiros, colisões e demais estados do cenário continuam sendo camadas separadas e experimentais.
