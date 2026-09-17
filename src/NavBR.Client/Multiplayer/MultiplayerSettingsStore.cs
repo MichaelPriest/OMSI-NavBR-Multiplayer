@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using NavBR.Client.Driver;
 using NavBR.Client.Overlay;
 
 namespace NavBR.Client.Multiplayer;
@@ -51,6 +52,18 @@ public static class MultiplayerSettingsStore
         });
         File.WriteAllText(SettingsPath, json);
         SettingsSaved?.Invoke(settings);
+        SynchronizeDriverProfileName(settings.DisplayName);
+    }
+
+    private static void SynchronizeDriverProfileName(string displayName)
+    {
+        var profile = DriverProfileStore.Load();
+        if (string.Equals(profile.DisplayName, displayName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        DriverProfileStore.Update(current => current with { DisplayName = displayName });
     }
 
     private static MultiplayerSettings Normalize(MultiplayerSettings settings)
@@ -61,6 +74,13 @@ public static class MultiplayerSettingsStore
         var voice = NavBRHotkeyCatalog.Resolve(
             settings.VoiceHotkey,
             NavBRHotkeyCatalog.DefaultVoiceHotkey).Name;
+        var displayName = string.IsNullOrWhiteSpace(settings.DisplayName)
+            ? "Driver"
+            : settings.DisplayName.Trim();
+        if (displayName.Length > 80)
+        {
+            displayName = displayName[..80];
+        }
 
         // Older builds allowed chat/PTT to end up on the same chord. Keep the
         // user's valid selection whenever possible, but always migrate a
@@ -107,6 +127,7 @@ public static class MultiplayerSettingsStore
 
         return settings with
         {
+            DisplayName = displayName,
             ChatHotkey = chat,
             VoiceHotkey = voice,
             HudX = Math.Clamp(double.IsFinite(settings.HudX) ? settings.HudX : 0.02d, 0d, 1d),
