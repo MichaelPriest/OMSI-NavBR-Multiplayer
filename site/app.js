@@ -1,31 +1,31 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.12-test.1';
+const currentTag = 'v0.3.0-alpha.13-test.1';
 
 const fallbackRelease = {
   tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.1 — community test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.13-test.1 — physical multiplayer test',
   prerelease: true,
-  published_at: '2026-09-16T19:06:31Z',
+  published_at: null,
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.12 Test 1: novo shell/HUD, perfil e empresa virtual, CCO, peer-host, salas públicas/privadas, diagnóstico de rede, voz avançada e recursos experimentais da nova geração.',
+  body: 'Alpha.13 Test 1 inicia a validação pública do ônibus remoto físico online com spawn, movimento e estados visuais básicos usando telemetria real do OMSI 2.3.004.',
   download_count: 0,
   assets: [
     {
       name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      size: 85048515,
+      size: 0,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      size: 85380173,
+      size: 0,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      size: 5283624,
+      size: 0,
       download_count: 0
     },
     {
@@ -63,7 +63,7 @@ function formatNumber(value = 0) {
 }
 
 function formatDate(date) {
-  if (!date) return '';
+  if (!date) return 'aguardando publicação';
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric'
   }).format(new Date(date));
@@ -80,6 +80,16 @@ function summarizeBody(body = '') {
   return clean || 'Versão publicada para testes do projeto.';
 }
 
+function alphaKey(tag = '') {
+  const match = String(tag).match(/alpha\.(\d+)/i);
+  return match ? `alpha.${match[1]}`.toLowerCase() : null;
+}
+
+function alphaLabel(tag = '') {
+  const match = String(tag).match(/alpha\.(\d+)/i);
+  return match ? `Alpha.${match[1]}` : 'Alpha atual';
+}
+
 function assetLabel(name = '') {
   if (/win-x86\.exe$/i.test(name)) return 'Cliente recomendado — EXE standalone';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
@@ -89,10 +99,10 @@ function assetLabel(name = '') {
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.12. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.13. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
-  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI.';
+  if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI para os testes físicos.';
   return '';
 }
 
@@ -101,6 +111,13 @@ function releaseDownloadCount(release) {
   return (release?.assets || [])
     .filter(asset => /\.(exe|zip)$/i.test(asset.name || ''))
     .reduce((total, asset) => total + (Number(asset.download_count) || 0), 0);
+}
+
+function calculateAlphaDownloads(releases, key) {
+  if (!key) return 0;
+  return releases
+    .filter(release => alphaKey(release?.tag_name) === key)
+    .reduce((total, release) => total + releaseDownloadCount(release), 0);
 }
 
 function renderRelease(release) {
@@ -132,6 +149,7 @@ function renderRelease(release) {
 async function loadReleases() {
   let releases = [];
   let totalDownloads = 0;
+  let alphaDownloads = {};
 
   try {
     const response = await fetch('releases.json', { cache: 'no-store' });
@@ -142,6 +160,9 @@ async function loadReleases() {
       } else {
         releases = Array.isArray(catalog?.releases) ? catalog.releases : [];
         totalDownloads = Number(catalog?.total_downloads) || 0;
+        alphaDownloads = catalog?.alpha_downloads && typeof catalog.alpha_downloads === 'object'
+          ? catalog.alpha_downloads
+          : {};
       }
     }
   } catch (_) {
@@ -157,22 +178,29 @@ async function loadReleases() {
     totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
   }
 
+  const currentAlphaKey = alphaKey(currentTag);
+  const currentAlphaDownloads = Number(alphaDownloads?.[currentAlphaKey]) ||
+    calculateAlphaDownloads(releases, currentAlphaKey);
   const current = releases.find(release => release?.tag_name === currentTag) || fallbackRelease;
   const versionElement = document.getElementById('latest-version');
   const summaryElement = document.getElementById('latest-summary');
   const downloadsElement = document.getElementById('total-downloads');
+  const alphaDownloadsElement = document.getElementById('alpha-downloads');
+  const alphaDownloadsLabelElement = document.getElementById('alpha-downloads-label');
   const downloadButton = document.getElementById('latest-download');
   const releaseList = document.getElementById('release-list');
 
   if (versionElement) versionElement.textContent = current.tag_name || current.name;
   if (summaryElement) summaryElement.textContent = summarizeBody(current.body).slice(0, 220);
   if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
+  if (alphaDownloadsElement) alphaDownloadsElement.textContent = formatNumber(currentAlphaDownloads);
+  if (alphaDownloadsLabelElement) alphaDownloadsLabelElement.textContent = `downloads da ${alphaLabel(currentTag)}`;
 
   const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
   if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
   if (releaseList) {
     releaseList.innerHTML = [current, ...releases.filter(release => release !== current)]
-      .slice(0, 6)
+      .slice(0, 8)
       .map(renderRelease)
       .join('');
   }
