@@ -6,7 +6,8 @@ namespace NavBR.Server.Hubs;
 
 internal sealed class RoomPrivacyHubFilter(
     RoomAccessPolicyStore policies,
-    MultiplayerRoomRegistry registry) : IHubFilter
+    MultiplayerRoomRegistry registry,
+    IHubContext<MultiplayerHub> hubContext) : IHubFilter
 {
     public async ValueTask<object?> InvokeMethodAsync(
         HubInvocationContext invocationContext,
@@ -30,6 +31,7 @@ internal sealed class RoomPrivacyHubFilter(
             {
                 if (!string.IsNullOrWhiteSpace(previousRoomId))
                 {
+                    await BroadcastOwnerAsync(previousRoomId);
                     policies.CleanupIfEmpty(previousRoomId, registry);
                 }
             }
@@ -52,6 +54,7 @@ internal sealed class RoomPrivacyHubFilter(
         await next(context, exception);
         if (!string.IsNullOrWhiteSpace(roomId))
         {
+            await BroadcastOwnerAsync(roomId);
             policies.CleanupIfEmpty(roomId, registry);
         }
     }
@@ -88,6 +91,9 @@ internal sealed class RoomPrivacyHubFilter(
             if (result is RoomSnapshot snapshot)
             {
                 var descriptor = policies.Describe(roomId, registry);
+                await hubContext.Clients.Group(roomId).SendAsync(
+                    "roomOwnerChanged",
+                    descriptor.OwnerPlayerId);
                 return snapshot with
                 {
                     IsPrivate = descriptor.IsPrivate,
@@ -102,9 +108,18 @@ internal sealed class RoomPrivacyHubFilter(
             if (!string.IsNullOrWhiteSpace(previousRoomId) &&
                 !string.Equals(previousRoomId, roomId, StringComparison.OrdinalIgnoreCase))
             {
+                await BroadcastOwnerAsync(previousRoomId);
                 policies.CleanupIfEmpty(previousRoomId, registry);
             }
         }
+    }
+
+    private async Task BroadcastOwnerAsync(string roomId)
+    {
+        var descriptor = policies.Describe(roomId, registry);
+        await hubContext.Clients.Group(roomId).SendAsync(
+            "roomOwnerChanged",
+            descriptor.OwnerPlayerId);
     }
 
     private string? GetCurrentRoom(string connectionId) =>
