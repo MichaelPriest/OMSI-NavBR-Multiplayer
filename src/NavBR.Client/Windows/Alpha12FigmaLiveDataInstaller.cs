@@ -185,10 +185,10 @@ internal static class Alpha12FigmaLiveDataInstaller
         body.Children.Add(roomList);
 
         var actions = new WrapPanel { Margin = new Thickness(0d, 14d, 0d, 0d) };
-        var refreshButton = Button(T("Atualizar salas", "Refresh rooms", "Actualizar salas", "Räume aktualisieren", "Actualiser les salons"));
-        var openCentral = Button(T("Abrir Central Multiplayer", "Open Multiplayer Center", "Abrir Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrir la centrale multijoueur"));
+        var refreshButton = SecondaryButton(T("Atualizar salas", "Refresh rooms", "Actualizar salas", "Räume aktualisieren", "Actualiser les salons"));
+        var openCentral = SecondaryButton(T("Abrir Central Multiplayer", "Open Multiplayer Center", "Abrir Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrir la centrale multijoueur"));
         openCentral.Margin = new Thickness(10d, 0d, 0d, 0d);
-        openCentral.Click += (_, _) => window.MultiplayerButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        openCentral.Click += (_, _) => window.MultiplayerButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
         actions.Children.Add(refreshButton);
         actions.Children.Add(openCentral);
         body.Children.Add(actions);
@@ -373,7 +373,7 @@ internal static class Alpha12FigmaLiveDataInstaller
         Child = Text(text, 11d, Muted(), FontWeights.Normal)
     };
 
-    private static Button Button(string text) => new()
+    private static Button SecondaryButton(string text) => new()
     {
         Content = text,
         MinHeight = 36d,
