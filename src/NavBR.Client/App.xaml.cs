@@ -130,6 +130,7 @@ public partial class App : Application
             OmsiProfilesUiInstaller.Install(mainWindow);
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
             Alpha12ExperienceInstaller.Install(mainWindow);
+            Alpha12HudShortcutInstaller.Install(mainWindow);
             Alpha12MultiplayerStatusInstaller.Install(mainWindow);
             DriverProfileInstaller.Install(mainWindow);
             VirtualCompanyInstaller.Install(mainWindow);
