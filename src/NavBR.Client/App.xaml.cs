@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Driver;
+using NavBR.Client.Hardware;
 using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Network;
@@ -39,6 +40,10 @@ public partial class App : Application
             typeof(Window),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(Window_Loaded));
+        EventManager.RegisterClassHandler(
+            typeof(HardwareCockpitView),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(HardwareCockpitView_Loaded));
         base.OnStartup(e);
     }
 
@@ -112,6 +117,14 @@ public partial class App : Application
             "plugin-command",
             "error",
             $"error={message.ErrorCode ?? "unknown"} detail={message.ErrorMessage ?? string.Empty}");
+    }
+
+    private static void HardwareCockpitView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is HardwareCockpitView hardwareView)
+        {
+            HardwareCockpitPersistenceInstaller.Attach(hardwareView);
+        }
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
