@@ -66,6 +66,16 @@ Todo o trabalho consolidado da Alpha.12 permanece na Alpha.13:
 - Hardware Cockpit;
 - Ghost/Replay experimental.
 
+### Refinamento de interface em andamento
+
+- ✅ Navegação mantém o shell Figma já aprovado;
+- ✅ mapa 2D ocupa a área principal e deixa de depender da altura fixa legada de 480 px;
+- ✅ painel lateral da rota permanece ao lado do mapa, com largura responsiva e rolagem própria;
+- ✅ estado real da navegação aparece no cabeçalho da página;
+- ✅ linha/destino, ETA, próxima parada, progresso e distâncias continuam alimentados somente por dados reais;
+- ✅ detalhes técnicos de mapas instalados saem da superfície principal sem alterar o diagnóstico interno;
+- 🚧 próximos passes de fidelidade: Home, Central Multiplayer e superfícies de Operação/Sistema.
+
 ## 4. Licenciamento e distribuição futura
 
 A Alpha.13 introduz somente a **arquitetura de entitlement**, separada do núcleo do aplicativo.
