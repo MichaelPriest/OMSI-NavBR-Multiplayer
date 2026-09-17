@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Numerics;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -88,6 +89,28 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             BitConverter.ToSingle(bytes, 4),
             BitConverter.ToSingle(bytes, 8),
             BitConverter.ToSingle(bytes, 12));
+    }
+
+    public Matrix4x4 ReadMatrix4x4(nint address)
+    {
+        var bytes = ReadBytes(address, 64);
+        return new Matrix4x4(
+            BitConverter.ToSingle(bytes, 0),
+            BitConverter.ToSingle(bytes, 4),
+            BitConverter.ToSingle(bytes, 8),
+            BitConverter.ToSingle(bytes, 12),
+            BitConverter.ToSingle(bytes, 16),
+            BitConverter.ToSingle(bytes, 20),
+            BitConverter.ToSingle(bytes, 24),
+            BitConverter.ToSingle(bytes, 28),
+            BitConverter.ToSingle(bytes, 32),
+            BitConverter.ToSingle(bytes, 36),
+            BitConverter.ToSingle(bytes, 40),
+            BitConverter.ToSingle(bytes, 44),
+            BitConverter.ToSingle(bytes, 48),
+            BitConverter.ToSingle(bytes, 52),
+            BitConverter.ToSingle(bytes, 56),
+            BitConverter.ToSingle(bytes, 60));
     }
 
     public string? ReadDelphiUnicodeStringField(nint fieldAddress, int maxCharacters = 1024)
