@@ -19,6 +19,8 @@ internal sealed class PublicRoomBrowserWindow : Window
     private readonly Button _refreshButton = new();
     private readonly Button _favoriteButton = new();
     private readonly Button _selectButton = new();
+    private readonly TextBox _filterBox = new();
+    private readonly CheckBox _favoritesOnly = new();
     private IReadOnlyList<PublicRoomSummary> _currentRooms = Array.Empty<PublicRoomSummary>();
 
     public string? SelectedRoomId { get; private set; }
@@ -29,10 +31,10 @@ internal sealed class PublicRoomBrowserWindow : Window
         _serverUrl = serverUrl;
         _localManifest = localManifest;
         Title = Pick("Salas públicas", "Public rooms", "Salas públicas", "Öffentliche Räume", "Salons publics");
-        Width = 780;
-        Height = 620;
-        MinWidth = 640;
-        MinHeight = 500;
+        Width = 820;
+        Height = 660;
+        MinWidth = 660;
+        MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 10, 14);
         Foreground = Brushes.White;
@@ -70,6 +72,37 @@ internal sealed class PublicRoomBrowserWindow : Window
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         });
+
+        var filters = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+        _filterBox.Width = 280;
+        _filterBox.Height = 34;
+        _filterBox.Padding = new Thickness(9, 5, 9, 5);
+        _filterBox.Background = Brush(13, 26, 36);
+        _filterBox.Foreground = Brushes.White;
+        _filterBox.BorderBrush = Brush(35, 53, 65);
+        _filterBox.BorderThickness = new Thickness(1);
+        _filterBox.ToolTip = Pick(
+            "Filtrar por sala, mapa, versão, ônibus ou HOF",
+            "Filter by room, map, version, bus or HOF",
+            "Filtrar por sala, mapa, versión, autobús o HOF",
+            "Nach Raum, Karte, Version, Bus oder HOF filtern",
+            "Filtrer par salon, carte, version, bus ou HOF");
+        _filterBox.TextChanged += (_, _) => RenderRooms();
+        filters.Children.Add(_filterBox);
+
+        _favoritesOnly.Content = Pick(
+            "Somente favoritos",
+            "Favorites only",
+            "Solo favoritos",
+            "Nur Favoriten",
+            "Favoris uniquement");
+        _favoritesOnly.Foreground = Brush(205, 219, 228);
+        _favoritesOnly.VerticalAlignment = VerticalAlignment.Center;
+        _favoritesOnly.Margin = new Thickness(14, 0, 0, 0);
+        _favoritesOnly.Checked += (_, _) => RenderRooms();
+        _favoritesOnly.Unchecked += (_, _) => RenderRooms();
+        filters.Children.Add(_favoritesOnly);
+        headingStack.Children.Add(filters);
         root.Children.Add(headingStack);
 
         _status.Margin = new Thickness(0, 10, 0, 12);
@@ -171,20 +204,7 @@ internal sealed class PublicRoomBrowserWindow : Window
         {
             _currentRooms = await _directory.GetRoomsAsync(_serverUrl);
             RenderRooms();
-
-            _status.Text = _currentRooms.Count == 0
-                ? Pick(
-                    "Nenhuma sala pública ativa neste servidor. Salas privadas não aparecem nesta lista.",
-                    "No public rooms are active on this server. Private rooms are not shown here.",
-                    "No hay salas públicas activas en este servidor. Las salas privadas no aparecen aquí.",
-                    "Auf diesem Server sind keine öffentlichen Räume aktiv. Private Räume werden hier nicht angezeigt.",
-                    "Aucun salon public n’est actif sur ce serveur. Les salons privés ne sont pas affichés ici.")
-                : Pick(
-                    $"{_currentRooms.Count} sala(s) pública(s) encontrada(s). Favoritos locais: {PublicRoomFavoritesStore.Count}.",
-                    $"{_currentRooms.Count} public room(s) found. Local favorites: {PublicRoomFavoritesStore.Count}.",
-                    $"{_currentRooms.Count} sala(s) pública(s) encontrada(s). Favoritos locales: {PublicRoomFavoritesStore.Count}.",
-                    $"{_currentRooms.Count} öffentliche(r) Raum/Räume gefunden. Lokale Favoriten: {PublicRoomFavoritesStore.Count}.",
-                    $"{_currentRooms.Count} salon(s) public(s) trouvé(s). Favoris locaux : {PublicRoomFavoritesStore.Count}." );
+            UpdateStatus();
         }
         catch (Exception ex)
         {
@@ -207,7 +227,11 @@ internal sealed class PublicRoomBrowserWindow : Window
     private void RenderRooms(string? keepSelectedRoomId = null)
     {
         keepSelectedRoomId ??= (_rooms.SelectedItem as PublicRoomListItem)?.Room.RoomId;
+        var query = _filterBox.Text?.Trim();
+        var favoritesOnly = _favoritesOnly.IsChecked == true;
         var items = _currentRooms
+            .Where(room => !favoritesOnly || PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+            .Where(room => MatchesFilter(room, query))
             .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
             .ThenByDescending(room => room.PlayerCount)
             .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
@@ -222,7 +246,52 @@ internal sealed class PublicRoomBrowserWindow : Window
             _rooms.SelectedItem = items.FirstOrDefault(item =>
                 string.Equals(item.Room.RoomId, keepSelectedRoomId, StringComparison.OrdinalIgnoreCase));
         }
+
+        if (_currentRooms.Count > 0)
+        {
+            UpdateStatus(items.Length);
+        }
     }
+
+    private void UpdateStatus(int? visibleCount = null)
+    {
+        if (_currentRooms.Count == 0)
+        {
+            _status.Text = Pick(
+                "Nenhuma sala pública ativa neste servidor. Salas privadas não aparecem nesta lista.",
+                "No public rooms are active on this server. Private rooms are not shown here.",
+                "No hay salas públicas activas en este servidor. Las salas privadas no aparecen aquí.",
+                "Auf diesem Server sind keine öffentlichen Räume aktiv. Private Räume werden hier nicht angezeigt.",
+                "Aucun salon public n’est actif sur ce serveur. Les salons privés ne sont pas affichés ici.");
+            return;
+        }
+
+        var shown = visibleCount ?? (_rooms.Items.Count);
+        _status.Text = Pick(
+            $"{shown} de {_currentRooms.Count} sala(s) exibida(s) • favoritos locais: {PublicRoomFavoritesStore.Count}.",
+            $"{shown} of {_currentRooms.Count} public room(s) shown • local favorites: {PublicRoomFavoritesStore.Count}.",
+            $"{shown} de {_currentRooms.Count} sala(s) mostrada(s) • favoritos locales: {PublicRoomFavoritesStore.Count}.",
+            $"{shown} von {_currentRooms.Count} Raum/Räumen angezeigt • lokale Favoriten: {PublicRoomFavoritesStore.Count}.",
+            $"{shown} sur {_currentRooms.Count} salon(s) affiché(s) • favoris locaux : {PublicRoomFavoritesStore.Count}." );
+    }
+
+    private static bool MatchesFilter(PublicRoomSummary room, string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        return Contains(room.RoomId, query) ||
+               Contains(room.MapName, query) ||
+               Contains(room.OmsiVersion, query) ||
+               Contains(room.NavBRVersion, query) ||
+               Contains(room.VehiclePath, query) ||
+               Contains(room.HofName, query);
+    }
+
+    private static bool Contains(string? value, string query) =>
+        !string.IsNullOrWhiteSpace(value) && value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
 
     private void Favorite_Click(object sender, RoutedEventArgs e)
     {
