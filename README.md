@@ -5,30 +5,54 @@
 Aplicativo de navegação e multiplayer para **OMSI 2**, independente da Steam, com HUD/GPS, peer-host, salas públicas/privadas, chat, voz, CCO, integração experimental com o OMSI e Hardware Cockpit.
 
 > Versão em desenvolvimento: **0.3.0-alpha.12**  
-> Teste público atual: **[v0.3.0-alpha.12-test.2](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.2)**  
-> Release anterior: **[v0.3.0-alpha.12-test.1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1)**
+> Teste público atual: **[v0.3.0-alpha.12-test.3](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.3)**  
+> Release anterior: **[v0.3.0-alpha.12-test.2](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.2)**
 
 **Site oficial:** https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/  
 **Releases:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases  
-**Checklist Alpha.12 Test 2:** [docs/ALPHA12_TEST2_COMMUNITY.md](docs/ALPHA12_TEST2_COMMUNITY.md)  
+**Checklist Alpha.12 Test 3:** [docs/ALPHA12_TEST3_COMMUNITY.md](docs/ALPHA12_TEST3_COMMUNITY.md)  
 **Escopo mestre Alpha.12:** https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/feature/alpha12-full-expansion/docs/ALPHA12_MASTER_SCOPE.md  
 **Hardware Cockpit:** [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md)
 
-## Alpha.12 Test 2
+## Alpha.12 Test 3
 
-A `v0.3.0-alpha.12-test.2` é a segunda pré-release pública da Alpha.12. Ela corrige o pacote interno do plugin da Test 1 e traz a primeira rodada ampla da nova interface de central operacional.
+A `v0.3.0-alpha.12-test.3` é a terceira pré-release pública da Alpha.12. O foco desta build é o novo sistema de **HUDs modulares e redimensionáveis**, mantendo as correções do plugin e a nova interface operacional introduzidas na Test 2.
 
-### Correção importante do plugin
+### Novo sistema de HUD
 
-Na Test 1, o instalador interno exigia `NavBR.OmsiInterop.dll`, mas o script que montava o bundle embutido no cliente não incluía essa DLL. A Test 2 corrige o empacotamento e passa a validar obrigatoriamente as três peças antes de publicar:
+- seis presets: **Compacto, Normal, Completo, Cluster Digital, LCD / Âmbar e Transparente Integrado**;
+- cinco temas: **NavBR Modern, Painel de ônibus, LCD, Âmbar clássico e Claro**;
+- editor visual **Editar HUD**;
+- escala geral de 60% a 180%;
+- largura entre 280 e 960 px;
+- altura automática ou manual;
+- opacidade configurável;
+- ancoragem livre ou fixa em posições da tela;
+- escala automática conforme resolução;
+- tamanhos rápidos Pequeno, Médio, Grande e XL;
+- redimensionamento individual de minimapa, multiplayer, alertas e indicadores laterais;
+- edição rápida durante o ajuste: roda = escala, `Shift + roda` = largura e `Ctrl + roda` = opacidade.
+
+### Widgets com telemetria real
+
+- minimapa reaproveitando mapa/rota já carregados;
+- multiplayer com motoristas remotos, linha, velocidade e distância quando houver coordenadas compatíveis;
+- alertas de combustível, portas, parada solicitada e atraso/adiantamento;
+- indicadores laterais de combustível, portas, freio de estacionamento, setas/pisca-alerta, luzes e limpadores.
+
+O NavBR não inventa coordenadas, ETA ou distância quando esses dados não estão disponíveis.
+
+### Plugin e integração OMSI
+
+A Test 3 preserva a correção da Test 2: o bundle interno do plugin continua validando obrigatoriamente:
 
 - `NavBR.OmsiPlugin.dll`;
 - `NavBR.OmsiInterop.dll`;
 - `NavBR.OmsiPlugin.opl`.
 
-O pipeline da Test 2 também abre o ZIP interno e falha se qualquer uma delas estiver ausente.
+O pipeline abre o bundle embutido e falha automaticamente se qualquer peça obrigatória estiver ausente.
 
-### Interface Alpha.12
+### Interface Alpha.12 preservada
 
 - shell em formato de central operacional;
 - Home com resumo da operação atual;
@@ -80,14 +104,14 @@ A Alpha.12 inclui canais Geral, Empresa/Equipe, CCO e Proximidade, além de mute
 
 O HUD preserva a janela real de gameplay do OMSI e deve ficar oculto em menus, opções e janelas auxiliares. A telemetria normal permanece prioritariamente de leitura; operações físicas continuam isoladas atrás de opt-in experimental.
 
-## Pacotes da Alpha.12 Test 2
+## Pacotes da Alpha.12 Test 3
 
 ```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.12-test.2-win-x64.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.2-win-x86.zip
-ALPHA12_TEST2_COMMUNITY.md
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.exe
+OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.3-win-x86.zip
+OMSI-NavBR-Server-v0.3.0-alpha.12-test.3-win-x64.zip
+OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.3-win-x86.zip
+ALPHA12_TEST3_COMMUNITY.md
 ALPHA12_MASTER_SCOPE.md
 HARDWARE_COCKPIT.md
 SHA256SUMS.txt
@@ -108,6 +132,7 @@ Para a maioria dos usuários, o **EXE standalone x86** é o pacote recomendado.
 
 ## Documentação
 
+- [Alpha.12 Test 3 — comunidade](docs/ALPHA12_TEST3_COMMUNITY.md)
 - [Alpha.12 Test 2 — comunidade](docs/ALPHA12_TEST2_COMMUNITY.md)
 - [Hardware Cockpit Bridge](docs/HARDWARE_COCKPIT.md)
 - [Manual de uso](docs/MANUAL_DE_USO.md)
