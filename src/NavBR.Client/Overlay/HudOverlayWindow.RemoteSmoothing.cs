@@ -144,6 +144,12 @@ public partial class HudOverlayWindow
                 continue;
             }
 
+            UpdateRemoteMarkerVisual(
+                marker,
+                frame.Player.DisplayName,
+                pose.HeadingDegrees,
+                MiniMapHeadingRotation.Angle,
+                MiniMapContentScale.ScaleX);
             Canvas.SetLeft(marker, pose.X - marker.Width / 2d);
             Canvas.SetTop(marker, pose.Y - marker.Height / 2d);
             marker.ToolTip = $"{frame.Player.DisplayName} • {remote.SpeedKph:F1} km/h";
