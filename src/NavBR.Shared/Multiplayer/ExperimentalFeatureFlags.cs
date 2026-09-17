@@ -5,11 +5,18 @@ public static class ExperimentalFeatureFlags
     private const string EnableFileName = "experimental-physical-vehicles.enabled";
     private const string WritesEnvironmentVariable = "NAVBR_OMSI_EXPERIMENTAL_WRITES";
     private const string BackendEnvironmentVariable = "NAVBR_OMSI_PHYSICAL_BACKEND";
+    private const string RoleplayEnableFileName = "experimental-roleplay-character.enabled";
+    private const string RoleplayEnvironmentVariable = "NAVBR_OMSI_ROLEPLAY_CHARACTER";
 
     public static string PhysicalVehiclesFlagPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "OMSI NavBR Multiplayer",
         EnableFileName);
+
+    public static string RoleplayCharacterFlagPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "OMSI NavBR Multiplayer",
+        RoleplayEnableFileName);
 
     public static bool PhysicalVehiclesEnabled
     {
@@ -37,6 +44,37 @@ public static class ExperimentalFeatureFlags
         TrySetUserEnvironmentVariable(BackendEnvironmentVariable, value);
 
         var path = PhysicalVehiclesFlagPath;
+        if (enabled)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(
+                path,
+                $"enabled=1{Environment.NewLine}updatedUtc={DateTimeOffset.UtcNow:O}{Environment.NewLine}");
+            return;
+        }
+
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+
+    public static bool RoleplayCharacterEnabled =>
+        File.Exists(RoleplayCharacterFlagPath) ||
+        IsTruthy(Environment.GetEnvironmentVariable(RoleplayEnvironmentVariable));
+
+    public static void SetRoleplayCharacterEnabled(bool enabled)
+    {
+        var value = enabled ? "1" : null;
+        Environment.SetEnvironmentVariable(RoleplayEnvironmentVariable, value);
+        TrySetUserEnvironmentVariable(RoleplayEnvironmentVariable, value);
+
+        var path = RoleplayCharacterFlagPath;
         if (enabled)
         {
             var directory = Path.GetDirectoryName(path);
