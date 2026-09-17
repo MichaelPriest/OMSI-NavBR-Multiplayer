@@ -15,17 +15,13 @@ internal static class Alpha12NavigationPolishInstaller
             return;
         }
 
-        // The professional Alpha.12 shell already owns the information
-        // architecture (DIRIGIR / OPERAÇÃO / SISTEMA / AVANÇADO). Do not
-        // re-parent its buttons: older polish logic used to flatten CCO,
-        // profile, company, hardware and settings beside Multiplayer, which
-        // conflicts with the approved Figma navigation model.
         var hasProfessionalShell =
-            window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel &&
-            window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel;
+            window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operationsPanel &&
+            window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel systemPanel;
 
         if (hasProfessionalShell)
         {
+            ReorderProfessionalNavigation(operationsPanel!, systemPanel!);
             HideNextVersionLabel(window);
             Alpha12Navigation3DInstaller.Install(window);
             window.Closed += (_, _) => Installed.Remove(window);
@@ -52,7 +48,6 @@ internal static class Alpha12NavigationPolishInstaller
         }
 
         var advancedPanel = diagnostics?.Parent as Panel;
-
         var dailyButtons = new[]
         {
             dispatcher,
@@ -85,6 +80,67 @@ internal static class Alpha12NavigationPolishInstaller
 
         Alpha12Navigation3DInstaller.Install(window);
         window.Closed += (_, _) => Installed.Remove(window);
+    }
+
+    private static void ReorderProfessionalNavigation(Panel operations, Panel system)
+    {
+        var operationButtons = operations.Children.OfType<Button>().ToArray();
+        var desiredOperation = new[]
+        {
+            "alpha12-dispatcher",
+            "alpha12-company-fleet",
+            "alpha12-company-network",
+            "alpha12-company-members",
+            "alpha12-driver-profile"
+        };
+        ReorderByTags(operations, operationButtons, desiredOperation);
+
+        var systemButtons = system.Children.OfType<Button>().ToArray();
+        var orderedSystem = new List<Button>();
+        AddFirst(orderedSystem, systemButtons.FirstOrDefault(button => button.Content is string text && text.StartsWith("▣", StringComparison.Ordinal)));
+        AddFirst(orderedSystem, systemButtons.FirstOrDefault(button => Equals(button.Tag, "alpha12-hud-shortcut")));
+        AddFirst(orderedSystem, systemButtons.FirstOrDefault(button => Equals(button.Tag, "alpha12-text:SettingsButton")));
+        foreach (var button in systemButtons)
+        {
+            AddFirst(orderedSystem, button);
+        }
+        Reinsert(system, orderedSystem);
+    }
+
+    private static void ReorderByTags(Panel panel, IReadOnlyList<Button> current, IReadOnlyList<string> tags)
+    {
+        var ordered = new List<Button>();
+        foreach (var tag in tags)
+        {
+            AddFirst(ordered, current.FirstOrDefault(button => Equals(button.Tag, tag)));
+        }
+        foreach (var button in current)
+        {
+            AddFirst(ordered, button);
+        }
+        Reinsert(panel, ordered);
+    }
+
+    private static void Reinsert(Panel panel, IEnumerable<Button> ordered)
+    {
+        var buttons = ordered.ToArray();
+        foreach (var button in buttons)
+        {
+            panel.Children.Remove(button);
+        }
+        foreach (var button in buttons)
+        {
+            button.Margin = new Thickness(0d, 0d, 0d, 6d);
+            panel.Children.Add(button);
+        }
+    }
+
+    private static void AddFirst(ICollection<Button> list, Button? button)
+    {
+        if (button is not null && !list.Contains(button))
+        {
+            list.Add(button);
+        }
     }
 
     private static Button? FindByTagOrPrefix(
