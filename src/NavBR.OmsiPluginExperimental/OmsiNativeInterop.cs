@@ -286,6 +286,14 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsHumanControllable")]
     internal static extern int IsHumanControllable(int humanPointer);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetPlayerVehiclePointer")]
+    internal static extern int GetPlayerVehiclePointer();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsPlayerBusDriverHuman")]
+    internal static extern int IsPlayerBusDriverHuman(
+        int humanPointer,
+        int definitionPointer);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanPose")]
     internal static extern int ReadHumanPose(
         int humanPointer,
