@@ -142,6 +142,11 @@ public partial class App : Application
             DriverProfilePortabilityInstaller.Attach(driverProfileWindow);
         }
 
+        if (window is SessionHealthWindow sessionHealthWindow)
+        {
+            SessionHealthDiagnosticsExportInstaller.Attach(sessionHealthWindow);
+        }
+
         if (window is DispatcherWindow dispatcher && dispatcher.Owner is MainWindow dispatcherOwner)
         {
             DispatcherFigmaMapInstaller.Attach(
