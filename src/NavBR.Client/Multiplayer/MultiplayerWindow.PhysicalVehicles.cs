@@ -65,6 +65,8 @@ public partial class MultiplayerWindow
         _physicalVehiclesCheckBox.Click += PhysicalVehiclesCheckBox_Click;
         options.Children.Add(_physicalVehiclesCheckBox);
 
+        InstallRoleplayOptions(options);
+
         _diagnosticsCheckBox = new CheckBox
         {
             IsChecked = DiagnosticsConsentStore.IsEnabled,
