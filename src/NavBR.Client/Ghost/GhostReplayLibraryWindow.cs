@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace NavBR.Client.Ghost;
 
@@ -53,7 +54,7 @@ internal sealed class GhostReplayLibraryWindow : Window
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Arquivos locais gravados pelo NavBR. Selecione um replay para visualizar/reproduzir ou dois para comparar.",
+            Text = "Arquivos locais gravados ou importados pelo NavBR. Selecione um replay para visualizar/reproduzir ou dois para comparar.",
             Foreground = Brush(151, 171, 185),
             FontSize = 11.5d,
             Margin = new Thickness(0d, 6d, 0d, 0d),
@@ -82,6 +83,7 @@ internal sealed class GhostReplayLibraryWindow : Window
         footer.Children.Add(_status);
 
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
+        actions.Children.Add(Button("Importar replay", Import_Click, primary: false));
         actions.Children.Add(Button("Atualizar", async (_, _) => await ReloadAsync(), primary: false));
         actions.Children.Add(_previewButton);
         actions.Children.Add(_playbackButton);
@@ -128,6 +130,76 @@ internal sealed class GhostReplayLibraryWindow : Window
                 ? $"{items.Count} replay(s) válido(s) • {invalidCount} incompatível(is) ignorado(s)."
                 : $"{items.Count} replay(s) local(is).";
         RefreshButtons();
+    }
+
+    private async void Import_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importar replay NavBR",
+            Filter = $"NavBR Ghost (*{GhostReplayFormat.Extension})|*{GhostReplayFormat.Extension}|Todos os arquivos (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _status.Text = "Validando replay…";
+        try
+        {
+            await _loader.LoadAsync(dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"Replay inválido ou incompatível: {ex.Message}";
+            return;
+        }
+
+        try
+        {
+            var directory = GhostRecorder.GetGhostDirectory();
+            Directory.CreateDirectory(directory);
+            var source = Path.GetFullPath(dialog.FileName);
+            var destination = CreateUniqueDestination(directory, Path.GetFileName(source));
+            if (!string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Copy(source, destination, overwrite: false);
+            }
+            _status.Text = $"Replay importado: {Path.GetFileName(destination)}";
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"Não foi possível importar o replay: {ex.Message}";
+        }
+    }
+
+    private static string CreateUniqueDestination(string directory, string fileName)
+    {
+        var safeName = string.IsNullOrWhiteSpace(fileName)
+            ? $"Replay{GhostReplayFormat.Extension}"
+            : fileName;
+        if (!safeName.EndsWith(GhostReplayFormat.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            safeName += GhostReplayFormat.Extension;
+        }
+
+        var candidate = Path.Combine(directory, safeName);
+        if (!File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        var stem = Path.GetFileNameWithoutExtension(safeName);
+        for (var index = 2; index < 10_000; index++)
+        {
+            candidate = Path.Combine(directory, $"{stem} ({index}){GhostReplayFormat.Extension}");
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+        throw new IOException("Não foi possível gerar um nome único para o replay importado.");
     }
 
     private void PreviewSelected_Click(object? sender, RoutedEventArgs e)
