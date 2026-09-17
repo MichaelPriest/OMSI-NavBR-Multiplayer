@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
@@ -34,10 +35,10 @@ internal sealed class SessionHealthWindow : Window
         _telemetryProvider = telemetryProvider;
         _pluginInfoProvider = pluginInfoProvider;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Width = 780d;
-        Height = 660d;
-        MinWidth = 720d;
-        MinHeight = 580d;
+        Width = 860d;
+        Height = 680d;
+        MinWidth = 740d;
+        MinHeight = 600d;
         Background = Brush(6, 11, 16);
         Content = BuildContent();
         ApplyLocalization();
@@ -96,7 +97,11 @@ internal sealed class SessionHealthWindow : Window
             Margin = new Thickness(0d, 18d, 0d, 0d)
         };
         var body = new StackPanel();
-        var metrics = new WrapPanel();
+        var metrics = new UniformGrid
+        {
+            Columns = 3,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         metrics.Children.Add(BuildMetricCard("Omsi", _omsiState));
         metrics.Children.Add(BuildMetricCard("Multiplayer", _multiplayerState));
         metrics.Children.Add(BuildMetricCard("Plugin", _pluginState));
@@ -150,10 +155,10 @@ internal sealed class SessionHealthWindow : Window
 
         return new Border
         {
-            Width = 220d,
             MinHeight = 104d,
             Margin = new Thickness(0d, 0d, 10d, 10d),
             Padding = new Thickness(14d),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Background = Brush(10, 19, 25),
             BorderBrush = Brush(31, 47, 57),
             BorderThickness = new Thickness(1d),
