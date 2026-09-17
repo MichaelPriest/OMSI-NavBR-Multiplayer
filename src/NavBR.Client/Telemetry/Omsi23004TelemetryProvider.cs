@@ -47,7 +47,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
     }
 
-    public OmsiCameraProjectionSnapshot? ReadCameraProjection()
+    internal OmsiCameraProjectionSnapshot? ReadCameraProjection()
     {
         var memory = _memory;
         var processInfo = _processInfo;
