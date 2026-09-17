@@ -24,6 +24,10 @@ O primeiro marco da Alpha.13 é permitir que dois ou mais jogadores na mesma ses
 - 🧪 luzes e setas no backend atual;
 - 🔒 escrita física somente com opt-in;
 - 🧪 teste real com 2+ PCs ainda obrigatório.
+- ✅ jogadores remotos usam o mesmo formato de marcador do host/local no minimapa e mapa principal, com cor azul diferenciada;
+- ✅ nome real do usuário aparece acima do marcador remoto;
+- 🧪 nome 3D acima do ônibus físico usa câmera View/Projection somente leitura do OMSI 2.3.004 e só aparece quando o spawn físico daquele jogador está confirmado;
+- 🔒 projeção 3D é fail-safe: câmera inválida, jogador fora da tela, atrás da câmera ou ônibus não spawnado = etiqueta oculta.
 
 ### Depois da validação básica
 
