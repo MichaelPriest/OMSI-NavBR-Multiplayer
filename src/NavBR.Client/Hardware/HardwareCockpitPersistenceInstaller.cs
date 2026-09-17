@@ -192,22 +192,8 @@ internal static class HardwareCockpitPersistenceInstaller
 
         private void HandleConnectionClickCompleted()
         {
-            if (_toggleButton is null)
+            if (_toggleButton is null || _attemptingReconnect)
             {
-                return;
-            }
-
-            if (_attemptingReconnect)
-            {
-                if (IsDisconnectState(_toggleButton.Content))
-                {
-                    SaveSelection(autoReconnect: true);
-                    ResetBackoff();
-                }
-                else
-                {
-                    ScheduleNextRetry();
-                }
                 return;
             }
 
@@ -300,13 +286,27 @@ internal static class HardwareCockpitPersistenceInstaller
                 return;
             }
 
-            _refreshButton?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            // Refreshing the legacy combo may auto-select the first available
+            // COM. Suppress persistence during that refresh so the saved target
+            // can never be silently replaced by another serial device.
+            var previousSuppress = _suppressSave;
+            _suppressSave = true;
+            try
+            {
+                _refreshButton?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+            finally
+            {
+                _suppressSave = previousSuppress;
+            }
+
             if (!SelectPort(settings.PortName))
             {
                 ScheduleNextRetry();
                 return;
             }
 
+            previousSuppress = _suppressSave;
             _suppressSave = true;
             try
             {
@@ -317,7 +317,7 @@ internal static class HardwareCockpitPersistenceInstaller
             }
             finally
             {
-                _suppressSave = false;
+                _suppressSave = previousSuppress;
             }
 
             _attemptingReconnect = true;
@@ -356,6 +356,7 @@ internal static class HardwareCockpitPersistenceInstaller
                 return false;
             }
 
+            var previousSuppress = _suppressSave;
             _suppressSave = true;
             try
             {
@@ -363,7 +364,7 @@ internal static class HardwareCockpitPersistenceInstaller
             }
             finally
             {
-                _suppressSave = false;
+                _suppressSave = previousSuppress;
             }
             return true;
         }
