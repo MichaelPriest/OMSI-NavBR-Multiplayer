@@ -373,6 +373,29 @@ internal static class PluginBridgeClient
             return null;
         }
 
+        if (RoleplayCharacterCommandProcessor.IsCharacterCommandType(message.Type))
+        {
+            if (RoleplayCharacterCommandProcessor.TryRejectBeforeOmsiThread(message, out var rejection))
+            {
+                return rejection;
+            }
+
+            if (!OmsiThreadCommandQueue.TryEnqueue(message))
+            {
+                return RoleplayCharacterCommandProcessor.Result(
+                    message,
+                    false,
+                    "command-queue-full",
+                    "The OMSI roleplay command queue is full.");
+            }
+
+            Log(
+                $"character-command queued type={message.Type} " +
+                $"id={message.CharacterInstanceId ?? message.PlayerId ?? "-"} " +
+                $"pending={OmsiThreadCommandQueue.Count}");
+            return null;
+        }
+
         return null;
     }
 
