@@ -20,6 +20,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     public event Action<PlayerTelemetryFrame>? TelemetryReceived;
     public event Action<TrafficSnapshot>? TrafficSnapshotReceived;
     public event Action<string?>? TrafficAuthorityChanged;
+    public event Action<string?>? RoomOwnerChanged;
     public event Action<ChatMessage>? ChatMessageReceived;
     public event Action<VoiceFrame>? VoiceFrameReceived;
 
@@ -278,6 +279,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         });
         connection.On<string?>("trafficAuthorityChanged", authorityPlayerId =>
             SetTrafficAuthority(authorityPlayerId));
+        connection.On<string?>("roomOwnerChanged", ownerPlayerId =>
+            SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
 
@@ -315,14 +318,14 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         SetTrafficAuthority(snapshot.TrafficAuthorityPlayerId);
         CurrentRoomIsPrivate = snapshot.IsPrivate;
-        RoomOwnerPlayerId = NormalizeOptional(snapshot.OwnerPlayerId);
+        SetRoomOwner(snapshot.OwnerPlayerId);
     }
 
     private void ResetRoomMetadata()
     {
         SetTrafficAuthority(null);
         CurrentRoomIsPrivate = false;
-        RoomOwnerPlayerId = null;
+        SetRoomOwner(null);
     }
 
     private void SetTrafficAuthority(string? playerId)
@@ -338,6 +341,21 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         TrafficAuthorityPlayerId = normalized;
         TrafficAuthorityChanged?.Invoke(normalized);
+    }
+
+    private void SetRoomOwner(string? playerId)
+    {
+        var normalized = NormalizeOptional(playerId);
+        if (string.Equals(
+                RoomOwnerPlayerId,
+                normalized,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        RoomOwnerPlayerId = normalized;
+        RoomOwnerChanged?.Invoke(normalized);
     }
 
     private HubConnection RequireConnectedConnection()
