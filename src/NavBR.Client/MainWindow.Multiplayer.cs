@@ -381,7 +381,10 @@ public partial class MainWindow
         Canvas.SetLeft(marker, pose.X - markerSize / 2d);
         Canvas.SetTop(marker, pose.Y - markerSize / 2d);
 
-        if (marker.RenderTransform is RotateTransform rotation)
+        var icon = marker.Children
+            .OfType<Grid>()
+            .FirstOrDefault(child => string.Equals(child.Tag as string, "roadmap-remote-icon", StringComparison.Ordinal));
+        if (icon?.RenderTransform is RotateTransform rotation)
         {
             rotation.Angle = pose.HeadingDegrees;
         }
@@ -393,44 +396,95 @@ public partial class MainWindow
     {
         if (_remotePlayerMarkers.TryGetValue(playerId, out var existing))
         {
+            UpdateRoadmapRemoteName(existing, displayName);
             return existing;
         }
 
-        var size = Math.Clamp(roadmapWidth * 0.014d, 30d, 90d);
+        const double size = 48d;
         var marker = new Grid
+        {
+            Width = size,
+            Height = size,
+            ToolTip = displayName,
+            ClipToBounds = false
+        };
+
+        var icon = new Grid
         {
             Width = size,
             Height = size,
             RenderTransformOrigin = new Point(0.5d, 0.5d),
             RenderTransform = new RotateTransform(),
-            ToolTip = displayName
+            Tag = "roadmap-remote-icon"
         };
-
-        marker.Children.Add(new Ellipse
+        icon.Children.Add(new Ellipse
         {
-            Fill = Brushes.DodgerBlue,
+            Fill = new SolidColorBrush(Color.FromRgb(61, 137, 196)),
             Stroke = Brushes.White,
-            StrokeThickness = Math.Max(2d, size * 0.07d)
+            StrokeThickness = 4d
         });
-
-        marker.Children.Add(new Polygon
+        icon.Children.Add(new Polygon
         {
             Points = new PointCollection
             {
-                new(size * 0.50d, size * 0.12d),
-                new(size * 0.69d, size * 0.70d),
-                new(size * 0.50d, size * 0.58d),
-                new(size * 0.31d, size * 0.70d)
+                new(24d, 6d),
+                new(34d, 32d),
+                new(24d, 27d),
+                new(14d, 32d)
             },
             Fill = Brushes.White,
-            Stroke = Brushes.Black,
+            Stroke = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
             StrokeThickness = 1d
+        });
+        marker.Children.Add(icon);
+
+        var name = new TextBlock
+        {
+            Text = NormalizeRoadmapDisplayName(displayName),
+            Foreground = Brushes.White,
+            FontSize = 11d,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = 132d,
+            Tag = "roadmap-remote-name"
+        };
+        marker.Children.Add(new Border
+        {
+            Padding = new Thickness(7d, 3d, 7d, 3d),
+            Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 23)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(210, 113, 198, 255)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(5d),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0d, -27d, 0d, 0d),
+            Child = name
         });
 
         Panel.SetZIndex(marker, 20);
         RoadmapCanvas.Children.Add(marker);
         _remotePlayerMarkers[playerId] = marker;
         return marker;
+    }
+
+    private static void UpdateRoadmapRemoteName(Grid marker, string displayName)
+    {
+        var name = marker.Children
+            .OfType<Border>()
+            .Select(border => border.Child)
+            .OfType<TextBlock>()
+            .FirstOrDefault(block => string.Equals(block.Tag as string, "roadmap-remote-name", StringComparison.Ordinal));
+        if (name is not null)
+        {
+            name.Text = NormalizeRoadmapDisplayName(displayName);
+        }
+    }
+
+    private static string NormalizeRoadmapDisplayName(string? displayName)
+    {
+        var value = string.IsNullOrWhiteSpace(displayName) ? "Driver" : displayName.Trim();
+        return value.Length <= 28 ? value : value[..28];
     }
 
     private void RemoveRemotePlayerMarker(string playerId)
