@@ -194,7 +194,7 @@ jobs:
       - name: Validate embedded plugin resource without loading x86 assembly
         shell: pwsh
         run: |
-          $assembly = Get-ChildItem "src/NavBR.Client/bin/Release" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" | Select-Object -First 1
+          $assembly = Get-ChildItem "src/NavBR.Client/bin" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" | Select-Object -First 1
           if (-not $assembly) { throw "NavBR client assembly was not found after build." }
           $bytes = [System.IO.File]::ReadAllBytes($assembly.FullName)
           $text = [System.Text.Encoding]::UTF8.GetString($bytes)
