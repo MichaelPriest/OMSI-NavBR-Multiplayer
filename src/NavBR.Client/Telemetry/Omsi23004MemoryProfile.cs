@@ -127,6 +127,14 @@ internal static class Omsi23004MemoryProfile
     public const int CurrentGridYOffset = 0x148;
     public const int MapNameOffset = 0x150;
     public const int MapFriendlyNameOffset = 0x158;
+    public const int MapDriversListOffset = 0x1A0;
+
+    // TStringList-style driver catalog used by OmsiMap.Drivers.
+    public const int StringListItemsArrayOffset = 0x02C;
+    public const int StringListCountOffset = 0x030;
+    public const int StringItemSize = 0x008;
+    public const int StringItemTextOffset = 0x000;
+    public const int StringItemObjectOffset = 0x004;
 
     public const int NavigationTileXOffset = 0x018;
     public const int NavigationTileYOffset = 0x020;
