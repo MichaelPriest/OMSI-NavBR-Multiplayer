@@ -2,14 +2,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace NavBR.Client.Windows;
 
 /// <summary>
-/// Figma fidelity pass for the Navigation page header. The 2D/3D switch lives
-/// in the page header (matching the approved desktop frame) instead of an extra
-/// explanatory card. The proven 2D roadmap remains embedded and 3D continues
-/// to open the real NavBR 3D view backed by OMSI/session telemetry.
+/// Figma fidelity pass for the Navigation page. The 2D/3D switch lives in the
+/// page header and the content follows the approved map + route-rail layout.
+/// The embedded roadmap and the 3D window continue to use real OMSI/session
+/// data; this class only owns presentation and the live route identity header.
 /// </summary>
 internal static class Alpha12FigmaNavigationModeInstaller
 {
@@ -24,25 +25,36 @@ internal static class Alpha12FigmaNavigationModeInstaller
         }
 
         var navigationPage = FindAncestor<ScrollViewer>(window.GpsHeadingText);
-        if (navigationPage?.Content is not StackPanel stack)
+        var navigationCard = FindAncestor<Border>(window.GpsHeadingText);
+        if (navigationPage?.Content is not StackPanel stack || navigationCard is null)
         {
             Installed.Remove(window);
             return;
         }
 
-        // Alpha12NavigationPolishInstaller still initializes the proven 3D
-        // feature for compatibility. In the Figma shell its small legacy
-        // button would duplicate the segmented header selector, so remove only
-        // that trigger; OpenNavigation3D keeps using the same implementation.
         RemoveLegacy3DButton(navigationPage);
 
-        // Preserve the original heading instance as the localization source,
-        // but replace its visual position with the Figma header row.
+        // BuildNavigation originally adds a generic page heading before the map.
+        // The approved frame has one single navigation header, so remove that
+        // legacy heading and replace it with the Figma header row.
+        if (stack.Children.Count > 1 && stack.Children[0] is UIElement)
+        {
+            stack.Children.RemoveAt(0);
+        }
+
         window.GpsHeadingText.Visibility = Visibility.Collapsed;
         var header = BuildHeader(window);
         stack.Children.Insert(0, header);
 
         navigationPage.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        ConfigureMapAndRouteRail(window, navigationPage, navigationCard, out var routeCard);
+
+        // LiveData + OrderedStops are installed immediately after this class in
+        // App.xaml.cs. Defer the line/destination row until that synchronous
+        // setup has finished so KeepHeadingOnly cannot remove it.
+        window.Dispatcher.BeginInvoke(
+            new Action(() => InstallRouteIdentity(window, routeCard)),
+            DispatcherPriority.ContextIdle);
 
         window.Closed += (_, _) => Installed.Remove(window);
     }
@@ -59,6 +71,142 @@ internal static class Alpha12FigmaNavigationModeInstaller
             panel.Children.Remove(legacy);
         }
     }
+
+    private static void ConfigureMapAndRouteRail(
+        MainWindow window,
+        ScrollViewer navigationPage,
+        Border navigationCard,
+        out Border? routeCard)
+    {
+        routeCard = null;
+        if (navigationCard.Parent is not Grid contentGrid || contentGrid.ColumnDefinitions.Count < 3)
+        {
+            return;
+        }
+
+        // Approved 1920x1080 frame: dominant map, 20px gutter and compact
+        // information rail. Star sizing keeps the same visual hierarchy on
+        // smaller desktop resolutions instead of forcing a fixed map width.
+        contentGrid.ColumnDefinitions[0].Width = new GridLength(1d, GridUnitType.Star);
+        contentGrid.ColumnDefinitions[1].Width = new GridLength(20d);
+        contentGrid.ColumnDefinitions[2].Width = new GridLength(360d);
+        contentGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+
+        navigationCard.Margin = new Thickness(0d);
+        navigationCard.Background = Brush(10, 19, 26);
+        navigationCard.BorderBrush = Brush(28, 42, 51);
+        navigationCard.BorderThickness = new Thickness(1d);
+        navigationCard.CornerRadius = new CornerRadius(12d);
+        navigationCard.HorizontalAlignment = HorizontalAlignment.Stretch;
+        navigationCard.VerticalAlignment = VerticalAlignment.Top;
+
+        routeCard = contentGrid.Children
+            .OfType<Border>()
+            .FirstOrDefault(border => !ReferenceEquals(border, navigationCard));
+
+        if (routeCard is not null)
+        {
+            routeCard.Margin = new Thickness(0d);
+            routeCard.Background = Brush(10, 19, 26);
+            routeCard.BorderBrush = Brush(28, 42, 51);
+            routeCard.BorderThickness = new Thickness(1d);
+            routeCard.CornerRadius = new CornerRadius(12d);
+            routeCard.HorizontalAlignment = HorizontalAlignment.Stretch;
+            routeCard.VerticalAlignment = VerticalAlignment.Top;
+        }
+
+        void ApplySizing()
+        {
+            var viewport = navigationPage.ViewportHeight > 1d
+                ? navigationPage.ViewportHeight
+                : Math.Max(0d, window.ActualHeight - 150d);
+            var targetHeight = Math.Clamp(viewport - 72d, 560d, 804d);
+            navigationCard.Height = targetHeight;
+            if (routeCard is not null)
+            {
+                routeCard.Height = targetHeight;
+            }
+        }
+
+        ApplySizing();
+        navigationPage.SizeChanged += (_, _) => ApplySizing();
+    }
+
+    private static void InstallRouteIdentity(MainWindow window, Border? routeCard)
+    {
+        if (routeCard?.Child is not StackPanel body || !window.IsLoaded)
+        {
+            return;
+        }
+
+        if (body.Children.OfType<Grid>().Any(item => Equals(item.Tag, "figma-route-identity")))
+        {
+            return;
+        }
+
+        var lineValue = IdentityValue();
+        var destinationValue = IdentityValue();
+
+        var identity = new Grid
+        {
+            Tag = "figma-route-identity",
+            Margin = new Thickness(0d, 14d, 0d, 18d)
+        };
+        identity.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112d) });
+        identity.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+
+        var lineBlock = IdentityBlock("LINHA", lineValue);
+        Grid.SetColumn(lineBlock, 0);
+        identity.Children.Add(lineBlock);
+
+        var destinationBlock = IdentityBlock("DESTINO", destinationValue);
+        destinationBlock.Margin = new Thickness(14d, 0d, 0d, 0d);
+        Grid.SetColumn(destinationBlock, 1);
+        identity.Children.Add(destinationBlock);
+
+        body.Children.Insert(Math.Min(1, body.Children.Count), identity);
+
+        void Refresh()
+        {
+            var current = window.GetNavigationIdentityForAlpha12();
+            lineValue.Text = Safe(current.Line);
+            destinationValue.Text = Safe(current.DestinationName);
+        }
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(750d) };
+        timer.Tick += (_, _) => Refresh();
+        timer.Start();
+        Refresh();
+        window.Closed += (_, _) => timer.Stop();
+    }
+
+    private static StackPanel IdentityBlock(string label, TextBlock value)
+    {
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontSize = 9.5d,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brush(151, 171, 185)
+        });
+        value.Margin = new Thickness(0d, 5d, 0d, 0d);
+        stack.Children.Add(value);
+        return stack;
+    }
+
+    private static TextBlock IdentityValue() => new()
+    {
+        Text = "—",
+        FontSize = 14d,
+        FontWeight = FontWeights.SemiBold,
+        Foreground = Brush(218, 230, 238),
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        TextWrapping = TextWrapping.NoWrap
+    };
+
+    private static string Safe(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
 
     private static Grid BuildHeader(MainWindow window)
     {
@@ -116,7 +264,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
 
     private static Button ModeButton(string text, bool selected)
     {
-        var button = new Button
+        return new Button
         {
             Content = text,
             MinWidth = 58d,
@@ -131,8 +279,6 @@ internal static class Alpha12FigmaNavigationModeInstaller
             Cursor = System.Windows.Input.Cursors.Hand,
             Template = GetModeButtonTemplate()
         };
-
-        return button;
     }
 
     private static ControlTemplate GetModeButtonTemplate()
@@ -168,7 +314,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         {
             RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent)
         });
-        presenter.SetBinding(ContentPresenter.TextElementForegroundProperty, new Binding(nameof(Control.Foreground))
+        presenter.SetBinding(System.Windows.Documents.TextElement.ForegroundProperty, new Binding(nameof(Control.Foreground))
         {
             RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent)
         });

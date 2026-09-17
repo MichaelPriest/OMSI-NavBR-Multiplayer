@@ -68,6 +68,12 @@ public partial class MainWindow
         return NavBRNavigationEngine.Evaluate(telemetry, layout, trace, stops);
     }
 
+    internal (string? Line, string? DestinationName) GetNavigationIdentityForAlpha12()
+    {
+        var telemetry = _lastTelemetry;
+        return (telemetry?.Line, telemetry?.DestinationName);
+    }
+
     internal OmsiCompatibilityManifest GetCompatibilityManifestForAlpha12()
     {
         var telemetry = _lastTelemetry;
