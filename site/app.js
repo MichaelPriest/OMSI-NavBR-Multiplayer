@@ -1,37 +1,37 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const fallbackTag = 'v0.3.0-alpha.12-test.2';
+const fallbackTag = 'v0.3.0-alpha.12-test.3';
 
 const fallbackRelease = {
   tag_name: fallbackTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.2 — community test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.12-test.3 — HUD community test',
   prerelease: true,
-  published_at: '2026-09-16T23:12:58Z',
+  published_at: '2026-09-17T00:04:33Z',
   html_url: `https://github.com/${repo}/releases/tag/${fallbackTag}`,
-  body: 'Alpha.12 Test 2: corrige o pacote interno do plugin OMSI e traz a nova interface operacional com Home, Navegação, Central Multiplayer, CCO, Perfil, Empresa/Frota e Configurações remodeladas.',
+  body: 'Alpha.12 Test 3: novo sistema de HUDs modulares e redimensionáveis, com seis presets, cinco temas, editor visual, minimapa integrado, multiplayer, alertas e indicadores baseados em telemetria real.',
   download_count: 0,
   assets: [
     {
       name: `OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.exe`,
       browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.exe`,
-      size: 84535986,
+      size: 84555681,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Multiplayer-${fallbackTag}-win-x86.zip`,
-      size: 85487145,
+      size: 85514242,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Plugin-${fallbackTag}-win-x86.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Plugin-${fallbackTag}-win-x86.zip`,
-      size: 5274632,
+      size: 5300192,
       download_count: 0
     },
     {
       name: `OMSI-NavBR-Server-${fallbackTag}-win-x64.zip`,
       browser_download_url: `https://github.com/${repo}/releases/download/${fallbackTag}/OMSI-NavBR-Server-${fallbackTag}-win-x64.zip`,
-      size: 50216520,
+      size: 50216522,
       download_count: 0
     }
   ]
