@@ -162,6 +162,7 @@ public partial class MainWindow
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
         hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        hud.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         hud.Closed += (_, _) =>
         {
             if (ReferenceEquals(_hudOverlay, hud))
@@ -237,6 +238,7 @@ public partial class MainWindow
         }
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
     }
 
     private OmsiMapInfo? GetActiveMapForMultiplayer()
