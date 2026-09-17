@@ -9,6 +9,14 @@ EXPORTS
     NavBR_GetRoadVehicleCount
     NavBR_GetRoadVehicleAt
     NavBR_IsRoadVehiclePointer
+    NavBR_GetHumanCount
+    NavBR_GetHumanAt
+    NavBR_IsHumanPointer
+    NavBR_IsHumanControllable
+    NavBR_ReadHumanPose
+    NavBR_ReadHumanAiState
+    NavBR_SetHumanTransform
+    NavBR_RestoreHumanAiState
     NavBR_GetMem
     NavBR_FreeMem
     NavBR_LockMakeVehicle
