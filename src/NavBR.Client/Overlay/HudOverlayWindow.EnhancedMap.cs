@@ -20,7 +20,7 @@ public partial class HudOverlayWindow
         }
 
         _enhancedMapRenderingStarted = true;
-        MiniMapStatusText.MaxWidth = 180d;
+        MiniMapStatusText.MaxWidth = 235d;
         MiniMapStatusText.TextWrapping = TextWrapping.NoWrap;
         RenderEnhancedMiniMap();
     }
@@ -28,6 +28,8 @@ public partial class HudOverlayWindow
     /// <summary>
     /// Presentation layer for the in-game GPS. The local vehicle stays fixed
     /// pointing up while the roadmap, route and remote markers rotate beneath it.
+    /// Route progress, remaining distance, next-stop distance and off-route state
+    /// are all calculated by NavBRNavigationEngine so desktop/HUD use one source.
     /// </summary>
     private void RenderEnhancedMiniMap()
     {
@@ -104,13 +106,13 @@ public partial class HudOverlayWindow
             localPixelX,
             localPixelY);
 
-        UpdateTurnGuidance(
+        var navigation = NavBRNavigationEngine.Evaluate(
             telemetry,
             layout,
-            bitmap.PixelWidth,
-            bitmap.PixelHeight,
-            localPixelX,
-            localPixelY);
+            _routeTracePoints,
+            _busStops);
+        UpdateNavigationSummary(navigation, map);
+        UpdateTurnGuidance(navigation);
     }
 
     private void UpdateTripInfo(VehicleTelemetry? telemetry, OmsiMapInfo? map)
@@ -155,6 +157,26 @@ public partial class HudOverlayWindow
         if (map is null && telemetry is null)
         {
             MiniMapStatusText.Text = "NavBR";
+        }
+    }
+
+    private void UpdateNavigationSummary(NavBRNavigationSnapshot navigation, OmsiMapInfo map)
+    {
+        if (!navigation.RouteAvailable)
+        {
+            MiniMapStatusText.Text = map.DisplayName;
+            return;
+        }
+
+        var remaining = FormatNavigationDistance(navigation.DistanceRemainingMeters);
+        MiniMapStatusText.Text = $"{map.DisplayName} • {remaining} • {navigation.RouteProgressPercent:0}%";
+
+        if (!string.IsNullOrWhiteSpace(navigation.NextStopName))
+        {
+            var distance = navigation.DistanceToNextStopMeters is double meters
+                ? $" • {FormatNavigationDistance(meters)}"
+                : string.Empty;
+            NextStopText.Text = $"{NavigationText("Próxima parada", "Next stop", "Próxima parada", "Nächster Halt", "Prochain arrêt")}: {navigation.NextStopName}{distance}";
         }
     }
 
@@ -232,134 +254,68 @@ public partial class HudOverlayWindow
         ActiveRouteShadow.Visibility = Visibility.Visible;
     }
 
-    private void UpdateTurnGuidance(
-        VehicleTelemetry telemetry,
-        OmsiMapLayout layout,
-        int bitmapWidth,
-        int bitmapHeight,
-        double localPixelX,
-        double localPixelY)
+    private void UpdateTurnGuidance(NavBRNavigationSnapshot navigation)
     {
-        if (_routeTracePoints.Count < 3 ||
-            layout.TileSize is not double tileSize ||
-            telemetry.GridX is not int gridX ||
-            telemetry.GridY is not int gridY ||
-            telemetry.TileX is not double tileX ||
-            telemetry.TileY is not double tileY)
+        if (!navigation.RouteAvailable)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var localWorldX = gridX * tileSize + tileX;
-        var localWorldY = gridY * tileSize + tileY;
-        var nearestIndex = -1;
-        var nearestDistanceSquared = double.MaxValue;
-
-        for (var index = 0; index < _routeTracePoints.Count; index++)
+        if (navigation.Maneuver == NavBRManeuverKind.RejoinRoute)
         {
-            var point = _routeTracePoints[index];
-            var worldX = point.GridX * tileSize + point.TileX;
-            var worldY = point.GridY * tileSize + point.TileY;
-            var dx = worldX - localWorldX;
-            var dy = worldY - localWorldY;
-            var distanceSquared = dx * dx + dy * dy;
-            if (distanceSquared < nearestDistanceSquared)
-            {
-                nearestDistanceSquared = distanceSquared;
-                nearestIndex = index;
-            }
+            TurnArrowText.Text = "↺";
+            TurnInstructionText.Text = NavigationText(
+                $"Fora da rota • retorne em {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
+                $"Off route • rejoin in {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
+                $"Fuera de ruta • vuelva en {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
+                $"Route verlassen • zurück in {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
+                $"Hors itinéraire • retour dans {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}");
+            TurnPanel.Visibility = Visibility.Visible;
+            return;
         }
 
-        if (nearestIndex < 0 || Math.Sqrt(nearestDistanceSquared) > 90d)
+        if (navigation.Maneuver == NavBRManeuverKind.None ||
+            navigation.DistanceToManeuverMeters is not double distance)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var targetIndex = nearestIndex;
-        var accumulated = 0d;
-        for (var index = nearestIndex + 1; index < _routeTracePoints.Count; index++)
+        TurnArrowText.Text = navigation.Maneuver switch
         {
-            var previous = _routeTracePoints[index - 1];
-            var current = _routeTracePoints[index];
-            var previousX = previous.GridX * tileSize + previous.TileX;
-            var previousY = previous.GridY * tileSize + previous.TileY;
-            var currentX = current.GridX * tileSize + current.TileX;
-            var currentY = current.GridY * tileSize + current.TileY;
-            var segment = Math.Sqrt(
-                Math.Pow(currentX - previousX, 2d) +
-                Math.Pow(currentY - previousY, 2d));
-
-            // A very large segment normally means tile-centre fallback geometry;
-            // do not invent turn-by-turn instructions from coarse data.
-            if (segment > 160d)
-            {
-                TurnPanel.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            accumulated += segment;
-            targetIndex = index;
-            if (accumulated >= 55d)
-            {
-                break;
-            }
-        }
-
-        if (targetIndex <= nearestIndex || accumulated < 18d || accumulated > 160d)
-        {
-            TurnPanel.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var target = _routeTracePoints[targetIndex];
-        if (!RoadmapTransform.TryToPixel(
-                layout,
-                bitmapWidth,
-                bitmapHeight,
-                target.GridX,
-                target.GridY,
-                target.TileX,
-                target.TileY,
-                out var targetPixelX,
-                out var targetPixelY))
-        {
-            TurnPanel.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var dxPixels = targetPixelX - localPixelX;
-        var dyPixels = targetPixelY - localPixelY;
-        if (Math.Abs(dxPixels) < 0.01d && Math.Abs(dyPixels) < 0.01d)
-        {
-            TurnPanel.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var targetBearing = NormalizeAngle(Math.Atan2(dxPixels, -dyPixels) * 180d / Math.PI);
-        var delta = NormalizeSignedAngle(targetBearing - telemetry.HeadingDegrees);
-
-        if (Math.Abs(delta) < 18d)
-        {
-            TurnPanel.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var distance = Math.Max(10, (int)Math.Round(accumulated / 10d) * 10);
-        var strongTurn = Math.Abs(delta) >= 52d;
-        var turnRight = delta > 0d;
-
-        TurnArrowText.Text = (turnRight, strongTurn) switch
-        {
-            (true, true) => "→",
-            (true, false) => "↗",
-            (false, true) => "←",
-            _ => "↖"
+            NavBRManeuverKind.SharpLeft => "←",
+            NavBRManeuverKind.Left => "←",
+            NavBRManeuverKind.SlightLeft => "↖",
+            NavBRManeuverKind.SharpRight => "→",
+            NavBRManeuverKind.Right => "→",
+            NavBRManeuverKind.SlightRight => "↗",
+            _ => "↑"
         };
-        TurnInstructionText.Text = BuildTurnInstruction(turnRight, strongTurn, distance);
+
+        var right = navigation.Maneuver is NavBRManeuverKind.SlightRight or NavBRManeuverKind.Right or NavBRManeuverKind.SharpRight;
+        var strong = navigation.Maneuver is NavBRManeuverKind.Left or NavBRManeuverKind.Right or NavBRManeuverKind.SharpLeft or NavBRManeuverKind.SharpRight;
+        TurnInstructionText.Text = BuildTurnInstruction(right, strong, Math.Max(10, (int)Math.Round(distance / 10d) * 10));
         TurnPanel.Visibility = Visibility.Visible;
     }
+
+    private static string FormatNavigationDistance(double meters)
+    {
+        meters = Math.Max(0d, meters);
+        return meters >= 1000d
+            ? $"{meters / 1000d:0.0} km"
+            : $"{Math.Round(meters / 10d) * 10d:0} m";
+    }
+
+    private static string NavigationText(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static string BuildTurnInstruction(bool right, bool strongTurn, int distanceMeters)
     {
@@ -378,11 +334,5 @@ public partial class HudOverlayWindow
     {
         angle %= 360d;
         return angle < 0d ? angle + 360d : angle;
-    }
-
-    private static double NormalizeSignedAngle(double angle)
-    {
-        angle = NormalizeAngle(angle);
-        return angle > 180d ? angle - 360d : angle;
     }
 }

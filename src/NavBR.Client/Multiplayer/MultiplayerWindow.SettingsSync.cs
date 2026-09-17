@@ -6,6 +6,8 @@ public partial class MultiplayerWindow
     {
         base.OnContentRendered(e);
 
+        InitializePersistentLifetime();
+
         RoomTextBox.TextChanged -= RoomTextBox_SettingsChanged;
         RoomTextBox.TextChanged += RoomTextBox_SettingsChanged;
         NicknameTextBox.TextChanged -= NicknameTextBox_SettingsChanged;
