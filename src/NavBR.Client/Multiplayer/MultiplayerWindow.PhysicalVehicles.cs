@@ -29,30 +29,8 @@ public partial class MultiplayerWindow
 
         _physicalVehiclesUiInstalled = true;
 
-        // Persisted user consent is the public-test opt-in consumed by both the
-        // desktop client and the Native AOT plugin running inside Omsi.exe.
         ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
             _settings.ExperimentalPhysicalVehiclesEnabled);
-
-        if (VoiceEnabledCheckBox.Parent is not Grid parent)
-        {
-            return;
-        }
-
-        parent.Children.Remove(VoiceEnabledCheckBox);
-
-        var options = new StackPanel
-        {
-            Orientation = Orientation.Vertical,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 11)
-        };
-        Grid.SetRow(options, 2);
-        Grid.SetColumn(options, 2);
-        Grid.SetColumnSpan(options, 2);
-
-        VoiceEnabledCheckBox.Margin = new Thickness(0, 0, 0, 6);
-        options.Children.Add(VoiceEnabledCheckBox);
 
         _physicalVehiclesCheckBox = new CheckBox
         {
@@ -60,24 +38,23 @@ public partial class MultiplayerWindow
             Content = PhysicalVehiclesLabel(),
             ToolTip = PhysicalVehiclesWarning(),
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 6)
+            Margin = new Thickness(0, 0, 0, 9)
         };
         _physicalVehiclesCheckBox.Click += PhysicalVehiclesCheckBox_Click;
-        options.Children.Add(_physicalVehiclesCheckBox);
-
-        InstallRoleplayOptions(options);
+        ExperimentalOptionsHost.Children.Add(_physicalVehiclesCheckBox);
 
         _diagnosticsCheckBox = new CheckBox
         {
             IsChecked = DiagnosticsConsentStore.IsEnabled,
             Content = DiagnosticsLabel(),
             ToolTip = DiagnosticsWarning(),
-            FontWeight = FontWeights.SemiBold
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
         };
         _diagnosticsCheckBox.Click += DiagnosticsCheckBox_Click;
-        options.Children.Add(_diagnosticsCheckBox);
+        ExperimentalOptionsHost.Children.Add(_diagnosticsCheckBox);
 
-        parent.Children.Add(options);
+        InstallRoleplayOptions(RoleplayOptionsHost);
     }
 
     private async void PhysicalVehiclesCheckBox_Click(object sender, RoutedEventArgs e)
@@ -155,11 +132,11 @@ public partial class MultiplayerWindow
     private static string PhysicalVehiclesWarning() =>
         Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Teste Alpha.13 limitado. Mostra o ônibus remoto fisicamente usando posição, rotação, velocidade, luzes e setas já suportadas. Portas, matriz e articulação ainda não fazem parte deste teste. Requer OMSI 2.3.004, plugin NavBR e o veículo remoto instalado localmente.",
-            "es" => "Prueba Alpha.13 limitada. Muestra físicamente el autobús remoto con posición, rotación, velocidad, luces e intermitentes ya compatibles. Puertas, matriz y articulación aún no forman parte de esta prueba. Requiere OMSI 2.3.004, plugin NavBR y el vehículo remoto instalado localmente.",
-            "de" => "Begrenzter Alpha.13-Test. Zeigt den entfernten Bus physisch mit bereits unterstützter Position, Rotation, Geschwindigkeit, Licht und Blinkern. Türen, Zielanzeige und Gelenk sind noch nicht Teil dieses Tests. Benötigt OMSI 2.3.004, NavBR-Plugin und das entfernte Fahrzeug lokal installiert.",
-            "fr" => "Test Alpha.13 limité. Affiche physiquement le bus distant avec position, rotation, vitesse, feux et clignotants déjà pris en charge. Portes, girouette et articulation ne font pas encore partie de ce test. Nécessite OMSI 2.3.004, le plugin NavBR et le véhicule distant installé localement.",
-            _ => "Limited Alpha.13 test. Physically renders the remote bus using already-supported position, rotation, speed, lights and turn signals. Doors, destination display and articulation are not part of this test yet. Requires OMSI 2.3.004, the NavBR plugin and the remote vehicle installed locally."
+            "pt" => "Teste Alpha.14 limitado. Mostra o ônibus remoto fisicamente usando posição, rotação, velocidade, luzes e setas já suportadas. Portas, matriz e articulação ainda não fazem parte deste teste. Requer OMSI 2.3.004, plugin NavBR e o veículo remoto instalado localmente.",
+            "es" => "Prueba Alpha.14 limitada. Muestra físicamente el autobús remoto con posición, rotación, velocidad, luces e intermitentes ya compatibles. Puertas, matriz y articulación aún no forman parte de esta prueba. Requiere OMSI 2.3.004, plugin NavBR y el vehículo remoto instalado localmente.",
+            "de" => "Begrenzter Alpha.14-Test. Zeigt den entfernten Bus physisch mit bereits unterstützter Position, Rotation, Geschwindigkeit, Licht und Blinkern. Türen, Zielanzeige und Gelenk sind noch nicht Teil dieses Tests. Benötigt OMSI 2.3.004, NavBR-Plugin und das entfernte Fahrzeug lokal installiert.",
+            "fr" => "Test Alpha.14 limité. Affiche physiquement le bus distant avec position, rotation, vitesse, feux et clignotants déjà pris en charge. Portes, girouette et articulation ne font pas encore partie de ce test. Nécessite OMSI 2.3.004, le plugin NavBR et le véhicule distant installé localement.",
+            _ => "Limited Alpha.14 test. Physically renders the remote bus using already-supported position, rotation, speed, lights and turn signals. Doors, destination display and articulation are not part of this test yet. Requires OMSI 2.3.004, the NavBR plugin and the remote vehicle installed locally."
         };
 
     private static string DiagnosticsLabel() =>
