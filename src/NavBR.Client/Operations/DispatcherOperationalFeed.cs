@@ -7,6 +7,36 @@ internal static class DispatcherOperationalFeed
     private static readonly object Sync = new();
     private static readonly Dictionary<string, OperationalReport> Reports =
         new(StringComparer.OrdinalIgnoreCase);
+    private static Func<string, Task<OperationalReport?>>? _acknowledge;
+    private static Func<string, Task<OperationalReport?>>? _resolve;
+
+    public static bool CanManageReports => _acknowledge is not null && _resolve is not null;
+
+    public static void ConfigureActions(
+        Func<string, Task<OperationalReport?>> acknowledge,
+        Func<string, Task<OperationalReport?>> resolve)
+    {
+        _acknowledge = acknowledge;
+        _resolve = resolve;
+    }
+
+    public static void ClearActions()
+    {
+        _acknowledge = null;
+        _resolve = null;
+    }
+
+    public static async Task<OperationalReport?> AcknowledgeAsync(string reportId)
+    {
+        var action = _acknowledge;
+        return action is null ? null : await action(reportId);
+    }
+
+    public static async Task<OperationalReport?> ResolveAsync(string reportId)
+    {
+        var action = _resolve;
+        return action is null ? null : await action(reportId);
+    }
 
     public static void Replace(IEnumerable<OperationalReport> reports)
     {
