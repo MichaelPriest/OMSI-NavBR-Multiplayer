@@ -39,8 +39,11 @@ internal sealed class GhostReplayPreviewWindow : Window
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
 
-        var heading = new StackPanel { Margin = new Thickness(0d, 0d, 0d, 16d) };
-        heading.Children.Add(new TextBlock
+        var heading = new Grid { Margin = new Thickness(0d, 0d, 0d, 16d) };
+        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var headingText = new StackPanel();
+        headingText.Children.Add(new TextBlock
         {
             Text = _document.Metadata.Name,
             FontSize = 24d,
@@ -48,13 +51,31 @@ internal sealed class GhostReplayPreviewWindow : Window
             Foreground = Brush(218, 230, 238),
             TextTrimming = TextTrimming.CharacterEllipsis
         });
-        heading.Children.Add(new TextBlock
+        headingText.Children.Add(new TextBlock
         {
             Text = "Pré-visualização local do trajeto gravado • somente leitura • sem comandos para o OMSI",
-            Margin = new Thickness(0d, 5d, 0d, 0d),
+            Margin = new Thickness(0d, 5d, 16d, 0d),
             Foreground = Brush(151, 171, 185),
             FontSize = 11.5d
         });
+        heading.Children.Add(headingText);
+        var localPlayback = new Button
+        {
+            Content = "Reproduzir no mapa",
+            Height = 38d,
+            MinWidth = 152d,
+            Padding = new Thickness(14d, 6d, 14d, 6d),
+            Background = Brush(61, 137, 196),
+            Foreground = Brushes.White,
+            BorderBrush = Brush(113, 198, 255),
+            BorderThickness = new Thickness(1d),
+            FontWeight = FontWeights.SemiBold,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        localPlayback.Click += OpenLocalPlayback_Click;
+        Grid.SetColumn(localPlayback, 1);
+        heading.Children.Add(localPlayback);
         Grid.SetRow(heading, 0);
         root.Children.Add(heading);
 
@@ -92,6 +113,15 @@ internal sealed class GhostReplayPreviewWindow : Window
         root.Children.Add(routeCard);
 
         return root;
+    }
+
+    private void OpenLocalPlayback_Click(object sender, RoutedEventArgs e)
+    {
+        var playback = new GhostReplayMapPlaybackWindow(_document)
+        {
+            Owner = this
+        };
+        playback.ShowDialog();
     }
 
     private Border BuildMetadataCard()
