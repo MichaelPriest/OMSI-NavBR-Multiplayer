@@ -47,8 +47,8 @@ public sealed partial class MultiplayerHub
             request.Message,
             MaxOperationalReportMessageLength,
             "operational report message");
-        var reports = GetOperationalRoomStore(presence.RoomId);
         PruneOperationalReports(presence.RoomId);
+        var reports = GetOperationalRoomStore(presence.RoomId);
 
         var existing = reports.Values
             .Where(report =>
