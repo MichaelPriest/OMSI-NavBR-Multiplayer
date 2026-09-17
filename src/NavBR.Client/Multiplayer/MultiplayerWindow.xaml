@@ -184,7 +184,7 @@
                 <Style TargetType="TabItem" BasedOn="{StaticResource NavMultiplayerTabItem}" />
             </TabControl.Resources>
 
-            <TabItem Header="Visão geral">
+            <TabItem x:Name="OverviewTab" Header="Visão geral">
                 <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.55*" />
@@ -297,10 +297,11 @@
                                                Foreground="#DAE6EE"
                                                FontSize="14"
                                                FontWeight="SemiBold" />
-                                    <TextBlock Text="Ônibus e personagem/RP"
+                                    <TextBlock Text="Prévia rápida; detalhes completos na aba Jogadores"
                                                Foreground="#7891A5"
                                                FontSize="10"
-                                               Margin="0,2,0,0" />
+                                               Margin="0,2,0,0"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
                                 <Border Grid.Column="1"
                                         Background="#102639"
@@ -313,20 +314,19 @@
                                                FontWeight="Bold" />
                                 </Border>
                             </Grid>
-                            <ListBox x:Name="PlayersListBox"
+                            <ListBox x:Name="PlayersOverviewListBox"
                                      FontFamily="Segoe UI"
-                                     FontSize="12"
+                                     FontSize="11"
                                      Background="#06131E"
                                      BorderThickness="0"
-                                     Padding="5" />
-                            <TextBlock x:Name="PlayersHeadingText"
-                                       Visibility="Collapsed" />
+                                     Padding="5"
+                                     IsHitTestVisible="False" />
                         </DockPanel>
                     </Border>
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Sala">
+            <TabItem x:Name="RoomTab" Header="Sala">
                 <ScrollViewer Margin="0,14,0,0"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
@@ -445,7 +445,82 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Chat &amp; Voz">
+            <TabItem x:Name="PlayersTab" Header="Jogadores">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.35*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="0.65*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Style="{StaticResource NavMultiplayerCard}">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top"
+                                  Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Name="PlayersHeadingText"
+                                               Foreground="#DAE6EE"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Mapa, velocidade e distância são mostrados somente quando há telemetria real."
+                                               Margin="0,3,0,0"
+                                               Foreground="#7891A5"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Background="#102639"
+                                        CornerRadius="8"
+                                        Padding="9,5"
+                                        VerticalAlignment="Top">
+                                    <TextBlock Text="SESSÃO"
+                                               Foreground="#71C6FF"
+                                               FontSize="9"
+                                               FontWeight="Bold" />
+                                </Border>
+                            </Grid>
+
+                            <ListBox x:Name="PlayersListBox"
+                                     FontFamily="Segoe UI"
+                                     FontSize="12"
+                                     Background="#06131E"
+                                     BorderThickness="0"
+                                     Padding="6" />
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Style="{StaticResource NavMultiplayerCard}">
+                        <StackPanel>
+                            <TextBlock Text="ESTADOS DO JOGADOR"
+                                       Style="{StaticResource NavMultiplayerSectionLabel}" />
+                            <TextBlock Text="• No ônibus: telemetria e, se ativado, veículo físico remoto.&#10;• Personagem/RP: estado a pé sincronizado em canal separado.&#10;• Sem telemetria compatível: o NavBR não inventa posição."
+                                       Margin="0,10,0,0"
+                                       Foreground="#C6D4DE"
+                                       FontSize="11.5"
+                                       TextWrapping="Wrap" />
+                            <Border Margin="0,16,0,0"
+                                    Padding="11"
+                                    Background="#0D1A24"
+                                    BorderBrush="#1C2A33"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <TextBlock Text="Os nomes e marcadores usam somente presença/telemetria real da sala."
+                                           Foreground="#97ABB9"
+                                           FontSize="10.5"
+                                           TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="ChatVoiceTab" Header="Chat &amp; Voz">
                 <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.35*" />
@@ -517,7 +592,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Personagem / RP">
+            <TabItem x:Name="RoleplayTab" Header="Personagem / RP">
                 <ScrollViewer Margin="0,14,0,0"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
@@ -568,7 +643,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Avançado">
+            <TabItem x:Name="AdvancedTab" Header="Avançado">
                 <ScrollViewer Margin="0,14,0,0"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
