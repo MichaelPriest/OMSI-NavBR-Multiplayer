@@ -1,18 +1,23 @@
 # OMSI NavBR Multiplayer
 
-Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit e integração experimental com veículos remotos físicos no OMSI.
+Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit, integração experimental com veículos remotos físicos e **modo Personagem/RP** no OMSI.
 
 ## Versão pública para testes
 
-A pré-release atual é **`v0.3.0-alpha.13-test.1`**.
+A próxima pré-release é **`v0.3.0-alpha.14-test.1`**.
 
-- [Release Alpha.13 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.13-test.1)
+- [Release Alpha.14 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.1)
 - cliente principal: **EXE standalone Windows x86**;
 - também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
 
 > A Alpha.13 inicia a validação do **ônibus remoto físico online**. Recursos incompletos continuam marcados como Experimentais/Em desenvolvimento e não usam dados simulados.
 
-## Destaques da Alpha.13 Test 1
+## Destaques da Alpha.14 Test 1
+
+- **Personagem / RP no modo normal**, sem exigir multiplayer;
+- seletor de personagem real da lista `Drivers` após o mapa carregar;
+- controle experimental do motorista humano do próprio ônibus com W/S, A/D, Shift e Esc;
+- sincronização RP separada quando uma sala multiplayer estiver ativa;
 
 - primeiro teste público focado em ônibus dos outros jogadores dentro do OMSI;
 - spawn/update/despawn experimental integrado à telemetria real da sala;
@@ -20,6 +25,7 @@ A pré-release atual é **`v0.3.0-alpha.13-test.1`**.
 - luzes e setas quando suportadas pelo backend atual;
 - coordenador físico único para evitar spawn/update duplicados;
 - sessão continua ativa mesmo ao fechar a Central Multiplayer;
+- novo **Personagem / RP experimental**, disponível também sem multiplayer: após o mapa carregar, o NavBR lê os personagens reais de `Drivers`, permite selecionar o motorista e prepara o controle a pé do motorista humano do próprio ônibus;
 - peer-host TCP `27730` e servidor dedicado opcional;
 - salas públicas/privadas, chat e voz PTT;
 - diagnóstico de NAT, firewall, UPnP, latência, jitter e perda;
@@ -52,7 +58,7 @@ Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instal
 
 ## Instalação rápida
 
-1. Baixe o **EXE standalone x86** da Alpha.13 Test 1.
+1. Baixe o **EXE standalone x86** da Alpha.14 Test 1.
 2. Execute o NavBR.
 3. Abra o OMSI e carregue mapa/ônibus.
 4. Para multiplayer normal, crie ou entre em uma sala.
@@ -60,6 +66,8 @@ Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instal
 6. Faça o primeiro teste preferencialmente entre dois PCs na mesma rede local.
 
 O plugin de escrita no OMSI não é obrigatório para GPS, HUD, chat, voz ou telemetria multiplayer básica.
+
+O **Modo Personagem/RP** também é opcional e experimental. O seletor funciona a partir do mapa carregado; o controle físico a pé requer OMSI 2.3.004 + plugin NavBR compatível e opt-in explícito.
 
 ## Multiplayer
 
@@ -72,20 +80,11 @@ O computador de quem cria a sala pode funcionar como servidor da própria sessã
 - servidor dedicado continua disponível;
 - relay/fallback permanece experimental para cenários como CGNAT/double NAT.
 
-## Alpha.13
+## Alpha.14
 
-- [`docs/ALPHA13_TEST1_COMMUNITY.md`](docs/ALPHA13_TEST1_COMMUNITY.md) — checklist do teste físico com 2 PCs;
-- [`docs/ALPHA13_MASTER_SCOPE.md`](docs/ALPHA13_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
-- [`docs/ALPHA13_TEST1_RELEASE_NOTES.md`](docs/ALPHA13_TEST1_RELEASE_NOTES.md) — notas desta pré-release;
+- [`docs/ALPHA14_TEST1_COMMUNITY.md`](docs/ALPHA14_TEST1_COMMUNITY.md) — checklist do teste físico com 2 PCs;
+- [`docs/ALPHA14_MASTER_SCOPE.md`](docs/ALPHA14_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
 - [`docs/ALPHA12_MASTER_SCOPE.md`](docs/ALPHA12_MASTER_SCOPE.md) — escopo consolidado herdado da Alpha.12.
-
-## Downloads no portal
-
-O portal mostra separadamente:
-
-- downloads de cada build/release;
-- downloads acumulados de cada Alpha, somando todas as suas Test builds;
-- downloads totais do projeto.
 
 ## Segurança
 
@@ -107,7 +106,7 @@ A arquitetura passa a separar o entitlement/licenciamento do núcleo do NavBR pa
 
 ## Portal
 
-O GitHub Pages concentra download, releases, documentação, contagem por Alpha e estado dos testes públicos.
+O GitHub Pages concentra download, releases, documentação e estado dos testes públicos.
 
 ## Licença
 
