@@ -1,0 +1,22 @@
+name: alpha13 release unblock
+
+on:
+  push:
+    branches:
+      - ops/alpha13-release-unblock
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-stale-release-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel stale Alpha.13 upload run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALE_RUN_ID: '35274855838'
+        run: |
+          gh run cancel "$STALE_RUN_ID" --repo "${{ github.repository }}" || true
+          echo "Cancellation requested for stale run $STALE_RUN_ID"
