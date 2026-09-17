@@ -1,363 +1,203 @@
-# Plugin OMSI experimental — veículos remotos
+# Plugin OMSI experimental — veículos remotos físicos
 
-> Documento de engenharia. Esta funcionalidade **não faz parte da alpha.9 publicada** e permanece experimental até validação real no OMSI 2.3.004.
+> Documento de engenharia da **Alpha.13**. A escrita no OMSI continua experimental, opt-in e limitada ao OMSI **2.3.004** enquanto a implementação passa por testes reais.
 
-## Objetivo
+## Objetivo atual
 
-Investigar uma integração opcional capaz de representar jogadores remotos **dentro do próprio OMSI**, mantendo o aplicativo NavBR responsável por rede, salas, chat, voz, compatibilidade e interpolação de alto nível.
-
-Projetos como BusdriverMP mostram que o conceito de sincronizar ônibus remotos no OMSI é viável, mas o NavBR não depende do código, assets ou protocolo desses projetos. O desenvolvimento deve usar somente interfaces/documentação permitidas e componentes com licença compatível.
-
-## Princípio de arquitetura
-
-O multiplayer atual continua funcionando sem plugin:
-
-```text
-Omsi.exe
-   ↓ leitura externa
-NavBR.Client
-   ↕ SignalR / TCP 27730
-outros jogadores
-   ↓
-GPS / HUD
-```
-
-A arquitetura experimental adiciona uma ponte opcional:
-
-```text
-Omsi.exe
-   ↕ interface de plugin OMSI
-NavBR.OmsiPlugin
-   ↕ Windows Named Pipe local
-NavBR.Client
-   ↕ SignalR / multiplayer NavBR
-outros jogadores
-```
-
-O servidor da sala **não conversa diretamente com o plugin**. O cliente continua sendo a camada que valida sessão, compatibilidade e dados recebidos.
-
-## Interface de plugin do OMSI
-
-A integração usa o modelo DLL + `.opl` carregado pelo OMSI:
-
-```text
-<OMSI>\plugins\<plugin>.dll
-<OMSI>\plugins\<plugin>.opl
-```
-
-Callbacks principais do protótipo:
-
-- `PluginStart`
-- `PluginFinalize`
-- `AccessVariable`
-- `AccessStringVariable`
-- `AccessSystemVariable`
-- `AccessTrigger`
-
-O protótipo .NET usa **DNNE** para gerar a camada nativa/exportações C necessárias para o OMSI carregar o assembly x86.
-
-### Limite importante da interface documentada
-
-A documentação pública do OMSI descreve a interface de plugin como acesso de leitura/escrita às **variáveis do veículo local**, acesso a string/system variables e acionamento de triggers. Ela **não documenta uma chamada pública para criar/spawnar arbitrariamente um novo veículo**.
-
-Consequência para o NavBR:
-
-- `AccessVariable` não deve ser tratado como uma API de criação de ônibus;
-- `AccessTrigger` não deve ser usado como substituto de um mecanismo de spawn;
-- a primeira representação física remota precisa de uma investigação separada e reversível;
-- nenhuma técnica de patch/injeção no executável será introduzida apenas para forçar essa etapa.
-
-Referência pública da interface:
-
-- [OMSIWiki — Plug-In Interface](https://wiki.omnibussimulator.de/omsiwikineu/index.php?title=Plug-In_Interface)
-
-## Referência arquitetural: BusdriverMP
-
-Informações públicas do BusdriverMP são úteis como **referência de comportamento**, não como código-base.
-
-O projeto informa publicamente que:
-
-- jogadores veem os ônibus uns dos outros em tempo real;
-- posição, portas, setas, matriz, articulação e outros estados podem ser sincronizados;
-- mapas não precisam ser preparados especificamente para o multiplayer;
-- quando ambos possuem o mesmo ônibus, o mesmo modelo pode ser usado;
-- quando o ônibus remoto não está disponível localmente, pode existir fallback para um veículo padrão, como EN92/GN92;
-- discussões públicas do projeto fazem referência a versões **AI** dos ônibus na representação dos demais jogadores.
-
-Isso sugere uma direção melhor para a investigação do NavBR: **representação remota baseada em veículo/instância AI controlável ou mecanismo equivalente**, com fallback de modelo, em vez de assumir que a interface `.opl` fornece um spawn direto.
-
-O mecanismo interno do BusdriverMP não é público e **não deve ser inferido nem copiado**. O NavBR precisa provar seu próprio caminho técnico.
-
-Referências públicas:
-
-- [BusdriverMP](https://busdrivermp.de/)
-- [Projeto Bremen / OMSI WebDisk](https://reboot.omsi-webdisk.de/community/user-post-list/49-projekt-bremen/)
-
-## Fase 0 — teste de carga
-
-Projeto experimental:
-
-```text
-src/NavBR.OmsiPluginExperimental/
-```
-
-Nesta fase o plugin:
-
-- é x86;
-- recebe uma system variable para heartbeat;
-- escreve diagnóstico em log;
-- não altera variáveis;
-- não aciona triggers;
-- não cria veículos;
-- não injeta patches no executável.
-
-Log esperado:
-
-```text
-%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log
-```
-
-O CI compila e valida o pacote x86 experimental. Ainda falta validar o carregamento real no OMSI 2.3.004.
-
-Critério de aceite:
-
-1. OMSI 2.3.004 inicia normalmente;
-2. `PluginStart` aparece no log;
-3. heartbeats aparecem durante a sessão;
-4. `PluginFinalize` aparece no encerramento normal;
-5. não há crash ou regressão perceptível de performance.
-
-## Fase 1 — bridge local
-
-A **alpha.10 em desenvolvimento** implementa o bridge local entre `NavBR.Client` e o plugin usando **Windows Named Pipes**.
-
-Características atuais:
-
-- comunicação somente no computador local;
-- nenhuma porta pública adicional;
-- pipe restrito ao usuário atual do Windows;
-- protocolo versionado `v1`;
-- handshake `plugin-hello` / `client-hello`;
-- mensagem de retorno `plugin-status`;
-- reconexão automática local;
-- limite de tamanho das mensagens;
-- telemetria local e remota pode ser encaminhada ao plugin;
-- mensagens de remoção de jogador e limpeza da sala evitam estado remoto fantasma;
-- falha do bridge não derruba a sessão multiplayer;
-- o plugin continua sem aplicar qualquer dado ao OMSI nesta fase.
-
-Fluxo atual:
+A Alpha.13 Test 1 deixa de tratar o ônibus remoto apenas como investigação futura e passa a validar o fluxo completo:
 
 ```text
 Jogador remoto
-   ↓ SignalR
+   ↓ SignalR / sala NavBR
 NavBR.Client
-   ↓ mensagem versionada
-Named Pipe local
+   ↓ RemotePhysicalVehicleCoordinator
+Named Pipe local v2
    ↓
-NavBR.OmsiPlugin
+NavBR.OmsiPlugin.dll
    ↓
-registro remoto / diagnóstico
+NavBR.OmsiInterop.dll
    ↓
-plugin-status + navbr-plugin.log
+RoadVehicle remoto dentro do OMSI
 ```
 
-### Painel de diagnóstico da alpha.10
+O servidor da sala nunca escreve diretamente no OMSI. O cliente valida sessão, compatibilidade e estado recebido antes de encaminhar comandos ao plugin local.
 
-A janela principal do cliente inclui o painel técnico:
+## Estado da Alpha.13 Test 1
 
-```text
-PLUGIN BRIDGE v1 • EXP
-```
+Já existe base funcional para:
 
-Ele mostra, entre outros campos:
-
-- `status=CONNECTED|WAITING`;
-- PID informado pelo plugin;
-- `process-match=YES|NO|UNKNOWN`;
-- versão do plugin;
-- `heartbeat=LIVE|NONE|STALE`;
-- idade do heartbeat;
-- total de callbacks;
-- índice da system variable;
-- total de estados remotos;
-- total de remotos compatíveis;
-- mapa atual;
-- fingerprint de compatibilidade resumido.
-
-No teste real saudável esperamos principalmente:
-
-```text
-status=CONNECTED
-process-match=YES
-heartbeat=LIVE
-```
-
-Checklist completo:
-
-- [ALPHA10_PLUGIN_TEST_CHECKLIST.md](ALPHA10_PLUGIN_TEST_CHECKLIST.md)
-
-## Filtro de compatibilidade antes da futura representação física
-
-A alpha.10 envia ao plugin o contexto do veículo local, incluindo mapa e `MapCompatibilityId` quando disponível.
-
-Antes de um remoto ser considerado candidato a futura representação física:
-
-1. jogador local deve estar em jogo;
-2. jogador remoto deve estar em jogo;
-3. se ambos possuem `MapCompatibilityId`, os IDs precisam ser iguais;
-4. se o fingerprint não estiver disponível, o nome do mapa precisa coincidir;
-5. remotos incompatíveis continuam podendo existir no multiplayer/HUD, mas não são selecionados pelo plugin para futura representação.
-
-O fingerprint acompanha o **mapa atual**, inclusive quando o jogador troca de mapa depois de já ter entrado na sala.
-
-## Registro seguro de veículos remotos
-
-O plugin experimental mantém um registro local temporário dos estados recebidos.
-
-Proteções atuais:
-
-- máximo de **64 estados remotos** mantidos simultaneamente;
-- validação de `PlayerId` e tamanho dos campos de texto;
-- rejeição de coordenadas, heading ou velocidade com `NaN`/`Infinity`;
-- remoção explícita quando o jogador sai;
-- limpeza ao perder/reiniciar a sessão;
-- expiração automática após **5 segundos** sem atualização;
-- heartbeat informa total recebido e total compatível com o mapa local;
-- `plugin-status` só é aceito pelo cliente quando o PID coincide com o PID que realizou o handshake;
-- contadores negativos/inválidos do status são rejeitados.
-
-Esses limites existem antes mesmo da criação de qualquer entidade física no OMSI.
-
-## Fase 2 — uma representação remota de teste
-
-Só depois de validar carga e bridge no OMSI real:
-
-1. selecionar um único jogador remoto compatível;
-2. usar o estado já validado/interpolado;
-3. investigar um caminho reversível para representação por **veículo AI/instância equivalente**;
-4. provar criação/associação e remoção sem patch no executável;
-5. aplicar posição e orientação somente se o mecanismo escolhido permitir isso com estabilidade;
-6. remover a representação ao desconectar, trocar de mapa ou expirar;
-7. medir estabilidade, colisões e performance.
-
-Se não for encontrado um mecanismo seguro e documentável, o NavBR deve permanecer com o jogador apenas no HUD/mapa em vez de forçar uma implementação invasiva.
-
-Estado mínimo:
-
-```text
-PlayerId
-MapCompatibilityId
-Timestamp
-Position X/Y/Z
-Heading
-Speed
-VehicleCompatibilityId (futuro)
-```
-
-## Suavização de movimento
-
-A base de suavização já está implementada na alpha.10 **antes de qualquer escrita no OMSI**.
-
-Para cada jogador remoto, o plugin mantém os dois snapshots mais recentes e amostra o movimento com atraso de interpolação de aproximadamente **100 ms**.
-
-Já são interpolados:
-
-- X;
-- Y;
-- Z;
+- spawn experimental de veículo remoto;
+- update de pose;
+- despawn/limpeza;
+- posição local nativa `LocalX/Y/Z`;
+- quaternion de rotação nativo;
 - velocidade;
-- heading pelo menor arco angular.
+- luzes externas/interiores/freio no backend atual;
+- setas/pisca-alerta no backend atual;
+- limite de quantidade de veículos remotos;
+- validação de mapa/protocolo/veículo antes do spawn;
+- remoção em saída/desconexão/reconexão;
+- escrita física protegida por opt-in.
 
-A intenção é que a primeira representação remota experimental consuma esse estado suavizado, e não os pacotes brutos da rede.
+A Test 1 precisa validar isso em **2+ PCs reais** antes de ampliarmos o conjunto de estados.
 
-Ainda ficam para uma etapa posterior:
+## O que ainda não entra na Test 1
 
-- extrapolação limitada para perda curta de pacotes;
-- snap somente acima de erro máximo seguro;
-- política de distância/LOD;
-- frequência de aplicação dentro do OMSI.
-
-## Compatibilidade e fallback de ônibus
-
-A estratégia passa a considerar explicitamente o padrão observado em soluções multiplayer existentes: usar o mesmo modelo quando disponível e um fallback quando não estiver.
-
-O NavBR deverá distinguir:
-
-- mesmo arquivo/modelo `.bus` disponível localmente;
-- ônibus compatível por perfil NavBR;
-- ônibus remoto não instalado;
-- ônibus sem suporte de sincronização avançada.
-
-Fallback planejado:
-
-- usar um ônibus padrão/base compatível com o tipo (por exemplo, solo ou articulado) se o mecanismo AI permitir; ou
-- manter o jogador apenas no HUD/mapa, sem representação física.
-
-Nunca assumir que todos os participantes possuem os mesmos add-ons.
-
-## Estados adicionais
-
-Somente após posição/orientação serem estáveis:
-
+- portas;
+- matriz/linha/destino física;
 - articulação;
+- limpadores/buzina e animações adicionais;
+- fallback universal de modelo;
+- sincronização física completa do tráfego IA;
+- suporte amplo a outras versões do OMSI.
+
+## Arquitetura
+
+### Cliente
+
+O `MultiplayerClientService` possui o único `RemotePhysicalVehicleCoordinator` responsável pelo ciclo físico da sessão.
+
+Isso evita que a mesma telemetria remota gere dois fluxos concorrentes de spawn/update.
+
+O coordenador só tenta renderizar fisicamente quando:
+
+1. o recurso experimental foi ativado pelo usuário;
+2. o plugin bridge está conectado;
+3. o plugin anuncia capacidade de spawn e transform;
+4. o jogador remoto está em jogo;
+5. existe identidade real do veículo remoto;
+6. o mapa/protocolo são compatíveis;
+7. o limite de segurança ainda permite outro veículo.
+
+### Bridge local
+
+O bridge usa Windows Named Pipe local e protocolo versionado `v2`.
+
+O protocolo transporta, quando disponíveis:
+
+- PlayerId/DisplayName;
+- mapa e fingerprint;
+- veículo e fingerprint;
+- HOF e fingerprint;
+- linha/rota/próxima parada/destino;
+- pose absoluta e local;
+- quaternion;
+- velocidade/aceleração;
 - portas;
 - luzes;
-- setas/pisca-alerta;
+- seta;
 - buzina;
-- linha/destino/matriz;
-- outros estados compatíveis.
+- limpadores;
+- freio de estacionamento;
+- ré.
 
-Nem todo ônibus usa os mesmos nomes de variáveis. Portanto esses estados precisam de uma camada de **perfil de veículo**, não de valores hardcoded globais.
+Ter o campo no protocolo não significa que o backend físico já aplique todos eles. A Alpha.13 deve continuar anunciando somente capacidades realmente implementadas.
 
-## Automação de testes
+## Telemetria real da pose
 
-O CI da alpha.10 já cobre:
+No OMSI 2.3.004, o provider externo já lê do veículo do jogador:
 
-- build do cliente, servidor e plugin x86;
-- validação dos arquivos necessários ao pacote do plugin;
-- instalação e remoção do plugin em uma instalação OMSI simulada;
-- handshake real por Named Pipe entre um plugin simulado e `OmsiPluginBridgeServer`;
-- recebimento de `plugin-status`;
-- empacotamento do cliente standalone;
-- validação do recurso de ícone no EXE;
-- geração do bundle temporário `OMSI-NavBR-alpha10-integration-test-win-x86` para teste manual.
+- `Position` local;
+- `AbsPosition` para navegação/distância;
+- quaternion `Rotation`;
+- `Tacho`/groundspeed/velocity para velocidade.
 
-O smoke test do bridge também verifica rejeição de PID/status inválidos no bloco de desenvolvimento mais recente.
+A pose física enviada ao outro PC usa os valores locais/quaternion reais. Não há geração de coordenada fictícia nem conversão aproximada para o primeiro teste.
 
-## Segurança e estabilidade
+## Native interop x86
 
-Regras obrigatórias:
+O plugin carrega o shim:
 
-- plugin opcional;
-- multiplayer externo continua funcionando sem plugin;
-- falha do bridge não pode derrubar a sala;
-- validar todos os dados recebidos antes de aplicar no OMSI;
-- limitar quantidade de entidades/estados remotos;
-- limitar distância de atualização quando houver representação física;
-- remover entidades ao trocar de mapa/sair da sala;
-- nunca executar comandos arbitrários recebidos pela rede;
-- não carregar código enviado por outros jogadores;
-- não usar patch/injeção no executável para contornar a ausência de API documentada de spawn;
-- logs de diagnóstico sem tokens/senhas/dados pessoais.
+```text
+plugins\NavBR.OmsiInterop.dll
+```
 
-## Estado atual
+A runtime é bloqueada para:
 
-- ✅ projeto x86 experimental criado;
-- ✅ exports/callbacks básicos implementados;
-- ✅ bridge local NavBR ↔ plugin implementado por Named Pipe;
-- ✅ protocolo inclui contexto local, atualização, remoção, limpeza e `plugin-status`;
-- ✅ painel `PLUGIN BRIDGE v1 • EXP` implementado no cliente alpha.10;
-- ✅ frames remotos do multiplayer são encaminhados ao bridge em modo diagnóstico;
-- ✅ limite de 64 remotos + timeout de 5 s;
-- ✅ filtro por mapa / fingerprint antes da futura representação;
-- ✅ interpolação básica de posição, velocidade e heading implementada;
-- ✅ instalador/removedor experimentais com manifesto e proteção contra sobrescrita de arquivos alheios;
-- ✅ CI valida handshake/status e instalação/remoção;
-- ✅ bundle integrado de teste é gerado pelo CI;
-- 🧪 falta validar carregamento real do plugin no OMSI 2.3.004;
-- 🧪 falta validar `CONNECTED` + `process-match=YES` + `heartbeat=LIVE` no OMSI real;
-- 🧪 falta validar fluxo SignalR → cliente → pipe → plugin em dois PCs;
-- 🔬 investigar mecanismo seguro de representação por AI/instância equivalente;
-- ⬜ primeira representação remota experimental;
-- ⬜ sincronização física dentro do OMSI.
+- processo `Omsi.exe`;
+- x86;
+- OMSI 2.3.004/2.3.4 conforme identificação suportada;
+- ABI/interoperabilidade esperadas;
+- probes de endereços nativos válidos.
+
+O shim atual oferece operações protegidas para:
+
+- enumerar RoadVehicles;
+- validar ponteiro de RoadVehicle;
+- criar veículo;
+- aplicar transform/groundspeed;
+- aplicar estado visual básico;
+- marcar veículo NavBR para remoção.
+
+Nenhum ponteiro recebido da rede é usado diretamente. Os ponteiros físicos são descobertos e registrados localmente pelo plugin após o spawn.
+
+## Segurança do spawn
+
+O caminho do veículo remoto é normalizado e precisa resolver para um arquivo `.bus`/`.ovh` dentro da instalação OMSI local.
+
+Depois do `MakeVehicle`, o plugin compara a lista de RoadVehicles antes/depois e só aceita um novo ponteiro quando consegue identificar a criação de forma inequívoca.
+
+Updates posteriores só são aplicados a veículos registrados como pertencentes ao NavBR.
+
+## Opt-in
+
+A ativação pública fica em Multiplayer:
+
+**Ônibus dos jogadores no OMSI (TESTE ALPHA)**
+
+Ao ativar, o NavBR persiste o consentimento experimental para cliente/plugin. Ao desativar, o cliente ainda pode enviar despawn dos veículos que ele criou para permitir limpeza segura.
+
+## Teste recomendado
+
+Consulte:
+
+- [ALPHA13_TEST1_COMMUNITY.md](ALPHA13_TEST1_COMMUNITY.md)
+
+O primeiro cenário deve ser dois PCs na mesma LAN. Depois de confirmar spawn/movimento/estabilidade, avançamos para Internet/NAT variados.
+
+## Portas — próxima etapa
+
+O protocolo já possui `DoorFlags`, mas o backend atual ainda não aciona portas.
+
+Não haverá um nome de trigger universal hardcoded para todos os ônibus. A direção planejada é usar **perfis de compatibilidade por modelo**. Se não houver perfil validado, a porta permanece sem sincronização em vez de tentar um trigger desconhecido.
+
+## Matriz/HOF — próxima etapa
+
+O protocolo já transporta HOF, linha e destino quando a telemetria real fornece esses dados.
+
+A aplicação física da matriz dependerá de:
+
+- veículo remoto correto instalado;
+- HOF compatível;
+- perfil/capacidade do modelo;
+- método seguro para aplicar o destino sem quebrar scripts específicos do ônibus.
+
+## Articulação — próxima etapa
+
+Ônibus articulados exigem tratamento adicional de seções/trailers. A Alpha.13 Test 1 não deve fingir suporte: o teste inicial mede somente o veículo físico base e sua pose.
+
+## Diagnóstico
+
+Falhas de spawn/update/despawn são registradas em diagnóstico técnico com código/erro, evitando repetição infinita da mesma mensagem por jogador.
+
+A camada física é best-effort: falha do plugin não deve derrubar SignalR, chat, voz, HUD ou a sessão multiplayer normal.
+
+## Referências de mercado
+
+Busweave e BusDriverMP demonstram publicamente que multiplayer físico no OMSI pode sincronizar mais estados, incluindo portas/matriz/articulação em determinados veículos.
+
+Eles são benchmarks de comportamento. O NavBR não depende de código, assets, protocolo ou infraestrutura proprietária desses projetos.
+
+## Critério para a próxima Test
+
+Antes de portas/matriz/articulação, precisamos confirmar em testes reais:
+
+- spawn consistente;
+- posição correta;
+- orientação correta;
+- movimento aceitável;
+- sem duplicação;
+- despawn correto;
+- reconexão correta;
+- estabilidade do OMSI;
+- funcionamento nos dois sentidos entre PCs.
