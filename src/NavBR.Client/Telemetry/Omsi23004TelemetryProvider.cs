@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using NavBR.Client.Omsi;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
@@ -45,6 +46,60 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             return Task.FromResult(false);
         }
     }
+
+    public OmsiCameraProjectionSnapshot? ReadCameraProjection()
+    {
+        var memory = _memory;
+        var processInfo = _processInfo;
+        if (memory is null ||
+            processInfo is null ||
+            !processInfo.IsOmsi23004Exact ||
+            Omsi23004MemoryProfile.CameraPointerRva == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (Process.GetProcessById(memory.ProcessId).HasExited)
+            {
+                return null;
+            }
+
+            var cameraAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.CameraPointerRva));
+            if (cameraAddress <= 0x10000u)
+            {
+                return null;
+            }
+
+            var cameraPointer = ReadOnlyProcessMemory.PointerFromUInt32(cameraAddress);
+            var view = memory.ReadMatrix4x4(nint.Add(
+                cameraPointer,
+                Omsi23004MemoryProfile.CameraViewMatrixOffset));
+            var projection = memory.ReadMatrix4x4(nint.Add(
+                cameraPointer,
+                Omsi23004MemoryProfile.CameraProjectionMatrixOffset));
+
+            return IsFinite(view) && IsFinite(projection)
+                ? new OmsiCameraProjectionSnapshot(view, projection, DateTimeOffset.UtcNow)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsFinite(Matrix4x4 matrix) =>
+        float.IsFinite(matrix.M11) && float.IsFinite(matrix.M12) &&
+        float.IsFinite(matrix.M13) && float.IsFinite(matrix.M14) &&
+        float.IsFinite(matrix.M21) && float.IsFinite(matrix.M22) &&
+        float.IsFinite(matrix.M23) && float.IsFinite(matrix.M24) &&
+        float.IsFinite(matrix.M31) && float.IsFinite(matrix.M32) &&
+        float.IsFinite(matrix.M33) && float.IsFinite(matrix.M34) &&
+        float.IsFinite(matrix.M41) && float.IsFinite(matrix.M42) &&
+        float.IsFinite(matrix.M43) && float.IsFinite(matrix.M44);
 
     public IReadOnlyList<TrafficVehicleState> ReadRoadTraffic(
         int maxVehicles = OmsiRoadTrafficReader.DefaultMaxVehicles,
