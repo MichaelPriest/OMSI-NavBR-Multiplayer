@@ -67,7 +67,7 @@ internal static class Alpha12ExperienceInstaller
     {
         var button = new Button();
         StyleNavigationButton(button);
-        button.Margin = new Thickness(0d, 0d, 0d, 10d);
+        button.Margin = new Thickness(0d, 0d, 0d, 6d);
         button.Click += (_, _) =>
         {
             var dialog = new Alpha12SettingsWindow(window);
@@ -76,7 +76,14 @@ internal static class Alpha12ExperienceInstaller
             ApplyRuntimeVersionBadge(window);
         };
 
-        if (window.LanguageLabelText.Parent is Panel footer)
+        // In the professional shell, Settings belongs to SISTEMA, matching the
+        // approved product layout. The footer remains reserved for language,
+        // advanced-mode toggle and tray/minimize actions.
+        if (window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel systemPanel)
+        {
+            systemPanel.Children.Add(button);
+        }
+        else if (window.LanguageLabelText.Parent is Panel footer)
         {
             var insertIndex = footer.Children.IndexOf(window.LanguageLabelText);
             var advancedToggle = footer.Children.OfType<CheckBox>().FirstOrDefault();
