@@ -72,7 +72,7 @@ internal static class PluginBridgeClient
 
         OutboundCommandResults.Enqueue(result);
         Log(
-            $"vehicle-command-result id={result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
+            $"command-result id={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
             $"success={result.Success} error={result.ErrorCode ?? "-"}");
     }
 
@@ -96,7 +96,9 @@ internal static class PluginBridgeClient
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
-            ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled);
+            ExperimentalWritesEnabled:
+                ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
+                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled);
 
         lock (StatusSync)
         {
@@ -161,7 +163,9 @@ internal static class PluginBridgeClient
                     ProcessId: Environment.ProcessId,
                     ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
                     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled,
+                    ExperimentalWritesEnabled:
+                        ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
+                        RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
                     Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
                 await writer.WriteLineAsync(SerializeMessage(capabilities));
                 await writer.FlushAsync(cancellationToken);
