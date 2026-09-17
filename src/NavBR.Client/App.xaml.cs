@@ -125,7 +125,7 @@ public partial class App : Application
 
         if (window is MainWindow mainWindow)
         {
-            Alpha12ProfessionalShellInstaller.Install(mainWindow);
+            Alpha12FigmaShellInstaller.Install(mainWindow);
             Alpha11VisualTuning.Apply(mainWindow);
             OmsiProfilesUiInstaller.Install(mainWindow);
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
