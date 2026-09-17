@@ -298,7 +298,7 @@ public partial class MultiplayerWindow
     }
 
     private static string RoleplayLabel() =>
-        T(
+        RpT(
             "Personagem do motorista / RP (TESTE ALPHA)",
             "Driver character / RP (ALPHA TEST)",
             "Personaje del conductor / RP (PRUEBA ALPHA)",
@@ -306,7 +306,7 @@ public partial class MultiplayerWindow
             "Personnage conducteur / RP (TEST ALPHA)");
 
     private static string RoleplayWarning() =>
-        T(
+        RpT(
             "Após o mapa carregar, lê somente os personagens reais da lista Drivers do OMSI. A escolha identifica o avatar do jogador. O controle a pé permanece experimental e só será habilitado quando o plugin confirmar um motorista humano compatível no ônibus do jogador.",
             "After the map loads, reads only real characters from OMSI's Drivers list. The selection identifies the player's avatar. On-foot control remains experimental and is enabled only when the plugin confirms a compatible human driver in the player's bus.",
             "Tras cargar el mapa, lee solo los personajes reales de la lista Drivers de OMSI. La selección identifica el avatar del jugador. El control a pie sigue siendo experimental.",
@@ -314,36 +314,36 @@ public partial class MultiplayerWindow
             "Après le chargement de la carte, seuls les personnages réels de la liste Drivers d’OMSI sont lus. La sélection identifie l’avatar du joueur. Le contrôle à pied reste expérimental.");
 
     private static string RoleplaySelectButtonText() =>
-        T("Selecionar personagem", "Select character", "Seleccionar personaje", "Charakter wählen", "Choisir le personnage");
+        RpT("Selecionar personagem", "Select character", "Seleccionar personaje", "Charakter wählen", "Choisir le personnage");
 
     private static string RoleplayWaitingForMapText() =>
-        T("Aguardando mapa carregado no OMSI.", "Waiting for an OMSI map.", "Esperando un mapa de OMSI.", "Warte auf eine OMSI-Karte.", "En attente d’une carte OMSI.");
+        RpT("Aguardando mapa carregado no OMSI.", "Waiting for an OMSI map.", "Esperando un mapa de OMSI.", "Warte auf eine OMSI-Karte.", "En attente d’une carte OMSI.");
 
     private static string RoleplayNoDriversText() =>
-        T("O mapa não expôs personagens Drivers utilizáveis.", "The map exposed no usable Drivers characters.", "El mapa no expuso personajes Drivers utilizables.", "Die Karte stellt keine nutzbaren Drivers-Charaktere bereit.", "La carte n’expose aucun personnage Drivers utilisable.");
+        RpT("O mapa não expôs personagens Drivers utilizáveis.", "The map exposed no usable Drivers characters.", "El mapa no expuso personajes Drivers utilizables.", "Die Karte stellt keine nutzbaren Drivers-Charaktere bereit.", "La carte n’expose aucun personnage Drivers utilisable.");
 
     private static string RoleplayDisabledText() =>
-        T("Modo Personagem/RP desativado.", "Character/RP mode disabled.", "Modo Personaje/RP desactivado.", "Charakter-/RP-Modus deaktiviert.", "Mode Personnage/RP désactivé.");
+        RpT("Modo Personagem/RP desativado.", "Character/RP mode disabled.", "Modo Personaje/RP desactivado.", "Charakter-/RP-Modus deaktiviert.", "Mode Personnage/RP désactivé.");
 
     private static string RoleplayEnabledText() =>
-        T("Modo Personagem/RP ativado. O seletor será liberado após o mapa carregar.", "Character/RP mode enabled. The selector unlocks after the map loads.", "Modo Personaje/RP activado. El selector se habilita tras cargar el mapa.", "Charakter-/RP-Modus aktiviert. Die Auswahl wird nach dem Laden der Karte freigeschaltet.", "Mode Personnage/RP activé. Le sélecteur sera disponible après le chargement de la carte.");
+        RpT("Modo Personagem/RP ativado. O seletor será liberado após o mapa carregar.", "Character/RP mode enabled. The selector unlocks after the map loads.", "Modo Personaje/RP activado. El selector se habilita tras cargar el mapa.", "Charakter-/RP-Modus aktiviert. Die Auswahl wird nach dem Laden der Karte freigeschaltet.", "Mode Personnage/RP activé. Le sélecteur sera disponible après le chargement de la carte.");
 
     private static string RoleplaySelectPromptText(int count) =>
         string.Format(
-            T("{0} personagem(ns) real(is) disponível(is).", "{0} real character(s) available.", "{0} personaje(s) real(es) disponible(s).", "{0} echte(r) Charakter(e) verfügbar.", "{0} personnage(s) réel(s) disponible(s)."),
+            RpT("{0} personagem(ns) real(is) disponível(is).", "{0} real character(s) available.", "{0} personaje(s) real(es) disponible(s).", "{0} echte(r) Charakter(e) verfügbar.", "{0} personnage(s) réel(s) disponible(s)."),
             count);
 
     private static string RoleplaySelectedText(string name) =>
         string.Format(
-            T("Selecionado: {0}", "Selected: {0}", "Seleccionado: {0}", "Ausgewählt: {0}", "Sélectionné : {0}"),
+            RpT("Selecionado: {0}", "Selected: {0}", "Seleccionado: {0}", "Ausgewählt: {0}", "Sélectionné : {0}"),
             name);
 
     private static string RoleplaySelectedStatusText(string name) =>
         string.Format(
-            T("Personagem {0} selecionado para o motorista deste mapa.", "Character {0} selected for this map's driver.", "Personaje {0} seleccionado para el conductor de este mapa.", "Charakter {0} für den Fahrer dieser Karte ausgewählt.", "Personnage {0} sélectionné pour le conducteur de cette carte."),
+            RpT("Personagem {0} selecionado para o motorista deste mapa.", "Character {0} selected for this map's driver.", "Personaje {0} seleccionado para el conductor de este mapa.", "Charakter {0} für den Fahrer dieser Karte ausgewählt.", "Personnage {0} sélectionné pour le conducteur de cette carte."),
             name);
 
-    private static string T(string pt, string en, string es, string de, string fr) =>
+    private static string RpT(string pt, string en, string es, string de, string fr) =>
         LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
             "pt" => pt,
