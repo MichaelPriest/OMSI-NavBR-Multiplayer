@@ -207,7 +207,7 @@ public partial class MultiplayerWindow
             SessionNetworkQualityLevel.Good => (PlayerCardBrush(82, 215, 145), PlayerCardText("Rede boa", "Good network", "Red buena", "Gute Verbindung", "Réseau bon")),
             SessionNetworkQualityLevel.Degraded => (PlayerCardBrush(237, 184, 75), PlayerCardText("Rede em atenção", "Network degraded", "Red degradada", "Verbindung eingeschränkt", "Réseau dégradé")),
             SessionNetworkQualityLevel.Poor => (PlayerCardBrush(232, 91, 91), PlayerCardText("Rede ruim", "Poor network", "Red deficiente", "Schlechte Verbindung", "Réseau faible")),
-            _ => (PlayerCardBrush(104, 151, 184), PlayerCardText("Aferindo rede", "Measuring network", "Midiéndo la red", "Verbindung wird gemessen", "Mesure du réseau"))
+            _ => (PlayerCardBrush(104, 151, 184), PlayerCardText("Aferindo rede", "Measuring network", "Midiendo la red", "Verbindung wird gemessen", "Mesure du réseau"))
         };
 
         var header = new Grid();
@@ -224,7 +224,6 @@ public partial class MultiplayerWindow
 
         var state = new Border
         {
-            Grid.ColumnProperty = 1,
             Background = new SolidColorBrush(Color.FromArgb(35, accent.Color.R, accent.Color.G, accent.Color.B)),
             BorderBrush = accent,
             BorderThickness = new Thickness(1d),
