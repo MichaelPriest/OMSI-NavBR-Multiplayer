@@ -252,14 +252,90 @@ jobs:
           Consulte `ALPHA13_TEST1_COMMUNITY.md` para o roteiro completo e `OMSI_PLUGIN_EXPERIMENTAL.md` para a arquitetura técnica.
           "@ | Set-Content "artifacts/release-notes.md" -Encoding UTF8
 
-      - name: Upload assets and publish prerelease
+      - name: Clean incomplete release assets
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = Get-ChildItem "artifacts/release" -File | ForEach-Object { $_.FullName }
-          gh release upload $env:TEST_TAG @assets --repo "${{ github.repository }}" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Failed to upload Alpha.13 Test 1 assets." }
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          if (-not $releaseId) { throw "Could not resolve draft release id." }
+          $existing = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+          foreach ($asset in @($existing)) {
+            Write-Host "Removing previous asset $($asset.name) state=$($asset.state)"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$($asset.id)" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Could not remove old asset $($asset.name)." }
+          }
+
+      - name: Upload release assets sequentially
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          if (-not $releaseId) { throw "Could not resolve draft release id." }
+
+          $assets = Get-ChildItem "artifacts/release" -File | Sort-Object Length, Name
+          foreach ($asset in $assets) {
+            $encodedName = [uri]::EscapeDataString($asset.Name)
+            $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/$releaseId/assets?name=$encodedName"
+            $contentType = switch -Regex ($asset.Extension) {
+              '^\.exe$' { 'application/x-msdownload'; break }
+              '^\.zip$' { 'application/zip'; break }
+              '^\.txt$' { 'text/plain'; break }
+              default { 'application/octet-stream' }
+            }
+
+            $uploaded = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $uploaded; $attempt++) {
+              Write-Host "Uploading $($asset.Name) attempt $attempt/3 ($([math]::Round($asset.Length / 1MB, 1)) MiB)"
+              & curl.exe --silent --show-error --fail-with-body `
+                --retry 2 --retry-delay 3 --retry-all-errors `
+                --connect-timeout 30 --max-time 600 `
+                -X POST `
+                -H "Accept: application/vnd.github+json" `
+                -H "Authorization: Bearer $env:GH_TOKEN" `
+                -H "X-GitHub-Api-Version: 2022-11-28" `
+                -H "Content-Type: $contentType" `
+                --data-binary "@$($asset.FullName)" `
+                $uploadUrl | Out-Null
+
+              if ($LASTEXITCODE -eq 0) {
+                $uploaded = $true
+              }
+              else {
+                $global:LASTEXITCODE = 0
+                Start-Sleep -Seconds (5 * $attempt)
+                $existing = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+                $stale = @($existing) | Where-Object { $_.name -eq $asset.Name } | Select-Object -First 1
+                if ($stale) {
+                  gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$($stale.id)" | Out-Null
+                  $global:LASTEXITCODE = 0
+                }
+              }
+            }
+
+            if (-not $uploaded) { throw "Failed to upload release asset $($asset.Name) after retries." }
+          }
+
+      - name: Verify and publish prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          $assets = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+          $required = @(
+            "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.exe",
+            "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.zip",
+            "OMSI-NavBR-Server-$env:TEST_TAG-win-x64.zip",
+            "OMSI-NavBR-Plugin-$env:TEST_TAG-win-x86.zip",
+            "SHA256SUMS.txt"
+          )
+          foreach ($name in $required) {
+            $asset = @($assets) | Where-Object { $_.name -eq $name -and $_.state -eq 'uploaded' } | Select-Object -First 1
+            if (-not $asset) { throw "Required release asset is not fully uploaded: $name" }
+          }
+
           gh release edit $env:TEST_TAG `
             --repo "${{ github.repository }}" `
             --target "$env:GITHUB_SHA" `
