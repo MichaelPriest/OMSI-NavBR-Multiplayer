@@ -102,10 +102,15 @@ internal static class Alpha12FigmaShellInstaller
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var headingText = new StackPanel();
-        headingText.Children.Add(Text($"Bom dia, {profile.DisplayName}", 30d, White(), FontWeights.Bold));
-        headingText.Children.Add(Text("Visão operacional do OMSI e da sua sessão NavBR.", 13d, Muted(), FontWeights.Normal, new Thickness(0d, 6d, 0d, 0d)));
+        headingText.Children.Add(Text(string.Format(L("Olá, {0}", "Hello, {0}", "Hola, {0}", "Hallo, {0}", "Bonjour, {0}"), profile.DisplayName), 30d, White(), FontWeights.Bold));
+        headingText.Children.Add(Text(L(
+            "Visão operacional do OMSI e da sua sessão NavBR.",
+            "Operational view of OMSI and your NavBR session.",
+            "Vista operativa de OMSI y de tu sesión NavBR.",
+            "Betriebsübersicht von OMSI und deiner NavBR-Sitzung.",
+            "Vue opérationnelle d’OMSI et de votre session NavBR."), 13d, Muted(), FontWeights.Normal, new Thickness(0d, 6d, 0d, 0d)));
         heading.Children.Add(headingText);
-        var openNavigation = PrimaryButton("Abrir navegação");
+        var openNavigation = PrimaryButton(L("Abrir navegação", "Open navigation", "Abrir navegación", "Navigation öffnen", "Ouvrir la navigation"));
         openNavigation.Width = 170d;
         openNavigation.Click += (_, _) => RaiseNavigation(window, "⌖");
         Grid.SetColumn(openNavigation, 1);
@@ -113,15 +118,15 @@ internal static class Alpha12FigmaShellInstaller
         stack.Children.Add(heading);
 
         var vehicle = ValueText("—", 17d);
-        var omsiState = SecondaryText("Aguardando OMSI");
-        var map = SecondaryText("Mapa • —");
+        var omsiState = SecondaryText(L("Aguardando OMSI", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI"));
+        var map = SecondaryText($"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • —");
         var line = ValueText("—", 28d);
         var destination = SecondaryText("—");
-        var nextStop = SecondaryText("Próxima parada • —");
-        var multiplayerState = ValueText("Sem sessão", 17d);
-        var multiplayerDetail = SecondaryText("Abra a Central Multiplayer");
-        var companyName = ValueText(profile.CompanyName ?? "Sem empresa", 17d);
-        var companyDetail = SecondaryText("Perfil do motorista");
+        var nextStop = SecondaryText($"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • —");
+        var multiplayerState = ValueText(L("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session"), 17d);
+        var multiplayerDetail = SecondaryText(L("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur"));
+        var companyName = ValueText(profile.CompanyName ?? L("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise"), 17d);
+        var companyDetail = SecondaryText(L("Perfil do motorista", "Driver profile", "Perfil del conductor", "Fahrerprofil", "Profil conducteur"));
 
         var cards = new Grid { Margin = new Thickness(-8d, 0d, -8d, 0d) };
         for (var i = 0; i < 7; i++)
@@ -527,47 +532,51 @@ internal static class Alpha12FigmaShellInstaller
         {
             var telemetry = window.GetCurrentTelemetryForAlpha11();
             var profile = DriverProfileStore.Load();
-            companyName.Text = profile.CompanyName ?? "Sem empresa";
+            companyName.Text = profile.CompanyName ?? L("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise");
 
             if (telemetry is null || !telemetry.IsInGame)
             {
                 vehicle.Text = "—";
-                omsiState.Text = string.IsNullOrWhiteSpace(window.StatusText.Text) ? "Aguardando OMSI" : window.StatusText.Text;
-                map.Text = $"Mapa • {Safe(window.MapValueText.Text)}";
+                omsiState.Text = string.IsNullOrWhiteSpace(window.StatusText.Text)
+                    ? L("Aguardando OMSI", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI")
+                    : window.StatusText.Text;
+                map.Text = $"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • {Safe(window.MapValueText.Text)}";
                 line.Text = "—";
                 destination.Text = "—";
-                nextStop.Text = "Próxima parada • —";
+                nextStop.Text = $"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • —";
                 currentStop.Text = "—";
-                street.Text = "Rua atual • —";
-                routeInfo.Text = "Linha / destino indisponíveis";
+                street.Text = $"{L("Rua atual", "Current street", "Calle actual", "Aktuelle Straße", "Rue actuelle")} • —";
+                routeInfo.Text = L("Linha / destino indisponíveis", "Line / destination unavailable", "Línea / destino no disponibles", "Linie / Ziel nicht verfügbar", "Ligne / destination indisponibles");
                 speed.Text = "—";
                 schedule.Text = "—";
-                status.Text = "Aguardando telemetria";
+                status.Text = L("Aguardando telemetria", "Waiting for telemetry", "Esperando telemetría", "Warte auf Telemetrie", "En attente de télémétrie");
             }
             else
             {
                 vehicle.Text = Safe(telemetry.VehicleName);
-                omsiState.Text = "Conectado ao jogo";
-                map.Text = $"Mapa • {Safe(telemetry.MapName)}";
+                omsiState.Text = L("Conectado ao jogo", "Connected to game", "Conectado al juego", "Mit dem Spiel verbunden", "Connecté au jeu");
+                map.Text = $"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • {Safe(telemetry.MapName)}";
                 line.Text = Safe(telemetry.Line);
                 destination.Text = Safe(telemetry.DestinationName ?? telemetry.Route);
-                nextStop.Text = $"Próxima parada • {Safe(telemetry.NextStopName)}";
+                nextStop.Text = $"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • {Safe(telemetry.NextStopName)}";
                 currentStop.Text = Safe(telemetry.NextStopName);
-                street.Text = $"Rua atual • {Safe(telemetry.CurrentStreetName)}";
-                routeInfo.Text = $"Linha {Safe(telemetry.Line)} • {Safe(telemetry.DestinationName ?? telemetry.Route)}";
+                street.Text = $"{L("Rua atual", "Current street", "Calle actual", "Aktuelle Straße", "Rue actuelle")} • {Safe(telemetry.CurrentStreetName)}";
+                routeInfo.Text = $"{L("Linha", "Line", "Línea", "Linie", "Ligne")} {Safe(telemetry.Line)} • {Safe(telemetry.DestinationName ?? telemetry.Route)}";
                 speed.Text = $"{telemetry.SpeedKph:0} km/h";
                 schedule.Text = FormatDelay(telemetry.DelaySeconds);
                 status.Text = telemetry.Timestamp < DateTimeOffset.UtcNow.AddSeconds(-5)
-                    ? "Telemetria desatualizada"
-                    : "Telemetria atualizada";
+                    ? L("Telemetria desatualizada", "Telemetry stale", "Telemetría desactualizada", "Telemetrie veraltet", "Télémétrie obsolète")
+                    : L("Telemetria atualizada", "Telemetry current", "Telemetría actualizada", "Telemetrie aktuell", "Télémétrie à jour");
             }
 
             var multiplayer = Application.Current?.Windows.OfType<MultiplayerWindow>().FirstOrDefault();
             var active = multiplayer?.HasBackgroundSession == true;
-            multiplayerState.Text = active ? "Sessão ativa" : "Sem sessão";
+            multiplayerState.Text = active
+                ? L("Sessão ativa", "Active session", "Sesión activa", "Aktive Sitzung", "Session active")
+                : L("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session");
             multiplayerDetail.Text = active
-                ? "Host/conexão mantidos em segundo plano"
-                : "Abra a Central Multiplayer";
+                ? L("Host/conexão mantidos em segundo plano", "Host/connection kept in background", "Host/conexión mantenidos en segundo plano", "Host/Verbindung läuft im Hintergrund", "Hôte/connexion maintenus en arrière-plan")
+                : L("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur");
         }
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500d) };
@@ -576,6 +585,16 @@ internal static class Alpha12FigmaShellInstaller
         Refresh();
         window.Closed += (_, _) => timer.Stop();
     }
+
+    private static string L(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static string FormatDelay(int? seconds)
     {
