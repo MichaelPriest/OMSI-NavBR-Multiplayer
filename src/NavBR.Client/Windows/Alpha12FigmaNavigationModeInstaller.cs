@@ -27,10 +27,29 @@ internal static class Alpha12FigmaNavigationModeInstaller
             return;
         }
 
+        // Alpha12NavigationPolishInstaller still initializes the proven 3D
+        // feature for compatibility. In the Figma shell its small legacy
+        // button would duplicate the new 2D/3D selector, so remove only that
+        // visual trigger; OpenNavigation3D remains the same implementation.
+        RemoveLegacy3DButton(navigationPage);
+
         var bar = BuildModeBar(window);
         stack.Children.Insert(Math.Min(1, stack.Children.Count), bar);
 
         window.Closed += (_, _) => Installed.Remove(window);
+    }
+
+    private static void RemoveLegacy3DButton(DependencyObject navigationPage)
+    {
+        var legacy = Enumerate<Button>(navigationPage)
+            .FirstOrDefault(button =>
+                button.Content is string text &&
+                string.Equals(text.Trim(), "3D", StringComparison.OrdinalIgnoreCase));
+
+        if (legacy?.Parent is Panel panel)
+        {
+            panel.Children.Remove(legacy);
+        }
     }
 
     private static Border BuildModeBar(MainWindow window)
@@ -123,6 +142,22 @@ internal static class Alpha12FigmaNavigationModeInstaller
             }
         }
         return null;
+    }
+
+    private static IEnumerable<T> Enumerate<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root is T match)
+        {
+            yield return match;
+        }
+
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            foreach (var child in Enumerate<T>(VisualTreeHelper.GetChild(root, index)))
+            {
+                yield return child;
+            }
+        }
     }
 
     private static SolidColorBrush Brush(byte r, byte g, byte b) =>
