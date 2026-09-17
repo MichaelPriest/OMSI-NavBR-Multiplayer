@@ -1,13 +1,13 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.13-test.1';
+const currentTag = 'v0.3.0-alpha.14-test.1';
 
 const fallbackRelease = {
   tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.13-test.1 — physical multiplayer test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14-test.1 — character roleplay test',
   prerelease: true,
   published_at: null,
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.13 Test 1 inicia a validação pública do ônibus remoto físico online com spawn, movimento e estados visuais básicos usando telemetria real do OMSI 2.3.004.',
+  body: 'Alpha.14 Test 1 inicia a validação pública do modo Personagem/RP no modo normal e multiplayer, preservando o ônibus remoto físico da Alpha anterior.',
   download_count: 0,
   assets: [
     {
@@ -104,7 +104,7 @@ function assetLabel(name = '') {
 }
 
 function assetHelp(name = '') {
-  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.13. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
+  if (/win-x86\.exe$/i.test(name)) return 'Use para jogar e testar a Alpha.14. O plugin pode ser instalado/atualizado pelo próprio NavBR.';
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI para os testes físicos.';
