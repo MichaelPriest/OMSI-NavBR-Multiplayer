@@ -15,13 +15,11 @@ internal static class Alpha12NavigationPolishInstaller
             return;
         }
 
-        var hasProfessionalShell =
-            window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operationsPanel &&
-            window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel systemPanel;
-
-        if (hasProfessionalShell)
+        var operationsPanel = window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) as Panel;
+        var systemPanel = window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) as Panel;
+        if (operationsPanel is not null && systemPanel is not null)
         {
-            ReorderProfessionalNavigation(operationsPanel!, systemPanel!);
+            ReorderProfessionalNavigation(operationsPanel, systemPanel);
             HideNextVersionLabel(window);
             Alpha12Navigation3DInstaller.Install(window);
             window.Closed += (_, _) => Installed.Remove(window);
