@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using NavBR.Client.Omsi;
+using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -45,6 +46,123 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.AttachFailed;
             return Task.FromResult(false);
         }
+    }
+
+    internal IReadOnlyList<RoleplayCharacterOption> ReadRoleplayCharacterOptions()
+    {
+        var memory = _memory;
+        var processInfo = _processInfo;
+        if (memory is null ||
+            processInfo is null ||
+            !processInfo.IsOmsi23004Exact)
+        {
+            return Array.Empty<RoleplayCharacterOption>();
+        }
+
+        try
+        {
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return Array.Empty<RoleplayCharacterOption>();
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            if (memory.ReadByte(nint.Add(
+                    mapPointer,
+                    Omsi23004MemoryProfile.MapLoadedOffset)) == 0)
+            {
+                return Array.Empty<RoleplayCharacterOption>();
+            }
+
+            var listAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapDriversListOffset));
+            if (listAddress <= 0x10000u)
+            {
+                return Array.Empty<RoleplayCharacterOption>();
+            }
+
+            var listPointer = ReadOnlyProcessMemory.PointerFromUInt32(listAddress);
+            var count = memory.ReadInt32(nint.Add(
+                listPointer,
+                Omsi23004MemoryProfile.StringListCountOffset));
+            var itemsAddress = memory.ReadUInt32(nint.Add(
+                listPointer,
+                Omsi23004MemoryProfile.StringListItemsArrayOffset));
+
+            if (count is <= 0 or > 512 || itemsAddress <= 0x10000u)
+            {
+                return Array.Empty<RoleplayCharacterOption>();
+            }
+
+            var itemsPointer = ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
+            var result = new List<RoleplayCharacterOption>(Math.Min(count, 128));
+            var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var index = 0; index < count && result.Count < 128; index++)
+            {
+                var itemPointer = nint.Add(
+                    itemsPointer,
+                    index * Omsi23004MemoryProfile.StringItemSize);
+                var source = memory.ReadDelphiUnicodeStringField(
+                                 nint.Add(itemPointer, Omsi23004MemoryProfile.StringItemTextOffset),
+                                 maxCharacters: 512)
+                             ?? memory.ReadDelphiAnsiStringField(
+                                 nint.Add(itemPointer, Omsi23004MemoryProfile.StringItemTextOffset),
+                                 maxCharacters: 512);
+                var definitionPointer = memory.ReadUInt32(nint.Add(
+                    itemPointer,
+                    Omsi23004MemoryProfile.StringItemObjectOffset));
+
+                source = source?.Trim();
+                if (string.IsNullOrWhiteSpace(source) || definitionPointer <= 0x10000u)
+                {
+                    continue;
+                }
+
+                var display = BuildRoleplayCharacterDisplayName(source);
+                var idBase = source.Replace('\\', '/').Trim().ToLowerInvariant();
+                var id = idBase;
+                var suffix = 2;
+                while (!usedIds.Add(id))
+                {
+                    id = $"{idBase}#{suffix++}";
+                }
+
+                result.Add(new RoleplayCharacterOption(
+                    id,
+                    display,
+                    source,
+                    unchecked((int)definitionPointer)));
+            }
+
+            return result;
+        }
+        catch
+        {
+            return Array.Empty<RoleplayCharacterOption>();
+        }
+    }
+
+    private static string BuildRoleplayCharacterDisplayName(string source)
+    {
+        try
+        {
+            var normalized = source.Replace('\\', '/').TrimEnd('/');
+            var fileName = normalized[(normalized.LastIndexOf('/') + 1)..];
+            var display = Path.GetFileNameWithoutExtension(fileName);
+            if (!string.IsNullOrWhiteSpace(display))
+            {
+                return display.Replace('_', ' ').Trim();
+            }
+        }
+        catch
+        {
+        }
+
+        return source;
     }
 
     internal OmsiCameraProjectionSnapshot? ReadCameraProjection()
