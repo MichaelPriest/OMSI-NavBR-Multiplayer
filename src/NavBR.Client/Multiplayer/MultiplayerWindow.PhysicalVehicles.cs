@@ -11,6 +11,9 @@ public partial class MultiplayerWindow
     private CheckBox? _diagnosticsCheckBox;
     private bool _physicalVehiclesUiInstalled;
 
+    public bool IsRemotePhysicalVehicleSpawned(string playerId) =>
+        _client.IsRemotePhysicalVehicleSpawned(playerId);
+
     private void InitializePhysicalVehiclesPublicTest()
     {
         EnsurePhysicalVehiclesUi();
