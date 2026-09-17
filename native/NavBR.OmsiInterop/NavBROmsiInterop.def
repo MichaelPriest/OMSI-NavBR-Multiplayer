@@ -13,6 +13,8 @@ EXPORTS
     NavBR_GetHumanAt
     NavBR_IsHumanPointer
     NavBR_IsHumanControllable
+    NavBR_GetPlayerVehiclePointer
+    NavBR_IsPlayerBusDriverHuman
     NavBR_ReadHumanPose
     NavBR_ReadHumanAiState
     NavBR_SetHumanTransform
