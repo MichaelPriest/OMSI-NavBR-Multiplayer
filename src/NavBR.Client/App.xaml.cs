@@ -72,7 +72,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            NavBRAppLog.Error("plugin-bridge-stop-error", ex);
+            NavBRAppLog.Error("network-runtime-stop-error", ex);
             RemoteDiagnosticsService.Record(
                 "plugin-bridge",
                 "error",
@@ -140,7 +140,6 @@ public partial class App : Application
             SessionHealthInstaller.Install(mainWindow);
             Alpha12NavigationPolishInstaller.Install(mainWindow);
             Alpha12FigmaLiveDataInstaller.Install(mainWindow);
-            Alpha12DashboardPolishInstaller.Install(mainWindow);
             Alpha12VisualAccentInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
