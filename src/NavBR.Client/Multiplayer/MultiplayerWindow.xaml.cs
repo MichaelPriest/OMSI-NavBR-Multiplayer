@@ -178,6 +178,7 @@ public partial class MultiplayerWindow : Window
         ChatHeadingText.Text = LocalizationService.Get("MultiplayerChat");
         SendChatButton.Content = LocalizationService.Get("MultiplayerSend");
         FooterText.Text = LocalizationService.Get("MultiplayerPeerFooter");
+        ApplyTabLocalization();
         UpdateLocalMapText();
         UpdateButtons();
         RenderPlayers();
@@ -508,8 +509,64 @@ public partial class MultiplayerWindow : Window
         }
 
         PlayersListBox.ItemsSource = rows;
+        PlayersOverviewListBox.ItemsSource = rows.Take(6).ToArray();
         PlayerCountText.Text = LocalizationService.Format("MultiplayerPlayerCount", _players.Count);
     }
+
+    private void ApplyTabLocalization()
+    {
+        OverviewTab.Header = MultiplayerTabText(
+            "Visão geral",
+            "Overview",
+            "Resumen",
+            "Übersicht",
+            "Vue d’ensemble");
+        RoomTab.Header = MultiplayerTabText(
+            "Sala",
+            "Room",
+            "Sala",
+            "Raum",
+            "Salon");
+        PlayersTab.Header = MultiplayerTabText(
+            "Jogadores",
+            "Players",
+            "Jugadores",
+            "Spieler",
+            "Joueurs");
+        ChatVoiceTab.Header = MultiplayerTabText(
+            "Chat & Voz",
+            "Chat & Voice",
+            "Chat y voz",
+            "Chat & Sprache",
+            "Chat et voix");
+        RoleplayTab.Header = MultiplayerTabText(
+            "Personagem / RP",
+            "Character / RP",
+            "Personaje / RP",
+            "Charakter / RP",
+            "Personnage / RP");
+        AdvancedTab.Header = MultiplayerTabText(
+            "Avançado",
+            "Advanced",
+            "Avanzado",
+            "Erweitert",
+            "Avancé");
+    }
+
+    private static string MultiplayerTabText(
+        string pt,
+        string en,
+        string es,
+        string de,
+        string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private string GetDistanceText(
         VehicleTelemetry? local,
