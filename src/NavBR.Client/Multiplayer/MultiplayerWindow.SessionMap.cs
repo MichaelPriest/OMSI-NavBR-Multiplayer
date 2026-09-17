@@ -258,53 +258,98 @@ public partial class MultiplayerWindow
 
     private static void DrawSessionVehicle(Canvas canvas, LiveSessionPoint point, double x, double y)
     {
+        const double size = 30d;
         var markerColor = point.IsLocal
-            ? Color.FromRgb(38, 208, 124)
-            : Color.FromRgb(46, 159, 255);
-        var radius = point.IsLocal ? 9d : 7d;
+            ? Color.FromRgb(56, 201, 140)
+            : Color.FromRgb(113, 198, 255);
 
-        var marker = new Ellipse
+        var marker = new Grid
         {
-            Width = radius * 2d,
-            Height = radius * 2d,
-            Fill = new SolidColorBrush(markerColor),
-            Stroke = Brushes.White,
-            StrokeThickness = point.IsLocal ? 2d : 1.5d,
-            ToolTip = point.DisplayName
+            Width = size,
+            Height = size,
+            RenderTransformOrigin = new Point(0.5d, 0.5d),
+            RenderTransform = new RotateTransform(point.Telemetry.HeadingDegrees),
+            ToolTip = $"{point.DisplayName} • {point.Telemetry.SpeedKph:F1} km/h"
         };
-        Canvas.SetLeft(marker, x - radius);
-        Canvas.SetTop(marker, y - radius);
+        marker.Children.Add(new Ellipse
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(215, 0, 0, 0)),
+            Stroke = Brushes.White,
+            StrokeThickness = 2d
+        });
+        marker.Children.Add(new Ellipse
+        {
+            Width = 22d,
+            Height = 22d,
+            Fill = new SolidColorBrush(markerColor)
+        });
+        marker.Children.Add(new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(15d, 3d),
+                new(21d, 23d),
+                new(15d, 19d),
+                new(9d, 23d)
+            },
+            Fill = Brushes.White,
+            Stroke = new SolidColorBrush(Color.FromRgb(24, 34, 42)),
+            StrokeThickness = 1d
+        });
+
+        Canvas.SetLeft(marker, x - size / 2d);
+        Canvas.SetTop(marker, y - size / 2d);
         Panel.SetZIndex(marker, 10);
         canvas.Children.Add(marker);
 
-        var radians = point.Telemetry.HeadingDegrees * Math.PI / 180d;
-        var headingLength = point.IsLocal ? 20d : 15d;
-        canvas.Children.Add(new Line
+        var nameText = new TextBlock
         {
-            X1 = x,
-            Y1 = y,
-            X2 = x + Math.Sin(radians) * headingLength,
-            Y2 = y - Math.Cos(radians) * headingLength,
-            Stroke = new SolidColorBrush(markerColor),
-            StrokeThickness = 2d
-        });
-
-        var line = string.IsNullOrWhiteSpace(point.Telemetry.Line)
-            ? string.Empty
-            : $" • {point.Telemetry.Line.Trim()}";
-        var label = new TextBlock
-        {
-            Text = $"{point.DisplayName}{line}\n{point.Telemetry.SpeedKph:F0} km/h",
+            Text = point.DisplayName,
             Foreground = Brushes.White,
             FontSize = 9.5d,
             FontWeight = point.IsLocal ? FontWeights.Bold : FontWeights.SemiBold,
-            Background = new SolidColorBrush(Color.FromArgb(185, 4, 15, 23)),
-            Padding = new Thickness(5d, 3d, 5d, 3d)
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxWidth = 120d,
+            TextAlignment = TextAlignment.Center
         };
-        Canvas.SetLeft(label, Math.Min(x + 10d, Math.Max(0d, canvas.ActualWidth - 115d)));
-        Canvas.SetTop(label, Math.Max(2d, y - 15d));
-        Panel.SetZIndex(label, 11);
-        canvas.Children.Add(label);
+        var namePlate = new Border
+        {
+            Padding = new Thickness(6d, 2d, 6d, 2d),
+            Background = new SolidColorBrush(Color.FromArgb(210, 4, 15, 23)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(185, markerColor.R, markerColor.G, markerColor.B)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(5d),
+            Child = nameText
+        };
+        namePlate.Measure(new Size(130d, 40d));
+        Canvas.SetLeft(
+            namePlate,
+            Math.Clamp(x - namePlate.DesiredSize.Width / 2d, 2d, Math.Max(2d, canvas.ActualWidth - namePlate.DesiredSize.Width - 2d)));
+        Canvas.SetTop(namePlate, Math.Max(2d, y - size / 2d - namePlate.DesiredSize.Height - 5d));
+        Panel.SetZIndex(namePlate, 12);
+        canvas.Children.Add(namePlate);
+
+        var line = string.IsNullOrWhiteSpace(point.Telemetry.Line)
+            ? string.Empty
+            : point.Telemetry.Line.Trim();
+        var detail = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(line)
+                ? $"{point.Telemetry.SpeedKph:F0} km/h"
+                : $"{line} • {point.Telemetry.SpeedKph:F0} km/h",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 205, 215)),
+            FontSize = 8.5d,
+            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromArgb(165, 4, 15, 23)),
+            Padding = new Thickness(4d, 1d, 4d, 1d)
+        };
+        detail.Measure(new Size(120d, 32d));
+        Canvas.SetLeft(
+            detail,
+            Math.Clamp(x - detail.DesiredSize.Width / 2d, 2d, Math.Max(2d, canvas.ActualWidth - detail.DesiredSize.Width - 2d)));
+        Canvas.SetTop(detail, Math.Min(canvas.ActualHeight - detail.DesiredSize.Height - 2d, y + size / 2d + 4d));
+        Panel.SetZIndex(detail, 11);
+        canvas.Children.Add(detail);
     }
 
     private static void DrawSessionEmptyState(Canvas canvas, double width, double height)
