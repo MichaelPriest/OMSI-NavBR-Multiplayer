@@ -55,6 +55,7 @@ internal static class DriverProfileStore
                 JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
         }
 
+        SynchronizeMultiplayerDisplayName(profile.DisplayName);
         ProfileChanged?.Invoke(profile);
     }
 
@@ -73,6 +74,17 @@ internal static class DriverProfileStore
         }
 
         ProfileChanged?.Invoke(updated);
+    }
+
+    private static void SynchronizeMultiplayerDisplayName(string displayName)
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        if (string.Equals(settings.DisplayName, displayName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        MultiplayerSettingsStore.Save(settings with { DisplayName = displayName });
     }
 
     private static DriverProfileData LoadCore()
