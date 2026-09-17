@@ -186,6 +186,7 @@ public partial class App : Application
             Alpha12VisualAccentInstaller.Install(mainWindow);
             Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
             Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow);
+            mainWindow.InitializeRoleplayForShell();
             TrayIcon.Attach(mainWindow);
         }
 
