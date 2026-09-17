@@ -36,10 +36,10 @@ internal sealed class DispatcherWindow : Window
         _telemetryProvider = telemetryProvider;
         Owner = owner;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Width = 1180d;
-        Height = 780d;
-        MinWidth = 960d;
-        MinHeight = 660d;
+        Width = 1280d;
+        Height = 820d;
+        MinWidth = 980d;
+        MinHeight = 680d;
         Background = Brush(4, 10, 16);
 
         _stateCard = BuildStateCard();
@@ -55,7 +55,7 @@ internal sealed class DispatcherWindow : Window
 
     private UIElement BuildContent()
     {
-        var root = new Grid { Margin = new Thickness(22d) };
+        var root = new Grid { Margin = new Thickness(24d) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
@@ -111,10 +111,10 @@ internal sealed class DispatcherWindow : Window
         var body = new StackPanel();
         scroller.Content = body;
 
-        var overview = new Grid { Margin = new Thickness(0d, 0d, 0d, 14d) };
-        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.65d, GridUnitType.Star) });
-        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14d) });
-        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.95d, GridUnitType.Star) });
+        var overview = new Grid { Margin = new Thickness(0d, 0d, 0d, 16d) };
+        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.9d, GridUnitType.Star) });
+        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16d) });
+        overview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.8d, GridUnitType.Star) });
 
         var mapCard = BuildMapCard();
         Grid.SetColumn(mapCard, 0);
@@ -190,8 +190,8 @@ internal sealed class DispatcherWindow : Window
 
         var canvas = new Grid
         {
-            MinHeight = 260d,
-            Margin = new Thickness(0d, 12d, 0d, 12d),
+            MinHeight = 380d,
+            Margin = new Thickness(0d, 14d, 0d, 14d),
             Background = Brush(5, 18, 29)
         };
         for (var i = 0; i < 6; i++)
@@ -298,7 +298,7 @@ internal sealed class DispatcherWindow : Window
 
         return new Border
         {
-            Padding = new Thickness(16d),
+            Padding = new Thickness(18d),
             Background = Brush(6, 16, 24),
             BorderBrush = Brush(25, 55, 72),
             BorderThickness = new Thickness(1d),
@@ -324,7 +324,7 @@ internal sealed class DispatcherWindow : Window
 
         return new Border
         {
-            Padding = new Thickness(17d),
+            Padding = new Thickness(18d),
             Background = Brush(8, 19, 27),
             BorderBrush = Brush(26, 49, 63),
             BorderThickness = new Thickness(1d),
