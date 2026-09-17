@@ -6,7 +6,7 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
-public sealed class MultiplayerClientService : IAsyncDisposable
+public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
     private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
     private HubConnection? _connection;
@@ -175,8 +175,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         var connection = _connection;
         if (!IsTrafficAuthority ||
-            connection is null ||
-            connection.State != HubConnectionState.Connected)
+            connection is null || connection.State != HubConnectionState.Connected)
         {
             return;
         }
