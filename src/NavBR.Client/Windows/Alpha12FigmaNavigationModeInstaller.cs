@@ -47,6 +47,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         stack.Children.Insert(0, header);
 
         navigationPage.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        ConfigureMapChrome(window);
         ConfigureMapAndRouteRail(window, navigationPage, navigationCard, out var routeCard);
 
         // LiveData + OrderedStops are installed immediately after this class in
@@ -91,6 +92,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         contentGrid.ColumnDefinitions[1].Width = new GridLength(20d);
         contentGrid.ColumnDefinitions[2].Width = new GridLength(360d);
         contentGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+        contentGrid.VerticalAlignment = VerticalAlignment.Stretch;
 
         navigationCard.Margin = new Thickness(0d);
         navigationCard.Background = Brush(10, 19, 26);
@@ -112,7 +114,8 @@ internal static class Alpha12FigmaNavigationModeInstaller
             routeCard.BorderThickness = new Thickness(1d);
             routeCard.CornerRadius = new CornerRadius(12d);
             routeCard.HorizontalAlignment = HorizontalAlignment.Stretch;
-            routeCard.VerticalAlignment = VerticalAlignment.Top;
+            routeCard.VerticalAlignment = VerticalAlignment.Stretch;
+            EnsureScrollableRouteRail(routeCard);
         }
 
         // Copy the out value to a local before wiring callbacks. C# does not
@@ -123,7 +126,20 @@ internal static class Alpha12FigmaNavigationModeInstaller
             var viewport = navigationPage.ViewportHeight > 1d
                 ? navigationPage.ViewportHeight
                 : Math.Max(0d, window.ActualHeight - 150d);
-            var targetHeight = Math.Clamp(viewport - 72d, 560d, 804d);
+            var targetHeight = Math.Clamp(viewport - 64d, 540d, 860d);
+
+            var availableWidth = navigationPage.ViewportWidth > 1d
+                ? navigationPage.ViewportWidth
+                : Math.Max(0d, window.ActualWidth - 300d);
+            var railWidth = availableWidth switch
+            {
+                < 860d => 290d,
+                < 1040d => 320d,
+                < 1280d => 340d,
+                _ => 360d
+            };
+            contentGrid.ColumnDefinitions[2].Width = new GridLength(railWidth);
+
             navigationCard.Height = targetHeight;
             if (rail is not null)
             {
@@ -135,9 +151,90 @@ internal static class Alpha12FigmaNavigationModeInstaller
         navigationPage.SizeChanged += (_, _) => ApplySizing();
     }
 
+    private static void ConfigureMapChrome(MainWindow window)
+    {
+        // The page header now carries the live navigation state. Hiding the
+        // legacy line inside the map card gives the roadmap the dominant visual
+        // area intended by the approved Alpha.12/Alpha.13 layout.
+        window.GpsStatusText.Visibility = Visibility.Collapsed;
+        window.InstalledMapsText.Visibility = Visibility.Collapsed;
+
+        window.RoadmapScrollViewer.Height = double.NaN;
+        window.RoadmapScrollViewer.MinHeight = 420d;
+        window.RoadmapScrollViewer.HorizontalAlignment = HorizontalAlignment.Stretch;
+        window.RoadmapScrollViewer.VerticalAlignment = VerticalAlignment.Stretch;
+
+        var mapFrame = FindAncestor<Border>(window.RoadmapScrollViewer);
+        if (mapFrame is not null)
+        {
+            mapFrame.Margin = new Thickness(0d, 8d, 0d, 0d);
+            mapFrame.Background = Brush(5, 12, 20);
+            mapFrame.BorderBrush = Brush(28, 42, 51);
+            mapFrame.BorderThickness = new Thickness(1d);
+            mapFrame.CornerRadius = new CornerRadius(12d);
+        }
+
+        foreach (var control in new Control[]
+                 {
+                     window.ZoomOutButton,
+                     window.ZoomInButton,
+                     window.FitMapButton,
+                     window.FollowButton,
+                     window.TopmostButton
+                 })
+        {
+            control.MinWidth = 36d;
+            control.Height = 32d;
+            control.Padding = new Thickness(10d, 4d, 10d, 4d);
+            control.Background = Brush(13, 26, 36);
+            control.Foreground = Brush(190, 205, 215);
+            control.BorderBrush = Brush(28, 42, 51);
+            control.BorderThickness = new Thickness(1d);
+            control.FontSize = 11d;
+            control.FontWeight = FontWeights.SemiBold;
+        }
+    }
+
+    private static void EnsureScrollableRouteRail(Border routeCard)
+    {
+        if (routeCard.Child is ScrollViewer)
+        {
+            return;
+        }
+
+        if (routeCard.Child is not StackPanel body)
+        {
+            return;
+        }
+
+        routeCard.Child = null;
+        routeCard.Child = new ScrollViewer
+        {
+            Tag = "figma-route-rail-scroll",
+            Content = body,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            PanningMode = PanningMode.VerticalOnly,
+            Padding = new Thickness(0d),
+            Background = Brushes.Transparent
+        };
+    }
+
+    private static StackPanel? FindRouteBody(Border? routeCard)
+    {
+        if (routeCard?.Child is StackPanel direct)
+        {
+            return direct;
+        }
+
+        return routeCard?.Child is ScrollViewer { Content: StackPanel scrollBody }
+            ? scrollBody
+            : null;
+    }
+
     private static void InstallRouteIdentity(MainWindow window, Border? routeCard)
     {
-        if (routeCard?.Child is not StackPanel body || !window.IsLoaded)
+        if (FindRouteBody(routeCard) is not { } body || !window.IsLoaded)
         {
             return;
         }
@@ -220,6 +317,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var title = new TextBlock
         {
@@ -234,6 +332,35 @@ internal static class Alpha12FigmaNavigationModeInstaller
             Mode = BindingMode.OneWay
         });
         header.Children.Add(title);
+
+        var statusText = new TextBlock
+        {
+            FontSize = 10.5d,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brush(151, 171, 185),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+            MaxWidth = 330d
+        };
+        statusText.SetBinding(TextBlock.TextProperty, new Binding(nameof(TextBlock.Text))
+        {
+            Source = window.GpsStatusText,
+            Mode = BindingMode.OneWay
+        });
+
+        var statusChip = new Border
+        {
+            Margin = new Thickness(16d, 0d, 12d, 0d),
+            Padding = new Thickness(11d, 6d, 11d, 6d),
+            Background = Brush(13, 26, 36),
+            BorderBrush = Brush(28, 42, 51),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(999d),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = statusText
+        };
+        Grid.SetColumn(statusChip, 1);
+        header.Children.Add(statusChip);
 
         var switcher = new Border
         {
@@ -259,7 +386,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         modes.Children.Add(threeD);
 
         switcher.Child = modes;
-        Grid.SetColumn(switcher, 1);
+        Grid.SetColumn(switcher, 2);
         header.Children.Add(switcher);
 
         return header;
