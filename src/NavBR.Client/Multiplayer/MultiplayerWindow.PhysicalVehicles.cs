@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.Diagnostics;
 using NavBR.Shared.Multiplayer;
 
@@ -8,7 +7,6 @@ namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow
 {
-    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
     private CheckBox? _physicalVehiclesCheckBox;
     private CheckBox? _diagnosticsCheckBox;
     private bool _physicalVehiclesUiInstalled;
@@ -16,7 +14,6 @@ public partial class MultiplayerWindow
     private void InitializePhysicalVehiclesPublicTest()
     {
         EnsurePhysicalVehiclesUi();
-        HookPhysicalVehicleLifecycle();
         RefreshDiagnosticsContext();
     }
 
@@ -78,41 +75,6 @@ public partial class MultiplayerWindow
         parent.Children.Add(options);
     }
 
-    private void HookPhysicalVehicleLifecycle()
-    {
-        if (_physicalVehiclesCheckBox?.Tag is "hooked")
-        {
-            return;
-        }
-
-        if (_physicalVehiclesCheckBox is not null)
-        {
-            _physicalVehiclesCheckBox.Tag = "hooked";
-        }
-
-        _client.TelemetryReceived += frame => Dispatcher.BeginInvoke(() =>
-        {
-            _physicalVehicles.SetLocalManifest(
-                OmsiCompatibilityManifestFactory.Create(
-                    _telemetrySource(),
-                    _activeMapSource()));
-            _ = _physicalVehicles.ApplyAsync(frame);
-        });
-
-        _client.PlayerLeft += playerId => Dispatcher.BeginInvoke(() =>
-            _ = _physicalVehicles.DespawnAsync(playerId));
-
-        _client.ConnectionStateChanged += state =>
-        {
-            if (state == HubConnectionState.Disconnected)
-            {
-                _ = Dispatcher.BeginInvoke(() => _ = _physicalVehicles.ClearAsync());
-            }
-        };
-
-        Closed += (_, _) => _ = _physicalVehicles.ClearAsync();
-    }
-
     private async void PhysicalVehiclesCheckBox_Click(object sender, RoutedEventArgs e)
     {
         if (_physicalVehiclesCheckBox is null)
@@ -132,14 +94,20 @@ public partial class MultiplayerWindow
 
         if (!enabled)
         {
-            // Despawn is deliberately accepted by the plugin even after the
-            // opt-in flag is removed, so disabling this switch always cleans up.
-            await _physicalVehicles.ClearAsync();
+            // The online client owns the single physical-vehicle coordinator.
+            // Despawn is deliberately accepted by the plugin after opt-out so
+            // disabling this switch always removes NavBR-owned remote buses.
+            await _client.ClearPhysicalVehiclesAsync();
+            StatusDetailText.Text = PhysicalVehiclesDisabledMessage();
+            return;
         }
 
-        StatusDetailText.Text = enabled
+        // No fake readiness: capability is reported by the actual OMSI plugin.
+        // If OMSI/plugin is not ready yet, the feature remains armed and will
+        // start spawning compatible remote buses on subsequent telemetry frames.
+        StatusDetailText.Text = _client.IsPhysicalMultiplayerAvailable
             ? PhysicalVehiclesEnabledMessage()
-            : PhysicalVehiclesDisabledMessage();
+            : PhysicalVehiclesWaitingMessage();
     }
 
     private void DiagnosticsCheckBox_Click(object sender, RoutedEventArgs e)
@@ -172,21 +140,21 @@ public partial class MultiplayerWindow
     private static string PhysicalVehiclesLabel() =>
         Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Ônibus remoto 3D (EXPERIMENTAL)",
-            "es" => "Autobús remoto 3D (EXPERIMENTAL)",
-            "de" => "Entfernter 3D-Bus (EXPERIMENTELL)",
-            "fr" => "Bus distant 3D (EXPÉRIMENTAL)",
-            _ => "Remote 3D bus (EXPERIMENTAL)"
+            "pt" => "Ônibus dos jogadores no OMSI (TESTE ALPHA)",
+            "es" => "Autobuses de jugadores en OMSI (PRUEBA ALPHA)",
+            "de" => "Spielerbusse in OMSI (ALPHA-TEST)",
+            "fr" => "Bus des joueurs dans OMSI (TEST ALPHA)",
+            _ => "Player buses in OMSI (ALPHA TEST)"
         };
 
     private static string PhysicalVehiclesWarning() =>
         Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Teste público da Alpha.11. Requer OMSI 2.3.004, plugin NavBR instalado e o mesmo veículo disponível localmente. Pode causar instabilidade; desligue se houver travamentos.",
-            "es" => "Prueba pública Alpha.11. Requiere OMSI 2.3.004, el plugin NavBR y el mismo vehículo instalado localmente. Puede ser inestable.",
-            "de" => "Öffentlicher Alpha.11-Test. Erfordert OMSI 2.3.004, das NavBR-Plugin und dasselbe lokal installierte Fahrzeug. Kann instabil sein.",
-            "fr" => "Test public Alpha.11. Nécessite OMSI 2.3.004, le plugin NavBR et le même véhicule installé localement. Peut être instable.",
-            _ => "Alpha.11 public test. Requires OMSI 2.3.004, the NavBR plugin and the same vehicle installed locally. May be unstable."
+            "pt" => "Teste Alpha.12 limitado. Mostra o ônibus remoto fisicamente usando posição, rotação, velocidade, luzes e setas já suportadas. Portas, matriz e articulação ainda não fazem parte deste teste. Requer OMSI 2.3.004, plugin NavBR e o veículo remoto instalado localmente.",
+            "es" => "Prueba Alpha.12 limitada. Muestra físicamente el autobús remoto con posición, rotación, velocidad, luces e intermitentes ya compatibles. Puertas, matriz y articulación aún no forman parte de esta prueba. Requiere OMSI 2.3.004, plugin NavBR y el vehículo remoto instalado localmente.",
+            "de" => "Begrenzter Alpha.12-Test. Zeigt den entfernten Bus physisch mit bereits unterstützter Position, Rotation, Geschwindigkeit, Licht und Blinkern. Türen, Zielanzeige und Gelenk sind noch nicht Teil dieses Tests. Benötigt OMSI 2.3.004, NavBR-Plugin und das entfernte Fahrzeug lokal installiert.",
+            "fr" => "Test Alpha.12 limité. Affiche physiquement le bus distant avec position, rotation, vitesse, feux et clignotants déjà pris en charge. Portes, girouette et articulation ne font pas encore partie de ce test. Nécessite OMSI 2.3.004, le plugin NavBR et le véhicule distant installé localement.",
+            _ => "Limited Alpha.12 test. Physically renders the remote bus using already-supported position, rotation, speed, lights and turn signals. Doors, destination display and articulation are not part of this test yet. Requires OMSI 2.3.004, the NavBR plugin and the remote vehicle installed locally."
         };
 
     private static string DiagnosticsLabel() =>
@@ -212,21 +180,31 @@ public partial class MultiplayerWindow
     private static string PhysicalVehiclesEnabledMessage() =>
         Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Ônibus remoto 3D experimental ativado. Jogadores compatíveis poderão aparecer fisicamente no OMSI.",
-            "es" => "Autobús remoto 3D experimental activado.",
-            "de" => "Experimenteller entfernter 3D-Bus aktiviert.",
-            "fr" => "Bus distant 3D expérimental activé.",
-            _ => "Experimental remote 3D bus enabled."
+            "pt" => "Teste do ônibus online ativado e plugin pronto. Jogadores compatíveis podem aparecer fisicamente no OMSI com movimento, luzes e setas.",
+            "es" => "Prueba de autobús online activada y plugin listo. Los jugadores compatibles pueden aparecer físicamente en OMSI.",
+            "de" => "Online-Bus-Test aktiviert und Plugin bereit. Kompatible Spieler können physisch in OMSI erscheinen.",
+            "fr" => "Test du bus en ligne activé et plugin prêt. Les joueurs compatibles peuvent apparaître physiquement dans OMSI.",
+            _ => "Online bus test enabled and plugin ready. Compatible players can appear physically in OMSI."
+        };
+
+    private static string PhysicalVehiclesWaitingMessage() =>
+        Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => "Teste do ônibus online ativado. Aguardando OMSI 2.3.004 + plugin NavBR com suporte físico; quando estiver disponível, os próximos dados online tentarão criar o ônibus remoto.",
+            "es" => "Prueba de autobús online activada. Esperando OMSI 2.3.004 + plugin NavBR con soporte físico.",
+            "de" => "Online-Bus-Test aktiviert. Warte auf OMSI 2.3.004 + NavBR-Plugin mit physischer Unterstützung.",
+            "fr" => "Test du bus en ligne activé. En attente d’OMSI 2.3.004 + plugin NavBR avec prise en charge physique.",
+            _ => "Online bus test enabled. Waiting for OMSI 2.3.004 + the NavBR plugin with physical support."
         };
 
     private static string PhysicalVehiclesDisabledMessage() =>
         Localization.LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
         {
-            "pt" => "Ônibus remoto 3D experimental desativado.",
-            "es" => "Autobús remoto 3D experimental desactivado.",
-            "de" => "Experimenteller entfernter 3D-Bus deaktiviert.",
-            "fr" => "Bus distant 3D expérimental désactivé.",
-            _ => "Experimental remote 3D bus disabled."
+            "pt" => "Teste do ônibus online desativado. Ônibus remotos do NavBR foram removidos do OMSI.",
+            "es" => "Prueba de autobús online desactivada. Los autobuses remotos de NavBR fueron eliminados de OMSI.",
+            "de" => "Online-Bus-Test deaktiviert. NavBR-Remote-Busse wurden aus OMSI entfernt.",
+            "fr" => "Test du bus en ligne désactivé. Les bus distants NavBR ont été retirés d’OMSI.",
+            _ => "Online bus test disabled. NavBR remote buses were removed from OMSI."
         };
 
     private static string DiagnosticsEnabledMessage() =>
