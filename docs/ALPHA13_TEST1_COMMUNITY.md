@@ -14,6 +14,9 @@ Nesta primeira etapa o foco é deliberadamente limitado:
 - luzes e setas quando suportadas pelo backend atual;
 - remoção segura ao sair da sala/desconectar;
 - sessão física continua ativa mesmo fechando a Central Multiplayer.
+- marcador remoto no minimapa/mapa principal deve ter o mesmo formato do marcador local, em cor diferente;
+- nome do usuário deve aparecer acima do marcador remoto;
+- com ônibus físico realmente spawnado, o nome do usuário deve acompanhar a posição projetada acima do ônibus 3D quando ele estiver visível na câmera.
 
 Ainda não fazem parte deste teste:
 
