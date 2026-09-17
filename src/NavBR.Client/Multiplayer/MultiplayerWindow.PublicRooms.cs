@@ -10,25 +10,40 @@ public partial class MultiplayerWindow
 
     private void InitializePublicRoomBrowser()
     {
-        if (_publicRoomsButton is not null || ConnectButton.Parent is not Grid actions)
+        if (_publicRoomsButton is not null)
         {
             return;
         }
 
-        actions.ColumnDefinitions.Insert(2, new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(CopyInviteButton, 3);
-        Grid.SetColumn(PasteInviteButton, 4);
-        Grid.SetColumn(InviteAddressText, 5);
+        Panel? actions = CopyInviteButton.Parent as Panel;
+        if (actions is null)
+        {
+            actions = PasteInviteButton.Parent as Panel;
+        }
+
+        if (actions is null)
+        {
+            return;
+        }
 
         _publicRoomsButton = new Button
         {
             Content = PublicRoomsButtonText(),
-            Margin = new Thickness(0, 0, 8, 0),
-            MinWidth = 112
+            Margin = new Thickness(8d, 0d, 0d, 0d),
+            MinWidth = 112d,
+            Height = 34d,
+            ToolTip = PublicRoomsToolTipText()
         };
         _publicRoomsButton.Click += PublicRoomsButton_Click;
-        Grid.SetColumn(_publicRoomsButton, 2);
-        actions.Children.Add(_publicRoomsButton);
+
+        if (actions is StackPanel stack)
+        {
+            stack.Children.Insert(0, _publicRoomsButton);
+        }
+        else
+        {
+            actions.Children.Add(_publicRoomsButton);
+        }
     }
 
     private void RefreshPublicRoomBrowserLocalization()
@@ -36,6 +51,7 @@ public partial class MultiplayerWindow
         if (_publicRoomsButton is not null)
         {
             _publicRoomsButton.Content = PublicRoomsButtonText();
+            _publicRoomsButton.ToolTip = PublicRoomsToolTipText();
         }
     }
 
@@ -68,6 +84,7 @@ public partial class MultiplayerWindow
             EphemeralCreatePrivateRoom = false
         };
         RoomPrivacyStateText.Text = RoomPrivacyText.DraftPublic;
+        StatusDetailText.Text = PublicRoomSelectedText(browser.SelectedRoomId);
     }
 
     private static string PublicRoomsButtonText() =>
@@ -78,5 +95,25 @@ public partial class MultiplayerWindow
             "de" => "Öffentliche Räume",
             "fr" => "Salons publics",
             _ => "Public rooms"
+        };
+
+    private static string PublicRoomsToolTipText() =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
+        {
+            "pt" => "Procurar salas públicas disponíveis no servidor configurado.",
+            "es" => "Buscar salas públicas disponibles en el servidor configurado.",
+            "de" => "Öffentliche Räume auf dem konfigurierten Server suchen.",
+            "fr" => "Rechercher les salons publics disponibles sur le serveur configuré.",
+            _ => "Browse public rooms available on the configured server."
+        };
+
+    private static string PublicRoomSelectedText(string roomId) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
+        {
+            "pt" => $"Sala pública selecionada: {roomId}. Confirme seu nome e entre na sala.",
+            "es" => $"Sala pública seleccionada: {roomId}. Confirma tu nombre y entra en la sala.",
+            "de" => $"Öffentlicher Raum ausgewählt: {roomId}. Namen prüfen und Raum beitreten.",
+            "fr" => $"Salon public sélectionné : {roomId}. Vérifiez votre nom puis rejoignez la salle.",
+            _ => $"Public room selected: {roomId}. Confirm your name and join the room."
         };
 }
