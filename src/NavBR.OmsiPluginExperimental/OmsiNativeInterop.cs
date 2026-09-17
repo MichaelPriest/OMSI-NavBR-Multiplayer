@@ -303,6 +303,25 @@ internal static class OmsiNativeInterop
         out float heading,
         out float speed);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanDriverState")]
+    internal static extern int ReadHumanDriverState(
+        int humanPointer,
+        out int myBus,
+        out byte fixDriver,
+        out byte renderMe,
+        out byte inWorld);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_DetachHumanForRoleplay")]
+    internal static extern int DetachHumanForRoleplay(int humanPointer);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_RestoreHumanDriverState")]
+    internal static extern int RestoreHumanDriverState(
+        int humanPointer,
+        int myBus,
+        byte fixDriver,
+        byte renderMe,
+        byte inWorld);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanAiState")]
     internal static extern int ReadHumanAiState(
         int humanPointer,
