@@ -17,7 +17,9 @@ internal sealed class PublicRoomBrowserWindow : Window
     private readonly TextBlock _compatibilityText = new();
     private readonly Border _requirementsCard = new();
     private readonly Button _refreshButton = new();
+    private readonly Button _favoriteButton = new();
     private readonly Button _selectButton = new();
+    private IReadOnlyList<PublicRoomSummary> _currentRooms = Array.Empty<PublicRoomSummary>();
 
     public string? SelectedRoomId { get; private set; }
     public PublicRoomSummary? SelectedRoom { get; private set; }
@@ -58,11 +60,11 @@ internal sealed class PublicRoomBrowserWindow : Window
         headingStack.Children.Add(new TextBlock
         {
             Text = Pick(
-                "Confira o mapa obrigatório e os requisitos antes de selecionar uma sala.",
-                "Check the required map and requirements before selecting a room.",
-                "Comprueba el mapa obligatorio y los requisitos antes de seleccionar una sala.",
-                "Prüfe die erforderliche Karte und die Anforderungen, bevor du einen Raum auswählst.",
-                "Vérifiez la carte requise et les prérequis avant de sélectionner un salon."),
+                "Confira o mapa obrigatório e os requisitos antes de selecionar uma sala. Favoritos ficam no topo da lista.",
+                "Check the required map and requirements before selecting a room. Favorites stay at the top of the list.",
+                "Comprueba el mapa obligatorio y los requisitos antes de seleccionar una sala. Los favoritos aparecen primero.",
+                "Prüfe die erforderliche Karte und die Anforderungen, bevor du einen Raum auswählst. Favoriten stehen oben.",
+                "Vérifiez la carte requise et les prérequis avant de sélectionner un salon. Les favoris restent en haut."),
             Foreground = Brush(143, 163, 177),
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
@@ -129,6 +131,14 @@ internal sealed class PublicRoomBrowserWindow : Window
         _refreshButton.Click += async (_, _) => await RefreshAsync();
         actions.Children.Add(_refreshButton);
 
+        _favoriteButton.Content = FavoriteButtonText(false);
+        _favoriteButton.MinWidth = 150;
+        _favoriteButton.Height = 36;
+        _favoriteButton.Margin = new Thickness(0, 0, 8, 0);
+        _favoriteButton.IsEnabled = false;
+        _favoriteButton.Click += Favorite_Click;
+        actions.Children.Add(_favoriteButton);
+
         _selectButton.Content = Pick("Selecionar sala", "Select room", "Seleccionar sala", "Raum auswählen", "Sélectionner le salon");
         _selectButton.MinWidth = 140;
         _selectButton.Height = 36;
@@ -148,6 +158,7 @@ internal sealed class PublicRoomBrowserWindow : Window
     {
         _refreshButton.IsEnabled = false;
         _selectButton.IsEnabled = false;
+        _favoriteButton.IsEnabled = false;
         _requirementsCard.Visibility = Visibility.Collapsed;
         _status.Text = Pick(
             "Consultando o servidor…",
@@ -158,14 +169,10 @@ internal sealed class PublicRoomBrowserWindow : Window
 
         try
         {
-            var rooms = await _directory.GetRoomsAsync(_serverUrl);
-            _rooms.ItemsSource = rooms
-                .OrderByDescending(room => room.PlayerCount)
-                .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
-                .Select(room => new PublicRoomListItem(room, FormatRoom(room)))
-                .ToArray();
+            _currentRooms = await _directory.GetRoomsAsync(_serverUrl);
+            RenderRooms();
 
-            _status.Text = rooms.Count == 0
+            _status.Text = _currentRooms.Count == 0
                 ? Pick(
                     "Nenhuma sala pública ativa neste servidor. Salas privadas não aparecem nesta lista.",
                     "No public rooms are active on this server. Private rooms are not shown here.",
@@ -173,14 +180,15 @@ internal sealed class PublicRoomBrowserWindow : Window
                     "Auf diesem Server sind keine öffentlichen Räume aktiv. Private Räume werden hier nicht angezeigt.",
                     "Aucun salon public n’est actif sur ce serveur. Les salons privés ne sont pas affichés ici.")
                 : Pick(
-                    $"{rooms.Count} sala(s) pública(s) encontrada(s). Selecione uma para conferir o mapa obrigatório.",
-                    $"{rooms.Count} public room(s) found. Select one to check the required map.",
-                    $"{rooms.Count} sala(s) pública(s) encontrada(s). Selecciona una para comprobar el mapa obligatorio.",
-                    $"{rooms.Count} öffentliche(r) Raum/Räume gefunden. Wähle einen Raum, um die erforderliche Karte zu prüfen.",
-                    $"{rooms.Count} salon(s) public(s) trouvé(s). Sélectionnez-en un pour vérifier la carte requise.");
+                    $"{_currentRooms.Count} sala(s) pública(s) encontrada(s). Favoritos locais: {PublicRoomFavoritesStore.Count}.",
+                    $"{_currentRooms.Count} public room(s) found. Local favorites: {PublicRoomFavoritesStore.Count}.",
+                    $"{_currentRooms.Count} sala(s) pública(s) encontrada(s). Favoritos locales: {PublicRoomFavoritesStore.Count}.",
+                    $"{_currentRooms.Count} öffentliche(r) Raum/Räume gefunden. Lokale Favoriten: {PublicRoomFavoritesStore.Count}.",
+                    $"{_currentRooms.Count} salon(s) public(s) trouvé(s). Favoris locaux : {PublicRoomFavoritesStore.Count}." );
         }
         catch (Exception ex)
         {
+            _currentRooms = Array.Empty<PublicRoomSummary>();
             _rooms.ItemsSource = null;
             _status.Text = Pick(
                 $"Não foi possível carregar as salas públicas: {ex.Message}",
@@ -196,12 +204,47 @@ internal sealed class PublicRoomBrowserWindow : Window
         }
     }
 
+    private void RenderRooms(string? keepSelectedRoomId = null)
+    {
+        keepSelectedRoomId ??= (_rooms.SelectedItem as PublicRoomListItem)?.Room.RoomId;
+        var items = _currentRooms
+            .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+            .ThenByDescending(room => room.PlayerCount)
+            .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+            .Select(room => new PublicRoomListItem(
+                room,
+                FormatRoom(room, PublicRoomFavoritesStore.IsFavorite(room.RoomId))))
+            .ToArray();
+        _rooms.ItemsSource = items;
+
+        if (!string.IsNullOrWhiteSpace(keepSelectedRoomId))
+        {
+            _rooms.SelectedItem = items.FirstOrDefault(item =>
+                string.Equals(item.Room.RoomId, keepSelectedRoomId, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void Favorite_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rooms.SelectedItem is not PublicRoomListItem item || string.IsNullOrWhiteSpace(item.Room.RoomId))
+        {
+            return;
+        }
+
+        var roomId = item.Room.RoomId;
+        PublicRoomFavoritesStore.Toggle(roomId);
+        RenderRooms(roomId);
+        RenderSelection();
+    }
+
     private void RenderSelection()
     {
         if (_rooms.SelectedItem is not PublicRoomListItem item)
         {
             _requirementsCard.Visibility = Visibility.Collapsed;
             _selectButton.IsEnabled = false;
+            _favoriteButton.IsEnabled = false;
+            _favoriteButton.Content = FavoriteButtonText(false);
             return;
         }
 
@@ -212,6 +255,10 @@ internal sealed class PublicRoomBrowserWindow : Window
         var compatibility = GetCompatibilityStatus(room);
         _compatibilityText.Text = compatibility.Text;
         _compatibilityText.Foreground = compatibility.Brush;
+
+        var favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId);
+        _favoriteButton.IsEnabled = !string.IsNullOrWhiteSpace(room.RoomId);
+        _favoriteButton.Content = FavoriteButtonText(favorite);
 
         _selectButton.IsEnabled = HasRequiredMap(room);
         _selectButton.ToolTip = HasRequiredMap(room)
@@ -239,14 +286,21 @@ internal sealed class PublicRoomBrowserWindow : Window
 
     private static bool HasRequiredMap(PublicRoomSummary room) => !string.IsNullOrWhiteSpace(room.MapName);
 
-    private static string FormatRoom(PublicRoomSummary room)
+    private static string FormatRoom(PublicRoomSummary room, bool favorite)
     {
         var map = string.IsNullOrWhiteSpace(room.MapName)
             ? Pick("MAPA PENDENTE", "MAP PENDING", "MAPA PENDIENTE", "KARTE AUSSTEHEND", "CARTE EN ATTENTE")
             : room.MapName;
         var players = Pick("jogador(es)", "player(s)", "jugador(es)", "Spieler", "joueur(s)");
-        return $"{room.RoomId}   •   {room.PlayerCount} {players}   •   {Pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}: {map}";
+        var prefix = favorite
+            ? Pick("FAVORITO • ", "FAVORITE • ", "FAVORITO • ", "FAVORIT • ", "FAVORI • ")
+            : string.Empty;
+        return $"{prefix}{room.RoomId}   •   {room.PlayerCount} {players}   •   {Pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}: {map}";
     }
+
+    private static string FavoriteButtonText(bool favorite) => favorite
+        ? Pick("Remover favorito", "Remove favorite", "Quitar favorito", "Favorit entfernen", "Retirer des favoris")
+        : Pick("Adicionar aos favoritos", "Add to favorites", "Añadir a favoritos", "Zu Favoriten", "Ajouter aux favoris");
 
     private static string BuildRequirementText(PublicRoomSummary room)
     {
