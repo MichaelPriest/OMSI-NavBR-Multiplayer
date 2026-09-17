@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
 
@@ -8,7 +9,64 @@ public partial class MainWindow
 {
     private RoleplayCharacterController? _roleplayCharacterController;
     private RoleplayCharacterWindow? _roleplayCharacterWindow;
+    private DispatcherTimer? _roleplayAutoPromptTimer;
+    private string? _roleplayPromptedMapKey;
     private bool _roleplayLifetimeHooked;
+
+    internal void InitializeRoleplayForShell()
+    {
+        HookRoleplayLifetime();
+
+        if (_roleplayAutoPromptTimer is not null)
+        {
+            return;
+        }
+
+        _roleplayAutoPromptTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1d)
+        };
+        _roleplayAutoPromptTimer.Tick += (_, _) => TryPromptRoleplayCharacter();
+        _roleplayAutoPromptTimer.Start();
+    }
+
+    private void TryPromptRoleplayCharacter()
+    {
+        if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled ||
+            !IsRoleplayMapReadyForShell())
+        {
+            return;
+        }
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        if (string.IsNullOrWhiteSpace(mapKey))
+        {
+            return;
+        }
+
+        RoleplayCharacterSelectionStore.ResetForMap(mapKey);
+        if (RoleplayCharacterSelectionStore.Get(mapKey) is not null)
+        {
+            return;
+        }
+
+        if (string.Equals(
+                _roleplayPromptedMapKey,
+                mapKey,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var options = GetRoleplayCharacterOptionsForShell();
+        if (options.Count == 0)
+        {
+            return;
+        }
+
+        _roleplayPromptedMapKey = mapKey;
+        OpenRoleplayCharacterWindowForShell();
+    }
 
     internal IReadOnlyList<RoleplayCharacterOption> GetRoleplayCharacterOptionsForShell() =>
         _telemetryProvider.ReadRoleplayCharacterOptions();
@@ -104,6 +162,9 @@ public partial class MainWindow
         _roleplayLifetimeHooked = true;
         Closed += (_, _) =>
         {
+            _roleplayAutoPromptTimer?.Stop();
+            _roleplayAutoPromptTimer = null;
+
             if (_roleplayCharacterController is { } controller)
             {
                 _ = controller.DisposeAsync();
