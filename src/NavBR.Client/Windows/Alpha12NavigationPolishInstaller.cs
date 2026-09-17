@@ -67,6 +67,10 @@ internal static class Alpha12NavigationPolishInstaller
             HideNextVersionLabel(window);
         }
 
+        // Navigation owns the 2D/3D experience. Install the 3D entry point only
+        // after the shell has finished moving the original navigation card.
+        Alpha12Navigation3DInstaller.Install(window);
+
         window.Closed += (_, _) => Installed.Remove(window);
     }
 

@@ -7,6 +7,7 @@ public partial class MultiplayerWindow
         base.OnContentRendered(e);
 
         InitializePersistentLifetime();
+        InitializeNavigation3DFeed();
 
         RoomTextBox.TextChanged -= RoomTextBox_SettingsChanged;
         RoomTextBox.TextChanged += RoomTextBox_SettingsChanged;
