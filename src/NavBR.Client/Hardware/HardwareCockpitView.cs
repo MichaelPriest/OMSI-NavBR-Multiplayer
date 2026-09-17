@@ -174,14 +174,11 @@ internal sealed class HardwareCockpitView : Grid
         stack.Children.Add(liveCard);
 
         var payloadCard = NewCard();
-        payloadCard.Margin = new Thickness(0d, 14d, 0d, 0d);
         var payloadStack = new StackPanel();
         payloadCard.Child = payloadStack;
-        payloadStack.Children.Add(NewLabel("PREVIEW DO PACOTE PARA O HARDWARE"));
         payloadStack.Children.Add(new TextBlock
         {
             Text = "Na porta serial o mesmo pacote é enviado sem indentação, uma linha por atualização.",
-            Margin = new Thickness(0d, 5d, 0d, 0d),
             Foreground = Brush(145, 164, 180),
             FontSize = 11d,
             TextWrapping = TextWrapping.Wrap
@@ -189,7 +186,7 @@ internal sealed class HardwareCockpitView : Grid
         _payloadPreview = new TextBox
         {
             Margin = new Thickness(0d, 10d, 0d, 0d),
-            Height = 270d,
+            Height = 210d,
             IsReadOnly = true,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.NoWrap,
@@ -204,7 +201,21 @@ internal sealed class HardwareCockpitView : Grid
             Padding = new Thickness(10d)
         };
         payloadStack.Children.Add(_payloadPreview);
-        stack.Children.Add(payloadCard);
+
+        var payloadExpander = new Expander
+        {
+            Header = new TextBlock
+            {
+                Text = "PREVIEW TÉCNICO DO PACOTE",
+                Foreground = Brush(151, 171, 185),
+                FontSize = 10d,
+                FontWeight = FontWeights.Bold
+            },
+            IsExpanded = false,
+            Margin = new Thickness(0d, 14d, 0d, 0d),
+            Content = payloadCard
+        };
+        stack.Children.Add(payloadExpander);
 
         _refreshTimer = new DispatcherTimer
         {
