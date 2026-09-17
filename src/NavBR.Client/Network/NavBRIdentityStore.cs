@@ -55,16 +55,60 @@ internal static class NavBRIdentityStore
         {
             _cached ??= LoadCore() ?? CreateCore(null);
             var identity = ToPublic(_cached);
-            using var ecdsa = OpenKey(_cached.KeyName);
-            var signature = ecdsa.SignData(
+            return SignPayload(
+                _cached,
                 CompanyNetworkSignatures.BuildJoinPayload(
                     companyId,
                     inviteCode,
                     identity,
-                    timestampUnixMilliseconds),
-                HashAlgorithmName.SHA256);
-            return Convert.ToBase64String(signature);
+                    timestampUnixMilliseconds));
         }
+    }
+
+    public static string SignRoleChangeRequest(
+        string companyId,
+        string targetPlayerId,
+        CompanyRole newRole,
+        long timestampUnixMilliseconds)
+    {
+        lock (Sync)
+        {
+            _cached ??= LoadCore() ?? CreateCore(null);
+            var identity = ToPublic(_cached);
+            return SignPayload(
+                _cached,
+                CompanyAdministrationSignatures.BuildRoleChangePayload(
+                    companyId,
+                    identity,
+                    targetPlayerId,
+                    newRole,
+                    timestampUnixMilliseconds));
+        }
+    }
+
+    public static string SignMemberRemoveRequest(
+        string companyId,
+        string targetPlayerId,
+        long timestampUnixMilliseconds)
+    {
+        lock (Sync)
+        {
+            _cached ??= LoadCore() ?? CreateCore(null);
+            var identity = ToPublic(_cached);
+            return SignPayload(
+                _cached,
+                CompanyAdministrationSignatures.BuildMemberRemovePayload(
+                    companyId,
+                    identity,
+                    targetPlayerId,
+                    timestampUnixMilliseconds));
+        }
+    }
+
+    private static string SignPayload(NavBRIdentityData data, byte[] payload)
+    {
+        using var ecdsa = OpenKey(data.KeyName);
+        return Convert.ToBase64String(ecdsa.SignData(payload, HashAlgorithmName.SHA256));
     }
 
     private static NavBRIdentityData? LoadCore()
