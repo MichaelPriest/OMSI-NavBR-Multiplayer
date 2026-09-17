@@ -16,6 +16,14 @@ internal sealed class DriverStatisticsService : IDisposable
     private double _pendingDistanceKm;
     private double _pendingHighestSpeedKph;
     private VehicleTelemetry? _latestTelemetry;
+    private DateTimeOffset? _tripStartedAtUtc;
+    private double _tripDrivingSeconds;
+    private double _tripDistanceKm;
+    private double _tripHighestSpeedKph;
+    private string? _tripMap;
+    private string? _tripLine;
+    private string? _tripRoute;
+    private string? _tripVehicle;
     private bool _disposed;
 
     public DriverStatisticsService(Func<VehicleTelemetry?> telemetryProvider)
@@ -45,7 +53,12 @@ internal sealed class DriverStatisticsService : IDisposable
         _disposed = true;
         _timer.Stop();
         _timer.Tick -= Timer_Tick;
-        Flush(DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        Flush(now);
+        if (_tripActive)
+        {
+            EndTrip(_lastInGameUtc ?? now);
+        }
     }
 
     private void Timer_Tick(object? sender, EventArgs e)
@@ -57,9 +70,9 @@ internal sealed class DriverStatisticsService : IDisposable
         var telemetry = _telemetryProvider();
         if (telemetry is null || !telemetry.IsInGame)
         {
-            if (_lastInGameUtc is not null && now - _lastInGameUtc > TimeSpan.FromSeconds(90d))
+            if (_tripActive && _lastInGameUtc is DateTimeOffset lastInGame && now - lastInGame > TimeSpan.FromSeconds(90d))
             {
-                _tripActive = false;
+                EndTrip(lastInGame);
             }
 
             if (now - _lastPersistUtc >= TimeSpan.FromSeconds(15d))
@@ -77,21 +90,81 @@ internal sealed class DriverStatisticsService : IDisposable
 
         if (!_tripActive)
         {
-            _tripActive = true;
-            _pendingTripStart = true;
+            StartTrip(now, telemetry);
+        }
+        else
+        {
+            UpdateTripMetadata(telemetry);
         }
 
         if (speed >= 0.5d && elapsedSeconds > 0d)
         {
+            var distanceKm = speed * (elapsedSeconds / 3600d);
             _pendingDrivingSeconds += elapsedSeconds;
-            _pendingDistanceKm += speed * (elapsedSeconds / 3600d);
+            _pendingDistanceKm += distanceKm;
+            _tripDrivingSeconds += elapsedSeconds;
+            _tripDistanceKm += distanceKm;
         }
         _pendingHighestSpeedKph = Math.Max(_pendingHighestSpeedKph, speed);
+        _tripHighestSpeedKph = Math.Max(_tripHighestSpeedKph, speed);
 
         if (_pendingTripStart || now - _lastPersistUtc >= TimeSpan.FromSeconds(15d))
         {
             Flush(now);
         }
+    }
+
+    private void StartTrip(DateTimeOffset now, VehicleTelemetry telemetry)
+    {
+        _tripActive = true;
+        _pendingTripStart = true;
+        _tripStartedAtUtc = now;
+        _tripDrivingSeconds = 0d;
+        _tripDistanceKm = 0d;
+        _tripHighestSpeedKph = 0d;
+        _tripMap = null;
+        _tripLine = null;
+        _tripRoute = null;
+        _tripVehicle = null;
+        UpdateTripMetadata(telemetry);
+    }
+
+    private void UpdateTripMetadata(VehicleTelemetry telemetry)
+    {
+        _tripMap = Prefer(telemetry.MapName, _tripMap);
+        _tripLine = Prefer(telemetry.Line, _tripLine);
+        _tripRoute = Prefer(telemetry.Route, _tripRoute);
+        _tripVehicle = Prefer(telemetry.VehicleName, _tripVehicle);
+    }
+
+    private void EndTrip(DateTimeOffset endedAtUtc)
+    {
+        if (!_tripActive || _tripStartedAtUtc is not DateTimeOffset startedAtUtc)
+        {
+            _tripActive = false;
+            return;
+        }
+
+        DriverTripHistoryStore.Append(new DriverTripHistoryEntry(
+            startedAtUtc,
+            endedAtUtc,
+            _tripDrivingSeconds,
+            _tripDistanceKm,
+            _tripHighestSpeedKph,
+            _tripMap,
+            _tripLine,
+            _tripRoute,
+            _tripVehicle));
+
+        _tripActive = false;
+        _tripStartedAtUtc = null;
+        _tripDrivingSeconds = 0d;
+        _tripDistanceKm = 0d;
+        _tripHighestSpeedKph = 0d;
+        _tripMap = null;
+        _tripLine = null;
+        _tripRoute = null;
+        _tripVehicle = null;
     }
 
     private void Flush(DateTimeOffset now)
@@ -130,4 +203,7 @@ internal sealed class DriverStatisticsService : IDisposable
             LastDrivenAt = telemetry is null ? profile.LastDrivenAt : now
         });
     }
+
+    private static string? Prefer(string? incoming, string? current) =>
+        string.IsNullOrWhiteSpace(incoming) ? current : incoming.Trim();
 }

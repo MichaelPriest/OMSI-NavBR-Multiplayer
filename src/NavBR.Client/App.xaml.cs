@@ -140,6 +140,7 @@ public partial class App : Application
         if (window is DriverProfileWindow driverProfileWindow)
         {
             DriverProfilePortabilityInstaller.Attach(driverProfileWindow);
+            DriverTripHistoryInstaller.Attach(driverProfileWindow);
         }
 
         if (window is SessionHealthWindow sessionHealthWindow)
