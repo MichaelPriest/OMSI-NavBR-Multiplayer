@@ -18,7 +18,17 @@ public partial class MultiplayerWindow
     private bool _roleplayUiInstalled;
     private bool _roleplaySelectorOpen;
 
-    internal RoleplayCharacterOption? SelectedRoleplayCharacter => _selectedRoleplayCharacter;
+    internal RoleplayCharacterOption? SelectedRoleplayCharacter =>
+        RoleplayCharacterSelectionStore.Get(_roleplayMapKey);
+
+    internal Task PublishLocalRoleplayCharacterAsync(
+        RoleplayCharacterState state,
+        CancellationToken cancellationToken = default) =>
+        _client.PublishRoleplayCharacterAsync(state, cancellationToken);
+
+    internal Task ReleaseLocalRoleplayCharacterAsync(
+        CancellationToken cancellationToken = default) =>
+        _client.ReleaseRoleplayCharacterAsync(cancellationToken);
 
     private void InitializeRoleplayCharacterSelector()
     {
@@ -33,7 +43,12 @@ public partial class MultiplayerWindow
         _roleplayCatalogTimer.Tick += RoleplayCatalogTimer_Tick;
         _roleplayCatalogTimer.Start();
 
-        Closed += (_, _) => _roleplayCatalogTimer?.Stop();
+        RoleplayCharacterSelectionStore.Changed += RoleplayCharacterSelectionStore_Changed;
+        Closed += (_, _) =>
+        {
+            _roleplayCatalogTimer?.Stop();
+            RoleplayCharacterSelectionStore.Changed -= RoleplayCharacterSelectionStore_Changed;
+        };
         RefreshRoleplayCharacterSelector(openWhenReady: true);
     }
 
@@ -111,6 +126,7 @@ public partial class MultiplayerWindow
         {
             _selectedRoleplayCharacter = null;
             _roleplayPromptedMapKey = null;
+            RoleplayCharacterSelectionStore.Clear();
             StatusDetailText.Text = RoleplayDisabledText();
         }
         else
@@ -144,8 +160,13 @@ public partial class MultiplayerWindow
         if (!string.Equals(_roleplayMapKey, mapKey, StringComparison.OrdinalIgnoreCase))
         {
             _roleplayMapKey = mapKey;
-            _selectedRoleplayCharacter = null;
+            RoleplayCharacterSelectionStore.ResetForMap(mapKey);
+            _selectedRoleplayCharacter = RoleplayCharacterSelectionStore.Get(mapKey);
             _roleplayPromptedMapKey = null;
+        }
+        else
+        {
+            _selectedRoleplayCharacter = RoleplayCharacterSelectionStore.Get(mapKey);
         }
 
         var mapReady = enabled &&
@@ -251,6 +272,10 @@ public partial class MultiplayerWindow
                 selector.SelectedCharacter is { } selected)
             {
                 _selectedRoleplayCharacter = selected;
+                if (!string.IsNullOrWhiteSpace(_roleplayMapKey))
+                {
+                    RoleplayCharacterSelectionStore.Set(_roleplayMapKey, selected);
+                }
                 if (_roleplayCharacterSelectionText is not null)
                 {
                     _roleplayCharacterSelectionText.Text =
@@ -264,6 +289,12 @@ public partial class MultiplayerWindow
         {
             _roleplaySelectorOpen = false;
         }
+    }
+
+    private void RoleplayCharacterSelectionStore_Changed()
+    {
+        Dispatcher.BeginInvoke(() =>
+            RefreshRoleplayCharacterSelector(openWhenReady: false));
     }
 
     private static string RoleplayLabel() =>
