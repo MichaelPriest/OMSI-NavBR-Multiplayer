@@ -19,6 +19,7 @@ internal sealed class GhostToolsWindow : Window
     private readonly Button _recordButton;
     private readonly Button _stopButton;
     private readonly Button _previewButton;
+    private readonly Button _compareButton;
     private readonly Button _playButton;
     private readonly ComboBox _speedCombo;
     private readonly CheckBox _loopCheck;
@@ -27,10 +28,10 @@ internal sealed class GhostToolsWindow : Window
     {
         _telemetrySource = telemetrySource;
         Title = "NavBR Ghost / Replay — Alpha.12";
-        Width = 860d;
-        Height = 590d;
-        MinWidth = 720d;
-        MinHeight = 520d;
+        Width = 900d;
+        Height = 610d;
+        MinWidth = 740d;
+        MinHeight = 530d;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brush(6, 16, 26);
         Foreground = Brush(218, 230, 238);
@@ -40,6 +41,7 @@ internal sealed class GhostToolsWindow : Window
         _recordButton = CreateButton("Gravar viagem", Record_Click, primary: true);
         _stopButton = CreateButton("Parar e salvar", Stop_Click, primary: false);
         _previewButton = CreateButton("Visualizar trajeto", Preview_Click, primary: false);
+        _compareButton = CreateButton("Comparar replays", Compare_Click, primary: false);
         _playButton = CreateButton("Reproduzir Ghost 3D", Play_Click, primary: true);
 
         _speedCombo = new ComboBox
@@ -100,7 +102,7 @@ internal sealed class GhostToolsWindow : Window
         });
         headingText.Children.Add(new TextBlock
         {
-            Text = "Grave a telemetria real da sua viagem, visualize o trajeto localmente ou reproduza pelo bridge físico experimental.",
+            Text = "Grave a telemetria real da sua viagem, analise e compare replays localmente ou reproduza pelo bridge físico experimental.",
             Margin = new Thickness(0d, 5d, 18d, 0d),
             Foreground = Brush(151, 171, 185),
             FontSize = 12d,
@@ -138,7 +140,7 @@ internal sealed class GhostToolsWindow : Window
             Margin = new Thickness(0d, 0d, 0d, 16d),
             Child = new TextBlock
             {
-                Text = "Gravação e pré-visualização são somente leitura. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
+                Text = "Gravação, análise e comparação são somente leitura. A reprodução 3D só envia comandos quando o plugin experimental confirma suporte a spawn/transform; sem suporte, o NavBR interrompe o replay e não escreve no OMSI.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brush(242, 184, 75),
                 FontSize = 11.5d
@@ -161,6 +163,7 @@ internal sealed class GhostToolsWindow : Window
         actions.Children.Add(_recordButton);
         actions.Children.Add(_stopButton);
         actions.Children.Add(_previewButton);
+        actions.Children.Add(_compareButton);
         actions.Children.Add(_playButton);
         actions.Children.Add(CreateButton("Abrir pasta de Ghosts", OpenFolder_Click, primary: false));
         controls.Children.Add(actions);
@@ -315,6 +318,50 @@ internal sealed class GhostToolsWindow : Window
         }
     }
 
+    private async void Compare_Click(object sender, RoutedEventArgs e)
+    {
+        var firstDialog = CreateOpenDialog("Escolha o Replay A");
+        if (firstDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var secondDialog = CreateOpenDialog("Escolha o Replay B");
+        if (secondDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _status.Text = "Carregando comparação…";
+        _details.Text = $"A: {firstDialog.FileName}\nB: {secondDialog.FileName}";
+        RefreshUi(keepDetails: true);
+
+        try
+        {
+            var left = await _player.LoadAsync(firstDialog.FileName);
+            var right = await _player.LoadAsync(secondDialog.FileName);
+            var comparison = new GhostReplayComparisonWindow(
+                left,
+                firstDialog.FileName,
+                right,
+                secondDialog.FileName)
+            {
+                Owner = this
+            };
+            _status.Text = "Comparação carregada.";
+            comparison.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "Não foi possível comparar os replays.";
+            _details.Text = $"{firstDialog.FileName}\n{secondDialog.FileName}\n\n{ex.Message}";
+        }
+        finally
+        {
+            RefreshUi(keepDetails: true);
+        }
+    }
+
     private async void Play_Click(object sender, RoutedEventArgs e)
     {
         var dialog = CreateOpenDialog("Escolha um Ghost NavBR");
@@ -395,6 +442,7 @@ internal sealed class GhostToolsWindow : Window
         _recordButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _stopButton.IsEnabled = _recorder.IsRecording;
         _previewButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
+        _compareButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _playButton.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _speedCombo.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
         _loopCheck.IsEnabled = !_recorder.IsRecording && !_player.IsPlaying;
