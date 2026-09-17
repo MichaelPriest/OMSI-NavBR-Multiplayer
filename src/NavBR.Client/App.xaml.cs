@@ -137,6 +137,11 @@ public partial class App : Application
         WindowsThemeService.ApplyDarkTitleBar(window);
         Alpha12FigmaOperationalWindowStyler.Apply(window);
 
+        if (window is DriverProfileWindow driverProfileWindow)
+        {
+            DriverProfilePortabilityInstaller.Attach(driverProfileWindow);
+        }
+
         if (window is DispatcherWindow dispatcher && dispatcher.Owner is MainWindow dispatcherOwner)
         {
             DispatcherFigmaMapInstaller.Attach(
