@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
-using System.Windows.Shapes;
+using Path = System.Windows.Shapes.Path;
 
 namespace NavBR.Client.Windows;
 
@@ -377,7 +377,6 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         {
             yield return match;
         }
-
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
         {
             foreach (var child in Enumerate<T>(VisualTreeHelper.GetChild(root, index)))
