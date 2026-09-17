@@ -28,6 +28,8 @@ O primeiro marco da Alpha.13 é permitir que dois ou mais jogadores na mesma ses
 - ✅ nome real do usuário aparece acima do marcador remoto;
 - 🧪 nome 3D acima do ônibus físico usa câmera View/Projection somente leitura do OMSI 2.3.004 e só aparece quando o spawn físico daquele jogador está confirmado;
 - 🔒 projeção 3D é fail-safe: câmera inválida, jogador fora da tela, atrás da câmera ou ônibus não spawnado = etiqueta oculta.
+- ✅ Central Multiplayer usa o mesmo formato/tamanho de marcador para host e remotos, diferenciando somente a cor;
+- ✅ manifesto físico local é atualizado a partir da telemetria real publicada, acompanhando mapa, ônibus e HOF sem exigir reconexão.
 
 ### Depois da validação básica
 
