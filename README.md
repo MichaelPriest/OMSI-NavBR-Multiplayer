@@ -4,15 +4,15 @@ Companion app independente da Steam para **OMSI 2**, com navegação/HUD, teleme
 
 ## Versão pública para testes
 
-A pré-release atual é **`v0.3.0-alpha.12-test.1`**.
+A pré-release atual é **`v0.3.0-alpha.12-test.3`**.
 
-- [Baixar / ver a release Alpha.12 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1)
+- [Baixar / ver a release Alpha.12 Test 3](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.3)
 - cliente principal: **EXE standalone Windows x86**;
 - também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
 
 > A Alpha.12 ainda está em desenvolvimento. Recursos incompletos aparecem no aplicativo como **Em desenvolvimento** ou **Experimental** em vez de ficarem escondidos do escopo da versão.
 
-## Destaques da Alpha.12 Test 1
+## Destaques da Alpha.12 Test 3
 
 - novo shell e HUD Alpha.12;
 - lógica de HUD baseada na janela real de gameplay do OMSI;
@@ -31,9 +31,9 @@ A pré-release atual é **`v0.3.0-alpha.12-test.1`**.
 - Hardware Cockpit Serial para Arduino/ESP32;
 - interface em pt-BR, English, Español, Deutsch e Français.
 
-## Desenvolvimento após a Test 1
+## Desenvolvimento após a Test 3
 
-A branch `feature/alpha12-full-expansion` continua evoluindo depois da primeira pré-release.
+A branch `feature/alpha12-full-expansion` continua evoluindo depois da pré-release Test 3.
 
 A voz multiplayer possui **jitter buffer adaptativo**, reordenação por sequência, recuperação FEC para perda isolada e indicadores ao vivo de jitter/perda na Central Multiplayer. Esses avanços ainda precisam de validação em sessão real entre dois ou mais PCs antes de serem considerados estáveis.
 
@@ -65,7 +65,7 @@ Entre os módulos da Alpha.12 estão multiplayer/rede, voz avançada, ônibus re
 
 ## Instalação rápida
 
-1. Baixe o **EXE standalone x86** da release Alpha.12 Test 1.
+1. Baixe o **EXE standalone x86** da release Alpha.12 Test 3.
 2. Execute o NavBR.
 3. Confirme a instalação do OMSI ou ajuste o perfil se necessário.
 4. Abra o OMSI e carregue mapa/ônibus.
@@ -93,7 +93,7 @@ O projeto não redistribui mapas, ônibus ou outros conteúdos proprietários/pa
 
 ## Documentação
 
-- [`docs/ALPHA12_TEST1_COMMUNITY.md`](docs/ALPHA12_TEST1_COMMUNITY.md) — checklist da Test 1;
+- [`docs/ALPHA12_TEST3_COMMUNITY.md`](docs/ALPHA12_TEST3_COMMUNITY.md) — checklist da Test 3;
 - [`docs/ALPHA12_FIGMA_PREVIEW.md`](docs/ALPHA12_FIGMA_PREVIEW.md) — implementação visual e contrato de dados reais;
 - [`docs/ALPHA12_VOICE_RESILIENCE.md`](docs/ALPHA12_VOICE_RESILIENCE.md) — jitter buffer, FEC e métricas de voz;
 - [`docs/HARDWARE_COCKPIT.md`](docs/HARDWARE_COCKPIT.md) — protocolo e exemplo físico;
