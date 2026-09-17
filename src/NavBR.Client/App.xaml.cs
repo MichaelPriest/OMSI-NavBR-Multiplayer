@@ -154,6 +154,7 @@ public partial class App : Application
             Alpha12FigmaNavigationModeInstaller.Install(mainWindow);
             Alpha12FigmaLiveDataInstaller.Install(mainWindow);
             Alpha12FigmaHomeCompanyInstaller.Install(mainWindow);
+            Alpha12FigmaHomeMultiplayerInstaller.Install(mainWindow);
             Alpha12VisualAccentInstaller.Install(mainWindow);
             Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);

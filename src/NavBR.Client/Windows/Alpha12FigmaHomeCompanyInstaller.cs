@@ -10,8 +10,8 @@ namespace NavBR.Client.Windows;
 
 /// <summary>
 /// Keeps the Figma Home company card connected to the real local/company-node
-/// state. No member counts or online state are invented when no live snapshot
-/// is available.
+/// state. The original shell TextBlocks are detached so its generic refresh
+/// cannot race this dedicated Company Network view.
 /// </summary>
 internal static class Alpha12FigmaHomeCompanyInstaller
 {
@@ -34,15 +34,31 @@ internal static class Alpha12FigmaHomeCompanyInstaller
             return;
         }
 
-        var texts = body.Children.OfType<TextBlock>().ToArray();
-        if (texts.Length < 3)
+        var oldTexts = body.Children.OfType<TextBlock>().Skip(1).ToArray();
+        foreach (var text in oldTexts)
         {
-            Installed.Remove(window);
-            return;
+            body.Children.Remove(text);
         }
 
-        var name = texts[1];
-        var detail = texts[2];
+        var name = new TextBlock
+        {
+            Text = "Sem empresa",
+            Foreground = Brushes.White,
+            FontSize = 17d,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0d, 9d, 0d, 0d),
+            TextWrapping = TextWrapping.Wrap
+        };
+        var detail = new TextBlock
+        {
+            Text = "Nenhuma Company Network vinculada",
+            Foreground = Brush(151, 171, 185),
+            FontSize = 12d,
+            Margin = new Thickness(0d, 9d, 0d, 0d),
+            TextWrapping = TextWrapping.Wrap
+        };
+        body.Children.Add(name);
+        body.Children.Add(detail);
 
         void Refresh()
         {
