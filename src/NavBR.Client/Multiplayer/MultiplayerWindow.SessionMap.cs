@@ -44,10 +44,8 @@ public partial class MultiplayerWindow
             return;
         }
 
-        _liveSessionCanvas = FindLiveSessionChildren<Canvas>(this)
-            .FirstOrDefault(canvas =>
-                canvas.Children.OfType<Polyline>().Any() &&
-                canvas.Children.OfType<Ellipse>().Count() >= 2);
+        _liveSessionCanvas = LiveSessionCanvas;
+        _liveSessionHint = LiveSessionHintText;
 
         if (_liveSessionCanvas is null)
         {
@@ -59,19 +57,12 @@ public partial class MultiplayerWindow
         _liveSessionCanvas.ClipToBounds = true;
         _liveSessionCanvas.Background = Brushes.Transparent;
 
-        _liveSessionHint = FindLiveSessionChildren<TextBlock>(this)
-            .FirstOrDefault(text =>
-                text.Text?.Contains("mapa multiplayer será conectado", StringComparison.OrdinalIgnoreCase) == true);
-
-        if (_liveSessionHint is not null)
-        {
-            _liveSessionHint.Text = LiveSessionText(
-                "Posições exibidas somente quando existe telemetria real e compatível. Sem dados suficientes, nenhum ônibus é inventado.",
-                "Positions are shown only when real, compatible telemetry is available. No buses are invented when data is insufficient.",
-                "Las posiciones se muestran solo con telemetría real y compatible. No se inventan autobuses cuando faltan datos.",
-                "Positionen werden nur mit echten, kompatiblen Telemetriedaten angezeigt. Bei fehlenden Daten werden keine Busse erfunden.",
-                "Les positions ne sont affichées qu’avec une télémétrie réelle et compatible. Aucun bus n’est inventé si les données manquent.");
-        }
+        _liveSessionHint.Text = LiveSessionText(
+            "Posições exibidas somente quando existe telemetria real e compatível. Sem dados suficientes, nenhum ônibus ou personagem é inventado.",
+            "Positions are shown only when real, compatible telemetry is available. No buses or characters are invented when data is insufficient.",
+            "Las posiciones se muestran solo con telemetría real y compatible. No se inventan autobuses ni personajes cuando faltan datos.",
+            "Positionen werden nur mit echten, kompatiblen Telemetriedaten angezeigt. Bei fehlenden Daten werden keine Busse oder Charaktere erfunden.",
+            "Les positions ne sont affichées qu’avec une télémétrie réelle et compatible. Aucun bus ou personnage n’est inventé si les données manquent.");
 
         _liveSessionTimer = new DispatcherTimer
         {
