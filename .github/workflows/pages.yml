@@ -50,37 +50,39 @@ jobs:
         run: |
           set -euo pipefail
 
-          # GitHub's general releases endpoint can occasionally lag behind
-          # releases that are already available by tag. Start with the normal
-          # list and recover any release-backed tag that is missing from it.
           gh api "repos/${{ github.repository }}/releases?per_page=100" > /tmp/navbr-releases.json
-
-          gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name' \
-            > /tmp/navbr-tags.txt
+          gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name' > /tmp/navbr-tags.txt
 
           while IFS= read -r tag; do
             [ -n "$tag" ] || continue
-
-            if jq -e --arg tag "$tag" '.[] | select(.tag_name == $tag)' \
-              /tmp/navbr-releases.json > /dev/null; then
+            if jq -e --arg tag "$tag" '.[] | select(.tag_name == $tag)' /tmp/navbr-releases.json > /dev/null; then
               continue
             fi
-
-            if gh api "repos/${{ github.repository }}/releases/tags/$tag" \
-              > /tmp/navbr-release-recovered.json 2>/dev/null; then
-              jq --slurpfile recovered /tmp/navbr-release-recovered.json \
-                '. + $recovered | unique_by(.id)' \
-                /tmp/navbr-releases.json > /tmp/navbr-releases-next.json
+            if gh api "repos/${{ github.repository }}/releases/tags/$tag" > /tmp/navbr-release-recovered.json 2>/dev/null; then
+              jq --slurpfile recovered /tmp/navbr-release-recovered.json '. + $recovered | unique_by(.id)' /tmp/navbr-releases.json > /tmp/navbr-releases-next.json
               mv /tmp/navbr-releases-next.json /tmp/navbr-releases.json
             fi
           done < /tmp/navbr-tags.txt
 
           jq '
               (sort_by(.published_at // .created_at) | reverse) as $all
-              | ($all | map(select((.tag_name | test("-test(\\.|-|$)"; "i")) | not))) as $official
               | {
-                  total_downloads: ([$official[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
-                  releases: ($all[:8] | map({
+                  total_downloads: ([$all[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
+                  alpha_downloads: (
+                    [
+                      $all[] as $release
+                      | ($release.tag_name | capture("alpha\\.(?<number>[0-9]+)"; "i")? // null) as $alpha
+                      | select($alpha != null)
+                      | {
+                          key: ("alpha." + $alpha.number),
+                          value: ([$release.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0)
+                        }
+                    ]
+                    | group_by(.key)
+                    | map({key: .[0].key, value: (map(.value) | add // 0)})
+                    | from_entries
+                  ),
+                  releases: ($all[:12] | map({
                     tag_name,
                     name,
                     prerelease,
@@ -91,9 +93,7 @@ jobs:
                     assets: [.assets[] | {name, browser_download_url, size, download_count}]
                   }))
                 }
-            ' \
-            /tmp/navbr-releases.json \
-          > site/releases.json
+            ' /tmp/navbr-releases.json > site/releases.json
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
