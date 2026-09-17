@@ -159,6 +159,7 @@ public partial class App : Application
             Alpha12FigmaHomeMultiplayerInstaller.Install(mainWindow);
             Alpha12VisualAccentInstaller.Install(mainWindow);
             Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
+            Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow);
             TrayIcon.Attach(mainWindow);
         }
 
