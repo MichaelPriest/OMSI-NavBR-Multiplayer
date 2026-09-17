@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using NavBR.Client.Localization;
 
@@ -288,7 +289,11 @@ internal sealed class DriverProfileWindow : Window
             Margin = new Thickness(2d, 0d, 0d, 9d)
         });
 
-        var top = new WrapPanel();
+        var top = new UniformGrid
+        {
+            Columns = 5,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         top.Children.Add(StatCard(Text("DrivingTime"), FormatDuration(profile.TotalDrivingSeconds), "◷"));
         top.Children.Add(StatCard(Text("Distance"), $"{profile.TotalDistanceKm:N1} km", "↝"));
         top.Children.Add(StatCard(Text("Trips"), profile.Trips.ToString("N0", culture), "▣"));
@@ -335,9 +340,9 @@ internal sealed class DriverProfileWindow : Window
 
         return new Border
         {
-            Width = 150d,
             MinHeight = 103d,
             Margin = new Thickness(0d, 0d, 9d, 9d),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(13d),
             Background = Brush(7, 18, 25),
             BorderBrush = Brush(25, 47, 60),
