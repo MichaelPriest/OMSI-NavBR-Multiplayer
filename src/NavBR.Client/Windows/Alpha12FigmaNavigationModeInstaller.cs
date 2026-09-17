@@ -37,7 +37,7 @@ internal static class Alpha12FigmaNavigationModeInstaller
         // BuildNavigation originally adds a generic page heading before the map.
         // The approved frame has one single navigation header, so remove that
         // legacy heading and replace it with the Figma header row.
-        if (stack.Children.Count > 1 && stack.Children[0] is UIElement)
+        if (stack.Children.Count > 1)
         {
             stack.Children.RemoveAt(0);
         }
@@ -115,6 +115,9 @@ internal static class Alpha12FigmaNavigationModeInstaller
             routeCard.VerticalAlignment = VerticalAlignment.Top;
         }
 
+        // Copy the out value to a local before wiring callbacks. C# does not
+        // allow ref/out parameters to be captured by local functions/lambdas.
+        var rail = routeCard;
         void ApplySizing()
         {
             var viewport = navigationPage.ViewportHeight > 1d
@@ -122,9 +125,9 @@ internal static class Alpha12FigmaNavigationModeInstaller
                 : Math.Max(0d, window.ActualHeight - 150d);
             var targetHeight = Math.Clamp(viewport - 72d, 560d, 804d);
             navigationCard.Height = targetHeight;
-            if (routeCard is not null)
+            if (rail is not null)
             {
-                routeCard.Height = targetHeight;
+                rail.Height = targetHeight;
             }
         }
 
