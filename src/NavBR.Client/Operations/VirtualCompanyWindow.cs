@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Driver;
 using NavBR.Client.Localization;
+using NavBR.Client.Windows;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Operations;
