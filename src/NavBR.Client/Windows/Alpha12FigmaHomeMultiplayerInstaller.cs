@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 
 namespace NavBR.Client.Windows;
@@ -39,7 +40,7 @@ internal static class Alpha12FigmaHomeMultiplayerInstaller
 
         var state = new TextBlock
         {
-            Text = "Sem sessão",
+            Text = T("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session"),
             Foreground = Brushes.White,
             FontSize = 17d,
             FontWeight = FontWeights.SemiBold,
@@ -48,7 +49,7 @@ internal static class Alpha12FigmaHomeMultiplayerInstaller
         };
         var detail = new TextBlock
         {
-            Text = "Abra a Central Multiplayer",
+            Text = T("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur"),
             Foreground = Brush(151, 171, 185),
             FontSize = 12d,
             Margin = new Thickness(0d, 9d, 0d, 0d),
@@ -64,28 +65,30 @@ internal static class Alpha12FigmaHomeMultiplayerInstaller
                 .FirstOrDefault();
             if (central?.HasBackgroundSession != true)
             {
-                state.Text = "Sem sessão";
+                state.Text = T("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session");
                 state.Foreground = Brushes.White;
-                detail.Text = "Abra a Central Multiplayer";
+                detail.Text = T("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur");
                 detail.Foreground = Brush(151, 171, 185);
                 return;
             }
 
             var roomId = string.IsNullOrWhiteSpace(central.CurrentRoomId)
-                ? "Sala ativa"
+                ? T("Sala ativa", "Active room", "Sala activa", "Aktiver Raum", "Salon actif")
                 : central.CurrentRoomId.Trim();
             state.Text = roomId;
             state.Foreground = Brush(218, 230, 238);
 
             var players = central.CurrentPlayerCountForShell;
             var playerText = players > 0
-                ? $"{players} jogador{(players == 1 ? string.Empty : "es")}"
-                : "presenças sincronizando";
+                ? players == 1
+                    ? string.Format(T("{0} jogador", "{0} player", "{0} jugador", "{0} Spieler", "{0} joueur"), players)
+                    : string.Format(T("{0} jogadores", "{0} players", "{0} jugadores", "{0} Spieler", "{0} joueurs"), players)
+                : T("presenças sincronizando", "syncing presences", "sincronizando presencias", "Teilnehmer werden synchronisiert", "synchronisation des présences");
             var mode = central.IsHostingRoomForShell
-                ? "HOST DIRETO"
+                ? T("HOST DIRETO", "DIRECT HOST", "HOST DIRECTO", "DIREKTER HOST", "HÔTE DIRECT")
                 : central.IsConnected
-                    ? "CONECTADO AO HOST"
-                    : "SESSÃO EM SEGUNDO PLANO";
+                    ? T("CONECTADO AO HOST", "CONNECTED TO HOST", "CONECTADO AL HOST", "MIT HOST VERBUNDEN", "CONNECTÉ À L’HÔTE")
+                    : T("SESSÃO EM SEGUNDO PLANO", "BACKGROUND SESSION", "SESIÓN EN SEGUNDO PLANO", "HINTERGRUND-SITZUNG", "SESSION EN ARRIÈRE-PLAN");
 
             detail.Text = $"{mode} • {playerText}";
             detail.Foreground = central.IsHostingRoomForShell
@@ -104,6 +107,16 @@ internal static class Alpha12FigmaHomeMultiplayerInstaller
             Installed.Remove(window);
         };
     }
+
+    private static string T(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static IEnumerable<T> Enumerate<T>(DependencyObject root) where T : DependencyObject
     {
