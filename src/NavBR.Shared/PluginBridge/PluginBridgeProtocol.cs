@@ -109,6 +109,7 @@ public sealed record PluginBridgeMessage(
     double? RotationW = null,
     string? CharacterInstanceId = null,
     int? CharacterHumanIndex = null,
+    int? CharacterDefinitionPointer = null,
     string? CharacterActivity = null,
     double? SpeedMps = null,
     bool? CharacterActive = null,
