@@ -124,6 +124,14 @@ public partial class App : Application
         WindowsThemeService.ApplyDarkTitleBar(window);
         Alpha12FigmaOperationalWindowStyler.Apply(window);
 
+        if (window is DispatcherWindow dispatcher && dispatcher.Owner is MainWindow dispatcherOwner)
+        {
+            DispatcherFigmaMapInstaller.Attach(
+                dispatcher,
+                dispatcherOwner.GetCurrentTelemetryForAlpha11,
+                dispatcherOwner.GetActiveMapForOperations);
+        }
+
         if (window is MainWindow mainWindow)
         {
             Alpha12FigmaShellInstaller.Install(mainWindow);

@@ -15,7 +15,13 @@ internal sealed record DispatcherRemoteDriver(
     double SpeedKph,
     int? DelaySeconds,
     DateTimeOffset TelemetryTimestamp,
-    DateTimeOffset ReceivedAtUtc);
+    DateTimeOffset ReceivedAtUtc,
+    int? GridX = null,
+    int? GridY = null,
+    double? TileX = null,
+    double? TileY = null,
+    double HeadingDegrees = 0d,
+    string? MapCompatibilityId = null);
 
 internal sealed record DispatcherSessionSnapshot(
     bool Connected,
@@ -63,7 +69,13 @@ internal static class DispatcherSessionFeed
             Math.Clamp(double.IsFinite(telemetry.SpeedKph) ? telemetry.SpeedKph : 0d, 0d, 220d),
             telemetry.DelaySeconds,
             telemetry.Timestamp,
-            receivedAt);
+            receivedAt,
+            telemetry.GridX,
+            telemetry.GridY,
+            telemetry.TileX,
+            telemetry.TileY,
+            double.IsFinite(telemetry.HeadingDegrees) ? telemetry.HeadingDegrees : 0d,
+            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId);
 
         lock (Sync)
         {
