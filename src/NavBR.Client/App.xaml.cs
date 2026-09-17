@@ -72,7 +72,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            NavBRAppLog.Error("network-runtime-stop-error", ex);
+            NavBRAppLog.Error("plugin-bridge-stop-error", ex);
             RemoteDiagnosticsService.Record(
                 "plugin-bridge",
                 "error",
