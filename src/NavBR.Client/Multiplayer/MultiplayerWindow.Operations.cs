@@ -101,6 +101,7 @@ public partial class MultiplayerWindow
 
         _client.OperationalReportChanged += OperationsClient_ReportChanged;
         DispatcherOperationalFeed.ConfigureActions(
+            () => _client.IsTrafficAuthority,
             reportId => _client.AcknowledgeOperationalReportAsync(reportId),
             reportId => _client.ResolveOperationalReportAsync(reportId));
 
