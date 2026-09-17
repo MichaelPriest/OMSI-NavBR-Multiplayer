@@ -58,7 +58,9 @@ internal static class OmsiThreadCommandQueue
                 }
             }
 
-            var result = ExperimentalVehicleCommandProcessor.ProcessOnOmsiThread(command);
+            var result = RoleplayCharacterCommandProcessor.IsCharacterCommandType(command.Type)
+                ? RoleplayCharacterCommandProcessor.ProcessOnOmsiThread(command)
+                : ExperimentalVehicleCommandProcessor.ProcessOnOmsiThread(command);
             resultSink(result);
             processed++;
         }
