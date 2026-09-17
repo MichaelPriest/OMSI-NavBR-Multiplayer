@@ -161,6 +161,7 @@ public partial class App : Application
             Alpha11VisualTuning.Apply(mainWindow);
             OmsiProfilesUiInstaller.Install(mainWindow);
             Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
+            Alpha12GhostToolsInstaller.Install(mainWindow);
             Alpha12ExperienceInstaller.Install(mainWindow);
             Alpha12HudShortcutInstaller.Install(mainWindow);
             Alpha12MultiplayerStatusInstaller.Install(mainWindow);
