@@ -4,15 +4,20 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública para testes
 
-A próxima pré-release é **`v0.3.0-alpha.13-test.1`**.
+A próxima pré-release é **`v0.3.0-alpha.14-test.1`**.
 
-- [Release Alpha.13 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.13-test.1)
+- [Release Alpha.14 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.1)
 - cliente principal: **EXE standalone Windows x86**;
 - também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
 
 > A Alpha.13 inicia a validação do **ônibus remoto físico online**. Recursos incompletos continuam marcados como Experimentais/Em desenvolvimento e não usam dados simulados.
 
-## Destaques da Alpha.13 Test 1
+## Destaques da Alpha.14 Test 1
+
+- **Personagem / RP no modo normal**, sem exigir multiplayer;
+- seletor de personagem real da lista `Drivers` após o mapa carregar;
+- controle experimental do motorista humano do próprio ônibus com W/S, A/D, Shift e Esc;
+- sincronização RP separada quando uma sala multiplayer estiver ativa;
 
 - primeiro teste público focado em ônibus dos outros jogadores dentro do OMSI;
 - spawn/update/despawn experimental integrado à telemetria real da sala;
@@ -53,7 +58,7 @@ Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instal
 
 ## Instalação rápida
 
-1. Baixe o **EXE standalone x86** da Alpha.13 Test 1.
+1. Baixe o **EXE standalone x86** da Alpha.14 Test 1.
 2. Execute o NavBR.
 3. Abra o OMSI e carregue mapa/ônibus.
 4. Para multiplayer normal, crie ou entre em uma sala.
@@ -75,10 +80,10 @@ O computador de quem cria a sala pode funcionar como servidor da própria sessã
 - servidor dedicado continua disponível;
 - relay/fallback permanece experimental para cenários como CGNAT/double NAT.
 
-## Alpha.13
+## Alpha.14
 
-- [`docs/ALPHA13_TEST1_COMMUNITY.md`](docs/ALPHA13_TEST1_COMMUNITY.md) — checklist do teste físico com 2 PCs;
-- [`docs/ALPHA13_MASTER_SCOPE.md`](docs/ALPHA13_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
+- [`docs/ALPHA14_TEST1_COMMUNITY.md`](docs/ALPHA14_TEST1_COMMUNITY.md) — checklist do teste físico com 2 PCs;
+- [`docs/ALPHA14_MASTER_SCOPE.md`](docs/ALPHA14_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
 - [`docs/ALPHA12_MASTER_SCOPE.md`](docs/ALPHA12_MASTER_SCOPE.md) — escopo consolidado herdado da Alpha.12.
 
 ## Segurança
