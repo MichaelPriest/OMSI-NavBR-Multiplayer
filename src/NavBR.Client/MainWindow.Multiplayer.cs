@@ -97,6 +97,9 @@ public partial class MainWindow
         {
             DispatcherSessionFeed.Update(frame);
             RenderRemotePlayer(frame);
+            hud.SetRemotePhysicalVehicleActive(
+                frame.Player.PlayerId,
+                window.IsRemotePhysicalVehicleSpawned(frame.Player.PlayerId));
             hud.UpdateRemotePlayerSmooth(frame);
         };
         window.RemotePlayerLeft += playerId =>
