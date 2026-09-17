@@ -122,6 +122,7 @@ public partial class App : Application
         }
 
         WindowsThemeService.ApplyDarkTitleBar(window);
+        Alpha12FigmaOperationalWindowStyler.Apply(window);
 
         if (window is MainWindow mainWindow)
         {
