@@ -26,6 +26,8 @@ public sealed record MultiplayerSettings(
     string? StopCustomIconPath = null,
     bool ExperimentalPhysicalVehiclesEnabled = false,
     bool EnableAutomaticUpnp = false,
+    bool EnableApplicationRelay = false,
+    string RelayServerUrl = "",
     string VoiceChannel = "general",
     double VoiceProximityMeters = 120d,
     bool VoiceDeafened = false,
