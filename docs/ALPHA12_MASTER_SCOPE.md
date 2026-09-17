@@ -105,10 +105,10 @@ Legenda:
 
 ## 5. Salas públicas, privadas e infraestrutura online opcional
 
-- 🚧 navegador público de salas/servidores;
-- 🚧 filtros por mapa, região, versão e quantidade de jogadores;
-- 🚧 ping visível antes de entrar;
-- 🚧 favoritos;
+- ✅ navegador público de salas/servidores usando o diretório real `/api/rooms`;
+- 🧪 filtros — busca por sala/mapa/versão/ônibus/HOF, compatibilidade e quantidade mínima de jogadores já existem; região ainda não é publicada pelo protocolo atual;
+- 🚧 ping visível antes de entrar — a listagem pública ainda não publica endpoint do host para medição direta por sala;
+- ✅ favoritos persistentes localmente, com filtro e prioridade na ordenação;
 - ✅ salas privadas;
 - 🧪 senha/convite gerenciado — senha efêmera existe; convite avançado ainda não;
 - 🚧 presence service global;
@@ -198,11 +198,11 @@ Legenda:
 - 🚧 nickname/identidade de sessão;
 - ✅ horas dirigidas calculadas a partir da telemetria real;
 - ✅ quilômetros rodados calculados a partir da telemetria real;
-- 🚧 linhas operadas — atualmente apenas última linha/rota, sem histórico completo;
-- 🚧 mapas utilizados — atualmente apenas último mapa, sem histórico completo;
-- 🧪 histórico de viagens — contador real de viagens existe, histórico detalhado ainda não;
+- 🧪 linhas operadas — cada viagem concluída registra a linha/rota real observada quando disponível; ainda não há catálogo/agregação por linha;
+- 🧪 mapas utilizados — cada viagem concluída registra o mapa real observado quando disponível; ainda não há catálogo/agregação por mapa;
+- ✅ histórico detalhado de viagens local, versionado e limitado às 250 mais recentes, com início/fim, tempo dirigindo, distância, maior velocidade, mapa, linha, rota e veículo reais quando disponíveis;
 - 🚧 pontualidade;
-- 🧪 estatísticas de condução — tempo, distância, viagens, maior velocidade e média móvel existem; conjunto avançado ainda não;
+- 🧪 estatísticas de condução — tempo, distância, viagens, maior velocidade, média móvel e detalhes por viagem existem; conjunto avançado ainda não;
 - 🚧 conquistas/medalhas opcionais;
 - ✅ exportação/importação do perfil com formato versionado e validação antes de sobrescrever;
 - 🚧 sincronização online opcional.
