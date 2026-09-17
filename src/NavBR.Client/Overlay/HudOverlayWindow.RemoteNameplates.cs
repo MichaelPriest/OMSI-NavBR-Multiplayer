@@ -16,13 +16,33 @@ public partial class HudOverlayWindow
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, NameplateMotionState> _remote3DNameplateMotion =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _activePhysicalRemotePlayers =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private OmsiCameraProjectionSnapshot? _cameraProjection;
 
-    public void UpdateCameraProjection(OmsiCameraProjectionSnapshot? projection)
+    internal void UpdateCameraProjection(OmsiCameraProjectionSnapshot? projection)
     {
         _cameraProjection = projection;
         RenderRemoteNameplates();
+    }
+
+    public void SetRemotePhysicalVehicleActive(string playerId, bool active)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        if (active)
+        {
+            _activePhysicalRemotePlayers.Add(playerId);
+        }
+        else
+        {
+            _activePhysicalRemotePlayers.Remove(playerId);
+            HideRemoteNameplate(playerId);
+        }
     }
 
     private void RenderRemoteNameplates()
@@ -52,7 +72,8 @@ public partial class HudOverlayWindow
             var frame = pair.Value;
             var remote = frame.Telemetry;
 
-            if (!remote.IsInGame ||
+            if (!_activePhysicalRemotePlayers.Contains(playerId) ||
+                !remote.IsInGame ||
                 now - remote.Timestamp > TimeSpan.FromSeconds(3d) ||
                 remote.LocalX is not double remoteX ||
                 remote.LocalY is not double remoteY ||
@@ -177,6 +198,7 @@ public partial class HudOverlayWindow
 
     private void RemoveRemoteNameplate(string playerId)
     {
+        _activePhysicalRemotePlayers.Remove(playerId);
         _remote3DNameplateMotion.Remove(playerId);
         if (_remote3DNameplates.Remove(playerId, out var plate))
         {
@@ -193,6 +215,7 @@ public partial class HudOverlayWindow
 
         _remote3DNameplates.Clear();
         _remote3DNameplateMotion.Clear();
+        _activePhysicalRemotePlayers.Clear();
     }
 
     private void HideRemoteNameplate(string playerId)
