@@ -35,13 +35,13 @@ Legenda:
 - ✅ GitHub Releases e GitHub Pages;
 - ✅ suporte a pt-BR, English, Español, Deutsch e Français;
 - 🚧 remover textos hardcoded da interface Alpha.11/12 e mover tudo para recursos localizados;
-- 🚧 dashboard principal mais limpo e orientado ao motorista;
-- 🚧 Multiplayer como página integrada ao shell principal;
-- 🚧 Configurações centralizadas;
+- ✅ dashboard principal mais limpo e orientado ao motorista;
+- ✅ Multiplayer como página integrada ao shell principal;
+- ✅ Configurações centralizadas;
 - 🚧 central de notificações/status;
-- 🚧 tela de saúde do sistema e da sessão;
+- ✅ tela de saúde do sistema e da sessão;
 - 🚧 modo espectador;
-- 🚧 perfis visuais/HUD configuráveis;
+- ✅ perfis visuais/HUD configuráveis;
 - 🚧 acessibilidade e melhor suporte a escalas do Windows;
 - 🚧 atalhos totalmente configuráveis e verificados contra conflitos do OMSI.
 
@@ -89,15 +89,15 @@ Legenda:
 - ✅ jogadores remotos no mapa;
 - ✅ reconexão automática;
 - ✅ servidor dedicado opcional;
-- 🚧 diagnóstico de conectividade/porta;
-- 🚧 teste automático de porta acessível externamente;
-- 🚧 UPnP quando disponível;
+- ✅ diagnóstico de conectividade/porta;
+- ✅ teste automático de porta acessível externamente por probe opt-in;
+- ✅ UPnP quando disponível;
 - 🚧 NAT traversal/fallback seguro;
-- 🚧 códigos de erro de rede estruturados;
-- 🚧 rate limiting;
+- ✅ códigos de erro de rede estruturados;
+- ✅ rate limiting;
 - 🚧 limites e proteção contra abuso;
-- 🚧 métricas de ping, jitter e perda;
-- 🚧 frequência adaptativa de telemetria;
+- ✅ métricas de ping, jitter e perda;
+- ✅ frequência adaptativa de telemetria;
 - 🚧 LOD/culling por distância;
 - 🚧 extrapolação curta para perda de pacotes;
 - 🚧 snap seguro quando o erro ultrapassar tolerância;
@@ -109,8 +109,8 @@ Legenda:
 - 🚧 filtros por mapa, região, versão e quantidade de jogadores;
 - 🚧 ping visível antes de entrar;
 - 🚧 favoritos;
-- 🚧 salas privadas;
-- 🚧 senha/convite gerenciado;
+- ✅ salas privadas;
+- 🧪 senha/convite gerenciado — senha efêmera existe; convite avançado ainda não;
 - 🚧 presence service global;
 - 🚧 autenticação opcional;
 - 🚧 persistência mínima de perfil e preferências online;
@@ -122,16 +122,16 @@ Legenda:
 - ✅ chat de texto;
 - ✅ push-to-talk;
 - ✅ Opus/NAudio;
-- 🚧 voz por proximidade;
-- 🚧 canais de voz separados;
-- 🚧 canal da sala;
-- 🚧 canal de empresa;
-- 🚧 canal CCO/dispatcher;
-- 🚧 mute/deafen;
-- 🚧 seleção de dispositivos de entrada/saída;
-- 🚧 ganho individual por jogador;
-- 🚧 indicadores de qualidade da voz;
-- 🚧 jitter buffer adaptativo e tratamento de perda.
+- ✅ voz por proximidade;
+- ✅ canais de voz separados;
+- ✅ canal da sala;
+- ✅ canal de empresa;
+- ✅ canal CCO/dispatcher;
+- ✅ mute/deafen;
+- ✅ seleção de dispositivos de entrada/saída;
+- ✅ ganho individual por jogador;
+- ✅ indicadores de qualidade da voz;
+- ✅ jitter buffer adaptativo e tratamento de perda.
 
 ## 7. Veículos remotos físicos dentro do OMSI
 
@@ -176,8 +176,8 @@ Legenda:
 - ✅ velocidade, linha, rota, destino, próxima parada e estados;
 - ✅ `stopRequested` via `haltewunsch`;
 - ✅ exemplo Arduino com LED de parada;
-- 🚧 persistência de COM/baud;
-- 🚧 auto-reconnect;
+- ✅ persistência de COM/baud;
+- ✅ auto-reconnect com backoff e reconexão restrita à mesma COM salva;
 - 🚧 perfis/aliases de variáveis por ônibus;
 - 🚧 Wi-Fi ESP32 via UDP;
 - 🚧 WebSocket para ESP32;
@@ -194,17 +194,17 @@ Legenda:
 
 ## 10. Perfil do motorista
 
-- 🚧 perfil local do motorista;
+- ✅ perfil local do motorista;
 - 🚧 nickname/identidade de sessão;
-- 🚧 horas dirigidas;
-- 🚧 quilômetros rodados;
-- 🚧 linhas operadas;
-- 🚧 mapas utilizados;
-- 🚧 histórico de viagens;
+- ✅ horas dirigidas calculadas a partir da telemetria real;
+- ✅ quilômetros rodados calculados a partir da telemetria real;
+- 🚧 linhas operadas — atualmente apenas última linha/rota, sem histórico completo;
+- 🚧 mapas utilizados — atualmente apenas último mapa, sem histórico completo;
+- 🧪 histórico de viagens — contador real de viagens existe, histórico detalhado ainda não;
 - 🚧 pontualidade;
-- 🚧 estatísticas de condução quando os dados forem confiáveis;
+- 🧪 estatísticas de condução — tempo, distância, viagens, maior velocidade e média móvel existem; conjunto avançado ainda não;
 - 🚧 conquistas/medalhas opcionais;
-- 🚧 exportação/importação do perfil;
+- ✅ exportação/importação do perfil com formato versionado e validação antes de sobrescrever;
 - 🚧 sincronização online opcional.
 
 ## 11. Empresas virtuais
@@ -225,17 +225,17 @@ Legenda:
 
 ## 12. CCO / Dispatcher
 
-- 🚧 painel operacional da sessão;
-- 🚧 mapa ao vivo de motoristas;
-- 🚧 linha/viagem atual;
+- 🧪 painel operacional da sessão;
+- ✅ mapa ao vivo de motoristas quando roadmap/layout/telemetria são resolvíveis;
+- ✅ linha/viagem atual quando disponível na telemetria;
 - 🚧 atraso/adiantamento;
 - 🚧 intervalo entre veículos;
-- 🚧 mensagens operacionais;
+- 🧪 mensagens operacionais;
 - 🚧 despacho de motoristas;
 - 🚧 atribuição de linha/veículo;
 - 🚧 incidentes/avisos;
-- 🚧 canais de voz do CCO;
-- 🚧 permissões específicas de dispatcher;
+- ✅ canais de voz do CCO;
+- 🧪 permissões específicas de dispatcher;
 - 🚧 modo somente observação para supervisores.
 
 ## 13. Sincronização de sessão
@@ -254,32 +254,35 @@ Legenda:
 - 🚧 garagem;
 - 🚧 matrícula;
 - 🚧 número interno;
-- 🚧 empresa virtual vinculada;
-- 🚧 HOF ativo;
-- 🚧 modelo e variante do ônibus;
-- 🚧 exibição desses dados no HUD/CCO quando permitido.
+- 🧪 empresa virtual vinculada;
+- ✅ HOF ativo quando disponível na telemetria/compatibilidade;
+- ✅ modelo e variante do ônibus quando disponíveis;
+- 🧪 exibição desses dados no HUD/CCO quando permitido.
 
 ## 15. Compatibilidade de mapas/mods/dependências
 
 - ✅ fingerprint de mapa básico;
 - 🚧 manifesto versionado de compatibilidade;
 - 🚧 hashes de arquivos relevantes;
-- 🚧 detecção de HOF;
-- 🚧 detecção de ônibus/modelos necessários;
+- ✅ detecção de HOF quando disponível;
+- 🧪 detecção de ônibus/modelos necessários;
 - 🚧 lista do que está ausente antes de entrar na sala;
-- 🚧 comparação de versões;
-- 🚧 política de compatibilidade estrita/opcional;
+- 🧪 comparação de versões;
+- 🧪 política de compatibilidade estrita/opcional;
 - 🚧 nunca redistribuir conteúdo pago/proprietário sem permissão.
 
 ## 16. Replay e Ghost Bus
 
-- ✅ base de Ghost Recorder/Replay já existe no código;
-- 🚧 transformar Ghost em recurso final do usuário;
-- 🚧 gravar viagem completa;
-- 🚧 salvar rota e telemetria;
-- 🚧 reproduzir viagem no mapa;
-- 🚧 Ghost Bus visual;
-- 🚧 comparação de tempo/desempenho;
+- ✅ base versionada de Ghost Recorder/Replay;
+- ✅ Ghost/Replay exposto no Alpha.12 em AVANÇADO com interface localizada em pt-BR/en/es/de/fr;
+- ✅ gravação somente com telemetria real local, amostrada pela ferramenta em ~100 ms;
+- ✅ parar e salvar em arquivo `.navbrghost` versionado;
+- ✅ abrir Ghost existente e inspecionar nome, mapa, veículo, HOF, duração e frames reais antes de reproduzir;
+- ✅ controle separado para iniciar e parar a reprodução;
+- 🧪 reprodução física Ghost 3D via plugin bridge experimental;
+- 🔒 spawn/update/despawn físico permanece opt-in/experimental e falha com diagnóstico quando o bridge não oferece suporte, sem escrita insegura;
+- 🧪 reprodução/visualização de viagem no mapa possui base experimental e ainda precisa integração final no fluxo principal;
+- 🧪 comparação de tempo/desempenho possui base experimental e ainda precisa integração final no fluxo principal;
 - 🚧 compartilhamento de replay quando permitido;
 - 🚧 integração futura com eventos e treinamento.
 
@@ -309,29 +312,29 @@ Legenda:
 
 - 🚧 admin;
 - 🚧 moderador;
-- 🚧 CCO;
+- 🧪 CCO;
 - 🚧 motorista;
 - 🚧 visitante;
 - 🚧 espectador;
-- 🚧 permissões por ação;
+- 🧪 permissões por ação;
 - 🚧 kick/ban da sessão;
-- 🚧 mute de chat/voz;
+- ✅ mute de chat/voz;
 - 🚧 logs operacionais mínimos;
 - 🚧 controles de privacidade.
 
 ## 20. Painel de saúde da sessão
 
-- 🚧 ping;
-- 🚧 jitter;
-- 🚧 perda de pacotes;
-- 🚧 frequência de telemetria;
+- ✅ ping/latência;
+- ✅ jitter;
+- ✅ perda estimada de pacotes;
+- ✅ frequência/taxa de telemetria indicada;
 - 🚧 FPS local quando disponível;
-- 🚧 estado do plugin;
-- 🚧 estado do bridge;
+- ✅ estado do plugin;
+- ✅ estado do bridge;
 - 🚧 fila de comandos físicos;
-- 🚧 tráfego/veículos sincronizados;
+- ✅ tráfego/veículos remotos sincronizados em métricas agregadas disponíveis;
 - 🚧 alertas de incompatibilidade;
-- 🚧 exportação de diagnóstico sanitizado.
+- ✅ exportação de diagnóstico sanitizado somente com métricas agregadas, sem senha, token, IP/endereço, PlayerId, sala, caminhos locais ou credenciais.
 
 ## 21. SDK / API NavBR
 
