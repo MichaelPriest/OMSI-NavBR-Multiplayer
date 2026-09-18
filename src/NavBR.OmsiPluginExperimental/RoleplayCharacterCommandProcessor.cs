@@ -140,7 +140,11 @@ internal static class RoleplayCharacterCommandProcessor
         float? sollSpeed = null,
         float? actSpeed = null,
         float? lastMovedDist = null,
-        float? animationState = null) =>
+        float? animationState = null,
+        byte? activityLeg = null,
+        byte? activityArmUmbrella = null,
+        byte? activityArmKi = null,
+        byte? activityHeadKi = null) =>
         new(
             PluginBridgeProtocol.CommandResult,
             PluginBridgeProtocol.Version,
@@ -171,6 +175,10 @@ internal static class RoleplayCharacterCommandProcessor
             CharacterActSpeedMps: actSpeed,
             CharacterLastMovedDistanceMeters: lastMovedDist,
             CharacterAnimationState: animationState,
+            CharacterActivityLegRaw: activityLeg,
+            CharacterActivityArmUmbrellaRaw: activityArmUmbrella,
+            CharacterActivityArmKiRaw: activityArmKi,
+            CharacterActivityHeadKiRaw: activityHeadKi,
             ExperimentalWritesEnabled:
                 ExperimentalFeatureFlags.PhysicalVehiclesEnabled ||
                 ExperimentalFeatureFlags.RoleplayCharacterEnabled,
@@ -775,6 +783,10 @@ internal static class RoleplayCharacterBackend
         float? actSpeed = null;
         float? lastMovedDist = null;
         float? animationState = null;
+        byte? activityLeg = null;
+        byte? activityArmUmbrella = null;
+        byte? activityArmKi = null;
+        byte? activityHeadKi = null;
 
         if (OmsiNativeInterop.ReadHumanAiState(
                 instance.HumanPointer,
@@ -800,6 +812,19 @@ internal static class RoleplayCharacterBackend
             animationState = readAnimationState;
         }
 
+        if (OmsiNativeInterop.ReadHumanActivityState(
+                instance.HumanPointer,
+                out var readActivityLeg,
+                out var readActivityArmUmbrella,
+                out var readActivityArmKi,
+                out var readActivityHeadKi) == 1)
+        {
+            activityLeg = readActivityLeg;
+            activityArmUmbrella = readActivityArmUmbrella;
+            activityArmKi = readActivityArmKi;
+            activityHeadKi = readActivityHeadKi;
+        }
+
         return RoleplayCharacterCommandProcessor.Result(
             command,
             true,
@@ -815,7 +840,11 @@ internal static class RoleplayCharacterBackend
             sollSpeed: sollSpeed,
             actSpeed: actSpeed,
             lastMovedDist: lastMovedDist,
-            animationState: animationState);
+            animationState: animationState,
+            activityLeg: activityLeg,
+            activityArmUmbrella: activityArmUmbrella,
+            activityArmKi: activityArmKi,
+            activityHeadKi: activityHeadKi);
     }
 
     private static bool TryReadAnchor(
