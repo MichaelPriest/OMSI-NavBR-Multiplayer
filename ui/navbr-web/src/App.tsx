@@ -48,6 +48,22 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   relayServerUrl: "",
   physicalVehiclesEnabled: false,
   physicalVehiclesAvailable: false,
+  networkQuality: {
+    level: "Unknown",
+    roundTripMs: null,
+    jitterMs: null,
+    lossPercent: 0,
+    samples: 0,
+    updatedAtUtc: new Date(0).toISOString()
+  },
+  sessionAuthority: {
+    roomOwnerPlayerId: null,
+    roomOwnerDisplayName: null,
+    trafficAuthorityPlayerId: null,
+    trafficAuthorityDisplayName: null,
+    isRoomOwner: false,
+    isTrafficAuthority: false
+  },
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -2393,6 +2409,33 @@ function Multiplayer({
               <h3>{multiplayer.localRoleplayActive ? pick("Fora do ônibus", "Outside the bus", "Fuera del autobús", "Außerhalb des Busses", "Hors du bus") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}</h3>
               <button className="text-action" onClick={() => setTab("roleplay")}>{pick("Abrir Personagem / RP", "Open Character / RP", "Abrir Personaje / RP", "Charakter / RP öffnen", "Ouvrir Personnage / RP")} →</button>
             </article>
+            <article className="card compact-card">
+              <span className="eyebrow">{pick("QUALIDADE DA SESSÃO", "SESSION QUALITY", "CALIDAD DE SESIÓN", "SITZUNGSQUALITÄT", "QUALITÉ DE SESSION")}</span>
+              <h3>{multiplayer.networkQuality.level}</h3>
+              <div className="details-grid">
+                <div><small>RTT</small><strong>{multiplayer.networkQuality.roundTripMs == null ? "—" : `${format(multiplayer.networkQuality.roundTripMs, 0)} ms`}</strong></div>
+                <div><small>{pick("JITTER", "JITTER", "JITTER", "JITTER", "JITTER")}</small><strong>{multiplayer.networkQuality.jitterMs == null ? "—" : `${format(multiplayer.networkQuality.jitterMs, 0)} ms`}</strong></div>
+                <div><small>{pick("PERDA", "LOSS", "PÉRDIDA", "VERLUST", "PERTE")}</small><strong>{format(multiplayer.networkQuality.lossPercent, 1)}%</strong></div>
+                <div><small>{pick("AMOSTRAS", "SAMPLES", "MUESTRAS", "MESSUNGEN", "ÉCHANTILLONS")}</small><strong>{multiplayer.networkQuality.samples}</strong></div>
+              </div>
+            </article>
+
+            <article className="card compact-card">
+              <span className="eyebrow">{pick("AUTORIDADE", "AUTHORITY", "AUTORIDAD", "AUTORITÄT", "AUTORITÉ")}</span>
+              <h3>{multiplayer.roomIsPrivate ? pick("Sala privada", "Private room", "Sala privada", "Privater Raum", "Salle privée") : pick("Sala pública", "Public room", "Sala pública", "Öffentlicher Raum", "Salle publique")}</h3>
+              <p>{pick("Dono", "Owner", "Propietario", "Besitzer", "Propriétaire")}: <strong>{multiplayer.sessionAuthority.roomOwnerDisplayName || "—"}</strong></p>
+              <p>{pick("Tráfego", "Traffic", "Tráfico", "Verkehr", "Trafic")}: <strong>{multiplayer.sessionAuthority.trafficAuthorityDisplayName || "—"}</strong></p>
+              {(multiplayer.sessionAuthority.isRoomOwner || multiplayer.sessionAuthority.isTrafficAuthority) && (
+                <span className="authority-pill enabled">
+                  {multiplayer.sessionAuthority.isRoomOwner && multiplayer.sessionAuthority.isTrafficAuthority
+                    ? pick("Você é dono e autoridade", "You are owner and authority", "Eres propietario y autoridad", "Du bist Besitzer und Autorität", "Vous êtes propriétaire et autorité")
+                    : multiplayer.sessionAuthority.isRoomOwner
+                      ? pick("Você é o dono", "You are the owner", "Eres el propietario", "Du bist der Besitzer", "Vous êtes le propriétaire")
+                      : pick("Você é a autoridade de tráfego", "You are the traffic authority", "Eres la autoridad de tráfico", "Du bist die Verkehrsautorität", "Vous êtes l’autorité trafic")}
+                </span>
+              )}
+            </article>
+
             <article className="card compact-card">
               <span className="eyebrow">{pick("APOIO CCO", "DISPATCH SUPPORT", "APOYO CCO", "LEITSTELLENHILFE", "ASSISTANCE CCO")}</span>
               <h3>{pick("Ocorrência do motorista", "Driver report", "Incidencia del conductor", "Fahrermeldung", "Signalement conducteur")}</h3>
