@@ -231,7 +231,9 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     "Modo avançado",
     "Dicas de direção",
     "Comparar replays",
-    'requested?.startsWith("settings-")'
+    'requested?.startsWith("settings-")',
+    'requested === "navigation-3d"',
+    'requested === "operations-company"'
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -362,18 +364,21 @@ Reject-Text "src/NavBR.Client/Operations/VirtualCompanyInstaller.cs" @(
     "new VirtualCompanyWindow("
 )
 Require-Text "src/NavBR.Client/Operations/VirtualCompanyInstaller.cs" @(
-    'NavigatePrimaryWebShell("operations")'
+    'NavigatePrimaryWebShell("operations-company")'
 )
 
 Reject-Text "src/NavBR.Client/Driver/DriverProfileInstaller.cs" @(
     "new DriverProfileWindow("
 )
 Require-Text "src/NavBR.Client/Driver/DriverProfileInstaller.cs" @(
-    'NavigatePrimaryWebShell("operations")'
+    'NavigatePrimaryWebShell("operations-company")'
 )
 
 Reject-Text "src/NavBR.Client/Driver/DriverTripHistoryInstaller.cs" @(
     "new DriverTripHistoryWindow("
+)
+Require-Text "src/NavBR.Client/Driver/DriverTripHistoryInstaller.cs" @(
+    'NavigatePrimaryWebShell("operations-company")'
 )
 
 Reject-Text "src/NavBR.Client/Windows/Alpha12GhostToolsInstaller.cs" @(
@@ -450,7 +455,7 @@ Reject-Text "src/NavBR.Client/MainWindow.Navigation3D.cs" @(
     ".Show()"
 )
 Require-Text "src/NavBR.Client/MainWindow.Navigation3D.cs" @(
-    'NavigatePrimaryWebShell("navigation")'
+    'NavigatePrimaryWebShell("navigation-3d")'
 )
 
 foreach ($legacy in @(
