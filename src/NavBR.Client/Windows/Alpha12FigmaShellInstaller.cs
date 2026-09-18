@@ -50,7 +50,6 @@ internal static class Alpha12FigmaShellInstaller
         var pages = BuildPages();
         pages.Home.Content = BuildHome(window);
         pages.Navigation.Content = BuildNavigation(window, navigationCard);
-        pages.Multiplayer.Content = BuildMultiplayer(window);
         pages.Hardware.Content = BuildHardware(window);
         pages.Diagnostics.Content = BuildDiagnostics(diagnosticsCard);
 
@@ -73,7 +72,6 @@ internal static class Alpha12FigmaShellInstaller
             host.Children.Add(page);
         }
         pages.Navigation.Visibility = Visibility.Hidden;
-        pages.Multiplayer.Visibility = Visibility.Hidden;
         pages.Hardware.Visibility = Visibility.Hidden;
         pages.Diagnostics.Visibility = Visibility.Hidden;
         Grid.SetRow(host, 1);
@@ -87,7 +85,6 @@ internal static class Alpha12FigmaShellInstaller
     }
 
     private static ShellPages BuildPages() => new(
-        NewPage(),
         NewPage(),
         NewPage(),
         NewPage(),
@@ -261,76 +258,6 @@ internal static class Alpha12FigmaShellInstaller
         return stack;
     }
 
-    private static UIElement BuildMultiplayer(MainWindow window)
-    {
-        var stack = PageStack();
-        var heading = new Grid { Margin = new Thickness(0d, 0d, 0d, 20d) };
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-        heading.Children.Add(PageHeading("Multiplayer", "Salas públicas, empresa, voz e sessão em segundo plano."));
-        var bgStatus = Pill("SERVIDOR CONTINUA EM SEGUNDO PLANO", Accent());
-        Grid.SetColumn(bgStatus, 1);
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        heading.Children.Add(bgStatus);
-        stack.Children.Add(heading);
-
-        var tabs = new Border
-        {
-            Height = 48d,
-            Padding = new Thickness(8d, 6d, 8d, 6d),
-            Background = ElevatedBrush(),
-            BorderBrush = BorderBrush(),
-            BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(10d)
-        };
-        var tabStack = new StackPanel { Orientation = Orientation.Horizontal };
-        foreach (var text in new[] { "Salas", "Jogadores", "Chat", "Voz" })
-        {
-            var tab = new Border
-            {
-                Padding = new Thickness(22d, 8d, 22d, 8d),
-                Margin = new Thickness(0d, 0d, 6d, 0d),
-                Background = text == "Salas" ? Brush(16, 38, 56) : Brushes.Transparent,
-                CornerRadius = new CornerRadius(8d),
-                Child = Text(text, 12d, text == "Salas" ? White() : Muted(), FontWeights.SemiBold)
-            };
-            tabStack.Children.Add(tab);
-        }
-        tabs.Child = tabStack;
-        stack.Children.Add(tabs);
-
-        var body = new Grid { Margin = new Thickness(0d, 16d, 0d, 0d) };
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.7d, GridUnitType.Star) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16d) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-
-        var rooms = Card("SALAS");
-        var roomsBody = (StackPanel)rooms.Child;
-        roomsBody.Children.Add(SecondaryText("A Central Multiplayer continua sendo a fonte real das salas e compatibilidades."));
-        var compatible = RoomPreview("Operação SP Noturna", "MAPA OBRIGATÓRIO", "SP Área 6 Sul", true);
-        compatible.Margin = new Thickness(0d, 18d, 0d, 0d);
-        roomsBody.Children.Add(compatible);
-        var incompatible = RoomPreview("Sala incompatível", "MAPA NÃO ENCONTRADO", "Mapa necessário", false);
-        incompatible.Margin = new Thickness(0d, 12d, 0d, 0d);
-        roomsBody.Children.Add(incompatible);
-        Grid.SetColumn(rooms, 0);
-        body.Children.Add(rooms);
-
-        var selected = Card("CENTRAL MULTIPLAYER");
-        var selectedBody = (StackPanel)selected.Child;
-        selectedBody.Children.Add(ValueText("Sessão e navegador de salas", 20d));
-        selectedBody.Children.Add(SecondaryText("Mapa obrigatório, jogadores, chat, voz, compatibilidade e ônibus online ficam na Central."));
-        window.MultiplayerButton.Content = "Abrir Central Multiplayer";
-        window.MultiplayerButton.MinWidth = 220d;
-        window.MultiplayerButton.Padding = new Thickness(18d, 10d, 18d, 10d);
-        window.MultiplayerButton.Margin = new Thickness(0d, 24d, 0d, 0d);
-        selectedBody.Children.Add(window.MultiplayerButton);
-        selectedBody.Children.Add(SecondaryText("Fechar a Central não encerra host, voz nem telemetria."));
-        Grid.SetColumn(selected, 2);
-        body.Children.Add(selected);
-        stack.Children.Add(body);
-        return stack;
-    }
-
     private static UIElement BuildHardware(MainWindow window)
     {
         var stack = PageStack();
@@ -371,10 +298,16 @@ internal static class Alpha12FigmaShellInstaller
         body.Children.Add(Section("DIRIGIR"));
         var home = AddPageButton(body, "⌂  Início", pages.Home, pages, pageButtons);
         AddPageButton(body, "⌖  Navegação", pages.Navigation, pages, pageButtons);
-        AddPageButton(body, "●  Multiplayer", pages.Multiplayer, pages, pageButtons);
-        body.Children.Add(NavigationButton(
+        AddActionNavigationButton(
+            body,
+            "●  Multiplayer",
+            window.OpenMultiplayerCentralForShell,
+            pageButtons);
+        AddActionNavigationButton(
+            body,
             L("♙  Personagem / RP", "♙  Character / RP", "♙  Personaje / RP", "♙  Charakter / RP", "♙  Personnage / RP"),
-            window.OpenRoleplayCentralForShell));
+            window.OpenRoleplayCentralForShell,
+            pageButtons);
 
         body.Children.Add(Separator());
         body.Children.Add(Section("OPERAÇÃO"));
@@ -664,24 +597,6 @@ internal static class Alpha12FigmaShellInstaller
         return (card, value);
     }
 
-    private static Border RoomPreview(string title, string label, string map, bool compatible)
-    {
-        var body = new StackPanel();
-        body.Children.Add(Text(title, 16d, White(), FontWeights.SemiBold));
-        body.Children.Add(Text(label, 10d, compatible ? Success() : Error(), FontWeights.Bold, new Thickness(0d, 14d, 0d, 0d)));
-        body.Children.Add(Text(map, 13d, White(), FontWeights.Medium, new Thickness(0d, 5d, 0d, 0d)));
-        body.Children.Add(Text(compatible ? "Compatibilidade confirmada na Central" : "Entrada bloqueada enquanto incompatível", 11d, Muted(), FontWeights.Normal, new Thickness(0d, 10d, 0d, 0d)));
-        return new Border
-        {
-            Padding = new Thickness(16d),
-            Background = ElevatedBrush(),
-            BorderBrush = compatible ? Brush(56, 201, 140) : Brush(239, 91, 100),
-            BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(12d),
-            Child = body
-        };
-    }
-
     private static Border Pill(string text, Brush border)
     {
         return new Border
@@ -711,6 +626,32 @@ internal static class Alpha12FigmaShellInstaller
             VerticalAlignment = VerticalAlignment.Center,
             Child = stack
         };
+    }
+
+    private static Button AddActionNavigationButton(
+        Panel panel,
+        string text,
+        Action action,
+        List<Button> buttons)
+    {
+        Button? button = null;
+        button = NavigationButton(text, () =>
+        {
+            foreach (var candidate in buttons)
+            {
+                StyleNavigationButton(candidate, false);
+            }
+
+            if (button is not null)
+            {
+                StyleNavigationButton(button, true);
+            }
+
+            action();
+        });
+        buttons.Add(button);
+        panel.Children.Add(button);
+        return button;
     }
 
     private static Button AddPageButton(Panel panel, string text, FrameworkElement page, ShellPages pages, List<Button> buttons)
@@ -933,10 +874,10 @@ internal static class Alpha12FigmaShellInstaller
     private sealed record ShellPages(
         ScrollViewer Home,
         ScrollViewer Navigation,
-        ScrollViewer Multiplayer,
         ScrollViewer Hardware,
         ScrollViewer Diagnostics)
     {
-        public IReadOnlyList<FrameworkElement> All { get; } = new FrameworkElement[] { Home, Navigation, Multiplayer, Hardware, Diagnostics };
+        public IReadOnlyList<FrameworkElement> All { get; } =
+            new FrameworkElement[] { Home, Navigation, Hardware, Diagnostics };
     }
 }
