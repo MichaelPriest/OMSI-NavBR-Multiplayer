@@ -2731,6 +2731,7 @@ function GhostReplay({
             </div>
           )}
         </article>
+      </section>
 
       <section className="ghost-layout ghost-secondary">
         <article className="card ghost-library-card">
@@ -2794,7 +2795,6 @@ function GhostReplay({
           <GhostRoutePreview points={selected?.routePoints || []} />
           <p className="migration-note">A prévia usa coordenadas X/Z dos frames reais e não envia comandos para o OMSI.</p>
         </article>
-      </section>
       </section>
     </>
   );
