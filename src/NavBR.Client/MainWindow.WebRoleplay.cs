@@ -20,6 +20,8 @@ public partial class MainWindow
         var controller = GetRoleplayControllerForShell();
         var current = controller.CurrentState;
         var nativeAnimation = controller.CurrentNativeAnimationDiagnostics;
+        var nativeActivityObservation =
+            controller.CurrentNativeActivityObservation;
         var busDistanceMeters = controller.GetBusDistanceMeters();
         var interactions = GetRoleplayVehicleInteractionsForShell();
         var lastInteraction =
@@ -63,7 +65,23 @@ public partial class MainWindow
                     activityArmUmbrellaRaw =
                         nativeAnimation.ActivityArmUmbrellaRaw,
                     activityArmKiRaw = nativeAnimation.ActivityArmKiRaw,
-                    activityHeadKiRaw = nativeAnimation.ActivityHeadKiRaw
+                    activityHeadKiRaw = nativeAnimation.ActivityHeadKiRaw,
+                    legacyFieldsDrivenByNavBr = true
+                },
+            nativeActivityObservation = nativeActivityObservation is null
+                ? null
+                : new
+                {
+                    samples = nativeActivityObservation.Samples,
+                    movingSamples = nativeActivityObservation.MovingSamples,
+                    transitionCount =
+                        nativeActivityObservation.TransitionCount,
+                    movingTransitionCount =
+                        nativeActivityObservation.MovingTransitionCount,
+                    changedThisFrame =
+                        nativeActivityObservation.ChangedThisFrame,
+                    lastTransitionAtUtc =
+                        nativeActivityObservation.LastTransitionAtUtc
                 },
             busDistanceMeters,
             enterBusRangeMeters = controller.EnterBusRangeMeters,
