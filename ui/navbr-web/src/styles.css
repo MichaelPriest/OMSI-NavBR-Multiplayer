@@ -1206,3 +1206,45 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .nav3d-toolbar input[type="range"] { flex:1; }
   .nav3d-perspective { inset:10% 1% 1%; }
 }
+
+
+.nav3d-roleplay-character .nav3d-roleplay-head {
+  fill:#77e5aa;
+  stroke:#eafff3;
+  stroke-width:1.5;
+  vector-effect:non-scaling-stroke;
+}
+.nav3d-roleplay-character .nav3d-roleplay-body,
+.nav3d-roleplay-character .nav3d-roleplay-heading {
+  fill:none;
+  stroke:#77e5aa;
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 0 6px rgba(119,229,170,.7));
+}
+.nav3d-roleplay-character .nav3d-roleplay-heading {
+  fill:#77e5aa;
+  stroke:#eafff3;
+  stroke-width:1.4;
+}
+.nav3d-roleplay-halo {
+  fill:rgba(119,229,170,.12);
+  stroke:rgba(119,229,170,.92);
+  stroke-width:2;
+  vector-effect:non-scaling-stroke;
+}
+.nav3d-roleplay-character text {
+  fill:#dffff0;
+  font-size:13px;
+  font-weight:850;
+  paint-order:stroke;
+  stroke:#061019;
+  stroke-width:3px;
+  vector-effect:non-scaling-stroke;
+}
+.nav3d-toolbar button:disabled {
+  opacity:.42;
+  cursor:not-allowed;
+}
