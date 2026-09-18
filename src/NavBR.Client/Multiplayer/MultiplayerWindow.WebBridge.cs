@@ -93,6 +93,13 @@ public partial class MultiplayerWindow
             voiceInputDevices = inputDevices,
             voiceOutputDevices = outputDevices,
             voiceMixers,
+            chatHotkey = _settings.ChatHotkey,
+            voiceHotkey = _settings.VoiceHotkey,
+            hotkeyOptions = NavBR.Client.Overlay.NavBRHotkeyCatalog.Options
+                .Select(option => option.Name)
+                .ToArray(),
+            relayEnabled = _settings.EnableApplicationRelay,
+            relayServerUrl = _settings.RelayServerUrl,
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
@@ -298,6 +305,102 @@ public partial class MultiplayerWindow
     }
 
     internal bool IsHostRunningForWeb => _host.IsRunning;
+
+    internal void ConfigureHotkeysFromWeb(string? chatHotkey, string? voiceHotkey)
+    {
+        var chat = NavBR.Client.Overlay.NavBRHotkeyCatalog.Resolve(
+            chatHotkey,
+            NavBR.Client.Overlay.NavBRHotkeyCatalog.DefaultChatHotkey).Name;
+        var voice = NavBR.Client.Overlay.NavBRHotkeyCatalog.Resolve(
+            voiceHotkey,
+            NavBR.Client.Overlay.NavBRHotkeyCatalog.DefaultVoiceHotkey).Name;
+
+        if (string.Equals(chat, voice, StringComparison.OrdinalIgnoreCase))
+        {
+            voice = PickDistinctHotkey(
+                chat,
+                NavBR.Client.Overlay.NavBRHotkeyCatalog.DefaultVoiceHotkey,
+                NavBR.Client.Overlay.NavBRHotkeyCatalog.DefaultChatHotkey);
+        }
+
+        _settings = _settings with
+        {
+            ChatHotkey = chat,
+            VoiceHotkey = voice
+        };
+        MultiplayerSettingsStore.Save(_settings);
+
+        if (_hotkeyUiReady)
+        {
+            _hotkeyUiReady = false;
+            ChatHotkeyComboBox.SelectedItem = chat;
+            VoiceHotkeyComboBox.SelectedItem = voice;
+            _hotkeyUiReady = true;
+            RefreshHotkeyUiText();
+        }
+    }
+
+    internal void ConfigureRelayFromWeb(bool enabled, string? relayServerUrl)
+    {
+        if (_host.IsRunning)
+        {
+            throw new InvalidOperationException(
+                "Pare a hospedagem local antes de alterar o modo relay.");
+        }
+
+        var relayUrl = (relayServerUrl ?? _settings.RelayServerUrl ?? string.Empty).Trim();
+        if (enabled && !string.IsNullOrWhiteSpace(relayUrl) &&
+            !TryNormalizeRelayUrl(relayUrl, out relayUrl))
+        {
+            throw new InvalidOperationException(
+                "Informe um endereço HTTP/HTTPS válido para o servidor relay.");
+        }
+
+        _settings = _settings with
+        {
+            EnableApplicationRelay = enabled,
+            RelayServerUrl = relayUrl,
+            EnableAutomaticUpnp = enabled ? false : _settings.EnableAutomaticUpnp
+        };
+        MultiplayerSettingsStore.Save(_settings);
+
+        RelayEnabledCheckBox.IsChecked = enabled;
+        RelayServerTextBox.Text = relayUrl;
+        if (enabled)
+        {
+            UpnpEnabledCheckBox.IsChecked = false;
+        }
+    }
+
+    internal async Task StartRelayRoomFromWebAsync(
+        string? roomId,
+        string? displayName,
+        bool createPrivateRoom,
+        string? roomPassword,
+        string? relayServerUrl)
+    {
+        var password = NormalizePassword(roomPassword);
+        if (createPrivateRoom && (password is null || password.Length < 4))
+        {
+            throw new InvalidOperationException(RoomPrivacyText.PasswordTooShort);
+        }
+
+        RoomTextBox.Text = MultiplayerWebInput.Normalize(
+            roomId,
+            $"navbr-{Random.Shared.Next(1000, 9999)}");
+        NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
+        PrivateRoomCheckBox.IsChecked = createPrivateRoom;
+        RoomPasswordBox.Password = password ?? string.Empty;
+        RelayServerTextBox.Text = (relayServerUrl ?? _settings.RelayServerUrl ?? string.Empty).Trim();
+        RelayEnabledCheckBox.IsChecked = true;
+        _settings = _settings with
+        {
+            EphemeralRoomPassword = password,
+            EphemeralCreatePrivateRoom = createPrivateRoom
+        };
+
+        await StartRelayRoomAsync();
+    }
 
     internal void SetAutomaticUpnpFromWeb(bool enabled)
     {
