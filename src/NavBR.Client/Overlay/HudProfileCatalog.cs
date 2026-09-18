@@ -5,6 +5,9 @@ namespace NavBR.Client.Overlay;
 public sealed record HudPresetDefinition(
     string Id,
     string DisplayName,
+    string ThemeId,
+    string Inspiration,
+    string Description,
     double Width,
     double Scale,
     double Opacity,
@@ -26,16 +29,94 @@ public static class HudProfileCatalog
 
     public static IReadOnlyList<HudPresetDefinition> Presets { get; } =
     [
-        new("compact", "Compacto", 330d, 0.76d, 0.84d, false, false, false, false, false, true, false),
-        new("normal", "Normal", 470d, 0.82d, 0.82d, true, false, true, true, false, true, false),
-        new("full", "Completo", 620d, 0.92d, 0.90d, true, true, true, true, true, true, true),
-        new("digital-cluster", "Cluster Digital", 540d, 0.88d, 0.94d, true, false, true, false, false, true, true),
-        new("lcd-amber", "LCD / Âmbar", 470d, 0.86d, 0.96d, true, false, true, false, false, true, false),
-        new("transparent", "Transparente Integrado", 530d, 0.84d, 0.72d, true, false, true, true, true, true, true)
+        new(
+            "rp-urban",
+            "RP Urbano",
+            "urban-glass",
+            "Open-world RP",
+            "Cards compactos, vidro escuro e status com alto contraste para sessões multiplayer.",
+            520d, 0.86d, 0.86d,
+            true, false, true, true, true, true, true),
+        new(
+            "route-advisor",
+            "Route Advisor",
+            "route-night",
+            "Truck / bus simulator",
+            "Prioriza linha, destino, próxima parada e orientação de rota com leitura rápida.",
+            560d, 0.88d, 0.91d,
+            true, false, true, true, false, true, true),
+        new(
+            "racing-minimal",
+            "Corrida Minimal",
+            "racing-clean",
+            "Racing telemetry",
+            "Velocidade grande, baixa obstrução e indicadores essenciais próximos ao campo de visão.",
+            390d, 0.86d, 0.80d,
+            false, true, true, false, false, true, true),
+        new(
+            "transit-pro",
+            "Transit Pro",
+            "transit-control",
+            "Transit operations",
+            "Painel operacional para ônibus com atraso, parada solicitada, combustível e estados do veículo.",
+            500d, 0.88d, 0.94d,
+            true, false, true, true, true, true, true),
+        new(
+            "compact",
+            "Compacto",
+            "navbr-modern",
+            "NavBR",
+            "Versão pequena para manter apenas alertas essenciais.",
+            330d, 0.76d, 0.84d,
+            false, false, false, false, false, true, false),
+        new(
+            "normal",
+            "Normal",
+            "navbr-modern",
+            "NavBR",
+            "Equilíbrio entre direção, navegação e informações do veículo.",
+            470d, 0.82d, 0.82d,
+            true, false, true, true, false, true, false),
+        new(
+            "full",
+            "Completo",
+            "navbr-modern",
+            "NavBR",
+            "Ativa o conjunto completo de módulos disponíveis.",
+            620d, 0.92d, 0.90d,
+            true, true, true, true, true, true, true),
+        new(
+            "digital-cluster",
+            "Cluster Digital",
+            "racing-clean",
+            "Digital cockpit",
+            "Cluster escuro de alta legibilidade focado em velocidade e indicadores.",
+            540d, 0.88d, 0.94d,
+            true, false, true, false, false, true, true),
+        new(
+            "lcd-amber",
+            "LCD / Âmbar",
+            "amber-classic",
+            "Classic bus display",
+            "Visual âmbar inspirado em painéis eletrônicos de ônibus.",
+            470d, 0.86d, 0.96d,
+            true, false, true, false, false, true, false),
+        new(
+            "transparent",
+            "Transparente Integrado",
+            "urban-glass",
+            "Glass HUD",
+            "Camadas translúcidas para integrar o HUD ao cenário sem esconder a cabine.",
+            530d, 0.84d, 0.72d,
+            true, false, true, true, true, true, true)
     ];
 
     public static IReadOnlyList<HudThemeDefinition> Themes { get; } =
     [
+        new("urban-glass", "Urban Glass"),
+        new("route-night", "Route Night"),
+        new("racing-clean", "Racing Clean"),
+        new("transit-control", "Transit Control"),
         new("navbr-modern", "NavBR Modern"),
         new("bus-panel", "Painel de ônibus"),
         new("lcd", "LCD"),
@@ -77,6 +158,7 @@ public static class HudProfileCatalog
         {
             DashboardSettingsVersion = 3,
             DashboardPreset = preset.Id,
+            DashboardTheme = preset.ThemeId,
             DashboardWidth = preset.Width,
             DashboardScale = preset.Scale,
             DashboardOpacity = preset.Opacity,
