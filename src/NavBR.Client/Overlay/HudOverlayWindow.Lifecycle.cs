@@ -51,6 +51,7 @@ public partial class HudOverlayWindow
 
         RefreshHudChrome();
         RefreshHudVisibility();
+        RefreshRoleplayButtonInteraction();
         RenderEnhancedMiniMap();
     }
 
