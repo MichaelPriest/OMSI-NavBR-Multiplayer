@@ -67,6 +67,33 @@ public partial class MainWindow
         };
     }
 
+    private async Task SetRoleplayEnabledFromWebAsync(bool enabled)
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        MultiplayerSettingsStore.Save(settings with
+        {
+            ExperimentalRoleplayCharacterEnabled = enabled
+        });
+        ExperimentalFeatureFlags.SetRoleplayCharacterEnabled(enabled);
+
+        if (!enabled)
+        {
+            if (_roleplayCharacterController is { IsActive: true } controller)
+            {
+                await controller.StopAsync("roleplay-disabled");
+            }
+
+            RoleplayCharacterSelectionStore.Clear();
+            _webRoleplayStatus = "roleplay-disabled";
+        }
+        else
+        {
+            _webRoleplayStatus = "roleplay-enabled";
+        }
+
+        UpdateHudRoleplayStateForShell();
+    }
+
     private void SelectRoleplayCharacterFromWeb(string? characterId)
     {
         if (string.IsNullOrWhiteSpace(characterId))
