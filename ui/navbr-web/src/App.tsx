@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   type NavBrMultiplayerState,
   type NavBrNavigationState,
@@ -8,7 +8,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "multiplayer";
+type Screen = "home" | "navigation" | "operations" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -65,7 +65,9 @@ function Sidebar({
         <button className="nav-item" onClick={() => { setScreen("multiplayer"); sendCommand("openRoleplay"); }}>
           <b>♙</b><span>Personagem / RP</span>
         </button>
-        <button className="nav-item" disabled><b>▣</b><span>CCO</span></button>
+        <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
+          <b>▣</b><span>CCO</span>
+        </button>
         <button className="nav-item" disabled><b>⚙</b><span>Configurações</span></button>
       </nav>
       <div className="sidebar-footer">
@@ -446,6 +448,317 @@ function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
         <span><i className="legend-rp" /> Personagem</span>
       </div>
     </div>
+  );
+}
+
+
+type OperationsTab = "overview" | "drivers" | "reports" | "company";
+
+function formatDelay(seconds: number | undefined | null) {
+  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  const abs = Math.abs(Math.round(seconds));
+  const minutes = Math.floor(abs / 60);
+  const remainder = abs % 60;
+  const value = minutes > 0 ? `${minutes}m ${remainder.toString().padStart(2, "0")}s` : `${remainder}s`;
+  return seconds > 0 ? `+${value}` : seconds < 0 ? `-${value}` : "No horário";
+}
+
+function reportSeverityLabel(severity: string) {
+  if (severity === "Critical") return "Crítica";
+  if (severity === "Attention") return "Atenção";
+  return "Informativa";
+}
+
+function reportStatusLabel(status: string) {
+  if (status === "Acknowledged") return "Reconhecida";
+  if (status === "Resolved") return "Resolvida";
+  return "Aberta";
+}
+
+function Operations({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const operations = state?.operations;
+  const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
+  const [tab, setTab] = useState<OperationsTab>("overview");
+
+  const companyHydrated = useRef(false);
+  const profileHydrated = useRef(false);
+  const [companyName, setCompanyName] = useState("");
+  const [companyShortName, setCompanyShortName] = useState("");
+  const [companyBaseMap, setCompanyBaseMap] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileCompany, setProfileCompany] = useState("");
+  const [fleetNumber, setFleetNumber] = useState("");
+  const [fleetLivery, setFleetLivery] = useState("");
+
+  useEffect(() => {
+    if (!operations || companyHydrated.current) return;
+    setCompanyName(operations.company.name || "");
+    setCompanyShortName(operations.company.shortName || "");
+    setCompanyBaseMap(operations.company.baseMap || "");
+    companyHydrated.current = true;
+  }, [operations]);
+
+  useEffect(() => {
+    if (!operations || profileHydrated.current) return;
+    setProfileName(operations.profile.displayName || "");
+    setProfileCompany(operations.profile.companyName || "");
+    profileHydrated.current = true;
+  }, [operations]);
+
+  if (!operations) {
+    return <div className="card empty-state">Aguardando dados do CCO…</div>;
+  }
+
+  const local = operations.localOperation;
+  const activeReports = operations.reports.filter(report => report.status !== "Resolved");
+  const criticalReports = activeReports.filter(report => report.severity === "Critical");
+  const staleDrivers = operations.drivers.filter(driver => driver.stale);
+  const delayedDrivers = operations.drivers.filter(driver => (driver.delaySeconds ?? 0) > 120);
+
+  return (
+    <>
+      <header className="topbar operations-header">
+        <div>
+          <span className="eyebrow">CENTRO DE CONTROLE OPERACIONAL</span>
+          <h1>CCO</h1>
+          <p>Operação local, motoristas da sessão e ocorrências recebidas pelo backend NavBR.</p>
+        </div>
+        <div className="top-actions">
+          <span className={`connection-pill ${operations.connected ? "connected" : ""}`}>
+            <i /> {operations.connected ? operations.roomId || "Sessão ativa" : "Sem sessão"}
+          </span>
+          <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Multiplayer</button>
+        </div>
+      </header>
+
+      {error && <div className="command-error">{error}</div>}
+
+      <section className="cco-metrics">
+        <div className="metric"><small>MOTORISTAS REMOTOS</small><strong>{operations.drivers.length}</strong></div>
+        <div className="metric"><small>OCORRÊNCIAS ABERTAS</small><strong>{activeReports.length}</strong></div>
+        <div className="metric"><small>CRÍTICAS</small><strong>{criticalReports.length}</strong></div>
+        <div className="metric"><small>ATRASO &gt; 2 MIN</small><strong>{delayedDrivers.length}</strong></div>
+        <div className="metric"><small>SEM TELEMETRIA</small><strong>{staleDrivers.length}</strong></div>
+      </section>
+
+      <div className="mp-tabs cco-tabs" role="tablist">
+        {([
+          ["overview", "Visão geral"],
+          ["drivers", "Motoristas"],
+          ["reports", "Ocorrências"],
+          ["company", "Empresa / Frota"]
+        ] as [OperationsTab, string][]).map(([key, label]) => (
+          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
+
+      {tab === "overview" && (
+        <section className="cco-overview-grid">
+          <article className="card cco-map-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">SESSÃO OPERACIONAL</span>
+                <h3>{local?.mapName || state?.telemetry?.mapName || "Sem mapa ativo"}</h3>
+              </div>
+              <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
+            </div>
+            <SessionMap points={multiplayer.sessionPoints} />
+          </article>
+
+          <aside className="cco-side-stack">
+            <article className="card compact-card">
+              <span className="eyebrow">OPERAÇÃO LOCAL</span>
+              <h3>{local?.vehicleName || "Nenhum ônibus detectado"}</h3>
+              <p>{local?.line ? `Linha ${local.line}` : "Sem linha"} · {local?.route || "Sem rota"}</p>
+              <p>{local?.destination || "Destino não informado"}</p>
+            </article>
+
+            <article className="card compact-card cco-speed-card">
+              <span className="eyebrow">AGORA</span>
+              <div className="cco-live-values">
+                <span><strong>{local ? format(local.speedKph, 0) : "—"}</strong><small>km/h</small></span>
+                <span><strong>{formatDelay(local?.delaySeconds)}</strong><small>atraso</small></span>
+              </div>
+              <p>{local?.currentStreet || local?.nextStop || "Aguardando telemetria operacional"}</p>
+            </article>
+
+            <article className="card compact-card">
+              <span className="eyebrow">EMPRESA</span>
+              <h3>{operations.company.name || "Empresa não configurada"}</h3>
+              <p>{operations.company.fleet.length} veículo(s) cadastrados</p>
+              <button className="text-action" onClick={() => setTab("company")}>Abrir Empresa / Frota →</button>
+            </article>
+          </aside>
+        </section>
+      )}
+
+      {tab === "drivers" && (
+        <section className="card cco-panel">
+          <div className="section-heading">
+            <div><span className="eyebrow">MOTORISTAS</span><h3>Operação remota da sala</h3></div>
+            <span className="stop-count">{operations.drivers.length} conectado(s)</span>
+          </div>
+
+          {operations.drivers.length === 0 ? (
+            <div className="empty-state">Nenhum motorista remoto com telemetria real disponível.</div>
+          ) : (
+            <div className="drivers-table">
+              {operations.drivers.map(driver => (
+                <div className={`driver-row ${driver.stale ? "stale" : ""}`} key={driver.playerId}>
+                  <span className="driver-avatar">{driver.displayName.slice(0, 1).toUpperCase()}</span>
+                  <div className="driver-primary">
+                    <strong>{driver.displayName}</strong>
+                    <small>{driver.vehicleName || "Ônibus não informado"} · {driver.mapName || "Mapa —"}</small>
+                  </div>
+                  <div className="driver-service">
+                    <strong>{driver.line || "—"}</strong>
+                    <small>{driver.route || driver.destination || "Sem rota"}</small>
+                  </div>
+                  <div className="driver-live">
+                    <strong>{format(driver.speedKph, 0)} km/h</strong>
+                    <small className={(driver.delaySeconds ?? 0) > 120 ? "late" : ""}>{formatDelay(driver.delaySeconds)}</small>
+                  </div>
+                  <div className="driver-status">
+                    {driver.latestReport ? (
+                      <span className={`report-chip ${driver.latestReport.severity.toLowerCase()}`}>
+                        {reportSeverityLabel(driver.latestReport.severity)}
+                      </span>
+                    ) : driver.stale ? (
+                      <span className="report-chip stale">Sem atualização</span>
+                    ) : (
+                      <span className="report-chip ok">Normal</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "reports" && (
+        <section className="card cco-panel">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">OCORRÊNCIAS</span>
+              <h3>Assistência e incidentes da sessão</h3>
+            </div>
+            <span className={`authority-pill ${operations.canManageReports ? "enabled" : ""}`}>
+              {operations.canManageReports ? "Autoridade CCO" : "Somente leitura"}
+            </span>
+          </div>
+
+          {operations.reports.length === 0 ? (
+            <div className="empty-state">Nenhuma ocorrência recebida nesta sessão.</div>
+          ) : (
+            <div className="reports-list">
+              {operations.reports.map(report => (
+                <article className={`report-card ${report.severity.toLowerCase()} ${report.status.toLowerCase()}`} key={report.reportId}>
+                  <div className="report-card-top">
+                    <div>
+                      <span className={`report-chip ${report.severity.toLowerCase()}`}>{reportSeverityLabel(report.severity)}</span>
+                      <strong>{report.displayName}</strong>
+                    </div>
+                    <span className="report-status">{reportStatusLabel(report.status)}</span>
+                  </div>
+                  <h4>{report.kind === "Incident" ? "Incidente" : "Pedido de assistência"}</h4>
+                  <p>{report.message || "Sem mensagem adicional."}</p>
+                  <small>{new Date(report.updatedAtUtc).toLocaleString()}</small>
+
+                  {operations.canManageReports && report.status !== "Resolved" && (
+                    <div className="report-actions">
+                      {report.status === "Open" && (
+                        <button className="button ghost compact" onClick={() => sendCommand("acknowledgeOperationalReport", { reportId: report.reportId })}>
+                          Reconhecer
+                        </button>
+                      )}
+                      <button className="button primary compact" onClick={() => sendCommand("resolveOperationalReport", { reportId: report.reportId })}>
+                        Resolver
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "company" && (
+        <section className="company-layout">
+          <article className="card company-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">EMPRESA VIRTUAL</span><h3>Identidade operacional</h3></div>
+            </div>
+            <div className="company-form">
+              <label><span>Nome</span><input value={companyName} onChange={event => setCompanyName(event.target.value)} /></label>
+              <label><span>Sigla</span><input value={companyShortName} onChange={event => setCompanyShortName(event.target.value)} /></label>
+              <label className="wide"><span>Mapa base</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder="Opcional" /></label>
+            </div>
+            <button className="button primary" onClick={() => sendCommand("saveCompany", {
+              name: companyName,
+              shortName: companyShortName,
+              baseMap: companyBaseMap
+            })}>Salvar empresa</button>
+          </article>
+
+          <article className="card company-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">PERFIL</span><h3>Motorista</h3></div>
+            </div>
+            <div className="company-form">
+              <label className="wide"><span>Nome no NavBR</span><input value={profileName} onChange={event => setProfileName(event.target.value)} /></label>
+              <label className="wide"><span>Empresa do perfil</span><input value={profileCompany} onChange={event => setProfileCompany(event.target.value)} /></label>
+            </div>
+            <div className="profile-stats">
+              <span><small>VIAGENS</small><strong>{operations.profile.trips}</strong></span>
+              <span><small>DISTÂNCIA</small><strong>{operations.profile.totalDistanceKm.toFixed(1)} km</strong></span>
+              <span><small>MÉDIA</small><strong>{operations.profile.averageMovingSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>MÁXIMA</small><strong>{operations.profile.highestSpeedKph.toFixed(0)} km/h</strong></span>
+            </div>
+            <button className="button ghost" onClick={() => sendCommand("saveDriverProfile", {
+              displayName: profileName,
+              companyName: profileCompany
+            })}>Salvar perfil</button>
+          </article>
+
+          <article className="card fleet-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">FROTA</span><h3>{operations.company.fleet.length} veículo(s)</h3></div>
+            </div>
+
+            <div className="register-vehicle">
+              <div>
+                <small>ÔNIBUS ATUAL DO OMSI</small>
+                <strong>{local?.vehicleName || "Nenhum ônibus detectado"}</strong>
+              </div>
+              <input value={fleetNumber} onChange={event => setFleetNumber(event.target.value)} placeholder="Prefixo / número" />
+              <input value={fleetLivery} onChange={event => setFleetLivery(event.target.value)} placeholder="Pintura (opcional)" />
+              <button className="button primary" disabled={!local?.vehicleName} onClick={() => {
+                sendCommand("registerCurrentVehicle", { fleetNumber, livery: fleetLivery });
+                setFleetNumber("");
+                setFleetLivery("");
+              }}>Cadastrar atual</button>
+            </div>
+
+            {operations.company.fleet.length === 0 ? (
+              <div className="empty-state compact-empty">Nenhum veículo cadastrado na frota.</div>
+            ) : (
+              <div className="fleet-list">
+                {operations.company.fleet.map(vehicle => (
+                  <div className="fleet-row" key={vehicle.id}>
+                    <span className="fleet-number">{vehicle.fleetNumber}</span>
+                    <div><strong>{vehicle.vehicleModel}</strong><small>{vehicle.livery || "Pintura não informada"}</small></div>
+                    <small>{vehicle.lastUsedAt ? `Último uso: ${new Date(vehicle.lastUsedAt).toLocaleDateString()}` : "Sem uso registrado"}</small>
+                    <button className="button ghost compact danger" onClick={() => sendCommand("removeFleetVehicle", { vehicleId: vehicle.id })}>Remover</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -922,7 +1235,9 @@ export default function App() {
           ? <Home state={state} />
           : screen === "navigation"
             ? <Navigation state={state} />
-            : <Multiplayer state={state} error={commandError} />}
+            : screen === "operations"
+              ? <Operations state={state} error={commandError} />
+              : <Multiplayer state={state} error={commandError} />}
       </main>
     </div>
   );
