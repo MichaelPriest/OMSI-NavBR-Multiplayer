@@ -64,6 +64,22 @@ export interface NavBrMultiplayerState {
   relayServerUrl: string;
   physicalVehiclesEnabled: boolean;
   physicalVehiclesAvailable: boolean;
+  networkQuality: {
+    level: string;
+    roundTripMs?: number | null;
+    jitterMs?: number | null;
+    lossPercent: number;
+    samples: number;
+    updatedAtUtc: string;
+  };
+  sessionAuthority: {
+    roomOwnerPlayerId?: string | null;
+    roomOwnerDisplayName?: string | null;
+    trafficAuthorityPlayerId?: string | null;
+    trafficAuthorityDisplayName?: string | null;
+    isRoomOwner: boolean;
+    isTrafficAuthority: boolean;
+  };
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
