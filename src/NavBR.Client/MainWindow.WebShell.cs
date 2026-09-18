@@ -119,20 +119,66 @@ public partial class MainWindow
                 OpenHudEditorForShell();
                 break;
 
+            case "connectRoom":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.ConnectFromWebAsync(
+                        GetWebPayloadString(payload, "serverUrl"),
+                        GetWebPayloadString(payload, "roomId"),
+                        GetWebPayloadString(payload, "displayName"));
+                }
+                break;
+
+            case "createLocalRoom":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.StartLocalHostFromWebAsync(
+                        GetWebPayloadString(payload, "roomId"),
+                        GetWebPayloadString(payload, "displayName"));
+                }
+                break;
+
+            case "disconnectRoom":
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.DisconnectFromWebAsync();
+                }
+                break;
+
+            case "stopLocalHost":
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.StopLocalHostFromWebAsync();
+                }
+                break;
+
             case "sendChat":
-                if (_multiplayerWindow is null ||
-                    payload is not JsonElement chatPayload ||
-                    !chatPayload.TryGetProperty("text", out var textElement))
+                if (_multiplayerWindow is null)
                 {
                     return;
                 }
 
-                var text = textElement.GetString();
+                var text = GetWebPayloadString(payload, "text");
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     await _multiplayerWindow.SendChatFromWebAsync(text);
                 }
                 break;
         }
+    }
+
+    private static string? GetWebPayloadString(JsonElement? payload, string propertyName)
+    {
+        if (payload is not JsonElement element ||
+            element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty(propertyName, out var value) ||
+            value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return value.GetString();
     }
 }
