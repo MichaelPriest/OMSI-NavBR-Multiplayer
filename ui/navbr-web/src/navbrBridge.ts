@@ -753,6 +753,7 @@ export type NavBrCommand =
   | "setDiagnosticsEnabled"
   | "flushDiagnostics"
   | "purgeDiagnostics"
+  | "openFeedback"
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
