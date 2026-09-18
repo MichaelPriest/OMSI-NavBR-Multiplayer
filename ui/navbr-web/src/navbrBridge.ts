@@ -613,6 +613,11 @@ export interface NavBrRoleplayState {
   interactionRangeMeters: number;
   canInteractWithBus: boolean;
   interactions: { name: string }[];
+  lastInteraction?: {
+    name: string;
+    succeeded: boolean;
+    status?: string | null;
+  } | null;
   status?: string | null;
   selected?: {
     id: string;
