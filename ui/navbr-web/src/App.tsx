@@ -1,13 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   type NavBrMultiplayerState,
+  type NavBrNavigationState,
   type NavBrSessionPoint,
   type NavBrState,
   sendCommand,
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "multiplayer";
+type Screen = "home" | "navigation" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -55,7 +56,9 @@ function Sidebar({
         <button className={`nav-item ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
           <b>⌂</b><span>Início</span>
         </button>
-        <button className="nav-item" disabled><b>⌖</b><span>Navegação</span></button>
+        <button className={`nav-item ${screen === "navigation" ? "active" : ""}`} onClick={() => setScreen("navigation")}>
+          <b>⌖</b><span>Navegação</span>
+        </button>
         <button className={`nav-item ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
           <b>◉</b><span>Multiplayer</span>
         </button>
@@ -139,6 +142,239 @@ function Home({ state }: { state: NavBrState | null }) {
           <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : "Desconectado"}</strong>
           <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : "Nenhuma sala ativa"}</small>
         </article>
+      </section>
+    </>
+  );
+}
+
+
+const formatDistance = (meters: number | undefined | null) => {
+  if (meters == null || !Number.isFinite(meters)) return "—";
+  const safe = Math.max(0, meters);
+  return safe >= 1000 ? `${(safe / 1000).toFixed(safe >= 10000 ? 0 : 1)} km` : `${Math.round(safe / 10) * 10} m`;
+};
+
+const formatEta = (seconds: number | undefined | null) => {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+  const totalMinutes = Math.max(1, Math.round(seconds / 60));
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
+};
+
+const maneuverLabel = (maneuver: string) => {
+  switch (maneuver) {
+    case "SlightLeft": return { arrow: "↖", title: "Mantenha à esquerda" };
+    case "Left": return { arrow: "←", title: "Vire à esquerda" };
+    case "SharpLeft": return { arrow: "↙", title: "Curva forte à esquerda" };
+    case "SlightRight": return { arrow: "↗", title: "Mantenha à direita" };
+    case "Right": return { arrow: "→", title: "Vire à direita" };
+    case "SharpRight": return { arrow: "↘", title: "Curva forte à direita" };
+    case "RejoinRoute": return { arrow: "↺", title: "Retorne para a rota" };
+    default: return { arrow: "↑", title: "Siga em frente" };
+  }
+};
+
+function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
+  const [mode, setMode] = useState<"follow" | "full">("follow");
+
+  const geometry = useMemo(() => {
+    const route = navigation.routePoints;
+    const vehicle = navigation.vehicle;
+
+    if (route.length < 2) {
+      return null;
+    }
+
+    let minX: number;
+    let maxX: number;
+    let minY: number;
+    let maxY: number;
+
+    if (mode === "follow" && vehicle) {
+      const radius = 650;
+      minX = vehicle.x - radius;
+      maxX = vehicle.x + radius;
+      minY = -vehicle.y - radius;
+      maxY = -vehicle.y + radius;
+    } else {
+      const xs = route.map(point => point.x);
+      const ys = route.map(point => -point.y);
+      minX = Math.min(...xs);
+      maxX = Math.max(...xs);
+      minY = Math.min(...ys);
+      maxY = Math.max(...ys);
+      const pad = Math.max(80, Math.max(maxX - minX, maxY - minY) * 0.08);
+      minX -= pad;
+      maxX += pad;
+      minY -= pad;
+      maxY += pad;
+    }
+
+    const width = Math.max(120, maxX - minX);
+    const height = Math.max(120, maxY - minY);
+    const routePoints = route.map(point => `${point.x},${-point.y}`).join(" ");
+
+    return {
+      viewBox: `${minX} ${minY} ${width} ${height}`,
+      routePoints
+    };
+  }, [navigation.routePoints, navigation.vehicle, mode]);
+
+  return (
+    <div className="navigation-map">
+      <div className="navigation-map-toolbar">
+        <button className={mode === "follow" ? "active" : ""} onClick={() => setMode("follow")}>Seguir ônibus</button>
+        <button className={mode === "full" ? "active" : ""} onClick={() => setMode("full")}>Rota completa</button>
+      </div>
+
+      {!geometry ? (
+        <div className="map-center-message navigation-empty">
+          <strong>Rota ainda não resolvida</strong>
+          <span>O NavBR só desenha o trajeto quando encontra geometria real da rota ativa nos arquivos do mapa OMSI.</span>
+        </div>
+      ) : (
+        <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Roadmap da rota ativa">
+          <polyline className="nav-route-shadow" points={geometry.routePoints} />
+          <polyline className="nav-route-line" points={geometry.routePoints} />
+
+          {navigation.stopPoints.map((stop, index) => (
+            <g key={`${stop.name}-${index}`} transform={`translate(${stop.x} ${-stop.y})`}>
+              <circle className={`nav-stop ${stop.isNext ? "next" : ""}`} r={stop.isNext ? 15 : 9} />
+              {stop.isNext && (
+                <text className="nav-stop-label" x="20" y="-16">{stop.name}</text>
+              )}
+            </g>
+          ))}
+
+          {navigation.vehicle && (
+            <g
+              className="nav-vehicle"
+              transform={`translate(${navigation.vehicle.x} ${-navigation.vehicle.y}) rotate(${navigation.vehicle.headingDegrees})`}
+            >
+              <circle r="23" className="nav-vehicle-halo" />
+              <path d="M -12 -20 L 12 -20 L 14 13 L 0 23 L -14 13 Z" />
+              <path className="nav-vehicle-heading" d="M 0 -32 L -7 -20 L 7 -20 Z" />
+            </g>
+          )}
+        </svg>
+      )}
+
+      <div className="navigation-map-legend">
+        <span><i className="route" /> Rota OMSI</span>
+        <span><i className="stop" /> Paradas</span>
+        <span><i className="bus" /> Seu ônibus</span>
+      </div>
+    </div>
+  );
+}
+
+function Navigation({ state }: { state: NavBrState | null }) {
+  const navigation = state?.navigation;
+  const telemetry = state?.telemetry;
+  const maneuver = maneuverLabel(navigation?.maneuver || "None");
+  const routeActive = Boolean(navigation?.available);
+
+  if (!navigation) {
+    return <div className="card empty-state">Aguardando estado de navegação…</div>;
+  }
+
+  return (
+    <>
+      <header className="topbar navigation-header">
+        <div>
+          <span className="eyebrow">GPS / ROADMAP</span>
+          <h1>Navegação</h1>
+          <p>Rota, paradas e orientação calculadas a partir do mapa e da viagem reais do OMSI.</p>
+        </div>
+        <div className="top-actions">
+          <span className={`connection-pill ${routeActive ? "connected" : ""}`}>
+            <i /> {routeActive ? navigation.isOnRoute ? "Na rota" : "Fora da rota" : "Sem rota"}
+          </span>
+          <button className="button ghost" onClick={() => sendCommand("openNavigation3D")}>Mapa 3D</button>
+        </div>
+      </header>
+
+      <section className="navigation-metrics">
+        <div className="metric"><small>LINHA</small><strong>{navigation.line || telemetry?.line || "—"}</strong></div>
+        <div className="metric"><small>ROTA</small><strong>{navigation.route || telemetry?.route || "—"}</strong></div>
+        <div className="metric"><small>DESTINO</small><strong>{navigation.destinationName || "—"}</strong></div>
+        <div className="metric"><small>PROGRESSO</small><strong>{routeActive ? `${format(navigation.routeProgressPercent, 0)}%` : "—"}</strong></div>
+        <div className="metric"><small>RESTANTE</small><strong>{routeActive ? formatDistance(navigation.distanceRemainingMeters) : "—"}</strong></div>
+      </section>
+
+      <section className="navigation-layout">
+        <article className="card navigation-map-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">MAPA DA ROTA</span>
+              <h3>{navigation.mapName || telemetry?.mapName || "Mapa OMSI"}</h3>
+            </div>
+            <span className="route-source-pill">GEOMETRIA OMSI</span>
+          </div>
+          <NavigationMap navigation={navigation} />
+        </article>
+
+        <aside className="navigation-side">
+          <article className={`card maneuver-card ${navigation.maneuver === "RejoinRoute" ? "warning" : ""}`}>
+            <span className="eyebrow">{navigation.maneuver === "RejoinRoute" ? "CORREÇÃO DE ROTA" : "PRÓXIMA MANOBRA"}</span>
+            <div className="maneuver-main">
+              <strong>{maneuver.arrow}</strong>
+              <div>
+                <h3>{maneuver.title}</h3>
+                <p>
+                  {navigation.maneuver === "RejoinRoute"
+                    ? formatDistance(navigation.offRouteDistanceMeters)
+                    : navigation.distanceToManeuverMeters != null
+                      ? `em ${formatDistance(navigation.distanceToManeuverMeters)}`
+                      : navigation.currentStreetName || "Continue pela rota"}
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <article className="card next-stop-card">
+            <span className="eyebrow">PRÓXIMA PARADA</span>
+            <h3>{navigation.nextStopName || "—"}</h3>
+            <div className="next-stop-stats">
+              <span><small>DISTÂNCIA</small><strong>{formatDistance(navigation.distanceToNextStopMeters)}</strong></span>
+              <span><small>ETA</small><strong>{formatEta(navigation.etaToNextStopSeconds)}</strong></span>
+            </div>
+          </article>
+
+          <article className="card route-progress-card">
+            <div className="section-heading compact">
+              <div><span className="eyebrow">VIAGEM</span><h3>{navigation.destinationName || "Destino não informado"}</h3></div>
+            </div>
+            <div className="route-progress-track"><i style={{ width: `${Math.max(0, Math.min(100, navigation.routeProgressPercent))}%` }} /></div>
+            <div className="route-progress-meta">
+              <span>{formatDistance(navigation.distanceRemainingMeters)} restantes</span>
+              <span>{formatEta(navigation.etaToRouteEndSeconds)}</span>
+            </div>
+            {navigation.currentStreetName && <p className="current-street">Agora: {navigation.currentStreetName}</p>}
+          </article>
+        </aside>
+      </section>
+
+      <section className="card upcoming-stops-card">
+        <div className="section-heading">
+          <div><span className="eyebrow">ITINERÁRIO</span><h3>Próximas paradas</h3></div>
+          <span className="stop-count">{navigation.stopSequence.totalStops || 0} paradas na rota</span>
+        </div>
+        {navigation.stopSequence.upcomingStops.length === 0 ? (
+          <div className="empty-state compact-empty">Sequência de paradas ainda não resolvida para esta viagem.</div>
+        ) : (
+          <div className="upcoming-stops">
+            {navigation.stopSequence.upcomingStops.map((stop, index) => (
+              <div className={index === 0 ? "next" : ""} key={`${stop}-${index}`}>
+                <span>{navigation.stopSequence.nextStopIndex != null ? navigation.stopSequence.nextStopIndex + index + 1 : index + 1}</span>
+                <strong>{stop}</strong>
+                {index === 0 && <small>PRÓXIMA</small>}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -684,7 +920,9 @@ export default function App() {
       <main>
         {screen === "home"
           ? <Home state={state} />
-          : <Multiplayer state={state} error={commandError} />}
+          : screen === "navigation"
+            ? <Navigation state={state} />
+            : <Multiplayer state={state} error={commandError} />}
       </main>
     </div>
   );
