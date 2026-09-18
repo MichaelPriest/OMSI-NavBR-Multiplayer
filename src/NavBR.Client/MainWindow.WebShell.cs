@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows;
 using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Windows;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
@@ -16,8 +17,18 @@ public partial class MainWindow
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
 
-    internal void OpenPrimaryWebShell() =>
+    internal void OpenPrimaryWebShell()
+    {
+        var preferences = Alpha12PreferencesStore.Load();
+        if (!preferences.FirstRunCompleted &&
+            string.IsNullOrWhiteSpace(_webRequestedScreen))
+        {
+            _webRequestedScreen = "help";
+            _webNavigationRequestId++;
+        }
+
         OpenWebShell(primary: true);
+    }
 
     internal bool IsPrimaryInterfaceVisibleForShell() =>
         _webShellWindow?.IsVisible == true || IsVisible;
@@ -706,6 +717,10 @@ public partial class MainWindow
                 SaveLegacyPreferencesFromWeb(
                     GetWebPayloadBool(payload, "advancedModeEnabled"),
                     GetWebPayloadBool(payload, "showDrivingTips"));
+                break;
+
+            case "completeFirstRun":
+                CompleteFirstRunFromWeb();
                 break;
 
             case "refreshNetworkDiagnostics":
