@@ -21,7 +21,7 @@
       <nav class="nav">
         <button class="nav-item active"><span>⌂</span> Início</button>
         <button class="nav-item" disabled><span>⌖</span> Navegação</button>
-        <button id="nativeMultiplayerButton" class="nav-item"><span>◉</span> Multiplayer</button>
+        <button class="nav-item" disabled><span>◉</span> Multiplayer</button>
         <button class="nav-item" disabled><span>♙</span> Personagem / RP</button>
         <button class="nav-item" disabled><span>▣</span> CCO</button>
         <button class="nav-item" disabled><span>⚙</span> Configurações</button>
@@ -31,7 +31,7 @@
         <span class="dot"></span>
         <div>
           <strong>Alpha.14</strong>
-          <small>Web UI preview</small>
+          <small>Fallback seguro</small>
         </div>
       </div>
     </aside>
@@ -56,7 +56,7 @@
           <p id="operationSubtitle">Abra o OMSI para iniciar a telemetria e carregar os dados reais da viagem.</p>
           <div class="hero-actions">
             <button id="heroLaunchButton" class="button primary">Executar OMSI</button>
-            <span class="hint">A interface clássica continua aberta durante esta migração.</span>
+            <span class="hint">A interface React completa não foi encontrada nesta instalação. Atualize ou reinstale o NavBR para restaurar todos os módulos.</span>
           </div>
         </div>
         <div class="speed-panel">
@@ -103,12 +103,12 @@
 
         <article class="card roadmap">
           <span class="eyebrow">PRÓXIMAS ETAPAS</span>
-          <h3>Migração sem interromper o jogo</h3>
-          <p>Esta Home já usa o estado real do cliente C#. As próximas telas serão migradas por módulos para o mesmo host.</p>
+          <h3>Interface React indisponível</h3>
+          <p>Este fallback não abre telas WPF antigas. Os serviços nativos permanecem ativos, mas os módulos completos exigem os arquivos WebUI/dist da mesma build.</p>
           <div class="roadmap-list">
-            <span><b>1</b> Home operacional</span>
-            <span><b>2</b> Central Multiplayer</span>
-            <span><b>3</b> Navegação e mapa</span>
+            <span><b>1</b> Verifique a instalação</span>
+            <span><b>2</b> Atualize ou reinstale a mesma Alpha</span>
+            <span><b>3</b> Reabra o NavBR</span>
           </div>
         </article>
       </section>
