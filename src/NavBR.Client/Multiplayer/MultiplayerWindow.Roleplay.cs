@@ -214,11 +214,11 @@ public partial class MultiplayerWindow
         var possession =
             Application.Current is App possessionApp &&
             possessionApp.PluginBridge.SupportsCapability(
-                Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterPossession);
+                NavBR.Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterPossession);
         var transform =
             Application.Current is App transformApp &&
             transformApp.PluginBridge.SupportsCapability(
-                Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterTransform);
+                NavBR.Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterTransform);
 
         RoleplayPluginStatusText.Text = !bridgeConnected
             ? RpT(
