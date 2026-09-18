@@ -30,6 +30,34 @@ public partial class MultiplayerWindow
             .ToArray();
 
         var sessionPoints = BuildWebSessionPoints(now);
+        var inputDevices = VoiceAudioDeviceCatalog.GetInputDevices()
+            .Select(device => new
+            {
+                deviceNumber = device.DeviceNumber,
+                displayName = device.DisplayName
+            })
+            .ToArray();
+        var outputDevices = VoiceAudioDeviceCatalog.GetOutputDevices("Padrão do Windows")
+            .Select(device => new
+            {
+                deviceNumber = device.DeviceNumber,
+                displayName = device.DisplayName
+            })
+            .ToArray();
+        var voiceMixers = players
+            .Where(player => !string.Equals(
+                player.playerId,
+                _settings.PlayerId,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(player => new
+            {
+                playerId = player.playerId,
+                displayName = player.displayName,
+                muted = _voiceChat.IsRemoteMuted(player.playerId),
+                gain = _voiceChat.GetRemoteGain(player.playerId),
+                speaking = player.speaking
+            })
+            .ToArray();
 
         var chat = _chatMessages
             .TakeLast(80)
@@ -60,6 +88,11 @@ public partial class MultiplayerWindow
             voiceChannel = _settings.VoiceChannel,
             voiceProximityMeters = _settings.VoiceProximityMeters,
             voiceDeafened = _settings.VoiceDeafened,
+            voiceInputDeviceNumber = _settings.VoiceInputDeviceNumber,
+            voiceOutputDeviceNumber = _settings.VoiceOutputDeviceNumber,
+            voiceInputDevices = inputDevices,
+            voiceOutputDevices = outputDevices,
+            voiceMixers,
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
@@ -223,6 +256,45 @@ public partial class MultiplayerWindow
             ShouldReceiveProximityVoice);
         _voiceChat.SetDeafened(_settings.VoiceDeafened);
         RenderVoiceChannelButton();
+    }
+
+    internal void ConfigureVoiceDevicesFromWeb(
+        int? inputDeviceNumber,
+        int? outputDeviceNumber)
+    {
+        var input = VoiceAudioDeviceCatalog.NormalizeInputDevice(
+            inputDeviceNumber ?? _settings.VoiceInputDeviceNumber);
+        var output = VoiceAudioDeviceCatalog.NormalizeOutputDevice(
+            outputDeviceNumber ?? _settings.VoiceOutputDeviceNumber);
+
+        _settings = _settings with
+        {
+            VoiceInputDeviceNumber = input,
+            VoiceOutputDeviceNumber = output
+        };
+        MultiplayerSettingsStore.Save(_settings);
+        _voiceChat.ConfigureDevices(input, output);
+        RenderVoiceChannelButton();
+    }
+
+    internal void ConfigureRemoteVoiceFromWeb(
+        string? playerId,
+        bool muted,
+        double? gain)
+    {
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            string.Equals(playerId, _settings.PlayerId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _voiceChat.SetRemoteMuted(playerId, muted);
+        _voiceChat.SetRemoteGain(
+            playerId,
+            Math.Clamp(
+                gain is double value && double.IsFinite(value) ? value : 1d,
+                0d,
+                2d));
     }
 
     internal bool IsHostRunningForWeb => _host.IsRunning;
