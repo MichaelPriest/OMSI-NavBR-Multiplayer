@@ -2349,6 +2349,7 @@ function RoleplayPanel({
   const { pick } = useI18n();
   const roleplay = state?.roleplay;
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
+  const [interactionFilter, setInteractionFilter] = useState("");
 
   if (!roleplay) {
     return <div className="card empty-state">{pick("Aguardando estado do Personagem / RP…", "Waiting for Character / RP state…", "Esperando el estado del Personaje / RP…", "Warte auf Charakter-/RP-Status…", "En attente de l’état Personnage / RP…")}</div>;
@@ -2356,6 +2357,12 @@ function RoleplayPanel({
 
   const canStart = roleplay.enabled && roleplay.mapReady && roleplay.runtimeAvailable && Boolean(roleplay.selected) && !roleplay.active;
   const current = roleplay.current;
+  const normalizedInteractionFilter = interactionFilter.trim().toLowerCase();
+  const filteredInteractions = normalizedInteractionFilter
+    ? roleplay.interactions.filter(interaction =>
+        interaction.name.toLowerCase().includes(normalizedInteractionFilter)
+      )
+    : roleplay.interactions;
 
   return (
     <>
@@ -2479,13 +2486,44 @@ function RoleplayPanel({
               <span className="stop-count">{roleplay.interactions.length}</span>
             </div>
 
+            <div className="rp-interaction-toolbar">
+              <input
+                type="search"
+                value={interactionFilter}
+                onChange={event => setInteractionFilter(event.target.value)}
+                placeholder={pick("Filtrar pelo nome real do evento…", "Filter by the real event name…", "Filtrar por el nombre real del evento…", "Nach echtem Ereignisnamen filtern…", "Filtrer par le nom réel de l’événement…")}
+                aria-label={pick("Filtrar interações do ônibus", "Filter bus interactions", "Filtrar interacciones del autobús", "Bus-Interaktionen filtern", "Filtrer les interactions du bus")}
+              />
+              <span className={`rp-interaction-proximity ${roleplay.canInteractWithBus ? "ready" : ""}`}>
+                {roleplay.busDistanceMeters == null
+                  ? pick("Distância indisponível", "Distance unavailable", "Distancia no disponible", "Entfernung nicht verfügbar", "Distance indisponible")
+                  : `${format(roleplay.busDistanceMeters, 1)} / ${format(roleplay.interactionRangeMeters, 0)} m`}
+              </span>
+            </div>
+
+            {roleplay.lastInteraction && (
+              <div className={`rp-interaction-feedback ${roleplay.lastInteraction.succeeded ? "success" : "failed"}`}>
+                <span>
+                  <small>{pick("ÚLTIMA INTERAÇÃO", "LAST INTERACTION", "ÚLTIMA INTERACCIÓN", "LETZTE INTERAKTION", "DERNIÈRE INTERACTION")}</small>
+                  <strong>{roleplay.lastInteraction.name}</strong>
+                </span>
+                <em>
+                  {roleplay.lastInteraction.succeeded
+                    ? pick("Confirmada pelo bridge", "Confirmed by the bridge", "Confirmada por el bridge", "Vom Bridge bestätigt", "Confirmée par le bridge")
+                    : roleplayStatusLabel(roleplay.lastInteraction.status, pick)}
+                </em>
+              </div>
+            )}
+
             {!roleplay.interactionRuntimeAvailable ? (
               <div className="empty-state">{pick("O Plugin Bridge atual ainda não anuncia suporte a interações RP.", "The current Plugin Bridge does not yet advertise RP interaction support.", "El Plugin Bridge actual todavía no anuncia soporte para interacciones RP.", "Der aktuelle Plugin Bridge meldet noch keine RP-Interaktionsunterstützung.", "Le Plugin Bridge actuel n’annonce pas encore la prise en charge des interactions RP.")}</div>
             ) : roleplay.interactions.length === 0 ? (
               <div className="empty-state">{pick("Nenhum [mouseevent] real foi encontrado nos model.cfg deste veículo.", "No real [mouseevent] was found in this vehicle's model.cfg files.", "No se encontró ningún [mouseevent] real en los model.cfg de este vehículo.", "In den model.cfg-Dateien dieses Fahrzeugs wurde kein echtes [mouseevent] gefunden.", "Aucun [mouseevent] réel n’a été trouvé dans les model.cfg de ce véhicule.")}</div>
+            ) : filteredInteractions.length === 0 ? (
+              <div className="empty-state">{pick("Nenhum evento real corresponde ao filtro.", "No real event matches the filter.", "Ningún evento real coincide con el filtro.", "Kein echtes Ereignis entspricht dem Filter.", "Aucun événement réel ne correspond au filtre.")}</div>
             ) : (
               <div className="rp-character-list">
-                {roleplay.interactions.map(interaction => (
+                {filteredInteractions.map(interaction => (
                   <button
                     key={interaction.name}
                     className="rp-character-row"
@@ -2501,6 +2539,20 @@ function RoleplayPanel({
                   </button>
                 ))}
               </div>
+            )}
+
+            {!roleplay.canInteractWithBus && roleplay.interactionRuntimeAvailable && roleplay.interactions.length > 0 && (
+              <p className="rp-interaction-blocked">
+                {roleplay.busDistanceMeters == null
+                  ? pick("A posição real do ônibus ainda não pôde ser validada.", "The real bus position could not be validated yet.", "La posición real del autobús aún no se pudo validar.", "Die echte Busposition konnte noch nicht geprüft werden.", "La position réelle du bus n’a pas encore pu être validée.")
+                  : pick(
+                      `Aproxime-se até ${roleplay.interactionRangeMeters.toFixed(0)} m do ônibus original para liberar os eventos.`,
+                      `Move within ${roleplay.interactionRangeMeters.toFixed(0)} m of the original bus to enable events.`,
+                      `Acércate a menos de ${roleplay.interactionRangeMeters.toFixed(0)} m del autobús original para habilitar los eventos.`,
+                      `Gehe bis auf ${roleplay.interactionRangeMeters.toFixed(0)} m an den ursprünglichen Bus heran, um Ereignisse freizugeben.`,
+                      `Approchez-vous à moins de ${roleplay.interactionRangeMeters.toFixed(0)} m du bus d’origine pour activer les événements.`
+                    )}
+              </p>
             )}
 
             <p className="hardware-note">
