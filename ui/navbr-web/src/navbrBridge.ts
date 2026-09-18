@@ -437,6 +437,7 @@ export type NavBrCommand =
   | "refreshState"
   | "openMultiplayerCentral"
   | "openRoleplay"
+  | "setRoleplayEnabled"
   | "selectRoleplayCharacter"
   | "startRoleplay"
   | "stopRoleplay"
