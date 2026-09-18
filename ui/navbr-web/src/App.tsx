@@ -2035,6 +2035,20 @@ export default function App() {
     next => {
       setState(next);
       setCommandError(null);
+
+      const requested = next.navigationRequest?.screen;
+      if (requested && [
+        "home",
+        "navigation",
+        "roleplay",
+        "operations",
+        "companyNetwork",
+        "hardware",
+        "settings",
+        "multiplayer"
+      ].includes(requested)) {
+        setScreen(requested as Screen);
+      }
     },
     setCommandError
   ), []);
