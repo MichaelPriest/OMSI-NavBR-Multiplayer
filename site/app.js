@@ -1,41 +1,8 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
 const currentTag = 'v0.3.0-alpha.14';
 
-const fallbackRelease = {
-  tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14 — public alpha',
-  prerelease: true,
-  published_at: null,
-  html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.14 pública usa React/WebView2 como shell principal e integra GPS real, Central Multiplayer, CCO, Hardware Cockpit, rede verificável, Plugin/RP v3 e simulador.',
-  download_count: 0,
-  assets: [
-    {
-      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.exe`,
-      size: 0,
-      download_count: 0
-    },
-    {
-      name: `OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Multiplayer-${currentTag}-win-x86.zip`,
-      size: 0,
-      download_count: 0
-    },
-    {
-      name: `OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Plugin-${currentTag}-win-x86.zip`,
-      size: 0,
-      download_count: 0
-    },
-    {
-      name: `OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
-      browser_download_url: `https://github.com/${repo}/releases/download/${currentTag}/OMSI-NavBR-Server-${currentTag}-win-x64.zip`,
-      size: 0,
-      download_count: 0
-    }
-  ]
-};
+const validationSummary = 'Alpha.14 está em validação. O download será habilitado somente quando a release real for publicada no GitHub.';
+
 
 function escapeHtml(value = '') {
   return String(value)
@@ -206,10 +173,6 @@ async function loadReleases() {
     // O fallback abaixo mantém o portal utilizável durante deploys do catálogo.
   }
 
-  if (!releases.some(release => release?.tag_name === currentTag)) {
-    releases.push(fallbackRelease);
-  }
-
   releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
   if (!totalDownloads) {
     totalDownloads = releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
@@ -221,7 +184,7 @@ async function loadReleases() {
   const currentAlphaKey = alphaKey(currentTag);
   const currentAlphaDownloads = Number(alphaDownloads?.[currentAlphaKey]) ||
     calculateAlphaDownloads(releases, currentAlphaKey);
-  const current = releases.find(release => release?.tag_name === currentTag) || fallbackRelease;
+  const current = releases.find(release => release?.tag_name === currentTag) || null;
   const versionElement = document.getElementById('latest-version');
   const summaryElement = document.getElementById('latest-summary');
   const downloadsElement = document.getElementById('total-downloads');
@@ -230,20 +193,33 @@ async function loadReleases() {
   const downloadButton = document.getElementById('latest-download');
   const releaseList = document.getElementById('release-list');
 
-  if (versionElement) versionElement.textContent = current.tag_name || current.name;
-  if (summaryElement) summaryElement.textContent = summarizeBody(current.body).slice(0, 220);
+  if (versionElement) versionElement.textContent = current?.tag_name || currentTag;
+  if (summaryElement) summaryElement.textContent = current
+    ? summarizeBody(current.body).slice(0, 220)
+    : validationSummary;
   if (downloadsElement) downloadsElement.textContent = formatNumber(totalDownloads);
   if (alphaDownloadsElement) alphaDownloadsElement.textContent = formatNumber(currentAlphaDownloads);
   if (alphaDownloadsLabelElement) alphaDownloadsLabelElement.textContent = `downloads da ${alphaLabel(currentTag)}`;
   renderAlphaDownloadBreakdown(alphaDownloads);
 
-  const standalone = (current.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
-  if (downloadButton) downloadButton.href = standalone?.browser_download_url || current.html_url;
+  const standalone = (current?.assets || []).find(asset => /win-x86\.exe$/i.test(asset.name || ''));
+  if (downloadButton) {
+    if (current && standalone) {
+      downloadButton.href = standalone.browser_download_url;
+      downloadButton.textContent = 'Baixar Alpha.14 — EXE standalone';
+      downloadButton.removeAttribute('aria-disabled');
+      downloadButton.classList.remove('disabled');
+    } else {
+      downloadButton.href = `https://github.com/${repo}/releases`;
+      downloadButton.textContent = 'Alpha.14 em validação — ver releases';
+      downloadButton.setAttribute('aria-disabled', 'true');
+      downloadButton.classList.add('disabled');
+    }
+  }
   if (releaseList) {
-    releaseList.innerHTML = [current, ...releases.filter(release => release !== current)]
-      .slice(0, 8)
-      .map(renderRelease)
-      .join('');
+    releaseList.innerHTML = releases.length
+      ? releases.slice(0, 8).map(renderRelease).join('')
+      : '<article class="release-card"><p>Nenhuma release publicada foi encontrada.</p></article>';
   }
 }
 
