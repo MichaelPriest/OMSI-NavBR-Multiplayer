@@ -72,6 +72,7 @@ public partial class MainWindow
                     headingDegrees = telemetry.HeadingDegrees,
                     speedKph = telemetry.SpeedKph
                 },
+            navigation = BuildWebNavigationState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -153,6 +154,10 @@ public partial class MainWindow
 
             case "openRoleplay":
                 OpenMultiplayerRoleplayTabForShell();
+                break;
+
+            case "openNavigation3D":
+                OpenNavigation3D();
                 break;
 
             case "toggleHudLayout":
