@@ -194,6 +194,9 @@ public partial class App : Application
         {
             Alpha12HudThemeService.Attach(hudOverlay);
         }
+
+        // Run last: Figma/installers may create or move ComboBox controls during Loaded.
+        NavBRControlThemeInstaller.Attach(window);
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
