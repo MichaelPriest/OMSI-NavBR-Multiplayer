@@ -1,87 +1,66 @@
 # Simulador Multiplayer NavBR
 
-Ferramenta **somente de desenvolvimento/teste** para validar a Central Multiplayer, SignalR, presença, telemetria, RP e movimento sem abrir várias instâncias do OMSI.
+Ferramenta **somente de desenvolvimento/teste** para validar sala, presença, telemetria, RP e movimento sem abrir várias instâncias do OMSI.
 
-Os dados gerados pelo simulador nunca são usados pelo cliente de produção. O executável fica em `src/NavBR.MultiplayerSimulator`.
+Os dados simulados nunca substituem a telemetria da interface de produção.
 
-## Teste rápido da Central
+## Comportamento padrão na Alpha.14
 
-Com uma sala NavBR rodando localmente em TCP 27730:
+Quando executado contra uma sala real, o simulador:
 
-```powershell
-dotnet run --project src/NavBR.MultiplayerSimulator -- `
-  --server http://127.0.0.1:27730 `
-  --room navbr-sim `
-  --players 8 `
-  --mode mixed `
-  --radius 80
-```
+1. entra na mesma sala;
+2. detecta um jogador real/autoridade com mapa carregado;
+3. herda MapName e MapCompatibilityId;
+4. aguarda telemetria real do host;
+5. usa a posição real como centro;
+6. cria os bots próximos ao host, raio padrão de **18 m**;
+7. herda **linha, rota, destino e próxima parada** da operação ativa;
+8. só então começa a publicar movimento.
 
-Modos:
+Se não houver mapa/posição/rota real e nenhum fallback explícito for informado, o simulador aguarda em vez de criar bots em 0,0 ou em outro mapa.
 
-- `vehicles`: todos os bots enviam telemetria de ônibus;
-- `rp`: todos enviam estado Personagem/RP;
-- `mixed`: mistura ônibus e RP.
+## Uso rápido
 
-Os bots se movem continuamente. No modo RP, os estados alternam entre **Parado**, **A pé** e **Correndo**.
+Com o NavBR já hospedando uma sala:
 
-## Verificação automática do movimento
+    .\run-multiplayer-simulator.ps1 -Room SUA-SALA -Players 6 -Mode mixed
 
-```powershell
-dotnet run --project src/NavBR.MultiplayerSimulator -- `
-  --server http://127.0.0.1:27730 `
-  --room navbr-sim `
-  --players 6 `
-  --mode mixed `
-  --duration 10 `
-  --verify
-```
+Para sala privada:
 
-O modo `--verify` cria um probe SignalR na mesma sala e falha se os jogadores não produzirem múltiplos frames com deslocamento mensurável.
+    .\run-multiplayer-simulator.ps1 -Room SUA-SALA -RoomPassword SUA-SENHA -Players 6
 
-O CI da Alpha.14 executa esse teste automaticamente.
+Não é necessário informar --map quando existe um host real na sala. O mapa da sala tem prioridade.
 
-## Teste no mesmo mapa real do OMSI
+## Servidor local automático
 
-Para testar compatibilidade com a viagem carregada:
+Se http://127.0.0.1:27730 estiver vazio e o pacote incluir a pasta server, o simulador inicia o NavBR.Server automaticamente.
 
-```powershell
-dotnet run --project src/NavBR.MultiplayerSimulator -- `
-  --server http://127.0.0.1:27730 `
-  --room SUA-SALA `
-  --players 6 `
-  --mode mixed `
-  --map "NOME REAL DO MAPA" `
-  --x 120 --y 80 --z 0 `
-  --radius 60
-```
+Se o app já estiver hospedando a porta 27730, o simulador reutiliza o host existente.
 
-Use o nome real reportado pela telemetria do NavBR.
+## Overrides
 
-## HUD / minimapa real
+- --map / --map-id: fallback para teste isolado; uma sala real tem prioridade;
+- --x --y --z: centro explícito;
+- --grid-x --grid-y --tile-x --tile-y: seed de navegação explícito;
+- --radius: raio de movimento; padrão 18 m;
+- --vehicle-path / --vehicle-id: identidade real de veículo para teste físico;
+- --line / --route / --destination / --next-stop: fallback operacional para teste isolado;
+- --password: senha de sala privada;
+- --no-auto-server: desabilita auto-start do servidor local.
 
-O HUD usa a posição de navegação do OMSI. Para fazer os bots aparecerem no minimapa, informe também a posição base real da viagem:
+## Verificação automática
 
-```powershell
-  --grid-x 0 --grid-y 0 --tile-x 150 --tile-y 150
-```
+O modo --verify cria um probe na mesma sala e falha se:
 
-O simulador aplica o deslocamento dos bots sobre `TileX/TileY`. Use valores reais da sessão; não invente esses valores para testes de compatibilidade.
-
-## Ônibus físico
-
-É possível informar identidade real de um ônibus instalado:
-
-```powershell
-  --vehicle-path "Vehicles\\Modelo\\onibus.bus" `
-  --vehicle-id "COMPATIBILITY-ID-REAL"
-```
-
-Isso serve para testes controlados do pipeline físico. O simulador não inventa um veículo de produção nem substitui a necessidade de validar o spawn no OMSI.
+- um bot não produzir múltiplos frames;
+- o deslocamento for menor que 0,25 m;
+- um bot publicar em mapa diferente do mapa resolvido;
+- no modo mixed não houver frames de veículo e RP.
 
 ## Limites
 
-- máximo padrão: 32 bots por execução;
-- intervalo mínimo: 100 ms;
-- o simulador valida rede/UI, não substitui o teste do interop dentro do processo do OMSI;
-- câmera, terreno, animações e interação física do Personagem/RP ainda exigem teste no simulador real.
+- até 32 bots por execução;
+- intervalo mínimo de 100 ms;
+- o simulador valida rede/UI e não substitui teste físico dentro do OMSI;
+- o simulador não inventa assets de ônibus proprietários;
+- câmera, terreno e animações RP continuam exigindo teste real.
