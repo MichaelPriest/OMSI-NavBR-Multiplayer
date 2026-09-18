@@ -169,14 +169,9 @@ internal static class Alpha11ShellUiInstaller
         body.Children.Add(NewSeparator());
         body.Children.Add(BuildSectionLabel("SUPORTE"));
 
-        var manualButton = NewNavigationButton(GetManualButtonText(), () =>
-        {
-            var manual = new NavBRManualWindow
-            {
-                Owner = window
-            };
-            manual.ShowDialog();
-        });
+        var manualButton = NewNavigationButton(
+            GetManualButtonText(),
+            () => window.NavigatePrimaryWebShell("help"));
         body.Children.Add(manualButton);
         window.LanguageComboBox.SelectionChanged += (_, _) => manualButton.Content = GetManualButtonText();
 
