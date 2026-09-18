@@ -21,6 +21,7 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   displayName: "—",
   hostRunning: false,
   hostPort: null,
+  roomIsPrivate: false,
   inviteAddresses: [],
   latencyMs: null,
   voiceEnabled: false,
@@ -153,6 +154,9 @@ function Multiplayer({
   const [serverUrl, setServerUrl] = useState("");
   const [roomId, setRoomId] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [privateRoom, setPrivateRoom] = useState(false);
+  const [roomPassword, setRoomPassword] = useState("");
+  const [roomSearch, setRoomSearch] = useState("");
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || "");
@@ -170,6 +174,18 @@ function Multiplayer({
     () => multiplayer.players.slice().sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [multiplayer.players]
   );
+
+  const publicRooms = useMemo(() => {
+    const query = roomSearch.trim().toLocaleLowerCase();
+    const rooms = state?.roomDirectory.rooms ?? [];
+    if (!query) return rooms;
+
+    return rooms.filter(room =>
+      [room.roomId, room.mapName, room.navbrVersion, room.vehiclePath, room.hofName]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase().includes(query))
+    );
+  }, [state?.roomDirectory.rooms, roomSearch]);
 
   const submitChat = (event: FormEvent) => {
     event.preventDefault();
@@ -283,11 +299,33 @@ function Multiplayer({
             </label>
           </div>
 
+          <div className="room-privacy-row">
+            <label className="privacy-toggle">
+              <input
+                type="checkbox"
+                checked={privateRoom}
+                disabled={multiplayer.connected}
+                onChange={event => setPrivateRoom(event.target.checked)}
+              />
+              <span>Criar sala privada</span>
+            </label>
+            <label className="password-field">
+              <span>Senha da sala</span>
+              <input
+                type="password"
+                value={roomPassword}
+                disabled={multiplayer.connected}
+                onChange={event => setRoomPassword(event.target.value)}
+                placeholder={privateRoom ? "Mínimo 4 caracteres" : "Use ao entrar em sala privada"}
+              />
+            </label>
+          </div>
+
           <div className="room-actions">
             {!multiplayer.connected ? (
               <>
-                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName })}>Entrar na sala</button>
-                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName })}>Criar sala local</button>
+                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>Entrar na sala</button>
+                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword })}>Criar sala local</button>
               </>
             ) : (
               <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
@@ -309,8 +347,72 @@ function Multiplayer({
               {multiplayer.inviteAddresses.map(address => <code key={address}>{address}</code>)}
             </div>
           )}
+          <div className="public-room-browser">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">SALAS PÚBLICAS</span>
+                <h3>Encontrar operação ativa</h3>
+              </div>
+              <button className="button ghost" onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}>Atualizar salas</button>
+            </div>
+
+            <input
+              className="room-search"
+              value={roomSearch}
+              onChange={event => setRoomSearch(event.target.value)}
+              placeholder="Buscar por sala, mapa, versão, ônibus ou HOF"
+            />
+
+            {state?.roomDirectory.error && (
+              <div className="directory-error">{state.roomDirectory.error}</div>
+            )}
+
+            <div className="public-room-list">
+              {publicRooms.length === 0 ? (
+                <div className="empty-state">
+                  Nenhuma sala pública carregada. Use “Atualizar salas” para consultar o servidor.
+                </div>
+              ) : publicRooms.map(room => (
+                <div className="public-room-row" key={room.roomId}>
+                  <button
+                    className={`favorite-button ${room.favorite ? "active" : ""}`}
+                    onClick={() => sendCommand("toggleRoomFavorite", { roomId: room.roomId })}
+                    title={room.favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                  >
+                    {room.favorite ? "★" : "☆"}
+                  </button>
+                  <button
+                    className="public-room-main"
+                    onClick={() => {
+                      setRoomId(room.roomId);
+                      setPrivateRoom(false);
+                      setRoomPassword("");
+                    }}
+                  >
+                    <strong>{room.roomId}</strong>
+                    <span>{room.mapName || "Mapa não informado"} · {room.playerCount} jogador(es)</span>
+                    <small>
+                      NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"} · Plugin {room.pluginProtocolVersion || "—"}
+                    </small>
+                  </button>
+                  <button
+                    className="button compact"
+                    onClick={() => {
+                      setRoomId(room.roomId);
+                      setPrivateRoom(false);
+                      setRoomPassword("");
+                      sendCommand("connectRoom", { serverUrl, roomId: room.roomId, displayName, roomPassword: "" });
+                    }}
+                  >
+                    Entrar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <p className="migration-note">
-            Sala pública/local já pode ser conectada pela interface React. Senha privada, descoberta pública, firewall e UPnP continuam disponíveis nos controles avançados enquanto esses formulários são migrados.
+            Salas públicas e privadas já usam a ponte React. Firewall, NAT/UPnP e diagnósticos avançados continuam no controlador nativo enquanto essas telas são migradas.
           </p>
         </section>
       )}
