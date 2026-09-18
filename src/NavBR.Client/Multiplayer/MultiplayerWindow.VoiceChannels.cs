@@ -58,6 +58,11 @@ public partial class MultiplayerWindow
 
     private void VoiceChannelButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!IsVisible || !ShowInTaskbar)
+        {
+            return;
+        }
+
         var remotePlayers = _players.Values
             .Where(player => !string.Equals(player.PlayerId, _settings.PlayerId, StringComparison.OrdinalIgnoreCase))
             .Select(player => (player.PlayerId, player.DisplayName))

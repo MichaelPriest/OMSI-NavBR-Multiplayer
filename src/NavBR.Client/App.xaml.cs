@@ -44,7 +44,20 @@ public partial class App : Application
             typeof(HardwareCockpitView),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(HardwareCockpitView_Loaded));
+
         base.OnStartup(e);
+
+        // The historical WPF MainWindow is now only an in-memory native-service
+        // host. Do not Show() it: React/WebView2 is the only desktop window
+        // exposed to the user. Explicit shutdown keeps the tray/runtime alive
+        // when the React shell is closed.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var nativeHost = new MainWindow();
+        MainWindow = nativeHost;
+        nativeHost.InitializeRoleplayForShell();
+        TrayIcon.Attach(nativeHost);
+        nativeHost.StartNativeRuntimeForReact();
+        nativeHost.OpenPrimaryWebShell();
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -135,7 +148,10 @@ public partial class App : Application
         }
 
         WindowsThemeService.ApplyDarkTitleBar(window);
-        Alpha12FigmaOperationalWindowStyler.Apply(window);
+        if (window is not NavBR.Client.MainWindow)
+        {
+            Alpha12FigmaOperationalWindowStyler.Apply(window);
+        }
 
         if (window is DriverProfileWindow driverProfileWindow)
         {
@@ -156,42 +172,16 @@ public partial class App : Application
                 dispatcherOwner.GetActiveMapForOperations);
         }
 
-        if (window is MainWindow mainWindow)
-        {
-            Alpha12FigmaShellInstaller.Install(mainWindow);
-            Alpha11VisualTuning.Apply(mainWindow);
-            OmsiProfilesUiInstaller.Install(mainWindow);
-            Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
-            Alpha12GhostToolsInstaller.Install(mainWindow);
-            Alpha12ExperienceInstaller.Install(mainWindow);
-            Alpha12HudShortcutInstaller.Install(mainWindow);
-            Alpha12MultiplayerStatusInstaller.Install(mainWindow);
-
-            // Figma OPERAÇÃO order: CCO → Empresa → Rede → Equipe → Perfil.
-            DispatcherInstaller.Install(mainWindow);
-            VirtualCompanyInstaller.Install(mainWindow);
-            CompanyNetworkInstaller.Install(mainWindow);
-            CompanyMembersInstaller.Install(mainWindow);
-            DriverProfileInstaller.Install(mainWindow);
-
-            SessionHealthInstaller.Install(mainWindow);
-            Alpha12NavigationPolishInstaller.Install(mainWindow);
-            Alpha12FigmaNavigationModeInstaller.Install(mainWindow);
-            Alpha12FigmaLiveDataInstaller.Install(mainWindow);
-            Alpha12NavigationEtaInstaller.Install(mainWindow);
-            Alpha12FigmaMultiplayerFidelityInstaller.Install(mainWindow);
-            Alpha12FigmaOrderedStopsInstaller.Install(mainWindow);
-            Alpha12FigmaHomeCompanyInstaller.Install(mainWindow);
-            Alpha12FigmaHomeMultiplayerInstaller.Install(mainWindow);
-            Alpha12VisualAccentInstaller.Install(mainWindow);
-            Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
-            Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow);
-            TrayIcon.Attach(mainWindow);
-        }
-
         if (window is HudOverlayWindow hudOverlay)
         {
             Alpha12HudThemeService.Attach(hudOverlay);
+        }
+
+        // Auxiliary native windows still use the shared dark control theme.
+        // The hidden MainWindow host has no user-facing controls anymore.
+        if (window is not NavBR.Client.MainWindow)
+        {
+            NavBRControlThemeInstaller.Attach(window);
         }
     }
 

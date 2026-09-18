@@ -92,6 +92,15 @@ internal static class Alpha12FigmaSystemSurfaceInstaller
             StyleButton(button);
         }
 
+        foreach (var expander in Enumerate<Expander>(hardware))
+        {
+            expander.Foreground = Muted();
+            expander.Background = Brushes.Transparent;
+            expander.BorderBrush = BorderColor();
+            expander.BorderThickness = new Thickness(0d);
+            expander.Padding = new Thickness(0d);
+        }
+
         foreach (var block in blocks)
         {
             NormalizeSemanticColor(block);

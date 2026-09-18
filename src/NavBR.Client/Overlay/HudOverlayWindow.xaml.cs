@@ -130,6 +130,7 @@ public partial class HudOverlayWindow : Window
             MiniMapCanvas.Children.Remove(marker);
         }
 
+        RemoveRemoteNameplate(playerId);
         RenderVoiceState();
     }
 
@@ -144,6 +145,7 @@ public partial class HudOverlayWindow : Window
         }
 
         _remoteMarkers.Clear();
+        ClearRemoteNameplates();
         RenderVoiceState();
     }
 
@@ -427,9 +429,15 @@ public partial class HudOverlayWindow : Window
         }
 
         var marker = GetOrCreateRemoteMarker(frame.Player.PlayerId, frame.Player.DisplayName);
+        UpdateRemoteMarkerVisual(
+            marker,
+            frame.Player.DisplayName,
+            telemetry.HeadingDegrees,
+            MiniMapHeadingRotation.Angle,
+            MiniMapContentScale.ScaleX);
         Canvas.SetLeft(marker, x - marker.Width / 2d);
         Canvas.SetTop(marker, y - marker.Height / 2d);
-        marker.ToolTip = frame.Player.DisplayName;
+        marker.ToolTip = $"{frame.Player.DisplayName} • {telemetry.SpeedKph:F1} km/h";
         marker.Visibility = Visibility.Visible;
     }
 
@@ -437,26 +445,160 @@ public partial class HudOverlayWindow : Window
     {
         if (_remoteMarkers.TryGetValue(playerId, out var existing))
         {
+            UpdateRemoteMarkerName(existing, displayName);
             return existing;
         }
 
+        // Keep the remote player marker visually identical to the local/host
+        // marker: same 38 px bus pointer, same rings and white outline. Only
+        // the bus accent changes from NavBR amber to interaction blue.
         var marker = new Grid
         {
-            Width = 16,
-            Height = 16,
-            ToolTip = displayName
+            Width = 118d,
+            Height = 38d,
+            ToolTip = displayName,
+            ClipToBounds = false,
+            RenderTransformOrigin = new Point(0.5d, 0.5d)
         };
-        marker.Children.Add(new Ellipse
+
+        var icon = new Grid
         {
-            Fill = Brushes.DeepSkyBlue,
-            Stroke = Brushes.White,
-            StrokeThickness = 2
+            Width = 38d,
+            Height = 38d,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransformOrigin = new Point(0.5d, 0.5d),
+            Tag = "remote-player-icon"
+        };
+        icon.Children.Add(new Ellipse
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(209, 0, 0, 0)),
+            Stroke = new SolidColorBrush(Color.FromArgb(244, 255, 255, 255)),
+            StrokeThickness = 2d
         });
+        icon.Children.Add(new Ellipse
+        {
+            Width = 28d,
+            Height = 28d,
+            Fill = new SolidColorBrush(Color.FromArgb(197, 16, 24, 32))
+        });
+        icon.Children.Add(new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(19d, 4d),
+                new(27d, 29d),
+                new(19d, 23d),
+                new(11d, 29d)
+            },
+            Fill = new SolidColorBrush(Color.FromRgb(113, 198, 255)),
+            Stroke = Brushes.White,
+            StrokeThickness = 1.4d
+        });
+        marker.Children.Add(icon);
+
+        var nameText = new TextBlock
+        {
+            Text = NormalizeRemoteDisplayName(displayName),
+            Foreground = Brushes.White,
+            FontSize = 10d,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = 108d,
+            Tag = "remote-player-name"
+        };
+        var namePlate = new Border
+        {
+            Padding = new Thickness(6d, 2d, 6d, 2d),
+            Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 23)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(180, 113, 198, 255)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(5d),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0d, -24d, 0d, 0d),
+            Child = nameText,
+            Tag = "remote-player-nameplate"
+        };
+        marker.Children.Add(namePlate);
 
         Panel.SetZIndex(marker, 20);
         MiniMapCanvas.Children.Add(marker);
         _remoteMarkers[playerId] = marker;
         return marker;
+    }
+
+    private static void UpdateRemoteMarkerVisual(
+        FrameworkElement marker,
+        string displayName,
+        double remoteHeadingDegrees,
+        double mapRotationDegrees,
+        double mapScale)
+    {
+        UpdateRemoteMarkerName(marker, displayName);
+
+        if (marker is not Grid markerGrid)
+        {
+            return;
+        }
+
+        var safeScale = Math.Max(0.01d, Math.Abs(mapScale));
+        markerGrid.RenderTransform = new TransformGroup
+        {
+            Children = new TransformCollection
+            {
+                new ScaleTransform(1d / safeScale, 1d / safeScale),
+                // The minimap canvas rotates under the local bus. Counter-rotate
+                // the marker shell so the username always stays upright.
+                new RotateTransform(-mapRotationDegrees)
+            }
+        };
+
+        var icon = markerGrid.Children
+            .OfType<Grid>()
+            .FirstOrDefault(child => string.Equals(child.Tag as string, "remote-player-icon", StringComparison.Ordinal));
+        if (icon is null)
+        {
+            return;
+        }
+
+        icon.RenderTransform = new RotateTransform(
+            NormalizeMarkerAngle(remoteHeadingDegrees + mapRotationDegrees),
+            19d,
+            19d);
+    }
+
+    private static void UpdateRemoteMarkerName(FrameworkElement marker, string displayName)
+    {
+        if (marker is not Grid markerGrid)
+        {
+            return;
+        }
+
+        var text = markerGrid.Children
+            .OfType<Border>()
+            .Select(border => border.Child)
+            .OfType<TextBlock>()
+            .FirstOrDefault(block => string.Equals(block.Tag as string, "remote-player-name", StringComparison.Ordinal));
+        if (text is not null)
+        {
+            text.Text = NormalizeRemoteDisplayName(displayName);
+        }
+    }
+
+    private static string NormalizeRemoteDisplayName(string? displayName)
+    {
+        var value = string.IsNullOrWhiteSpace(displayName)
+            ? "Driver"
+            : displayName.Trim();
+        return value.Length <= 28 ? value : value[..28];
+    }
+
+    private static double NormalizeMarkerAngle(double angle)
+    {
+        angle %= 360d;
+        return angle < 0d ? angle + 360d : angle;
     }
 
     private void HideRemoteMarker(string playerId)

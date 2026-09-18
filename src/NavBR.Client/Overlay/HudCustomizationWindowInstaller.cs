@@ -71,8 +71,10 @@ public partial class HudOverlayWindow
         button.Click += (_, args) =>
         {
             args.Handled = true;
-            var editor = new HudCustomizationWindow(Application.Current.MainWindow);
-            editor.ShowDialog();
+            if (Application.Current.MainWindow is MainWindow owner)
+            {
+                owner.NavigatePrimaryWebShell("settings-hud");
+            }
         };
         DockPanel.SetDock(button, Dock.Right);
         dock.Children.Add(button);

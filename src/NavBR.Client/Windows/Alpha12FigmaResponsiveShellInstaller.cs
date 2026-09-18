@@ -58,7 +58,6 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         var staticSidebarText = Enumerate<TextBlock>(sidebar).ToArray();
 
         ApplyFigmaSidebarMeasurements(root, sidebar, dock, body);
-        ApplyFigmaHomeMeasurements(window);
 
         void ApplyState()
         {
@@ -82,6 +81,8 @@ internal static class Alpha12FigmaResponsiveShellInstaller
             {
                 footer.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             }
+
+            ApplyFigmaHomeMeasurements(window);
         }
 
         SizeChangedEventHandler sizeChanged = (_, _) => ApplyState();
@@ -117,7 +118,7 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         foreach (var text in Enumerate<TextBlock>(body))
         {
             if (text.FontSize <= 10d &&
-                (text.Text is "DIRIGIR" or "OPERAÇÃO" or "SISTEMA" or "AJUDA"))
+                (text.Text is "DIRIGIR" or "OPERAÇÃO" or "SISTEMA" or "FERRAMENTAS" or "AJUDA"))
             {
                 text.Margin = new Thickness(4d, 0d, 0d, 10d);
             }
@@ -134,19 +135,30 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (omsi is not null && operationCurrent is not null && multiplayer is not null && company is not null &&
             FindParent<Grid>(omsi) is { } topGrid && topGrid.ColumnDefinitions.Count >= 7)
         {
+            var compactWidth = window.ActualWidth > 0d && window.ActualWidth < 1320d;
+            var compactHeight = window.ActualHeight > 0d && window.ActualHeight < 820d;
+
             topGrid.Margin = new Thickness(0d);
-            topGrid.ColumnDefinitions[0].Width = new GridLength(374d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[1].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[2].Width = new GridLength(430d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[3].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[4].Width = new GridLength(330d, GridUnitType.Star);
-            topGrid.ColumnDefinitions[5].Width = new GridLength(16d);
-            topGrid.ColumnDefinitions[6].Width = new GridLength(406d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[0].Width = compactWidth
+                ? new GridLength(1d, GridUnitType.Star)
+                : new GridLength(374d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[2].Width = compactWidth
+                ? new GridLength(1.08d, GridUnitType.Star)
+                : new GridLength(430d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[3].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[4].Width = compactWidth
+                ? new GridLength(0.92d, GridUnitType.Star)
+                : new GridLength(330d, GridUnitType.Star);
+            topGrid.ColumnDefinitions[5].Width = new GridLength(compactWidth ? 12d : 16d);
+            topGrid.ColumnDefinitions[6].Width = compactWidth
+                ? new GridLength(1d, GridUnitType.Star)
+                : new GridLength(406d, GridUnitType.Star);
 
             foreach (var card in new[] { omsi, operationCurrent, multiplayer, company })
             {
                 card.Margin = new Thickness(0d);
-                card.Height = 174d;
+                card.Height = compactHeight ? 154d : 174d;
             }
         }
 
@@ -158,27 +170,32 @@ internal static class Alpha12FigmaResponsiveShellInstaller
             FindParent<Grid>(operation) is { } operationRow && operationRow.ColumnDefinitions.Count >= 3 &&
             FindParent<Grid>(speed) is { } metrics && metrics.ColumnDefinitions.Count >= 3 && metrics.RowDefinitions.Count >= 3)
         {
-            operationRow.Height = 300d;
-            operationRow.ColumnDefinitions[0].Width = new GridLength(1010d, GridUnitType.Star);
-            operationRow.ColumnDefinitions[1].Width = new GridLength(16d);
-            operationRow.ColumnDefinitions[2].Width = new GridLength(562d, GridUnitType.Star);
-            operation.Height = 300d;
+            var compactWidth = window.ActualWidth > 0d && window.ActualWidth < 1320d;
+            var compactHeight = window.ActualHeight > 0d && window.ActualHeight < 820d;
+            var operationHeight = compactHeight ? 270d : 300d;
+            var metricHeight = compactHeight ? 127d : 142d;
 
-            metrics.ColumnDefinitions[0].Width = new GridLength(270d, GridUnitType.Star);
-            metrics.ColumnDefinitions[1].Width = new GridLength(16d);
-            metrics.ColumnDefinitions[2].Width = new GridLength(276d, GridUnitType.Star);
-            metrics.RowDefinitions[0].Height = new GridLength(142d);
-            metrics.RowDefinitions[1].Height = new GridLength(16d);
-            metrics.RowDefinitions[2].Height = new GridLength(142d);
-            speed.Height = 142d;
-            schedule.Height = 142d;
-            status.Height = 142d;
+            operationRow.Height = operationHeight;
+            operationRow.ColumnDefinitions[0].Width = new GridLength(compactWidth ? 1.75d : 1010d, GridUnitType.Star);
+            operationRow.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            operationRow.ColumnDefinitions[2].Width = new GridLength(compactWidth ? 1d : 562d, GridUnitType.Star);
+            operation.Height = operationHeight;
+
+            metrics.ColumnDefinitions[0].Width = new GridLength(1d, GridUnitType.Star);
+            metrics.ColumnDefinitions[1].Width = new GridLength(compactWidth ? 12d : 16d);
+            metrics.ColumnDefinitions[2].Width = new GridLength(1d, GridUnitType.Star);
+            metrics.RowDefinitions[0].Height = new GridLength(metricHeight);
+            metrics.RowDefinitions[1].Height = new GridLength(compactHeight ? 12d : 16d);
+            metrics.RowDefinitions[2].Height = new GridLength(metricHeight);
+            speed.Height = metricHeight;
+            schedule.Height = metricHeight;
+            status.Height = metricHeight;
         }
 
         var quick = FindCard(window, "AÇÕES RÁPIDAS");
         if (quick is not null)
         {
-            quick.Height = 166d;
+            quick.Height = window.ActualHeight > 0d && window.ActualHeight < 820d ? 146d : 166d;
         }
     }
 
@@ -285,26 +302,41 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (tag.Contains("company-network", StringComparison.OrdinalIgnoreCase)) return "network";
         if (tag.Contains("company-members", StringComparison.OrdinalIgnoreCase)) return "team";
         if (tag.Contains("driver-profile", StringComparison.OrdinalIgnoreCase)) return "profile";
-        if (tag.Contains("hud-shortcut", StringComparison.OrdinalIgnoreCase)) return "hud";
+        if (tag.Contains("hud-shortcut", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("alpha14-hud-", StringComparison.OrdinalIgnoreCase)) return "hud";
+        if (tag.Contains("alpha14-connectivity", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("alpha14-nat", StringComparison.OrdinalIgnoreCase)) return "network";
+        if (tag.Contains("alpha14-external-port", StringComparison.OrdinalIgnoreCase)) return "diagnostics";
+        if (tag.Contains("ghost", StringComparison.OrdinalIgnoreCase)) return "ghost";
         if (tag.Contains("SettingsButton", StringComparison.OrdinalIgnoreCase)) return "settings";
         if (tag.Contains("session", StringComparison.OrdinalIgnoreCase)) return "health";
 
         var label = Normalize(CleanLabel(button.Content?.ToString()));
         if (label.Length == 0) return null;
         if (label.Contains("inicio", StringComparison.Ordinal) || label == "home") return "home";
-        if (label.Contains("naveg", StringComparison.Ordinal) || label.Contains("navigation", StringComparison.Ordinal)) return "navigation";
+        if (label.Contains("naveg", StringComparison.Ordinal) ||
+            label.Contains("navigation", StringComparison.Ordinal) ||
+            label.Contains("mapa 3d", StringComparison.Ordinal) ||
+            label.Contains("3d map", StringComparison.Ordinal) ||
+            label.Contains("3d-karte", StringComparison.Ordinal) ||
+            label.Contains("carte 3d", StringComparison.Ordinal)) return "navigation";
         if (label.Contains("multiplayer", StringComparison.Ordinal)) return "multiplayer";
+        if (label.Contains("personagem", StringComparison.Ordinal) || label.Contains("character", StringComparison.Ordinal) || label.Contains("roleplay", StringComparison.Ordinal) || label.Contains("role play", StringComparison.Ordinal)) return "roleplay";
+        if (label.Contains("roadmap", StringComparison.Ordinal)) return "roadmap";
+        if (label.Contains("instalacoes omsi", StringComparison.Ordinal) || label.Contains("omsi installations", StringComparison.Ordinal) || label.Contains("profile", StringComparison.Ordinal) && label.Contains("omsi", StringComparison.Ordinal)) return "installations";
+        if (label.Contains("ghost", StringComparison.Ordinal)) return "ghost";
         if (label == "cco" || label.Contains("despach", StringComparison.Ordinal) || label.Contains("dispatcher", StringComparison.Ordinal)) return "cco";
         if (label.Contains("rede da empresa", StringComparison.Ordinal) || label.Contains("company network", StringComparison.Ordinal) || label.Contains("unternehmensnetzwerk", StringComparison.Ordinal)) return "network";
         if (label.Contains("equipe", StringComparison.Ordinal) || label.Contains("team", StringComparison.Ordinal) || label.Contains("miembros", StringComparison.Ordinal)) return "team";
         if (label.Contains("perfil", StringComparison.Ordinal) || label.Contains("profile", StringComparison.Ordinal)) return "profile";
         if (label.Contains("empresa", StringComparison.Ordinal) || label.Contains("company", StringComparison.Ordinal)) return "company";
         if (label.Contains("hardware", StringComparison.Ordinal)) return "hardware";
-        if (label == "hud" || label.Contains("head up", StringComparison.Ordinal)) return "hud";
+        if (label == "hud" || label.Contains("hud", StringComparison.Ordinal) || label.Contains("head up", StringComparison.Ordinal)) return "hud";
         if (label.Contains("config", StringComparison.Ordinal) || label.Contains("settings", StringComparison.Ordinal)) return "settings";
         if (label.Contains("saude", StringComparison.Ordinal) || label.Contains("health", StringComparison.Ordinal) || label.Contains("session", StringComparison.Ordinal)) return "health";
         if (label.Contains("diagnost", StringComparison.Ordinal) || label.Contains("diagnostic", StringComparison.Ordinal)) return "diagnostics";
         if (label.Contains("manual", StringComparison.Ordinal) || label.Contains("handbuch", StringComparison.Ordinal)) return "manual";
+        if (label.Contains("feedback", StringComparison.Ordinal)) return "feedback";
         if (label.Contains("minimizar", StringComparison.Ordinal) || label.Contains("bandeja", StringComparison.Ordinal) || label.Contains("tray", StringComparison.Ordinal)) return "tray";
         return "grid";
     }
@@ -314,6 +346,10 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         "home" => "M3,10.5 L12,3 L21,10.5 M5.5,9.5 V21 H18.5 V9.5 M9.5,21 V14 H14.5 V21",
         "navigation" => "M12,2.5 L20,21 L12,17 L4,21 Z M12,2.5 V17",
         "multiplayer" => "M8,11 C9.657,11 11,9.657 11,8 C11,6.343 9.657,5 8,5 C6.343,5 5,6.343 5,8 C5,9.657 6.343,11 8,11 Z M2.5,21 C2.5,16.5 13.5,16.5 13.5,21 M17,11 C18.381,11 19.5,9.881 19.5,8.5 C19.5,7.119 18.381,6 17,6 M15.5,16 C19,15.5 21.5,17 21.5,21",
+        "roleplay" => "M12,11 A3.5,3.5 0 1 1 12,4 A3.5,3.5 0 0 1 12,11 Z M8,21 L9,14 H15 L16,21 M9,15 L5,18 M15,15 L19,18",
+        "roadmap" => "M4,5 L9,3 L15,5 L20,3 V19 L15,21 L9,19 L4,21 Z M9,3 V19 M15,5 V21 M11,11 L13,9 L16,12",
+        "installations" => "M4,5 H20 V19 H4 Z M8,9 H16 M8,13 H14 M7,2 V5 M17,2 V5",
+        "ghost" => "M12,3 C7.5,3 5,6.8 5,11 V21 L8.5,18.5 L12,21 L15.5,18.5 L19,21 V11 C19,6.8 16.5,3 12,3 Z M9,10 H9.1 M15,10 H15.1 M9.5,14 C11,15 13,15 14.5,14",
         "cco" => "M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M7,9 H10 L12,7 L14,12 L17,8",
         "company" => "M4,21 V5 H14 V21 M14,9 H20 V21 M7,8 H11 M7,12 H11 M7,16 H11 M17,12 H18 M17,16 H18",
         "network" => "M6,8 A2.5,2.5 0 1 1 6,3 A2.5,2.5 0 0 1 6,8 Z M18,8 A2.5,2.5 0 1 1 18,3 A2.5,2.5 0 0 1 18,8 Z M12,21 A2.5,2.5 0 1 1 12,16 A2.5,2.5 0 0 1 12,21 Z M8,7 L11,16 M16,7 L13,16 M8.5,5.5 H15.5",
@@ -325,6 +361,7 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         "health" => "M3,13 H7 L9,8 L12,17 L15,11 L17,13 H21 M5,5 C8,3 11,5 12,8 C13,5 16,3 19,5 C23,9 18,15 12,20 C6,15 1,9 5,5 Z",
         "diagnostics" => "M4,5 H20 V19 H4 Z M7,9 L10,12 L7,15 M12,15 H17",
         "manual" => "M4,4 C8,3 10,4 12,6 V21 C10,19 8,18 4,19 Z M20,4 C16,3 14,4 12,6 V21 C14,19 16,18 20,19 Z",
+        "feedback" => "M4,4 H20 V16 H9 L5,20 V16 H4 Z M8,8 H16 M8,12 H14",
         "tray" => "M4,5 H20 V17 H4 Z M8,21 H16 M12,8 V15 M9,12 L12,15 L15,12",
         _ => "M4,4 H10 V10 H4 Z M14,4 H20 V10 H14 Z M4,14 H10 V20 H4 Z M14,14 H20 V20 H14 Z"
     };

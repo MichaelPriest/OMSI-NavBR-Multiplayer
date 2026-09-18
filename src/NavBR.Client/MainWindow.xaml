@@ -5,7 +5,12 @@
         Height="820" Width="1180"
         MinHeight="680" MinWidth="900"
         Icon="Assets/NavBR.ico"
-        WindowStartupLocation="CenterScreen">
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        Opacity="0"
+        WindowStartupLocation="Manual"
+        Left="-32000"
+        Top="-32000">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid Margin="26">
             <Grid.RowDefinitions>

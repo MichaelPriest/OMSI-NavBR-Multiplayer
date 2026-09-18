@@ -1,71 +1,59 @@
 # Rede multiplayer
 
-> **Escopo atual:** esta camada sincroniza dados entre clientes NavBR. Ela ainda não transforma automaticamente a sessão em um mundo 3D compartilhado completo do OMSI. Para o estado detalhado, veja [Estado real do multiplayer](MULTIPLAYER_STATUS.md).
+## Peer-host
 
-## Modos de transporte
+O PC que cria a sala pode hospedar a própria sessão em **TCP 27730**. Presença, telemetria, chat, voz e estado operacional passam pelo SignalR.
 
-A Alpha.12 mantém **peer-host direto** como padrão e adiciona um **relay de aplicação experimental e opt-in** para redes em que o host direto não é viável.
+## Firewall Windows
 
-### Peer-host direto — padrão
+A regra de entrada chama-se **OMSI NavBR Multiplayer - TCP 27730**.
 
-O PC de quem cria a sala executa o servidor ASP.NET Core + SignalR da própria sessão em `TCP 27730`.
+- TCP 27730;
+- perfis Privado, Público e Domínio;
+- regra baseada em porta;
+- UAC;
+- verificação depois da criação.
 
-```text
-Convidado A ─┐
-             ├── TCP 27730 / SignalR ── PC do criador
-Convidado B ─┘                              ├─ presença
-                                            ├─ telemetria
-                                            ├─ chat
-                                            ├─ voz Opus
-                                            └─ tráfego compartilhado experimental
-```
+Em **Configurações → Rede**, React chama o mesmo \`WindowsFirewallService\` e mostra se a regra foi realmente encontrada. A tela permite aplicar/corrigir e verifica novamente depois.
 
-Na LAN, o NavBR exibe os endereços IPv4 utilizáveis. Pela Internet, o host pode precisar de regra de firewall, UPnP/port forwarding e um IPv4 público alcançável.
+Uma regra correta **não prova** alcance pela Internet.
 
-### Relay de aplicação — experimental
+## Listener local
 
-No passo **Sala → Privacidade → Rede**, o usuário pode optar por um servidor NavBR remoto como relay. Nesse modo o cliente **não abre o host local nem tenta mapear TCP 27730 via UPnP**. Todos os participantes se conectam ao mesmo Hub SignalR remoto e continuam usando o mesmo protocolo de sala.
+A tela Rede verifica separadamente se existe listener TCP local em 27730. Sem sala local/servidor ativo, é normal o listener aparecer inativo mesmo com Firewall correto.
 
-```text
-Criador ──────┐
-              ├── HTTPS/HTTP + SignalR ── servidor NavBR configurado
-Convidado A ──┤                              ├─ sala
-Convidado B ──┘                              ├─ telemetria
-                                             ├─ chat
-                                             ├─ voz
-                                             └─ autoridade da sessão
-```
+## UPnP / NAT
 
-O criador entra primeiro e continua sendo a autoridade inicial da sessão/tráfego. O relay é transporte; ele não cria um segundo protocolo multiplayer.
+\`NatDiagnosticsService\` mostra:
 
-O NavBR **não fornece nesta etapa um endereço público de relay embutido**. O endereço precisa apontar para uma instância NavBR Server configurada pelo operador/usuário. Não invente ou assuma um endpoint público.
+- IPv4 locais;
+- listener TCP;
+- regra do Firewall;
+- gateway UPnP;
+- endereço WAN reportado;
+- classificação Public WAN / CGNAT / Private WAN / Reserved / Unknown.
 
-## Convites
+UPnP é opcional e só é alterável quando a hospedagem local está parada.
 
-O formato `NAVBR_INVITE_V1` agora diferencia:
+CGNAT/double NAT podem impedir conexões diretas mesmo com Firewall e UPnP corretos.
 
-- `mode=peer-host` — endereço do host direto;
-- `mode=relay` — endereço do servidor relay.
+## Teste externo
 
-Senha de sala não é colocada no convite. Salas privadas continuam exigindo a senha informada separadamente.
+O probe externo TCP 27730 é independente. Ele só funciona quando o serviço de callback estiver configurado. Seu resultado não é inferido a partir do Firewall, UPnP ou IP WAN.
 
-## NAT, UPnP e CGNAT
+## Relay experimental
 
-O NavBR possui diagnóstico local de NAT, firewall e UPnP. O host direto continua preferencial quando a rede permite.
+O relay usa NavBR.Server remoto configurado. Não existe endpoint público embutido e o recurso permanece experimental.
 
-CGNAT (`100.64.0.0/10`) e double NAT podem impedir o encaminhamento tradicional. Nesses casos o relay de aplicação pode ser usado manualmente, desde que exista um servidor NavBR remoto alcançável.
+## Salas privadas
 
-O probe externo opcional é separado do relay. Quando configurado, um servidor NavBR pode testar o alcance de `TCP 27730` usando somente o IP de origem observado e controles de rate limit; ele não recebe uma senha de sala para executar o teste.
+- senha não vai no convite;
+- senha não é persistida;
+- servidor valida antes da entrada;
+- salas privadas não aparecem no navegador público.
 
-## Segurança e privacidade
+## Segurança
 
-- o servidor associa telemetria/chat/voz à presença da conexão, em vez de confiar apenas no `PlayerId` enviado pelo cliente;
-- campos e tamanhos de payload são validados antes da retransmissão;
-- salas privadas usam senha efêmera; a senha não é persistida no perfil nem incluída no convite;
-- relay é opt-in e o endereço fica sob controle do usuário/operador;
-- para uso pela Internet, prefira um servidor relay/dedicado atrás de HTTPS/TLS;
-- diagnósticos de UPnP são locais; o probe externo só ocorre quando a infraestrutura correspondente é configurada.
-
-## O que o transporte não resolve sozinho
-
-Conseguir conectar dois jogadores não significa que o OMSI já possua um mundo compartilhado completo. A representação física de ônibus remotos, sincronização integral de passageiros, colisões e demais estados do cenário continuam sendo camadas separadas e experimentais.
+- payloads/tamanhos validados;
+- servidor associa dados à conexão autenticada;
+- escrita física no OMSI permanece local, opt-in e separada da rede.

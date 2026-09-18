@@ -70,8 +70,7 @@ internal static class Alpha12ExperienceInstaller
         button.Margin = new Thickness(0d, 0d, 0d, 6d);
         button.Click += (_, _) =>
         {
-            var dialog = new Alpha12SettingsWindow(window);
-            dialog.ShowDialog();
+            window.NavigatePrimaryWebShell("settings");
             ApplyLocalization(window, button);
             ApplyRuntimeVersionBadge(window);
         };
@@ -99,13 +98,13 @@ internal static class Alpha12ExperienceInstaller
 
     private static void ShowFirstRunIfNeeded(MainWindow window)
     {
-        if (!window.IsVisible || Alpha12PreferencesStore.Load().FirstRunCompleted)
+        var preferences = Alpha12PreferencesStore.Load();
+        if (preferences.FirstRunCompleted)
         {
             return;
         }
 
-        var wizard = new Alpha12FirstRunWindow(window);
-        wizard.ShowDialog();
+        window.NavigatePrimaryWebShell("help");
         ApplyLocalization(window, FindSettingsButton(window));
         ApplyRuntimeVersionBadge(window);
     }

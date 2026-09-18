@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
@@ -8,9 +9,16 @@ namespace NavBR.Client.Multiplayer;
 
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
-    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
+
+    public MultiplayerClientService(
+        Func<string?>? omsiInstallDirectorySource = null)
+    {
+        _physicalVehicles = new RemotePhysicalVehicleCoordinator(
+            omsiInstallDirectorySource);
+    }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
     public event Action<RoomSnapshot>? RoomSnapshotReceived;
@@ -161,6 +169,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             MapCompatibilityId = compatibilityId
         };
 
+        // Keep physical rendering compatibility synchronized with the actual
+        // live OMSI state. Players often connect before the final map/bus/HOF
+        // identity is available, and may change vehicles without reconnecting.
+        _physicalVehicles.SetLocalManifest(
+            OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
             compatibilityId,
@@ -191,6 +205,49 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         await connection.SendAsync("SendChatMessage", text, cancellationToken);
     }
 
+    public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
+        bool voiceEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return null;
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        await connection.InvokeAsync("NavBrPing", cancellationToken);
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var latencyMs = Math.Clamp(
+            (int)Math.Round(elapsed.TotalMilliseconds),
+            0,
+            5000);
+
+        await PublishClientStatusAsync(
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+        return elapsed;
+    }
+
+    public async Task PublishClientStatusAsync(
+        bool voiceEnabled,
+        int? latencyMs,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        await connection.SendAsync(
+            "UpdateClientStatus",
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+    }
+
     public async Task PublishVoiceFrameAsync(
         long sequence,
         byte[] opusPayload,
@@ -217,6 +274,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _joinRequest = null;
         ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
+        ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
@@ -254,6 +312,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.On<string>("playerLeft", playerId =>
         {
             PlayerLeft?.Invoke(playerId);
+            RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
@@ -282,9 +341,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
+        connection.On<RoleplayCharacterFrame>("roleplayCharacter", ApplyRoleplayCharacter);
+        connection.On<string>("roleplayCharacterRemoved", RemoveRoleplayCharacter);
 
         connection.Reconnecting += error =>
         {
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
@@ -306,6 +368,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.Closed += error =>
         {
             ResetRoomMetadata();
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);

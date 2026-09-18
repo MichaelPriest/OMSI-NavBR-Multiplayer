@@ -2,7 +2,7 @@ name: pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, deploy/alpha14-react-site ]
     paths:
       - 'site/**'
       - 'src/NavBR.Client/Assets/NavBR.ico'
@@ -12,7 +12,7 @@ on:
     types: [completed]
   workflow_dispatch:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17 6 * * *'
 
 permissions:
   contents: read
@@ -35,7 +35,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Prepare site assets
         shell: bash
@@ -77,10 +82,23 @@ jobs:
 
           jq '
               (sort_by(.published_at // .created_at) | reverse) as $all
-              | ($all | map(select((.tag_name | test("-test(\\.|-|$)"; "i")) | not))) as $official
               | {
-                  total_downloads: ([$official[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
-                  releases: ($all[:8] | map({
+                  total_downloads: ([$all[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
+                  alpha_downloads: (
+                    [
+                      $all[] as $release
+                      | ($release.tag_name | capture("alpha\\.(?<number>[0-9]+)"; "i")? // null) as $alpha
+                      | select($alpha != null)
+                      | {
+                          key: ("alpha." + $alpha.number),
+                          value: ([$release.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0)
+                        }
+                    ]
+                    | group_by(.key)
+                    | map({key: .[0].key, value: (map(.value) | add // 0)})
+                    | from_entries
+                  ),
+                  releases: ($all[:12] | map({
                     tag_name,
                     name,
                     prerelease,
@@ -95,13 +113,30 @@ jobs:
             /tmp/navbr-releases.json \
           > site/releases.json
 
+      - name: Build React public site
+        shell: bash
+        run: |
+          set -euo pipefail
+          pushd site
+          npm install --no-audit --no-fund
+          npm run build
+          popd
+
+          mkdir -p site/dist/assets
+          cp -R site/assets/. site/dist/assets/
+          cp site/releases.json site/dist/releases.json
+          cp site/monetization.json site/dist/monetization.json
+          cp site/diagnostics.json site/dist/diagnostics.json
+          cp site/.nojekyll site/dist/.nojekyll
+          if [ -f site/ads.txt ]; then cp site/ads.txt site/dist/ads.txt; fi
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: site/dist
 
       - name: Deploy to GitHub Pages
         id: deployment

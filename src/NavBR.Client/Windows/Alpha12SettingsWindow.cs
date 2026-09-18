@@ -63,7 +63,7 @@ internal sealed class Alpha12SettingsWindow : Window
         });
         sideStack.Children.Add(new TextBlock
         {
-            Text = "CONFIGURAÇÕES",
+            Text = Category("Settings").ToUpperInvariant(),
             Foreground = Brush(73, 170, 225),
             FontSize = 9d,
             FontWeight = FontWeights.Bold,
@@ -122,10 +122,12 @@ internal sealed class Alpha12SettingsWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
-                Text = "ALPHA.12",
+                Text = NavBRVersionInfo.Display,
                 Foreground = Brush(84, 190, 255),
                 FontSize = 9d,
-                FontWeight = FontWeights.Bold
+                FontWeight = FontWeights.Bold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 190d
             }
         };
         Grid.SetColumn(badge, 1);
@@ -352,10 +354,34 @@ internal sealed class Alpha12SettingsWindow : Window
             BorderThickness = new Thickness(1d),
             FontSize = 11.5d,
             FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal,
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Tag = "settings-category"
         };
-        button.Click += (_, _) => target.BringIntoView();
+        button.Click += (_, _) =>
+        {
+            ApplyCategorySelection(button);
+            target.BringIntoView();
+        };
         return button;
+    }
+
+    private static void ApplyCategorySelection(Button selected)
+    {
+        if (selected.Parent is not Panel panel)
+        {
+            return;
+        }
+
+        foreach (var button in panel.Children
+                     .OfType<Button>()
+                     .Where(item => string.Equals(item.Tag as string, "settings-category", StringComparison.Ordinal)))
+        {
+            var isSelected = ReferenceEquals(button, selected);
+            button.Background = isSelected ? Brush(13, 55, 84) : Brushes.Transparent;
+            button.Foreground = isSelected ? Brushes.White : Brush(156, 179, 194);
+            button.BorderBrush = isSelected ? Brush(35, 112, 158) : Brushes.Transparent;
+            button.FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal;
+        }
     }
 
     private static Border BuildPreviewTile(string title, Brush background, Brush accent)
@@ -485,6 +511,7 @@ internal sealed class Alpha12SettingsWindow : Window
         var fr = language == "fr";
         return key switch
         {
+            "Settings" => pt ? "Configurações" : es ? "Configuración" : de ? "Einstellungen" : fr ? "Paramètres" : "Settings",
             "General" => pt ? "Geral" : es ? "General" : de ? "Allgemein" : fr ? "Général" : "General",
             "Appearance" => pt ? "Aparência" : es ? "Apariencia" : de ? "Darstellung" : fr ? "Apparence" : "Appearance",
             "Hud" => "HUD",

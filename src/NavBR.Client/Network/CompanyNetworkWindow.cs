@@ -23,13 +23,7 @@ internal static class CompanyNetworkInstaller
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
         ApplyLocalization(button);
-        button.Click += (_, _) =>
-        {
-            if (Application.Current is App app)
-            {
-                new CompanyNetworkWindow(window, app.NetworkRuntime).ShowDialog();
-            }
-        };
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("companyNetwork");
         panel.Children.Add(button);
 
         SelectionChangedEventHandler languageChanged = (_, _) => ApplyLocalization(button);
@@ -175,7 +169,15 @@ internal sealed class CompanyNetworkWindow : Window
         _nodeAddresses.FontSize = 11d;
         _nodeAddresses.TextWrapping = TextWrapping.Wrap;
         hostStack.Children.Add(_nodeAddresses);
-        body.Children.Add(Card("Company Node", hostStack));
+        var networkActions = new Grid { Margin = new Thickness(0d, 0d, 0d, 14d) };
+        networkActions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        networkActions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16d) });
+        networkActions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+
+        var hostCard = Card("Company Node", hostStack);
+        hostCard.Margin = new Thickness(0d);
+        Grid.SetColumn(hostCard, 0);
+        networkActions.Children.Add(hostCard);
 
         var joinStack = new StackPanel();
         joinStack.Children.Add(Label(T("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")));
@@ -187,9 +189,13 @@ internal sealed class CompanyNetworkWindow : Window
         var join = Button(T("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise"), Join_Click);
         join.Margin = new Thickness(0d, 12d, 0d, 0d);
         joinStack.Children.Add(join);
-        body.Children.Add(Card(
+        var joinCard = Card(
             T("Entrar em uma Empresa Online", "Join an Online Company", "Entrar en una empresa online", "Einem Online-Unternehmen beitreten", "Rejoindre une entreprise en ligne"),
-            joinStack));
+            joinStack);
+        joinCard.Margin = new Thickness(0d);
+        Grid.SetColumn(joinCard, 2);
+        networkActions.Children.Add(joinCard);
+        body.Children.Add(networkActions);
 
         _status.Foreground = Brush(185, 202, 214);
         _status.FontSize = 11.5d;

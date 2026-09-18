@@ -175,6 +175,38 @@ public sealed class MultiplayerRoomRegistry
         return null;
     }
 
+    public PlayerPresence? UpdateClientStatus(
+        string connectionId,
+        bool voiceEnabled,
+        int? latencyMs)
+    {
+        while (_connections.TryGetValue(connectionId, out var current))
+        {
+            int? normalizedLatency = latencyMs is null
+                ? null
+                : Math.Clamp(latencyMs.Value, 0, 5000);
+
+            if (current.VoiceEnabled == voiceEnabled &&
+                current.LatencyMs == normalizedLatency)
+            {
+                return null;
+            }
+
+            var updated = current with
+            {
+                VoiceEnabled = voiceEnabled,
+                LatencyMs = normalizedLatency
+            };
+
+            if (_connections.TryUpdate(connectionId, updated, current))
+            {
+                return updated;
+            }
+        }
+
+        return null;
+    }
+
     public PlayerPresence? Remove(string connectionId)
     {
         return _connections.TryRemove(connectionId, out var presence)

@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using NavBR.Client.Localization;
 using NavBR.Client.Maps;
 using NavBR.Shared.Telemetry;
 
@@ -185,8 +186,8 @@ internal static class DispatcherFigmaMapInstaller
             if (!EnsureMap(map))
             {
                 SetUnavailable(map is null
-                    ? "MAPA REAL • aguardando mapa ativo do OMSI"
-                    : "MAPA REAL • roadmap/layout indisponível para o mapa ativo");
+                    ? T("MAPA REAL • aguardando mapa ativo do OMSI", "REAL MAP • waiting for the active OMSI map", "MAPA REAL • esperando el mapa activo de OMSI", "ECHTE KARTE • warte auf die aktive OMSI-Karte", "CARTE RÉELLE • attente de la carte OMSI active")
+                    : T("MAPA REAL • roadmap/layout indisponível para o mapa ativo", "REAL MAP • roadmap/layout unavailable for the active map", "MAPA REAL • roadmap/layout no disponible para el mapa activo", "ECHTE KARTE • Roadmap/Layout für die aktive Karte nicht verfügbar", "CARTE RÉELLE • roadmap/layout indisponible pour la carte active"));
                 return;
             }
 
@@ -196,8 +197,10 @@ internal static class DispatcherFigmaMapInstaller
             RefreshLocalMarker(telemetry);
             var remotes = RefreshRemoteMarkers();
 
-            var routeState = _route.Points.Count >= 2 ? "rota real" : "sem rota ativa";
-            _status.Text = $"MAPA REAL • {_map?.DisplayName ?? _map?.FolderName ?? "—"} • {routeState} • {remotes} remoto(s) visível(is)";
+            var routeState = _route.Points.Count >= 2
+                ? T("rota real", "real route", "ruta real", "echte Route", "itinéraire réel")
+                : T("sem rota ativa", "no active route", "sin ruta activa", "keine aktive Route", "aucun itinéraire actif");
+            _status.Text = $"{T("MAPA REAL", "REAL MAP", "MAPA REAL", "ECHTE KARTE", "CARTE RÉELLE")} • {_map?.DisplayName ?? _map?.FolderName ?? "—"} • {routeState} • {RemoteCount(remotes)}";
         }
 
         private bool EnsureMap(OmsiMapInfo? map)
@@ -335,7 +338,7 @@ internal static class DispatcherFigmaMapInstaller
             }
 
             PositionMarker(_localMarker, x, y, telemetry?.HeadingDegrees ?? 0d);
-            _localMarker.ToolTip = $"LOCAL • {telemetry?.VehicleName ?? "Ônibus"} • {telemetry?.SpeedKph ?? 0d:0.0} km/h";
+            _localMarker.ToolTip = $"LOCAL • {telemetry?.VehicleName ?? T("Ônibus", "Bus", "Autobús", "Bus", "Bus")} • {telemetry?.SpeedKph ?? 0d:0.0} km/h";
             _localMarker.Visibility = Visibility.Visible;
         }
 
@@ -373,7 +376,7 @@ internal static class DispatcherFigmaMapInstaller
                 }
 
                 PositionMarker(marker, x, y, driver.HeadingDegrees);
-                marker.ToolTip = $"{driver.DisplayName} • {driver.VehicleName ?? "Ônibus"} • {driver.SpeedKph:0.0} km/h";
+                marker.ToolTip = $"{driver.DisplayName} • {driver.VehicleName ?? T("Ônibus", "Bus", "Autobús", "Bus", "Bus")} • {driver.SpeedKph:0.0} km/h";
                 marker.Visibility = Visibility.Visible;
                 visible.Add(driver.PlayerId);
                 count++;
@@ -475,6 +478,24 @@ internal static class DispatcherFigmaMapInstaller
                 ? string.Empty
                 : new string(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
     }
+
+    private static string RemoteCount(int count)
+    {
+        var value = count == 1
+            ? T("{0} remoto visível", "{0} remote visible", "{0} remoto visible", "{0} Remote-Fahrzeug sichtbar", "{0} distant visible")
+            : T("{0} remotos visíveis", "{0} remotes visible", "{0} remotos visibles", "{0} Remote-Fahrzeuge sichtbar", "{0} distants visibles");
+        return string.Format(value, count);
+    }
+
+    private static string T(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static Grid CreateBusMarker(Brush fill, Brush stroke)
     {

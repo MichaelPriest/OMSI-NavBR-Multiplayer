@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>NavBR</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">N</div>
+        <div>
+          <strong>NavBR</strong>
+          <span>OMSI Multiplayer</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active"><span>⌂</span> Início</button>
+        <button class="nav-item" disabled><span>⌖</span> Navegação</button>
+        <button class="nav-item" disabled><span>◉</span> Multiplayer</button>
+        <button class="nav-item" disabled><span>♙</span> Personagem / RP</button>
+        <button class="nav-item" disabled><span>▣</span> CCO</button>
+        <button class="nav-item" disabled><span>⚙</span> Configurações</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="dot"></span>
+        <div>
+          <strong>Alpha.14</strong>
+          <small>Fallback seguro</small>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">CENTRAL OPERACIONAL</span>
+          <h1>Boa viagem.</h1>
+          <p>Acompanhe o OMSI e continue sua operação pelo NavBR.</p>
+        </div>
+        <div class="top-actions">
+          <button id="refreshButton" class="button ghost">Atualizar</button>
+          <button id="launchButton" class="button primary">Executar OMSI</button>
+        </div>
+      </header>
+
+      <section class="hero card">
+        <div class="hero-copy">
+          <span id="operationBadge" class="badge neutral">Aguardando OMSI</span>
+          <h2 id="operationTitle">Nenhuma operação ativa</h2>
+          <p id="operationSubtitle">Abra o OMSI para iniciar a telemetria e carregar os dados reais da viagem.</p>
+          <div class="hero-actions">
+            <button id="heroLaunchButton" class="button primary">Executar OMSI</button>
+            <span class="hint">A interface React completa não foi encontrada nesta instalação. Atualize ou reinstale o NavBR para restaurar todos os módulos.</span>
+          </div>
+        </div>
+        <div class="speed-panel">
+          <span>VELOCIDADE</span>
+          <strong id="speedValue">--</strong>
+          <small>km/h</small>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <article class="card status-card">
+          <span class="card-label">OMSI</span>
+          <strong id="omsiState">Não detectado</strong>
+          <small id="omsiVersion">Versão —</small>
+        </article>
+        <article class="card status-card">
+          <span class="card-label">MAPA</span>
+          <strong id="mapValue">—</strong>
+          <small id="positionValue">Posição indisponível</small>
+        </article>
+        <article class="card status-card">
+          <span class="card-label">TELEMETRIA</span>
+          <strong id="telemetryState">Aguardando</strong>
+          <small id="headingValue">Direção —</small>
+        </article>
+      </section>
+
+      <section class="lower-grid">
+        <article class="card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">OPERAÇÃO</span>
+              <h3>Resumo em tempo real</h3>
+            </div>
+            <span class="live-pill"><span></span> LIVE</span>
+          </div>
+          <div class="telemetry-table">
+            <div><span>Mapa</span><strong id="tableMap">—</strong></div>
+            <div><span>Coordenada X</span><strong id="tableX">—</strong></div>
+            <div><span>Coordenada Y</span><strong id="tableY">—</strong></div>
+            <div><span>Altitude Z</span><strong id="tableZ">—</strong></div>
+          </div>
+        </article>
+
+        <article class="card roadmap">
+          <span class="eyebrow">PRÓXIMAS ETAPAS</span>
+          <h3>Interface React indisponível</h3>
+          <p>Este fallback não abre telas WPF antigas. Os serviços nativos permanecem ativos, mas os módulos completos exigem os arquivos WebUI/dist da mesma build.</p>
+          <div class="roadmap-list">
+            <span><b>1</b> Verifique a instalação</span>
+            <span><b>2</b> Atualize ou reinstale a mesma Alpha</span>
+            <span><b>3</b> Reabra o NavBR</span>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

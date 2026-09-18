@@ -50,12 +50,11 @@ internal static class Alpha12FigmaShellInstaller
         var pages = BuildPages();
         pages.Home.Content = BuildHome(window);
         pages.Navigation.Content = BuildNavigation(window, navigationCard);
-        pages.Multiplayer.Content = BuildMultiplayer(window);
         pages.Hardware.Content = BuildHardware(window);
         pages.Diagnostics.Content = BuildDiagnostics(diagnosticsCard);
 
         var root = new Grid { Background = Brush(6, 16, 26) };
-        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(252d) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(236d) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
 
         var sidebar = BuildSidebar(window, pages);
@@ -63,7 +62,7 @@ internal static class Alpha12FigmaShellInstaller
         root.Children.Add(sidebar);
 
         var workspace = new Grid { Background = Brush(6, 16, 26) };
-        workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64d) });
+        workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68d) });
         workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
         workspace.Children.Add(BuildTopbar(window));
 
@@ -73,7 +72,6 @@ internal static class Alpha12FigmaShellInstaller
             host.Children.Add(page);
         }
         pages.Navigation.Visibility = Visibility.Hidden;
-        pages.Multiplayer.Visibility = Visibility.Hidden;
         pages.Hardware.Visibility = Visibility.Hidden;
         pages.Diagnostics.Visibility = Visibility.Hidden;
         Grid.SetRow(host, 1);
@@ -90,7 +88,6 @@ internal static class Alpha12FigmaShellInstaller
         NewPage(),
         NewPage(),
         NewPage(),
-        NewPage(),
         NewPage());
 
     private static UIElement BuildHome(MainWindow window)
@@ -102,26 +99,46 @@ internal static class Alpha12FigmaShellInstaller
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var headingText = new StackPanel();
-        headingText.Children.Add(Text($"Bom dia, {profile.DisplayName}", 30d, White(), FontWeights.Bold));
-        headingText.Children.Add(Text("Visão operacional do OMSI e da sua sessão NavBR.", 13d, Muted(), FontWeights.Normal, new Thickness(0d, 6d, 0d, 0d)));
+        headingText.Children.Add(Text(string.Format(L("Olá, {0}", "Hello, {0}", "Hola, {0}", "Hallo, {0}", "Bonjour, {0}"), profile.DisplayName), 30d, White(), FontWeights.Bold));
+        headingText.Children.Add(Text(L(
+            "Visão operacional do OMSI e da sua sessão NavBR.",
+            "Operational view of OMSI and your NavBR session.",
+            "Vista operativa de OMSI y de tu sesión NavBR.",
+            "Betriebsübersicht von OMSI und deiner NavBR-Sitzung.",
+            "Vue opérationnelle d’OMSI et de votre session NavBR."), 13d, Muted(), FontWeights.Normal, new Thickness(0d, 6d, 0d, 0d)));
         heading.Children.Add(headingText);
-        var openNavigation = PrimaryButton("Abrir navegação");
+        var headingActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var launchOmsi = PrimaryButton(
+            L("▶  Executar OMSI", "▶  Launch OMSI", "▶  Ejecutar OMSI", "▶  OMSI starten", "▶  Lancer OMSI"));
+        launchOmsi.Width = 165d;
+        launchOmsi.Margin = new Thickness(0d, 0d, 10d, 0d);
+        launchOmsi.Click += (_, _) => window.LaunchOmsiForShell();
+        headingActions.Children.Add(launchOmsi);
+
+        var openNavigation = PrimaryButton(L("Abrir navegação", "Open navigation", "Abrir navegación", "Navigation öffnen", "Ouvrir la navigation"));
         openNavigation.Width = 170d;
         openNavigation.Click += (_, _) => RaiseNavigation(window, "⌖");
-        Grid.SetColumn(openNavigation, 1);
-        heading.Children.Add(openNavigation);
+        headingActions.Children.Add(openNavigation);
+
+        Grid.SetColumn(headingActions, 1);
+        heading.Children.Add(headingActions);
         stack.Children.Add(heading);
 
         var vehicle = ValueText("—", 17d);
-        var omsiState = SecondaryText("Aguardando OMSI");
-        var map = SecondaryText("Mapa • —");
+        var omsiState = SecondaryText(L("Aguardando OMSI", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI"));
+        var map = SecondaryText($"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • —");
         var line = ValueText("—", 28d);
         var destination = SecondaryText("—");
-        var nextStop = SecondaryText("Próxima parada • —");
-        var multiplayerState = ValueText("Sem sessão", 17d);
-        var multiplayerDetail = SecondaryText("Abra a Central Multiplayer");
-        var companyName = ValueText(profile.CompanyName ?? "Sem empresa", 17d);
-        var companyDetail = SecondaryText("Perfil do motorista");
+        var nextStop = SecondaryText($"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • —");
+        var multiplayerState = ValueText(L("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session"), 17d);
+        var multiplayerDetail = SecondaryText(L("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur"));
+        var companyName = ValueText(profile.CompanyName ?? L("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise"), 17d);
+        var companyDetail = SecondaryText(L("Perfil do motorista", "Driver profile", "Perfil del conductor", "Fahrerprofil", "Profil conducteur"));
 
         var cards = new Grid { Margin = new Thickness(-8d, 0d, -8d, 0d) };
         for (var i = 0; i < 7; i++)
@@ -185,11 +202,22 @@ internal static class Alpha12FigmaShellInstaller
         quick.Margin = new Thickness(0d, 20d, 0d, 0d);
         var quickStack = (StackPanel)quick.Child;
         var actions = new WrapPanel { Margin = new Thickness(0d, 18d, 0d, 0d) };
+        actions.Children.Add(ActionButton(
+            L("▶  Executar OMSI", "▶  Launch OMSI", "▶  Ejecutar OMSI", "▶  OMSI starten", "▶  Lancer OMSI"),
+            window.LaunchOmsiForShell));
         actions.Children.Add(ActionButton("Navegação", () => RaiseNavigation(window, "⌖")));
+        actions.Children.Add(ActionButton("Mapa 3D", window.OpenNavigation3D));
         actions.Children.Add(ActionButton("Multiplayer", () => RaiseNavigation(window, "●")));
-        actions.Children.Add(ActionButton("Abrir HUD", () => RaiseTaggedButton(window, "alpha12-hud-shortcut")));
-        actions.Children.Add(ActionButton("Empresa", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
+        actions.Children.Add(ActionButton(
+            L("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP"),
+            window.OpenRoleplayCentralForShell));
+        actions.Children.Add(ActionButton("Mover HUD", window.ToggleHudLayoutForShell));
+        actions.Children.Add(ActionButton("Configurar HUD", () => window.NavigatePrimaryWebShell("settings-hud")));
+        actions.Children.Add(ActionButton("Empresa / Frota", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
         actions.Children.Add(ActionButton("CCO", () => RaiseTaggedButton(window, "alpha12-dispatcher")));
+        actions.Children.Add(ActionButton("Perfil", () => RaiseTaggedButton(window, "alpha12-driver-profile")));
+        actions.Children.Add(ActionButton("Rede da empresa", () => RaiseTaggedButton(window, "alpha12-company-network")));
+        actions.Children.Add(ActionButton("Equipe", () => RaiseTaggedButton(window, "alpha12-company-members")));
         quickStack.Children.Add(actions);
         stack.Children.Add(quick);
 
@@ -253,76 +281,6 @@ internal static class Alpha12FigmaShellInstaller
         return stack;
     }
 
-    private static UIElement BuildMultiplayer(MainWindow window)
-    {
-        var stack = PageStack();
-        var heading = new Grid { Margin = new Thickness(0d, 0d, 0d, 20d) };
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-        heading.Children.Add(PageHeading("Multiplayer", "Salas públicas, empresa, voz e sessão em segundo plano."));
-        var bgStatus = Pill("SERVIDOR CONTINUA EM SEGUNDO PLANO", Accent());
-        Grid.SetColumn(bgStatus, 1);
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        heading.Children.Add(bgStatus);
-        stack.Children.Add(heading);
-
-        var tabs = new Border
-        {
-            Height = 48d,
-            Padding = new Thickness(8d, 6d, 8d, 6d),
-            Background = ElevatedBrush(),
-            BorderBrush = BorderBrush(),
-            BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(10d)
-        };
-        var tabStack = new StackPanel { Orientation = Orientation.Horizontal };
-        foreach (var text in new[] { "Salas", "Jogadores", "Chat", "Voz" })
-        {
-            var tab = new Border
-            {
-                Padding = new Thickness(22d, 8d, 22d, 8d),
-                Margin = new Thickness(0d, 0d, 6d, 0d),
-                Background = text == "Salas" ? Brush(16, 38, 56) : Brushes.Transparent,
-                CornerRadius = new CornerRadius(8d),
-                Child = Text(text, 12d, text == "Salas" ? White() : Muted(), FontWeights.SemiBold)
-            };
-            tabStack.Children.Add(tab);
-        }
-        tabs.Child = tabStack;
-        stack.Children.Add(tabs);
-
-        var body = new Grid { Margin = new Thickness(0d, 16d, 0d, 0d) };
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.7d, GridUnitType.Star) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16d) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-
-        var rooms = Card("SALAS");
-        var roomsBody = (StackPanel)rooms.Child;
-        roomsBody.Children.Add(SecondaryText("A Central Multiplayer continua sendo a fonte real das salas e compatibilidades."));
-        var compatible = RoomPreview("Operação SP Noturna", "MAPA OBRIGATÓRIO", "SP Área 6 Sul", true);
-        compatible.Margin = new Thickness(0d, 18d, 0d, 0d);
-        roomsBody.Children.Add(compatible);
-        var incompatible = RoomPreview("Sala incompatível", "MAPA NÃO ENCONTRADO", "Mapa necessário", false);
-        incompatible.Margin = new Thickness(0d, 12d, 0d, 0d);
-        roomsBody.Children.Add(incompatible);
-        Grid.SetColumn(rooms, 0);
-        body.Children.Add(rooms);
-
-        var selected = Card("CENTRAL MULTIPLAYER");
-        var selectedBody = (StackPanel)selected.Child;
-        selectedBody.Children.Add(ValueText("Sessão e navegador de salas", 20d));
-        selectedBody.Children.Add(SecondaryText("Mapa obrigatório, jogadores, chat, voz, compatibilidade e ônibus online ficam na Central."));
-        window.MultiplayerButton.Content = "Abrir Central Multiplayer";
-        window.MultiplayerButton.MinWidth = 220d;
-        window.MultiplayerButton.Padding = new Thickness(18d, 10d, 18d, 10d);
-        window.MultiplayerButton.Margin = new Thickness(0d, 24d, 0d, 0d);
-        selectedBody.Children.Add(window.MultiplayerButton);
-        selectedBody.Children.Add(SecondaryText("Fechar a Central não encerra host, voz nem telemetria."));
-        Grid.SetColumn(selected, 2);
-        body.Children.Add(selected);
-        stack.Children.Add(body);
-        return stack;
-    }
-
     private static UIElement BuildHardware(MainWindow window)
     {
         var stack = PageStack();
@@ -342,7 +300,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static Border BuildSidebar(MainWindow window, ShellPages pages)
     {
-        var dock = new DockPanel { Margin = new Thickness(16d, 18d, 14d, 14d) };
+        var dock = new DockPanel { Margin = new Thickness(14d, 18d, 12d, 14d) };
         var body = new StackPanel();
         var pageButtons = new List<Button>();
 
@@ -363,7 +321,21 @@ internal static class Alpha12FigmaShellInstaller
         body.Children.Add(Section("DIRIGIR"));
         var home = AddPageButton(body, "⌂  Início", pages.Home, pages, pageButtons);
         AddPageButton(body, "⌖  Navegação", pages.Navigation, pages, pageButtons);
-        AddPageButton(body, "●  Multiplayer", pages.Multiplayer, pages, pageButtons);
+        AddActionNavigationButton(
+            body,
+            L("◇  Mapa 3D", "◇  3D map", "◇  Mapa 3D", "◇  3D-Karte", "◇  Carte 3D"),
+            window.OpenNavigation3D,
+            pageButtons);
+        AddActionNavigationButton(
+            body,
+            "●  Multiplayer",
+            window.OpenMultiplayerCentralForShell,
+            pageButtons);
+        AddActionNavigationButton(
+            body,
+            L("♙  Personagem / RP", "♙  Character / RP", "♙  Personaje / RP", "♙  Charakter / RP", "♙  Personnage / RP"),
+            window.OpenRoleplayCentralForShell,
+            pageButtons);
 
         body.Children.Add(Separator());
         body.Children.Add(Section("OPERAÇÃO"));
@@ -376,24 +348,65 @@ internal static class Alpha12FigmaShellInstaller
         var system = new StackPanel();
         window.RegisterName(Alpha12ProfessionalShellInstaller.SystemPanelName, system);
         AddPageButton(system, "▣  Hardware", pages.Hardware, pages, pageButtons);
+
+        var moveHudButton = NavigationButton(
+            L("↔  Mover HUD", "↔  Move HUD", "↔  Mover HUD", "↔  HUD verschieben", "↔  Déplacer HUD"),
+            window.ToggleHudLayoutForShell);
+        moveHudButton.Tag = "alpha14-hud-move";
+        system.Children.Add(moveHudButton);
+
+        var editHudButton = NavigationButton(
+            L("▦  Configurar HUD", "▦  Configure HUD", "▦  Configurar HUD", "▦  HUD konfigurieren", "▦  Configurer HUD"),
+            () => window.NavigatePrimaryWebShell("settings-hud"));
+        editHudButton.Tag = "alpha14-hud-editor";
+        system.Children.Add(editHudButton);
+
+        AddPageButton(system, "◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons);
         body.Children.Add(system);
 
         body.Children.Add(Separator());
+        body.Children.Add(Section("FERRAMENTAS"));
+        var tools = new StackPanel();
+        window.RegisterName(Alpha12ProfessionalShellInstaller.ToolsPanelName, tools);
+
+        var connectivityButton = NavigationButton(
+            L("◎  Conectividade Multiplayer", "◎  Multiplayer connectivity", "◎  Conectividad multijugador", "◎  Multiplayer-Verbindung", "◎  Connectivité multijoueur"),
+            () => window.NavigatePrimaryWebShell("settings-network"));
+        connectivityButton.Tag = "alpha14-connectivity";
+        tools.Children.Add(connectivityButton);
+
+        var natButton = NavigationButton(
+            L("◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP"),
+            () => window.NavigatePrimaryWebShell("settings-network"));
+        natButton.Tag = "alpha14-nat";
+        tools.Children.Add(natButton);
+
+        var externalPortButton = NavigationButton(
+            L("⇄  Teste externo TCP 27730", "⇄  External TCP 27730 test", "⇄  Prueba externa TCP 27730", "⇄  Externer TCP-27730-Test", "⇄  Test externe TCP 27730"),
+            () => window.NavigatePrimaryWebShell("settings-network"));
+        externalPortButton.Tag = "alpha14-external-port";
+        tools.Children.Add(externalPortButton);
+
+        body.Children.Add(tools);
+
+        body.Children.Add(Separator());
         body.Children.Add(Section("AJUDA"));
-        body.Children.Add(NavigationButton(GetManualButtonText(), () => new NavBRManualWindow { Owner = window }.ShowDialog()));
+        body.Children.Add(NavigationButton(GetManualButtonText(), () => window.NavigatePrimaryWebShell("help")));
+        body.Children.Add(NavigationButton(
+            L("✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback"),
+            () => window.NavigatePrimaryWebShell("help")));
 
         var advanced = new Expander
         {
-            Header = Text("⋯  Ferramentas avançadas", 11.5d, Muted(), FontWeights.SemiBold),
+            Header = Text("⋯  Controles técnicos", 11.5d, Muted(), FontWeights.SemiBold),
             IsExpanded = false,
             Visibility = Visibility.Collapsed,
             Margin = new Thickness(0d, 8d, 0d, 0d)
         };
         var advancedBody = new StackPanel { Margin = new Thickness(0d, 8d, 0d, 0d) };
-        advancedBody.Children.Add(AddStandalonePageButton("◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons));
-        var tools = new StackPanel();
-        window.RegisterName(Alpha12ProfessionalShellInstaller.ToolsPanelName, tools);
-        advancedBody.Children.Add(tools);
+        var advancedTools = new StackPanel();
+        window.RegisterName("Alpha12AdvancedToolsPanel", advancedTools);
+        advancedBody.Children.Add(advancedTools);
         advanced.Content = advancedBody;
         body.Children.Add(advanced);
         footer.Tag = advanced;
@@ -410,7 +423,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static Border BuildTopbar(MainWindow window)
     {
-        var grid = new Grid { Margin = new Thickness(28d, 0d, 28d, 0d) };
+        var grid = new Grid { Margin = new Thickness(30d, 0d, 30d, 0d) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -425,6 +438,32 @@ internal static class Alpha12FigmaShellInstaller
 
         var profile = DriverProfileStore.Load();
         var user = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var moveHudTopButton = new Button
+        {
+            Content = L("↔  Mover HUD", "↔  Move HUD", "↔  Mover HUD", "↔  HUD verschieben", "↔  Déplacer HUD"),
+            Height = 34d,
+            MinWidth = 104d,
+            Margin = new Thickness(0d, 0d, 16d, 0d),
+            Padding = new Thickness(12d, 5d, 12d, 5d),
+            Background = ElevatedBrush(),
+            Foreground = White(),
+            BorderBrush = BorderBrush(),
+            BorderThickness = new Thickness(1d),
+            FontSize = 10.5d,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = L(
+                "Mover e redimensionar o HUD na tela",
+                "Move and resize the HUD on screen",
+                "Mover y redimensionar el HUD en pantalla",
+                "HUD auf dem Bildschirm verschieben und skalieren",
+                "Déplacer et redimensionner le HUD à l’écran"),
+            Tag = "alpha14-topbar-hud-move"
+        };
+        moveHudTopButton.Click += (_, _) => window.ToggleHudLayoutForShell();
+        user.Children.Add(moveHudTopButton);
+
         user.Children.Add(Text(profile.DisplayName, 13d, White(), FontWeights.SemiBold, new Thickness(0d, 0d, 14d, 0d)));
         var avatar = new Border
         {
@@ -449,7 +488,7 @@ internal static class Alpha12FigmaShellInstaller
 
         return new Border
         {
-            Height = 64d,
+            Height = 68d,
             Background = Brush(6, 16, 26),
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(0d, 0d, 0d, 1d),
@@ -473,6 +512,7 @@ internal static class Alpha12FigmaShellInstaller
             if (stack.Tag is Expander expander)
             {
                 expander.Visibility = Visibility.Visible;
+                expander.IsExpanded = true;
             }
         };
         advancedToggle.Unchecked += (_, _) =>
@@ -527,47 +567,51 @@ internal static class Alpha12FigmaShellInstaller
         {
             var telemetry = window.GetCurrentTelemetryForAlpha11();
             var profile = DriverProfileStore.Load();
-            companyName.Text = profile.CompanyName ?? "Sem empresa";
+            companyName.Text = profile.CompanyName ?? L("Sem empresa", "No company", "Sin empresa", "Kein Unternehmen", "Aucune entreprise");
 
             if (telemetry is null || !telemetry.IsInGame)
             {
                 vehicle.Text = "—";
-                omsiState.Text = string.IsNullOrWhiteSpace(window.StatusText.Text) ? "Aguardando OMSI" : window.StatusText.Text;
-                map.Text = $"Mapa • {Safe(window.MapValueText.Text)}";
+                omsiState.Text = string.IsNullOrWhiteSpace(window.StatusText.Text)
+                    ? L("Aguardando OMSI", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI")
+                    : window.StatusText.Text;
+                map.Text = $"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • {Safe(window.MapValueText.Text)}";
                 line.Text = "—";
                 destination.Text = "—";
-                nextStop.Text = "Próxima parada • —";
+                nextStop.Text = $"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • —";
                 currentStop.Text = "—";
-                street.Text = "Rua atual • —";
-                routeInfo.Text = "Linha / destino indisponíveis";
+                street.Text = $"{L("Rua atual", "Current street", "Calle actual", "Aktuelle Straße", "Rue actuelle")} • —";
+                routeInfo.Text = L("Linha / destino indisponíveis", "Line / destination unavailable", "Línea / destino no disponibles", "Linie / Ziel nicht verfügbar", "Ligne / destination indisponibles");
                 speed.Text = "—";
                 schedule.Text = "—";
-                status.Text = "Aguardando telemetria";
+                status.Text = L("Aguardando telemetria", "Waiting for telemetry", "Esperando telemetría", "Warte auf Telemetrie", "En attente de télémétrie");
             }
             else
             {
                 vehicle.Text = Safe(telemetry.VehicleName);
-                omsiState.Text = "Conectado ao jogo";
-                map.Text = $"Mapa • {Safe(telemetry.MapName)}";
+                omsiState.Text = L("Conectado ao jogo", "Connected to game", "Conectado al juego", "Mit dem Spiel verbunden", "Connecté au jeu");
+                map.Text = $"{L("Mapa", "Map", "Mapa", "Karte", "Carte")} • {Safe(telemetry.MapName)}";
                 line.Text = Safe(telemetry.Line);
                 destination.Text = Safe(telemetry.DestinationName ?? telemetry.Route);
-                nextStop.Text = $"Próxima parada • {Safe(telemetry.NextStopName)}";
+                nextStop.Text = $"{L("Próxima parada", "Next stop", "Próxima parada", "Nächste Haltestelle", "Prochain arrêt")} • {Safe(telemetry.NextStopName)}";
                 currentStop.Text = Safe(telemetry.NextStopName);
-                street.Text = $"Rua atual • {Safe(telemetry.CurrentStreetName)}";
-                routeInfo.Text = $"Linha {Safe(telemetry.Line)} • {Safe(telemetry.DestinationName ?? telemetry.Route)}";
+                street.Text = $"{L("Rua atual", "Current street", "Calle actual", "Aktuelle Straße", "Rue actuelle")} • {Safe(telemetry.CurrentStreetName)}";
+                routeInfo.Text = $"{L("Linha", "Line", "Línea", "Linie", "Ligne")} {Safe(telemetry.Line)} • {Safe(telemetry.DestinationName ?? telemetry.Route)}";
                 speed.Text = $"{telemetry.SpeedKph:0} km/h";
                 schedule.Text = FormatDelay(telemetry.DelaySeconds);
                 status.Text = telemetry.Timestamp < DateTimeOffset.UtcNow.AddSeconds(-5)
-                    ? "Telemetria desatualizada"
-                    : "Telemetria atualizada";
+                    ? L("Telemetria desatualizada", "Telemetry stale", "Telemetría desactualizada", "Telemetrie veraltet", "Télémétrie obsolète")
+                    : L("Telemetria atualizada", "Telemetry current", "Telemetría actualizada", "Telemetrie aktuell", "Télémétrie à jour");
             }
 
             var multiplayer = Application.Current?.Windows.OfType<MultiplayerWindow>().FirstOrDefault();
             var active = multiplayer?.HasBackgroundSession == true;
-            multiplayerState.Text = active ? "Sessão ativa" : "Sem sessão";
+            multiplayerState.Text = active
+                ? L("Sessão ativa", "Active session", "Sesión activa", "Aktive Sitzung", "Session active")
+                : L("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session");
             multiplayerDetail.Text = active
-                ? "Host/conexão mantidos em segundo plano"
-                : "Abra a Central Multiplayer";
+                ? L("Host/conexão mantidos em segundo plano", "Host/connection kept in background", "Host/conexión mantenidos en segundo plano", "Host/Verbindung läuft im Hintergrund", "Hôte/connexion maintenus en arrière-plan")
+                : L("Abra a Central Multiplayer", "Open the Multiplayer Center", "Abra la Central Multiplayer", "Multiplayer-Zentrale öffnen", "Ouvrez la centrale multijoueur");
         }
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500d) };
@@ -576,6 +620,16 @@ internal static class Alpha12FigmaShellInstaller
         Refresh();
         window.Closed += (_, _) => timer.Stop();
     }
+
+    private static string L(string pt, string en, string es, string de, string fr) =>
+        LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
 
     private static string FormatDelay(int? seconds)
     {
@@ -604,11 +658,11 @@ internal static class Alpha12FigmaShellInstaller
         stack.Children.Add(Text(title, 13d, White(), FontWeights.SemiBold));
         return new Border
         {
-            Padding = new Thickness(18d),
+            Padding = new Thickness(16d),
             Background = CardBrush(),
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             Child = stack
         };
     }
@@ -639,24 +693,6 @@ internal static class Alpha12FigmaShellInstaller
         return (card, value);
     }
 
-    private static Border RoomPreview(string title, string label, string map, bool compatible)
-    {
-        var body = new StackPanel();
-        body.Children.Add(Text(title, 16d, White(), FontWeights.SemiBold));
-        body.Children.Add(Text(label, 10d, compatible ? Success() : Error(), FontWeights.Bold, new Thickness(0d, 14d, 0d, 0d)));
-        body.Children.Add(Text(map, 13d, White(), FontWeights.Medium, new Thickness(0d, 5d, 0d, 0d)));
-        body.Children.Add(Text(compatible ? "Compatibilidade confirmada na Central" : "Entrada bloqueada enquanto incompatível", 11d, Muted(), FontWeights.Normal, new Thickness(0d, 10d, 0d, 0d)));
-        return new Border
-        {
-            Padding = new Thickness(16d),
-            Background = ElevatedBrush(),
-            BorderBrush = compatible ? Brush(56, 201, 140) : Brush(239, 91, 100),
-            BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(12d),
-            Child = body
-        };
-    }
-
     private static Border Pill(string text, Brush border)
     {
         return new Border
@@ -665,7 +701,7 @@ internal static class Alpha12FigmaShellInstaller
             BorderBrush = border,
             BorderThickness = new Thickness(1d),
             Background = ElevatedBrush(),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             VerticalAlignment = VerticalAlignment.Center,
             Child = Text(text, 10d, White(), FontWeights.SemiBold)
         };
@@ -682,10 +718,36 @@ internal static class Alpha12FigmaShellInstaller
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(1d),
             Background = ElevatedBrush(),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             VerticalAlignment = VerticalAlignment.Center,
             Child = stack
         };
+    }
+
+    private static Button AddActionNavigationButton(
+        Panel panel,
+        string text,
+        Action action,
+        List<Button> buttons)
+    {
+        Button? button = null;
+        button = NavigationButton(text, () =>
+        {
+            foreach (var candidate in buttons)
+            {
+                StyleNavigationButton(candidate, false);
+            }
+
+            if (button is not null)
+            {
+                StyleNavigationButton(button, true);
+            }
+
+            action();
+        });
+        buttons.Add(button);
+        panel.Children.Add(button);
+        return button;
     }
 
     private static Button AddPageButton(Panel panel, string text, FrameworkElement page, ShellPages pages, List<Button> buttons)
@@ -751,16 +813,16 @@ internal static class Alpha12FigmaShellInstaller
 
     private static void StyleNavigationButton(Button button, bool selected)
     {
-        button.Height = 40d;
-        button.Margin = new Thickness(0d, 0d, 0d, 6d);
-        button.Padding = new Thickness(16d, 9d, 12d, 9d);
+        button.Height = 42d;
+        button.Margin = new Thickness(0d, 0d, 0d, 5d);
+        button.Padding = new Thickness(14d, 10d, 12d, 10d);
         button.HorizontalAlignment = HorizontalAlignment.Stretch;
         button.HorizontalContentAlignment = HorizontalAlignment.Left;
         button.Background = selected ? Brush(16, 38, 56) : Brushes.Transparent;
         button.Foreground = selected ? White() : Muted();
-        button.BorderBrush = selected ? Accent() : Brushes.Transparent;
+        button.BorderBrush = selected ? NavBlue() : Brushes.Transparent;
         button.BorderThickness = selected ? new Thickness(3d, 0d, 0d, 0d) : new Thickness(0d);
-        button.FontSize = 12.5d;
+        button.FontSize = 12d;
         button.Cursor = System.Windows.Input.Cursors.Hand;
     }
 
@@ -786,7 +848,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static UIElement BuildBrand()
     {
-        var stack = new StackPanel { Margin = new Thickness(12d, 2d, 4d, 28d) };
+        var stack = new StackPanel { Margin = new Thickness(10d, 2d, 4d, 26d) };
         stack.Children.Add(Text("NAVBR", 22d, White(), FontWeights.Bold));
         stack.Children.Add(Text("OMSI MULTIPLAYER", 9d, Accent(), FontWeights.Bold, new Thickness(0d, 2d, 0d, 0d)));
         return stack;
@@ -801,7 +863,7 @@ internal static class Alpha12FigmaShellInstaller
         Background = BorderBrush()
     };
 
-    private static StackPanel PageStack() => new() { Margin = new Thickness(40d, 32d, 40d, 40d) };
+    private static StackPanel PageStack() => new() { Margin = new Thickness(32d, 28d, 32d, 36d) };
 
     private static ScrollViewer NewPage() => new()
     {
@@ -898,6 +960,7 @@ internal static class Alpha12FigmaShellInstaller
     private static SolidColorBrush CardBrush() => Brush(10, 19, 26);
     private static SolidColorBrush ElevatedBrush() => Brush(13, 26, 36);
     private static SolidColorBrush BorderBrush() => Brush(28, 42, 51);
+    private static SolidColorBrush NavBlue() => Brush(61, 137, 196);
     private static SolidColorBrush Accent() => Brush(113, 198, 255);
     private static SolidColorBrush White() => Brush(218, 230, 238);
     private static SolidColorBrush Muted() => Brush(151, 171, 185);
@@ -908,10 +971,10 @@ internal static class Alpha12FigmaShellInstaller
     private sealed record ShellPages(
         ScrollViewer Home,
         ScrollViewer Navigation,
-        ScrollViewer Multiplayer,
         ScrollViewer Hardware,
         ScrollViewer Diagnostics)
     {
-        public IReadOnlyList<FrameworkElement> All { get; } = new FrameworkElement[] { Home, Navigation, Multiplayer, Hardware, Diagnostics };
+        public IReadOnlyList<FrameworkElement> All { get; } =
+            new FrameworkElement[] { Home, Navigation, Hardware, Diagnostics };
     }
 }

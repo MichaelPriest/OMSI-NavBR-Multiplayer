@@ -39,19 +39,7 @@ internal static class SessionHealthInstaller
 
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
-        button.Click += (_, _) =>
-        {
-            var app = Application.Current as App;
-            if (app is null)
-            {
-                return;
-            }
-
-            new SessionHealthWindow(
-                window,
-                window.GetCurrentTelemetryForAlpha11,
-                app.PluginBridge.GetConnectionInfo).ShowDialog();
-        };
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("settings-diagnostics");
 
         if (window.FindName(Alpha12ProfessionalShellInstaller.SystemPanelName) is Panel system)
         {

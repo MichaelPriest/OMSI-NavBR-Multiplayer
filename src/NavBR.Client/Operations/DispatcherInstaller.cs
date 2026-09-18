@@ -41,16 +41,10 @@ internal static class DispatcherInstaller
         StyleButton(button);
         button.Click += (_, _) =>
         {
-            var dispatcher = new DispatcherWindow(window, window.GetCurrentTelemetryForAlpha11);
-            RoutedEventHandler? loaded = null;
-            loaded = (_, _) =>
-            {
-                dispatcher.Loaded -= loaded;
-                DispatcherRemoteDriversPanel.Attach(dispatcher);
-                DispatcherOperationalReportsPanel.Attach(dispatcher);
-            };
-            dispatcher.Loaded += loaded;
-            dispatcher.ShowDialog();
+            // Alpha.14 keeps the historical button tag only for compatibility
+            // with older installer code. The user-facing CCO now lives in the
+            // React/WebView2 shell; never instantiate the retired WPF window.
+            window.NavigatePrimaryWebShell("operations");
         };
 
         if (window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operations)

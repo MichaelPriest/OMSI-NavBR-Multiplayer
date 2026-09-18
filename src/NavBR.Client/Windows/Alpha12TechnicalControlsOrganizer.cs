@@ -6,7 +6,7 @@ namespace NavBR.Client.Windows;
 
 internal static class Alpha12TechnicalControlsOrganizer
 {
-    private const string ToolsPanelName = "Alpha11ToolsPanel";
+    private const string ToolsPanelName = "Alpha12AdvancedToolsPanel";
     private static readonly HashSet<MainWindow> Attached = new();
 
     public static void Attach(MainWindow window)

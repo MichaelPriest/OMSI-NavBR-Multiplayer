@@ -47,6 +47,7 @@ public sealed record MultiplayerSettings(
     double DashboardMultiplayerScale = 1d,
     double DashboardAlertsScale = 1d,
     double DashboardSideIndicatorsScale = 1d,
+    bool ExperimentalRoleplayCharacterEnabled = false,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {

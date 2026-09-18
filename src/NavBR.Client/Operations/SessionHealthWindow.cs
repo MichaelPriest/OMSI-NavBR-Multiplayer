@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
@@ -15,6 +16,7 @@ internal sealed class SessionHealthWindow : Window
     private readonly Func<OmsiPluginBridgeConnectionInfo> _pluginInfoProvider;
     private readonly DispatcherTimer _timer;
     private readonly TextBlock _summary = new();
+    private Border? _summaryCard;
     private readonly TextBlock _omsiState = new();
     private readonly TextBlock _multiplayerState = new();
     private readonly TextBlock _pluginState = new();
@@ -34,10 +36,10 @@ internal sealed class SessionHealthWindow : Window
         _telemetryProvider = telemetryProvider;
         _pluginInfoProvider = pluginInfoProvider;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Width = 780d;
-        Height = 660d;
-        MinWidth = 720d;
-        MinHeight = 580d;
+        Width = 860d;
+        Height = 680d;
+        MinWidth = 740d;
+        MinHeight = 600d;
         Background = Brush(6, 11, 16);
         Content = BuildContent();
         ApplyLocalization();
@@ -75,7 +77,7 @@ internal sealed class SessionHealthWindow : Window
         Grid.SetRow(heading, 0);
         root.Children.Add(heading);
 
-        var summaryCard = new Border
+        _summaryCard = new Border
         {
             Padding = new Thickness(16d),
             Background = Brush(11, 20, 26),
@@ -87,8 +89,8 @@ internal sealed class SessionHealthWindow : Window
         _summary.Foreground = Brushes.White;
         _summary.FontSize = 14d;
         _summary.FontWeight = FontWeights.SemiBold;
-        Grid.SetRow(summaryCard, 1);
-        root.Children.Add(summaryCard);
+        Grid.SetRow(_summaryCard, 1);
+        root.Children.Add(_summaryCard);
 
         var scroller = new ScrollViewer
         {
@@ -96,7 +98,11 @@ internal sealed class SessionHealthWindow : Window
             Margin = new Thickness(0d, 18d, 0d, 0d)
         };
         var body = new StackPanel();
-        var metrics = new WrapPanel();
+        var metrics = new UniformGrid
+        {
+            Columns = 3,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         metrics.Children.Add(BuildMetricCard("Omsi", _omsiState));
         metrics.Children.Add(BuildMetricCard("Multiplayer", _multiplayerState));
         metrics.Children.Add(BuildMetricCard("Plugin", _pluginState));
@@ -150,10 +156,10 @@ internal sealed class SessionHealthWindow : Window
 
         return new Border
         {
-            Width = 220d,
             MinHeight = 104d,
             Margin = new Thickness(0d, 0d, 10d, 10d),
             Padding = new Thickness(14d),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Background = Brush(10, 19, 25),
             BorderBrush = Brush(31, 47, 57),
             BorderThickness = new Thickness(1d),
@@ -225,6 +231,46 @@ internal sealed class SessionHealthWindow : Window
                 : Brushes.White;
 
         _summary.Text = BuildSummary(omsiActive, multiplayer.Connected, multiplayer.RemoteDrivers.Count, network.Level);
+        ApplySummaryVisual(omsiActive, multiplayer.Connected, network.Level);
+    }
+
+    private void ApplySummaryVisual(
+        bool omsiActive,
+        bool multiplayerConnected,
+        SessionNetworkQualityLevel networkLevel)
+    {
+        if (_summaryCard is null)
+        {
+            return;
+        }
+
+        if (!omsiActive)
+        {
+            _summary.Foreground = Brush(151, 171, 185);
+            _summaryCard.Background = Brush(13, 26, 36);
+            _summaryCard.BorderBrush = Brush(28, 42, 51);
+            return;
+        }
+
+        if (multiplayerConnected && networkLevel == SessionNetworkQualityLevel.Poor)
+        {
+            _summary.Foreground = Brush(255, 194, 198);
+            _summaryCard.Background = Brush(50, 20, 25);
+            _summaryCard.BorderBrush = Brush(239, 91, 100);
+            return;
+        }
+
+        if (multiplayerConnected && networkLevel == SessionNetworkQualityLevel.Degraded)
+        {
+            _summary.Foreground = Brush(255, 221, 160);
+            _summaryCard.Background = Brush(45, 34, 18);
+            _summaryCard.BorderBrush = Brush(242, 184, 75);
+            return;
+        }
+
+        _summary.Foreground = Brush(186, 244, 218);
+        _summaryCard.Background = Brush(10, 38, 29);
+        _summaryCard.BorderBrush = Brush(56, 201, 140);
     }
 
     private static string BuildSummary(
