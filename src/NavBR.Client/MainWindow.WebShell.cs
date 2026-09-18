@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Windows;
+using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
 
@@ -147,6 +148,14 @@ public partial class MainWindow
         {
             generatedAtUtc = DateTimeOffset.UtcNow,
             appVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(),
+            cultureName = LocalizationService.CurrentCulture.Name,
+            supportedLanguages = LocalizationService.SupportedLanguages
+                .Select(language => new
+                {
+                    cultureName = language.CultureName,
+                    displayName = language.DisplayName
+                })
+                .ToArray(),
             navigationRequest = string.IsNullOrWhiteSpace(_webRequestedScreen)
                 ? null
                 : new
@@ -268,6 +277,16 @@ public partial class MainWindow
     {
         switch (command)
         {
+            case "setLanguage":
+            {
+                var cultureName = GetWebPayloadString(payload, "cultureName");
+                if (!string.IsNullOrWhiteSpace(cultureName))
+                {
+                    LocalizationService.SetCulture(cultureName);
+                }
+                break;
+            }
+
             case "openMultiplayerCentral":
                 OpenMultiplayerCentralForShell();
                 break;
