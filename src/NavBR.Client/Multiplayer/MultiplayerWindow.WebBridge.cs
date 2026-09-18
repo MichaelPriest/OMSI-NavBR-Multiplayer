@@ -225,6 +225,33 @@ public partial class MultiplayerWindow
         RenderVoiceChannelButton();
     }
 
+    internal bool IsHostRunningForWeb => _host.IsRunning;
+
+    internal void SetAutomaticUpnpFromWeb(bool enabled)
+    {
+        if (_host.IsRunning)
+        {
+            throw new InvalidOperationException(
+                "Pare a hospedagem atual antes de alterar o UPnP automático.");
+        }
+
+        _settings = _settings with
+        {
+            EnableAutomaticUpnp = enabled
+        };
+        MultiplayerSettingsStore.Save(_settings);
+
+        _loadingUpnpUi = true;
+        try
+        {
+            UpnpEnabledCheckBox.IsChecked = enabled;
+        }
+        finally
+        {
+            _loadingUpnpUi = false;
+        }
+    }
+
     internal async Task SendChatFromWebAsync(string text)
     {
         var normalized = text?.Trim();
