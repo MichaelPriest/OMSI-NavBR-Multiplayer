@@ -98,6 +98,26 @@ jobs:
             -p:NativeLib=Shared `
             -o artifacts/NavBR.OmsiPlugin.Experimental
 
+      - name: Rebuild embedded OMSI plugin v3 bundle
+        shell: pwsh
+        run: |
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" `
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll" -Force
+
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental" `
+            -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+          foreach ($required in @(
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll",
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.opl",
+            "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Updated Alpha.14 plugin payload is incomplete: $required"
+            }
+          }
       - name: Validate plugin protocol generation
         shell: pwsh
         run: |
