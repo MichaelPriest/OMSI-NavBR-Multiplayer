@@ -268,6 +268,10 @@ public partial class MainWindow
                 OpenMultiplayerCentralForShell();
                 break;
 
+            case "ensureMultiplayerController":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                break;
+
             case "openRoleplay":
                 NavigatePrimaryWebShell("roleplay");
                 break;
