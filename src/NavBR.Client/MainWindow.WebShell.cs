@@ -260,11 +260,30 @@ public partial class MainWindow
             relayServerUrl = settings.RelayServerUrl,
             physicalVehiclesEnabled = settings.ExperimentalPhysicalVehiclesEnabled,
             physicalVehiclesAvailable = false,
+            networkQuality = new
+            {
+                level = "Unknown",
+                roundTripMs = null as double?,
+                jitterMs = null as double?,
+                lossPercent = 0d,
+                samples = 0,
+                updatedAtUtc = DateTimeOffset.UtcNow
+            },
+            sessionAuthority = new
+            {
+                roomOwnerPlayerId = null as string,
+                roomOwnerDisplayName = null as string,
+                trafficAuthorityPlayerId = null as string,
+                trafficAuthorityDisplayName = null as string,
+                isRoomOwner = false,
+                isTrafficAuthority = false
+            },
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
             playerCount = 0,
             players = Array.Empty<object>(),
+            sessionPoints = Array.Empty<object>(),
             chat = Array.Empty<object>()
         };
     }
