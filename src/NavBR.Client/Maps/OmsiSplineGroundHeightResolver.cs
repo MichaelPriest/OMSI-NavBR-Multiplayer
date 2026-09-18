@@ -11,8 +11,8 @@ namespace NavBR.Client.Maps;
 /// </summary>
 internal static class OmsiSplineGroundHeightResolver
 {
-    private const double SampleSpacingMeters = 2.5d;
-    private const double MaxSnapDistanceMeters = 16d;
+    private const double MaxSnapDistanceMeters = 12d;
+    private const double MaxPreferredHeightDeltaMeters = 1.5d;
     private static readonly object CacheLock = new();
     private static readonly Dictionary<string, MapCache> MapCaches =
         new(StringComparer.OrdinalIgnoreCase);
@@ -38,6 +38,7 @@ internal static class OmsiSplineGroundHeightResolver
         VehicleTelemetry telemetry,
         double characterLocalX,
         double characterLocalY,
+        double? preferredGroundZ,
         out double groundZ)
     {
         groundZ = 0d;
@@ -89,27 +90,32 @@ internal static class OmsiSplineGroundHeightResolver
 
                 foreach (var spline in GetSplines(cache, tilePath))
                 {
-                    var sampleCount = Math.Clamp(
-                        (int)Math.Ceiling(spline.Length / SampleSpacingMeters),
-                        2,
-                        160);
-
-                    for (var index = 0; index <= sampleCount; index++)
+                    if (!TryProjectOntoSpline(
+                            gridX,
+                            gridY,
+                            cache.TileSize,
+                            spline,
+                            characterWorldX,
+                            characterWorldY,
+                            out var distanceAlongSpline,
+                            out var distanceSquared) ||
+                        distanceSquared >= bestDistanceSquared)
                     {
-                        var distance = spline.Length * index / sampleCount;
-                        var point = SampleSpline(gridX, gridY, cache.TileSize, spline, distance);
-                        var dx = point.X - characterWorldX;
-                        var dy = point.Y - characterWorldY;
-                        var distanceSquared = dx * dx + dy * dy;
-                        if (distanceSquared >= bestDistanceSquared)
-                        {
-                            continue;
-                        }
-
-                        bestDistanceSquared = distanceSquared;
-                        bestZ = point.Z;
-                        found = true;
+                        continue;
                     }
+
+                    var candidateZ = ResolveHeight(spline, distanceAlongSpline);
+                    if (!double.IsFinite(candidateZ) ||
+                        preferredGroundZ is double preferred &&
+                        double.IsFinite(preferred) &&
+                        Math.Abs(candidateZ - preferred) > MaxPreferredHeightDeltaMeters)
+                    {
+                        continue;
+                    }
+
+                    bestDistanceSquared = distanceSquared;
+                    bestZ = candidateZ;
+                    found = true;
                 }
             }
         }
@@ -297,39 +303,98 @@ internal static class OmsiSplineGroundHeightResolver
         return result;
     }
 
-    private static (double X, double Y, double Z) SampleSpline(
+    private static bool TryProjectOntoSpline(
         int gridX,
         int gridY,
         double tileSize,
         SplinePlacement spline,
-        double distance)
+        double worldX,
+        double worldY,
+        out double distanceAlongSpline,
+        out double distanceSquared)
     {
+        distanceAlongSpline = 0d;
+        distanceSquared = double.PositiveInfinity;
+
         var rotation = spline.RotationDegrees * Math.PI / 180d;
         var sinRotation = Math.Sin(rotation);
         var cosRotation = Math.Cos(rotation);
+        var originX = gridX * tileSize + spline.X;
+        var originY = gridY * tileSize + spline.Y;
+        var dx = worldX - originX;
+        var dy = worldY - originY;
 
-        double localX;
-        double localY;
-        if (Math.Abs(spline.Radius) > 0.001d)
+        // Inverse of OMSI's clockwise-from-tile-Y spline transform.
+        var localX = dx * cosRotation - dy * sinRotation;
+        var localY = dx * sinRotation + dy * cosRotation;
+        if (!double.IsFinite(localX) || !double.IsFinite(localY))
         {
-            var angle = distance / spline.Radius;
-            localX = spline.Radius * (1d - Math.Cos(angle));
-            localY = spline.Radius * Math.Sin(angle);
-        }
-        else
-        {
-            localX = 0d;
-            localY = distance;
+            return false;
         }
 
-        var tileX = spline.X + localX * cosRotation + localY * sinRotation;
-        var tileY = spline.Y - localX * sinRotation + localY * cosRotation;
-        var z = ResolveHeight(spline, distance);
+        if (Math.Abs(spline.Radius) <= 0.001d)
+        {
+            distanceAlongSpline = Math.Clamp(localY, 0d, spline.Length);
+            var lateral = localX;
+            var longitudinal = localY - distanceAlongSpline;
+            distanceSquared = lateral * lateral + longitudinal * longitudinal;
+            return double.IsFinite(distanceSquared);
+        }
 
-        return (
-            gridX * tileSize + tileX,
-            gridY * tileSize + tileY,
-            z);
+        var radius = spline.Radius;
+        var totalAngle = spline.Length / radius;
+        if (!double.IsFinite(totalAngle))
+        {
+            return false;
+        }
+
+        var normalizedY = localY / radius;
+        var normalizedX = (radius - localX) / radius;
+        var rawAngle = Math.Atan2(normalizedY, normalizedX);
+        var minAngle = Math.Min(0d, totalAngle);
+        var maxAngle = Math.Max(0d, totalAngle);
+        var twoPi = Math.PI * 2d;
+        var middle = (minAngle + maxAngle) * 0.5d;
+        var baseTurn = (int)Math.Round((middle - rawAngle) / twoPi);
+
+        void ConsiderDistance(double distance)
+        {
+            distance = Math.Clamp(distance, 0d, spline.Length);
+            var angle = distance / radius;
+            var pointX = radius * (1d - Math.Cos(angle));
+            var pointY = radius * Math.Sin(angle);
+            var candidateDx = pointX - localX;
+            var candidateDy = pointY - localY;
+            var candidateDistanceSquared =
+                candidateDx * candidateDx +
+                candidateDy * candidateDy;
+
+            if (double.IsFinite(candidateDistanceSquared) &&
+                candidateDistanceSquared < distanceSquared)
+            {
+                distanceSquared = candidateDistanceSquared;
+                distanceAlongSpline = distance;
+            }
+        }
+
+        // Endpoints are always valid candidates.
+        ConsiderDistance(0d);
+        ConsiderDistance(spline.Length);
+
+        // The same polar angle repeats every full turn. Evaluate the nearest
+        // wrapped candidates without scanning/sampling the whole spline.
+        for (var turn = baseTurn - 1; turn <= baseTurn + 1; turn++)
+        {
+            var angle = rawAngle + turn * twoPi;
+            if (angle < minAngle || angle > maxAngle)
+            {
+                continue;
+            }
+
+            ConsiderDistance(angle * radius);
+        }
+
+        return double.IsFinite(distanceSquared);
     }
 
     private static double ResolveHeight(SplinePlacement spline, double distance)

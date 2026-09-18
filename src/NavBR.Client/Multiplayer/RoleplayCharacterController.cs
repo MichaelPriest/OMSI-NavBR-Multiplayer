@@ -25,6 +25,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double TurnSpeedDegreesPerSecond = 105d;
     private const double MaxDistanceFromBusMeters = 85d;
     private const double MaxVerticalFollowSpeedMps = 2.75d;
+    private const double MaxInitialGroundOffsetMeters = 3.5d;
+    private const double MaxGroundSampleJumpMeters = 1.25d;
+    private const double MaxGroundTargetErrorMeters = 1.5d;
 
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
@@ -46,6 +49,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private double _groundHeightOffset;
     private bool _groundHeightCalibrated;
     private bool _groundFollowing;
+    private double? _lastGroundHeight;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -166,17 +170,27 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _originX = x;
         _originY = y;
         var initialGroundZ = 0d;
-        _groundFollowing = map is not null &&
-                           OmsiSplineGroundHeightResolver.TryResolve(
-                               map,
-                               telemetry,
-                               x,
-                               y,
-                               out initialGroundZ);
+        var initialGroundResolved = map is not null &&
+                                    OmsiSplineGroundHeightResolver.TryResolve(
+                                        map,
+                                        telemetry,
+                                        x,
+                                        y,
+                                        preferredGroundZ: null,
+                                        out initialGroundZ);
+        var initialGroundOffset = initialGroundResolved
+            ? z - initialGroundZ
+            : double.NaN;
+        _groundFollowing = initialGroundResolved &&
+                           double.IsFinite(initialGroundOffset) &&
+                           Math.Abs(initialGroundOffset) <= MaxInitialGroundOffsetMeters;
         _groundHeightCalibrated = _groundFollowing;
         _groundHeightOffset = _groundFollowing
-            ? z - initialGroundZ
+            ? initialGroundOffset
             : 0d;
+        _lastGroundHeight = _groundFollowing
+            ? initialGroundZ
+            : null;
 
         _state = new RoleplayCharacterState(
             PlayerId: playerId,
@@ -228,6 +242,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
+            _lastGroundHeight = null;
             lock (_inputSync)
             {
                 _pressedKeys.Clear();
@@ -349,34 +364,16 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             }
 
             var z = current.LocalZ;
-            if (map is not null &&
-                telemetry is not null &&
-                OmsiSplineGroundHeightResolver.TryResolve(
+            if (TryFollowGround(
                     map,
                     telemetry,
                     x,
                     y,
-                    out var groundZ))
+                    z,
+                    deltaSeconds,
+                    out var followedZ))
             {
-                if (!_groundHeightCalibrated)
-                {
-                    _groundHeightOffset = current.LocalZ - groundZ;
-                    _groundHeightCalibrated = true;
-                }
-
-                var targetZ = groundZ + _groundHeightOffset;
-                var maxVerticalDelta = Math.Max(
-                    0.02d,
-                    MaxVerticalFollowSpeedMps * deltaSeconds);
-                z += Math.Clamp(
-                    targetZ - z,
-                    -maxVerticalDelta,
-                    maxVerticalDelta);
-                _groundFollowing = true;
-            }
-            else
-            {
-                _groundFollowing = false;
+                z = followedZ;
             }
 
             var activity = speed <= 0.01d
@@ -428,6 +425,75 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         {
             Interlocked.Exchange(ref _updateInFlight, 0);
         }
+    }
+
+    private bool TryFollowGround(
+        OmsiMapInfo? map,
+        VehicleTelemetry? telemetry,
+        double x,
+        double y,
+        double currentZ,
+        double deltaSeconds,
+        out double resolvedZ)
+    {
+        resolvedZ = currentZ;
+
+        if (map is null ||
+            telemetry is null ||
+            !OmsiSplineGroundHeightResolver.TryResolve(
+                map,
+                telemetry,
+                x,
+                y,
+                _lastGroundHeight,
+                out var groundZ))
+        {
+            _groundFollowing = false;
+            return false;
+        }
+
+        if (!_groundHeightCalibrated)
+        {
+            var offset = currentZ - groundZ;
+            if (!double.IsFinite(offset) ||
+                Math.Abs(offset) > MaxInitialGroundOffsetMeters)
+            {
+                _groundFollowing = false;
+                return false;
+            }
+
+            _groundHeightOffset = offset;
+            _groundHeightCalibrated = true;
+        }
+        else if (_lastGroundHeight is double previousGround &&
+                 Math.Abs(groundZ - previousGround) > MaxGroundSampleJumpMeters)
+        {
+            // A sudden Z discontinuity usually means an overlapping road,
+            // bridge or another nearby spline became the 2D nearest candidate.
+            // Keep the current character height rather than drifting to it.
+            _groundFollowing = false;
+            return false;
+        }
+
+        var targetZ = groundZ + _groundHeightOffset;
+        if (!double.IsFinite(targetZ) ||
+            Math.Abs(targetZ - currentZ) > MaxGroundTargetErrorMeters)
+        {
+            _groundFollowing = false;
+            return false;
+        }
+
+        var maxVerticalDelta = Math.Max(
+            0.02d,
+            MaxVerticalFollowSpeedMps * deltaSeconds);
+        resolvedZ = currentZ + Math.Clamp(
+            targetZ - currentZ,
+            -maxVerticalDelta,
+            maxVerticalDelta);
+
+        _lastGroundHeight = groundZ;
+        _groundFollowing = true;
+        return true;
     }
 
     private void EmitNetworkState(RoleplayCharacterState state)
