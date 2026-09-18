@@ -150,6 +150,10 @@ public partial class MainWindow
                     id = _webNavigationRequestId,
                     screen = _webRequestedScreen
                 },
+            shell = new
+            {
+                topmost = _webShellWindow?.Topmost == true
+            },
             omsi = new
             {
                 running = omsi is not null,
@@ -326,6 +330,17 @@ public partial class MainWindow
                 }
                 break;
             }
+
+            case "refreshOmsiDetection":
+                await RefreshOmsiStatusAsync();
+                break;
+
+            case "setShellTopmost":
+                if (_webShellWindow is not null)
+                {
+                    _webShellWindow.Topmost = GetWebPayloadBool(payload, "enabled");
+                }
+                break;
 
             case "ensureMultiplayerController":
                 OpenMultiplayerCentralForShell(showWindow: false);
