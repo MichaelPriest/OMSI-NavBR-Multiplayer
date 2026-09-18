@@ -113,5 +113,7 @@ export function subscribeToNavBrState(
   window.chrome?.webview?.addEventListener("message", listener);
   sendCommand("refreshState");
 
-  return () => window.chrome?.webview?.removeEventListener("message", listener);
+  return () => {
+    window.chrome?.webview?.removeEventListener("message", listener);
+  };
 }
