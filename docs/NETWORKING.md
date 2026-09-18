@@ -1,61 +1,45 @@
 # Rede multiplayer
 
-> **Escopo atual:** esta camada de rede sincroniza dados entre clientes NavBR. Ela **ainda não cria nem movimenta o ônibus do outro jogador dentro do mundo 3D do OMSI**. Para o estado completo, veja [Estado real do multiplayer](MULTIPLAYER_STATUS.md).
+## Peer-host direto
 
-## Modelo atual
+O PC de quem cria a sala pode executar o servidor da própria sessão em **TCP 27730**.
 
-O NavBR usa peer-host no sentido de que o **PC do criador da sala executa o servidor da sessão**. Os demais clientes não se conectam uns aos outros diretamente; todos se conectam ao host da sala.
+Presença, telemetria, chat, voz, estado operacional e canais experimentais passam pelo SignalR.
 
-```text
-Convidado A ─┐
-             ├── TCP 27730 / SignalR ── PC do criador da sala
-Convidado B ─┘                              ├─ presença
-                                            ├─ telemetria
-                                            ├─ chat
-                                            └─ voz Opus
-```
+## Windows Firewall
 
-A telemetria recebida pode alimentar marcadores no GPS/HUD do NavBR e, na alpha.10 experimental, o bridge local do plugin. **Receber essa telemetria não significa que uma entidade física tenha sido criada no OMSI.**
+A Alpha.14 cria uma regra de entrada chamada **OMSI NavBR Multiplayer - TCP 27730**.
 
-## Porta
+- protocolo TCP;
+- porta local 27730;
+- perfis Privado, Público e Domínio;
+- solicita UAC;
+- verifica a regra depois de criar;
+- se o UAC for cancelado, o app informa que a regra não foi alterada.
 
-Padrão inicial: `27730/TCP`.
+A regra é de porta para cobrir tanto o host embutido do cliente quanto o servidor dedicado.
 
-## LAN
+## UPnP / NAT
 
-Na mesma rede local, use um dos endereços IPv4 exibidos pelo NavBR, por exemplo:
+UPnP é opcional. Pela Internet, o host direto ainda pode exigir port forwarding e um endereço público alcançável.
 
-```text
-http://192.168.1.50:27730
-```
+CGNAT/double NAT podem impedir conexão direta mesmo com Firewall correto.
 
-## Internet
+## Relay experimental
 
-Nesta alpha ainda não existe um serviço de rendezvous/NAT traversal. O host precisa estar alcançável. Dependendo da rede isso pode exigir:
+O relay de aplicação usa um NavBR.Server remoto configurado pelo usuário/operador. Ele não abre host local nem depende de UPnP.
 
-- regra de entrada no Windows Firewall;
-- port forwarding TCP 27730 no roteador;
-- IP público ou hostname alcançável.
+O relay continua experimental e não existe endpoint público embutido no app.
 
-CGNAT pode impedir port forwarding tradicional. UPnP/PCP/NAT-PMP, relay ou WebRTC/ICE são candidatos para fases futuras.
+## Salas privadas
 
-## O que não é compartilhado pelo servidor atual
+- senha não vai no convite;
+- senha não é persistida no perfil;
+- o servidor valida a senha antes de autorizar a entrada;
+- salas privadas não aparecem no navegador público.
 
-O host da sala não transforma o OMSI em um simulador de mundo compartilhado completo. Hoje ele não sincroniza:
+## Segurança
 
-- criação física de ônibus remotos no OMSI;
-- tráfego AI;
-- passageiros;
-- semáforos;
-- colisões;
-- estado global do cenário.
-
-Portas, luzes, setas, matriz e outros estados de um futuro ônibus remoto só serão tratados depois que existir uma representação física segura dentro do simulador.
-
-## Segurança atual
-
-- o servidor associa telemetria/chat/voz à presença da conexão, em vez de confiar somente no PlayerId enviado pelo cliente;
-- tamanhos de chat e frame de voz são limitados;
-- campos de telemetria são validados/normalizados antes da retransmissão;
-- esta alpha ainda não oferece criptografia própria, senha de sala ou autenticação de conta;
-- em Internet pública, um proxy HTTPS/TLS ou uma futura camada segura será necessária antes de classificar o modo como pronto para produção.
+- payloads e tamanhos são validados;
+- o servidor associa dados à conexão autenticada da sala;
+- escrita física no OMSI continua local, opt-in e separada da camada de rede.
