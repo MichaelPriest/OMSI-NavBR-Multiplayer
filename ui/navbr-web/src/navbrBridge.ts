@@ -31,6 +31,8 @@ export interface NavBrMultiplayerState {
   latencyMs?: number | null;
   voiceEnabled: boolean;
   voiceChannel: string;
+  voiceProximityMeters: number;
+  voiceDeafened: boolean;
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
@@ -104,6 +106,8 @@ export type NavBrCommand =
   | "stopLocalHost"
   | "refreshPublicRooms"
   | "toggleRoomFavorite"
+  | "setVoiceEnabled"
+  | "configureVoice"
   | "sendChat";
 
 declare global {
