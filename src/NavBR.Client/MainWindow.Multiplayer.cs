@@ -125,6 +125,8 @@ public partial class MainWindow
         };
         window.MultiplayerConnectionChanged += connectionChangedHandler;
         window.LocalDisplayNameChanged += hud.SetLocalDisplayName;
+        Action roleplayActionHandler = HandleHudRoleplayButtonRequestedForShell;
+        window.RoleplayActionRequested += roleplayActionHandler;
 
         Action<string> chatSubmittedHandler = text => _ = window.SendChatFromOverlayAsync(text);
         Action<bool> pushToTalkHandler = window.SetPushToTalk;
@@ -136,6 +138,7 @@ public partial class MainWindow
             hud.ChatSubmitted -= chatSubmittedHandler;
             hud.PushToTalkChanged -= pushToTalkHandler;
             window.MultiplayerConnectionChanged -= connectionChangedHandler;
+            window.RoleplayActionRequested -= roleplayActionHandler;
             DispatcherSessionFeed.SetConnected(false);
             hud.SetConnectionState(false);
             hud.ClearRemotePlayersSmooth();
