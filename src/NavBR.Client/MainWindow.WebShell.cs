@@ -160,6 +160,7 @@ public partial class MainWindow
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(),
             hardware = BuildWebHardwareState(),
+            network = BuildWebNetworkState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -412,6 +413,22 @@ public partial class MainWindow
 
             case "showLegacyShell":
                 ShowLegacyShellForWeb();
+                break;
+
+            case "refreshNetworkDiagnostics":
+                await RefreshWebNetworkDiagnosticsAsync();
+                break;
+
+            case "applyFirewallRule":
+                await ApplyWebFirewallRuleAsync();
+                break;
+
+            case "setAutomaticUpnp":
+                await SetWebAutomaticUpnpAsync(GetWebPayloadBool(payload, "enabled"));
+                break;
+
+            case "runExternalPortProbe":
+                await RunWebExternalPortProbeAsync();
                 break;
 
             case "connectHardware":
