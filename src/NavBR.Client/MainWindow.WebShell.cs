@@ -39,6 +39,10 @@ public partial class MainWindow
     {
         var telemetry = _lastTelemetry;
         var omsi = _currentOmsi;
+        var localManifest = OmsiCompatibilityManifestFactory.Create(
+            telemetry,
+            GetActiveMapForMultiplayer(),
+            omsi?.FileVersion);
 
         return new
         {
@@ -77,21 +81,28 @@ public partial class MainWindow
                     .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
                     .ThenByDescending(room => room.PlayerCount)
                     .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(room => new
+                    .Select(room =>
                     {
-                        roomId = room.RoomId,
-                        playerCount = room.PlayerCount,
-                        mapName = room.MapName,
-                        mapCompatibilityId = room.MapCompatibilityId,
-                        updatedAtUtc = room.UpdatedAtUtc,
-                        omsiVersion = room.OmsiVersion,
-                        navbrVersion = room.NavBRVersion,
-                        vehiclePath = room.VehiclePath,
-                        vehicleCompatibilityId = room.VehicleCompatibilityId,
-                        hofName = room.HofName,
-                        hofCompatibilityId = room.HofCompatibilityId,
-                        pluginProtocolVersion = room.PluginProtocolVersion,
-                        favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId)
+                        var compatibility = EvaluateWebRoomCompatibility(localManifest, room);
+                        return new
+                        {
+                            roomId = room.RoomId,
+                            playerCount = room.PlayerCount,
+                            mapName = room.MapName,
+                            mapCompatibilityId = room.MapCompatibilityId,
+                            updatedAtUtc = room.UpdatedAtUtc,
+                            omsiVersion = room.OmsiVersion,
+                            navbrVersion = room.NavBRVersion,
+                            vehiclePath = room.VehiclePath,
+                            vehicleCompatibilityId = room.VehicleCompatibilityId,
+                            hofName = room.HofName,
+                            hofCompatibilityId = room.HofCompatibilityId,
+                            pluginProtocolVersion = room.PluginProtocolVersion,
+                            favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId),
+                            compatibility = compatibility.Level,
+                            compatibilityIssues = compatibility.Issues,
+                            directJoinAllowed = compatibility.DirectJoinAllowed
+                        };
                     })
                     .ToArray()
             }
@@ -233,6 +244,51 @@ public partial class MainWindow
         }
     }
 
+    private static WebRoomCompatibility EvaluateWebRoomCompatibility(
+        OmsiCompatibilityManifest local,
+        PublicRoomSummary room)
+    {
+        if (string.IsNullOrWhiteSpace(room.MapName))
+        {
+            return new WebRoomCompatibility(
+                "blocked",
+                false,
+                ["O host ainda não informou o mapa obrigatório."]);
+        }
+
+        var remote = new OmsiCompatibilityManifest(
+            room.OmsiVersion,
+            room.NavBRVersion,
+            room.MapName,
+            room.MapCompatibilityId,
+            room.VehiclePath,
+            room.VehicleCompatibilityId,
+            room.HofName,
+            room.HofCompatibilityId,
+            room.PluginProtocolVersion,
+            null,
+            null);
+
+        var report = OmsiCompatibilityEvaluator.Compare(local, remote);
+        var issues = report.Issues
+            .Where(issue => issue.Severity != CompatibilityIssueSeverity.Info)
+            .Select(issue => issue.Message)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+
+        if (report.HasBlockingIssues)
+        {
+            return new WebRoomCompatibility("blocked", false, issues);
+        }
+
+        if (report.Issues.Any(issue => issue.Severity == CompatibilityIssueSeverity.Warning))
+        {
+            return new WebRoomCompatibility("warning", true, issues);
+        }
+
+        return new WebRoomCompatibility("compatible", true, issues);
+    }
+
     private static bool GetWebPayloadBool(JsonElement? payload, string propertyName)
     {
         if (payload is not JsonElement element ||
@@ -245,6 +301,11 @@ public partial class MainWindow
 
         return value.GetBoolean();
     }
+
+    private sealed record WebRoomCompatibility(
+        string Level,
+        bool DirectJoinAllowed,
+        IReadOnlyList<string> Issues);
 
     private static string? GetWebPayloadString(JsonElement? payload, string propertyName)
     {
