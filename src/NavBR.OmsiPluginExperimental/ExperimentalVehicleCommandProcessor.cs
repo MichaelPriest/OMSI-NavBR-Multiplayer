@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 
@@ -140,7 +142,12 @@ internal static class ExperimentalVehicleCommandProcessor
 internal static class PhysicalVehicleBackend
 {
     private const int MaxRetainedVehiclePathStrings = 256;
+    private const int MaxVehicleDefinitionsToScan = 10_000;
     private static int _retainedVehiclePathStrings;
+    private static readonly ConcurrentDictionary<string, FingerprintCacheEntry> VehicleFingerprintCache =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> VehiclePathByCompatibilityId =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
 
@@ -196,7 +203,10 @@ internal static class PhysicalVehicleBackend
             return ApplyState(command, existing);
         }
 
-        if (!TryResolveVehiclePath(command.VehiclePath, out var vehiclePath))
+        if (!TryResolveVehiclePath(
+                command.VehiclePath,
+                command.VehicleCompatibilityId,
+                out var vehiclePath))
         {
             return Fail(command, "invalid-vehicle-path", "Vehicle path must resolve to an existing Vehicles\\*.bus or Vehicles\\*.ovh file.");
         }
@@ -441,22 +451,12 @@ internal static class PhysicalVehicleBackend
         return true;
     }
 
-    private static bool TryResolveVehiclePath(string? value, out string relativePath)
+    private static bool TryResolveVehiclePath(
+        string? value,
+        string? compatibilityId,
+        out string relativePath)
     {
         relativePath = string.Empty;
-        if (string.IsNullOrWhiteSpace(value) || value.Length > 1024)
-        {
-            return false;
-        }
-
-        var candidate = value.Trim().Replace('/', '\\').TrimStart('\\');
-        if (!candidate.StartsWith("Vehicles\\", StringComparison.OrdinalIgnoreCase) ||
-            candidate.Contains("..", StringComparison.Ordinal) ||
-            !(candidate.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-              candidate.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
 
         try
         {
@@ -473,14 +473,216 @@ internal static class PhysicalVehicleBackend
             var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar)
                 ? root
                 : root + Path.DirectorySeparatorChar;
-            var fullPath = Path.GetFullPath(Path.Combine(root, candidate));
-            if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) ||
-                !File.Exists(fullPath))
+
+            var hasFingerprint = TryNormalizeVehicleCompatibilityId(
+                compatibilityId,
+                out var normalizedCompatibilityId);
+
+            if (TryNormalizeVehicleRelativePath(value, out var candidate))
+            {
+                var fullPath = Path.GetFullPath(Path.Combine(root, candidate));
+                if (fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
+                    File.Exists(fullPath) &&
+                    (!hasFingerprint ||
+                     TryFingerprintVehicle(fullPath, out var candidateCompatibilityId) &&
+                     string.Equals(
+                         candidateCompatibilityId,
+                         normalizedCompatibilityId,
+                         StringComparison.OrdinalIgnoreCase)))
+                {
+                    relativePath = candidate;
+                    if (hasFingerprint)
+                    {
+                        VehiclePathByCompatibilityId[normalizedCompatibilityId] = candidate;
+                    }
+
+                    return true;
+                }
+            }
+
+            if (!hasFingerprint)
             {
                 return false;
             }
 
-            relativePath = candidate;
+            if (VehiclePathByCompatibilityId.TryGetValue(
+                    normalizedCompatibilityId,
+                    out var cachedRelativePath) &&
+                TryNormalizeVehicleRelativePath(
+                    cachedRelativePath,
+                    out cachedRelativePath))
+            {
+                var cachedFullPath = Path.GetFullPath(
+                    Path.Combine(root, cachedRelativePath));
+                if (cachedFullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
+                    File.Exists(cachedFullPath) &&
+                    TryFingerprintVehicle(
+                        cachedFullPath,
+                        out var cachedCompatibilityId) &&
+                    string.Equals(
+                        cachedCompatibilityId,
+                        normalizedCompatibilityId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    relativePath = cachedRelativePath;
+                    return true;
+                }
+
+                VehiclePathByCompatibilityId.TryRemove(
+                    normalizedCompatibilityId,
+                    out _);
+            }
+
+            var vehiclesRoot = Path.Combine(root, "Vehicles");
+            if (!Directory.Exists(vehiclesRoot))
+            {
+                return false;
+            }
+
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                ReturnSpecialDirectories = false,
+                AttributesToSkip = FileAttributes.ReparsePoint
+            };
+
+            var inspected = 0;
+            foreach (var fullPath in Directory.EnumerateFiles(
+                         vehiclesRoot,
+                         "*.*",
+                         options))
+            {
+                if (++inspected > MaxVehicleDefinitionsToScan)
+                {
+                    break;
+                }
+
+                if (!(fullPath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+                      fullPath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)) ||
+                    !TryFingerprintVehicle(
+                        fullPath,
+                        out var localCompatibilityId) ||
+                    !string.Equals(
+                        localCompatibilityId,
+                        normalizedCompatibilityId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var localRelativePath = Path.GetRelativePath(root, fullPath)
+                    .Replace('/', '\\');
+                if (!TryNormalizeVehicleRelativePath(
+                        localRelativePath,
+                        out localRelativePath))
+                {
+                    continue;
+                }
+
+                VehiclePathByCompatibilityId[normalizedCompatibilityId] =
+                    localRelativePath;
+                relativePath = localRelativePath;
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryNormalizeVehicleRelativePath(
+        string? value,
+        out string relativePath)
+    {
+        relativePath = string.Empty;
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 1024)
+        {
+            return false;
+        }
+
+        var candidate = value.Trim().Replace('/', '\\').TrimStart('\\');
+        if (!candidate.StartsWith("Vehicles\\", StringComparison.OrdinalIgnoreCase) ||
+            candidate.Contains("..", StringComparison.Ordinal) ||
+            !(candidate.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+              candidate.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        relativePath = candidate;
+        return true;
+    }
+
+    private static bool TryNormalizeVehicleCompatibilityId(
+        string? value,
+        out string compatibilityId)
+    {
+        compatibilityId = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant();
+        const string prefix = "sha256:";
+        if (!normalized.StartsWith(prefix, StringComparison.Ordinal) ||
+            normalized.Length != prefix.Length + 64)
+        {
+            return false;
+        }
+
+        foreach (var character in normalized.AsSpan(prefix.Length))
+        {
+            if (!Uri.IsHexDigit(character))
+            {
+                return false;
+            }
+        }
+
+        compatibilityId = normalized;
+        return true;
+    }
+
+    private static bool TryFingerprintVehicle(
+        string fullPath,
+        out string compatibilityId)
+    {
+        compatibilityId = string.Empty;
+
+        try
+        {
+            var info = new FileInfo(fullPath);
+            if (!info.Exists)
+            {
+                return false;
+            }
+
+            if (VehicleFingerprintCache.TryGetValue(
+                    fullPath,
+                    out var cached) &&
+                cached.Length == info.Length &&
+                cached.LastWriteUtc == info.LastWriteTimeUtc)
+            {
+                compatibilityId = cached.CompatibilityId;
+                return true;
+            }
+
+            using var stream = File.Open(
+                fullPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            var hash = Convert.ToHexString(SHA256.HashData(stream))
+                .ToLowerInvariant();
+            compatibilityId = $"sha256:{hash}";
+            VehicleFingerprintCache[fullPath] = new FingerprintCacheEntry(
+                info.Length,
+                info.LastWriteTimeUtc,
+                compatibilityId);
             return true;
         }
         catch
@@ -488,6 +690,11 @@ internal static class PhysicalVehicleBackend
             return false;
         }
     }
+
+    private sealed record FingerprintCacheEntry(
+        long Length,
+        DateTime LastWriteUtc,
+        string CompatibilityId);
 
     private static bool TryGetInstanceId(PluginBridgeMessage command, out string instanceId)
     {

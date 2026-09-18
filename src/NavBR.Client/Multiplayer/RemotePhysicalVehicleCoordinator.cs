@@ -80,8 +80,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // created when the player joins and can therefore predate the moment in
         // which OMSI has a fully resolved .bus/.ovh definition.
         var remoteManifest = BuildLiveRemoteManifest(frame);
-        if (string.IsNullOrWhiteSpace(remoteManifest.VehiclePath) ||
-            string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
+        // The content fingerprint is authoritative for physical spawning.
+        // VehiclePath is only a location hint and can differ between installs.
+        if (string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
         {
             await DespawnAsync(frame.Player.PlayerId, cancellationToken);
             return;
