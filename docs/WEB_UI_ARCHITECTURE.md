@@ -102,3 +102,24 @@ Recommended order:
 6. remaining utility screens.
 
 The native HUD and RP overlay stay native until a web implementation is demonstrably equivalent for focus, click-through and OMSI window behavior.
+
+
+## Multiplayer migration status
+
+The React shell now contains a real Multiplayer Central backed by the existing C# `MultiplayerWindow` controller instead of a second SignalR client.
+
+Migrated web surfaces:
+
+- Overview with live session status and current operation context;
+- Room controls for join, local host creation, disconnect and host shutdown;
+- public and private rooms, with private passwords kept ephemeral in the native settings object;
+- public-room directory, local favorites and search;
+- native room compatibility evaluation before direct join;
+- player list with latency, voice and RP state;
+- room chat with native send path;
+- RP/HUD shortcuts;
+- advanced handoff to the native firewall/NAT/UPnP and voice controls.
+
+When the React UI needs multiplayer services but the legacy window is not open, NavBR can initialize the existing WPF controller hidden. This preserves all established lifecycle handlers, HUD integration, SignalR state, host behavior and cleanup while the visual surfaces are migrated incrementally.
+
+The native WPF Multiplayer window remains available as a fallback and for controls that have not yet been migrated.
