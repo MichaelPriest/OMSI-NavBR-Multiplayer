@@ -3549,7 +3549,8 @@ export default function App() {
         "companyNetwork",
         "hardware",
         "settings",
-        "multiplayer"
+        "multiplayer",
+        "help"
       ].includes(requested)) {
         setScreen(requested as Screen);
       }
@@ -3578,12 +3579,14 @@ export default function App() {
                 ? <Hardware state={state} error={commandError} />
                 : screen === "settings"
                   ? <Settings state={state} error={commandError} requestedTab={settingsTabRequest} />
-                  : <Multiplayer
-                      state={state}
-                      error={commandError}
-                      onOpenNetwork={() => openSettingsTab("network")}
-                      onOpenHud={() => openSettingsTab("hud")}
-                    />}
+                  : screen === "help"
+                    ? <Help state={state} />
+                    : <Multiplayer
+                        state={state}
+                        error={commandError}
+                        onOpenNetwork={() => openSettingsTab("network")}
+                        onOpenHud={() => openSettingsTab("hud")}
+                      />}
       </main>
     </div>
     </I18nProvider>
