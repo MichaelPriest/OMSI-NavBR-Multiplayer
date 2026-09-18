@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private double _panStartVerticalOffset;
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
+    private bool _nativeRuntimeStarted;
 
     public MainWindow()
     {
@@ -63,7 +64,6 @@ public partial class MainWindow : Window
         ApplyLocalization();
         RenderCurrentState();
 
-        Loaded += async (_, _) => await RefreshOmsiStatusAsync();
         Closed += (_, _) =>
         {
             _driverStatisticsService.Dispose();
@@ -156,6 +156,17 @@ public partial class MainWindow : Window
     private void TopmostButton_Changed(object sender, RoutedEventArgs e)
     {
         Topmost = TopmostButton.IsChecked == true;
+    }
+
+    internal void StartNativeRuntimeForReact()
+    {
+        if (_nativeRuntimeStarted)
+        {
+            return;
+        }
+
+        _nativeRuntimeStarted = true;
+        _ = RefreshOmsiStatusAsync();
     }
 
     private async Task RefreshOmsiStatusAsync()

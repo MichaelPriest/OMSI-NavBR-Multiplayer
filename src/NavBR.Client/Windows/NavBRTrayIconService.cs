@@ -76,8 +76,6 @@ internal sealed class NavBRTrayIconService : IDisposable
             {
                 if (_mainWindow is not null)
                 {
-                    _mainWindow.ShowInTaskbar = true;
-                    _mainWindow.Show();
                     _mainWindow.Close();
                 }
             }

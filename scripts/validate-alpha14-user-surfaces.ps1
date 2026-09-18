@@ -75,13 +75,18 @@ Reject-Text "src/NavBR.Client/App.xaml" @(
 )
 
 Require-Text "src/NavBR.Client/App.xaml.cs" @(
+    "ShutdownMode = ShutdownMode.OnExplicitShutdown;",
     "var nativeHost = new MainWindow();",
     "MainWindow = nativeHost;",
-    "nativeHost.Show();",
-    "mainWindow.InitializeRoleplayForShell();",
-    "TrayIcon.Attach(mainWindow);",
-    "mainWindow.OpenPrimaryWebShell();",
+    "nativeHost.InitializeRoleplayForShell();",
+    "TrayIcon.Attach(nativeHost);",
+    "nativeHost.StartNativeRuntimeForReact();",
+    "nativeHost.OpenPrimaryWebShell();",
     "if (window is not MainWindow)"
+)
+
+Reject-Text "src/NavBR.Client/App.xaml.cs" @(
+    "nativeHost.Show();"
 )
 
 Require-Text "src/NavBR.Client/MainWindow.xaml.cs" @(
@@ -89,7 +94,12 @@ Require-Text "src/NavBR.Client/MainWindow.xaml.cs" @(
     "DriverStatisticsService",
     "_driverStatisticsService.Start();",
     "_driverStatisticsService.Dispose();",
+    "StartNativeRuntimeForReact",
     "if (!RetiredWpfVisualsEnabled)"
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.xaml.cs" @(
+    "Loaded += async (_, _) => await RefreshOmsiStatusAsync();"
 )
 
 Reject-Text "src/NavBR.Client/App.xaml.cs" @(
@@ -130,6 +140,10 @@ Reject-Text "src/NavBR.Client/MainWindow.WebSystem.cs" @(
 
 Reject-Text "src/NavBR.Client/MainWindow.WebGhost.cs" @(
     "dialog.ShowDialog(this)"
+)
+
+Reject-Text "src/NavBR.Client/Windows/NavBRTrayIconService.cs" @(
+    "_mainWindow.Show();"
 )
 
 Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(

@@ -47,12 +47,17 @@ public partial class App : Application
 
         base.OnStartup(e);
 
-        // The historical WPF MainWindow is no longer a startup surface. It is
-        // instantiated explicitly as an invisible native-service host; its
-        // Loaded path opens the React/WebView2 shell immediately.
+        // The historical WPF MainWindow is now only an in-memory native-service
+        // host. Do not Show() it: React/WebView2 is the only desktop window
+        // exposed to the user. Explicit shutdown keeps the tray/runtime alive
+        // when the React shell is closed.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var nativeHost = new MainWindow();
         MainWindow = nativeHost;
-        nativeHost.Show();
+        nativeHost.InitializeRoleplayForShell();
+        TrayIcon.Attach(nativeHost);
+        nativeHost.StartNativeRuntimeForReact();
+        nativeHost.OpenPrimaryWebShell();
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -165,18 +170,6 @@ public partial class App : Application
                 dispatcher,
                 dispatcherOwner.GetCurrentTelemetryForAlpha11,
                 dispatcherOwner.GetActiveMapForOperations);
-        }
-
-        if (window is MainWindow mainWindow)
-        {
-            // MainWindow is now a hidden native host only. Do not build or
-            // install the retired WPF shell, navigation pages, profile buttons,
-            // company/CCO panels or other visual Alpha.11/12 surfaces here.
-            // Native/background services required by React are initialized
-            // directly by their owning controllers instead.
-            mainWindow.InitializeRoleplayForShell();
-            TrayIcon.Attach(mainWindow);
-            mainWindow.OpenPrimaryWebShell();
         }
 
         if (window is HudOverlayWindow hudOverlay)

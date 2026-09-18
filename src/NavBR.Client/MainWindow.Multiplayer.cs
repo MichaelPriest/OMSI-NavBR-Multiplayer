@@ -97,10 +97,13 @@ public partial class MainWindow
         var window = new MultiplayerWindow(
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
-            _telemetryProvider.ReadRoleplayCharacterOptions)
+            _telemetryProvider.ReadRoleplayCharacterOptions);
+
+        var webOwner = GetPrimaryWebDialogOwner();
+        if (webOwner is not null)
         {
-            Owner = this
-        };
+            window.Owner = webOwner;
+        }
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);
