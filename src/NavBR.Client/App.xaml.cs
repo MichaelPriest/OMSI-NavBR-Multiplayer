@@ -188,6 +188,7 @@ public partial class App : Application
             Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow);
             mainWindow.InitializeRoleplayForShell();
             TrayIcon.Attach(mainWindow);
+            mainWindow.OpenPrimaryWebShell();
         }
 
         if (window is HudOverlayWindow hudOverlay)
