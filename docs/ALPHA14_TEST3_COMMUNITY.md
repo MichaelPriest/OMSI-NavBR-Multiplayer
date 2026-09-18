@@ -24,7 +24,7 @@ Confirme:
 1. abra OMSI 2.3.004;
 2. carregue completamente mapa e ônibus;
 3. abra Personagem/RP;
-4. selecione um personagem real da lista Drivers;
+4. selecione um personagem real da lista Drivers; o `★` indica o motorista atualmente vinculado ao seu ônibus;
 5. ative o personagem;
 6. confirme que ele deixa o banco/ônibus e aparece fora da carroceria;
 7. use W/S para andar;
