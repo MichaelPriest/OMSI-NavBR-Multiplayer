@@ -374,6 +374,9 @@ internal static class Alpha12FigmaShellInstaller
         body.Children.Add(Separator());
         body.Children.Add(Section("AJUDA"));
         body.Children.Add(NavigationButton(GetManualButtonText(), () => new NavBRManualWindow { Owner = window }.ShowDialog()));
+        body.Children.Add(NavigationButton(
+            L("✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback"),
+            () => new FeedbackWindow { Owner = window }.ShowDialog()));
 
         var advanced = new Expander
         {
