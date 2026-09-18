@@ -61,18 +61,29 @@ jobs:
       - name: Verify multiplayer players moving on the map
         shell: pwsh
         run: |
-          $server = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
-            "run",
-            "--project", "src/NavBR.Server/NavBR.Server.csproj",
-            "-c", "Release",
-            "--no-build",
-            "--",
-            "--urls", "http://127.0.0.1:27830"
-          )
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force "artifacts/simulator" | Out-Null
+          $serverOut = "artifacts/simulator/server-27830.out.log"
+          $serverErr = "artifacts/simulator/server-27830.err.log"
+
+          $serverDll = Get-ChildItem "src/NavBR.Server/bin" -Recurse -Filter "NavBR.Server.dll" |
+            Where-Object { $_.FullName -match '[\\/]Release[\\/]net10\.0[\\/]' } |
+            Select-Object -First 1
+          if (-not $serverDll) {
+            throw "Compiled NavBR.Server.dll was not found."
+          }
+
+          $previousUrls = $env:ASPNETCORE_URLS
+          $env:ASPNETCORE_URLS = "http://127.0.0.1:27830"
+          $server = Start-Process dotnet -PassThru -WindowStyle Hidden             -ArgumentList @($serverDll.FullName)             -RedirectStandardOutput $serverOut             -RedirectStandardError $serverErr
 
           try {
             $ready = $false
             for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              if ($server.HasExited) {
+                break
+              }
+
               try {
                 $health = Invoke-WebRequest "http://127.0.0.1:27830/health" -UseBasicParsing -TimeoutSec 2
                 if ($health.StatusCode -eq 200) {
@@ -85,21 +96,12 @@ jobs:
             }
 
             if (-not $ready) {
-              throw "NavBR test server did not become ready."
+              if (Test-Path $serverOut) { Get-Content $serverOut }
+              if (Test-Path $serverErr) { Get-Content $serverErr }
+              throw "NavBR test server did not become ready on port 27830."
             }
 
-            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
-              -c Release --no-build -- `
-              --server http://127.0.0.1:27830 `
-              --room alpha14-ci-movement `
-              --players 6 `
-              --mode mixed `
-              --map "Alpha14 CI Map" `
-              --x 120 --y 80 --z 0 `
-              --radius 65 `
-              --interval 200 `
-              --duration 9 `
-              --verify
+            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj               -c Release --no-build --               --server http://127.0.0.1:27830               --room alpha14-ci-movement               --players 6               --mode mixed               --map "Alpha14 CI Map"               --x 120 --y 80 --z 0               --radius 65               --interval 200               --duration 9               --verify
 
             if ($LASTEXITCODE -ne 0) {
               throw "Multiplayer map movement simulation failed."
@@ -109,7 +111,9 @@ jobs:
             if ($server -and -not $server.HasExited) {
               Stop-Process -Id $server.Id -Force
             }
+            $env:ASPNETCORE_URLS = $previousUrls
           }
+
       - name: Build OMSI native interop x86
         shell: pwsh
         run: |
