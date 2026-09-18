@@ -4,6 +4,7 @@ import { Hero, StatusSection, TrustStrip } from "./HeroSections.jsx";
 import { AlphaDownloads, Downloads, Features } from "./DownloadSections.jsx";
 import { DocumentationSection, MultiplayerSection, SupportSection } from "./ProjectSections.jsx";
 import DownloadDrawer from "./DownloadDrawer.jsx";
+import ConceptGallery from "./ConceptGallery.jsx";
 import { useActiveSection, useReleaseCatalog } from "./hooks.js";
 import { CURRENT_TAG, RELEASES_PAGE, alphaKey } from "./lib.js";
 
@@ -46,6 +47,7 @@ export default function App() {
         <TrustStrip current={current} alphaDownloads={currentAlphaDownloads} totalDownloads={catalog.totalDownloads} />
         <AdSlot name="top" />
         <StatusSection current={current} />
+        <ConceptGallery />
         <AlphaDownloads currentAlphaKey={currentAlphaKey} alphaDownloads={catalog.alphaDownloads} loading={catalog.loading} />
         <Downloads currentAssets={currentAssets} loading={catalog.loading} error={catalog.error} releasesPage={RELEASES_PAGE} />
         <Features />
