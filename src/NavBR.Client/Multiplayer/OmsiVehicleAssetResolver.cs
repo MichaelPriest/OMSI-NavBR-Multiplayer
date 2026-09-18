@@ -53,15 +53,13 @@ internal sealed class OmsiVehicleAssetResolver
             return null;
         }
 
-        var hasFingerprint = TryNormalizeCompatibilityId(
-            compatibilityId,
-            out var normalizedCompatibilityId);
-
-        if (!hasFingerprint)
+        if (!TryNormalizeCompatibilityId(
+                compatibilityId,
+                out var normalizedCompatibilityId))
         {
-            return TryResolveExactPath(root, reportedPath, out var exactPath)
-                ? exactPath
-                : null;
+            // Physical remote vehicles are content-identified. Never fall
+            // back to a path-only spawn for malformed/legacy identities.
+            return null;
         }
 
         var missKey = $"{root}|{normalizedCompatibilityId}";
