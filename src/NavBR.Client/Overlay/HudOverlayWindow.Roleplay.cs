@@ -130,10 +130,15 @@ public partial class HudOverlayWindow
         try
         {
             var topLeft = RoleplayHudButton.PointToScreen(new Point(0d, 0d));
-            return cursor.X >= topLeft.X &&
-                   cursor.X <= topLeft.X + RoleplayHudButton.ActualWidth &&
-                   cursor.Y >= topLeft.Y &&
-                   cursor.Y <= topLeft.Y + RoleplayHudButton.ActualHeight;
+            var bottomRight = RoleplayHudButton.PointToScreen(
+                new Point(
+                    RoleplayHudButton.ActualWidth,
+                    RoleplayHudButton.ActualHeight));
+
+            return cursor.X >= Math.Min(topLeft.X, bottomRight.X) &&
+                   cursor.X <= Math.Max(topLeft.X, bottomRight.X) &&
+                   cursor.Y >= Math.Min(topLeft.Y, bottomRight.Y) &&
+                   cursor.Y <= Math.Max(topLeft.Y, bottomRight.Y);
         }
         catch
         {
