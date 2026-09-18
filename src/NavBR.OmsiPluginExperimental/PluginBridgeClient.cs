@@ -98,7 +98,8 @@ internal static class PluginBridgeClient
             StopRequested: stopRequested,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
-                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled);
+                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
+            Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
 
         lock (StatusSync)
         {
