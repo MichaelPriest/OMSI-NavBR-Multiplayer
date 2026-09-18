@@ -227,3 +227,9 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .public-room-row { grid-template-columns:auto 1fr; }
   .public-room-row > .button { grid-column:1 / -1; }
 }
+
+.compatibility-badge { width:max-content; margin-top:2px; border-radius:999px; padding:4px 7px; font-size:9px; font-style:normal; font-weight:800; border:1px solid #304350; color:#91a5b2; background:#101b22; }
+.compatibility-badge.compatible { color:#83dfad; border-color:#285743; background:#0d241a; }
+.compatibility-badge.warning { color:#f2ca79; border-color:#5c4a28; background:#251e10; }
+.compatibility-badge.blocked { color:#f09aa0; border-color:#64373b; background:#2a1619; }
+.compatibility-detail { color:#8a9ba7 !important; white-space:normal !important; line-height:1.35; }
