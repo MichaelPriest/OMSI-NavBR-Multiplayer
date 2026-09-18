@@ -530,7 +530,7 @@ public partial class MultiplayerWindow
         stack.Children.Add(new TextBlock
         {
             Text = "◎",
-            Foreground = WizardBrush(83, 153, 199),
+            Foreground = new SolidColorBrush(Color.FromRgb(83, 153, 199)),
             FontSize = 27d,
             HorizontalAlignment = HorizontalAlignment.Center
         });
@@ -542,7 +542,7 @@ public partial class MultiplayerWindow
                 "Esperando telemetría compatible",
                 "Warte auf kompatible Telemetrie",
                 "En attente d’une télémétrie compatible"),
-            Foreground = WizardBrush(181, 204, 219),
+            Foreground = new SolidColorBrush(Color.FromRgb(181, 204, 219)),
             FontSize = 11d,
             FontWeight = FontWeights.SemiBold,
             TextAlignment = TextAlignment.Center,
