@@ -33,6 +33,7 @@ public partial class MultiplayerWindow : Window
     private MultiplayerSettings _settings;
     private bool _publishing;
     private bool _measuringLatency;
+    private bool _controllerInitialized;
     private double? _lastLatencyMs;
 
     public event Action<PlayerTelemetryFrame>? RemoteTelemetryReceived;
@@ -131,22 +132,7 @@ public partial class MultiplayerWindow : Window
             StatusDetailText.Text = LocalizationService.Format("MultiplayerVoiceError", message);
         });
 
-        Loaded += (_, _) =>
-        {
-            LoadSettingsIntoUi();
-            ApplyLocalization();
-            RenderConnectionState(HubConnectionState.Disconnected);
-            RenderPlayers();
-            RenderChat();
-            InitializePhysicalVehiclesPublicTest();
-            HookDiagnosticsLifecycle();
-            InitializePersistentLifetime();
-            InitializeRoleplayCharacterSelector();
-            InitializeRelayUi();
-            InitializePublicRoomBrowser();
-            InitializeVoiceChannels();
-            RefreshSessionSummary();
-        };
+        Loaded += (_, _) => InitializeControllerForWebShell();
 
         Closed += async (_, _) =>
         {
@@ -158,6 +144,29 @@ public partial class MultiplayerWindow : Window
             _voiceSendGate.Dispose();
             RemotePlayersReset?.Invoke();
         };
+    }
+
+    internal void InitializeControllerForWebShell()
+    {
+        if (_controllerInitialized)
+        {
+            return;
+        }
+
+        _controllerInitialized = true;
+        LoadSettingsIntoUi();
+        ApplyLocalization();
+        RenderConnectionState(HubConnectionState.Disconnected);
+        RenderPlayers();
+        RenderChat();
+        InitializePhysicalVehiclesPublicTest();
+        HookDiagnosticsLifecycle();
+        InitializePersistentLifetime();
+        InitializeRoleplayCharacterSelector();
+        InitializeRelayUi();
+        InitializePublicRoomBrowser();
+        InitializeVoiceChannels();
+        RefreshSessionSummary();
     }
 
     public async Task SendChatFromOverlayAsync(string text)
