@@ -154,9 +154,52 @@ Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     "ShowLegacyShellForWeb"
 )
 
+Require-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
+    'NavigatePrimaryWebShell("multiplayer")',
+    'NavigatePrimaryWebShell("roleplay")',
+    "window.ShowInTaskbar = false;",
+    "window.ShowActivated = false;",
+    "window.Opacity = 0d;",
+    "window.Hide();"
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
+    "_multiplayerWindow.Show();",
+    "_multiplayerWindow.Activate();",
+    "_multiplayerWindow?.ShowRoleplayTab();"
+)
+
+Require-Text "src/NavBR.Client/Operations/DispatcherInstaller.cs" @(
+    'NavigatePrimaryWebShell("operations")'
+)
+
+Reject-Text "src/NavBR.Client/Operations/DispatcherInstaller.cs" @(
+    "new DispatcherWindow(",
+    "dispatcher.ShowDialog();"
+)
+
+Reject-Text "src/NavBR.Client/WebUI/bootstrap/app.js" @(
+    '"openMultiplayerCentral"',
+    '"showLegacyShell"'
+)
+
+Reject-Text "src/NavBR.Client/WebUI/bootstrap/index.html" @(
+    "A interface clássica continua aberta",
+    'id="nativeMultiplayerButton"'
+)
+
 Reject-Text "ui/navbr-web/src/App.tsx" @(
     'sendCommand("showLegacyShell")',
     "Interface WPF"
+)
+
+Require-Text "ui/navbr-web/src/App.tsx" @(
+    'sendCommand("configureMultiplayerHotkeys"',
+    'sendCommand("configureRelay"',
+    'sendCommand("submitOperationalReport"',
+    'sendCommand("resolveMyOperationalReports"',
+    "Copiar convite",
+    "Colar convite"
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -164,6 +207,13 @@ Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
     '"openOmsiProfiles"',
     '"openMultiplayerCentral"',
     '"openHudEditor"'
+)
+
+Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
+    '"configureMultiplayerHotkeys"',
+    '"configureRelay"',
+    '"submitOperationalReport"',
+    '"resolveMyOperationalReports"'
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(
