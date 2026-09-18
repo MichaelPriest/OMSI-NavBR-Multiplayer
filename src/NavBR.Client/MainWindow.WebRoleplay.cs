@@ -6,6 +6,9 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private string? _webRoleplayStatus;
+    private string? _webRoleplayLastInteractionName;
+    private bool? _webRoleplayLastInteractionSucceeded;
+    private string? _webRoleplayLastInteractionStatus;
 
     private object BuildWebRoleplayState()
     {
@@ -18,6 +21,16 @@ public partial class MainWindow
         var current = controller.CurrentState;
         var busDistanceMeters = controller.GetBusDistanceMeters();
         var interactions = GetRoleplayVehicleInteractionsForShell();
+        var lastInteraction =
+            !string.IsNullOrWhiteSpace(_webRoleplayLastInteractionName) &&
+            _webRoleplayLastInteractionSucceeded.HasValue
+                ? new
+                {
+                    name = _webRoleplayLastInteractionName,
+                    succeeded = _webRoleplayLastInteractionSucceeded.Value,
+                    status = _webRoleplayLastInteractionStatus
+                }
+                : null;
         var canInteractWithBus =
             controller.IsActive &&
             controller.IsInteractionRuntimeAvailable &&
@@ -44,6 +57,7 @@ public partial class MainWindow
             interactions = interactions
                 .Select(name => new { name })
                 .ToArray(),
+            lastInteraction,
             status = _webRoleplayStatus,
             selected = selected is null
                 ? null
@@ -105,6 +119,7 @@ public partial class MainWindow
             }
 
             RoleplayCharacterSelectionStore.Clear();
+            ResetWebRoleplayInteractionFeedback();
             _webRoleplayStatus = "roleplay-disabled";
         }
         else
@@ -142,6 +157,7 @@ public partial class MainWindow
         }
 
         RoleplayCharacterSelectionStore.Set(mapKey, option);
+        ResetWebRoleplayInteractionFeedback();
         _webRoleplayStatus = "roleplay-character-selected";
         _multiplayerWindow?.SetLocalRoleplayCharacterState(null);
         UpdateHudRoleplayStateForShell();
@@ -149,6 +165,7 @@ public partial class MainWindow
 
     private async Task StartRoleplayFromWebAsync()
     {
+        ResetWebRoleplayInteractionFeedback();
         var controller = GetRoleplayControllerForShell();
         var started = await controller.StartAsync();
         if (!started && string.IsNullOrWhiteSpace(_webRoleplayStatus))
@@ -194,8 +211,21 @@ public partial class MainWindow
             return;
         }
 
-        _ = await controller.TryTriggerBusInteractionAsync(triggerName);
+        _webRoleplayLastInteractionName = triggerName;
+        _webRoleplayLastInteractionSucceeded = null;
+        _webRoleplayLastInteractionStatus = null;
+
+        var succeeded = await controller.TryTriggerBusInteractionAsync(triggerName);
+        _webRoleplayLastInteractionSucceeded = succeeded;
+        _webRoleplayLastInteractionStatus = _webRoleplayStatus;
         UpdateHudRoleplayStateForShell();
+    }
+
+    private void ResetWebRoleplayInteractionFeedback()
+    {
+        _webRoleplayLastInteractionName = null;
+        _webRoleplayLastInteractionSucceeded = null;
+        _webRoleplayLastInteractionStatus = null;
     }
 
     private async Task EnterRoleplayBusFromWebAsync()
