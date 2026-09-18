@@ -182,7 +182,7 @@ public sealed class MultiplayerRoomRegistry
     {
         while (_connections.TryGetValue(connectionId, out var current))
         {
-            var normalizedLatency = latencyMs is null
+            int? normalizedLatency = latencyMs is null
                 ? null
                 : Math.Clamp(latencyMs.Value, 0, 5000);
 
