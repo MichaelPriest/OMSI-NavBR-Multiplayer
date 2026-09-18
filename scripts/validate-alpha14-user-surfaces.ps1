@@ -58,6 +58,8 @@ Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.xaml" @(
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.xaml.cs" @(
+    "InitializeControllerForWebShell",
+    "if (_controllerInitialized)",
     "InitializePublicRoomBrowser();",
     "InitializeVoiceChannels();",
     "InitializeRelayUi();",
@@ -157,16 +159,23 @@ Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
 Require-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
     'NavigatePrimaryWebShell("multiplayer")',
     'NavigatePrimaryWebShell("roleplay")',
+    "HookHudLifetimeToMainWindow();",
     "window.ShowInTaskbar = false;",
     "window.ShowActivated = false;",
-    "window.Opacity = 0d;",
-    "window.Hide();"
+    "window.InitializeControllerForWebShell();",
+    "controller.AllowApplicationShutdown();",
+    "controller.Close();"
 )
 
 Reject-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
     "_multiplayerWindow.Show();",
     "_multiplayerWindow.Activate();",
-    "_multiplayerWindow?.ShowRoleplayTab();"
+    "_multiplayerWindow?.ShowRoleplayTab();",
+    "window.Show();",
+    "window.Hide();",
+    "window.Opacity = 0d;",
+    "window.Left = -32000d;",
+    "window.Top = -32000d;"
 )
 
 Require-Text "src/NavBR.Client/Operations/DispatcherInstaller.cs" @(
