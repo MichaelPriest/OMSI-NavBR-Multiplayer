@@ -2309,8 +2309,18 @@ function Settings({
           <article className="card network-probe-card">
             <span className="eyebrow">{pick("TESTE EXTERNO", "EXTERNAL TEST", "PRUEBA EXTERNA", "EXTERNER TEST", "TEST EXTERNE")}</span>
             <h3>{pick("Alcance pela Internet", "Internet reachability", "Alcance por Internet", "Internet-Erreichbarkeit", "Accessibilité Internet")}</h3>
-            <p>{pick("O teste externo é separado do Firewall e do UPnP. Ele só funciona quando um serviço de callback externo está configurado.", "The external test is separate from Firewall and UPnP. It only works when an external callback service is configured.", "La prueba externa es independiente del Firewall y UPnP. Solo funciona cuando hay un servicio callback externo configurado.", "Der externe Test ist von Firewall und UPnP getrennt und funktioniert nur mit konfiguriertem externen Callback-Dienst.", "Le test externe est séparé du pare-feu et d’UPnP. Il ne fonctionne que si un service callback externe est configuré.")}</p>
-            <button className="button ghost" onClick={() => sendCommand("runExternalPortProbe")}>{pick("Testar TCP 27730 externamente", "Test TCP 27730 externally", "Probar TCP 27730 externamente", "TCP 27730 extern testen", "Tester TCP 27730 depuis l’extérieur")}</button>
+            <p>{network?.externalProbeConfigured
+              ? pick("O teste externo é separado do Firewall e do UPnP e confirma a porta a partir de fora da sua rede.", "The external test is separate from Firewall and UPnP and confirms the port from outside your network.", "La prueba externa es independiente del Firewall y UPnP y confirma el puerto desde fuera de tu red.", "Der externe Test ist von Firewall und UPnP getrennt und bestätigt den Port von außerhalb deines Netzes.", "Le test externe est séparé du pare-feu et d’UPnP et confirme le port depuis l’extérieur de votre réseau.")
+              : pick("Teste externo não configurado nesta instalação. Isso não impede sala local/LAN nem UPnP; apenas impede a confirmação automática a partir da Internet.", "External testing is not configured in this installation. This does not prevent local/LAN rooms or UPnP; it only prevents automatic confirmation from the Internet.", "La prueba externa no está configurada en esta instalación. Esto no impide salas locales/LAN ni UPnP; solo impide la confirmación automática desde Internet.", "Externe Prüfung ist in dieser Installation nicht konfiguriert. Lokale/LAN-Räume und UPnP funktionieren weiterhin; nur die automatische Bestätigung aus dem Internet fehlt.", "Le test externe n’est pas configuré dans cette installation. Cela n’empêche pas les salles locales/LAN ni UPnP ; seule la confirmation automatique depuis Internet est indisponible.")}</p>
+            <button
+              className="button ghost"
+              disabled={!network?.externalProbeConfigured}
+              onClick={() => sendCommand("runExternalPortProbe")}
+            >
+              {network?.externalProbeConfigured
+                ? pick("Testar TCP 27730 externamente", "Test TCP 27730 externally", "Probar TCP 27730 externamente", "TCP 27730 extern testen", "Tester TCP 27730 depuis l’extérieur")
+                : pick("Teste externo indisponível", "External test unavailable", "Prueba externa no disponible", "Externer Test nicht verfügbar", "Test externe indisponible")}
+            </button>
             {network?.externalProbe && (
               <div className={`external-probe-result ${network.externalProbe.reachable ? "reachable" : "blocked"}`}>
                 <strong>{network.externalProbe.reachable ? pick("Porta alcançável", "Port reachable", "Puerto accesible", "Port erreichbar", "Port accessible") : pick("Porta não alcançável", "Port not reachable", "Puerto no accesible", "Port nicht erreichbar", "Port inaccessible")}</strong>
