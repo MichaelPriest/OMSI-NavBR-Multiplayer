@@ -85,7 +85,8 @@ public partial class MainWindow
                 LaunchOmsiForShell();
                 _ = RefreshOmsiStatusAsync();
             },
-            HandleWebShellCommandAsync);
+            HandleWebShellCommandAsync,
+            GetActiveWebMapResourceDirectory);
 
         if (!primary)
         {
