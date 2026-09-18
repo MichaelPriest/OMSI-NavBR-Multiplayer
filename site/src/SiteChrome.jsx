@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { GITHUB_URL } from "./lib.js";
 import { useScrollProgress } from "./hooks.js";
 
@@ -44,6 +44,7 @@ export function Header({ activeSection }) {
 
 export function AdSlot({ name }) {
   const [config, setConfig] = useState(null);
+  const nativeAdRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +54,26 @@ export function AdSlot({ name }) {
       .catch(() => { if (active) setConfig(null); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (name !== "top" || !nativeAdRef.current) return;
+
+    const containerId = "container-fe112edda848f13dd1ca9fb2279fbed7";
+    if (!document.getElementById(containerId)) {
+      const container = document.createElement("div");
+      container.id = containerId;
+      nativeAdRef.current.appendChild(container);
+    }
+
+    if (!document.querySelector('script[data-navbr-native-ad="fe112edda848f13dd1ca9fb2279fbed7"]')) {
+      const script = document.createElement("script");
+      script.async = true;
+      script.dataset.cfasync = "false";
+      script.dataset.navbrNativeAd = "fe112edda848f13dd1ca9fb2279fbed7";
+      script.src = "https://pl31372719.profitableratecpmnetwork.com/fe112edda848f13dd1ca9fb2279fbed7/invoke.js";
+      nativeAdRef.current.appendChild(script);
+    }
+  }, [name]);
 
   const client = config?.adsense?.client?.trim();
   const slot = config?.adsense?.slots?.[name]?.trim();
@@ -75,6 +96,15 @@ export function AdSlot({ name }) {
       // Mantém o espaço reservado se a rede de anúncios não responder.
     }
   }, [enabled, client, slot]);
+
+  if (name === "top") {
+    return (
+      <aside className="navbr-ad-slot shell" aria-label="Publicidade">
+        <div className="navbr-ad-label">Publicidade</div>
+        <div className="navbr-ad-content navbr-native-ad" ref={nativeAdRef} />
+      </aside>
+    );
+  }
 
   return (
     <aside className="navbr-ad-slot shell" aria-label="Publicidade">
