@@ -44,12 +44,16 @@ namespace
     constexpr int HumanSollSpeedOffset = 0x6A0;
     constexpr int HumanActSpeedOffset = 0x6A4;
     constexpr int HumanActHeadingOffset = 0x6A8;
-    // Legacy human animation variables exposed by OMSI as LastMovedDist and
-    // PAX_State. OmsiHook documents these at 0x644 and 0x64C respectively.
-    // PAX_State: 0 = standing, 1 = walking, 2 = sitting.
+    // Legacy human movement/animation variables exposed by OmsiHook as
+    // LastMovedDist and State. Their numeric State semantics are intentionally
+    // not interpreted here; diagnostics expose the raw finite value only.
     constexpr int HumanLastMovedDistOffset = 0x644;
     constexpr int HumanStateOffset = 0x64C;
     constexpr int HumanFixDriverOffset = 0x662;
+    constexpr int HumanActivityLegOffset = 0x663;
+    constexpr int HumanActivityArmUmbrellaOffset = 0x664;
+    constexpr int HumanActivityArmKiOffset = 0x665;
+    constexpr int HumanActivityHeadKiOffset = 0x666;
     constexpr int HumanMyBusOffset = 0x6B4;
     constexpr int HumanAiModeOffset = 0x6C4;
     constexpr int HumanAiModeExOffset = 0x6C5;
@@ -738,6 +742,42 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAnimationState(
     *state =
         *reinterpret_cast<const float*>(base + HumanStateOffset);
     return std::isfinite(*lastMovedDist) && std::isfinite(*state) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanActivityState(
+    int humanPointer,
+    unsigned char* activityLeg,
+    unsigned char* activityArmUmbrella,
+    unsigned char* activityArmKi,
+    unsigned char* activityHeadKi)
+{
+    if (!IsHumanPointer(humanPointer) ||
+        activityLeg == nullptr ||
+        activityArmUmbrella == nullptr ||
+        activityArmKi == nullptr ||
+        activityHeadKi == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + HumanActivityLegOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityArmUmbrellaOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityArmKiOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityHeadKiOffset, sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    *activityLeg =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityLegOffset);
+    *activityArmUmbrella =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityArmUmbrellaOffset);
+    *activityArmKi =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityArmKiOffset);
+    *activityHeadKi =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityHeadKiOffset);
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
