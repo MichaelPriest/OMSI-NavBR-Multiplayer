@@ -26,6 +26,8 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   latencyMs: null,
   voiceEnabled: false,
   voiceChannel: "general",
+  voiceProximityMeters: 120,
+  voiceDeafened: false,
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -157,12 +159,21 @@ function Multiplayer({
   const [privateRoom, setPrivateRoom] = useState(false);
   const [roomPassword, setRoomPassword] = useState("");
   const [roomSearch, setRoomSearch] = useState("");
+  const [voiceChannel, setVoiceChannel] = useState("general");
+  const [voiceRadius, setVoiceRadius] = useState(120);
+  const [voiceDeafened, setVoiceDeafened] = useState(false);
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || "");
     setRoomId(current => current || multiplayer.roomId || "");
     setDisplayName(current => current || multiplayer.displayName || "");
   }, [multiplayer.serverUrl, multiplayer.roomId, multiplayer.displayName]);
+
+  useEffect(() => {
+    setVoiceChannel(multiplayer.voiceChannel || "general");
+    setVoiceRadius(multiplayer.voiceProximityMeters || 120);
+    setVoiceDeafened(multiplayer.voiceDeafened);
+  }, [multiplayer.voiceChannel, multiplayer.voiceProximityMeters, multiplayer.voiceDeafened]);
 
   const statusLabel = multiplayer.connected
     ? "Conectado"
@@ -474,9 +485,80 @@ function Multiplayer({
           <aside className="card voice-card">
             <span className="eyebrow">VOZ</span>
             <h3>{multiplayer.voiceEnabled ? "Voz habilitada" : "Voz desativada"}</h3>
-            <p>Canal atual: <strong>{multiplayer.voiceChannel || "general"}</strong></p>
-            <p>Os controles de dispositivo, proximidade e push-to-talk permanecem no controlador nativo durante esta etapa.</p>
-            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Configurar voz</button>
+
+            <label className="voice-toggle">
+              <input
+                type="checkbox"
+                checked={multiplayer.voiceEnabled}
+                onChange={event => sendCommand("setVoiceEnabled", { enabled: event.target.checked })}
+              />
+              <span>Ativar voz na sala</span>
+            </label>
+
+            <label className="voice-field">
+              <span>Canal</span>
+              <select
+                value={voiceChannel}
+                onChange={event => {
+                  const channel = event.target.value;
+                  setVoiceChannel(channel);
+                  sendCommand("configureVoice", {
+                    channel,
+                    proximityMeters: voiceRadius,
+                    deafened: voiceDeafened
+                  });
+                }}
+              >
+                <option value="general">Geral</option>
+                <option value="company">Empresa/equipe</option>
+                <option value="dispatch">CCO</option>
+                <option value="proximity">Proximidade</option>
+              </select>
+            </label>
+
+            {voiceChannel === "proximity" && (
+              <label className="voice-field">
+                <span>Raio de proximidade: {voiceRadius.toFixed(0)} m</span>
+                <input
+                  type="range"
+                  min="20"
+                  max="1000"
+                  step="10"
+                  value={voiceRadius}
+                  onChange={event => setVoiceRadius(Number(event.target.value))}
+                  onMouseUp={() => sendCommand("configureVoice", {
+                    channel: voiceChannel,
+                    proximityMeters: voiceRadius,
+                    deafened: voiceDeafened
+                  })}
+                  onTouchEnd={() => sendCommand("configureVoice", {
+                    channel: voiceChannel,
+                    proximityMeters: voiceRadius,
+                    deafened: voiceDeafened
+                  })}
+                />
+              </label>
+            )}
+
+            <label className="voice-toggle">
+              <input
+                type="checkbox"
+                checked={voiceDeafened}
+                onChange={event => {
+                  const deafened = event.target.checked;
+                  setVoiceDeafened(deafened);
+                  sendCommand("configureVoice", {
+                    channel: voiceChannel,
+                    proximityMeters: voiceRadius,
+                    deafened
+                  });
+                }}
+              />
+              <span>Silenciar áudio remoto</span>
+            </label>
+
+            <p>Microfone, saída de áudio e volumes individuais continuam nos controles avançados.</p>
+            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Dispositivos e volumes</button>
           </aside>
         </section>
       )}
