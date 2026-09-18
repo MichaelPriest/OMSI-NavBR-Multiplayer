@@ -925,7 +925,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "installations" | "diagnostics" | "advanced";
+type SettingsTab = "installations" | "diagnostics" | "network" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const [name, setName] = useState(profile.name);
@@ -993,6 +993,7 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
 
 function Settings({ state, error }: { state: NavBrState | null; error: string | null }) {
   const system = state?.system;
+  const network = state?.network;
   const [tab, setTab] = useState<SettingsTab>("installations");
   const [manualPath, setManualPath] = useState("");
 
@@ -1025,6 +1026,7 @@ function Settings({ state, error }: { state: NavBrState | null; error: string | 
         {([
           ["installations", "Instalações OMSI"],
           ["diagnostics", "Diagnóstico"],
+          ["network", "Rede"],
           ["advanced", "Avançado"]
         ] as [SettingsTab, string][]).map(([key, label]) => (
           <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
@@ -1101,13 +1103,111 @@ function Settings({ state, error }: { state: NavBrState | null; error: string | 
         </section>
       )}
 
+      {tab === "network" && (
+        <section className="network-layout">
+          <article className="card network-overview-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">CONECTIVIDADE</span><h3>TCP {network?.hostPort ?? 27730}</h3></div>
+              <button className="button ghost" onClick={() => sendCommand("refreshNetworkDiagnostics")}>Atualizar diagnóstico</button>
+            </div>
+
+            {network?.message && <div className="network-message">{network.message}</div>}
+            {network?.error && <div className="directory-error">{network.error}</div>}
+
+            <div className="network-status-grid">
+              <div>
+                <small>FIREWALL WINDOWS</small>
+                <strong className={network?.diagnostics?.firewallRulePresent ? "ok" : "warn"}>
+                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.firewallRulePresent ? "Regra confirmada" : "Regra ausente"}
+                </strong>
+                <span>Entrada TCP {network?.hostPort ?? 27730} em todos os perfis de rede.</span>
+              </div>
+              <div>
+                <small>PORTA LOCAL</small>
+                <strong className={network?.diagnostics?.localPortListening ? "ok" : ""}>
+                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.localPortListening ? "Ouvindo" : "Sem listener"}
+                </strong>
+                <span>{network?.hostRunning ? "Host NavBR ativo." : "Nenhuma sala local hospedada agora."}</span>
+              </div>
+              <div>
+                <small>UPNP</small>
+                <strong className={network?.diagnostics?.upnpGatewayFound ? "ok" : ""}>
+                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.upnpGatewayFound ? "Gateway encontrado" : "Gateway não encontrado"}
+                </strong>
+                <span>{network?.automaticUpnpEnabled ? "Automático habilitado." : "Automático desabilitado."}</span>
+              </div>
+              <div>
+                <small>AMBIENTE WAN</small>
+                <strong>{network?.diagnostics?.environmentKind || "—"}</strong>
+                <span>{network?.diagnostics?.gatewayExternalAddress || "IP externo não informado"}</span>
+              </div>
+            </div>
+
+            <div className="network-actions">
+              <button className="button primary" onClick={() => sendCommand("applyFirewallRule")}>
+                Aplicar / corrigir Firewall TCP {network?.hostPort ?? 27730}
+              </button>
+              <span>{network?.runningAsAdministrator ? "NavBR já está elevado." : "O Windows solicitará permissão de administrador."}</span>
+            </div>
+
+            {network?.diagnostics && (
+              <>
+                <div className="network-addresses">
+                  <small>IPv4 LOCAL</small>
+                  <div>
+                    {network.diagnostics.localIpv4Addresses.length === 0
+                      ? <code>—</code>
+                      : network.diagnostics.localIpv4Addresses.map(address => <code key={address}>{address}</code>)}
+                  </div>
+                </div>
+                <p className="network-note">{network.diagnostics.technicalNote}</p>
+              </>
+            )}
+          </article>
+
+          <article className="card network-upnp-card">
+            <span className="eyebrow">ROTEADOR</span>
+            <h3>NAT / UPnP</h3>
+            <label className="diagnostics-toggle">
+              <input
+                type="checkbox"
+                checked={network?.automaticUpnpEnabled ?? false}
+                disabled={network?.hostRunning}
+                onChange={event => sendCommand("setAutomaticUpnp", { enabled: event.target.checked })}
+              />
+              <span>Tentar mapear TCP {network?.hostPort ?? 27730} automaticamente ao hospedar</span>
+            </label>
+            {network?.hostRunning && <p className="network-note">Pare a sala hospedada antes de alterar o UPnP.</p>}
+            <div className="diagnostic-facts">
+              <span><small>GATEWAY LOCAL</small><strong>{network?.diagnostics?.gatewayLocalAddress || "—"}</strong></span>
+              <span><small>IP EXTERNO</small><strong>{network?.diagnostics?.gatewayExternalAddress || "—"}</strong></span>
+              <span><small>TIPO</small><strong>{network?.diagnostics?.environmentKind || "—"}</strong></span>
+            </div>
+          </article>
+
+          <article className="card network-probe-card">
+            <span className="eyebrow">TESTE EXTERNO</span>
+            <h3>Alcance pela Internet</h3>
+            <p>O teste externo é separado do Firewall e do UPnP. Ele só funciona quando um serviço de callback externo está configurado.</p>
+            <button className="button ghost" onClick={() => sendCommand("runExternalPortProbe")}>Testar TCP 27730 externamente</button>
+            {network?.externalProbe && (
+              <div className={`external-probe-result ${network.externalProbe.reachable ? "reachable" : "blocked"}`}>
+                <strong>{network.externalProbe.reachable ? "Porta alcançável" : "Porta não alcançável"}</strong>
+                <span>{network.externalProbe.status} · {network.externalProbe.durationMilliseconds} ms</span>
+                <small>{new Date(network.externalProbe.checkedAtUtc).toLocaleString()}</small>
+              </div>
+            )}
+          </article>
+        </section>
+      )}
+
       {tab === "advanced" && (
         <section className="advanced-grid settings-advanced">
           <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
             <h3>Rede e conectividade</h3>
-            <p>Firewall, NAT, UPnP, relay, ônibus físico e demais opções sensíveis continuam no controlador nativo.</p>
-            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Abrir avançado multiplayer</button>
+            <p>Firewall, NAT e UPnP já estão disponíveis na aba Rede. Relay e ônibus físico continuam no controlador nativo.</p>
+            <button className="button ghost" onClick={() => setTab("network")}>Abrir Rede</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
