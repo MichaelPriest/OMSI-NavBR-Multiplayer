@@ -34,13 +34,14 @@ New React surfaces use the shared translation provider and fall back to English 
 
 React/WebView2 is the primary visible desktop shell in Alpha.14.
 
-1. `MainWindow` starts first only to initialize native services that have not yet been detached from the historical WPF shell.
-2. The host window is created off-screen, without taskbar presence and with zero opacity; it is never a user-facing fallback.
-3. `OpenPrimaryWebShell()` opens `WebShellWindow`, which is the only desktop shell exposed to the user.
-4. If WebView2 navigation fails, `WebShellWindow` shows its own native error panel instead of revealing the retired WPF layout.
-5. Closing the React shell leaves the hidden native host running in the tray; the tray icon always reopens React.
-6. The bridge no longer exposes `showLegacyShell` or `openOmsiProfiles`.
-7. `ui/navbr-web/dist` is copied into build and publish output; the packaged static bootstrap remains a WebView content fallback when the React dist is unavailable.
+1. `App.xaml` no longer declares `StartupUri="MainWindow.xaml"`.
+2. `App.OnStartup` explicitly creates `MainWindow` only as a native-service host for code that has not yet been detached from the historical WPF class.
+3. The host window is created off-screen, without taskbar presence and with zero opacity, and the old Alpha.11/12 visual installers are not executed.
+4. `OpenPrimaryWebShell()` opens `WebShellWindow`, which is the only desktop shell exposed to the user.
+5. If WebView2 navigation fails, `WebShellWindow` shows its own native error panel instead of revealing the retired WPF layout.
+6. Closing the React shell leaves the hidden native host running in the tray; the tray icon always reopens React.
+7. The bridge no longer exposes `showLegacyShell` or `openOmsiProfiles`.
+8. `ui/navbr-web/dist` is copied into build and publish output; the packaged static bootstrap remains a WebView content fallback when the React dist is unavailable.
 
 Normal user flows for OMSI installations, HUD configuration, Roadmap Studio and launch recovery stay inside React. When no valid OMSI profile exists, the shell navigates to **Settings → Installations** instead of opening the old WPF profile window. **Move HUD** remains native because it requires direct mouse interaction with the OMSI overlay.
 
