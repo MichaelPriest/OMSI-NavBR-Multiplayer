@@ -5,5 +5,5 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     internal void OpenNavigation3D() =>
-        NavigatePrimaryWebShell("navigation");
+        NavigatePrimaryWebShell("navigation-3d");
 }
