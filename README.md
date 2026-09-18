@@ -1,52 +1,82 @@
 # OMSI NavBR Multiplayer
 
-Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit, integração experimental com veículos remotos físicos e **modo Personagem/RP** no OMSI.
+Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, multiplayer peer-host, chat/voz, CCO, perfil do motorista, Hardware Cockpit, integração experimental com veículos remotos físicos e **modo Personagem/RP**.
 
-## Versão pública para testes
+## Versão pública atual
 
-A próxima pré-release é **`v0.3.0-alpha.14-test.2`**.
+A próxima publicação pública é **v0.3.0-alpha.14**.
 
-- [Release Alpha.14 Test 2](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.2)
 - cliente principal: **EXE standalone Windows x86**;
-- também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
+- ZIP do cliente;
+- servidor dedicado Windows x64;
+- plugin OMSI Native AOT x86;
+- simulador multiplayer de desenvolvimento/teste;
+- documentação e SHA256SUMS.
 
-> A Alpha.13 inicia a validação do **ônibus remoto físico online**. Recursos incompletos continuam marcados como Experimentais/Em desenvolvimento e não usam dados simulados.
+> A Alpha.14 continua sendo uma **prerelease pública**. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
 
-## Destaques da Alpha.14 Test 2
+## Destaques da Alpha.14
 
-- Central Multiplayer com abas reais: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
-- botão Personagem/RP diretamente no HUD, com estados Personagem / Ativar personagem / Voltar ao ônibus;
+- shell Figma consolidado e funções restauradas;
+- Home com **Executar OMSI**, Navegação, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil e ferramentas;
+- **Mover HUD** visível no topo, Sistema e ações rápidas;
+- selects/ComboBox com tema escuro consistente;
+- Central Multiplayer sem o wizard legado sobreposto;
+- abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
+- salas públicas/privadas, senha, convite, peer-host TCP 27730, UPnP e relay experimental;
+- Firewall do Windows configurável para TCP 27730 em todos os perfis de rede;
+- Plugin Bridge **v3** + interop RP v3;
+- modo Personagem/RP disponível também sem multiplayer;
+- ônibus remoto físico experimental;
+- simulador multiplayer com bots no **mesmo mapa**, **próximos do host** e herdando **linha/rota/destino/próxima parada** da operação ativa da sala;
+- interface pt-BR, English, Español, Deutsch e Français.
 
-- **Personagem / RP no modo normal**, sem exigir multiplayer;
-- seletor de personagem real da lista `Drivers` após o mapa carregar;
-- controle experimental do motorista humano do próprio ônibus com W/S, A/D, Shift e Esc;
-- sincronização RP separada quando uma sala multiplayer estiver ativa;
+## Executar OMSI pelo NavBR
 
-- primeiro teste público focado em ônibus dos outros jogadores dentro do OMSI;
-- spawn/update/despawn experimental integrado à telemetria real da sala;
-- posição, rotação e velocidade usando pose nativa do OMSI 2.3.004;
-- luzes e setas quando suportadas pelo backend atual;
-- coordenador físico único para evitar spawn/update duplicados;
-- sessão continua ativa mesmo ao fechar a Central Multiplayer;
-- novo **Personagem / RP experimental**, disponível também sem multiplayer: após o mapa carregar, o NavBR lê os personagens reais de `Drivers`, permite selecionar o motorista e prepara o controle a pé do motorista humano do próprio ônibus;
-- peer-host TCP `27730` e servidor dedicado opcional;
-- salas públicas/privadas, chat e voz PTT;
-- diagnóstico de NAT, firewall, UPnP, latência, jitter e perda;
-- GPS/HUD, perfil, histórico real de viagens, empresa, CCO e Hardware Cockpit preservados da Alpha.12;
-- base de entitlement/licenciamento separada do núcleo, ainda **sem bloqueio comercial** na Alpha/Beta;
-- interface em pt-BR, English, Español, Deutsch e Français.
+Na Home há um atalho **Executar OMSI**. O NavBR usa a instalação real detectada/cadastrada em **Instalações OMSI** e prioriza o perfil preferido.
 
-## O que o teste físico ainda não sincroniza
+Se nenhuma instalação válida for encontrada, o app abre a seleção de instalações em vez de usar um caminho fixo ou depender da Steam.
 
-A Test 1 é deliberadamente limitada. Ainda entram nas próximas etapas:
+## Multiplayer
 
-- portas;
-- matriz/linha/destino física;
-- articulação de ônibus articulado;
-- animações específicas por modelo;
-- sincronização completa de tráfego IA.
+O computador de quem cria a sala pode funcionar como servidor da própria sessão.
 
-Primeiro queremos validar que **PC A vê o ônibus do PC B e PC B vê o ônibus do PC A** com pose e movimento corretos e sem instabilidade.
+- porta padrão: TCP 27730;
+- telemetria, presença, chat e voz passam pelo SignalR;
+- salas privadas não aparecem no navegador público;
+- UPnP é opcional;
+- servidor dedicado continua disponível;
+- relay/fallback permanece experimental;
+- o host direto pode exigir Firewall/port forwarding dependendo da rede.
+
+## Simulador Multiplayer
+
+O simulador é somente para desenvolvimento/teste e não injeta dados fake na interface de produção.
+
+Quando executado contra uma sala real:
+
+1. detecta o mapa da autoridade/jogador real;
+2. herda MapName e compatibilidade;
+3. espera telemetria real para usar a posição do host como centro;
+4. posiciona os bots em um raio curto, por padrão **18 m**;
+5. herda a operação ativa da sala: **linha, rota, destino e próxima parada**;
+6. rejeita no modo --verify bots que publiquem em mapa diferente.
+
+Se 127.0.0.1:27730 estiver vazio, o pacote do simulador pode iniciar automaticamente o NavBR.Server incluído.
+
+Veja [docs/MULTIPLAYER_SIMULATOR.md](docs/MULTIPLAYER_SIMULATOR.md).
+
+## Modo Personagem / RP
+
+O modo RP é experimental.
+
+- usa personagens reais da lista Drivers do mapa;
+- controle inicial: W/S, A/D, Shift e Esc;
+- bridge/plugin v3;
+- restauração de vínculo/IA ao voltar ao ônibus;
+- sincronização RP separada no multiplayer.
+
+Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado, animações/gestos, interação com objetos/veículos e personagem remoto físico completo.
 
 ## Requisitos principais
 
@@ -54,40 +84,20 @@ Primeiro queremos validar que **PC A vê o ônibus do PC B e PC B vê o ônibus 
 - cliente: **.NET 10 / C# / WPF x86**;
 - servidor: **ASP.NET Core + SignalR**;
 - host da sala: o próprio PC de quem cria a sala;
-- porta inicial: **TCP 27730**;
-- projeto público e em desenvolvimento ativo.
+- porta padrão: **TCP 27730**;
+- projeto público.
 
-Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instalado e o veículo remoto precisa existir localmente no PC que irá renderizá-lo.
+## Documentação
 
-## Instalação rápida
-
-1. Baixe o **EXE standalone x86** da Alpha.14 Test 2.
-2. Execute o NavBR.
-3. Abra o OMSI e carregue mapa/ônibus.
-4. Para multiplayer normal, crie ou entre em uma sala.
-5. Para testar ônibus físico, instale o plugin experimental e ative **Ônibus dos jogadores no OMSI (TESTE ALPHA)**.
-6. Faça o primeiro teste preferencialmente entre dois PCs na mesma rede local.
-
-O plugin de escrita no OMSI não é obrigatório para GPS, HUD, chat, voz ou telemetria multiplayer básica.
-
-O **Modo Personagem/RP** também é opcional e experimental. O seletor funciona a partir do mapa carregado; o controle físico a pé requer OMSI 2.3.004 + plugin NavBR compatível e opt-in explícito.
-
-## Multiplayer
-
-O computador de quem cria a sala pode funcionar como servidor da própria sessão.
-
-- porta padrão: `TCP 27730`;
-- telemetria, presença, chat e voz passam pelo SignalR;
-- salas privadas não aparecem no navegador público;
-- UPnP é opcional;
-- servidor dedicado continua disponível;
-- relay/fallback permanece experimental para cenários como CGNAT/double NAT.
-
-## Alpha.14
-
-- [`docs/ALPHA14_TEST2_COMMUNITY.md`](docs/ALPHA14_TEST2_COMMUNITY.md) — checklist do teste físico com 2 PCs;
-- [`docs/ALPHA14_MASTER_SCOPE.md`](docs/ALPHA14_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
-- [`docs/ALPHA12_MASTER_SCOPE.md`](docs/ALPHA12_MASTER_SCOPE.md) — escopo consolidado herdado da Alpha.12.
+- [docs/ALPHA14_RELEASE_NOTES.md](docs/ALPHA14_RELEASE_NOTES.md) — notas da Alpha.14 pública;
+- [docs/ALPHA14_COMMUNITY.md](docs/ALPHA14_COMMUNITY.md) — roteiro de teste;
+- [docs/ALPHA14_MASTER_SCOPE.md](docs/ALPHA14_MASTER_SCOPE.md) — escopo consolidado;
+- [docs/MULTIPLAYER_SIMULATOR.md](docs/MULTIPLAYER_SIMULATOR.md) — simulador;
+- [docs/NETWORKING.md](docs/NETWORKING.md) — rede/Firewall/UPnP/relay;
+- [docs/PEER_HOST.md](docs/PEER_HOST.md) — host local;
+- [docs/OMSI_PLUGIN_EXPERIMENTAL.md](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin v3;
+- [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md) — Hardware Cockpit;
+- [docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md) — manual.
 
 ## Segurança
 
@@ -95,22 +105,10 @@ A telemetria externa do OMSI permanece **read-only**. Escritas experimentais fic
 
 O projeto não redistribui mapas, ônibus, HOFs ou outros conteúdos proprietários/pagos do OMSI.
 
-## Distribuição futura
-
-A arquitetura passa a separar o entitlement/licenciamento do núcleo do NavBR para permitir futuramente Steam, chave própria ou outra loja. **Alpha/Beta continuam abertas nesta fase de testes.**
-
-## Documentação adicional
-
-- [`docs/HARDWARE_COCKPIT.md`](docs/HARDWARE_COCKPIT.md) — Hardware Cockpit Arduino/ESP32;
-- [`docs/NETWORKING.md`](docs/NETWORKING.md) — rede;
-- [`docs/PEER_HOST.md`](docs/PEER_HOST.md) — host local;
-- [`docs/OMSI_PLUGIN_EXPERIMENTAL.md`](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin/bridge experimental;
-- [`docs/MANUAL_DE_USO.md`](docs/MANUAL_DE_USO.md) — manual de uso.
-
 ## Portal
 
-O GitHub Pages concentra download, releases, documentação e estado dos testes públicos.
+O GitHub Pages concentra downloads, releases, documentação e estado dos testes públicos.
 
 ## Licença
 
-Consulte [`LICENSE`](LICENSE) e [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
