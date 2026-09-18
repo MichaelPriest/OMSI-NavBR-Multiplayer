@@ -1,30 +1,31 @@
 # Alpha.14 Test 3 — release notes
 
-A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personagem/RP e da nova interface desktop React/WebView2.
+A Alpha.14 Test 3 consolida a Central Multiplayer, o Personagem/RP e a interface desktop React/WebView2. Esta é a prerelease pública de validação antes da promoção da Alpha.14.
 
 ## React/WebView2
 
 - React + TypeScript + Vite hospedado no cliente .NET/WPF x86;
 - idioma do shell React sincronizado com o `LocalizationService` nativo, com pt-BR, en-US, es-ES, de-DE e fr-FR usando a mesma preferência persistida do app;
-- React passa a ser o shell principal após carregamento confirmado;
-- o layout WPF anterior deixa de ser uma superfície acessível: `MainWindow` permanece apenas como host técnico em memória, sem `Show()`, enquanto serviços nativos são desacoplados;
+- React é o shell principal após carregamento confirmado;
+- o layout WPF anterior deixou de ser uma superfície de usuário: `MainWindow` permanece apenas como host técnico em memória;
+- o controlador multiplayer WPF é inicializado explicitamente, sem `Show()/Hide()`, e não desenha mais jogadores em `RoadmapCanvas` legado;
 - falhas do WebView2 usam o painel de erro da própria janela nova e o tray sempre reabre React;
-- Instalações OMSI, HUD e Roadmap Studio não abrem o editor WPF; **Executar OMSI** direciona para Instalações React quando nenhum perfil válido existe;
+- Instalações OMSI, HUD e Roadmap Studio não abrem editores WPF antigos; **Executar OMSI** direciona para Instalações React quando nenhum perfil válido existe;
 - Home e Executar OMSI;
 - Navegação/GPS com rota, paradas, manobras e ETA reais, mais visão 3D integrada ao React usando o roadmap real do mapa;
-- Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;
+- Central Multiplayer completa, incluindo salas públicas/privadas, seleção de microfone/saída e mixer por jogador;
 - CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;
 - Hardware Cockpit com conexão serial compartilhada;
 - Instalações OMSI e perfis de lançamento completos no React, com seletor nativo de pasta e Explorer;
 - HUD configurável no React e aplicado ao vivo pelo store nativo;
 - Roadmap Studio no React com análise por tiles e geração vetorial por splines, usando diretamente `OmsiRoadmapGeneratorService` e `OmsiRoadmapVectorGeneratorService`;
-- ao trocar o mapa selecionado, a análise anterior deixa de ser exibida para evitar resultado obsoleto;
 - Ghost / Replay no React com gravação, biblioteca/importação, analytics, prévia read-only e replay 3D;
 - Diagnóstico/privacidade;
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
 - tray abre/oculta o shell React;
+- primeiro acesso/onboarding migrado para React e concluído somente após `completeFirstRun`;
 - Personagem/RP possui tela React própria e também integra a aba Multiplayer;
-- Mapa 3D agora está integrado à Navegação React; apenas o modo de mover o HUD continua como interação nativa. Posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
+- Mapa 3D está integrado à Navegação React; apenas o modo de mover o HUD continua como interação nativa necessária ao overlay OMSI.
 
 ## Multiplayer
 
@@ -32,16 +33,17 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - criação/entrada/saída de salas;
 - sala local TCP 27730;
 - salas privadas com senha efêmera;
-- diretório público, busca e favoritos;
+- diretório público, busca e favoritos no React;
 - avaliação nativa de compatibilidade;
 - jogadores, latência, voz, chat e RP reais;
-- dispositivos de entrada/saída de áudio e mute/ganho por jogador usam o `VoiceChatService` existente, sem segundo pipeline de áudio;
-- mapa da sessão somente com posições recentes e compatíveis.
+- dispositivos de entrada/saída de áudio e mute/ganho por jogador usam o `VoiceChatService` existente;
+- mapa da sessão somente com posições recentes e compatíveis;
+- sem render paralelo de jogadores no antigo roadmap WPF.
 
 ## Personagem / RP
 
-- único \`RoleplayCharacterController\`;
-- personagens reais de \`Map.Drivers\`;
+- único `RoleplayCharacterController`;
+- personagens reais de `Map.Drivers`;
 - bridge protocol v3 / interop v3;
 - vínculo real com ônibus;
 - restauração de pose/vínculo/IA ao retornar;
@@ -51,17 +53,18 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 
 ## Hardware e rede
 
-- serial centralizada em \`HardwareCockpitBridgeController\`;
-- streaming \`NAVBR_HW_V1\` no tick de telemetria a 5 Hz;
+- serial centralizada em `HardwareCockpitBridgeController`;
+- streaming `NAVBR_HW_V1` no tick de telemetria a 5 Hz;
 - auto-reconnect somente à COM escolhida;
 - Firewall aplicado com UAC e verificação;
 - NAT/UPnP separados de alcance externo.
 
-## Release safety
+## Segurança de release
 
-- o workflow da Test 3 mantém a release em **draft** após build/upload/validação dos artefatos;
-- publicação da prerelease exige execução manual com `publish=true`;
-- GitHub Pages só é atualizado automaticamente depois dessa aprovação explícita.
+- pushes em `test/alpha14-test3` geram somente artefatos privados do GitHub Actions;
+- publicação pública usa a branch dedicada `publish/alpha14-test3` ou execução manual explicitamente aprovada;
+- o pipeline recompila React, cliente, servidor, plugin e simulador antes de substituir os assets públicos;
+- GitHub Pages é atualizado somente depois de publicação aprovada.
 
 ## CI
 
@@ -69,13 +72,13 @@ A validação Alpha.14 compila o frontend React antes do cliente e valida Shared
 
 ## Ainda experimental
 
-- câmera dedicada de RP;
-- terreno inclinado;
-- animações/gestos;
-- interação física adicional;
+- câmera dedicada seguindo o personagem;
+- ajuste de altura em terreno inclinado;
+- animações e gestos;
+- interação física adicional com ônibus/objetos;
 - personagem remoto físico completo;
-- ônibus remoto físico entre diferentes mapas/modelos.
-
+- ônibus remoto físico entre diferentes mapas/modelos;
+- validação prática do ciclo RP em diferentes ônibus e mapas do OMSI.
 
 ## HUD e Roadmap Studio
 
@@ -87,7 +90,6 @@ A validação Alpha.14 compila o frontend React antes do cliente e valida Shared
 - análise de tiles e montagem de `whole.roadmap.bmp` usam `OmsiRoadmapGeneratorService`;
 - geração vetorial usa `OmsiRoadmapVectorGeneratorService` e as splines reais do mapa;
 - progresso e resultado são exibidos no React, sem duplicar o algoritmo no frontend.
-
 
 ## Ghost / Replay
 
