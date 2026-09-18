@@ -1,0 +1,102 @@
+name: alpha14 validation
+
+on:
+  push:
+    branches:
+      - feature/alpha14-roleplay
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpha14-validation
+  cancel-in-progress: true
+
+jobs:
+  validate-alpha14:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and portal JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          node --check site/app.js
+          node --check site/modern.js
+
+      - name: Restore Alpha.14 projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($name in @(
+            'NavBR_GetAbiVersion',
+            'NavBR_GetStateInteropVersion',
+            'NavBR_GetHumanCount',
+            'NavBR_GetHumanAt',
+            'NavBR_IsHumanPointer',
+            'NavBR_IsPlayerBusDriverHuman',
+            'NavBR_ReadHumanPose',
+            'NavBR_ReadHumanDriverState',
+            'NavBR_DetachHumanForRoleplay',
+            'NavBR_SetHumanTransform',
+            'NavBR_RestoreHumanAiState',
+            'NavBR_RestoreHumanDriverState'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
+              throw "Native OMSI interop is missing RP export: $name"
+            }
+          }
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release `
+            -r win-x86 `
+            --no-restore `
+            -p:PublishAot=true `
+            -p:NativeLib=Shared `
+            -o artifacts/NavBR.OmsiPlugin.Experimental
+
+      - name: Build Windows x86 client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
