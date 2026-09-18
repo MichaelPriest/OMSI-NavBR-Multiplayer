@@ -150,6 +150,15 @@ function Multiplayer({
   const telemetry = state?.telemetry;
   const [tab, setTab] = useState<MultiplayerTab>("overview");
   const [chatText, setChatText] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [displayName, setDisplayName] = useState("");
+
+  useEffect(() => {
+    setServerUrl(current => current || multiplayer.serverUrl || "");
+    setRoomId(current => current || multiplayer.roomId || "");
+    setDisplayName(current => current || multiplayer.displayName || "");
+  }, [multiplayer.serverUrl, multiplayer.roomId, multiplayer.displayName]);
 
   const statusLabel = multiplayer.connected
     ? "Conectado"
@@ -256,14 +265,44 @@ function Multiplayer({
         <section className="card mp-panel">
           <div className="section-heading">
             <div><span className="eyebrow">SALA</span><h3>Conexão e host</h3></div>
-            <button className="button primary" onClick={() => sendCommand("openMultiplayerCentral")}>Gerenciar sala</button>
+            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Controles avançados</button>
           </div>
-          <div className="details-grid">
-            <div><small>SERVIDOR</small><strong>{multiplayer.serverUrl || "—"}</strong></div>
+
+          <div className="room-form-grid">
+            <label>
+              <span>Servidor</span>
+              <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder="http://127.0.0.1:27730" />
+            </label>
+            <label>
+              <span>Sala</span>
+              <input value={roomId} onChange={event => setRoomId(event.target.value)} disabled={multiplayer.connected} placeholder="navbr-1234" />
+            </label>
+            <label>
+              <span>Apelido</span>
+              <input value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={multiplayer.connected} placeholder="Driver" />
+            </label>
+          </div>
+
+          <div className="room-actions">
+            {!multiplayer.connected ? (
+              <>
+                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName })}>Entrar na sala</button>
+                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName })}>Criar sala local</button>
+              </>
+            ) : (
+              <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
+                {multiplayer.hostRunning ? "Encerrar sala local" : "Desconectar"}
+              </button>
+            )}
+          </div>
+
+          <div className="details-grid room-status-grid">
+            <div><small>SERVIDOR ATIVO</small><strong>{multiplayer.serverUrl || "—"}</strong></div>
             <div><small>ID DA SALA</small><strong>{multiplayer.roomId || "—"}</strong></div>
             <div><small>APELIDO</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>ESTADO</small><strong>{statusLabel}</strong></div>
           </div>
+
           {multiplayer.inviteAddresses.length > 0 && (
             <div className="invite-box">
               <small>ENDEREÇOS PARA CONVITE</small>
@@ -271,7 +310,7 @@ function Multiplayer({
             </div>
           )}
           <p className="migration-note">
-            Criar/entrar em sala ainda usa o formulário nativo nesta fase para preservar senha privada, firewall, UPnP e validações já testadas.
+            Sala pública/local já pode ser conectada pela interface React. Senha privada, descoberta pública, firewall e UPnP continuam disponíveis nos controles avançados enquanto esses formulários são migrados.
           </p>
         </section>
       )}
