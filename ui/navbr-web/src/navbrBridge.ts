@@ -57,6 +57,19 @@ export interface NavBrMultiplayerState {
     gain: number;
     speaking: boolean;
   }[];
+  voicePushToTalkActive: boolean;
+  voiceQuality: {
+    activeStreams: number;
+    receivedPackets: number;
+    playedPackets: number;
+    fecRecoveredPackets: number;
+    estimatedLostPackets: number;
+    latePackets: number;
+    duplicatePackets: number;
+    averageJitterMilliseconds: number;
+    targetBufferMilliseconds: number;
+    estimatedLossPercent: number;
+  };
   chatHotkey: string;
   voiceHotkey: string;
   hotkeyOptions: string[];
@@ -89,6 +102,17 @@ export interface NavBrMultiplayerState {
     partial: number;
     affectedAreas: string[];
   };
+  sessionOperationalState?: {
+    authorityPlayerId: string;
+    sequence: number;
+    serverTimestampUtc: string;
+    mapName?: string | null;
+    mapCompatibilityId?: string | null;
+    line?: string | null;
+    route?: string | null;
+    destinationName?: string | null;
+    nextStopName?: string | null;
+  } | null;
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
