@@ -29,6 +29,34 @@ jobs:
             throw "The Windows runner does not provide .NET 10 SDK."
           }
 
+      - name: Setup Node for NavBR web UI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build React desktop UI
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR web UI dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR web UI build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          foreach ($required in @(
+            "ui/navbr-web/dist/index.html",
+            "ui/navbr-web/dist/assets"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "NavBR web UI output is incomplete: $required"
+            }
+          }
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
