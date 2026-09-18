@@ -474,6 +474,14 @@ Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.VoiceChannels.cs" @
     "!ShowInTaskbar"
 )
 
+
+Reject-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.PersistentLifetime.cs" @(
+    "ShowInTaskbar = true;"
+)
+Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.PersistentLifetime.cs" @(
+    "ShowInTaskbar = false;"
+)
+
 foreach ($legacy in @(
     "src/NavBR.Client/Multiplayer/MultiplayerWindow.RoomWizard.cs",
     "src/NavBR.Client/Multiplayer/MultiplayerWindow.RelayWizardPolish.cs"
