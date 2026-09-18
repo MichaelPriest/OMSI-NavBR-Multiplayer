@@ -541,4 +541,56 @@ foreach ($legacy in @(
     }
 }
 
+
+Require-Text "site/src/App.jsx" @(
+    "DownloadDrawer",
+    "ConceptGallery",
+    'AdSlot name="top"',
+    'AdSlot name="direct"',
+    "<SupportSection />"
+)
+
+Require-Text "site/src/SiteChrome.jsx" @(
+    "pl31372716.profitableratecpmnetwork.com",
+    "pl31372717.profitableratecpmnetwork.com",
+    "pl31372719.profitableratecpmnetwork.com",
+    "profitableratecpmnetwork.com/a8tvv2zu8n",
+    "topbar-downloads"
+)
+
+Require-Text "site/src/ProjectSections.jsx" @(
+    "b07a9cc9-b10d-48a8-b201-d28bddc4399a",
+    "Copiar chave Pix"
+)
+
+Require-Text "site/src/ConceptGallery.jsx" @(
+    "concept-hud.svg",
+    "concept-multiplayer.svg",
+    "concept-roleplay.svg",
+    "Estas imagens são conceituais"
+)
+
+Require-Text "src/NavBR.Client/Maps/OmsiSplineGroundHeightResolver.cs" @(
+    "[spline_h]",
+    "GradientStartPercent",
+    "GradientEndPercent",
+    "DeltaH",
+    "MaxSnapDistanceMeters"
+)
+
+Require-Text "src/NavBR.Client/Multiplayer/RoleplayCharacterController.cs" @(
+    "OmsiSplineGroundHeightResolver.TryResolve",
+    "MaxVerticalFollowSpeedMps",
+    "IsGroundFollowing",
+    "LocalZ = z"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.WebRoleplay.cs" @(
+    "terrainFollowing = controller.IsGroundFollowing"
+)
+
+Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
+    "terrainFollowing: boolean"
+)
+
 Write-Host "Alpha.14 user-visible surfaces validated."
