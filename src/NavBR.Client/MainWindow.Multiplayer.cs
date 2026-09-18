@@ -156,6 +156,12 @@ public partial class MainWindow
         window.Show();
     }
 
+    internal void OpenMultiplayerRoleplayTabForShell()
+    {
+        MultiplayerButton_Click(this, new RoutedEventArgs());
+        _multiplayerWindow?.ShowRoleplayTab();
+    }
+
     private HudOverlayWindow EnsureHudOverlay()
     {
         if (_hudOverlay is not null)
