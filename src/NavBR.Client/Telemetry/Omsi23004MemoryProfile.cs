@@ -17,6 +17,7 @@ internal static class Omsi23004MemoryProfile
     public static int TimeTableManagerRva { get; private set; } = 0x008614E8 - PreferredImageBase;
     public static int NavigationVehiclePointerRva { get; private set; } = 0x00862F28 - PreferredImageBase;
     public static int CameraPointerRva { get; private set; } = 0x008616E0 - PreferredImageBase;
+    public static int HumansArrayRva { get; private set; } = 0x0086172C - PreferredImageBase;
 
     public static bool ConfigureFor(OmsiProcessInfo processInfo)
     {
@@ -135,6 +136,10 @@ internal static class Omsi23004MemoryProfile
     public const int StringItemSize = 0x008;
     public const int StringItemTextOffset = 0x000;
     public const int StringItemObjectOffset = 0x004;
+
+    // OmsiHumanBeingInst fields used only for read-only active-driver matching.
+    public const int HumanDefinitionOffset = 0x5B0;
+    public const int HumanMyBusOffset = 0x6B4;
 
     public const int NavigationTileXOffset = 0x018;
     public const int NavigationTileYOffset = 0x020;
