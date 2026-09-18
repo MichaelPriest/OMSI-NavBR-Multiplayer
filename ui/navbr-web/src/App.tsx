@@ -1064,6 +1064,7 @@ function CompanyNetwork({ state, error }: { state: NavBrState | null; error: str
 const hardwareBaudRates = [9600, 19200, 38400, 57600, 115200, 230400];
 
 function Hardware({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const { pick } = useI18n();
   const hardware = state?.hardware;
   const [portName, setPortName] = useState("");
   const [baudRate, setBaudRate] = useState(115200);
@@ -1077,7 +1078,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   }, [hardware?.connected, hardware?.portName, hardware?.baudRate, hardware?.autoReconnect, hardware?.availablePorts]);
 
   if (!hardware) {
-    return <div className="card empty-state">Aguardando estado do Hardware Cockpit…</div>;
+    return <div className="card empty-state">{pick("Aguardando estado do Hardware Cockpit…", "Waiting for Hardware Cockpit state…", "Esperando el estado del Hardware Cockpit…", "Warte auf Hardware-Cockpit-Status…", "En attente de l’état du Hardware Cockpit…")}</div>;
   }
 
   const telemetry = hardware.telemetry;
@@ -1095,12 +1096,12 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
       <header className="topbar hardware-header">
         <div>
           <span className="eyebrow">HARDWARE COCKPIT</span>
-          <h1>Painel físico</h1>
-          <p>Bridge serial compartilhada para Arduino, ESP32, letreiros, LEDs e computador de bordo.</p>
+          <h1>{pick("Painel físico", "Physical dashboard", "Panel físico", "Physisches Dashboard", "Tableau physique")}</h1>
+          <p>{pick("Bridge serial compartilhada para Arduino, ESP32, letreiros, LEDs e computador de bordo.", "Shared serial bridge for Arduino, ESP32, destination signs, LEDs and onboard computer.", "Bridge serial compartido para Arduino, ESP32, letreros, LEDs y computadora de a bordo.", "Gemeinsame serielle Bridge für Arduino, ESP32, Zielanzeigen, LEDs und Bordcomputer.", "Bridge série partagée pour Arduino, ESP32, girouettes, LED et ordinateur de bord.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${hardware.connected ? "connected" : ""}`}>
-            <i /> {hardware.connected ? `${hardware.portName} @ ${hardware.baudRate}` : "Serial desconectada"}
+            <i /> {hardware.connected ? `${hardware.portName} @ ${hardware.baudRate}` : pick("Serial desconectada", "Serial disconnected", "Serial desconectada", "Seriell getrennt", "Série déconnectée")}
           </span>
         </div>
       </header>
@@ -1116,13 +1117,13 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
               <h3>{hardware.protocol}</h3>
             </div>
             <span className={`hardware-state-pill ${hardware.connected ? "connected" : ""}`}>
-              {hardware.connected ? "5 Hz ativo" : "Aguardando conexão"}
+              {hardware.connected ? pick("5 Hz ativo", "5 Hz active", "5 Hz activo", "5 Hz aktiv", "5 Hz actif") : pick("Aguardando conexão", "Waiting for connection", "Esperando conexión", "Warte auf Verbindung", "En attente de connexion")}
             </span>
           </div>
 
           <div className="hardware-controls">
             <label>
-              <span>Porta COM</span>
+              <span>{pick("Porta COM", "COM port", "Puerto COM", "COM-Port", "Port COM")}</span>
               <select
                 value={portName}
                 disabled={hardware.connected}
@@ -1132,7 +1133,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
                   persistSelection(value, baudRate, autoReconnect);
                 }}
               >
-                <option value="">Selecione…</option>
+                <option value="">{pick("Selecione…", "Select…", "Selecciona…", "Auswählen…", "Sélectionner…")}</option>
                 {hardware.availablePorts.map(port => <option key={port} value={port}>{port}</option>)}
               </select>
             </label>
@@ -1162,52 +1163,52 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
                   persistSelection(portName, baudRate, value);
                 }}
               />
-              <span>Reconectar automaticamente na mesma COM</span>
+              <span>{pick("Reconectar automaticamente na mesma COM", "Automatically reconnect to the same COM", "Reconectar automáticamente al mismo COM", "Automatisch mit demselben COM-Port verbinden", "Reconnecter automatiquement au même port COM")}</span>
             </label>
           </div>
 
           <div className="hardware-actions">
             {hardware.connected ? (
-              <button className="button ghost danger" onClick={() => sendCommand("disconnectHardware")}>Desconectar</button>
+              <button className="button ghost danger" onClick={() => sendCommand("disconnectHardware")}>{pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}</button>
             ) : (
               <button
                 className="button primary"
                 disabled={!portName}
                 onClick={() => sendCommand("connectHardware", { portName, baudRate, autoReconnect })}
               >
-                Conectar hardware
+                {pick("Conectar hardware", "Connect hardware", "Conectar hardware", "Hardware verbinden", "Connecter le matériel")}
               </button>
             )}
-            <button className="button ghost" onClick={() => sendCommand("refreshState")}>Atualizar portas</button>
+            <button className="button ghost" onClick={() => sendCommand("refreshState")}>{pick("Atualizar portas", "Refresh ports", "Actualizar puertos", "Ports aktualisieren", "Actualiser les ports")}</button>
           </div>
 
           <p className="hardware-note">
-            O NavBR nunca troca silenciosamente para outra porta COM. O auto-reconnect tenta apenas a porta explicitamente escolhida.
+            {pick("O NavBR nunca troca silenciosamente para outra porta COM. O auto-reconnect tenta apenas a porta explicitamente escolhida.", "NavBR never silently switches to another COM port. Auto-reconnect only retries the explicitly selected port.", "NavBR nunca cambia silenciosamente a otro puerto COM. La reconexión automática solo intenta el puerto elegido explícitamente.", "NavBR wechselt niemals unbemerkt auf einen anderen COM-Port. Auto-Reconnect versucht nur den ausdrücklich gewählten Port.", "NavBR ne bascule jamais silencieusement vers un autre port COM. La reconnexion automatique ne tente que le port explicitement choisi.")}
           </p>
         </article>
 
         <article className="card hardware-live-card">
           <div className="section-heading">
-            <div><span className="eyebrow">TELEMETRIA AO VIVO</span><h3>{telemetry ? "Quadro atual" : "Aguardando OMSI"}</h3></div>
-            {hardware.lastFrameSentAtUtc && <small>Último envio: {new Date(hardware.lastFrameSentAtUtc).toLocaleTimeString()}</small>}
+            <div><span className="eyebrow">{pick("TELEMETRIA AO VIVO", "LIVE TELEMETRY", "TELEMETRÍA EN VIVO", "LIVE-TELEMETRIE", "TÉLÉMÉTRIE EN DIRECT")}</span><h3>{telemetry ? pick("Quadro atual", "Current frame", "Cuadro actual", "Aktueller Frame", "Trame actuelle") : pick("Aguardando OMSI", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI")}</h3></div>
+            {hardware.lastFrameSentAtUtc && <small>{pick("Último envio", "Last send", "Último envío", "Letzter Versand", "Dernier envoi")}: {new Date(hardware.lastFrameSentAtUtc).toLocaleTimeString()}</small>}
           </div>
 
           <div className="hardware-live-grid">
-            <span><small>LINHA</small><strong>{telemetry?.line || "—"}</strong></span>
-            <span><small>DESTINO</small><strong>{telemetry?.destination || "—"}</strong></span>
-            <span><small>PRÓXIMA PARADA</small><strong>{telemetry?.nextStop || "—"}</strong></span>
-            <span><small>RUA ATUAL</small><strong>{telemetry?.currentStreet || "—"}</strong></span>
-            <span><small>VELOCIDADE</small><strong>{telemetry ? `${format(telemetry.speedKph, 1)} km/h` : "—"}</strong></span>
-            <span className={telemetry?.stopRequested ? "attention" : ""}><small>PARADA SOLICITADA</small><strong>{telemetry ? telemetry.stopRequested ? "SIM" : "Não" : "—"}</strong></span>
-            <span><small>PORTAS</small><strong>{telemetry?.doors || "—"}</strong></span>
-            <span><small>SETA</small><strong>{telemetry?.turnSignal || "—"}</strong></span>
+            <span><small>{pick("LINHA", "LINE", "LÍNEA", "LINIE", "LIGNE")}</small><strong>{telemetry?.line || "—"}</strong></span>
+            <span><small>{pick("DESTINO", "DESTINATION", "DESTINO", "ZIEL", "DESTINATION")}</small><strong>{telemetry?.destination || "—"}</strong></span>
+            <span><small>{pick("PRÓXIMA PARADA", "NEXT STOP", "PRÓXIMA PARADA", "NÄCHSTER HALT", "PROCHAIN ARRÊT")}</small><strong>{telemetry?.nextStop || "—"}</strong></span>
+            <span><small>{pick("RUA ATUAL", "CURRENT STREET", "CALLE ACTUAL", "AKTUELLE STRASSE", "RUE ACTUELLE")}</small><strong>{telemetry?.currentStreet || "—"}</strong></span>
+            <span><small>{pick("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE")}</small><strong>{telemetry ? `${format(telemetry.speedKph, 1)} km/h` : "—"}</strong></span>
+            <span className={telemetry?.stopRequested ? "attention" : ""}><small>{pick("PARADA SOLICITADA", "STOP REQUESTED", "PARADA SOLICITADA", "HALTEWUNSCH", "ARRÊT DEMANDÉ")}</small><strong>{telemetry ? telemetry.stopRequested ? pick("SIM", "YES", "SÍ", "JA", "OUI") : pick("Não", "No", "No", "Nein", "Non") : "—"}</strong></span>
+            <span><small>{pick("PORTAS", "DOORS", "PUERTAS", "TÜREN", "PORTES")}</small><strong>{telemetry?.doors || "—"}</strong></span>
+            <span><small>{pick("SETA", "TURN SIGNAL", "INTERMITENTE", "BLINKER", "CLIGNOTANT")}</small><strong>{telemetry?.turnSignal || "—"}</strong></span>
           </div>
         </article>
       </section>
 
       <section className="card hardware-payload-card">
         <div className="section-heading">
-          <div><span className="eyebrow">PREVIEW TÉCNICO</span><h3>Pacote enviado ao cockpit</h3></div>
+          <div><span className="eyebrow">{pick("PREVIEW TÉCNICO", "TECHNICAL PREVIEW", "VISTA TÉCNICA", "TECHNISCHE VORSCHAU", "APERÇU TECHNIQUE")}</span><h3>{pick("Pacote enviado ao cockpit", "Packet sent to cockpit", "Paquete enviado al cockpit", "An Cockpit gesendetes Paket", "Paquet envoyé au cockpit")}</h3></div>
           <span className="route-source-pill">JSON LINES</span>
         </div>
         <pre>{hardware.payloadPreview || `{"protocol":"${hardware.protocol}","state":"waiting-for-telemetry"}`}</pre>
