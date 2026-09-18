@@ -36,7 +36,7 @@ export function AlphaDownloads({ currentAlphaKey, alphaDownloads, loading }) {
 export function Downloads({ currentAssets, loading, error, releasesPage }) {
   return (
     <section id="download" className="section shell">
-      <span className="eyebrow">Builds</span>
+      <span className="eyebrow">Release pública</span>
       <h2>Baixe a Alpha.14 pública.</h2>
       <p className="section-lead">
         Use o EXE standalone para jogar e testar. Plugin, servidor dedicado e simulador ficam disponíveis separadamente.
