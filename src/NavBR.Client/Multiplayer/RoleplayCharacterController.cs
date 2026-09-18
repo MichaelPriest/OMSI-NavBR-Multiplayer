@@ -11,6 +11,7 @@ namespace NavBR.Client.Multiplayer;
 internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
     private const int VkEscape = 0x1B;
+    private const int VkE = 0x45;
     private const int VkW = 0x57;
     private const int VkA = 0x41;
     private const int VkS = 0x53;
@@ -24,6 +25,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double BackwardSpeedMps = 1.05d;
     private const double TurnSpeedDegreesPerSecond = 105d;
     private const double MaxDistanceFromBusMeters = 85d;
+    private const double EnterBusDistanceMeters = 8d;
     private const double MaxVerticalFollowSpeedMps = 2.75d;
     private const double MaxInitialGroundOffsetMeters = 3.5d;
     private const double MaxGroundSampleJumpMeters = 1.25d;
@@ -44,6 +46,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private int _updateInFlight;
     private int _stopping;
     private int _consecutiveFailures;
+    private long _sessionGeneration;
     private double _originX;
     private double _originY;
     private double _groundHeightOffset;
@@ -73,7 +76,58 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
+    public double EnterBusRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
+
+    public double? GetBusDistanceMeters()
+    {
+        if (_state is not { IsActive: true } current)
+        {
+            return null;
+        }
+
+        var telemetry = _telemetrySource();
+        if (telemetry?.LocalX is not double busX ||
+            telemetry.LocalY is not double busY ||
+            !double.IsFinite(busX) ||
+            !double.IsFinite(busY))
+        {
+            return null;
+        }
+
+        var dx = current.LocalX - busX;
+        var dy = current.LocalY - busY;
+        var dz = telemetry.LocalZ is double busZ && double.IsFinite(busZ)
+            ? current.LocalZ - busZ
+            : 0d;
+        var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        return double.IsFinite(distance) ? distance : null;
+    }
+
+    public async Task<bool> TryEnterBusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsActive)
+        {
+            return true;
+        }
+
+        var distance = GetBusDistanceMeters();
+        if (distance is not double finiteDistance)
+        {
+            StatusChanged?.Invoke("roleplay-bus-position-unavailable");
+            return false;
+        }
+
+        if (finiteDistance > EnterBusDistanceMeters)
+        {
+            StatusChanged?.Invoke("roleplay-bus-too-far");
+            return false;
+        }
+
+        await StopAsync("roleplay-entered-bus", cancellationToken);
+        return true;
+    }
 
     public bool IsRuntimeAvailable
     {
@@ -208,6 +262,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             CharacterName: selected.DisplayName,
             HumanIndex: result.CharacterHumanIndex);
 
+        Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
@@ -232,6 +287,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         {
             _timer.Stop();
             DisposeKeyboardHook();
+            Interlocked.Increment(ref _sessionGeneration);
 
             var instanceId = _instanceId;
             var playerId = _state?.PlayerId;
@@ -276,8 +332,10 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     private async Task TickAsync()
     {
+        var sessionGeneration = Volatile.Read(ref _sessionGeneration);
+        var instanceId = _instanceId;
         if (_state is not { IsActive: true } current ||
-            string.IsNullOrWhiteSpace(_instanceId) ||
+            string.IsNullOrWhiteSpace(instanceId) ||
             Interlocked.CompareExchange(ref _updateInFlight, 1, 0) != 0)
         {
             return;
@@ -394,9 +452,15 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             };
 
             var result = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
-                _instanceId,
+                instanceId,
                 updated,
                 MultiplayerSettingsStore.Load().DisplayName);
+
+            if (sessionGeneration != Volatile.Read(ref _sessionGeneration) ||
+                !string.Equals(instanceId, _instanceId, StringComparison.Ordinal))
+            {
+                return;
+            }
 
             if (result?.Success != true)
             {
@@ -536,8 +600,32 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             if (isDown)
             {
                 _ = Application.Current.Dispatcher.BeginInvoke(
-                    async () => await StopAsync("roleplay-exit"));
+                    async () => await StopAsync("roleplay-emergency-return"));
             }
+            return true;
+        }
+
+        if (virtualKey == VkE)
+        {
+            var shouldEnter = false;
+            lock (_inputSync)
+            {
+                if (isDown)
+                {
+                    shouldEnter = _pressedKeys.Add(virtualKey);
+                }
+                else
+                {
+                    _pressedKeys.Remove(virtualKey);
+                }
+            }
+
+            if (shouldEnter)
+            {
+                _ = Application.Current.Dispatcher.BeginInvoke(
+                    async () => await TryEnterBusAsync());
+            }
+
             return true;
         }
 

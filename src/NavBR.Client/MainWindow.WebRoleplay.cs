@@ -16,6 +16,7 @@ public partial class MainWindow
             : Array.Empty<RoleplayCharacterOption>();
         var controller = GetRoleplayControllerForShell();
         var current = controller.CurrentState;
+        var busDistanceMeters = controller.GetBusDistanceMeters();
 
         return new
         {
@@ -25,6 +26,11 @@ public partial class MainWindow
             runtimeAvailable = controller.IsRuntimeAvailable,
             active = controller.IsActive,
             terrainFollowing = controller.IsGroundFollowing,
+            busDistanceMeters,
+            enterBusRangeMeters = controller.EnterBusRangeMeters,
+            canEnterBus = controller.IsActive &&
+                          busDistanceMeters is double distance &&
+                          distance <= controller.EnterBusRangeMeters,
             status = _webRoleplayStatus,
             selected = selected is null
                 ? null
@@ -140,14 +146,26 @@ public partial class MainWindow
         UpdateHudRoleplayStateForShell();
     }
 
+    private async Task EnterRoleplayBusFromWebAsync()
+    {
+        if (_roleplayCharacterController is not { } controller)
+        {
+            _webRoleplayStatus = "roleplay-bus-position-unavailable";
+            return;
+        }
+
+        _ = await controller.TryEnterBusAsync();
+        UpdateHudRoleplayStateForShell();
+    }
+
     private async Task StopRoleplayFromWebAsync()
     {
         if (_roleplayCharacterController is { } controller)
         {
-            await controller.StopAsync("roleplay-returned-to-bus");
+            await controller.StopAsync("roleplay-emergency-return");
         }
 
-        _webRoleplayStatus = "roleplay-returned-to-bus";
+        _webRoleplayStatus = "roleplay-emergency-return";
         UpdateHudRoleplayStateForShell();
     }
 }

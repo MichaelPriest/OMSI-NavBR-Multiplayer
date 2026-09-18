@@ -375,6 +375,10 @@ public partial class MainWindow
                 await StartRoleplayFromWebAsync();
                 break;
 
+            case "enterRoleplayBus":
+                await EnterRoleplayBusFromWebAsync();
+                break;
+
             case "stopRoleplay":
                 await StopRoleplayFromWebAsync();
                 break;
