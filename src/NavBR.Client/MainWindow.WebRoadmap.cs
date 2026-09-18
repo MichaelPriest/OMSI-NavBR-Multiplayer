@@ -21,16 +21,23 @@ public partial class MainWindow
         {
             maps = _installedMaps
                 .OrderBy(map => map.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-                .Select(map => new
+                .Select(map =>
                 {
-                    folderName = map.FolderName,
-                    displayName = map.DisplayName,
-                    directoryPath = map.DirectoryPath,
-                    tileCount = map.TileCount,
-                    compatibilityId = map.CompatibilityId,
-                    roadmapPath = map.RoadmapPath,
-                    roadmapExists = !string.IsNullOrWhiteSpace(map.RoadmapPath) &&
-                                    File.Exists(map.RoadmapPath)
+                    var roadmapPath = Path.Combine(
+                        map.DirectoryPath,
+                        "texture",
+                        "map",
+                        "whole.roadmap.bmp");
+                    return new
+                    {
+                        folderName = map.FolderName,
+                        displayName = map.DisplayName,
+                        directoryPath = map.DirectoryPath,
+                        tileCount = map.TileCount,
+                        compatibilityId = map.CompatibilityId,
+                        roadmapPath,
+                        roadmapExists = File.Exists(roadmapPath)
+                    };
                 })
                 .ToArray(),
             selectedFolder = _webRoadmapSelectedFolder,
