@@ -75,7 +75,8 @@
                 </DockPanel>
             </Border>
 
-            <Border Width="680"
+            <Border x:Name="TopStatusPanel"
+                    Width="680"
                     HorizontalAlignment="Left"
                     Margin="0,0,0,8"
                     Padding="12,8"
@@ -229,7 +230,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0"
+                    <Border x:Name="LineBadge"
+                            Grid.Column="0"
                             Background="#FFFF8C00"
                             CornerRadius="7"
                             Padding="9,5"
@@ -285,14 +287,17 @@
                 </Grid>
             </Border>
 
-            <Grid HorizontalAlignment="Left" Width="680">
+            <Grid x:Name="MiniMapHudPanel"
+                  HorizontalAlignment="Left"
+                  Width="680">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="300" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Grid Width="300" Height="190" HorizontalAlignment="Left">
-                    <Border Background="#D60D1319"
+                    <Border x:Name="MiniMapFrame"
+                            Background="#D60D1319"
                             BorderBrush="#78FFFFFF"
                             BorderThickness="1"
                             CornerRadius="14"
