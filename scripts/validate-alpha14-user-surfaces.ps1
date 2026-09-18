@@ -45,7 +45,7 @@ Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
     "alpha14-connectivity",
     "alpha14-nat",
     "alpha14-external-port",
-    "FeedbackWindow",
+    'NavigatePrimaryWebShell("help")',
     "Alpha12ProfessionalShellInstaller.OperationsPanelName",
     "Alpha12ProfessionalShellInstaller.ToolsPanelName"
 )
@@ -230,7 +230,8 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     "Ajustar",
     "Modo avançado",
     "Dicas de direção",
-    "Comparar replays"
+    "Comparar replays",
+    'requested?.startsWith("settings-")'
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -318,6 +319,138 @@ Require-Text "src/NavBR.MultiplayerSimulator/Program.cs" @(
     "LocalServerBootstrap.EnsureAsync",
     "AutoStartLocalServer",
     "NavBR.Server.exe"
+)
+
+
+# The retired WPF windows may remain in source as fallback/implementation history,
+# but user-facing launchers must route to the React/WebView2 shell.
+Reject-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
+    "new Alpha12ConnectivityWindow(",
+    "new NatDiagnosticsWindow(",
+    "new ExternalPortProbeWindow(",
+    "new NavBRManualWindow",
+    "new FeedbackWindow",
+    "window.OpenHudEditorForShell"
+)
+
+Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-network")',
+    'NavigatePrimaryWebShell("settings-hud")',
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/Omsi/OmsiProfilesUiInstaller.cs" @(
+    "new RoadmapStudioWindow(",
+    "new OmsiProfilesWindow",
+    "new GhostToolsWindow("
+)
+
+Require-Text "src/NavBR.Client/Omsi/OmsiProfilesUiInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-roadmap")',
+    'NavigatePrimaryWebShell("settings-installations")',
+    'NavigatePrimaryWebShell("ghost")'
+)
+
+Reject-Text "src/NavBR.Client/Operations/SessionHealthInstaller.cs" @(
+    "new SessionHealthWindow("
+)
+Require-Text "src/NavBR.Client/Operations/SessionHealthInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-diagnostics")'
+)
+
+Reject-Text "src/NavBR.Client/Operations/VirtualCompanyInstaller.cs" @(
+    "new VirtualCompanyWindow("
+)
+Require-Text "src/NavBR.Client/Operations/VirtualCompanyInstaller.cs" @(
+    'NavigatePrimaryWebShell("operations")'
+)
+
+Reject-Text "src/NavBR.Client/Driver/DriverProfileInstaller.cs" @(
+    "new DriverProfileWindow("
+)
+Require-Text "src/NavBR.Client/Driver/DriverProfileInstaller.cs" @(
+    'NavigatePrimaryWebShell("operations")'
+)
+
+Reject-Text "src/NavBR.Client/Driver/DriverTripHistoryInstaller.cs" @(
+    "new DriverTripHistoryWindow("
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha12GhostToolsInstaller.cs" @(
+    "new GhostToolsWindow("
+)
+Require-Text "src/NavBR.Client/Windows/Alpha12GhostToolsInstaller.cs" @(
+    'NavigatePrimaryWebShell("ghost")'
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha12HudShortcutInstaller.cs" @(
+    "new Alpha12SettingsWindow(",
+    ".ShowDialog()"
+)
+Require-Text "src/NavBR.Client/Windows/Alpha12HudShortcutInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-hud")'
+)
+
+Reject-Text "src/NavBR.Client/Multiplayer/Alpha12MultiplayerStatusInstaller.cs" @(
+    "new SessionHealthWindow(",
+    "new Alpha12ConnectivityWindow(",
+    "new NatDiagnosticsWindow(",
+    "new ExternalPortProbeWindow("
+)
+Require-Text "src/NavBR.Client/Multiplayer/Alpha12MultiplayerStatusInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-diagnostics")',
+    'NavigatePrimaryWebShell("settings-network")'
+)
+
+Reject-Text "src/NavBR.Client/Overlay/HudCustomizationWindowInstaller.cs" @(
+    "new HudCustomizationWindow("
+)
+Require-Text "src/NavBR.Client/Overlay/HudCustomizationWindowInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings-hud")'
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha11ShellUiInstaller.cs" @(
+    "new NavBRManualWindow"
+)
+Require-Text "src/NavBR.Client/Windows/Alpha11ShellUiInstaller.cs" @(
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha12ProfessionalShellInstaller.cs" @(
+    "new NavBRManualWindow"
+)
+Require-Text "src/NavBR.Client/Windows/Alpha12ProfessionalShellInstaller.cs" @(
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha12ShellUiInstaller.cs" @(
+    "new NavBRManualWindow"
+)
+Require-Text "src/NavBR.Client/Windows/Alpha12ShellUiInstaller.cs" @(
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.Feedback.cs" @(
+    "new FeedbackWindow",
+    ".ShowDialog()"
+)
+Require-Text "src/NavBR.Client/MainWindow.Feedback.cs" @(
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
+    "new HudCustomizationWindow("
+)
+Require-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
+    'NavigatePrimaryWebShell("settings-hud")'
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.Navigation3D.cs" @(
+    "new Navigation3DWindow(",
+    ".Show()"
+)
+Require-Text "src/NavBR.Client/MainWindow.Navigation3D.cs" @(
+    'NavigatePrimaryWebShell("navigation")'
 )
 
 foreach ($legacy in @(
