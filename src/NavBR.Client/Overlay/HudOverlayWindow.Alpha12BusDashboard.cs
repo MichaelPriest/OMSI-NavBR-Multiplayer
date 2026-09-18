@@ -373,6 +373,12 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (IsLegacyDashboardTheme(_hudSettings.DashboardTheme))
+        {
+            ApplyLegacyDashboardVisualTheme();
+            return;
+        }
+
         var theme = ResolveDashboardVisualTheme(_hudSettings.DashboardTheme);
         _dashboardActiveColor = theme.Accent;
         _dashboardActiveBorderColor = theme.Secondary;
@@ -548,6 +554,160 @@ public partial class HudOverlayWindow
             else
             {
                 SetIndicator(indicator, false, indicator.Label.Text);
+            }
+        }
+    }
+
+    private static bool IsLegacyDashboardTheme(string? id) =>
+        (id ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "urban-glass" or "route-night" or "racing-clean" or "transit-control" => false,
+            _ => true
+        };
+
+    private void ApplyLegacyDashboardVisualTheme()
+    {
+        if (_busDashboardDock is null)
+        {
+            return;
+        }
+
+        _dashboardActiveColor = Color.FromRgb(255, 132, 0);
+        _dashboardActiveBorderColor = Color.FromRgb(255, 179, 71);
+
+        _busDashboardDock.Background = new LinearGradientBrush(
+            Color.FromArgb(246, 4, 7, 9),
+            Color.FromArgb(242, 12, 15, 17),
+            90d);
+        _busDashboardDock.BorderBrush =
+            new SolidColorBrush(Color.FromArgb(210, 118, 79, 36));
+        _busDashboardDock.BorderThickness = new Thickness(1.2d);
+        _busDashboardDock.CornerRadius = new CornerRadius(18d);
+
+        if (_dashboardSpeedPanel is not null)
+        {
+            _dashboardSpeedPanel.Background =
+                new SolidColorBrush(Color.FromArgb(150, 0, 0, 0));
+            _dashboardSpeedPanel.BorderBrush = Brushes.Transparent;
+            _dashboardSpeedPanel.BorderThickness = new Thickness(0d);
+            _dashboardSpeedPanel.CornerRadius = new CornerRadius(12d);
+        }
+
+        StyleDashboardSection(_dashboardFuelPanel);
+        StyleDashboardSection(_dashboardPedalsPanel);
+        StyleDashboardSection(_dashboardStatusPanel);
+
+        if (_alpha12TripDisplay is not null)
+        {
+            _alpha12TripDisplay.Background =
+                new SolidColorBrush(Color.FromRgb(7, 10, 11));
+            _alpha12TripDisplay.BorderBrush =
+                new SolidColorBrush(Color.FromRgb(52, 56, 57));
+            _alpha12TripDisplay.BorderThickness = new Thickness(1d);
+            _alpha12TripDisplay.CornerRadius = new CornerRadius(10d);
+        }
+
+        if (_alpha12LinePanel is not null)
+        {
+            _alpha12LinePanel.Background =
+                new SolidColorBrush(Color.FromRgb(255, 147, 38));
+        }
+        if (_alpha12LineText is not null)
+        {
+            _alpha12LineText.Foreground = Brushes.Black;
+        }
+        if (_alpha12DestinationText is not null)
+        {
+            _alpha12DestinationText.Foreground = AmberBrush();
+        }
+        if (_alpha12StreetText is not null)
+        {
+            _alpha12StreetText.Foreground =
+                new SolidColorBrush(Color.FromRgb(127, 144, 152));
+        }
+
+        if (_dashboardSpeedText is not null)
+        {
+            _dashboardSpeedText.Foreground = AmberBrush();
+            _dashboardSpeedText.FontSize = 49d;
+        }
+        if (_dashboardAccelerationText is not null)
+        {
+            _dashboardAccelerationText.Foreground =
+                new SolidColorBrush(Color.FromRgb(132, 150, 159));
+        }
+        if (_dashboardFuelBar is not null)
+        {
+            _dashboardFuelBar.Foreground = AmberBrush();
+            _dashboardFuelBar.Background =
+                new SolidColorBrush(Color.FromRgb(26, 29, 30));
+        }
+        if (_dashboardThrottleBar is not null)
+        {
+            _dashboardThrottleBar.Foreground =
+                new SolidColorBrush(Color.FromRgb(72, 199, 116));
+            _dashboardThrottleBar.Background =
+                new SolidColorBrush(Color.FromRgb(26, 29, 30));
+        }
+        if (_dashboardBrakeBar is not null)
+        {
+            _dashboardBrakeBar.Foreground =
+                new SolidColorBrush(Color.FromRgb(236, 86, 72));
+            _dashboardBrakeBar.Background =
+                new SolidColorBrush(Color.FromRgb(26, 29, 30));
+        }
+
+        TopStatusPanel.Background = new LinearGradientBrush(
+            Color.FromArgb(231, 19, 26, 34),
+            Color.FromArgb(200, 33, 41, 50),
+            0d);
+        TopStatusPanel.BorderBrush =
+            new SolidColorBrush(Color.FromArgb(76, 255, 255, 255));
+
+        TripInfoPanel.Background =
+            new SolidColorBrush(Color.FromArgb(215, 16, 22, 29));
+        TripInfoPanel.BorderBrush =
+            new SolidColorBrush(Color.FromArgb(56, 255, 255, 255));
+        LineBadge.Background =
+            new SolidColorBrush(Color.FromRgb(255, 140, 0));
+
+        ActiveRoutePolyline.Stroke =
+            new SolidColorBrush(Color.FromRgb(255, 157, 36));
+        TurnPanel.Background =
+            new SolidColorBrush(Color.FromArgb(44, 255, 140, 0));
+        TurnPanel.BorderBrush =
+            new SolidColorBrush(Color.FromArgb(120, 255, 157, 36));
+        TurnArrowText.Foreground =
+            new SolidColorBrush(Color.FromRgb(255, 166, 43));
+
+        MiniMapFrame.Background =
+            new SolidColorBrush(Color.FromArgb(214, 13, 19, 25));
+        MiniMapFrame.BorderBrush =
+            new SolidColorBrush(Color.FromArgb(120, 255, 255, 255));
+        MiniMapCanvas.Background =
+            new SolidColorBrush(Color.FromArgb(36, 16, 24, 32));
+
+        ChatInputPanel.BorderBrush =
+            new SolidColorBrush(Color.FromRgb(255, 140, 0));
+        ChatInputLabelText.Foreground =
+            new SolidColorBrush(Color.FromRgb(255, 166, 43));
+
+        foreach (var indicator in _dashboardIndicators.Values)
+        {
+            indicator.Badge.CornerRadius = new CornerRadius(4d);
+            if (indicator.Badge.Background is SolidColorBrush background &&
+                background.Color.A >= 180)
+            {
+                SetIndicator(indicator, true, indicator.Label.Text);
+            }
+            else
+            {
+                indicator.Badge.Background =
+                    new SolidColorBrush(Color.FromRgb(20, 24, 26));
+                indicator.Badge.BorderBrush =
+                    new SolidColorBrush(Color.FromRgb(48, 53, 55));
+                indicator.Label.Foreground =
+                    new SolidColorBrush(Color.FromArgb(145, 255, 255, 255));
             }
         }
     }
