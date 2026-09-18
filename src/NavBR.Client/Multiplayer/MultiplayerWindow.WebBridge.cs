@@ -56,6 +56,8 @@ public partial class MultiplayerWindow
             latencyMs = _lastLatencyMs,
             voiceEnabled = VoiceEnabledCheckBox.IsChecked == true,
             voiceChannel = _settings.VoiceChannel,
+            voiceProximityMeters = _settings.VoiceProximityMeters,
+            voiceDeafened = _settings.VoiceDeafened,
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
@@ -63,6 +65,39 @@ public partial class MultiplayerWindow
             players,
             chat
         };
+    }
+
+    internal void SetVoiceEnabledFromWeb(bool enabled)
+    {
+        VoiceEnabledCheckBox.IsChecked = enabled;
+    }
+
+    internal void ConfigureVoiceFromWeb(
+        string? channel,
+        double? proximityMeters,
+        bool deafened)
+    {
+        var normalizedChannel = VoiceChannelSession.NormalizeChannel(channel);
+        var radius = Math.Clamp(
+            proximityMeters is double value && double.IsFinite(value)
+                ? value
+                : _settings.VoiceProximityMeters,
+            20d,
+            1000d);
+
+        _settings = _settings with
+        {
+            VoiceChannel = normalizedChannel,
+            VoiceProximityMeters = radius,
+            VoiceDeafened = deafened
+        };
+        MultiplayerSettingsStore.Save(_settings);
+        VoiceChannelSession.Configure(
+            _settings.VoiceChannel,
+            _settings.VoiceProximityMeters,
+            ShouldReceiveProximityVoice);
+        _voiceChat.SetDeafened(_settings.VoiceDeafened);
+        RenderVoiceChannelButton();
     }
 
     internal async Task SendChatFromWebAsync(string text)
