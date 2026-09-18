@@ -2724,11 +2724,39 @@ function Multiplayer({
                 <div className="player-row" key={player.playerId}>
                   <span className={`avatar-dot ${player.roleplayActive ? "rp" : ""}`}>{player.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="player-main">
-                    <strong>{player.displayName}</strong>
-                    <small>{player.mapName || pick("Mapa não informado", "Map not provided", "Mapa no informado", "Karte nicht angegeben", "Carte non renseignée")} · {player.roleplayActive ? pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}</small>
+                    <strong>{player.displayName}{player.isLocal ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
+                    <small>
+                      {[player.line, player.route, player.mapName]
+                        .filter(Boolean)
+                        .join(" · ") || pick("Sem serviço informado", "No service reported", "Sin servicio informado", "Kein Dienst gemeldet", "Aucun service indiqué")}
+                    </small>
+                    <small>
+                      {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
+                      {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
+                    </small>
                   </div>
-                  <span className={`voice-state ${player.speaking ? "speaking" : ""}`}>{player.speaking ? pick("Falando", "Speaking", "Hablando", "Spricht", "Parle") : player.voiceEnabled ? pick("Voz ativa", "Voice active", "Voz activa", "Sprache aktiv", "Voix active") : pick("Sem voz", "No voice", "Sin voz", "Keine Sprache", "Sans voix")}</span>
-                  <span className="latency">{player.latencyMs == null ? "—" : `${player.latencyMs} ms`}</span>
+                  <span className={`voice-state ${player.speaking ? "speaking" : ""} ${player.telemetryStale ? "stale" : ""}`}>
+                    {player.speaking
+                      ? pick("Falando", "Speaking", "Hablando", "Spricht", "Parle")
+                      : player.telemetryStale
+                        ? pick("Telemetria atrasada", "Stale telemetry", "Telemetría atrasada", "Verzögerte Telemetrie", "Télémétrie en retard")
+                        : player.voiceEnabled
+                          ? pick("Voz ativa", "Voice active", "Voz activa", "Sprache aktiv", "Voix active")
+                          : pick("Ao vivo", "Live", "En vivo", "Live", "En direct")}
+                  </span>
+                  <span className="latency">
+                    {player.speedKph == null ? "—" : `${format(player.speedKph, 0)} km/h`}
+                    {" · "}{player.distanceText || "—"}
+                    {player.delaySeconds == null ? "" : ` · ${formatDelay(player.delaySeconds, pick)}`}
+                    {" · "}{player.isLocal
+                      ? pick("agora", "now", "ahora", "jetzt", "maintenant")
+                      : player.telemetryAgeSeconds == null
+                        ? pick("aguardando", "waiting", "esperando", "wartet", "en attente")
+                        : player.telemetryAgeSeconds < 1
+                          ? pick("agora", "now", "ahora", "jetzt", "maintenant")
+                          : `${format(player.telemetryAgeSeconds, 0)}s`}
+                    {" · "}{player.latencyMs == null ? "—" : `${player.latencyMs} ms`}
+                  </span>
                 </div>
               ))}
             </div>
