@@ -107,11 +107,26 @@ internal static class Alpha12FigmaShellInstaller
             "Betriebsübersicht von OMSI und deiner NavBR-Sitzung.",
             "Vue opérationnelle d’OMSI et de votre session NavBR."), 13d, Muted(), FontWeights.Normal, new Thickness(0d, 6d, 0d, 0d)));
         heading.Children.Add(headingText);
+        var headingActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var launchOmsi = PrimaryButton(
+            L("▶  Executar OMSI", "▶  Launch OMSI", "▶  Ejecutar OMSI", "▶  OMSI starten", "▶  Lancer OMSI"));
+        launchOmsi.Width = 165d;
+        launchOmsi.Margin = new Thickness(0d, 0d, 10d, 0d);
+        launchOmsi.Click += (_, _) => window.LaunchOmsiForShell();
+        headingActions.Children.Add(launchOmsi);
+
         var openNavigation = PrimaryButton(L("Abrir navegação", "Open navigation", "Abrir navegación", "Navigation öffnen", "Ouvrir la navigation"));
         openNavigation.Width = 170d;
         openNavigation.Click += (_, _) => RaiseNavigation(window, "⌖");
-        Grid.SetColumn(openNavigation, 1);
-        heading.Children.Add(openNavigation);
+        headingActions.Children.Add(openNavigation);
+
+        Grid.SetColumn(headingActions, 1);
+        heading.Children.Add(headingActions);
         stack.Children.Add(heading);
 
         var vehicle = ValueText("—", 17d);
