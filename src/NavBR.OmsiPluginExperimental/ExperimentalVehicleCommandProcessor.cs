@@ -123,7 +123,8 @@ internal static class ExperimentalVehicleCommandProcessor
         PluginBridgeMessage command,
         bool success,
         string? errorCode = null,
-        string? errorMessage = null) =>
+        string? errorMessage = null,
+        int? remoteVehicleCount = null) =>
         new(
             PluginBridgeProtocol.CommandResult,
             PluginBridgeProtocol.Version,
@@ -135,7 +136,8 @@ internal static class ExperimentalVehicleCommandProcessor
             ExperimentalWritesEnabled: ExperimentalWritesEnabled,
             Success: success,
             ErrorCode: errorCode,
-            ErrorMessage: errorMessage);
+            ErrorMessage: errorMessage,
+            RemoteVehicleCount: remoteVehicleCount);
 }
 
 internal static class PhysicalVehicleBackend
@@ -310,7 +312,8 @@ internal static class PhysicalVehicleBackend
                 return Fail(
                     command,
                     "multi-vehicle-consist-unsupported",
-                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet.");
+                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet.",
+                    remoteVehicleCount: createdVehiclePointers.Length);
             }
         }
         finally
@@ -544,8 +547,14 @@ internal static class PhysicalVehicleBackend
     private static PluginBridgeMessage Fail(
         PluginBridgeMessage command,
         string code,
-        string message) =>
-        ExperimentalVehicleCommandProcessor.Result(command, false, code, message);
+        string message,
+        int? remoteVehicleCount = null) =>
+        ExperimentalVehicleCommandProcessor.Result(
+            command,
+            false,
+            code,
+            message,
+            remoteVehicleCount);
 
     private readonly record struct VehiclePose(
         float X,
