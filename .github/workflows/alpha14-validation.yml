@@ -47,6 +47,7 @@ jobs:
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
 
       - name: Build shared and server
         shell: pwsh
@@ -97,6 +98,32 @@ jobs:
             -p:NativeLib=Shared `
             -o artifacts/NavBR.OmsiPlugin.Experimental
 
+      - name: Validate plugin protocol generation
+        shell: pwsh
+        run: |
+          $protocol = Get-Content "src/NavBR.Shared/PluginBridge/PluginBridgeProtocol.cs" -Raw
+          if ($protocol -notmatch 'Version\s*=\s*3\s*;') { throw "Alpha.14 requires plugin bridge protocol v3." }
+          if ($protocol -notmatch 'Plugin\.v3') { throw "Alpha.14 requires the v3 named pipe." }
+
+          $managedInterop = Get-Content "src/NavBR.OmsiPluginExperimental/OmsiNativeInterop.cs" -Raw
+          if ($managedInterop -notmatch 'ExpectedStateInteropVersion\s*=\s*3\s*;') {
+            throw "Managed OMSI interop must require state ABI v3."
+          }
+
+          $nativeInterop = Get-Content "native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp" -Raw
+          if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+3\s*;') {
+            throw "Native OMSI interop must expose state ABI v3."
+          }
+
       - name: Build Windows x86 client
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+      - name: Smoke-test plugin bridge v3
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge v3 smoke test failed." }
