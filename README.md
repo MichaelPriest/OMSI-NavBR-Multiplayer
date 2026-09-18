@@ -4,15 +4,18 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública para testes
 
-A próxima pré-release é **`v0.3.0-alpha.14-test.1`**.
+A próxima pré-release é **`v0.3.0-alpha.14-test.2`**.
 
-- [Release Alpha.14 Test 1](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.1)
+- [Release Alpha.14 Test 2](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.2)
 - cliente principal: **EXE standalone Windows x86**;
 - também há ZIP do cliente, servidor dedicado x64, plugin experimental x86, documentação e hashes SHA256.
 
 > A Alpha.13 inicia a validação do **ônibus remoto físico online**. Recursos incompletos continuam marcados como Experimentais/Em desenvolvimento e não usam dados simulados.
 
-## Destaques da Alpha.14 Test 1
+## Destaques da Alpha.14 Test 2
+
+- Central Multiplayer com abas reais: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
+- botão Personagem/RP diretamente no HUD, com estados Personagem / Ativar personagem / Voltar ao ônibus;
 
 - **Personagem / RP no modo normal**, sem exigir multiplayer;
 - seletor de personagem real da lista `Drivers` após o mapa carregar;
@@ -58,7 +61,7 @@ Para o ônibus remoto 3D, ambos os PCs precisam ter o plugin experimental instal
 
 ## Instalação rápida
 
-1. Baixe o **EXE standalone x86** da Alpha.14 Test 1.
+1. Baixe o **EXE standalone x86** da Alpha.14 Test 2.
 2. Execute o NavBR.
 3. Abra o OMSI e carregue mapa/ônibus.
 4. Para multiplayer normal, crie ou entre em uma sala.
@@ -82,7 +85,7 @@ O computador de quem cria a sala pode funcionar como servidor da própria sessã
 
 ## Alpha.14
 
-- [`docs/ALPHA14_TEST1_COMMUNITY.md`](docs/ALPHA14_TEST1_COMMUNITY.md) — checklist do teste físico com 2 PCs;
+- [`docs/ALPHA14_TEST2_COMMUNITY.md`](docs/ALPHA14_TEST2_COMMUNITY.md) — checklist do teste físico com 2 PCs;
 - [`docs/ALPHA14_MASTER_SCOPE.md`](docs/ALPHA14_MASTER_SCOPE.md) — foco e evolução da Alpha.13;
 - [`docs/ALPHA12_MASTER_SCOPE.md`](docs/ALPHA12_MASTER_SCOPE.md) — escopo consolidado herdado da Alpha.12.
 
