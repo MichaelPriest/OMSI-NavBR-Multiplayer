@@ -996,6 +996,14 @@ function Settings({ state, error }: { state: NavBrState | null; error: string | 
   const network = state?.network;
   const [tab, setTab] = useState<SettingsTab>("installations");
   const [manualPath, setManualPath] = useState("");
+  const networkRequested = useRef(false);
+
+  useEffect(() => {
+    if (tab === "network" && !network?.diagnostics && !networkRequested.current) {
+      networkRequested.current = true;
+      sendCommand("refreshNetworkDiagnostics");
+    }
+  }, [tab, network?.diagnostics]);
 
   if (!system) {
     return <div className="card empty-state">Aguardando configurações do sistema…</div>;
