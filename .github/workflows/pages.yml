@@ -2,7 +2,7 @@ name: pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, deploy/alpha14-react-site ]
     paths:
       - 'site/**'
       - 'src/NavBR.Client/Assets/NavBR.ico'
@@ -35,7 +35,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Prepare site assets
         shell: bash
@@ -50,16 +55,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          # GitHub's general releases endpoint can occasionally lag behind
+          # releases that are already available by tag. Start with the normal
+          # list and recover any release-backed tag that is missing from it.
           gh api "repos/${{ github.repository }}/releases?per_page=100" > /tmp/navbr-releases.json
-          gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name' > /tmp/navbr-tags.txt
+
+          gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name' \
+            > /tmp/navbr-tags.txt
 
           while IFS= read -r tag; do
             [ -n "$tag" ] || continue
-            if jq -e --arg tag "$tag" '.[] | select(.tag_name == $tag)' /tmp/navbr-releases.json > /dev/null; then
+
+            if jq -e --arg tag "$tag" '.[] | select(.tag_name == $tag)' \
+              /tmp/navbr-releases.json > /dev/null; then
               continue
             fi
-            if gh api "repos/${{ github.repository }}/releases/tags/$tag" > /tmp/navbr-release-recovered.json 2>/dev/null; then
-              jq --slurpfile recovered /tmp/navbr-release-recovered.json '. + $recovered | unique_by(.id)' /tmp/navbr-releases.json > /tmp/navbr-releases-next.json
+
+            if gh api "repos/${{ github.repository }}/releases/tags/$tag" \
+              > /tmp/navbr-release-recovered.json 2>/dev/null; then
+              jq --slurpfile recovered /tmp/navbr-release-recovered.json \
+                '. + $recovered | unique_by(.id)' \
+                /tmp/navbr-releases.json > /tmp/navbr-releases-next.json
               mv /tmp/navbr-releases-next.json /tmp/navbr-releases.json
             fi
           done < /tmp/navbr-tags.txt
@@ -93,7 +109,26 @@ jobs:
                     assets: [.assets[] | {name, browser_download_url, size, download_count}]
                   }))
                 }
-            ' /tmp/navbr-releases.json > site/releases.json
+            ' \
+            /tmp/navbr-releases.json \
+          > site/releases.json
+
+      - name: Build React public site
+        shell: bash
+        run: |
+          set -euo pipefail
+          pushd site
+          npm install --no-audit --no-fund
+          npm run build
+          popd
+
+          mkdir -p site/dist/assets
+          cp -R site/assets/. site/dist/assets/
+          cp site/releases.json site/dist/releases.json
+          cp site/monetization.json site/dist/monetization.json
+          cp site/diagnostics.json site/dist/diagnostics.json
+          cp site/.nojekyll site/dist/.nojekyll
+          if [ -f site/ads.txt ]; then cp site/ads.txt site/dist/ads.txt; fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -101,7 +136,7 @@ jobs:
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: site/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
