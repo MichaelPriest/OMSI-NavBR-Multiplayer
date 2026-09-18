@@ -21,6 +21,7 @@
     <ProjectReference Include="..\NavBR.Server\NavBR.Server.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="System.IO.Ports" Version="10.0.0" />
     <PackageReference Include="NAudio" Version="2.4.0" />
     <PackageReference Include="Concentus" Version="2.2.2" />
@@ -29,6 +30,8 @@
     <None Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="WebUI\bootstrap\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\ui\navbr-web\dist\**\*" Link="WebUI\dist\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\ui\navbr-web\dist')" />
   </ItemGroup>
 
   <Target Name="ValidateNavBRXamlColors" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
