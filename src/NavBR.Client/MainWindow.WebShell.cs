@@ -441,6 +441,15 @@ public partial class MainWindow
                 DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
                 break;
 
+            case "selectOmsiFolder":
+                SelectOmsiFolderFromWeb();
+                break;
+
+            case "openOmsiProfileFolder":
+                OpenOmsiProfileFolderFromWeb(
+                    GetWebPayloadString(payload, "profileId"));
+                break;
+
             case "launchOmsiProfile":
                 LaunchOmsiProfileFromWeb(GetWebPayloadString(payload, "profileId"));
                 break;
