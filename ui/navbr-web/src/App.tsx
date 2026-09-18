@@ -1193,11 +1193,25 @@ function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMem
   );
 }
 
-function CompanyNetwork({ state, error }: { state: NavBrState | null; error: string | null }) {
+function CompanyNetwork({
+  state,
+  error,
+  requestedTab
+}: {
+  state: NavBrState | null;
+  error: string | null;
+  requestedTab?: { id: number; tab: CompanyNetworkTab } | null;
+}) {
   const { pick } = useI18n();
   const companyNetwork = state?.companyNetwork;
   const localCompany = state?.operations.company;
   const [tab, setTab] = useState<CompanyNetworkTab>("network");
+
+  useEffect(() => {
+    if (requestedTab) {
+      setTab(requestedTab.tab);
+    }
+  }, [requestedTab?.id]);
   const [nodeUrl, setNodeUrl] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteRole, setInviteRole] = useState("Driver");
@@ -3745,6 +3759,7 @@ export default function App() {
   const [settingsTabRequest, setSettingsTabRequest] = useState<SettingsTab | null>(null);
   const [navigationViewRequest, setNavigationViewRequest] = useState<{ id: number; view: "2d" | "3d" } | null>(null);
   const [operationsTabRequest, setOperationsTabRequest] = useState<{ id: number; tab: OperationsTab } | null>(null);
+  const [companyNetworkTabRequest, setCompanyNetworkTabRequest] = useState<{ id: number; tab: CompanyNetworkTab } | null>(null);
   const lastNavigationRequestId = useRef<number | null>(null);
 
   const openSettingsTab = (tab: SettingsTab) => {
@@ -3773,6 +3788,9 @@ export default function App() {
         } else if (requested === "operations-company") {
           setOperationsTabRequest({ id: navigationRequest.id, tab: "company" });
           setScreen("operations");
+        } else if (requested === "companyNetwork-team") {
+          setCompanyNetworkTabRequest({ id: navigationRequest.id, tab: "team" });
+          setScreen("companyNetwork");
         } else if (requested && [
           "home",
           "navigation",
@@ -3808,7 +3826,7 @@ export default function App() {
               : screen === "operations"
                 ? <Operations state={state} error={commandError} onNavigate={setScreen} requestedTab={operationsTabRequest} />
               : screen === "companyNetwork"
-                ? <CompanyNetwork state={state} error={commandError} />
+                ? <CompanyNetwork state={state} error={commandError} requestedTab={companyNetworkTabRequest} />
                 : screen === "hardware"
                 ? <Hardware state={state} error={commandError} />
                 : screen === "settings"
