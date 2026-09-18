@@ -39,6 +39,7 @@ public partial class MultiplayerWindow : Window
     public event Action<string>? VoiceError;
     public event Action<bool, string?>? MultiplayerConnectionChanged;
     public event Action<string>? LocalDisplayNameChanged;
+    public event Action? RoleplayActionRequested;
 
     public bool IsConnected => _client.IsConnected;
     public string CurrentDisplayName => _settings.DisplayName;
