@@ -135,6 +135,14 @@ public partial class MultiplayerWindow
         return button;
     }
 
+    internal Task SubmitOperationalReportFromWebAsync(bool incident) =>
+        SubmitQuickOperationalReportAsync(
+            incident ? OperationalReportKind.Incident : OperationalReportKind.Assistance,
+            incident ? OperationalReportSeverity.Critical : OperationalReportSeverity.Attention);
+
+    internal Task ResolveOwnOperationalReportsFromWebAsync() =>
+        ResolveMyOperationalReportsAsync();
+
     private async Task SubmitQuickOperationalReportAsync(
         OperationalReportKind kind,
         OperationalReportSeverity severity)
