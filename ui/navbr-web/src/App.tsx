@@ -1283,6 +1283,7 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
 
 
 function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
 
@@ -1346,22 +1347,22 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   };
 
   const moduleChecks = [
-    ["showFuel", "Combustível"],
-    ["showPedals", "Acelerador / freio"],
-    ["showStatus", "Indicadores"],
-    ["showMinimap", "Minimapa integrado"],
-    ["showMultiplayer", "Multiplayer no painel"],
-    ["showAlerts", "Alertas discretos"],
-    ["showSideIndicators", "Indicadores laterais"]
+    ["showFuel", t("hud.fuel")],
+    ["showPedals", t("hud.pedals")],
+    ["showStatus", t("hud.indicators")],
+    ["showMinimap", t("hud.minimap")],
+    ["showMultiplayer", t("hud.multiplayer")],
+    ["showAlerts", t("hud.alerts")],
+    ["showSideIndicators", t("hud.sideIndicators")]
   ] as const;
 
   return (
     <section className="hud-settings-layout">
       <article className="card hud-settings-card">
         <div className="section-heading">
-          <div><span className="eyebrow">HUD</span><h3>Identidade e comportamento</h3></div>
+          <div><span className="eyebrow">HUD</span><h3>{t("hud.identity")}</h3></div>
           <span className={`hardware-state-pill ${draft.enabled ? "connected" : ""}`}>
-            {draft.enabled ? "Ativo" : "Desativado"}
+            {draft.enabled ? t("common.active") : t("common.disabled")}
           </span>
         </div>
 
@@ -1371,24 +1372,24 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
             checked={draft.enabled}
             onChange={event => patch({ enabled: event.target.checked })}
           />
-          <span>Exibir painel do ônibus no HUD</span>
+          <span>{t("hud.showPanel")}</span>
         </label>
 
         <div className="hud-select-grid">
           <label className="voice-field">
-            <span>Estilo</span>
+            <span>{t("hud.style")}</span>
             <select value={draft.preset} onChange={event => applyPreset(event.target.value)}>
               {hud.presets.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
             </select>
           </label>
           <label className="voice-field">
-            <span>Tema</span>
+            <span>{t("hud.theme")}</span>
             <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
               {hud.themes.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
             </select>
           </label>
           <label className="voice-field">
-            <span>Ancoragem</span>
+            <span>{t("hud.anchor")}</span>
             <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
               {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
             </select>
@@ -1399,7 +1400,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
               checked={draft.autoScale}
               onChange={event => patch({ autoScale: event.target.checked })}
             />
-            <span>Escala automática pela resolução</span>
+            <span>{t("hud.autoScale")}</span>
           </label>
         </div>
 
@@ -1410,25 +1411,25 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       </article>
 
       <article className="card hud-settings-card">
-        <span className="eyebrow">TAMANHO DO PAINEL</span>
+        <span className="eyebrow">{t("hud.size")}</span>
         <div className="hud-slider-list">
           <label>
-            <span><strong>Escala geral</strong><em>{Math.round(draft.scale * 100)}%</em></span>
+            <span><strong>{t("hud.scale")}</strong><em>{Math.round(draft.scale * 100)}%</em></span>
             <input type="range" min="0.6" max="1.8" step="0.05" value={draft.scale}
               onChange={event => patch({ scale: Number(event.target.value) })} />
           </label>
           <label>
-            <span><strong>Largura</strong><em>{Math.round(draft.width)} px</em></span>
+            <span><strong>{t("hud.width")}</strong><em>{Math.round(draft.width)} px</em></span>
             <input type="range" min="280" max="960" step="10" value={draft.width}
               onChange={event => patch({ width: Number(event.target.value) })} />
           </label>
           <label>
-            <span><strong>Altura</strong><em>{draft.height < 1 ? "Automática" : `${Math.round(draft.height)} px`}</em></span>
+            <span><strong>{t("hud.height")}</strong><em>{draft.height < 1 ? t("hud.auto") : `${Math.round(draft.height)} px`}</em></span>
             <input type="range" min="0" max="720" step="10" value={draft.height}
               onChange={event => patch({ height: Number(event.target.value) })} />
           </label>
           <label>
-            <span><strong>Opacidade</strong><em>{Math.round(draft.opacity * 100)}%</em></span>
+            <span><strong>{t("hud.opacity")}</strong><em>{Math.round(draft.opacity * 100)}%</em></span>
             <input type="range" min="0.35" max="1" step="0.05" value={draft.opacity}
               onChange={event => patch({ opacity: Number(event.target.value) })} />
           </label>
@@ -1436,7 +1437,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       </article>
 
       <article className="card hud-settings-card">
-        <span className="eyebrow">MÓDULOS VISÍVEIS</span>
+        <span className="eyebrow">{t("hud.visibleModules")}</span>
         <div className="hud-module-grid">
           {moduleChecks.map(([key, label]) => (
             <label className="diagnostics-toggle compact-toggle" key={key}>
@@ -1452,13 +1453,13 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       </article>
 
       <article className="card hud-settings-card">
-        <span className="eyebrow">ESCALA DOS WIDGETS</span>
+        <span className="eyebrow">{t("hud.widgetScale")}</span>
         <div className="hud-slider-list">
           {([
-            ["minimapScale", "Minimapa"],
-            ["multiplayerScale", "Multiplayer"],
-            ["alertsScale", "Alertas"],
-            ["sideIndicatorsScale", "Indicadores laterais"]
+            ["minimapScale", t("hud.minimap")],
+            ["multiplayerScale", t("nav.multiplayer")],
+            ["alertsScale", t("hud.alerts")],
+            ["sideIndicatorsScale", t("hud.sideIndicators")]
           ] as const).map(([key, label]) => (
             <label key={key}>
               <span><strong>{label}</strong><em>{draft[key].toFixed(2)}×</em></span>
@@ -1471,13 +1472,13 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
 
       <div className="hud-settings-actions">
         <button className="button primary" disabled={!dirty} onClick={save}>
-          {dirty ? "Aplicar HUD" : "HUD aplicado"}
+          {dirty ? t("hud.apply") : t("hud.applied")}
         </button>
         <button className="button ghost" onClick={() => {
           sendCommand("resetHudSettings");
           setDirty(false);
-        }}>Restaurar padrão</button>
-        <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD no OMSI</button>
+        }}>{t("common.reset")}</button>
+        <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{t("hud.move")}</button>
       </div>
     </section>
   );
@@ -1508,6 +1509,7 @@ function roadmapStatusLabel(status: string | null | undefined) {
 }
 
 function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
+  const { t } = useI18n();
   const [selectedFolder, setSelectedFolder] = useState("");
 
   useEffect(() => {
@@ -1534,7 +1536,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         <div className="section-heading">
           <div>
             <span className="eyebrow">ROADMAP STUDIO</span>
-            <h3>Gerar whole.roadmap.bmp</h3>
+            <h3>{t("roadmap.title")}</h3>
           </div>
           <span className={`hardware-state-pill ${roadmap.busy ? "connected" : ""}`}>
             {roadmap.busy ? "Processando" : roadmapStatusLabel(roadmap.status)}
@@ -1542,11 +1544,11 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         </div>
 
         {roadmap.maps.length === 0 ? (
-          <div className="empty-state">Nenhum mapa OMSI foi catalogado. Detecte/inicie uma instalação do OMSI e atualize o estado.</div>
+          <div className="empty-state">{t("roadmap.noMaps")}</div>
         ) : (
           <>
             <label className="voice-field roadmap-map-select">
-              <span>Mapa OMSI</span>
+              <span>{t("roadmap.map")}</span>
               <select
                 value={selectedFolder}
                 disabled={roadmap.busy}
@@ -1572,28 +1574,28 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 disabled={!selectedFolder || roadmap.busy}
                 onClick={() => sendCommand("analyzeRoadmap", { folderName: selectedFolder })}
               >
-                Analisar tiles
+                {t("roadmap.analyze")}
               </button>
               <button
                 className="button primary"
                 disabled={!selectedFolder || roadmap.busy || !analysis?.canBuildFromTiles}
                 onClick={() => sendCommand("buildRoadmapTiles", { folderName: selectedFolder })}
               >
-                Montar pelas imagens
+                {t("roadmap.buildTiles")}
               </button>
               <button
                 className="button ghost"
                 disabled={!selectedFolder || roadmap.busy}
                 onClick={() => sendCommand("buildRoadmapVector", { folderName: selectedFolder })}
               >
-                Gerar vetorial pelas splines
+                {t("roadmap.buildVector")}
               </button>
               <button
                 className="button ghost"
                 disabled={!selectedFolder || roadmap.busy}
                 onClick={() => sendCommand("openRoadmapFolder", { folderName: selectedFolder })}
               >
-                Abrir pasta
+                {t("common.openFolder")}
               </button>
             </div>
 
@@ -1611,11 +1613,11 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
 
       <article className="card roadmap-analysis-card">
         <div className="section-heading">
-          <div><span className="eyebrow">ANÁLISE</span><h3>Tiles e saída</h3></div>
+          <div><span className="eyebrow">{t("roadmap.analysis")}</span><h3>{t("roadmap.tilesOutput")}</h3></div>
         </div>
 
         {!analysis ? (
-          <div className="empty-state">Selecione um mapa e use “Analisar tiles”. O modo vetorial continua disponível mesmo sem imagens roadmap por tile.</div>
+          <div className="empty-state">{t("roadmap.emptyAnalysis")}</div>
         ) : (
           <>
             <div className="roadmap-analysis-grid">
@@ -1635,10 +1637,10 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
 
       <article className="card roadmap-result-card">
         <div className="section-heading">
-          <div><span className="eyebrow">ÚLTIMA GERAÇÃO</span><h3>Resultado real</h3></div>
+          <div><span className="eyebrow">{t("roadmap.lastBuild")}</span><h3>{t("roadmap.realResult")}</h3></div>
         </div>
         {!result ? (
-          <div className="empty-state">Nenhum roadmap foi gerado nesta sessão.</div>
+          <div className="empty-state">{t("roadmap.noBuild")}</div>
         ) : (
           <>
             <div className="roadmap-analysis-grid">
@@ -3030,5 +3032,6 @@ export default function App() {
                     />}
       </main>
     </div>
+    </I18nProvider>
   );
 }
