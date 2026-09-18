@@ -65,7 +65,12 @@ public partial class MultiplayerWindow
             return;
         }
 
-        var enabled = _physicalVehiclesCheckBox.IsChecked == true;
+        await ConfigurePhysicalVehiclesFromWebAsync(
+            _physicalVehiclesCheckBox.IsChecked == true);
+    }
+
+    internal async Task ConfigurePhysicalVehiclesFromWebAsync(bool enabled)
+    {
         _settings = _settings with { ExperimentalPhysicalVehiclesEnabled = enabled };
         MultiplayerSettingsStore.Save(_settings);
         ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(enabled);
@@ -74,6 +79,11 @@ public partial class MultiplayerWindow
             "physical-vehicle",
             "info",
             enabled ? "experimental-3d-enabled" : "experimental-3d-disabled");
+
+        if (_physicalVehiclesCheckBox is not null)
+        {
+            _physicalVehiclesCheckBox.IsChecked = enabled;
+        }
 
         if (!enabled)
         {
