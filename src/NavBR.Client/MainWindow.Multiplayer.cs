@@ -162,6 +162,7 @@ public partial class MainWindow
         }
 
         var hud = new HudOverlayWindow();
+        hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
         var processId = _currentOmsi?.ProcessId;
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -169,6 +170,8 @@ public partial class MainWindow
         hud.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         hud.Closed += (_, _) =>
         {
+            hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
+
             if (ReferenceEquals(_hudOverlay, hud))
             {
                 _hudOverlay = null;
@@ -243,6 +246,7 @@ public partial class MainWindow
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
         _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
+        UpdateHudRoleplayStateForShell();
     }
 
     private OmsiMapInfo? GetActiveMapForMultiplayer()
