@@ -12,7 +12,7 @@ internal sealed class HardwareCockpitView : Grid
 
     private readonly Func<VehicleTelemetry?> _telemetryProvider;
     private readonly DispatcherTimer _refreshTimer;
-    private readonly HardwareSerialTransport _serialTransport = new();
+    private readonly HardwareCockpitBridgeController _serialController = HardwareCockpitBridgeController.Shared;
     private readonly TextBlock _statusText;
     private readonly TextBlock _lineValue;
     private readonly TextBlock _destinationValue;
@@ -228,11 +228,7 @@ internal sealed class HardwareCockpitView : Grid
             RefreshTelemetry();
             _refreshTimer.Start();
         };
-        Unloaded += (_, _) =>
-        {
-            _refreshTimer.Stop();
-            _serialTransport.Dispose();
-        };
+        Unloaded += (_, _) => _refreshTimer.Stop();
     }
 
     private void RefreshTelemetry()
@@ -264,22 +260,16 @@ internal sealed class HardwareCockpitView : Grid
         _speedValue.Foreground = Brushes.White;
         _payloadPreview.Text = HardwareCockpitProtocol.Serialize(telemetry);
 
-        if (!_serialTransport.IsConnected)
+        var serial = _serialController.Snapshot(telemetry);
+        _serialToggleButton.Content = serial.Connected ? "Desconectar" : "Conectar";
+        if (serial.Connected)
         {
-            return;
-        }
-
-        try
-        {
-            _serialTransport.SendFrame(HardwareCockpitProtocol.SerializeCompact(telemetry));
-            _serialStatusText.Text = $"Conectado em {_serialTransport.PortName} @ {_serialTransport.BaudRate} baud • enviando 5 Hz";
+            _serialStatusText.Text = $"Conectado em {serial.PortName} @ {serial.BaudRate} baud • enviando 5 Hz";
             _serialStatusText.Foreground = Brush(78, 201, 137);
         }
-        catch (Exception ex)
+        else if (!string.IsNullOrWhiteSpace(serial.LastError))
         {
-            _serialTransport.Disconnect();
-            _serialToggleButton.Content = "Conectar";
-            _serialStatusText.Text = $"Conexão serial interrompida: {ex.Message}";
+            _serialStatusText.Text = $"Serial: {serial.LastError}";
             _serialStatusText.Foreground = Brush(237, 111, 111);
         }
     }
@@ -288,7 +278,7 @@ internal sealed class HardwareCockpitView : Grid
     {
         try
         {
-            var previous = _portComboBox.SelectedItem as string ?? _serialTransport.PortName;
+            var previous = _portComboBox.SelectedItem as string ?? _serialController.PortName;
             var ports = HardwareSerialTransport.GetAvailablePorts();
             _portComboBox.ItemsSource = ports;
 
@@ -302,7 +292,7 @@ internal sealed class HardwareCockpitView : Grid
                 _portComboBox.SelectedIndex = 0;
             }
 
-            if (_serialTransport.IsConnected)
+            if (_serialController.IsConnected)
             {
                 return;
             }
@@ -321,9 +311,9 @@ internal sealed class HardwareCockpitView : Grid
 
     private void ToggleSerialConnection()
     {
-        if (_serialTransport.IsConnected)
+        if (_serialController.IsConnected)
         {
-            _serialTransport.Disconnect();
+            _serialController.Disconnect(disableAutoReconnect: true);
             _serialToggleButton.Content = "Conectar";
             _serialStatusText.Text = "Porta serial desconectada.";
             _serialStatusText.Foreground = Brush(183, 199, 213);
@@ -349,7 +339,7 @@ internal sealed class HardwareCockpitView : Grid
 
         try
         {
-            _serialTransport.Connect(portName, baudRate);
+            _serialController.Connect(portName, baudRate, autoReconnect: true);
             _serialToggleButton.Content = "Desconectar";
             _serialStatusText.Text = $"Conectado em {portName} @ {baudRate} baud. Aguardando o próximo quadro de telemetria.";
             _serialStatusText.Foreground = Brush(78, 201, 137);

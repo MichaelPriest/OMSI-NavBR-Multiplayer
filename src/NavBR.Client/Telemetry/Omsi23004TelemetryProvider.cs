@@ -100,6 +100,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var itemsPointer = ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
             var result = new List<RoleplayCharacterOption>(Math.Min(count, 128));
             var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var activeDriverDefinitionPointer =
+                TryReadActiveRoleplayDriverDefinitionPointer(memory);
 
             for (var index = 0; index < count && result.Count < 128; index++)
             {
@@ -135,7 +137,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                     id,
                     display,
                     source,
-                    unchecked((int)definitionPointer)));
+                    unchecked((int)definitionPointer),
+                    IsActiveDriver:
+                        activeDriverDefinitionPointer == unchecked((int)definitionPointer)));
             }
 
             return result;
@@ -144,6 +148,73 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         {
             return Array.Empty<RoleplayCharacterOption>();
         }
+    }
+
+    private static int? TryReadActiveRoleplayDriverDefinitionPointer(
+        ReadOnlyProcessMemory memory)
+    {
+        try
+        {
+            var playerVehicleIndex = memory.ReadInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.PlayerVehicleIndexRva));
+            if (playerVehicleIndex < 0 || playerVehicleIndex > 10000)
+            {
+                return null;
+            }
+
+            var vehicleAddress = ResolvePlayerVehicleAddress(memory, playerVehicleIndex);
+            if (vehicleAddress == nint.Zero)
+            {
+                return null;
+            }
+
+            var humansAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.HumansArrayRva));
+            if (humansAddress <= 0x10000u)
+            {
+                return null;
+            }
+
+            var humansPointer = ReadOnlyProcessMemory.PointerFromUInt32(humansAddress);
+            var count = memory.ReadInt32(nint.Subtract(humansPointer, sizeof(int)));
+            if (count is <= 0 or > 8192)
+            {
+                return null;
+            }
+
+            var vehiclePointer = unchecked((uint)vehicleAddress.ToInt64());
+            for (var index = 0; index < count; index++)
+            {
+                var humanAddress = memory.ReadUInt32(nint.Add(
+                    humansPointer,
+                    checked(index * sizeof(int))));
+                if (humanAddress <= 0x10000u)
+                {
+                    continue;
+                }
+
+                var humanPointer = ReadOnlyProcessMemory.PointerFromUInt32(humanAddress);
+                var myBus = memory.ReadUInt32(nint.Add(
+                    humanPointer,
+                    Omsi23004MemoryProfile.HumanMyBusOffset));
+                if (myBus != vehiclePointer)
+                {
+                    continue;
+                }
+
+                var definition = memory.ReadUInt32(nint.Add(
+                    humanPointer,
+                    Omsi23004MemoryProfile.HumanDefinitionOffset));
+                return definition > 0x10000u
+                    ? unchecked((int)definition)
+                    : null;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static string BuildRoleplayCharacterDisplayName(string source)

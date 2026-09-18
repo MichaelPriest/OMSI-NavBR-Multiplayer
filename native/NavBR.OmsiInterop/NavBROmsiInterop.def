@@ -14,12 +14,15 @@ EXPORTS
     NavBR_IsHumanPointer
     NavBR_IsHumanControllable
     NavBR_GetPlayerVehiclePointer
+    NavBR_ReadRoadVehiclePosition
     NavBR_IsPlayerBusDriverHuman
     NavBR_ReadHumanPose
     NavBR_ReadHumanDriverState
     NavBR_DetachHumanForRoleplay
     NavBR_RestoreHumanDriverState
     NavBR_ReadHumanAiState
+    NavBR_ReadHumanAnimationState
+    NavBR_ReadHumanActivityState
     NavBR_SetHumanTransform
     NavBR_RestoreHumanAiState
     NavBR_GetMem
@@ -33,4 +36,5 @@ EXPORTS
     NavBR_MakeVehicle
     NavBR_SetVehicleTransform
     NavBR_SetVehicleVisualState
+    NavBR_TriggerRoadVehicle
     NavBR_MarkVehicleForKilling

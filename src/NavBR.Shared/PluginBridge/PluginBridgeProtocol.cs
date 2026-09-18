@@ -4,8 +4,8 @@ namespace NavBR.Shared.PluginBridge;
 
 public static class PluginBridgeProtocol
 {
-    public const int Version = 2;
-    public const string PipeName = "OMSI.NavBR.Multiplayer.Plugin.v2";
+    public const int Version = 3;
+    public const string PipeName = "OMSI.NavBR.Multiplayer.Plugin.v3";
     public const int MaxMessageChars = 32_768;
 
     public const string PluginHello = "plugin-hello";
@@ -31,6 +31,7 @@ public static class PluginBridgeProtocol
     public const string AcquireRoleplayCharacter = "acquire-roleplay-character";
     public const string UpdateRoleplayCharacter = "update-roleplay-character";
     public const string ReleaseRoleplayCharacter = "release-roleplay-character";
+    public const string TriggerRoleplayVehicle = "trigger-roleplay-vehicle";
     public const string CommandResult = "command-result";
 
     public const string CapabilityAdvancedTelemetry = "advanced-telemetry";
@@ -42,6 +43,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";
     public const string CapabilityCharacterTransform = "character-transform";
+    public const string CapabilityCharacterInteraction = "character-interaction";
 }
 
 public sealed record PluginBridgeMessage(
@@ -112,7 +114,20 @@ public sealed record PluginBridgeMessage(
     int? CharacterDefinitionPointer = null,
     string? CharacterActivity = null,
     double? SpeedMps = null,
+    int? CharacterAiMode = null,
+    int? CharacterAiModeEx = null,
+    int? CharacterAiSubMode = null,
+    double? CharacterSollSpeedMps = null,
+    double? CharacterActSpeedMps = null,
+    double? CharacterLastMovedDistanceMeters = null,
+    double? CharacterAnimationState = null,
+    int? CharacterActivityLegRaw = null,
+    int? CharacterActivityArmUmbrellaRaw = null,
+    int? CharacterActivityArmKiRaw = null,
+    int? CharacterActivityHeadKiRaw = null,
     bool? CharacterActive = null,
+    string? TriggerName = null,
+    bool? TriggerActive = null,
     string? AuthorityPlayerId = null,
     long? Sequence = null,
     TrafficVehicleState[]? TrafficVehicles = null);

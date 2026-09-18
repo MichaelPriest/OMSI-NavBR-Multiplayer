@@ -5,7 +5,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
+using NavBR.Client.Driver;
 using NavBR.Client.Omsi;
+using NavBR.Client.Hardware;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
 
@@ -13,6 +15,7 @@ namespace NavBR.Client;
 
 public partial class MainWindow : Window
 {
+    private const bool RetiredWpfVisualsEnabled = false;
     private const double MinimumRoadmapZoom = 0.02d;
     private const double MaximumRoadmapZoom = 8d;
 
@@ -20,6 +23,7 @@ public partial class MainWindow : Window
     private readonly Omsi23004TelemetryProvider _telemetryProvider = new();
     private readonly OmsiMapCatalog _mapCatalog = new();
     private readonly DispatcherTimer _telemetryTimer;
+    private readonly DriverStatisticsService _driverStatisticsService;
 
     private bool _languageSelectorReady;
     private OmsiProcessInfo? _currentOmsi;
@@ -38,6 +42,7 @@ public partial class MainWindow : Window
     private double _panStartVerticalOffset;
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
+    private bool _nativeRuntimeStarted;
 
     public MainWindow()
     {
@@ -49,12 +54,22 @@ public partial class MainWindow : Window
         };
         _telemetryTimer.Tick += (_, _) => PollTelemetry();
 
+        // Driver statistics are a native background service, not a WPF-screen
+        // concern. Start them directly so the retired profile installer no
+        // longer needs to run on the hidden MainWindow host.
+        _driverStatisticsService = new DriverStatisticsService(() => _lastTelemetry);
+        _driverStatisticsService.Start();
+
         ConfigureLanguageSelector();
         ApplyLocalization();
         RenderCurrentState();
 
-        Loaded += async (_, _) => await RefreshOmsiStatusAsync();
-        Closed += (_, _) => _telemetryProvider.Dispose();
+        Closed += (_, _) =>
+        {
+            _driverStatisticsService.Dispose();
+            HardwareCockpitBridgeController.Shared.Dispose();
+            _telemetryProvider.Dispose();
+        };
     }
 
     private void ConfigureLanguageSelector()
@@ -143,6 +158,17 @@ public partial class MainWindow : Window
         Topmost = TopmostButton.IsChecked == true;
     }
 
+    internal void StartNativeRuntimeForReact()
+    {
+        if (_nativeRuntimeStarted)
+        {
+            return;
+        }
+
+        _nativeRuntimeStarted = true;
+        _ = RefreshOmsiStatusAsync();
+    }
+
     private async Task RefreshOmsiStatusAsync()
     {
         _telemetryTimer.Stop();
@@ -207,6 +233,7 @@ public partial class MainWindow : Window
         if (telemetry is not null)
         {
             _lastTelemetry = telemetry;
+            HardwareCockpitBridgeController.Shared.PublishTelemetry(GetCurrentTelemetryForAlpha11());
             _statusKey = "TelemetryConnected";
             _telemetryStatusKey = telemetry.IsInGame
                 ? "TelemetryConnected"
@@ -229,6 +256,11 @@ public partial class MainWindow : Window
 
     private void RenderCurrentState()
     {
+        if (!RetiredWpfVisualsEnabled)
+        {
+            return;
+        }
+
         StatusText.Text = LocalizationService.Get(_statusKey);
         TelemetryStateText.Text = LocalizationService.Get(_telemetryStatusKey);
         RenderGpsState();
@@ -666,6 +698,12 @@ public partial class MainWindow : Window
         _roadmapZoom = 1d;
         _roadmapZoomInitialized = false;
         _isPanning = false;
+
+        if (!RetiredWpfVisualsEnabled)
+        {
+            return;
+        }
+
         RoadmapImage.Source = null;
         RoadmapCanvas.Width = 0;
         RoadmapCanvas.Height = 0;

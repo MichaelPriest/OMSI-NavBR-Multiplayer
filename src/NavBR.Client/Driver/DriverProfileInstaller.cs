@@ -48,7 +48,7 @@ internal static class DriverProfileInstaller
 
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
-        button.Click += (_, _) => new DriverProfileWindow(window).ShowDialog();
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("operations-company");
 
         if (window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operations)
         {

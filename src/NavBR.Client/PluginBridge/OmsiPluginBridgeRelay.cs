@@ -152,6 +152,7 @@ public static class OmsiPluginBridgeRelay
         double localX,
         double localY,
         double localZ,
+        double headingDegrees,
         int characterDefinitionPointer,
         CancellationToken cancellationToken = default) =>
         SendCommandBestEffortAsync(
@@ -165,6 +166,7 @@ public static class OmsiPluginBridgeRelay
                 LocalX: localX,
                 LocalY: localY,
                 LocalZ: localZ,
+                HeadingDegrees: headingDegrees,
                 CharacterActive: true),
             cancellationToken);
 
@@ -203,6 +205,23 @@ public static class OmsiPluginBridgeRelay
                 PlayerId: playerId,
                 CharacterInstanceId: characterInstanceId,
                 CharacterActive: false),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> SetRoleplayVehicleTriggerAsync(
+        string characterInstanceId,
+        string? playerId,
+        string triggerName,
+        bool active,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.TriggerRoleplayVehicle,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                CharacterInstanceId: characterInstanceId,
+                CharacterActive: true,
+                TriggerName: triggerName,
+                TriggerActive: active),
             cancellationToken);
 
     private static PluginBridgeMessage CreateCommandMessage(

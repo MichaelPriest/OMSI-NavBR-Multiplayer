@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
@@ -44,10 +45,8 @@ public partial class MultiplayerWindow
             return;
         }
 
-        _liveSessionCanvas = FindLiveSessionChildren<Canvas>(this)
-            .FirstOrDefault(canvas =>
-                canvas.Children.OfType<Polyline>().Any() &&
-                canvas.Children.OfType<Ellipse>().Count() >= 2);
+        _liveSessionCanvas = LiveSessionCanvas;
+        _liveSessionHint = LiveSessionHintText;
 
         if (_liveSessionCanvas is null)
         {
@@ -59,19 +58,12 @@ public partial class MultiplayerWindow
         _liveSessionCanvas.ClipToBounds = true;
         _liveSessionCanvas.Background = Brushes.Transparent;
 
-        _liveSessionHint = FindLiveSessionChildren<TextBlock>(this)
-            .FirstOrDefault(text =>
-                text.Text?.Contains("mapa multiplayer será conectado", StringComparison.OrdinalIgnoreCase) == true);
-
-        if (_liveSessionHint is not null)
-        {
-            _liveSessionHint.Text = LiveSessionText(
-                "Posições exibidas somente quando existe telemetria real e compatível. Sem dados suficientes, nenhum ônibus é inventado.",
-                "Positions are shown only when real, compatible telemetry is available. No buses are invented when data is insufficient.",
-                "Las posiciones se muestran solo con telemetría real y compatible. No se inventan autobuses cuando faltan datos.",
-                "Positionen werden nur mit echten, kompatiblen Telemetriedaten angezeigt. Bei fehlenden Daten werden keine Busse erfunden.",
-                "Les positions ne sont affichées qu’avec une télémétrie réelle et compatible. Aucun bus n’est inventé si les données manquent.");
-        }
+        _liveSessionHint.Text = LiveSessionText(
+            "Posições exibidas somente quando existe telemetria real e compatível. Sem dados suficientes, nenhum ônibus ou personagem é inventado.",
+            "Positions are shown only when real, compatible telemetry is available. No buses or characters are invented when data is insufficient.",
+            "Las posiciones se muestran solo con telemetría real y compatible. No se inventan autobuses ni personajes cuando faltan datos.",
+            "Positionen werden nur mit echten, kompatiblen Telemetriedaten angezeigt. Bei fehlenden Daten werden keine Busse oder Charaktere erfunden.",
+            "Les positions ne sont affichées qu’avec une télémétrie réelle et compatible. Aucun bus ou personnage n’est inventé si les données manquent.");
 
         _liveSessionTimer = new DispatcherTimer
         {
@@ -127,22 +119,46 @@ public partial class MultiplayerWindow
         var local = _telemetrySource();
         var activeMap = _activeMapSource();
         var points = new List<LiveSessionPoint>();
+        var now = DateTimeOffset.UtcNow;
 
-        if (local is not null &&
-            local.IsInGame &&
-            TryGetSessionCoordinates(local, out var localX, out var localY))
+        if (_localRoleplayCharacter is { IsActive: true } localRoleplay &&
+            now - localRoleplay.Timestamp <= TimeSpan.FromSeconds(3d) &&
+            IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, localRoleplay))
         {
-            points.Add(new LiveSessionPoint(
+            points.Add(CreateRoleplaySessionPoint(
+                LiveSessionText("Você", "You", "Tú", "Sie", "Vous"),
+                localRoleplay,
+                isLocal: true));
+        }
+        else if (local is not null &&
+                 local.IsInGame &&
+                 TryGetSessionCoordinates(local, out var localX, out var localY))
+        {
+            points.Add(CreateVehicleSessionPoint(
                 LiveSessionText("Você", "You", "Tú", "Sie", "Vous"),
                 local,
                 localX,
                 localY,
-                true));
+                isLocal: true));
         }
 
-        var now = DateTimeOffset.UtcNow;
         foreach (var item in _remoteTelemetry)
         {
+            if (_remoteRoleplayCharacters.TryGetValue(item.Key, out var rpFrame) &&
+                rpFrame.Character.IsActive &&
+                now - rpFrame.Character.Timestamp <= TimeSpan.FromSeconds(3d) &&
+                IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, rpFrame.Character))
+            {
+                var rpName = _players.TryGetValue(item.Key, out var rpPlayer)
+                    ? rpPlayer.DisplayName
+                    : rpFrame.Player.DisplayName;
+                points.Add(CreateRoleplaySessionPoint(
+                    rpName,
+                    rpFrame.Character,
+                    isLocal: false));
+                continue;
+            }
+
             var telemetry = item.Value;
             if (!telemetry.IsInGame ||
                 now - telemetry.Timestamp > TimeSpan.FromSeconds(3d) ||
@@ -155,7 +171,36 @@ public partial class MultiplayerWindow
             var displayName = _players.TryGetValue(item.Key, out var player)
                 ? player.DisplayName
                 : item.Key;
-            points.Add(new LiveSessionPoint(displayName, telemetry, x, y, false));
+            points.Add(CreateVehicleSessionPoint(
+                displayName,
+                telemetry,
+                x,
+                y,
+                isLocal: false));
+        }
+
+        foreach (var item in _remoteRoleplayCharacters)
+        {
+            if (_remoteTelemetry.ContainsKey(item.Key))
+            {
+                continue;
+            }
+
+            var frame = item.Value;
+            if (!frame.Character.IsActive ||
+                now - frame.Character.Timestamp > TimeSpan.FromSeconds(3d) ||
+                !IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, frame.Character))
+            {
+                continue;
+            }
+
+            var displayName = _players.TryGetValue(item.Key, out var player)
+                ? player.DisplayName
+                : frame.Player.DisplayName;
+            points.Add(CreateRoleplaySessionPoint(
+                displayName,
+                frame.Character,
+                isLocal: false));
         }
 
         if (points.Count == 0)
@@ -184,7 +229,7 @@ public partial class MultiplayerWindow
         {
             var px = width / 2d + (point.X - centerX) * scale;
             var py = height / 2d - (point.Y - centerY) * scale;
-            DrawSessionVehicle(canvas, point, px, py);
+            DrawSessionPoint(canvas, point, px, py);
         }
 
         UpdateLiveSessionHint(local, points.Count(point => !point.IsLocal));
@@ -219,9 +264,105 @@ public partial class MultiplayerWindow
 
     private static bool TryGetSessionCoordinates(VehicleTelemetry telemetry, out double x, out double y)
     {
+        if (telemetry.LocalX is double localX &&
+            telemetry.LocalY is double localY &&
+            double.IsFinite(localX) &&
+            double.IsFinite(localY))
+        {
+            x = localX;
+            y = localY;
+            return true;
+        }
+
         x = telemetry.X;
         y = telemetry.Y;
         return double.IsFinite(x) && double.IsFinite(y);
+    }
+
+    private static bool IsRoleplaySessionCompatible(
+        VehicleTelemetry? local,
+        string? activeMapCompatibilityId,
+        RoleplayCharacterState roleplay)
+    {
+        if (local is not null &&
+            !string.IsNullOrWhiteSpace(local.MapName) &&
+            !string.IsNullOrWhiteSpace(roleplay.MapName) &&
+            !string.Equals(local.MapName, roleplay.MapName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(activeMapCompatibilityId) ||
+            string.IsNullOrWhiteSpace(roleplay.MapCompatibilityId))
+        {
+            return true;
+        }
+
+        return string.Equals(
+            activeMapCompatibilityId,
+            roleplay.MapCompatibilityId,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static LiveSessionPoint CreateVehicleSessionPoint(
+        string displayName,
+        VehicleTelemetry telemetry,
+        double x,
+        double y,
+        bool isLocal)
+    {
+        var line = string.IsNullOrWhiteSpace(telemetry.Line)
+            ? string.Empty
+            : telemetry.Line.Trim();
+        var detail = string.IsNullOrWhiteSpace(line)
+            ? $"{telemetry.SpeedKph:F0} km/h"
+            : $"{line} • {telemetry.SpeedKph:F0} km/h";
+
+        return new LiveSessionPoint(
+            displayName,
+            x,
+            y,
+            telemetry.HeadingDegrees,
+            detail,
+            isLocal,
+            IsRoleplay: false);
+    }
+
+    private static LiveSessionPoint CreateRoleplaySessionPoint(
+        string displayName,
+        RoleplayCharacterState roleplay,
+        bool isLocal)
+    {
+        var activity = roleplay.Activity switch
+        {
+            RoleplayCharacterActivity.Running => LiveSessionText(
+                "RP • correndo",
+                "RP • running",
+                "RP • corriendo",
+                "RP • läuft",
+                "RP • course"),
+            RoleplayCharacterActivity.Walking => LiveSessionText(
+                "RP • a pé",
+                "RP • on foot",
+                "RP • a pie",
+                "RP • zu Fuß",
+                "RP • à pied"),
+            _ => LiveSessionText(
+                "RP • parado",
+                "RP • idle",
+                "RP • quieto",
+                "RP • steht",
+                "RP • immobile")
+        };
+
+        return new LiveSessionPoint(
+            displayName,
+            roleplay.LocalX,
+            roleplay.LocalY,
+            roleplay.HeadingDegrees,
+            $"{activity} • {roleplay.SpeedMps:F1} m/s",
+            isLocal,
+            IsRoleplay: true);
     }
 
     private static void DrawSessionGrid(Canvas canvas, double width, double height)
@@ -256,21 +397,23 @@ public partial class MultiplayerWindow
         }
     }
 
-    private static void DrawSessionVehicle(Canvas canvas, LiveSessionPoint point, double x, double y)
+    private static void DrawSessionPoint(Canvas canvas, LiveSessionPoint point, double x, double y)
     {
         const double size = 30d;
         var markerColor = point.IsLocal
             ? Color.FromRgb(56, 201, 140)
-            : Color.FromRgb(113, 198, 255);
+            : point.IsRoleplay
+                ? Color.FromRgb(186, 132, 255)
+                : Color.FromRgb(113, 198, 255);
 
         var marker = new Grid
         {
             Width = size,
             Height = size,
             RenderTransformOrigin = new Point(0.5d, 0.5d),
-            RenderTransform = new RotateTransform(point.Telemetry.HeadingDegrees),
-            ToolTip = $"{point.DisplayName} • {point.Telemetry.SpeedKph:F1} km/h"
+            ToolTip = $"{point.DisplayName} • {point.Detail}"
         };
+
         marker.Children.Add(new Ellipse
         {
             Fill = new SolidColorBrush(Color.FromArgb(215, 0, 0, 0)),
@@ -283,19 +426,38 @@ public partial class MultiplayerWindow
             Height = 22d,
             Fill = new SolidColorBrush(markerColor)
         });
-        marker.Children.Add(new Polygon
+
+        if (point.IsRoleplay)
         {
-            Points = new PointCollection
+            marker.Children.Add(new TextBlock
             {
-                new(15d, 3d),
-                new(21d, 23d),
-                new(15d, 19d),
-                new(9d, 23d)
-            },
-            Fill = Brushes.White,
-            Stroke = new SolidColorBrush(Color.FromRgb(24, 34, 42)),
-            StrokeThickness = 1d
-        });
+                Text = "♙",
+                Foreground = Brushes.White,
+                FontSize = 16d,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+        else
+        {
+            var pointer = new Polygon
+            {
+                Points = new PointCollection
+                {
+                    new(15d, 3d),
+                    new(21d, 23d),
+                    new(15d, 19d),
+                    new(9d, 23d)
+                },
+                Fill = Brushes.White,
+                Stroke = new SolidColorBrush(Color.FromRgb(24, 34, 42)),
+                StrokeThickness = 1d,
+                RenderTransformOrigin = new Point(0.5d, 0.5d),
+                RenderTransform = new RotateTransform(point.HeadingDegrees)
+            };
+            marker.Children.Add(pointer);
+        }
 
         Canvas.SetLeft(marker, x - size / 2d);
         Canvas.SetTop(marker, y - size / 2d);
@@ -324,30 +486,37 @@ public partial class MultiplayerWindow
         namePlate.Measure(new Size(130d, 40d));
         Canvas.SetLeft(
             namePlate,
-            Math.Clamp(x - namePlate.DesiredSize.Width / 2d, 2d, Math.Max(2d, canvas.ActualWidth - namePlate.DesiredSize.Width - 2d)));
-        Canvas.SetTop(namePlate, Math.Max(2d, y - size / 2d - namePlate.DesiredSize.Height - 5d));
+            Math.Clamp(
+                x - namePlate.DesiredSize.Width / 2d,
+                2d,
+                Math.Max(2d, canvas.ActualWidth - namePlate.DesiredSize.Width - 2d)));
+        Canvas.SetTop(
+            namePlate,
+            Math.Max(2d, y - size / 2d - namePlate.DesiredSize.Height - 5d));
         Panel.SetZIndex(namePlate, 12);
         canvas.Children.Add(namePlate);
 
-        var line = string.IsNullOrWhiteSpace(point.Telemetry.Line)
-            ? string.Empty
-            : point.Telemetry.Line.Trim();
         var detail = new TextBlock
         {
-            Text = string.IsNullOrWhiteSpace(line)
-                ? $"{point.Telemetry.SpeedKph:F0} km/h"
-                : $"{line} • {point.Telemetry.SpeedKph:F0} km/h",
+            Text = point.Detail,
             Foreground = new SolidColorBrush(Color.FromRgb(190, 205, 215)),
             FontSize = 8.5d,
             FontWeight = FontWeights.SemiBold,
             Background = new SolidColorBrush(Color.FromArgb(165, 4, 15, 23)),
             Padding = new Thickness(4d, 1d, 4d, 1d)
         };
-        detail.Measure(new Size(120d, 32d));
+        detail.Measure(new Size(150d, 32d));
         Canvas.SetLeft(
             detail,
-            Math.Clamp(x - detail.DesiredSize.Width / 2d, 2d, Math.Max(2d, canvas.ActualWidth - detail.DesiredSize.Width - 2d)));
-        Canvas.SetTop(detail, Math.Min(canvas.ActualHeight - detail.DesiredSize.Height - 2d, y + size / 2d + 4d));
+            Math.Clamp(
+                x - detail.DesiredSize.Width / 2d,
+                2d,
+                Math.Max(2d, canvas.ActualWidth - detail.DesiredSize.Width - 2d)));
+        Canvas.SetTop(
+            detail,
+            Math.Min(
+                canvas.ActualHeight - detail.DesiredSize.Height - 2d,
+                y + size / 2d + 4d));
         Panel.SetZIndex(detail, 11);
         canvas.Children.Add(detail);
     }
@@ -361,7 +530,7 @@ public partial class MultiplayerWindow
         stack.Children.Add(new TextBlock
         {
             Text = "◎",
-            Foreground = WizardBrush(83, 153, 199),
+            Foreground = new SolidColorBrush(Color.FromRgb(83, 153, 199)),
             FontSize = 27d,
             HorizontalAlignment = HorizontalAlignment.Center
         });
@@ -373,7 +542,7 @@ public partial class MultiplayerWindow
                 "Esperando telemetría compatible",
                 "Warte auf kompatible Telemetrie",
                 "En attente d’une télémétrie compatible"),
-            Foreground = WizardBrush(181, 204, 219),
+            Foreground = new SolidColorBrush(Color.FromRgb(181, 204, 219)),
             FontSize = 11d,
             FontWeight = FontWeights.SemiBold,
             TextAlignment = TextAlignment.Center,
@@ -458,8 +627,10 @@ public partial class MultiplayerWindow
 
     private sealed record LiveSessionPoint(
         string DisplayName,
-        VehicleTelemetry Telemetry,
         double X,
         double Y,
-        bool IsLocal);
+        double HeadingDegrees,
+        string Detail,
+        bool IsLocal,
+        bool IsRoleplay);
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
@@ -8,9 +9,16 @@ namespace NavBR.Client.Multiplayer;
 
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
-    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
+
+    public MultiplayerClientService(
+        Func<string?>? omsiInstallDirectorySource = null)
+    {
+        _physicalVehicles = new RemotePhysicalVehicleCoordinator(
+            omsiInstallDirectorySource);
+    }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
     public event Action<RoomSnapshot>? RoomSnapshotReceived;
@@ -195,6 +203,49 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         var connection = RequireConnectedConnection();
         await connection.SendAsync("SendChatMessage", text, cancellationToken);
+    }
+
+    public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
+        bool voiceEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return null;
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        await connection.InvokeAsync("NavBrPing", cancellationToken);
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var latencyMs = Math.Clamp(
+            (int)Math.Round(elapsed.TotalMilliseconds),
+            0,
+            5000);
+
+        await PublishClientStatusAsync(
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+        return elapsed;
+    }
+
+    public async Task PublishClientStatusAsync(
+        bool voiceEnabled,
+        int? latencyMs,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        await connection.SendAsync(
+            "UpdateClientStatus",
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
     }
 
     public async Task PublishVoiceFrameAsync(

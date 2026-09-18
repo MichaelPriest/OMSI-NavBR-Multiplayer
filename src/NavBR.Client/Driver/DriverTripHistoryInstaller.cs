@@ -59,7 +59,14 @@ internal static class DriverTripHistoryInstaller
                 "Lokalen Verlauf der von NavBR erkannten echten Fahrten öffnen.",
                 "Ouvrir l’historique local des trajets réels détectés par NavBR.")
         };
-        historyButton.Click += (_, _) => new DriverTripHistoryWindow(window).ShowDialog();
+        historyButton.Click += (_, _) =>
+        {
+            if (window.Owner is MainWindow owner)
+            {
+                window.Close();
+                owner.NavigatePrimaryWebShell("operations-company");
+            }
+        };
         actions.Children.Insert(0, historyButton);
     }
 

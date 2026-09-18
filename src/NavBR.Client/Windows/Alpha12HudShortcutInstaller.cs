@@ -22,46 +22,26 @@ internal static class Alpha12HudShortcutInstaller
             return;
         }
 
+        if (systemPanel.Children
+            .OfType<Button>()
+            .Any(candidate => string.Equals(candidate.Tag as string, "alpha14-hud-editor", StringComparison.Ordinal)))
+        {
+            return;
+        }
+
         var button = new Button
         {
             Content = "HUD",
             Tag = "alpha12-hud-shortcut"
         };
         StyleNavigationButton(button);
-        button.Click += (_, _) => OpenHudSettings(window);
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("settings-hud");
 
         // Figma system order: Hardware, HUD, Settings, Session Health.
         var insertIndex = Math.Min(1, systemPanel.Children.Count);
         systemPanel.Children.Insert(insertIndex, button);
 
         window.Closed += (_, _) => Installed.Remove(window);
-    }
-
-    private static void OpenHudSettings(MainWindow owner)
-    {
-        var dialog = new Alpha12SettingsWindow(owner);
-
-        RoutedEventHandler? loaded = null;
-        loaded = (_, _) =>
-        {
-            if (loaded is not null)
-            {
-                dialog.Loaded -= loaded;
-            }
-
-            _ = dialog.Dispatcher.BeginInvoke(
-                DispatcherPriority.ContextIdle,
-                () =>
-                {
-                    var hudButton = Enumerate<Button>(dialog)
-                        .FirstOrDefault(candidate =>
-                            string.Equals(candidate.Content?.ToString(), "HUD", StringComparison.OrdinalIgnoreCase));
-                    hudButton?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                });
-        };
-
-        dialog.Loaded += loaded;
-        dialog.ShowDialog();
     }
 
     private static void StyleNavigationButton(Button button)
@@ -79,20 +59,5 @@ internal static class Alpha12HudShortcutInstaller
         button.Cursor = System.Windows.Input.Cursors.Hand;
     }
 
-    private static IEnumerable<T> Enumerate<T>(DependencyObject root)
-        where T : DependencyObject
-    {
-        if (root is T match)
-        {
-            yield return match;
-        }
 
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
-        {
-            foreach (var child in Enumerate<T>(VisualTreeHelper.GetChild(root, index)))
-            {
-                yield return child;
-            }
-        }
-    }
 }

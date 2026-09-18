@@ -51,6 +51,7 @@ public partial class HudOverlayWindow
 
         RefreshHudChrome();
         RefreshHudVisibility();
+        RefreshRoleplayButtonInteraction();
         RenderEnhancedMiniMap();
     }
 
@@ -79,6 +80,7 @@ public partial class HudOverlayWindow
         RefreshOmsiHotkeyConflicts();
         RefreshHudChrome();
         RefreshHudVisibility();
+        RefreshRoleplayButtonInteraction();
         RenderEnhancedMiniMap();
     }
 

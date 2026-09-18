@@ -15,6 +15,8 @@ public partial class MultiplayerWindow
 
         _navigation3DFeedInitialized = true;
         _client.TelemetryReceived += Navigation3DSessionFeed.Update;
+        _client.RoleplayCharacterReceived += Navigation3DSessionFeed.UpdateRoleplay;
+        _client.RoleplayCharacterRemoved += Navigation3DSessionFeed.RemoveRoleplay;
         _client.PlayerLeft += Navigation3DSessionFeed.Remove;
         _client.ConnectionStateChanged += state =>
         {

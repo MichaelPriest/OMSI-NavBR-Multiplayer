@@ -1,7 +1,4 @@
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
@@ -17,10 +14,7 @@ public partial class MainWindow
     private MultiplayerWindow? _multiplayerWindow;
     private HudOverlayWindow? _hudOverlay;
     private DispatcherTimer? _hudStateTimer;
-    private DispatcherTimer? _remoteMotionTimer;
     private int? _hudAttachedOmsiProcessId;
-    private readonly Dictionary<string, Grid> _remotePlayerMarkers = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, RemoteMotionSmoother> _remotePlayerMotion = new(StringComparer.OrdinalIgnoreCase);
     private bool _multiplayerLocalizationHooked;
     private bool _hudLifetimeHooked;
 
@@ -53,8 +47,14 @@ public partial class MainWindow
         Closed += (_, _) =>
         {
             StopHudRefreshTimer();
-            StopRemoteMotionTimer();
             DispatcherSessionFeed.SetConnected(false);
+
+            if (_multiplayerWindow is not null)
+            {
+                var controller = _multiplayerWindow;
+                controller.AllowApplicationShutdown();
+                controller.Close();
+            }
 
             if (_hudOverlay is not null)
             {
@@ -69,35 +69,41 @@ public partial class MainWindow
         MultiplayerButton.Content = LocalizationService.Get("MultiplayerOpen");
     }
 
-    private void MultiplayerButton_Click(object sender, RoutedEventArgs e)
+    private void MultiplayerButton_Click(object sender, RoutedEventArgs e) =>
+        OpenMultiplayerCentralForShell();
+
+    internal void OpenMultiplayerCentralForShell()
     {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        NavigatePrimaryWebShell("multiplayer");
+    }
+
+    internal void OpenMultiplayerCentralForShell(bool showWindow)
+    {
+        HookHudLifetimeToMainWindow();
+
         if (_multiplayerWindow is not null)
         {
-            if (_multiplayerWindow.WindowState == WindowState.Minimized)
+            if (showWindow)
             {
-                _multiplayerWindow.WindowState = WindowState.Normal;
+                NavigatePrimaryWebShell("multiplayer");
             }
 
-            _multiplayerWindow.Activate();
             return;
         }
 
         var window = new MultiplayerWindow(
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
-            _telemetryProvider.ReadRoleplayCharacterOptions)
-        {
-            Owner = this
-        };
+            _telemetryProvider.ReadRoleplayCharacterOptions,
+            () => _currentOmsi?.InstallDirectory);
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);
-        EnsureRemoteMotionTimer();
 
         window.RemoteTelemetryReceived += frame =>
         {
             DispatcherSessionFeed.Update(frame);
-            RenderRemotePlayer(frame);
             hud.SetRemotePhysicalVehicleActive(
                 frame.Player.PlayerId,
                 window.IsRemotePhysicalVehicleSpawned(frame.Player.PlayerId));
@@ -106,13 +112,11 @@ public partial class MainWindow
         window.RemotePlayerLeft += playerId =>
         {
             DispatcherSessionFeed.Remove(playerId);
-            RemoveRemotePlayerMarker(playerId);
             hud.RemoveRemotePlayerSmooth(playerId);
         };
         window.RemotePlayersReset += () =>
         {
             DispatcherSessionFeed.Clear();
-            ClearRemotePlayerMarkers();
             hud.ClearRemotePlayersSmooth();
         };
         window.ChatMessageReceived += hud.AddChatMessage;
@@ -125,6 +129,8 @@ public partial class MainWindow
         };
         window.MultiplayerConnectionChanged += connectionChangedHandler;
         window.LocalDisplayNameChanged += hud.SetLocalDisplayName;
+        Action roleplayActionHandler = HandleHudRoleplayButtonRequestedForShell;
+        window.RoleplayActionRequested += roleplayActionHandler;
 
         Action<string> chatSubmittedHandler = text => _ = window.SendChatFromOverlayAsync(text);
         Action<bool> pushToTalkHandler = window.SetPushToTalk;
@@ -136,12 +142,11 @@ public partial class MainWindow
             hud.ChatSubmitted -= chatSubmittedHandler;
             hud.PushToTalkChanged -= pushToTalkHandler;
             window.MultiplayerConnectionChanged -= connectionChangedHandler;
+            window.RoleplayActionRequested -= roleplayActionHandler;
             DispatcherSessionFeed.SetConnected(false);
             hud.SetConnectionState(false);
             hud.ClearRemotePlayersSmooth();
-            ClearRemotePlayerMarkers();
             _multiplayerWindow = null;
-            StopRemoteMotionTimer();
 
             // Não fecha nem para o timer do HUD: o minimapa continua sendo
             // um recurso principal do NavBR mesmo sem sessão multiplayer.
@@ -150,7 +155,41 @@ public partial class MainWindow
 
         _multiplayerWindow = window;
         UpdateHudLocalState();
-        window.Show();
+
+        // MultiplayerWindow still owns native controller/services that are
+        // being detached incrementally from WPF. Initialize those services
+        // explicitly without ever creating or showing the retired WPF surface.
+        window.ShowInTaskbar = false;
+        window.ShowActivated = false;
+        window.InitializeControllerForWebShell();
+
+        if (showWindow)
+        {
+            NavigatePrimaryWebShell("multiplayer");
+        }
+    }
+
+    internal void OpenMultiplayerRoleplayTabForShell()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        NavigatePrimaryWebShell("roleplay");
+    }
+
+    internal void ToggleHudLayoutForShell()
+    {
+        var hud = EnsureHudOverlay();
+        hud.SetLayoutEditMode(!hud.IsLayoutEditMode);
+        if (hud.IsLayoutEditMode)
+        {
+            hud.Show();
+            hud.Activate();
+        }
+    }
+
+    internal void OpenHudEditorForShell()
+    {
+        _ = EnsureHudOverlay();
+        NavigatePrimaryWebShell("settings-hud");
     }
 
     private HudOverlayWindow EnsureHudOverlay()
@@ -162,6 +201,7 @@ public partial class MainWindow
         }
 
         var hud = new HudOverlayWindow();
+        hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
         var processId = _currentOmsi?.ProcessId;
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -169,6 +209,8 @@ public partial class MainWindow
         hud.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         hud.Closed += (_, _) =>
         {
+            hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
+
             if (ReferenceEquals(_hudOverlay, hud))
             {
                 _hudOverlay = null;
@@ -205,28 +247,6 @@ public partial class MainWindow
         _hudStateTimer?.Stop();
     }
 
-    private void EnsureRemoteMotionTimer()
-    {
-        if (_remoteMotionTimer is null)
-        {
-            _remoteMotionTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(33)
-            };
-            _remoteMotionTimer.Tick += (_, _) => UpdateRemoteMarkerMotion();
-        }
-
-        if (!_remoteMotionTimer.IsEnabled)
-        {
-            _remoteMotionTimer.Start();
-        }
-    }
-
-    private void StopRemoteMotionTimer()
-    {
-        _remoteMotionTimer?.Stop();
-    }
-
     private void UpdateHudLocalState()
     {
         if (_hudOverlay is null)
@@ -243,6 +263,7 @@ public partial class MainWindow
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
         _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
+        UpdateHudRoleplayStateForShell();
     }
 
     private OmsiMapInfo? GetActiveMapForMultiplayer()
@@ -277,242 +298,4 @@ public partial class MainWindow
             string.Equals(map.FolderName, loadedFolder, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void RenderRemotePlayer(PlayerTelemetryFrame frame)
-    {
-        var local = _lastTelemetry;
-        var layout = _loadedRoadmapLayout;
-        var bitmap = _loadedRoadmapBitmap;
-        var localMap = GetActiveMapForMultiplayer();
-
-        var mapCompatibilityMatches = localMap is null ||
-                                      string.IsNullOrWhiteSpace(localMap.CompatibilityId) ||
-                                      string.IsNullOrWhiteSpace(frame.Player.MapCompatibilityId) ||
-                                      string.Equals(
-                                          localMap.CompatibilityId,
-                                          frame.Player.MapCompatibilityId,
-                                          StringComparison.OrdinalIgnoreCase);
-
-        if (!mapCompatibilityMatches ||
-            local is null ||
-            layout is null ||
-            bitmap is null ||
-            string.IsNullOrWhiteSpace(local.MapName) ||
-            string.IsNullOrWhiteSpace(frame.Telemetry.MapName) ||
-            NormalizeMapName(local.MapName) != NormalizeMapName(frame.Telemetry.MapName) ||
-            frame.Telemetry.GridX is not int gridX ||
-            frame.Telemetry.GridY is not int gridY ||
-            frame.Telemetry.TileX is not double tileX ||
-            frame.Telemetry.TileY is not double tileY ||
-            !RoadmapTransform.TryToPixel(
-                layout,
-                bitmap.PixelWidth,
-                bitmap.PixelHeight,
-                gridX,
-                gridY,
-                tileX,
-                tileY,
-                out var pixelX,
-                out var pixelY) ||
-            pixelX < 0 || pixelX > bitmap.PixelWidth ||
-            pixelY < 0 || pixelY > bitmap.PixelHeight)
-        {
-            if (_remotePlayerMarkers.TryGetValue(frame.Player.PlayerId, out var hiddenMarker))
-            {
-                hiddenMarker.Visibility = Visibility.Collapsed;
-            }
-
-            if (_remotePlayerMotion.TryGetValue(frame.Player.PlayerId, out var hiddenMotion))
-            {
-                hiddenMotion.Reset();
-            }
-
-            return;
-        }
-
-        var marker = GetOrCreateRemoteMarker(frame.Player.PlayerId, frame.Player.DisplayName, bitmap.PixelWidth);
-        var smoother = GetOrCreateRemoteMotion(frame.Player.PlayerId);
-        smoother.SetTarget(
-            pixelX,
-            pixelY,
-            frame.Telemetry.HeadingDegrees,
-            frame.Telemetry.Timestamp);
-
-        marker.ToolTip = $"{frame.Player.DisplayName} • {frame.Telemetry.SpeedKph:F1} km/h";
-        marker.Visibility = Visibility.Visible;
-        EnsureRemoteMotionTimer();
-        UpdateRemoteMarkerMotion(frame.Player.PlayerId);
-    }
-
-    private RemoteMotionSmoother GetOrCreateRemoteMotion(string playerId)
-    {
-        if (_remotePlayerMotion.TryGetValue(playerId, out var existing))
-        {
-            return existing;
-        }
-
-        var smoother = new RemoteMotionSmoother();
-        _remotePlayerMotion[playerId] = smoother;
-        return smoother;
-    }
-
-    private void UpdateRemoteMarkerMotion()
-    {
-        foreach (var playerId in _remotePlayerMotion.Keys.ToArray())
-        {
-            UpdateRemoteMarkerMotion(playerId);
-        }
-    }
-
-    private void UpdateRemoteMarkerMotion(string playerId)
-    {
-        if (!_remotePlayerMotion.TryGetValue(playerId, out var smoother) ||
-            !_remotePlayerMarkers.TryGetValue(playerId, out var marker))
-        {
-            return;
-        }
-
-        if (DateTimeOffset.UtcNow - smoother.LastTargetUtc > TimeSpan.FromSeconds(3))
-        {
-            marker.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var pose = smoother.Step();
-        if (!pose.IsValid)
-        {
-            return;
-        }
-
-        var markerSize = marker.Width;
-        Canvas.SetLeft(marker, pose.X - markerSize / 2d);
-        Canvas.SetTop(marker, pose.Y - markerSize / 2d);
-
-        var icon = marker.Children
-            .OfType<Grid>()
-            .FirstOrDefault(child => string.Equals(child.Tag as string, "roadmap-remote-icon", StringComparison.Ordinal));
-        if (icon?.RenderTransform is RotateTransform rotation)
-        {
-            rotation.Angle = pose.HeadingDegrees;
-        }
-
-        marker.Visibility = Visibility.Visible;
-    }
-
-    private Grid GetOrCreateRemoteMarker(string playerId, string displayName, int roadmapWidth)
-    {
-        if (_remotePlayerMarkers.TryGetValue(playerId, out var existing))
-        {
-            UpdateRoadmapRemoteName(existing, displayName);
-            return existing;
-        }
-
-        const double size = 48d;
-        var marker = new Grid
-        {
-            Width = size,
-            Height = size,
-            ToolTip = displayName,
-            ClipToBounds = false
-        };
-
-        var icon = new Grid
-        {
-            Width = size,
-            Height = size,
-            RenderTransformOrigin = new Point(0.5d, 0.5d),
-            RenderTransform = new RotateTransform(),
-            Tag = "roadmap-remote-icon"
-        };
-        icon.Children.Add(new Ellipse
-        {
-            Fill = new SolidColorBrush(Color.FromRgb(61, 137, 196)),
-            Stroke = Brushes.White,
-            StrokeThickness = 4d
-        });
-        icon.Children.Add(new Polygon
-        {
-            Points = new PointCollection
-            {
-                new(24d, 6d),
-                new(34d, 32d),
-                new(24d, 27d),
-                new(14d, 32d)
-            },
-            Fill = Brushes.White,
-            Stroke = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
-            StrokeThickness = 1d
-        });
-        marker.Children.Add(icon);
-
-        var name = new TextBlock
-        {
-            Text = NormalizeRoadmapDisplayName(displayName),
-            Foreground = Brushes.White,
-            FontSize = 11d,
-            FontWeight = FontWeights.SemiBold,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            TextAlignment = TextAlignment.Center,
-            MaxWidth = 132d,
-            Tag = "roadmap-remote-name"
-        };
-        marker.Children.Add(new Border
-        {
-            Padding = new Thickness(7d, 3d, 7d, 3d),
-            Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 23)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(210, 113, 198, 255)),
-            BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(5d),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0d, -27d, 0d, 0d),
-            Child = name
-        });
-
-        Panel.SetZIndex(marker, 20);
-        RoadmapCanvas.Children.Add(marker);
-        _remotePlayerMarkers[playerId] = marker;
-        return marker;
-    }
-
-    private static void UpdateRoadmapRemoteName(Grid marker, string displayName)
-    {
-        var name = marker.Children
-            .OfType<Border>()
-            .Select(border => border.Child)
-            .OfType<TextBlock>()
-            .FirstOrDefault(block => string.Equals(block.Tag as string, "roadmap-remote-name", StringComparison.Ordinal));
-        if (name is not null)
-        {
-            name.Text = NormalizeRoadmapDisplayName(displayName);
-        }
-    }
-
-    private static string NormalizeRoadmapDisplayName(string? displayName)
-    {
-        var value = string.IsNullOrWhiteSpace(displayName) ? "Driver" : displayName.Trim();
-        return value.Length <= 28 ? value : value[..28];
-    }
-
-    private void RemoveRemotePlayerMarker(string playerId)
-    {
-        _remotePlayerMotion.Remove(playerId);
-
-        if (!_remotePlayerMarkers.Remove(playerId, out var marker))
-        {
-            return;
-        }
-
-        RoadmapCanvas.Children.Remove(marker);
-    }
-
-    private void ClearRemotePlayerMarkers()
-    {
-        foreach (var marker in _remotePlayerMarkers.Values)
-        {
-            RoadmapCanvas.Children.Remove(marker);
-        }
-
-        _remotePlayerMarkers.Clear();
-        _remotePlayerMotion.Clear();
-    }
 }

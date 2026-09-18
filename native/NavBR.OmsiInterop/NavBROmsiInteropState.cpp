@@ -44,7 +44,16 @@ namespace
     constexpr int HumanSollSpeedOffset = 0x6A0;
     constexpr int HumanActSpeedOffset = 0x6A4;
     constexpr int HumanActHeadingOffset = 0x6A8;
+    // Legacy human movement/animation variables exposed by OmsiHook as
+    // LastMovedDist and State. Their numeric State semantics are intentionally
+    // not interpreted here; diagnostics expose the raw finite value only.
+    constexpr int HumanLastMovedDistOffset = 0x644;
+    constexpr int HumanStateOffset = 0x64C;
     constexpr int HumanFixDriverOffset = 0x662;
+    constexpr int HumanActivityLegOffset = 0x663;
+    constexpr int HumanActivityArmUmbrellaOffset = 0x664;
+    constexpr int HumanActivityArmKiOffset = 0x665;
+    constexpr int HumanActivityHeadKiOffset = 0x666;
     constexpr int HumanMyBusOffset = 0x6B4;
     constexpr int HumanAiModeOffset = 0x6C4;
     constexpr int HumanAiModeExOffset = 0x6C5;
@@ -64,6 +73,45 @@ namespace
         float z;
         float w;
     };
+
+    bool TryQuaternionHeadingDegrees(const Quaternion& rotation, float& headingDegrees)
+    {
+        if (!std::isfinite(rotation.x) ||
+            !std::isfinite(rotation.y) ||
+            !std::isfinite(rotation.z) ||
+            !std::isfinite(rotation.w))
+        {
+            return false;
+        }
+
+        const float length = std::sqrt(
+            rotation.x * rotation.x +
+            rotation.y * rotation.y +
+            rotation.z * rotation.z +
+            rotation.w * rotation.w);
+        if (!std::isfinite(length) || length < 0.0001f)
+        {
+            return false;
+        }
+
+        const float inverse = 1.0f / length;
+        const float x = rotation.x * inverse;
+        const float y = rotation.y * inverse;
+        const float z = rotation.z * inverse;
+        const float w = rotation.w * inverse;
+        const float sinYaw = 2.0f * (w * z + x * y);
+        const float cosYaw = 1.0f - 2.0f * (y * y + z * z);
+        constexpr float RadToDeg = 57.295779513082320876f;
+        float value = std::atan2(sinYaw, cosYaw) * RadToDeg;
+        value = std::fmod(value, 360.0f);
+        if (value < 0.0f)
+        {
+            value += 360.0f;
+        }
+
+        headingDegrees = value;
+        return std::isfinite(value);
+    }
 
     std::uintptr_t ImageBase()
     {
@@ -300,15 +348,13 @@ namespace
 
         const int humanDefinition = *reinterpret_cast<const int*>(base + HumanDefinitionOffset);
         const int myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
-        const auto aiModeEx = *reinterpret_cast<const unsigned char*>(base + HumanAiModeExOffset);
-        const auto fixDriver = *reinterpret_cast<const unsigned char*>(base + HumanFixDriverOffset);
 
-        // THAME_DrivingBus == 9 in OMSI's public enum. Some fixed driver
-        // instances expose Activity_FixDriver even while their extended mode
-        // is transitioning, so accept either signal.
+        // The selected Drivers definition plus the exact player-bus pointer is
+        // the stable identity check. AI mode / FixDriver flags can legitimately
+        // transition while the player takes control, so they must not prevent
+        // Character/RP from acquiring the real seated driver.
         return humanDefinition == definitionPointer &&
-               myBus == playerVehicle &&
-               (aiModeEx == 9 || fixDriver != 0);
+               myBus == playerVehicle;
     }
 
     bool IsHumanControllable(int humanPointer)
@@ -358,20 +404,21 @@ namespace
 
         const auto base = static_cast<std::uintptr_t>(humanPointer);
         if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)) ||
-            !IsReadableRange(base + HumanActHeadingOffset, sizeof(float)) ||
+            !IsReadableRange(base + RotationOffset, sizeof(Quaternion)) ||
             !IsReadableRange(base + HumanActSpeedOffset, sizeof(float)))
         {
             return false;
         }
 
         const auto position = *reinterpret_cast<const Vec3*>(base + PositionOffset);
-        const float currentHeading = *reinterpret_cast<const float*>(base + HumanActHeadingOffset);
+        const auto rotation = *reinterpret_cast<const Quaternion*>(base + RotationOffset);
         const float currentSpeed = *reinterpret_cast<const float*>(base + HumanActSpeedOffset);
+        float currentHeading = 0.0f;
         if (!std::isfinite(position.x) ||
             !std::isfinite(position.y) ||
             !std::isfinite(position.z) ||
-            !std::isfinite(currentHeading) ||
-            !std::isfinite(currentSpeed))
+            !std::isfinite(currentSpeed) ||
+            !TryQuaternionHeadingDegrees(rotation, currentHeading))
         {
             return false;
         }
@@ -440,7 +487,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 2;
+    return 4;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
@@ -483,6 +530,40 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePosition(
+    int vehiclePointer,
+    float* x,
+    float* y,
+    float* z)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        x == nullptr ||
+        y == nullptr ||
+        z == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+    {
+        return 0;
+    }
+
+    const auto position = *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    if (!std::isfinite(position.x) ||
+        !std::isfinite(position.y) ||
+        !std::isfinite(position.z))
+    {
+        return 0;
+    }
+
+    *x = position.x;
+    *y = position.y;
+    *z = position.z;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsPlayerBusDriverHuman(
@@ -637,6 +718,68 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAiState(
     return std::isfinite(*sollSpeed) && std::isfinite(*actSpeed) ? 1 : 0;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAnimationState(
+    int humanPointer,
+    float* lastMovedDist,
+    float* state)
+{
+    if (!IsHumanPointer(humanPointer) ||
+        lastMovedDist == nullptr ||
+        state == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + HumanLastMovedDistOffset, sizeof(float)) ||
+        !IsReadableRange(base + HumanStateOffset, sizeof(float)))
+    {
+        return 0;
+    }
+
+    *lastMovedDist =
+        *reinterpret_cast<const float*>(base + HumanLastMovedDistOffset);
+    *state =
+        *reinterpret_cast<const float*>(base + HumanStateOffset);
+    return std::isfinite(*lastMovedDist) && std::isfinite(*state) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanActivityState(
+    int humanPointer,
+    unsigned char* activityLeg,
+    unsigned char* activityArmUmbrella,
+    unsigned char* activityArmKi,
+    unsigned char* activityHeadKi)
+{
+    if (!IsHumanPointer(humanPointer) ||
+        activityLeg == nullptr ||
+        activityArmUmbrella == nullptr ||
+        activityArmKi == nullptr ||
+        activityHeadKi == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + HumanActivityLegOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityArmUmbrellaOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityArmKiOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + HumanActivityHeadKiOffset, sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    *activityLeg =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityLegOffset);
+    *activityArmUmbrella =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityArmUmbrellaOffset);
+    *activityArmKi =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityArmKiOffset);
+    *activityHeadKi =
+        *reinterpret_cast<const unsigned char*>(base + HumanActivityHeadKiOffset);
+    return 1;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
     int humanPointer,
     float x,
@@ -660,6 +803,34 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
         return 0;
     }
 
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+    {
+        return 0;
+    }
+
+    const auto previousPosition = *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    const float movedX = x - previousPosition.x;
+    const float movedY = y - previousPosition.y;
+    const float movedZ = z - previousPosition.z;
+    const float movedDistance = std::sqrt(
+        movedX * movedX +
+        movedY * movedY +
+        movedZ * movedZ);
+    if (!std::isfinite(movedDistance))
+    {
+        return 0;
+    }
+
+    // Normal RP frames are sub-metre. Do not turn a guarded teleport (for
+    // example returning to the bus) into a huge legacy walk-animation step.
+    const bool locomotionFrame =
+        speedMps > 0.01f &&
+        movedDistance > 0.0001f &&
+        movedDistance <= 1.0f;
+    const float lastMovedDist = locomotionFrame ? movedDistance : 0.0f;
+    const float paxState = locomotionFrame ? 1.0f : 0.0f;
+
     constexpr float Pi = 3.14159265358979323846f;
     const float headingRadians = headingDegrees * Pi / 180.0f;
     const float half = headingRadians * 0.5f;
@@ -674,8 +845,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
            WriteValue(humanPointer, RotationOffset, rotation) &&
            WriteValue(humanPointer, LastPositionOffset, position) &&
            WriteValue(humanPointer, LastRotationOffset, rotation) &&
-           WriteValue(humanPointer, HumanSollHeadingOffset, headingDegrees) &&
-           WriteValue(humanPointer, HumanActHeadingOffset, headingDegrees) &&
+           WriteValue(humanPointer, HumanLastMovedDistOffset, lastMovedDist) &&
+           WriteValue(humanPointer, HumanStateOffset, paxState) &&
            WriteValue(humanPointer, HumanSollSpeedOffset, speedMps) &&
            WriteValue(humanPointer, HumanActSpeedOffset, speedMps) &&
            WriteByte(humanPointer, HumanAiModeOffset, aiStop) &&

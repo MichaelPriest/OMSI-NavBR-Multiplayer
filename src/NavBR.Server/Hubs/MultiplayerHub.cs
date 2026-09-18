@@ -185,6 +185,34 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             .SendAsync("trafficSnapshot", safeSnapshot);
     }
 
+    public Task NavBrPing() => Task.CompletedTask;
+
+    public async Task UpdateClientStatus(bool voiceEnabled, int? latencyMs)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before updating client status.");
+        }
+
+        if (latencyMs is < 0 or > 5000)
+        {
+            throw new HubException("Invalid client latency.");
+        }
+
+        var updated = registry.UpdateClientStatus(
+            Context.ConnectionId,
+            voiceEnabled,
+            latencyMs);
+        if (updated is null)
+        {
+            return;
+        }
+
+        await Clients
+            .Group(presence.RoomId)
+            .SendAsync("playerPresenceChanged", updated);
+    }
+
     public async Task SendChatMessage(string text)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)

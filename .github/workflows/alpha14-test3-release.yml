@@ -1,0 +1,517 @@
+name: alpha14 test3 roleplay prerelease
+
+on:
+  push:
+    branches:
+      - test/alpha14-test3
+      - publish/alpha14-test3
+  pull_request:
+    branches:
+      - feature/alpha14-roleplay
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated Alpha.14 Test 3 prerelease
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: alpha14-test3-roleplay-release
+  cancel-in-progress: true
+
+jobs:
+  publish-test-release:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.head_ref == 'test/alpha14-test3'
+    runs-on: windows-latest
+    env:
+      TEST_TAG: v0.3.0-alpha.14-test.3
+      RELEASE_TARGET: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify Alpha.14 Test 3 version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $tag = "v$([string]$group.VersionPrefix)-$([string]$group.VersionSuffix)"
+          if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
+
+      - name: Reserve Alpha.14 Test 3 as draft
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json tagName,isDraft 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            $global:LASTEXITCODE = 0
+            gh release create $env:TEST_TAG `
+              --repo "${{ github.repository }}" `
+              --target "$env:RELEASE_TARGET" `
+              --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
+              --notes "Draft reservado enquanto a Alpha.14 Test 3 passa pela validação automática." `
+              --prerelease --draft
+            if ($LASTEXITCODE -ne 0) { throw "Could not reserve Alpha.14 Test 3 draft." }
+          }
+
+      - name: Verify preinstalled .NET 10 SDK
+        shell: pwsh
+        run: |
+          $version = dotnet --version
+          Write-Host "dotnet SDK: $version"
+          if ($version -notmatch '^10\.') {
+            throw "The Windows runner does not provide .NET 10 SDK."
+          }
+
+      - name: Setup Node for NavBR web UI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build React desktop UI
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR web UI dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR web UI build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          foreach ($required in @(
+            "ui/navbr-web/dist/index.html",
+            "ui/navbr-web/dist/assets"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "NavBR web UI output is incomplete: $required"
+            }
+          }
+
+      - name: Build React public site
+        shell: pwsh
+        run: |
+          Push-Location site
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR public site dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR public site build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "site/dist/index.html")) {
+            throw "NavBR React public site output is incomplete."
+          }
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Generate NavBR icon
+        shell: pwsh
+        run: .\scripts\repair-navbr-icon.ps1
+
+      - name: Validate XAML and site JavaScript
+        shell: pwsh
+        run: |
+          .\scripts\validate-xaml-colors.ps1
+          .\scripts\validate-alpha14-user-surfaces.ps1
+          $siteIndex = Get-Content "site/index.html" -Raw
+          if ($siteIndex -notmatch '<div id="root"></div>') { throw "Public site must mount React at #root." }
+          if ($siteIndex -match 'app\.js|modern\.js') { throw "Legacy imperative site scripts must not be loaded." }
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetAbiVersion",
+            "NavBR_GetStateInteropVersion",
+            "NavBR_GetRoadVehicleCount",
+            "NavBR_GetRoadVehicleAt",
+            "NavBR_IsRoadVehiclePointer",
+            "NavBR_GetHumanCount",
+            "NavBR_GetHumanAt",
+            "NavBR_IsHumanPointer",
+            "NavBR_ReadRoadVehiclePosition",
+            "NavBR_IsPlayerBusDriverHuman",
+            "NavBR_ReadHumanPose",
+            "NavBR_ReadHumanDriverState",
+            "NavBR_DetachHumanForRoleplay",
+            "NavBR_SetHumanTransform",
+            "NavBR_RestoreHumanAiState",
+            "NavBR_RestoreHumanDriverState",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetVehicleVisualState",
+            "NavBR_TriggerRoadVehicle",
+            "NavBR_MarkVehicleForKilling"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing native OMSI interop export: $expected"
+            }
+          }
+
+      - name: Restore projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj
+
+      - name: Build shared and server
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore -p:Platform=AnyCPU -p:PlatformTarget=AnyCPU
+          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore -p:Platform=AnyCPU -p:PlatformTarget=AnyCPU
+      - name: Verify simulated players moving through the room
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force "artifacts/simulator" | Out-Null
+          $serverOut = "artifacts/simulator/server-27831.out.log"
+          $serverErr = "artifacts/simulator/server-27831.err.log"
+
+          $serverDll = Get-ChildItem "src/NavBR.Server/bin" -Recurse -Filter "NavBR.Server.dll" |
+            Where-Object { $_.FullName -match '[\\/]Release[\\/]net10\.0[\\/]' } |
+            Select-Object -First 1
+          if (-not $serverDll) {
+            throw "Compiled NavBR.Server.dll was not found."
+          }
+
+          $previousUrls = $env:ASPNETCORE_URLS
+          $env:ASPNETCORE_URLS = "http://127.0.0.1:27831"
+          $server = Start-Process dotnet -PassThru -WindowStyle Hidden             -ArgumentList @($serverDll.FullName)             -RedirectStandardOutput $serverOut             -RedirectStandardError $serverErr
+
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              if ($server.HasExited) {
+                break
+              }
+
+              try {
+                $health = Invoke-WebRequest "http://127.0.0.1:27831/health" -UseBasicParsing -TimeoutSec 2
+                if ($health.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Milliseconds 500
+              }
+            }
+
+            if (-not $ready) {
+              if (Test-Path $serverOut) { Get-Content $serverOut }
+              if (Test-Path $serverErr) { Get-Content $serverErr }
+              throw "NavBR test server did not become ready on port 27831."
+            }
+            $simulatorDll = Get-ChildItem "src/NavBR.MultiplayerSimulator/bin" -Recurse -Filter "NavBR.MultiplayerSimulator.dll" |
+              Where-Object { $_.FullName -match '[\\/]Release[\\/]net10\.0[\\/]' } |
+              Select-Object -First 1
+            if (-not $simulatorDll) {
+              throw "Compiled NavBR.MultiplayerSimulator.dll was not found."
+            }
+
+            & dotnet $simulatorDll.FullName `
+              --server http://127.0.0.1:27831 `
+              --room alpha14-test3-ci `
+              --players 8 `
+              --mode mixed `
+              --map "Alpha14 Test 3 CI" `
+              --x 120 --y 80 --z 0 `
+              --radius 70 `
+              --interval 200 `
+              --duration 9 `
+              --verify
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Multiplayer map movement simulation failed."
+            }
+          }
+          finally {
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force
+            }
+            $env:ASPNETCORE_URLS = $previousUrls
+          }
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" }
+          }
+
+      - name: Validate plugin binaries are x86
+        shell: pwsh
+        run: |
+          foreach ($candidate in @("artifacts/plugin/NavBR.OmsiPlugin.dll","artifacts/plugin/NavBR.OmsiInterop.dll")) {
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $candidate).Path)
+            if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "$candidate is not PE/MZ." }
+            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+            if ($machine -ne 0x014C) { throw ("$candidate must be x86; machine=0x{0:X4}" -f $machine) }
+          }
+
+      - name: Embed and verify plugin inside client
+        shell: pwsh
+        run: |
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PluginDirectory "artifacts/plugin" `
+            -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $bundle = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"))
+          try {
+            $names = @($bundle.Entries | ForEach-Object { $_.Name })
+            foreach ($required in @("NavBR.OmsiPlugin.dll","NavBR.OmsiInterop.dll","NavBR.OmsiPlugin.opl")) {
+              if ($names -notcontains $required) { throw "Embedded plugin missing: $required" }
+            }
+          }
+          finally {
+            $bundle.Dispose()
+          }
+
+      - name: Build client
+        shell: pwsh
+        run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+      - name: Smoke-test bridge v3
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin bridge smoke test failed." }
+
+      - name: Publish client and standalone EXE
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/client
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None -p:DebugSymbols=false `
+            -o artifacts/client-single
+
+      - name: Publish dedicated server
+        shell: pwsh
+        run: dotnet publish src/NavBR.Server/NavBR.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/server
+
+      - name: Publish multiplayer simulator dev tool
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:Platform=AnyCPU -p:PlatformTarget=x64 `
+            -o artifacts/simulator
+
+          New-Item -ItemType Directory -Force "artifacts/simulator/server" | Out-Null
+          Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
+
+      - name: Prepare Alpha.14 Test 3 assets and notes
+        shell: pwsh
+        run: |
+          $releaseDir = "artifacts/release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          foreach ($target in @("artifacts/client","artifacts/server","artifacts/plugin","artifacts/simulator")) {
+            Copy-Item LICENSE (Join-Path $target "LICENSE") -Force
+            Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $target "THIRD_PARTY_NOTICES.md") -Force
+          }
+
+          $standalone = "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          if (-not (Test-Path $standalone)) { throw "Standalone client missing." }
+          Copy-Item $standalone (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.exe") -Force
+          Compress-Archive -Path "artifacts/client/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.zip") -Force
+          Compress-Archive -Path "artifacts/server/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Server-$env:TEST_TAG-win-x64.zip") -Force
+          Compress-Archive -Path "artifacts/plugin/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Plugin-$env:TEST_TAG-win-x86.zip") -Force
+          Compress-Archive -Path "artifacts/simulator/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-Simulator-$env:TEST_TAG-win-x64-dev.zip") -Force
+
+          Copy-Item docs/ALPHA14_TEST3_COMMUNITY.md (Join-Path $releaseDir "ALPHA14_TEST3_COMMUNITY.md") -Force
+          Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md (Join-Path $releaseDir "ALPHA14_TEST3_RELEASE_NOTES.md") -Force
+          Copy-Item docs/ALPHA14_MASTER_SCOPE.md (Join-Path $releaseDir "ALPHA14_MASTER_SCOPE.md") -Force
+          Copy-Item docs/MULTIPLAYER_SIMULATOR.md (Join-Path $releaseDir "MULTIPLAYER_SIMULATOR.md") -Force
+          Copy-Item docs/OMSI_PLUGIN_EXPERIMENTAL.md (Join-Path $releaseDir "OMSI_PLUGIN_EXPERIMENTAL.md") -Force
+          Copy-Item docs/HARDWARE_COCKPIT.md (Join-Path $releaseDir "HARDWARE_COCKPIT.md") -Force
+          Copy-Item LICENSE (Join-Path $releaseDir "LICENSE") -Force
+          Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $releaseDir "THIRD_PARTY_NOTICES.md") -Force
+
+          $hashLines = foreach ($file in Get-ChildItem $releaseDir -File | Sort-Object Name) {
+            if ($file.Name -eq "SHA256SUMS.txt") { continue }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
+
+          Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md "artifacts/release-notes.md" -Force
+
+      - name: Upload private Alpha.14 Test 3 build
+        if: github.ref == 'refs/heads/test/alpha14-test3'
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Alpha14-Test3-${{ github.sha }}
+          path: artifacts/release/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Clean incomplete release assets
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          if (-not $releaseId) { throw "Could not resolve draft release id." }
+          $existing = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+          foreach ($asset in @($existing)) {
+            Write-Host "Removing previous asset $($asset.name) state=$($asset.state)"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$($asset.id)" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Could not remove old asset $($asset.name)." }
+          }
+
+      - name: Upload release assets sequentially
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          if (-not $releaseId) { throw "Could not resolve draft release id." }
+
+          $assets = Get-ChildItem "artifacts/release" -File | Sort-Object Length, Name
+          foreach ($asset in $assets) {
+            $encodedName = [uri]::EscapeDataString($asset.Name)
+            $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/$releaseId/assets?name=$encodedName"
+            $contentType = switch -Regex ($asset.Extension) {
+              '^\.exe$' { 'application/x-msdownload'; break }
+              '^\.zip$' { 'application/zip'; break }
+              '^\.txt$' { 'text/plain'; break }
+              default { 'application/octet-stream' }
+            }
+
+            $uploaded = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $uploaded; $attempt++) {
+              Write-Host "Uploading $($asset.Name) attempt $attempt/3 ($([math]::Round($asset.Length / 1MB, 1)) MiB)"
+              & curl.exe --silent --show-error --fail-with-body `
+                --retry 2 --retry-delay 3 --retry-all-errors `
+                --connect-timeout 30 --max-time 600 `
+                -X POST `
+                -H "Accept: application/vnd.github+json" `
+                -H "Authorization: Bearer $env:GH_TOKEN" `
+                -H "X-GitHub-Api-Version: 2022-11-28" `
+                -H "Content-Type: $contentType" `
+                --data-binary "@$($asset.FullName)" `
+                $uploadUrl | Out-Null
+
+              if ($LASTEXITCODE -eq 0) {
+                $uploaded = $true
+              }
+              else {
+                $global:LASTEXITCODE = 0
+                Start-Sleep -Seconds (5 * $attempt)
+                $existing = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+                $stale = @($existing) | Where-Object { $_.name -eq $asset.Name } | Select-Object -First 1
+                if ($stale) {
+                  gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$($stale.id)" | Out-Null
+                  $global:LASTEXITCODE = 0
+                }
+              }
+            }
+
+            if (-not $uploaded) { throw "Failed to upload release asset $($asset.Name) after retries." }
+          }
+
+      - name: Verify release assets and keep draft
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = gh release view $env:TEST_TAG --repo "${{ github.repository }}" --json databaseId --jq .databaseId
+          $assets = gh api "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" | ConvertFrom-Json
+          $required = @(
+            "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.exe",
+            "OMSI-NavBR-Multiplayer-$env:TEST_TAG-win-x86.zip",
+            "OMSI-NavBR-Server-$env:TEST_TAG-win-x64.zip",
+            "OMSI-NavBR-Plugin-$env:TEST_TAG-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$env:TEST_TAG-win-x64-dev.zip",
+            "SHA256SUMS.txt"
+          )
+          foreach ($name in $required) {
+            $asset = @($assets) | Where-Object { $_.name -eq $name -and $_.state -eq 'uploaded' } | Select-Object -First 1
+            if (-not $asset) { throw "Required release asset is not fully uploaded: $name" }
+          }
+
+          gh release edit $env:TEST_TAG `
+            --repo "${{ github.repository }}" `
+            --target "$env:RELEASE_TARGET" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — Central Multiplayer + RP v3" `
+            --notes-file "artifacts/release-notes.md" `
+            --prerelease --draft=true
+          if ($LASTEXITCODE -ne 0) { throw "Failed to finalize draft $env:TEST_TAG." }
+
+      - name: Publish prerelease after explicit approval
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish == true) || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit $env:TEST_TAG `
+            --repo "${{ github.repository }}" `
+            --target "$env:RELEASE_TARGET" `
+            --prerelease --draft=false
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:TEST_TAG." }
+
+      - name: Refresh GitHub Pages release catalog
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish == true) || github.ref == 'refs/heads/publish/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref main

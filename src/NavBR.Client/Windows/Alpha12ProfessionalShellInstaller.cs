@@ -281,10 +281,9 @@ internal static class Alpha12ProfessionalShellInstaller
 
         body.Children.Add(Separator());
         body.Children.Add(Section("AJUDA"));
-        body.Children.Add(NavigationButton(GetManualButtonText(), () =>
-        {
-            new NavBRManualWindow { Owner = window }.ShowDialog();
-        }));
+        body.Children.Add(NavigationButton(
+            GetManualButtonText(),
+            () => window.NavigatePrimaryWebShell("help")));
 
         var advanced = new Expander
         {

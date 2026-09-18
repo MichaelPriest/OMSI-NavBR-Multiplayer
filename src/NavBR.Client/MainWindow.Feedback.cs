@@ -59,12 +59,6 @@ public partial class MainWindow
         };
     }
 
-    private void FeedbackButton_Click(object sender, RoutedEventArgs e)
-    {
-        var window = new FeedbackWindow
-        {
-            Owner = this
-        };
-        window.ShowDialog();
-    }
+    private void FeedbackButton_Click(object sender, RoutedEventArgs e) =>
+        NavigatePrimaryWebShell("help");
 }

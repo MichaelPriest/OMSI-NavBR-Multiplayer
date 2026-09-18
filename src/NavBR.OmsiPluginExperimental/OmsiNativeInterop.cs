@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 2;
+    private const int ExpectedStateInteropVersion = 4;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
@@ -182,25 +182,32 @@ internal static class OmsiNativeInterop
         }
     }
 
-    internal static bool TryFindNewRoadVehicle(
+    internal static bool TryFindNewRoadVehicles(
         IReadOnlyCollection<int> before,
-        out int vehiclePointer)
+        out int[] vehiclePointers)
     {
-        vehiclePointer = 0;
+        vehiclePointers = [];
         if (!TrySnapshotRoadVehicles(out var after))
         {
             return false;
         }
 
         var known = new HashSet<int>(before);
-        var added = after.Where(pointer => !known.Contains(pointer)).Distinct().ToArray();
-        if (added.Length != 1 || added[0] == 0 || IsRoadVehiclePointer(added[0]) != 1)
+        var added = after
+            .Where(pointer => pointer != 0 && !known.Contains(pointer))
+            .Distinct()
+            .ToArray();
+
+        if (added.Length == 0)
         {
             return false;
         }
 
-        vehiclePointer = added[0];
-        return true;
+        var valid = added
+            .Where(pointer => IsRoadVehiclePointer(pointer) == 1)
+            .ToArray();
+        vehiclePointers = valid;
+        return valid.Length == added.Length;
     }
 
     private static bool EnsureShimLoaded()
@@ -289,6 +296,13 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetPlayerVehiclePointer")]
     internal static extern int GetPlayerVehiclePointer();
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePosition")]
+    internal static extern int ReadRoadVehiclePosition(
+        int vehiclePointer,
+        out float x,
+        out float y,
+        out float z);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsPlayerBusDriverHuman")]
     internal static extern int IsPlayerBusDriverHuman(
         int humanPointer,
@@ -331,6 +345,20 @@ internal static class OmsiNativeInterop
         out float sollSpeed,
         out float actSpeed);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanAnimationState")]
+    internal static extern int ReadHumanAnimationState(
+        int humanPointer,
+        out float lastMovedDist,
+        out float state);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanActivityState")]
+    internal static extern int ReadHumanActivityState(
+        int humanPointer,
+        out byte activityLeg,
+        out byte activityArmUmbrella,
+        out byte activityArmKi,
+        out byte activityHeadKi);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetHumanTransform")]
     internal static extern int SetHumanTransform(
         int humanPointer,
@@ -370,6 +398,12 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_FreeAnsiString")]
     internal static extern int FreeAnsiString(int stringData);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_TriggerRoadVehicle")]
+    internal static extern int TriggerRoadVehicle(
+        int vehiclePointer,
+        int triggerAnsiString,
+        int active);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_TempRoadVehicleListCreate")]
     internal static extern int TempRoadVehicleListCreate(int capacity);

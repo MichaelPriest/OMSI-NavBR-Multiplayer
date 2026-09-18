@@ -18,6 +18,8 @@ namespace
     constexpr std::uintptr_t RvaMakeVehicle = 0x0070A250u - PreferredImageBase;
     constexpr std::uintptr_t RvaTempRvListCreate = 0x0074A0E0u - PreferredImageBase;
     constexpr std::uintptr_t RvaCopyTempListIntoMainList = 0x0074A240u - PreferredImageBase;
+    // OmsiHook documents RVTriggerXML at 0x007E9338 for OMSI 2.3.004.
+    constexpr std::uintptr_t RvaRoadVehicleTrigger = 0x007E9338u - PreferredImageBase;
 
     constexpr std::uintptr_t RvaTempRvListClass = 0x0074802Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
@@ -175,6 +177,34 @@ namespace
         return true;
     }
 
+    bool IsRoadVehiclePointerInMainList(int vehiclePointer)
+    {
+        if (vehiclePointer <= 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        int items = 0;
+        if (!TryGetRoadVehicleItems(count, items))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < count; ++index)
+        {
+            const int current = *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(items) +
+                static_cast<std::uintptr_t>(index) * sizeof(int));
+            if (current == vehiclePointer)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     int CallGetMem(int bytes)
     {
         if (bytes <= 0)
@@ -266,6 +296,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeOmsi23004Addresses()
         !IsExecutableAddress(Resolve(RvaMakeVehicle)) ||
         !IsExecutableAddress(Resolve(RvaTempRvListCreate)) ||
         !IsExecutableAddress(Resolve(RvaCopyTempListIntoMainList)) ||
+        !IsExecutableAddress(Resolve(RvaRoadVehicleTrigger)) ||
         !IsReadableAddress(Resolve(RvaTempRvListClass)) ||
         !IsReadableAddress(Resolve(RvaRoadVehiclesPointer)) ||
         !IsReadableAddress(Resolve(RvaHumansPointer)) ||
@@ -307,6 +338,54 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleAt(int index)
     return *reinterpret_cast<const int*>(
         static_cast<std::uintptr_t>(items) +
         static_cast<std::uintptr_t>(index) * sizeof(int));
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_TriggerRoadVehicle(
+    int vehiclePointer,
+    int triggerAnsiString,
+    int active)
+{
+    if (!IsRoadVehiclePointerInMainList(vehiclePointer) ||
+        triggerAnsiString <= 12 ||
+        (active != 0 && active != 1))
+    {
+        return 0;
+    }
+
+    const auto header = static_cast<std::uintptr_t>(triggerAnsiString - 12);
+    if (!IsReadableRange(header, 13))
+    {
+        return 0;
+    }
+
+    const int length = *reinterpret_cast<const int*>(header + 8);
+    if (length <= 0 ||
+        length > 128 ||
+        !IsReadableRange(
+            static_cast<std::uintptr_t>(triggerAnsiString),
+            static_cast<std::size_t>(length) + 1u))
+    {
+        return 0;
+    }
+
+    const auto target = Resolve(RvaRoadVehicleTrigger);
+    if (!IsExecutableAddress(target))
+    {
+        return 0;
+    }
+
+    __asm
+    {
+        push esi
+        mov eax, vehiclePointer
+        mov edx, triggerAnsiString
+        mov ecx, active
+        mov esi, target
+        call esi
+        pop esi
+    }
+
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetMem(int bytes)

@@ -1,4 +1,3 @@
-using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
@@ -8,13 +7,14 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private RoleplayCharacterController? _roleplayCharacterController;
-    private RoleplayCharacterWindow? _roleplayCharacterWindow;
     private DispatcherTimer? _roleplayAutoPromptTimer;
     private string? _roleplayPromptedMapKey;
     private bool _roleplayLifetimeHooked;
 
     internal void InitializeRoleplayForShell()
     {
+        ExperimentalFeatureFlags.SetRoleplayCharacterEnabled(
+            MultiplayerSettingsStore.Load().ExperimentalRoleplayCharacterEnabled);
         HookRoleplayLifetime();
 
         if (_roleplayAutoPromptTimer is not null)
@@ -65,7 +65,7 @@ public partial class MainWindow
         }
 
         _roleplayPromptedMapKey = mapKey;
-        OpenRoleplayCharacterWindowForShell();
+        OpenRoleplayCentralForShell();
     }
 
     internal IReadOnlyList<RoleplayCharacterOption> GetRoleplayCharacterOptionsForShell() =>
@@ -111,6 +111,15 @@ public partial class MainWindow
             {
                 _ = _multiplayerWindow.ReleaseLocalRoleplayCharacterAsync();
             }
+
+            _multiplayerWindow?.SetLocalRoleplayCharacterState(state);
+            UpdateHudRoleplayStateForShell();
+        };
+
+        controller.StatusChanged += status =>
+        {
+            _webRoleplayStatus = status;
+            _multiplayerWindow?.SetRoleplayRuntimeStatus(status);
         };
 
         _roleplayCharacterController = controller;
@@ -118,38 +127,64 @@ public partial class MainWindow
         return controller;
     }
 
-    internal void OpenRoleplayCharacterWindowForShell()
+    internal void UpdateHudRoleplayStateForShell()
     {
-        if (_roleplayCharacterWindow is not null)
+        if (_hudOverlay is null)
         {
-            if (_roleplayCharacterWindow.WindowState == WindowState.Minimized)
-            {
-                _roleplayCharacterWindow.WindowState = WindowState.Normal;
-            }
-
-            _roleplayCharacterWindow.Activate();
             return;
         }
 
-        var window = new RoleplayCharacterWindow(
-            GetRoleplayCharacterOptionsForShell,
-            GetRoleplayMapKeyForShell,
-            IsRoleplayMapReadyForShell,
-            GetRoleplayControllerForShell())
-        {
-            Owner = this
-        };
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+        var controller = _roleplayCharacterController;
 
-        window.Closed += (_, _) =>
-        {
-            if (ReferenceEquals(_roleplayCharacterWindow, window))
-            {
-                _roleplayCharacterWindow = null;
-            }
-        };
+        _hudOverlay.SetRoleplayState(
+            featureEnabled: ExperimentalFeatureFlags.RoleplayCharacterEnabled,
+            mapReady: IsRoleplayMapReadyForShell(),
+            hasSelection: selected is not null,
+            active: controller?.IsActive == true,
+            characterName: selected?.DisplayName);
+    }
 
-        _roleplayCharacterWindow = window;
-        window.Show();
+    internal async void HandleHudRoleplayButtonRequestedForShell()
+    {
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+
+        if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled ||
+            !IsRoleplayMapReadyForShell() ||
+            selected is null)
+        {
+            OpenRoleplayCentralForShell();
+            UpdateHudRoleplayStateForShell();
+            return;
+        }
+
+        var controller = GetRoleplayControllerForShell();
+        if (controller.IsActive)
+        {
+            await controller.StopAsync("roleplay-returned-to-bus");
+            UpdateHudRoleplayStateForShell();
+            return;
+        }
+
+        var started = await controller.StartAsync();
+        UpdateHudRoleplayStateForShell();
+
+        if (!started)
+        {
+            OpenRoleplayCentralForShell();
+        }
+    }
+
+    internal void OpenRoleplayCentralForShell()
+    {
+        // React/WebView2 is the only user-facing Alpha.14 surface. Native
+        // HUD actions and automatic prompts always route into the React RP
+        // screen; the WPF MainWindow remains an invisible service host only.
+        NavigatePrimaryWebShell("roleplay");
+        _multiplayerWindow?.SetLocalRoleplayCharacterState(
+            _roleplayCharacterController?.CurrentState);
     }
 
     private void HookRoleplayLifetime()
