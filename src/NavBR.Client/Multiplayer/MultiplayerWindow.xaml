@@ -745,7 +745,7 @@
                                                    Background="#1C2A33" />
 
                                         <TextBlock Text="ENDEREÇO ATUAL" Style="{StaticResource NavMetricLabel}" />
-                                        <TextBlock x:Name="InviteAddressText"
+                                        <TextBlock x:Name="RoomInviteAddressText"
                                                    Margin="0,5,0,0"
                                                    Foreground="#A5B8C5"
                                                    FontSize="10"
