@@ -631,3 +631,105 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .voice-mixer-row { grid-template-columns:1fr auto; }
   .voice-gain { grid-column:1 / -1; }
 }
+
+
+.hud-settings-layout {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.hud-settings-card {
+  padding:20px;
+}
+.hud-enabled-toggle {
+  margin:12px 0 14px;
+}
+.hud-select-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.hud-select-grid .compact-toggle {
+  min-height:62px;
+  align-items:center;
+}
+.hud-preview-line {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:14px;
+  padding:11px 12px;
+  border:1px solid #1b3342;
+  border-radius:10px;
+  background:#081721;
+}
+.hud-preview-line strong {
+  color:#dceaf3;
+  font-size:11px;
+}
+.hud-preview-line span {
+  color:#7f9aac;
+  font-size:10px;
+}
+.hud-slider-list {
+  display:grid;
+  gap:14px;
+  margin-top:12px;
+}
+.hud-slider-list label {
+  display:grid;
+  gap:7px;
+}
+.hud-slider-list label > span {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.hud-slider-list strong {
+  font-size:10px;
+}
+.hud-slider-list em {
+  color:#78cfff;
+  font-size:10px;
+  font-style:normal;
+  font-weight:700;
+}
+.hud-slider-list input[type="range"] {
+  width:100%;
+}
+.hud-module-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.compact-toggle {
+  display:flex;
+  gap:9px;
+  padding:10px 11px;
+  border:1px solid #1b3342;
+  border-radius:9px;
+  background:#081721;
+}
+.compact-toggle input {
+  accent-color:#69c8ff;
+}
+.compact-toggle span {
+  font-size:10px;
+}
+.hud-settings-actions {
+  grid-column:1 / -1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  align-items:center;
+  padding:4px 0 2px;
+}
+@media (max-width:1000px) {
+  .hud-settings-layout { grid-template-columns:1fr; }
+}
+@media (max-width:720px) {
+  .hud-select-grid, .hud-module-grid { grid-template-columns:1fr; }
+  .hud-preview-line { flex-direction:column; }
+}
