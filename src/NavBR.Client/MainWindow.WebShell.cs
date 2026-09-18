@@ -181,6 +181,7 @@ public partial class MainWindow
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(),
             roadmapStudio = BuildWebRoadmapState(),
+            ghost = BuildWebGhostState(),
             hardware = BuildWebHardwareState(),
             network = BuildWebNetworkState(),
             companyNetwork = BuildWebCompanyNetworkState(),
@@ -333,6 +334,37 @@ public partial class MainWindow
             case "openRoadmapFolder":
                 OpenRoadmapFolderFromWeb(
                     GetWebPayloadString(payload, "folderName"));
+                break;
+
+            case "startGhostRecording":
+                StartGhostRecordingFromWeb(
+                    GetWebPayloadString(payload, "name"));
+                break;
+
+            case "stopGhostRecording":
+                await StopGhostRecordingFromWebAsync();
+                break;
+
+            case "cancelGhostRecording":
+                CancelGhostRecordingFromWeb();
+                break;
+
+            case "selectGhostFile":
+                await SelectGhostFileFromWebAsync();
+                break;
+
+            case "playGhost":
+                await PlayGhostFromWebAsync(
+                    GetWebPayloadDouble(payload, "playbackSpeed"),
+                    GetWebPayloadBool(payload, "loop"));
+                break;
+
+            case "stopGhostPlayback":
+                StopGhostPlaybackFromWeb();
+                break;
+
+            case "openGhostFolder":
+                OpenGhostFolderFromWeb();
                 break;
 
             case "connectRoom":
