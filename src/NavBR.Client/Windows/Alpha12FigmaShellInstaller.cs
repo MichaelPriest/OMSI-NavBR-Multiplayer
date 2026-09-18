@@ -371,19 +371,19 @@ internal static class Alpha12FigmaShellInstaller
 
         var connectivityButton = NavigationButton(
             L("◎  Conectividade Multiplayer", "◎  Multiplayer connectivity", "◎  Conectividad multijugador", "◎  Multiplayer-Verbindung", "◎  Connectivité multijoueur"),
-            () => new Alpha12ConnectivityWindow(window).ShowDialog());
+            () => window.NavigatePrimaryWebShell("settings-network"));
         connectivityButton.Tag = "alpha14-connectivity";
         tools.Children.Add(connectivityButton);
 
         var natButton = NavigationButton(
             L("◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP"),
-            () => new NatDiagnosticsWindow(window).ShowDialog());
+            () => window.NavigatePrimaryWebShell("settings-network"));
         natButton.Tag = "alpha14-nat";
         tools.Children.Add(natButton);
 
         var externalPortButton = NavigationButton(
             L("⇄  Teste externo TCP 27730", "⇄  External TCP 27730 test", "⇄  Prueba externa TCP 27730", "⇄  Externer TCP-27730-Test", "⇄  Test externe TCP 27730"),
-            () => new ExternalPortProbeWindow(window).ShowDialog());
+            () => window.NavigatePrimaryWebShell("settings-network"));
         externalPortButton.Tag = "alpha14-external-port";
         tools.Children.Add(externalPortButton);
 
@@ -391,10 +391,10 @@ internal static class Alpha12FigmaShellInstaller
 
         body.Children.Add(Separator());
         body.Children.Add(Section("AJUDA"));
-        body.Children.Add(NavigationButton(GetManualButtonText(), () => new NavBRManualWindow { Owner = window }.ShowDialog()));
+        body.Children.Add(NavigationButton(GetManualButtonText(), () => window.NavigatePrimaryWebShell("help")));
         body.Children.Add(NavigationButton(
             L("✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback", "✎  Feedback"),
-            () => new FeedbackWindow { Owner = window }.ShowDialog()));
+            () => window.NavigatePrimaryWebShell("help")));
 
         var advanced = new Expander
         {
