@@ -77,8 +77,10 @@ Somente desenvolvimento/teste:
 - compatibilidade antes da escrita;
 - resolução de asset remoto por fingerprint SHA-256;
 - lifecycle/erro físico exposto por jogador no React;
-- consist/multi-veículo detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; enquanto ownership/ordem/transforms das partes não forem verificáveis, todas as partes criadas são removidas fail-safe e a quantidade detectada é exposta no diagnóstico;
-- **articulados ainda não são considerados suportados**;
+- topologia declarada do consist é inspecionada no processo desktop a partir de `[couple_front]` / `[couple_back]` reais do `.bus/.ovh`, seguindo apenas arquivos locais contidos em `Vehicles` e com limites de tamanho/profundidade;
+- quando o addon declara mais de uma parte, o spawn físico é bloqueado **antes** de chamar o plugin e o React mostra a quantidade esperada;
+- como segunda proteção, consist/multi-veículo também é detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; se a inspeção do arquivo não antecipar o caso, todas as partes criadas são removidas fail-safe e a quantidade observada é exposta no diagnóstico;
+- **articulados ainda não são considerados suportados**: ownership, ordem e transforms das partes precisam ser verificáveis antes de qualquer controle físico;
 - opt-in obrigatório.
 
 ## 6. Hardware Cockpit
