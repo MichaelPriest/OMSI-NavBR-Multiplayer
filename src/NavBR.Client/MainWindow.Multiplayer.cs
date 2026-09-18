@@ -197,7 +197,7 @@ public partial class MainWindow
     internal void OpenHudEditorForShell()
     {
         _ = EnsureHudOverlay();
-        new HudCustomizationWindow(this).ShowDialog();
+        NavigatePrimaryWebShell("settings-hud");
     }
 
     private HudOverlayWindow EnsureHudOverlay()
