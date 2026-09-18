@@ -40,15 +40,32 @@ Se nenhuma instalação válida for encontrada, o app abre a seleção de instal
 
 ## Multiplayer
 
-O computador de quem cria a sala pode funcionar como servidor da própria sessão.
+O NavBR suporta dois modos de hospedagem:
+
+### Servidor Online
+
+Um `NavBR.Server` hospedado publicamente (por exemplo, no Render) recebe as salas via HTTPS/SignalR.
+
+- jogadores não precisam abrir TCP 27730;
+- não depende de UPnP nem do IP público do jogador;
+- CGNAT do jogador não impede a conexão ao servidor hospedado;
+- salas públicas/privadas, presença, telemetria, chat e voz usam o mesmo protocolo atual.
+
+### Host local / peer-host
+
+O computador de quem cria a sala também pode continuar funcionando como servidor da própria sessão.
 
 - porta padrão: TCP 27730;
-- telemetria, presença, chat e voz passam pelo SignalR;
-- salas privadas não aparecem no navegador público;
 - UPnP é opcional;
-- servidor dedicado continua disponível;
-- relay/fallback permanece experimental;
 - o host direto pode exigir Firewall/port forwarding dependendo da rede.
+
+### Render gratuito
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer)
+
+O repositório inclui `render.yaml` e `Dockerfile.render` para criar um Web Service gratuito. Depois do deploy, copie a URL `https://<servico>.onrender.com` para **Multiplayer → Sala → Usar servidor online**.
+
+Veja [docs/RENDER_HOSTING.md](docs/RENDER_HOSTING.md).
 
 ## Simulador Multiplayer
 
@@ -96,8 +113,9 @@ A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
 - OMSI alvo inicial: **2.3.004**;
 - cliente: **.NET 10 / C# / WPF x86 host + WebView2 + React/TypeScript/Vite**;
 - servidor: **ASP.NET Core + SignalR**;
-- host da sala: o próprio PC de quem cria a sala;
-- porta padrão: **TCP 27730**;
+- host da sala: **servidor online hospedado** ou o próprio PC de quem cria a sala;
+- peer-host local: **TCP 27730**;
+- servidor online: **HTTPS/WSS** pelo provedor de hospedagem;
 - projeto público.
 
 ## Documentação
@@ -106,8 +124,9 @@ A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
 - [docs/ALPHA14_COMMUNITY.md](docs/ALPHA14_COMMUNITY.md) — roteiro de teste;
 - [docs/ALPHA14_MASTER_SCOPE.md](docs/ALPHA14_MASTER_SCOPE.md) — escopo consolidado;
 - [docs/MULTIPLAYER_SIMULATOR.md](docs/MULTIPLAYER_SIMULATOR.md) — simulador;
-- [docs/NETWORKING.md](docs/NETWORKING.md) — rede/Firewall/UPnP/relay;
+- [docs/NETWORKING.md](docs/NETWORKING.md) — rede/Firewall/UPnP/servidor online;
 - [docs/PEER_HOST.md](docs/PEER_HOST.md) — host local;
+- [docs/RENDER_HOSTING.md](docs/RENDER_HOSTING.md) — servidor online gratuito no Render;
 - [docs/OMSI_PLUGIN_EXPERIMENTAL.md](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin v3;
 - [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md) — Hardware Cockpit;
 - [docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md) — manual.
