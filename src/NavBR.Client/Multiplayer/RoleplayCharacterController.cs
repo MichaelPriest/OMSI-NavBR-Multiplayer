@@ -46,6 +46,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private int _updateInFlight;
     private int _stopping;
     private int _consecutiveFailures;
+    private int _interactionInFlight;
     private long _sessionGeneration;
     private double _originX;
     private double _originY;
@@ -77,6 +78,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
     public double EnterBusRangeMeters => EnterBusDistanceMeters;
+    public double InteractionRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
 
     public double? GetBusDistanceMeters()
@@ -107,6 +109,101 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         return double.IsFinite(distance) ? distance : null;
     }
 
+    public async Task<bool> TryTriggerBusInteractionAsync(
+        string triggerName,
+        CancellationToken cancellationToken = default)
+    {
+        if (_state is not { IsActive: true } current ||
+            string.IsNullOrWhiteSpace(_instanceId))
+        {
+            StatusChanged?.Invoke("roleplay-interaction-unavailable");
+            return false;
+        }
+
+        triggerName = triggerName?.Trim() ?? string.Empty;
+        if (triggerName.Length is <= 0 or > 128)
+        {
+            StatusChanged?.Invoke("roleplay-interaction-invalid");
+            return false;
+        }
+
+        if (!IsInteractionRuntimeAvailable)
+        {
+            StatusChanged?.Invoke("roleplay-interaction-plugin-unavailable");
+            return false;
+        }
+
+        var distance = GetBusDistanceMeters();
+        if (distance is not double finiteDistance)
+        {
+            StatusChanged?.Invoke("roleplay-bus-position-unavailable");
+            return false;
+        }
+
+        if (finiteDistance > EnterBusDistanceMeters)
+        {
+            StatusChanged?.Invoke("roleplay-interaction-too-far");
+            return false;
+        }
+
+        if (Interlocked.CompareExchange(ref _interactionInFlight, 1, 0) != 0)
+        {
+            StatusChanged?.Invoke("roleplay-interaction-busy");
+            return false;
+        }
+
+        var instanceId = _instanceId;
+        try
+        {
+            var pressed = await OmsiPluginBridgeRelay.SetRoleplayVehicleTriggerAsync(
+                instanceId,
+                current.PlayerId,
+                triggerName,
+                active: true,
+                cancellationToken);
+            if (pressed?.Success != true)
+            {
+                StatusChanged?.Invoke(
+                    pressed?.ErrorCode ??
+                    "roleplay-trigger-failed");
+                return false;
+            }
+
+            try
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(75),
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // A release is still attempted below so a cancelled UI request
+                // cannot leave the OMSI trigger held.
+            }
+
+            var released = await OmsiPluginBridgeRelay.SetRoleplayVehicleTriggerAsync(
+                instanceId,
+                current.PlayerId,
+                triggerName,
+                active: false,
+                CancellationToken.None);
+            if (released?.Success != true)
+            {
+                StatusChanged?.Invoke(
+                    released?.ErrorCode ??
+                    "roleplay-trigger-release-failed");
+                return false;
+            }
+
+            StatusChanged?.Invoke("roleplay-interaction-triggered");
+            return true;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _interactionInFlight, 0);
+        }
+    }
+
     public async Task<bool> TryEnterBusAsync(
         CancellationToken cancellationToken = default)
     {
@@ -130,6 +227,21 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         await StopAsync("roleplay-entered-bus", cancellationToken);
         return true;
+    }
+
+    public bool IsInteractionRuntimeAvailable
+    {
+        get
+        {
+            if (!IsRuntimeAvailable ||
+                Application.Current is not App app)
+            {
+                return false;
+            }
+
+            return app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityCharacterInteraction);
+        }
     }
 
     public bool IsRuntimeAvailable
