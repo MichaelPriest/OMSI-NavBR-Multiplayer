@@ -24,6 +24,8 @@ public partial class MultiplayerWindow : Window
     private readonly SemaphoreSlim _voiceSendGate = new(1, 1);
     private readonly Dictionary<string, PlayerPresence> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, VehicleTelemetry> _remoteTelemetry = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RoleplayCharacterFrame> _remoteRoleplayCharacters = new(StringComparer.OrdinalIgnoreCase);
+    private RoleplayCharacterState? _localRoleplayCharacter;
     private readonly List<ChatMessage> _chatMessages = [];
 
     private MultiplayerSettings _settings;
@@ -74,6 +76,10 @@ public partial class MultiplayerWindow : Window
         _client.PlayerPresenceChanged += presence => Dispatcher.BeginInvoke(() => UpsertPresence(presence));
         _client.PlayerLeft += playerId => Dispatcher.BeginInvoke(() => RemovePlayer(playerId));
         _client.TelemetryReceived += frame => Dispatcher.BeginInvoke(() => ApplyRemoteTelemetry(frame));
+        _client.RoleplayCharacterReceived += frame =>
+            Dispatcher.BeginInvoke(() => ApplyRemoteRoleplayCharacter(frame));
+        _client.RoleplayCharacterRemoved += playerId =>
+            Dispatcher.BeginInvoke(() => RemoveRemoteRoleplayCharacter(playerId));
         _client.ChatMessageReceived += message => Dispatcher.BeginInvoke(() => ApplyChatMessage(message));
         _client.VoiceFrameReceived += frame =>
         {
@@ -387,7 +393,15 @@ public partial class MultiplayerWindow : Window
             _players[player.PlayerId] = player;
         }
 
+        foreach (var stale in _remoteRoleplayCharacters.Keys
+                     .Where(playerId => !_players.ContainsKey(playerId))
+                     .ToArray())
+        {
+            _remoteRoleplayCharacters.Remove(stale);
+        }
+
         RenderPlayers();
+        RenderLiveSessionView();
     }
 
     private void UpsertPresence(PlayerPresence presence)
@@ -402,12 +416,36 @@ public partial class MultiplayerWindow : Window
         _remoteTelemetry[frame.Player.PlayerId] = frame.Telemetry;
         RemoteTelemetryReceived?.Invoke(frame);
         RenderPlayers();
+        RenderLiveSessionView();
+    }
+
+    private void ApplyRemoteRoleplayCharacter(RoleplayCharacterFrame frame)
+    {
+        _players[frame.Player.PlayerId] = frame.Player;
+        _remoteRoleplayCharacters[frame.Player.PlayerId] = frame;
+        RenderPlayers();
+        RenderLiveSessionView();
+    }
+
+    private void RemoveRemoteRoleplayCharacter(string playerId)
+    {
+        _remoteRoleplayCharacters.Remove(playerId);
+        RenderPlayers();
+        RenderLiveSessionView();
+    }
+
+    internal void SetLocalRoleplayCharacterState(RoleplayCharacterState? state)
+    {
+        _localRoleplayCharacter = state;
+        RenderPlayers();
+        RenderLiveSessionView();
     }
 
     private void RemovePlayer(string playerId)
     {
         _players.Remove(playerId);
         _remoteTelemetry.Remove(playerId);
+        _remoteRoleplayCharacters.Remove(playerId);
         _voiceChat.RemoveRemotePlayer(playerId);
         RemotePlayerLeft?.Invoke(playerId);
         RenderPlayers();
@@ -478,29 +516,65 @@ public partial class MultiplayerWindow : Window
         var localMap = localTelemetry?.MapName;
         var localCompatibilityId = _activeMapSource()?.CompatibilityId;
         var rows = new List<string>();
+        var now = DateTimeOffset.UtcNow;
 
         foreach (var player in _players.Values.OrderBy(player => player.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
             var isLocal = string.Equals(player.PlayerId, _settings.PlayerId, StringComparison.OrdinalIgnoreCase);
             _remoteTelemetry.TryGetValue(player.PlayerId, out var telemetry);
 
-            var mapName = string.IsNullOrWhiteSpace(player.MapName)
-                ? LocalizationService.Get("NotAvailable")
+            RoleplayCharacterState? roleplay = null;
+            if (isLocal)
+            {
+                roleplay = _localRoleplayCharacter;
+            }
+            else if (_remoteRoleplayCharacters.TryGetValue(player.PlayerId, out var rpFrame) &&
+                     rpFrame.Character.IsActive &&
+                     now - rpFrame.Character.Timestamp <= TimeSpan.FromSeconds(3d))
+            {
+                roleplay = rpFrame.Character;
+            }
+
+            var roleplayActive = roleplay?.IsActive == true;
+            var mapNameValue = roleplayActive
+                ? roleplay!.MapName
                 : player.MapName;
+            var mapName = string.IsNullOrWhiteSpace(mapNameValue)
+                ? LocalizationService.Get("NotAvailable")
+                : mapNameValue;
 
-            var speed = telemetry is null
-                ? "--.- km/h"
-                : string.Format(LocalizationService.CurrentCulture, "{0,5:F1} km/h", telemetry.SpeedKph);
+            var activity = roleplayActive
+                ? PlayerModeText(roleplay!.Activity)
+                : MultiplayerTabText("No ônibus", "In bus", "En autobús", "Im Bus", "Dans le bus");
 
-            var distance = GetDistanceText(
-                localTelemetry,
-                telemetry,
-                localMap,
-                player.MapName,
-                localCompatibilityId,
-                player.MapCompatibilityId);
+            var speed = roleplayActive
+                ? string.Format(
+                    LocalizationService.CurrentCulture,
+                    "{0,4:F1} m/s",
+                    roleplay!.SpeedMps)
+                : telemetry is null
+                    ? "--.- km/h"
+                    : string.Format(
+                        LocalizationService.CurrentCulture,
+                        "{0,5:F1} km/h",
+                        telemetry.SpeedKph);
+
+            var distance = roleplayActive
+                ? GetRoleplayDistanceText(
+                    localTelemetry,
+                    _localRoleplayCharacter,
+                    roleplay!,
+                    localCompatibilityId)
+                : GetDistanceText(
+                    localTelemetry,
+                    telemetry,
+                    localMap,
+                    player.MapName,
+                    localCompatibilityId,
+                    player.MapCompatibilityId);
+
             var localMarker = isLocal ? LocalizationService.Get("MultiplayerYouMarker") : "  ";
-            rows.Add($"{localMarker} {player.DisplayName,-18} | {mapName,-22} | {speed} | {distance}");
+            rows.Add($"{localMarker} {player.DisplayName,-18} | {activity,-12} | {mapName,-18} | {speed} | {distance}");
         }
 
         if (rows.Count == 0)
@@ -511,6 +585,67 @@ public partial class MultiplayerWindow : Window
         PlayersListBox.ItemsSource = rows;
         PlayersOverviewListBox.ItemsSource = rows.Take(6).ToArray();
         PlayerCountText.Text = LocalizationService.Format("MultiplayerPlayerCount", _players.Count);
+    }
+
+    private static string PlayerModeText(RoleplayCharacterActivity activity) =>
+        activity switch
+        {
+            RoleplayCharacterActivity.Running => MultiplayerTabText(
+                "RP • correndo",
+                "RP • running",
+                "RP • corriendo",
+                "RP • läuft",
+                "RP • course"),
+            RoleplayCharacterActivity.Walking => MultiplayerTabText(
+                "RP • a pé",
+                "RP • on foot",
+                "RP • a pie",
+                "RP • zu Fuß",
+                "RP • à pied"),
+            _ => MultiplayerTabText(
+                "RP • parado",
+                "RP • idle",
+                "RP • quieto",
+                "RP • steht",
+                "RP • immobile")
+        };
+
+    private string GetRoleplayDistanceText(
+        VehicleTelemetry? localVehicle,
+        RoleplayCharacterState? localRoleplay,
+        RoleplayCharacterState remoteRoleplay,
+        string? localCompatibilityId)
+    {
+        var localMapId = localRoleplay?.MapCompatibilityId ?? localCompatibilityId;
+        if (!string.IsNullOrWhiteSpace(localMapId) &&
+            !string.IsNullOrWhiteSpace(remoteRoleplay.MapCompatibilityId) &&
+            !string.Equals(
+                localMapId,
+                remoteRoleplay.MapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return LocalizationService.Get("MultiplayerDifferentMapBuild");
+        }
+
+        double? localX = localRoleplay?.IsActive == true
+            ? localRoleplay.LocalX
+            : localVehicle?.LocalX;
+        double? localY = localRoleplay?.IsActive == true
+            ? localRoleplay.LocalY
+            : localVehicle?.LocalY;
+
+        if (localX is not double x ||
+            localY is not double y ||
+            !double.IsFinite(x) ||
+            !double.IsFinite(y))
+        {
+            return LocalizationService.Get("NotAvailable");
+        }
+
+        var dx = remoteRoleplay.LocalX - x;
+        var dy = remoteRoleplay.LocalY - y;
+        var distance = Math.Sqrt(dx * dx + dy * dy);
+        return LocalizationService.Format("MultiplayerDistance", distance);
     }
 
     private void ApplyTabLocalization()
