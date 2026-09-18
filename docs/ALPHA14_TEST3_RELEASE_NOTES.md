@@ -72,8 +72,8 @@ A validação Alpha.14 compila o frontend React antes do cliente e valida Shared
 
 ## Ainda experimental
 
-- câmera dedicada seguindo o personagem;
-- ajuste de altura em terreno inclinado;
+- câmera dedicada seguindo o personagem na visão 3D React já está em validação;
+- ajuste experimental de altura por splines reais do OMSI já está em validação, com fallback para preservar Z quando não há geometria confiável;
 - animações e gestos;
 - interação física adicional com ônibus/objetos;
 - personagem remoto físico completo;
