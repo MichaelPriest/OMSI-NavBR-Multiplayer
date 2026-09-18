@@ -197,7 +197,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             _displayName,
             _options.MapName,
             _options.MapCompatibilityId,
-            manifest);
+            manifest,
+            _options.RoomPassword);
 
         await _connection.InvokeAsync<RoomSnapshot>(
             "JoinRoom",
@@ -391,7 +392,9 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 _playerId,
                 "SIM Probe",
                 _options.MapName,
-                _options.MapCompatibilityId),
+                _options.MapCompatibilityId,
+                Compatibility: null,
+                RoomPassword: _options.RoomPassword),
             cancellationToken);
     }
 
@@ -607,6 +610,14 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
             {
                 snapshot = await resolver.JoinForInspectionAsync(cancellationToken);
             }
+            catch (Microsoft.AspNetCore.SignalR.HubException ex)
+            {
+                return new RoomSimulationContextResolution(
+                    false,
+                    null,
+                    false,
+                    $"A sala recusou a entrada do simulador: {ex.Message}");
+            }
             catch (HttpRequestException ex)
             {
                 return fallbackMap
@@ -633,7 +644,7 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     MapCompatibilityId =
                         reference.MapCompatibilityId ??
                         reference.Compatibility?.MapCompatibilityId ??
-                        options.MapCompatibilityId,
+                        telemetry?.MapCompatibilityId,
                     CenterX = options.PositionExplicit
                         ? options.CenterX
                         : telemetry?.LocalX ?? telemetry?.X ?? options.CenterX,
@@ -703,7 +714,9 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                 $"sim-map-sync-{Guid.NewGuid():N}"[..30],
                 "SIM Map Sync",
                 null,
-                null),
+                null,
+                Compatibility: null,
+                RoomPassword: _options.RoomPassword),
             cancellationToken);
     }
 
@@ -1015,6 +1028,7 @@ internal enum SimulatorMode
 internal sealed record SimulatorOptions(
     string ServerUrl,
     string RoomId,
+    string? RoomPassword,
     int PlayerCount,
     string? MapName,
     string? MapCompatibilityId,
@@ -1072,6 +1086,7 @@ internal sealed record SimulatorOptions(
         return new SimulatorOptions(
             ServerUrl: values.GetValueOrDefault("server") ?? "http://127.0.0.1:27730",
             RoomId: values.GetValueOrDefault("room") ?? "navbr-sim",
+            RoomPassword: NullIfEmpty(values.GetValueOrDefault("password")),
             PlayerCount: ClampInt(values.GetValueOrDefault("players"), 6, 1, 32),
             MapName: NullIfEmpty(values.GetValueOrDefault("map")),
             MapCompatibilityId: NullIfEmpty(values.GetValueOrDefault("map-id")),
@@ -1114,6 +1129,7 @@ Usage:
 Options:
   --server URL         Host NavBR (default http://127.0.0.1:27730)
   --room ID            Room id (default navbr-sim)
+  --password TEXT       Password when joining a private room.
   --players N          Simulated players, 1..32 (default 6)
   --mode vehicles|rp|mixed
   --map NAME           Optional map override. When omitted, inherit the real map from the room host.
