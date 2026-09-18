@@ -9,16 +9,21 @@ public partial class WebShellWindow : Window
 {
     private readonly Func<object> _stateProvider;
     private readonly Action _launchOmsi;
+    private readonly Func<string, JsonElement?, Task>? _commandHandler;
     private readonly DispatcherTimer _pushTimer;
     private bool _ready;
 
-    public WebShellWindow(Func<object> stateProvider, Action launchOmsi)
+    public WebShellWindow(
+        Func<object> stateProvider,
+        Action launchOmsi,
+        Func<string, JsonElement?, Task>? commandHandler = null)
     {
         ArgumentNullException.ThrowIfNull(stateProvider);
         ArgumentNullException.ThrowIfNull(launchOmsi);
 
         _stateProvider = stateProvider;
         _launchOmsi = launchOmsi;
+        _commandHandler = commandHandler;
 
         InitializeComponent();
 
@@ -78,7 +83,7 @@ public partial class WebShellWindow : Window
         }
     }
 
-    private void WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private async void WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         try
         {
@@ -88,20 +93,44 @@ public partial class WebShellWindow : Window
                 return;
             }
 
-            switch (commandElement.GetString())
+            var command = commandElement.GetString();
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return;
+            }
+
+            switch (command)
             {
                 case "launchOmsi":
                     _launchOmsi();
                     PushState();
-                    break;
+                    return;
                 case "refreshState":
                     PushState();
-                    break;
+                    return;
+            }
+
+            JsonElement? payload = message.RootElement.TryGetProperty("payload", out var payloadElement)
+                ? payloadElement.Clone()
+                : null;
+
+            if (_commandHandler is not null)
+            {
+                await _commandHandler(command, payload);
+                PushState();
             }
         }
         catch (JsonException)
         {
             // Ignore malformed UI messages; the native shell remains authoritative.
+        }
+        catch (Exception ex)
+        {
+            WebView.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "navbr-command-error",
+                message = ex.Message
+            }));
         }
     }
 
