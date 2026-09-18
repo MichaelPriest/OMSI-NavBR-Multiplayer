@@ -2893,7 +2893,7 @@ function Multiplayer({
     const useRelay = multiplayer.relayEnabled && !multiplayer.hostRunning;
     const activeServer = useRelay
       ? (multiplayer.serverUrl || multiplayer.relayServerUrl || serverUrl)
-      : (multiplayer.inviteAddresses[0] || multiplayer.serverUrl || serverUrl);
+      : (multiplayer.internetInviteAddress || multiplayer.inviteAddresses[0] || multiplayer.serverUrl || serverUrl);
 
     if (!activeServer) return null;
 
