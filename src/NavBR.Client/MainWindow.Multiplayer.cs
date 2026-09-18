@@ -72,15 +72,21 @@ public partial class MainWindow
     private void MultiplayerButton_Click(object sender, RoutedEventArgs e) =>
         OpenMultiplayerCentralForShell();
 
-    internal void OpenMultiplayerCentralForShell()
+    internal void OpenMultiplayerCentralForShell(bool showWindow = true)
     {
         if (_multiplayerWindow is not null)
         {
+            if (!showWindow)
+            {
+                return;
+            }
+
             if (_multiplayerWindow.WindowState == WindowState.Minimized)
             {
                 _multiplayerWindow.WindowState = WindowState.Normal;
             }
 
+            _multiplayerWindow.Show();
             _multiplayerWindow.Activate();
             return;
         }
@@ -157,6 +163,10 @@ public partial class MainWindow
         _multiplayerWindow = window;
         UpdateHudLocalState();
         window.Show();
+        if (!showWindow)
+        {
+            window.Hide();
+        }
     }
 
     internal void OpenMultiplayerRoleplayTabForShell()
