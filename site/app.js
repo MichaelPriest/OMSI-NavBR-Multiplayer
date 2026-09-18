@@ -1,13 +1,13 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.14-test.1';
+const currentTag = 'v0.3.0-alpha.14-test.2';
 
 const fallbackRelease = {
   tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14-test.1 — character roleplay test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14-test.2 — character roleplay test',
   prerelease: true,
   published_at: null,
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.14 Test 1 inicia a validação pública do modo Personagem/RP no modo normal e multiplayer, preservando o ônibus remoto físico da Alpha anterior.',
+  body: 'Alpha.14 Test 2 inicia a validação pública do modo Personagem/RP no modo normal e multiplayer, preservando o ônibus remoto físico da Alpha anterior.',
   download_count: 0,
   assets: [
     {
