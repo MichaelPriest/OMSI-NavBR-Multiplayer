@@ -2536,14 +2536,18 @@ function RoleplayPanel({
                 <div><small>LAST MOVED DIST</small><strong>{format(roleplay.nativeAnimation.lastMovedDistanceMeters, 3)} m</strong></div>
                 <div><small>STATE RAW</small><strong>{format(roleplay.nativeAnimation.animationState, 3)}</strong></div>
                 <div><small>SOLL / ACT SPEED</small><strong>{format(roleplay.nativeAnimation.sollSpeedMps, 2)} / {format(roleplay.nativeAnimation.actSpeedMps, 2)} m/s</strong></div>
+                <div><small>ACTIVITY LEG RAW</small><strong>{roleplay.nativeAnimation.activityLegRaw ?? "—"}</strong></div>
+                <div><small>ARM UMBRELLA RAW</small><strong>{roleplay.nativeAnimation.activityArmUmbrellaRaw ?? "—"}</strong></div>
+                <div><small>ARM KI RAW</small><strong>{roleplay.nativeAnimation.activityArmKiRaw ?? "—"}</strong></div>
+                <div><small>HEAD KI RAW</small><strong>{roleplay.nativeAnimation.activityHeadKiRaw ?? "—"}</strong></div>
               </div>
               <p className="migration-note">
                 {pick(
-                  "Diagnóstico somente leitura. Esses valores vêm diretamente do humano controlado pelo OMSI; o NavBR não usa este painel para forçar gestos.",
-                  "Read-only diagnostics. These values come directly from the OMSI-controlled human; NavBR does not use this panel to force gestures.",
-                  "Diagnóstico de solo lectura. Estos valores provienen directamente del humano controlado por OMSI; NavBR no usa este panel para forzar gestos.",
-                  "Nur-Lese-Diagnose. Diese Werte stammen direkt vom von OMSI gesteuerten Human; NavBR erzwingt über dieses Panel keine Gesten.",
-                  "Diagnostic en lecture seule. Ces valeurs proviennent directement du personnage contrôlé par OMSI ; NavBR n’utilise pas ce panneau pour forcer des gestes."
+                  "Diagnóstico somente leitura. State e Activity_* são exibidos como valores brutos: o NavBR não atribui significado de gesto sem validação e não usa este painel para forçar animações.",
+                  "Read-only diagnostics. State and Activity_* are shown as raw values: NavBR does not assign gesture meaning without validation and does not use this panel to force animations.",
+                  "Diagnóstico de solo lectura. State y Activity_* se muestran como valores brutos: NavBR no les asigna significado de gesto sin validación ni usa este panel para forzar animaciones.",
+                  "Nur-Lese-Diagnose. State und Activity_* werden als Rohwerte angezeigt: NavBR weist ihnen ohne Validierung keine Gestenbedeutung zu und erzwingt hier keine Animationen.",
+                  "Diagnostic en lecture seule. State et Activity_* sont affichés comme valeurs brutes : NavBR ne leur attribue aucun sens gestuel sans validation et ne force aucune animation ici."
                 )}
               </p>
             </>
