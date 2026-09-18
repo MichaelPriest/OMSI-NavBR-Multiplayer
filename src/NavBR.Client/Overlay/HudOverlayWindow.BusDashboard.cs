@@ -27,9 +27,12 @@ public partial class HudOverlayWindow
     private ProgressBar? _dashboardThrottleBar;
     private TextBlock? _dashboardBrakeText;
     private ProgressBar? _dashboardBrakeBar;
+    private Border? _dashboardSpeedPanel;
     private Border? _dashboardFuelPanel;
     private Border? _dashboardPedalsPanel;
     private Border? _dashboardStatusPanel;
+    private Color _dashboardActiveColor = Color.FromRgb(255, 132, 0);
+    private Color _dashboardActiveBorderColor = Color.FromRgb(255, 179, 71);
 
     private readonly Dictionary<string, (Border Badge, TextBlock Label)> _dashboardIndicators = new();
     private bool _dashboardDragging;
@@ -181,7 +184,7 @@ public partial class HudOverlayWindow
         };
         speedStack.Children.Add(_dashboardAccelerationText);
 
-        var speedPanel = new Border
+        _dashboardSpeedPanel = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)),
             CornerRadius = new CornerRadius(12),
@@ -189,8 +192,8 @@ public partial class HudOverlayWindow
             Margin = new Thickness(0, 0, 9, 0),
             Child = speedStack
         };
-        Grid.SetColumn(speedPanel, 0);
-        grid.Children.Add(speedPanel);
+        Grid.SetColumn(_dashboardSpeedPanel, 0);
+        grid.Children.Add(_dashboardSpeedPanel);
 
         var right = new StackPanel();
         _dashboardFuelPanel = BuildFuelPanel();
@@ -425,17 +428,25 @@ public partial class HudOverlayWindow
         }
     }
 
-    private static void SetIndicator((Border Badge, TextBlock Label) indicator, bool active, string text)
+    private void SetIndicator((Border Badge, TextBlock Label) indicator, bool active, string text)
     {
         indicator.Label.Text = text;
         indicator.Label.Foreground = active
             ? Brushes.White
             : new SolidColorBrush(Color.FromArgb(145, 255, 255, 255));
         indicator.Badge.Background = active
-            ? new SolidColorBrush(Color.FromArgb(205, 255, 132, 0))
+            ? new SolidColorBrush(Color.FromArgb(
+                215,
+                _dashboardActiveColor.R,
+                _dashboardActiveColor.G,
+                _dashboardActiveColor.B))
             : new SolidColorBrush(Color.FromArgb(55, 255, 255, 255));
         indicator.Badge.BorderBrush = active
-            ? new SolidColorBrush(Color.FromArgb(235, 255, 179, 71))
+            ? new SolidColorBrush(Color.FromArgb(
+                240,
+                _dashboardActiveBorderColor.R,
+                _dashboardActiveBorderColor.G,
+                _dashboardActiveBorderColor.B))
             : new SolidColorBrush(Color.FromArgb(45, 255, 255, 255));
     }
 
@@ -446,8 +457,13 @@ public partial class HudOverlayWindow
             return;
         }
 
-        _busDashboardScale.ScaleX = _hudSettings.DashboardScale;
-        _busDashboardScale.ScaleY = _hudSettings.DashboardScale;
+        var effectiveScale = GetDashboardEffectiveScale();
+        _busDashboardScale.ScaleX = effectiveScale;
+        _busDashboardScale.ScaleY = effectiveScale;
+        _busDashboardDock.Width = Math.Clamp(_hudSettings.DashboardWidth, 280d, 960d);
+        _busDashboardDock.MinHeight = _hudSettings.DashboardHeight > 0d
+            ? Math.Clamp(_hudSettings.DashboardHeight, 120d, 720d)
+            : 0d;
         _busDashboardDock.Opacity = _hudSettings.DashboardEnabled
             ? _hudSettings.DashboardOpacity
             : 0.42d;
@@ -463,6 +479,7 @@ public partial class HudOverlayWindow
         if (_dashboardStatusPanel is not null)
             _dashboardStatusPanel.Visibility = _hudSettings.DashboardShowStatus ? Visibility.Visible : Visibility.Collapsed;
 
+        ApplyDashboardVisualTheme();
         ApplyDashboardPosition();
         UpdateMainDashboardButtonText();
     }
@@ -474,14 +491,27 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var scale = Math.Clamp(_hudSettings.DashboardScale, 0.70d, 1.60d);
+        var scale = GetDashboardEffectiveScale();
         var width = Math.Max(1d, _busDashboardDock.ActualWidth * scale);
         var height = Math.Max(1d, _busDashboardDock.ActualHeight * scale);
         var maxX = Math.Max(0d, ActualWidth - width - 16d);
         var maxY = Math.Max(0d, ActualHeight - height - 16d);
-        SetDashboardPosition(
-            8d + _hudSettings.DashboardX * maxX,
-            8d + _hudSettings.DashboardY * maxY);
+        var freeX = 8d + _hudSettings.DashboardX * maxX;
+        var freeY = 8d + _hudSettings.DashboardY * maxY;
+        var centeredX = 8d + maxX / 2d;
+        var centeredY = 8d + maxY / 2d;
+
+        var target = _hudSettings.DashboardAnchor switch
+        {
+            "top-left" => new Point(8d, 8d),
+            "top-center" => new Point(centeredX, 8d),
+            "top-right" => new Point(8d + maxX, 8d),
+            "bottom-left" => new Point(8d, 8d + maxY),
+            "bottom-center" => new Point(centeredX, 8d + maxY),
+            "bottom-right" => new Point(8d + maxX, 8d + maxY),
+            _ => new Point(freeX, freeY)
+        };
+        SetDashboardPosition(target.X, target.Y);
     }
 
     private void SetDashboardPosition(double x, double y)
@@ -491,11 +521,23 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var scale = Math.Clamp(_hudSettings.DashboardScale, 0.70d, 1.60d);
+        var scale = GetDashboardEffectiveScale();
         var width = Math.Max(1d, _busDashboardDock.ActualWidth * scale);
         var height = Math.Max(1d, _busDashboardDock.ActualHeight * scale);
         _busDashboardTransform.X = Math.Clamp(x, 8d, Math.Max(8d, ActualWidth - width - 8d));
         _busDashboardTransform.Y = Math.Clamp(y, 8d, Math.Max(8d, ActualHeight - height - 8d));
+    }
+
+    private double GetDashboardEffectiveScale()
+    {
+        var baseScale = Math.Clamp(_hudSettings.DashboardScale, 0.60d, 1.80d);
+        if (!_hudSettings.DashboardAutoScale || ActualWidth <= 1d)
+        {
+            return baseScale;
+        }
+
+        var viewportFactor = Math.Clamp(ActualWidth / 1920d, 0.75d, 1.15d);
+        return Math.Clamp(baseScale * viewportFactor, 0.60d, 1.80d);
     }
 
     private void DashboardHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -553,7 +595,7 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var scale = Math.Clamp(_hudSettings.DashboardScale, 0.70d, 1.60d);
+        var scale = GetDashboardEffectiveScale();
         var width = Math.Max(1d, _busDashboardDock.ActualWidth * scale);
         var height = Math.Max(1d, _busDashboardDock.ActualHeight * scale);
         var maxX = Math.Max(1d, ActualWidth - width - 16d);
