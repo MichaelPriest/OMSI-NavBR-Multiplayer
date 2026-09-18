@@ -657,10 +657,17 @@ public partial class HudOverlayWindow
                 new SolidColorBrush(Color.FromRgb(26, 29, 30));
         }
 
-        TopStatusPanel.Background = new LinearGradientBrush(
-            Color.FromArgb(231, 19, 26, 34),
-            Color.FromArgb(200, 33, 41, 50),
-            0d);
+        TopStatusPanel.Background = new LinearGradientBrush
+        {
+            StartPoint = new Point(0d, 0d),
+            EndPoint = new Point(1d, 0d),
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(231, 19, 26, 34), 0d),
+                new GradientStop(Color.FromArgb(216, 23, 32, 41), 0.58d),
+                new GradientStop(Color.FromArgb(200, 33, 41, 50), 1d)
+            }
+        };
         TopStatusPanel.BorderBrush =
             new SolidColorBrush(Color.FromArgb(76, 255, 255, 255));
 
