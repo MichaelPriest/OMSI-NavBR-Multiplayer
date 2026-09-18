@@ -39,8 +39,7 @@ internal static class VirtualCompanyInstaller
 
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
-        button.Click += (_, _) =>
-            new VirtualCompanyWindow(window, window.GetCurrentTelemetryForAlpha11).ShowDialog();
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("operations");
 
         if (window.FindName(Alpha12ProfessionalShellInstaller.OperationsPanelName) is Panel operations)
         {
