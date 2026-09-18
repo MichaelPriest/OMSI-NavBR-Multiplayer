@@ -24,6 +24,16 @@ internal sealed class ExternalPortProbeClient : IDisposable
     public bool IsConfigured => _endpoint is not null;
     public string? ServiceOrigin => _endpoint?.GetLeftPart(UriPartial.Authority);
 
+    public static bool IsConfiguredForCurrentEnvironment() =>
+        TryBuildEndpoint(Environment.GetEnvironmentVariable(ProbeUrlEnvironmentVariable)) is not null;
+
+    public static string? GetConfiguredServiceOrigin()
+    {
+        var endpoint = TryBuildEndpoint(
+            Environment.GetEnvironmentVariable(ProbeUrlEnvironmentVariable));
+        return endpoint?.GetLeftPart(UriPartial.Authority);
+    }
+
     public async Task<ExternalPortProbeResult?> ProbeAsync(
         CancellationToken cancellationToken = default)
     {
