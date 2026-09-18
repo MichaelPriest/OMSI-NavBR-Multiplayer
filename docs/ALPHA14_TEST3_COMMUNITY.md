@@ -54,6 +54,8 @@ Durante RP:
 
 - parado: posição deve permanecer estável;
 - a pé: posição deve mudar continuamente;
+- em rua inclinada com spline válida: o personagem deve acompanhar a elevação sem saltos bruscos;
+- fora de uma spline confiável: a interface deve indicar altura preservada, sem inventar terreno;
 - correndo: deslocamento deve ser maior;
 - giro A/D deve atualizar heading;
 - o marcador React/HUD deve acompanhar o estado;
