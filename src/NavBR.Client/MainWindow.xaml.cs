@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
 using NavBR.Client.Omsi;
+using NavBR.Client.Hardware;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
 
@@ -54,7 +55,11 @@ public partial class MainWindow : Window
         RenderCurrentState();
 
         Loaded += async (_, _) => await RefreshOmsiStatusAsync();
-        Closed += (_, _) => _telemetryProvider.Dispose();
+        Closed += (_, _) =>
+        {
+            HardwareCockpitBridgeController.Shared.Dispose();
+            _telemetryProvider.Dispose();
+        };
     }
 
     private void ConfigureLanguageSelector()
@@ -207,6 +212,7 @@ public partial class MainWindow : Window
         if (telemetry is not null)
         {
             _lastTelemetry = telemetry;
+            HardwareCockpitBridgeController.Shared.PublishTelemetry(GetCurrentTelemetryForAlpha11());
             _statusKey = "TelemetryConnected";
             _telemetryStatusKey = telemetry.IsInGame
                 ? "TelemetryConnected"
