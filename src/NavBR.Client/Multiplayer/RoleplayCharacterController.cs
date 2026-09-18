@@ -165,13 +165,14 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         _originX = x;
         _originY = y;
+        var initialGroundZ = 0d;
         _groundFollowing = map is not null &&
                            OmsiSplineGroundHeightResolver.TryResolve(
                                map,
                                telemetry,
                                x,
                                y,
-                               out var initialGroundZ);
+                               out initialGroundZ);
         _groundHeightCalibrated = _groundFollowing;
         _groundHeightOffset = _groundFollowing
             ? z - initialGroundZ
