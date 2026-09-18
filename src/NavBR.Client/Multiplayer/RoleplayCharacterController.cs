@@ -21,6 +21,14 @@ internal sealed record RoleplayNativeAnimationDiagnostics(
     int? ActivityArmKiRaw,
     int? ActivityHeadKiRaw);
 
+internal sealed record RoleplayNativeActivityObservation(
+    int Samples,
+    int MovingSamples,
+    int TransitionCount,
+    int MovingTransitionCount,
+    bool ChangedThisFrame,
+    DateTimeOffset? LastTransitionAtUtc);
+
 internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
     private const int VkEscape = 0x1B;
@@ -54,6 +62,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private RoleplayKeyboardHook? _keyboardHook;
     private RoleplayCharacterState? _state;
     private RoleplayNativeAnimationDiagnostics? _nativeAnimationDiagnostics;
+    private RoleplayNativeActivityObservation? _nativeActivityObservation;
+    private (int? Leg, int? ArmUmbrella, int? ArmKi, int? HeadKi)? _lastNativeActivitySignature;
+    private int _nativeActivitySamples;
+    private int _nativeActivityMovingSamples;
+    private int _nativeActivityTransitions;
+    private int _nativeActivityMovingTransitions;
+    private DateTimeOffset? _nativeActivityLastTransitionAtUtc;
     private string? _instanceId;
     private DateTimeOffset _lastTickUtc;
     private DateTimeOffset _lastNetworkStateUtc;
@@ -96,6 +111,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public RoleplayCharacterState? CurrentState => _state;
     public RoleplayNativeAnimationDiagnostics? CurrentNativeAnimationDiagnostics =>
         _nativeAnimationDiagnostics;
+    public RoleplayNativeActivityObservation? CurrentNativeActivityObservation =>
+        _nativeActivityObservation;
 
     public double? GetBusDistanceMeters()
     {
@@ -422,7 +439,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             CharacterName: selected.DisplayName,
             HumanIndex: result.CharacterHumanIndex);
 
-        UpdateNativeAnimationDiagnostics(result);
+        ResetNativeActivityObservation();
+        UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
         _lastTickUtc = DateTimeOffset.UtcNow;
@@ -456,6 +474,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _instanceId = null;
             _state = null;
             _nativeAnimationDiagnostics = null;
+            ResetNativeActivityObservation();
             _consecutiveFailures = 0;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
@@ -639,7 +658,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             }
 
             _consecutiveFailures = 0;
-            UpdateNativeAnimationDiagnostics(result);
+            UpdateNativeAnimationDiagnostics(result, updated.SpeedMps);
             _state = updated with
             {
                 LocalX = result.LocalX ?? updated.LocalX,
@@ -658,7 +677,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         }
     }
 
-    private void UpdateNativeAnimationDiagnostics(PluginBridgeMessage? result)
+    private void UpdateNativeAnimationDiagnostics(
+        PluginBridgeMessage? result,
+        double commandedSpeedMps)
     {
         if (result?.CharacterAiMode is not int aiMode ||
             result.CharacterAiModeEx is not int aiModeEx ||
@@ -679,6 +700,12 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return;
         }
 
+        var activityLeg = NormalizeOptionalByte(result.CharacterActivityLegRaw);
+        var activityArmUmbrella =
+            NormalizeOptionalByte(result.CharacterActivityArmUmbrellaRaw);
+        var activityArmKi = NormalizeOptionalByte(result.CharacterActivityArmKiRaw);
+        var activityHeadKi = NormalizeOptionalByte(result.CharacterActivityHeadKiRaw);
+
         _nativeAnimationDiagnostics = new RoleplayNativeAnimationDiagnostics(
             aiMode,
             aiModeEx,
@@ -687,10 +714,83 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             actSpeed,
             lastMovedDistance,
             animationState,
-            NormalizeOptionalByte(result.CharacterActivityLegRaw),
-            NormalizeOptionalByte(result.CharacterActivityArmUmbrellaRaw),
-            NormalizeOptionalByte(result.CharacterActivityArmKiRaw),
-            NormalizeOptionalByte(result.CharacterActivityHeadKiRaw));
+            activityLeg,
+            activityArmUmbrella,
+            activityArmKi,
+            activityHeadKi);
+
+        UpdateNativeActivityObservation(
+            activityLeg,
+            activityArmUmbrella,
+            activityArmKi,
+            activityHeadKi,
+            commandedSpeedMps);
+    }
+
+    private void UpdateNativeActivityObservation(
+        int? activityLeg,
+        int? activityArmUmbrella,
+        int? activityArmKi,
+        int? activityHeadKi,
+        double commandedSpeedMps)
+    {
+        if (activityLeg is null &&
+            activityArmUmbrella is null &&
+            activityArmKi is null &&
+            activityHeadKi is null)
+        {
+            _nativeActivityObservation = null;
+            _lastNativeActivitySignature = null;
+            return;
+        }
+
+        var signature = (
+            Leg: activityLeg,
+            ArmUmbrella: activityArmUmbrella,
+            ArmKi: activityArmKi,
+            HeadKi: activityHeadKi);
+        var changedThisFrame =
+            _lastNativeActivitySignature is { } previous &&
+            previous != signature;
+        var moving = double.IsFinite(commandedSpeedMps) &&
+                     commandedSpeedMps > 0.01d;
+
+        _nativeActivitySamples++;
+        if (moving)
+        {
+            _nativeActivityMovingSamples++;
+        }
+
+        if (changedThisFrame)
+        {
+            _nativeActivityTransitions++;
+            if (moving)
+            {
+                _nativeActivityMovingTransitions++;
+            }
+
+            _nativeActivityLastTransitionAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        _lastNativeActivitySignature = signature;
+        _nativeActivityObservation = new RoleplayNativeActivityObservation(
+            _nativeActivitySamples,
+            _nativeActivityMovingSamples,
+            _nativeActivityTransitions,
+            _nativeActivityMovingTransitions,
+            changedThisFrame,
+            _nativeActivityLastTransitionAtUtc);
+    }
+
+    private void ResetNativeActivityObservation()
+    {
+        _nativeActivityObservation = null;
+        _lastNativeActivitySignature = null;
+        _nativeActivitySamples = 0;
+        _nativeActivityMovingSamples = 0;
+        _nativeActivityTransitions = 0;
+        _nativeActivityMovingTransitions = 0;
+        _nativeActivityLastTransitionAtUtc = null;
     }
 
     private static int? NormalizeOptionalByte(int? value) =>
