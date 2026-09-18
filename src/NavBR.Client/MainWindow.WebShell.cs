@@ -619,6 +619,22 @@ public partial class MainWindow
                     GetWebPayloadString(payload, "companyName"));
                 break;
 
+            case "exportDriverProfile":
+                ExportDriverProfileFromWeb();
+                break;
+
+            case "selectDriverProfileImport":
+                SelectDriverProfileImportFromWeb();
+                break;
+
+            case "applyDriverProfileImport":
+                ApplyDriverProfileImportFromWeb();
+                break;
+
+            case "cancelDriverProfileImport":
+                CancelDriverProfileImportFromWeb();
+                break;
+
             case "discoverOmsiProfiles":
                 DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
                 break;
