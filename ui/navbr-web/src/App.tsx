@@ -1668,6 +1668,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
 
     patch({
       preset: preset.id,
+      theme: preset.themeId,
       width: preset.width,
       scale: preset.scale,
       opacity: preset.opacity,
@@ -1735,6 +1736,30 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           />
           <span>{t("hud.showPanel")}</span>
         </label>
+
+        <div className="hud-style-gallery">
+          {hud.presets.map(preset => (
+            <button
+              type="button"
+              key={preset.id}
+              className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
+              data-hud-theme={preset.themeId}
+              onClick={() => applyPreset(preset.id)}
+            >
+              <span className="hud-style-preview" aria-hidden="true">
+                <i className="hud-style-route" />
+                <i className="hud-style-speed" />
+                <i className="hud-style-chip first" />
+                <i className="hud-style-chip second" />
+              </span>
+              <span className="hud-style-copy">
+                <strong>{preset.displayName}</strong>
+                <small>{preset.inspiration}</small>
+                <em>{preset.description}</em>
+              </span>
+            </button>
+          ))}
+        </div>
 
         <div className="hud-select-grid">
           <label className="voice-field">
