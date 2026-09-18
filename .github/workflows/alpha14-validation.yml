@@ -48,13 +48,67 @@ jobs:
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
+          dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj
 
       - name: Build shared and server
         shell: pwsh
         run: |
           dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
           dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore
 
+      - name: Verify multiplayer players moving on the map
+        shell: pwsh
+        run: |
+          $server = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
+            "run",
+            "--project", "src/NavBR.Server/NavBR.Server.csproj",
+            "-c", "Release",
+            "--no-build",
+            "--",
+            "--urls", "http://127.0.0.1:27830"
+          )
+
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              try {
+                $health = Invoke-WebRequest "http://127.0.0.1:27830/health" -UseBasicParsing -TimeoutSec 2
+                if ($health.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Milliseconds 500
+              }
+            }
+
+            if (-not $ready) {
+              throw "NavBR test server did not become ready."
+            }
+
+            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+              -c Release --no-build -- `
+              --server http://127.0.0.1:27830 `
+              --room alpha14-ci-movement `
+              --players 6 `
+              --mode mixed `
+              --map "Alpha14 CI Map" `
+              --x 120 --y 80 --z 0 `
+              --radius 65 `
+              --interval 200 `
+              --duration 9 `
+              --verify
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Multiplayer map movement simulation failed."
+            }
+          }
+          finally {
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force
+            }
+          }
       - name: Build OMSI native interop x86
         shell: pwsh
         run: |
