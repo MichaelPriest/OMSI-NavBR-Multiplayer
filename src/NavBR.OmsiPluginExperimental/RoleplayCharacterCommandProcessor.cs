@@ -159,6 +159,8 @@ internal static class RoleplayCharacterBackend
         new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, int> RetainedTriggerStrings =
         new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, HashSet<string>> ActiveTriggersByInstance =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static PluginBridgeMessage Execute(PluginBridgeMessage command)
     {
@@ -449,8 +451,11 @@ internal static class RoleplayCharacterBackend
         {
             if (!Owned.Remove(instanceId, out var instance))
             {
+                ActiveTriggersByInstance.Remove(instanceId);
                 return RoleplayCharacterCommandProcessor.Result(command, true);
             }
+
+            ReleaseActiveTriggersBestEffort(instanceId, instance.OriginalBusPointer);
 
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
             {
@@ -566,6 +571,29 @@ internal static class RoleplayCharacterBackend
                     "OMSI rejected the guarded roleplay vehicle trigger.");
             }
 
+            if (triggerActive)
+            {
+                if (!ActiveTriggersByInstance.TryGetValue(
+                        instanceId,
+                        out var activeTriggers))
+                {
+                    activeTriggers = new HashSet<string>(StringComparer.Ordinal);
+                    ActiveTriggersByInstance[instanceId] = activeTriggers;
+                }
+
+                activeTriggers.Add(triggerName);
+            }
+            else if (ActiveTriggersByInstance.TryGetValue(
+                         instanceId,
+                         out var activeTriggers))
+            {
+                activeTriggers.Remove(triggerName);
+                if (activeTriggers.Count == 0)
+                {
+                    ActiveTriggersByInstance.Remove(instanceId);
+                }
+            }
+
             return RoleplayCharacterCommandProcessor.Result(
                 command,
                 true,
@@ -611,6 +639,10 @@ internal static class RoleplayCharacterBackend
         {
             foreach (var instance in Owned.Values)
             {
+                ReleaseActiveTriggersBestEffort(
+                    instance.InstanceId,
+                    instance.OriginalBusPointer);
+
                 if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
                 {
                     _ = OmsiNativeInterop.SetHumanTransform(
@@ -637,6 +669,35 @@ internal static class RoleplayCharacterBackend
             }
 
             Owned.Clear();
+            ActiveTriggersByInstance.Clear();
+        }
+    }
+
+    private static void ReleaseActiveTriggersBestEffort(
+        string instanceId,
+        int busPointer)
+    {
+        if (!ActiveTriggersByInstance.Remove(
+                instanceId,
+                out var activeTriggers) ||
+            activeTriggers.Count == 0 ||
+            OmsiNativeInterop.IsRoadVehiclePointer(busPointer) != 1)
+        {
+            return;
+        }
+
+        foreach (var triggerName in activeTriggers)
+        {
+            if (RetainedTriggerStrings.TryGetValue(
+                    triggerName,
+                    out var triggerPointer) &&
+                triggerPointer > 0)
+            {
+                _ = OmsiNativeInterop.TriggerRoadVehicle(
+                    busPointer,
+                    triggerPointer,
+                    active: 0);
+            }
         }
     }
 
