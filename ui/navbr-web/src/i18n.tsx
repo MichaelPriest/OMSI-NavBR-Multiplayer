@@ -10,6 +10,7 @@ type I18nContextValue = {
   cultureName: string;
   languages: SupportedLanguage[];
   t: (key: string, values?: Record<string, string | number>) => string;
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string;
   setLanguage: (cultureName: string) => void;
 };
 
@@ -763,6 +764,7 @@ const I18nContext = createContext<I18nContextValue>({
   cultureName: "en-US",
   languages: fallbackLanguages,
   t: key => dictionaries["en-US"][key] ?? key,
+  pick: (_pt, en) => en,
   setLanguage: cultureName => sendCommand("setLanguage", { cultureName })
 });
 
@@ -797,6 +799,15 @@ export function I18nProvider({
           }
         }
         return text;
+      },
+      pick: (pt, en, es, de, fr) => {
+        switch (normalized) {
+          case "pt-BR": return pt;
+          case "es-ES": return es;
+          case "de-DE": return de;
+          case "fr-FR": return fr;
+          default: return en;
+        }
       },
       setLanguage: nextCulture => sendCommand("setLanguage", { cultureName: nextCulture })
     };
