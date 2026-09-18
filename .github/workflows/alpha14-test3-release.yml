@@ -292,6 +292,10 @@ jobs:
             -p:Platform=AnyCPU -p:PlatformTarget=x64 `
             -o artifacts/simulator
 
+          New-Item -ItemType Directory -Force "artifacts/simulator/server" | Out-Null
+          Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
+
       - name: Prepare Alpha.14 Test 3 assets and notes
         shell: pwsh
         run: |
