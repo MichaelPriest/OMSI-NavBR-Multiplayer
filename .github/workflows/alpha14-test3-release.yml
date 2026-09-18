@@ -101,6 +101,24 @@ jobs:
             }
           }
 
+      - name: Build React public site
+        shell: pwsh
+        run: |
+          Push-Location site
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR public site dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR public site build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "site/dist/index.html")) {
+            throw "NavBR React public site output is incomplete."
+          }
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -115,8 +133,9 @@ jobs:
         run: |
           .\scripts\validate-xaml-colors.ps1
           .\scripts\validate-alpha14-user-surfaces.ps1
-          node --check site/app.js
-          node --check site/modern.js
+          $siteIndex = Get-Content "site/index.html" -Raw
+          if ($siteIndex -notmatch '<div id="root"></div>') { throw "Public site must mount React at #root." }
+          if ($siteIndex -match 'app\.js|modern\.js') { throw "Legacy imperative site scripts must not be loaded." }
 
       - name: Build OMSI native interop x86
         shell: pwsh
