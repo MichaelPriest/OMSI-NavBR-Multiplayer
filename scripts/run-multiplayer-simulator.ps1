@@ -17,7 +17,7 @@ param(
     [double]$X = 0,
     [double]$Y = 0,
     [double]$Z = 0,
-    [double]$Radius = 90,
+    [double]$Radius = 18,
     [int]$Duration = 0,
     [switch]$Verify,
     [switch]$NoAutoServer
