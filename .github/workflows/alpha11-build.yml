@@ -45,9 +45,13 @@ jobs:
         shell: pwsh
         run: .\scripts\validate-xaml-colors.ps1
 
-      - name: Validate site JavaScript
+      - name: Validate React site structure
         shell: pwsh
-        run: node --check site/app.js
+        run: |
+          if (-not (Test-Path "site/package.json")) { throw "React site package.json is missing." }
+          if (-not (Test-Path "site/src/main.jsx")) { throw "React site entrypoint is missing." }
+          node --check site/vite.config.js
+          node -e "JSON.parse(require('fs').readFileSync('site/package.json','utf8')); console.log('React site manifest OK')"
 
       - name: Build OMSI native interop x86
         shell: pwsh
