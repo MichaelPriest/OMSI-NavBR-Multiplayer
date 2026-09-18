@@ -528,6 +528,40 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
     return GetPlayerVehiclePointer();
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePosition(
+    int vehiclePointer,
+    float* x,
+    float* y,
+    float* z)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        x == nullptr ||
+        y == nullptr ||
+        z == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+    {
+        return 0;
+    }
+
+    const auto position = *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    if (!std::isfinite(position.x) ||
+        !std::isfinite(position.y) ||
+        !std::isfinite(position.z))
+    {
+        return 0;
+    }
+
+    *x = position.x;
+    *y = position.y;
+    *z = position.z;
+    return 1;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsPlayerBusDriverHuman(
     int humanPointer,
     int definitionPointer)

@@ -296,6 +296,13 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetPlayerVehiclePointer")]
     internal static extern int GetPlayerVehiclePointer();
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePosition")]
+    internal static extern int ReadRoadVehiclePosition(
+        int vehiclePointer,
+        out float x,
+        out float y,
+        out float z);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsPlayerBusDriverHuman")]
     internal static extern int IsPlayerBusDriverHuman(
         int humanPointer,
@@ -377,6 +384,12 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_FreeAnsiString")]
     internal static extern int FreeAnsiString(int stringData);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_TriggerRoadVehicle")]
+    internal static extern int TriggerRoadVehicle(
+        int vehiclePointer,
+        int triggerAnsiString,
+        int active);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_TempRoadVehicleListCreate")]
     internal static extern int TempRoadVehicleListCreate(int capacity);

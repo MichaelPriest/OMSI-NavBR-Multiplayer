@@ -31,6 +31,7 @@ public static class PluginBridgeProtocol
     public const string AcquireRoleplayCharacter = "acquire-roleplay-character";
     public const string UpdateRoleplayCharacter = "update-roleplay-character";
     public const string ReleaseRoleplayCharacter = "release-roleplay-character";
+    public const string TriggerRoleplayVehicle = "trigger-roleplay-vehicle";
     public const string CommandResult = "command-result";
 
     public const string CapabilityAdvancedTelemetry = "advanced-telemetry";
@@ -42,6 +43,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";
     public const string CapabilityCharacterTransform = "character-transform";
+    public const string CapabilityCharacterInteraction = "character-interaction";
 }
 
 public sealed record PluginBridgeMessage(
@@ -113,6 +115,8 @@ public sealed record PluginBridgeMessage(
     string? CharacterActivity = null,
     double? SpeedMps = null,
     bool? CharacterActive = null,
+    string? TriggerName = null,
+    bool? TriggerActive = null,
     string? AuthorityPlayerId = null,
     long? Sequence = null,
     TrafficVehicleState[]? TrafficVehicles = null);
