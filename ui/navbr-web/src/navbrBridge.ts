@@ -608,6 +608,15 @@ export interface NavBrRoleplayState {
   runtimeAvailable: boolean;
   active: boolean;
   terrainFollowing: boolean;
+  nativeAnimation?: {
+    aiMode: number;
+    aiModeEx: number;
+    aiSubMode: number;
+    sollSpeedMps: number;
+    actSpeedMps: number;
+    lastMovedDistanceMeters: number;
+    animationState: number;
+  } | null;
   busDistanceMeters?: number | null;
   enterBusRangeMeters: number;
   canEnterBus: boolean;
