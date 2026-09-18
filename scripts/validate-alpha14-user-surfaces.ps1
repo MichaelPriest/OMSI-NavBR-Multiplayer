@@ -133,6 +133,8 @@ Reject-Text "src/NavBR.Client/MainWindow.WebGhost.cs" @(
 Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     '"showLegacyShell"',
     '"openOmsiProfiles"',
+    '"openMultiplayerCentral"',
+    '"openHudEditor"',
     "ShowLegacyShellForWeb"
 )
 
@@ -143,7 +145,9 @@ Reject-Text "ui/navbr-web/src/App.tsx" @(
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
     '"showLegacyShell"',
-    '"openOmsiProfiles"'
+    '"openOmsiProfiles"',
+    '"openMultiplayerCentral"',
+    '"openHudEditor"'
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(

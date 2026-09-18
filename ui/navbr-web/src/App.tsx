@@ -2634,7 +2634,7 @@ function Multiplayer({
             <span className="eyebrow">HUD</span>
             <h3>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</h3>
             <p>{pick("Ativa o modo de reposicionamento do overlay nativo.", "Enables native overlay repositioning mode.", "Activa el modo de reposicionamiento del overlay nativo.", "Aktiviert den Verschiebemodus des nativen Overlays.", "Active le mode de repositionnement de l’overlay natif.")}</p>
-            <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
+            <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>

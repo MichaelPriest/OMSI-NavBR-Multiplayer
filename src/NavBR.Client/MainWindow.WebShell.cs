@@ -274,10 +274,6 @@ public partial class MainWindow
                 break;
             }
 
-            case "openMultiplayerCentral":
-                OpenMultiplayerCentralForShell();
-                break;
-
             case "ensureMultiplayerController":
                 OpenMultiplayerCentralForShell(showWindow: false);
                 break;
@@ -310,10 +306,6 @@ public partial class MainWindow
 
             case "toggleHudLayout":
                 ToggleHudLayoutForShell();
-                break;
-
-            case "openHudEditor":
-                OpenHudEditorForShell();
                 break;
 
             case "saveHudSettings":

@@ -179,9 +179,9 @@ public partial class MainWindow
 
     internal void OpenRoleplayCentralForShell()
     {
-        // React/WebView2 is the primary Alpha.14 surface. Native HUD and
-        // automatic prompts route into the React RP screen; WPF remains only
-        // as an explicit fallback from Settings.
+        // React/WebView2 is the only user-facing Alpha.14 surface. Native
+        // HUD actions and automatic prompts always route into the React RP
+        // screen; the WPF MainWindow remains an invisible service host only.
         NavigatePrimaryWebShell("roleplay");
         _multiplayerWindow?.SetLocalRoleplayCharacterState(
             _roleplayCharacterController?.CurrentState);
