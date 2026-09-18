@@ -1671,6 +1671,7 @@ function Settings({
   error: string | null;
   requestedTab?: SettingsTab | null;
 }) {
+  const { t } = useI18n();
   const system = state?.system;
   const network = state?.network;
   const [tab, setTab] = useState<SettingsTab>("installations");
@@ -1691,7 +1692,7 @@ function Settings({
   }, [tab, network?.diagnostics]);
 
   if (!system) {
-    return <div className="card empty-state">Aguardando configurações do sistema…</div>;
+    return <div className="card empty-state">{t("common.waiting")}…</div>;
   }
 
   const logSize = system.diagnostics.logSizeBytes >= 1024 * 1024
@@ -1703,12 +1704,12 @@ function Settings({
       <header className="topbar settings-header">
         <div>
           <span className="eyebrow">SISTEMA NAVBR</span>
-          <h1>Configurações</h1>
-          <p>Instalações do OMSI, diagnóstico e atalhos avançados mantidos pelo backend C#.</p>
+          <h1>{t("settings.title")}</h1>
+          <p>{t("settings.subtitle")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${state?.omsi.running ? "connected" : ""}`}>
-            <i /> {state?.omsi.running ? "OMSI detectado" : "OMSI fechado"}
+            <i /> {state?.omsi.running ? t("home.omsiDetected") : t("home.notDetected")}
           </span>
         </div>
       </header>
@@ -1717,12 +1718,12 @@ function Settings({
 
       <div className="mp-tabs settings-tabs" role="tablist">
         {([
-          ["installations", "Instalações OMSI"],
-          ["hud", "HUD"],
-          ["roadmap", "Roadmap"],
-          ["diagnostics", "Diagnóstico"],
-          ["network", "Rede"],
-          ["advanced", "Avançado"]
+          ["installations", t("settings.installations")],
+          ["hud", t("settings.hud")],
+          ["roadmap", t("settings.roadmap")],
+          ["diagnostics", t("settings.diagnostics")],
+          ["network", t("settings.network")],
+          ["advanced", t("settings.advanced")]
         ] as [SettingsTab, string][]).map(([key, label]) => (
           <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
         ))}
@@ -2624,21 +2625,18 @@ function Multiplayer({
 }
 
 
-function ghostStatusLabel(status: string | null | undefined) {
+function ghostStatusLabel(status: string | null | undefined, t: (key: string) => string) {
   switch (status) {
-    case "recording": return "Gravando viagem";
-    case "recording-saved": return "Ghost salvo";
-    case "recording-save-failed": return "Falha ao salvar Ghost";
-    case "recording-cancelled": return "Gravação cancelada";
-    case "ghost-loaded": return "Ghost carregado";
-    case "ghost-imported": return "Ghost importado";
-    case "ghost-load-failed": return "Falha ao abrir Ghost";
-    case "playback-starting": return "Iniciando Ghost 3D";
-    case "playback-stopping": return "Parando Ghost 3D";
-    case "playback-stopped": return "Ghost 3D interrompido";
-    case "playback-completed": return "Ghost 3D concluído";
-    case "playback-failed": return "Ghost 3D indisponível";
-    default: return status || "Pronto";
+    case "recording": return t("ghost.recording");
+    case "recording-saved": return t("ghost.saved");
+    case "recording-cancelled": return t("ghost.cancelled");
+    case "ghost-loaded": return t("ghost.loaded");
+    case "ghost-imported": return t("ghost.imported");
+    case "playback-starting": return t("ghost.playbackStarting");
+    case "playback-stopped": return t("ghost.playbackStopped");
+    case "playback-completed": return t("ghost.playbackCompleted");
+    case "playback-failed": return t("ghost.playbackUnavailable");
+    default: return status || t("common.ready");
   }
 }
 
@@ -2711,6 +2709,7 @@ function GhostReplay({
   state: NavBrState | null;
   error: string | null;
 }) {
+  const { t } = useI18n();
   const ghost: NavBrGhostState | undefined = state?.ghost;
   const [recordName, setRecordName] = useState("");
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -2721,7 +2720,7 @@ function GhostReplay({
   }, []);
 
   if (!ghost) {
-    return <div className="card empty-state">Aguardando estado do Ghost / Replay…</div>;
+    return <div className="card empty-state">{t("common.waiting")} Ghost / Replay…</div>;
   }
 
   const selected = ghost.selected;
@@ -2734,12 +2733,12 @@ function GhostReplay({
       <header className="topbar ghost-header">
         <div>
           <span className="eyebrow">GHOST / REPLAY</span>
-          <h1>Grave uma viagem real e reproduza em 3D.</h1>
-          <p>A gravação usa somente a telemetria local. O replay físico só escreve quando o Plugin Bridge aceita spawn/transform.</p>
+          <h1>{t("ghost.title")}</h1>
+          <p>{t("ghost.subtitle")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${ghost.recording || ghost.playing ? "connected" : ""}`}>
-            <i /> {ghost.recording ? `Gravando · ${ghost.frameCount} frames` : ghost.playing ? "Ghost 3D ativo" : ghostStatusLabel(ghost.status)}
+            <i /> {ghost.recording ? `Gravando · ${ghost.frameCount} frames` : ghost.playing ? t("ghost.playing") : ghostStatusLabel(ghost.status, t)}
           </span>
         </div>
       </header>
@@ -2749,14 +2748,14 @@ function GhostReplay({
       <section className="ghost-layout">
         <article className="card ghost-record-card">
           <div className="section-heading">
-            <div><span className="eyebrow">GRAVAÇÃO</span><h3>Telemetria real do OMSI</h3></div>
+            <div><span className="eyebrow">{t("ghost.recordingSection")}</span><h3>{t("ghost.realTelemetry")}</h3></div>
             <span className={`hardware-state-pill ${state?.telemetry?.inGame ? "connected" : ""}`}>
-              {state?.telemetry?.inGame ? "OMSI pronto" : "Aguardando mapa/ônibus"}
+              {state?.telemetry?.inGame ? t("ghost.omsiReady") : t("ghost.waitingMapBus")}
             </span>
           </div>
 
           <label className="voice-field">
-            <span>Nome da gravação</span>
+            <span>{t("ghost.recordName")}</span>
             <input
               value={recordName}
               disabled={ghost.recording || ghost.playing}
@@ -2771,34 +2770,34 @@ function GhostReplay({
               disabled={!canRecord}
               onClick={() => sendCommand("startGhostRecording", { name: recordName })}
             >
-              ● Gravar viagem
+              ● {t("ghost.recordTrip")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.recording}
               onClick={() => sendCommand("stopGhostRecording")}
             >
-              ■ Parar e salvar
+              ■ {t("ghost.stopSave")}
             </button>
             <button
               className="button ghost danger"
               disabled={!ghost.recording}
               onClick={() => sendCommand("cancelGhostRecording")}
             >
-              Cancelar gravação
+              {t("ghost.cancelRecording")}
             </button>
           </div>
 
           <div className="ghost-record-stats">
             <span><small>FRAMES</small><strong>{ghost.frameCount.toLocaleString()}</strong></span>
             <span><small>CADÊNCIA</small><strong>100 ms</strong></span>
-            <span><small>MODO</small><strong>Somente leitura</strong></span>
+            <span><small>MODO</small><strong>{t("ghost.readOnly")}</strong></span>
           </div>
         </article>
 
         <article className="card ghost-file-card">
           <div className="section-heading">
-            <div><span className="eyebrow">ARQUIVO GHOST</span><h3>{selected?.name || "Nenhum Ghost carregado"}</h3></div>
+            <div><span className="eyebrow">{t("ghost.file")}</span><h3>{selected?.name || t("ghost.noneLoaded")}</h3></div>
           </div>
 
           <div className="ghost-actions">
@@ -2807,10 +2806,10 @@ function GhostReplay({
               disabled={ghost.recording || ghost.playing}
               onClick={() => sendCommand("selectGhostFile")}
             >
-              Abrir Ghost
+              {t("ghost.open")}
             </button>
             <button className="button ghost" onClick={() => sendCommand("openGhostFolder")}>
-              Abrir pasta de Ghosts
+              {t("ghost.openFolder")}
             </button>
           </div>
 
@@ -2833,14 +2832,14 @@ function GhostReplay({
       <section className="ghost-layout ghost-secondary">
         <article className="card ghost-playback-card">
           <div className="section-heading">
-            <div><span className="eyebrow">GHOST 3D</span><h3>Reprodução física experimental</h3></div>
+            <div><span className="eyebrow">GHOST 3D</span><h3>{t("ghost.playback")}</h3></div>
             <span className={`hardware-state-pill ${ghost.playing ? "connected" : ""}`}>
-              {ghost.playing ? "Reproduzindo" : "Parado"}
+              {ghost.playing ? t("ghost.playing") : t("ghost.stopped")}
             </span>
           </div>
 
           <label className="voice-field">
-            <span>Velocidade: {playbackSpeed.toFixed(1)}×</span>
+            <span>{t("ghost.speed")}: {playbackSpeed.toFixed(1)}×</span>
             <input
               type="range"
               min="0.1"
@@ -2859,7 +2858,7 @@ function GhostReplay({
               disabled={ghost.playing}
               onChange={event => setLoop(event.target.checked)}
             />
-            <span>Repetir continuamente</span>
+            <span>{t("ghost.loop")}</span>
           </label>
 
           <div className="ghost-actions">
@@ -2868,35 +2867,35 @@ function GhostReplay({
               disabled={!canPlay}
               onClick={() => sendCommand("playGhost", { playbackSpeed, loop })}
             >
-              ▶ Reproduzir Ghost 3D
+              ▶ {t("ghost.play")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.playing}
               onClick={() => sendCommand("stopGhostPlayback")}
             >
-              ■ Parar reprodução
+              ■ {t("ghost.stopPlayback")}
             </button>
           </div>
 
           <p className="migration-note">
-            O NavBR falha de forma segura se o Plugin Bridge não aceitar spawn ou transforms do Ghost.
+            {t("ghost.safeFailure")}
           </p>
         </article>
 
         <article className="card ghost-analytics-card">
           <div className="section-heading">
-            <div><span className="eyebrow">ANALYTICS</span><h3>Métricas do replay</h3></div>
+            <div><span className="eyebrow">ANALYTICS</span><h3>{t("ghost.metrics")}</h3></div>
           </div>
 
           {!analytics ? (
-            <div className="empty-state">Abra ou grave um Ghost para calcular as métricas reais do arquivo.</div>
+            <div className="empty-state">{t("ghost.noAnalytics")}</div>
           ) : (
             <div className="ghost-analytics-grid">
-              <span><small>DISTÂNCIA ESTIMADA</small><strong>{analytics.estimatedDistanceKm.toFixed(2)} km</strong></span>
-              <span><small>VELOCIDADE MÉDIA</small><strong>{analytics.averageSpeedKph.toFixed(1)} km/h</strong></span>
-              <span><small>VELOCIDADE MÁXIMA</small><strong>{analytics.maximumSpeedKph.toFixed(1)} km/h</strong></span>
-              <span><small>AMOSTRAS VÁLIDAS</small><strong>{analytics.validSpeedSamples.toLocaleString()}</strong></span>
+              <span><small>{t("ghost.estimatedDistance")}</small><strong>{analytics.estimatedDistanceKm.toFixed(2)} km</strong></span>
+              <span><small>{t("ghost.averageSpeed")}</small><strong>{analytics.averageSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>{t("ghost.maximumSpeed")}</small><strong>{analytics.maximumSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>{t("ghost.validSamples")}</small><strong>{analytics.validSpeedSamples.toLocaleString()}</strong></span>
             </div>
           )}
         </article>
@@ -2905,20 +2904,20 @@ function GhostReplay({
       <section className="ghost-layout ghost-secondary">
         <article className="card ghost-library-card">
           <div className="section-heading">
-            <div><span className="eyebrow">BIBLIOTECA</span><h3>Replays locais</h3></div>
+            <div><span className="eyebrow">{t("ghost.library")}</span><h3>{t("ghost.localReplays")}</h3></div>
             <div className="ghost-library-actions">
               <button
                 className="button ghost compact"
                 disabled={ghost.recording || ghost.playing}
                 onClick={() => sendCommand("importGhostReplay")}
               >
-                Importar
+                {t("common.import")}
               </button>
               <button
                 className="button ghost compact"
                 onClick={() => sendCommand("refreshGhostLibrary")}
               >
-                Atualizar
+                {t("common.refresh")}
               </button>
             </div>
           </div>
@@ -2926,8 +2925,8 @@ function GhostReplay({
           {ghost.library.length === 0 ? (
             <div className="empty-state">
               {ghost.libraryInvalidCount > 0
-                ? `Nenhum replay válido. ${ghost.libraryInvalidCount} arquivo(s) incompatível(is) ignorado(s).`
-                : "Nenhum replay gravado na biblioteca local."}
+                ? t("ghost.noValid", { count: ghost.libraryInvalidCount })
+                : t("ghost.noReplays")}
             </div>
           ) : (
             <div className="ghost-library-list">
@@ -2952,17 +2951,17 @@ function GhostReplay({
           )}
 
           {ghost.libraryInvalidCount > 0 && ghost.library.length > 0 && (
-            <p className="migration-note">{ghost.libraryInvalidCount} arquivo(s) incompatível(is) foram ignorados.</p>
+            <p className="migration-note">{t("ghost.invalidIgnored", { count: ghost.libraryInvalidCount })}</p>
           )}
         </article>
 
         <article className="card ghost-route-card">
           <div className="section-heading">
-            <div><span className="eyebrow">PRÉVIA LOCAL</span><h3>Trajeto gravado</h3></div>
+            <div><span className="eyebrow">{t("ghost.preview")}</span><h3>{t("ghost.recordedRoute")}</h3></div>
             <span className="route-source-pill">READ-ONLY</span>
           </div>
           <GhostRoutePreview points={selected?.routePoints || []} />
-          <p className="migration-note">A prévia usa coordenadas X/Z dos frames reais e não envia comandos para o OMSI.</p>
+          <p className="migration-note">{t("ghost.previewNote")}</p>
         </article>
       </section>
     </>
