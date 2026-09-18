@@ -53,6 +53,9 @@ export interface NavBrPublicRoom {
   hofCompatibilityId?: string | null;
   pluginProtocolVersion: number;
   favorite: boolean;
+  compatibility: "compatible" | "warning" | "blocked";
+  compatibilityIssues: string[];
+  directJoinAllowed: boolean;
 }
 
 export interface NavBrRoomDirectory {
