@@ -1,6 +1,6 @@
 # Alpha.14 — escopo mestre
 
-Versão de validação pública: **v0.3.0-alpha.14-test.3**.
+Versão de validação pública: **v0.3.0-alpha.14-test.4**.
 
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
