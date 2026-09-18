@@ -112,6 +112,12 @@ jobs:
             -p:NativeLib=Shared `
             -o artifacts/NavBR.OmsiPlugin.Experimental
 
+      - name: Add native interop to plugin bundle
+        shell: pwsh
+        run: |
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" `
+            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll" -Force
+
       - name: Validate plugin binary
         shell: pwsh
         run: |
