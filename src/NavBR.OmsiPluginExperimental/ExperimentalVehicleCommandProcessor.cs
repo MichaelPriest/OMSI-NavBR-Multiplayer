@@ -208,7 +208,10 @@ internal static class PhysicalVehicleBackend
                 command.VehicleCompatibilityId,
                 out var vehiclePath))
         {
-            return Fail(command, "invalid-vehicle-path", "Vehicle path must resolve to an existing Vehicles\\*.bus or Vehicles\\*.ovh file.");
+            return Fail(
+                command,
+                "invalid-vehicle-path",
+                "The remote vehicle asset could not be resolved by its reported Vehicles path or sha256 compatibility fingerprint.");
         }
 
         if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var before))

@@ -102,6 +102,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var physicalFrame = frame with
+        {
+            Telemetry = frame.Telemetry with
+            {
+                VehiclePath = remoteManifest.VehiclePath,
+                VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
+                HofName = remoteManifest.HofName,
+                HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
+
         if (!_spawned.ContainsKey(frame.Player.PlayerId) &&
             _spawned.Count >= MaxPhysicalRemotePlayers)
         {
@@ -112,7 +123,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (_spawned.TryAdd(frame.Player.PlayerId, 0))
         {
             var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
-                frame,
+                physicalFrame,
                 cancellationToken);
             if (spawn?.Success != true)
             {
@@ -126,7 +137,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
-            frame,
+            physicalFrame,
             cancellationToken);
         if (update is { Success: false })
         {
