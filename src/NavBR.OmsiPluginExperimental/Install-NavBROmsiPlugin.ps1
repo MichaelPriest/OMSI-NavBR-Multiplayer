@@ -132,6 +132,8 @@ foreach ($file in $files) {
     '# OMSI NavBR Plugin experimental - arquivos instalados'
     "# Instalado em: $(Get-Date -Format o)"
     '# Deployment: Native AOT x86 + NavBR OMSI ABI interop x86'
+    '# Bridge protocol: v3'
+    '# State interop ABI: v3'
     $installed
 ) | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 
@@ -143,5 +145,5 @@ Write-Host "Arquivos: $($installed.Count)"
 Write-Host 'Runtime .NET x86: não necessário (embutido no plugin Native AOT).'
 Write-Host 'Interop OMSI: NavBR.OmsiInterop.dll x86 instalado junto ao plugin.'
 Write-Host ''
-Write-Host 'Após iniciar o OMSI, confira o painel PLUGIN BRIDGE v1 • EXP e o log:'
+Write-Host 'Após iniciar o OMSI, confira o estado do Plugin NavBR v3 na Central Multiplayer e o log:'
 Write-Host '%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-plugin.log'
