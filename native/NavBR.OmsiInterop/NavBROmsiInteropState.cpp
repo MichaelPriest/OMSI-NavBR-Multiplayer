@@ -440,7 +440,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 2;
+    return 3;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
