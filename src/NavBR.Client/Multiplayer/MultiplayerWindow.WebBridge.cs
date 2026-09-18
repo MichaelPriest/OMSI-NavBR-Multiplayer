@@ -29,6 +29,8 @@ public partial class MultiplayerWindow
             })
             .ToArray();
 
+        var sessionPoints = BuildWebSessionPoints(now);
+
         var chat = _chatMessages
             .TakeLast(80)
             .Select(message => new
@@ -63,8 +65,131 @@ public partial class MultiplayerWindow
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
             playerCount = players.Length,
             players,
+            sessionPoints,
             chat
         };
+    }
+
+    private IReadOnlyList<WebSessionPoint> BuildWebSessionPoints(DateTimeOffset now)
+    {
+        var points = new List<WebSessionPoint>();
+        var local = _telemetrySource();
+        var activeMap = _activeMapSource();
+
+        if (_localRoleplayCharacter is { IsActive: true } localRoleplay &&
+            now - localRoleplay.Timestamp <= TimeSpan.FromSeconds(3d) &&
+            IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, localRoleplay))
+        {
+            points.Add(new WebSessionPoint(
+                _settings.PlayerId,
+                _settings.DisplayName,
+                "roleplay",
+                localRoleplay.LocalX,
+                localRoleplay.LocalY,
+                localRoleplay.HeadingDegrees,
+                localRoleplay.SpeedMps * 3.6d,
+                null,
+                true,
+                localRoleplay.Activity.ToString()));
+        }
+        else if (local is not null &&
+                 local.IsInGame &&
+                 TryGetSessionCoordinates(local, out var localX, out var localY))
+        {
+            points.Add(new WebSessionPoint(
+                _settings.PlayerId,
+                _settings.DisplayName,
+                "bus",
+                localX,
+                localY,
+                local.HeadingDegrees,
+                local.SpeedKph,
+                local.Line,
+                true,
+                null));
+        }
+
+        foreach (var item in _remoteTelemetry)
+        {
+            if (_remoteRoleplayCharacters.TryGetValue(item.Key, out var roleplayFrame) &&
+                roleplayFrame.Character.IsActive &&
+                now - roleplayFrame.Character.Timestamp <= TimeSpan.FromSeconds(3d) &&
+                IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, roleplayFrame.Character))
+            {
+                var displayName = _players.TryGetValue(item.Key, out var roleplayPlayer)
+                    ? roleplayPlayer.DisplayName
+                    : roleplayFrame.Player.DisplayName;
+                points.Add(new WebSessionPoint(
+                    item.Key,
+                    displayName,
+                    "roleplay",
+                    roleplayFrame.Character.LocalX,
+                    roleplayFrame.Character.LocalY,
+                    roleplayFrame.Character.HeadingDegrees,
+                    roleplayFrame.Character.SpeedMps * 3.6d,
+                    null,
+                    false,
+                    roleplayFrame.Character.Activity.ToString()));
+                continue;
+            }
+
+            var telemetry = item.Value;
+            if (!telemetry.IsInGame ||
+                now - telemetry.Timestamp > TimeSpan.FromSeconds(3d) ||
+                !IsSessionTelemetryCompatible(local, activeMap?.CompatibilityId, item.Key, telemetry) ||
+                !TryGetSessionCoordinates(telemetry, out var x, out var y))
+            {
+                continue;
+            }
+
+            var remoteName = _players.TryGetValue(item.Key, out var player)
+                ? player.DisplayName
+                : item.Key;
+            points.Add(new WebSessionPoint(
+                item.Key,
+                remoteName,
+                "bus",
+                x,
+                y,
+                telemetry.HeadingDegrees,
+                telemetry.SpeedKph,
+                telemetry.Line,
+                false,
+                null));
+        }
+
+        foreach (var item in _remoteRoleplayCharacters)
+        {
+            if (_remoteTelemetry.ContainsKey(item.Key))
+            {
+                continue;
+            }
+
+            var frame = item.Value;
+            if (!frame.Character.IsActive ||
+                now - frame.Character.Timestamp > TimeSpan.FromSeconds(3d) ||
+                !IsRoleplaySessionCompatible(local, activeMap?.CompatibilityId, frame.Character))
+            {
+                continue;
+            }
+
+            var displayName = _players.TryGetValue(item.Key, out var player)
+                ? player.DisplayName
+                : frame.Player.DisplayName;
+            points.Add(new WebSessionPoint(
+                item.Key,
+                displayName,
+                "roleplay",
+                frame.Character.LocalX,
+                frame.Character.LocalY,
+                frame.Character.HeadingDegrees,
+                frame.Character.SpeedMps * 3.6d,
+                null,
+                false,
+                frame.Character.Activity.ToString()));
+        }
+
+        return points;
     }
 
     internal void SetVoiceEnabledFromWeb(bool enabled)
@@ -205,6 +330,18 @@ public partial class MultiplayerWindow
         UpdateButtons();
         RefreshSessionSummary();
     }
+
+    private sealed record WebSessionPoint(
+        string PlayerId,
+        string DisplayName,
+        string Kind,
+        double X,
+        double Y,
+        double HeadingDegrees,
+        double SpeedKph,
+        string? Line,
+        bool IsLocal,
+        string? Activity);
 }
 
 internal static class MultiplayerWebInput
