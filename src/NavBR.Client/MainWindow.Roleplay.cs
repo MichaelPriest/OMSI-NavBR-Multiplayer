@@ -13,6 +13,8 @@ public partial class MainWindow
 
     internal void InitializeRoleplayForShell()
     {
+        ExperimentalFeatureFlags.SetRoleplayCharacterEnabled(
+            MultiplayerSettingsStore.Load().ExperimentalRoleplayCharacterEnabled);
         HookRoleplayLifetime();
 
         if (_roleplayAutoPromptTimer is not null)
