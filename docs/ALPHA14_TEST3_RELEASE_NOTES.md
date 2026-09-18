@@ -5,6 +5,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 ## React/WebView2
 
 - React + TypeScript + Vite hospedado no cliente .NET/WPF x86;
+- idioma do shell React sincronizado com o `LocalizationService` nativo, com pt-BR, en-US, es-ES, de-DE e fr-FR usando a mesma preferência persistida do app;
 - React passa a ser o shell principal após carregamento confirmado;
 - fallback WPF seguro quando WebView2 falha ou quando o usuário solicita;
 - Home e Executar OMSI;
@@ -52,6 +53,12 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - auto-reconnect somente à COM escolhida;
 - Firewall aplicado com UAC e verificação;
 - NAT/UPnP separados de alcance externo.
+
+## Release safety
+
+- o workflow da Test 3 mantém a release em **draft** após build/upload/validação dos artefatos;
+- publicação da prerelease exige execução manual com `publish=true`;
+- GitHub Pages só é atualizado automaticamente depois dessa aprovação explícita.
 
 ## CI
 
