@@ -222,6 +222,29 @@ export interface NavBrOperationsState {
   };
 }
 
+export interface NavBrOmsiInstallation {
+  id: string;
+  name: string;
+  installDirectory: string;
+  executablePath: string;
+  executableExists: boolean;
+  isPreferred: boolean;
+  launchArguments?: string | null;
+  lastUsedAtUtc?: string | null;
+  isRunning: boolean;
+}
+
+export interface NavBrSystemState {
+  installations: NavBrOmsiInstallation[];
+  diagnostics: {
+    enabled: boolean;
+    logPath: string;
+    logExists: boolean;
+    logSizeBytes: number;
+    logUpdatedAtUtc?: string | null;
+  };
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -247,6 +270,7 @@ export interface NavBrState {
   };
   navigation: NavBrNavigationState;
   operations: NavBrOperationsState;
+  system: NavBrSystemState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -273,6 +297,15 @@ export type NavBrCommand =
   | "registerCurrentVehicle"
   | "removeFleetVehicle"
   | "saveDriverProfile"
+  | "discoverOmsiProfiles"
+  | "launchOmsiProfile"
+  | "setPreferredOmsiProfile"
+  | "updateOmsiProfile"
+  | "removeOmsiProfile"
+  | "setDiagnosticsEnabled"
+  | "flushDiagnostics"
+  | "purgeDiagnostics"
+  | "openOmsiProfiles"
   | "sendChat";
 
 declare global {
