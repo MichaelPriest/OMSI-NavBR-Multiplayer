@@ -190,7 +190,7 @@ internal static class OmsiSplineGroundHeightResolver
             }
 
             var relativePath = lines[index + 3].Trim()
-                .Replace('\', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar)
                 .Replace('/', Path.DirectorySeparatorChar);
             if (string.IsNullOrWhiteSpace(relativePath))
             {
