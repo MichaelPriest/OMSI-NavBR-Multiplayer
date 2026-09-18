@@ -168,9 +168,9 @@ internal sealed class OmsiVehicleAssetResolver
         CancellationToken cancellationToken)
     {
         var vehiclesRoot = Path.Combine(root, "Vehicles");
-        _lastIndexBuildUtc = DateTimeOffset.UtcNow;
         if (!Directory.Exists(vehiclesRoot))
         {
+            _lastIndexBuildUtc = DateTimeOffset.UtcNow;
             return;
         }
 
@@ -224,6 +224,9 @@ internal sealed class OmsiVehicleAssetResolver
         catch (UnauthorizedAccessException)
         {
         }
+
+        // Only a completed/non-cancelled pass is considered a fresh index.
+        _lastIndexBuildUtc = DateTimeOffset.UtcNow;
     }
 
     private void CacheMiss(string missKey) =>
