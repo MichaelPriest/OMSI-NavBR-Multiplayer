@@ -214,6 +214,7 @@ public partial class MultiplayerWindow : Window
             await DisconnectAsync();
             await _host.StopAsync();
             InviteAddressText.Text = string.Empty;
+            RoomInviteAddressText.Text = string.Empty;
             SetInputsEnabled(true);
             UpdateButtons();
             RefreshSessionSummary();
@@ -979,12 +980,15 @@ public partial class MultiplayerWindow : Window
     private void RenderInviteAddresses()
     {
         var addresses = _host.GetLanJoinUrls();
-        InviteAddressText.Text = addresses.Count == 0
+        var text = addresses.Count == 0
             ? LocalizationService.Format("MultiplayerHostingPort", DefaultHostPort)
             : LocalizationService.Format(
                 "MultiplayerInviteAddress",
                 string.Join("  |  ", addresses),
                 _settings.RoomId);
+
+        InviteAddressText.Text = text;
+        RoomInviteAddressText.Text = text;
         RefreshSessionSummary();
     }
 
