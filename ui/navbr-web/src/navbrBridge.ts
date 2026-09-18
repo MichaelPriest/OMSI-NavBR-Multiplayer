@@ -345,6 +345,36 @@ export interface NavBrRoadmapStudioState {
   } | null;
 }
 
+export interface NavBrGhostState {
+  recording: boolean;
+  frameCount: number;
+  playing: boolean;
+  selectedPath?: string | null;
+  status?: string | null;
+  error?: string | null;
+  ghostDirectory: string;
+  selected?: {
+    name: string;
+    recordedAtUtc: string;
+    mapName?: string | null;
+    mapCompatibilityId?: string | null;
+    vehicleName?: string | null;
+    vehiclePath?: string | null;
+    vehicleCompatibilityId?: string | null;
+    hofName?: string | null;
+    hofCompatibilityId?: string | null;
+    durationSeconds: number;
+    frameCount: number;
+    analytics?: {
+      durationSeconds: number;
+      estimatedDistanceKm: number;
+      averageSpeedKph: number;
+      maximumSpeedKph: number;
+      validSpeedSamples: number;
+    } | null;
+  } | null;
+}
+
 export interface NavBrHardwareState {
   protocol: string;
   connected: boolean;
@@ -529,6 +559,7 @@ export interface NavBrState {
   operations: NavBrOperationsState;
   system: NavBrSystemState;
   roadmapStudio: NavBrRoadmapStudioState;
+  ghost: NavBrGhostState;
   hardware: NavBrHardwareState;
   network: NavBrNetworkState;
   companyNetwork: NavBrCompanyNetworkState;
@@ -556,6 +587,13 @@ export type NavBrCommand =
   | "buildRoadmapTiles"
   | "buildRoadmapVector"
   | "openRoadmapFolder"
+  | "startGhostRecording"
+  | "stopGhostRecording"
+  | "cancelGhostRecording"
+  | "selectGhostFile"
+  | "playGhost"
+  | "stopGhostPlayback"
+  | "openGhostFolder"
   | "connectRoom"
   | "createLocalRoom"
   | "disconnectRoom"
