@@ -10,6 +10,8 @@ namespace NavBR.Client;
 
 public partial class MainWindow
 {
+    private string? _webOmsiLaunchNotice;
+
     private object BuildWebSystemState()
     {
         var profiles = OmsiInstallationProfileStore.Load();
@@ -31,6 +33,7 @@ public partial class MainWindow
 
         return new
         {
+            installationsNotice = _webOmsiLaunchNotice,
             installations = profiles
                 .Select(profile => new
                 {
@@ -119,6 +122,7 @@ public partial class MainWindow
 
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
     {
+        _webOmsiLaunchNotice = null;
         OmsiInstallationProfileStore.DiscoverAndMerge(
             string.IsNullOrWhiteSpace(preferredPath) ? _currentOmsi?.InstallDirectory : preferredPath.Trim());
     }
@@ -144,6 +148,7 @@ public partial class MainWindow
         }
 
         OmsiInstallationProfileStore.DiscoverAndMerge(dialog.FolderName);
+        _webOmsiLaunchNotice = null;
     }
 
     private static void OpenOmsiProfileFolderFromWeb(string? profileId)
@@ -193,6 +198,7 @@ public partial class MainWindow
             throw new InvalidOperationException("O perfil OMSI selecionado não existe mais.");
         }
 
+        _webOmsiLaunchNotice = null;
         var result = OmsiLauncherService.Launch(profile);
         StatusText.Text = result.AlreadyRunning
             ? $"OMSI já está em execução • {profile.Name}"

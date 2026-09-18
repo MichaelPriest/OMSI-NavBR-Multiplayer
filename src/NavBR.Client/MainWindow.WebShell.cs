@@ -16,9 +16,6 @@ public partial class MainWindow
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
 
-    private void WebShellButton_Click(object sender, RoutedEventArgs e) =>
-        OpenWebShell(primary: false);
-
     internal void OpenPrimaryWebShell() =>
         OpenWebShell(primary: true);
 
@@ -45,20 +42,6 @@ public partial class MainWindow
         _webShellWindow?.Hide();
         ShowInTaskbar = false;
         Hide();
-    }
-
-    private void ShowLegacyShellForWeb()
-    {
-        _webShellPrimaryMode = false;
-        _webShellWindow?.Hide();
-        ShowInTaskbar = true;
-        Show();
-        if (WindowState == WindowState.Minimized)
-        {
-            WindowState = WindowState.Normal;
-        }
-
-        Activate();
     }
 
     private void OpenWebShell(bool primary)
@@ -112,10 +95,11 @@ public partial class MainWindow
             if (_webShellPrimaryMode &&
                 Application.Current?.Dispatcher.HasShutdownStarted != true)
             {
-                _webShellPrimaryMode = false;
-                ShowInTaskbar = true;
-                Show();
-                Activate();
+                // The WPF MainWindow is now a native service host only.
+                // Closing the React shell leaves NavBR in the tray instead of
+                // exposing the retired WPF user interface.
+                ShowInTaskbar = false;
+                Hide();
             }
         };
         window.Show();
@@ -574,14 +558,6 @@ public partial class MainWindow
 
             case "purgeDiagnostics":
                 PurgeDiagnosticsFromWeb();
-                break;
-
-            case "openOmsiProfiles":
-                OpenOmsiProfilesForShell();
-                break;
-
-            case "showLegacyShell":
-                ShowLegacyShellForWeb();
                 break;
 
             case "refreshNetworkDiagnostics":

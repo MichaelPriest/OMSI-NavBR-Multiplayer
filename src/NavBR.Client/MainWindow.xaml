@@ -5,7 +5,12 @@
         Height="820" Width="1180"
         MinHeight="680" MinWidth="900"
         Icon="Assets/NavBR.ico"
-        WindowStartupLocation="CenterScreen">
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        Opacity="0"
+        WindowStartupLocation="Manual"
+        Left="-32000"
+        Top="-32000">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid Margin="26">
             <Grid.RowDefinitions>
@@ -53,11 +58,6 @@
                                   Width="168"
                                   SelectionChanged="LanguageComboBox_SelectionChanged" />
                     </StackPanel>
-                    <Button x:Name="WebShellButton"
-                            MinWidth="138"
-                            Margin="0,0,10,0"
-                            Content="Nova interface"
-                            Click="WebShellButton_Click" />
                     <Button x:Name="MultiplayerButton"
                             MinWidth="160"
                             Style="{StaticResource NavPrimaryButton}"
