@@ -7,6 +7,17 @@ export interface NavBrPlayer {
   latencyMs?: number | null;
   roleplayActive: boolean;
   speaking: boolean;
+  isLocal: boolean;
+  line?: string | null;
+  route?: string | null;
+  destinationName?: string | null;
+  nextStopName?: string | null;
+  vehicleName?: string | null;
+  speedKph?: number | null;
+  delaySeconds?: number | null;
+  telemetryAgeSeconds?: number | null;
+  telemetryStale: boolean;
+  distanceText?: string | null;
 }
 
 export interface NavBrChatMessage {
