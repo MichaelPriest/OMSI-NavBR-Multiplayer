@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
@@ -195,6 +196,49 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         var connection = RequireConnectedConnection();
         await connection.SendAsync("SendChatMessage", text, cancellationToken);
+    }
+
+    public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
+        bool voiceEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return null;
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        await connection.InvokeAsync("NavBrPing", cancellationToken);
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var latencyMs = Math.Clamp(
+            (int)Math.Round(elapsed.TotalMilliseconds),
+            0,
+            5000);
+
+        await PublishClientStatusAsync(
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+        return elapsed;
+    }
+
+    public async Task PublishClientStatusAsync(
+        bool voiceEnabled,
+        int? latencyMs,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        await connection.SendAsync(
+            "UpdateClientStatus",
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
     }
 
     public async Task PublishVoiceFrameAsync(
