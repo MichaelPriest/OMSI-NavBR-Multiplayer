@@ -277,6 +277,34 @@ export interface NavBrHardwareState {
   } | null;
 }
 
+export interface NavBrNetworkState {
+  hostPort: number;
+  hostRunning: boolean;
+  runningAsAdministrator: boolean;
+  automaticUpnpEnabled: boolean;
+  message?: string | null;
+  error?: string | null;
+  diagnostics?: {
+    localIpv4Addresses: string[];
+    localPortListening: boolean;
+    firewallRulePresent: boolean;
+    automaticUpnpEnabled: boolean;
+    upnpGatewayFound: boolean;
+    gatewayLocalAddress?: string | null;
+    gatewayExternalAddress?: string | null;
+    environmentKind: string;
+    externalPortVerified: boolean;
+    technicalNote: string;
+  } | null;
+  externalProbe?: {
+    reachable: boolean;
+    port: number;
+    status: string;
+    checkedAtUtc: string;
+    durationMilliseconds: number;
+  } | null;
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -304,6 +332,7 @@ export interface NavBrState {
   operations: NavBrOperationsState;
   system: NavBrSystemState;
   hardware: NavBrHardwareState;
+  network: NavBrNetworkState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -343,6 +372,10 @@ export type NavBrCommand =
   | "disconnectHardware"
   | "saveHardwareSelection"
   | "showLegacyShell"
+  | "refreshNetworkDiagnostics"
+  | "applyFirewallRule"
+  | "setAutomaticUpnp"
+  | "runExternalPortProbe"
   | "sendChat";
 
 declare global {
