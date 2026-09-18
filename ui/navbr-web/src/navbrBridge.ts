@@ -595,6 +595,9 @@ export interface NavBrRoleplayState {
   runtimeAvailable: boolean;
   active: boolean;
   terrainFollowing: boolean;
+  busDistanceMeters?: number | null;
+  enterBusRangeMeters: number;
+  canEnterBus: boolean;
   status?: string | null;
   selected?: {
     id: string;
@@ -762,6 +765,7 @@ export type NavBrCommand =
   | "setRoleplayEnabled"
   | "selectRoleplayCharacter"
   | "startRoleplay"
+  | "enterRoleplayBus"
   | "stopRoleplay"
   | "openNavigation3D"
   | "toggleHudLayout"

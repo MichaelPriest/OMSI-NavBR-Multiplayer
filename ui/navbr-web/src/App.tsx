@@ -2261,6 +2261,10 @@ function roleplayStatusLabel(
     case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
     case "roleplay-map-or-character-changed": return pick("Mapa/personagem alterado", "Map/character changed", "Mapa/personaje cambiado", "Karte/Charakter geändert", "Carte/personnage modifié");
     case "roleplay-control-lost": return pick("Controle do personagem perdido", "Character control lost", "Control del personaje perdido", "Charaktersteuerung verloren", "Contrôle du personnage perdu");
+    case "roleplay-bus-too-far": return pick("Aproxime-se do ônibus para entrar", "Move closer to the bus to enter", "Acércate al autobús para entrar", "Gehe näher zum Bus, um einzusteigen", "Rapprochez-vous du bus pour entrer");
+    case "roleplay-bus-position-unavailable": return pick("Posição do ônibus indisponível", "Bus position unavailable", "Posición del autobús no disponible", "Busposition nicht verfügbar", "Position du bus indisponible");
+    case "roleplay-entered-bus": return pick("Retornou ao ônibus", "Returned to the bus", "Volvió al autobús", "Zum Bus zurückgekehrt", "Retour au bus");
+    case "roleplay-emergency-return": return pick("RP encerrado pelo retorno de emergência", "RP ended by emergency return", "RP finalizado por retorno de emergencia", "RP durch Notfall-Rückkehr beendet", "RP terminé par retour d’urgence");
     case "roleplay-disabled": return pick("Recurso RP desativado", "RP feature disabled", "Función RP desactivada", "RP-Funktion deaktiviert", "Fonction RP désactivée");
     case "roleplay-enabled": return pick("Recurso RP ativado", "RP feature enabled", "Función RP activada", "RP-Funktion aktiviert", "Fonction RP activée");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
@@ -2336,6 +2340,7 @@ function RoleplayPanel({
             <div><small>{pick("MAPA PRONTO", "MAP READY", "MAPA LISTO", "KARTE BEREIT", "CARTE PRÊTE")}</small><strong>{roleplay.mapReady ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></div>
             <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : pick("Não conectado", "Not connected", "No conectado", "Nicht verbunden", "Non connecté")}</strong></div>
             <div><small>{pick("TERRENO", "TERRAIN", "TERRENO", "GELÄNDE", "TERRAIN")}</small><strong>{roleplay.active ? roleplay.terrainFollowing ? pick("Seguindo spline", "Following spline", "Siguiendo spline", "Spline-Folge aktiv", "Suivi de spline") : pick("Altura preservada", "Height preserved", "Altura conservada", "Höhe beibehalten", "Hauteur conservée") : "—"}</strong></div>
+            <div><small>{pick("DISTÂNCIA DO ÔNIBUS", "BUS DISTANCE", "DISTANCIA DEL AUTOBÚS", "BUS-ENTFERNUNG", "DISTANCE DU BUS")}</small><strong>{roleplay.active ? `${format(roleplay.busDistanceMeters, 1)} m` : "—"}</strong></div>
           </div>
 
           {current && (
@@ -2349,7 +2354,14 @@ function RoleplayPanel({
 
           <div className="action-row rp-actions">
             {roleplay.active ? (
-              <button className="button primary" onClick={() => sendCommand("stopRoleplay")}>{pick("Retornar ao ônibus", "Return to bus", "Volver al autobús", "Zum Bus zurückkehren", "Retourner au bus")}</button>
+              <>
+                <button className="button primary" disabled={!roleplay.canEnterBus} onClick={() => sendCommand("enterRoleplayBus")}>
+                  {pick("Entrar no ônibus", "Enter bus", "Entrar al autobús", "In den Bus einsteigen", "Entrer dans le bus")}
+                </button>
+                <button className="button ghost" onClick={() => sendCommand("stopRoleplay")}>
+                  {pick("Retorno de emergência", "Emergency return", "Retorno de emergencia", "Notfall-Rückkehr", "Retour d’urgence")}
+                </button>
+              </>
             ) : (
               <button className="button primary" disabled={!canStart} onClick={() => sendCommand("startRoleplay")}>{pick("Sair do ônibus", "Leave bus", "Salir del autobús", "Bus verlassen", "Sortir du bus")}</button>
             )}
@@ -2402,9 +2414,10 @@ function RoleplayPanel({
             <span><kbd>S</kbd><strong>{pick("Andar para trás", "Walk backward", "Caminar hacia atrás", "Rückwärts gehen", "Marcher en arrière")}</strong></span>
             <span><kbd>A / D</kbd><strong>{pick("Virar", "Turn", "Girar", "Drehen", "Tourner")}</strong></span>
             <span><kbd>Shift</kbd><strong>{pick("Correr", "Run", "Correr", "Laufen", "Courir")}</strong></span>
-            <span><kbd>Esc</kbd><strong>{pick("Retornar ao ônibus", "Return to bus", "Volver al autobús", "Zum Bus zurückkehren", "Retourner au bus")}</strong></span>
+            <span><kbd>E</kbd><strong>{pick("Entrar no ônibus quando estiver próximo", "Enter the bus when nearby", "Entrar al autobús cuando esté cerca", "In den Bus einsteigen, wenn er nahe ist", "Entrer dans le bus à proximité")}</strong></span>
+            <span><kbd>Esc</kbd><strong>{pick("Retorno de emergência", "Emergency return", "Retorno de emergencia", "Notfall-Rückkehr", "Retour d’urgence")}</strong></span>
           </div>
-          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. O personagem permanece limitado à área segura ao redor do ônibus.", "Shortcuts are captured only while OMSI is in the foreground. The character remains limited to the safe area around the bus.", "Los atajos solo se capturan cuando OMSI está en primer plano. El personaje permanece limitado al área segura alrededor del autobús.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. Der Charakter bleibt auf den sicheren Bereich um den Bus begrenzt.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. Le personnage reste limité à la zone sûre autour du bus.")}</p>
+          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. E exige proximidade real do ônibus; Esc permanece disponível como retorno de emergência.", "Shortcuts are captured only while OMSI is in the foreground. E requires real bus proximity; Esc remains available as an emergency return.", "Los atajos solo se capturan cuando OMSI está en primer plano. E requiere proximidad real al autobús; Esc sigue disponible como retorno de emergencia.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. E erfordert echte Busnähe; Esc bleibt als Notfall-Rückkehr verfügbar.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. E exige une proximité réelle du bus ; Esc reste disponible comme retour d’urgence.")}</p>
         </section>
       )}
     </>
