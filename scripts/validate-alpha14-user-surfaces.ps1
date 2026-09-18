@@ -175,7 +175,12 @@ Reject-Text "src/NavBR.Client/MainWindow.Multiplayer.cs" @(
     "window.Hide();",
     "window.Opacity = 0d;",
     "window.Left = -32000d;",
-    "window.Top = -32000d;"
+    "window.Top = -32000d;",
+    "RoadmapCanvas",
+    "RenderRemotePlayer(",
+    "_remotePlayerMarkers",
+    "_remotePlayerMotion",
+    "_remoteMotionTimer"
 )
 
 Require-Text "src/NavBR.Client/Operations/DispatcherInstaller.cs" @(
