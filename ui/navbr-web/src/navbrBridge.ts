@@ -330,6 +330,27 @@ export interface NavBrOperationsState {
     lastRoute?: string | null;
     lastDrivenAt?: string | null;
   };
+  tripHistory: {
+    startedAtUtc: string;
+    endedAtUtc: string;
+    drivingSeconds: number;
+    distanceKm: number;
+    highestSpeedKph: number;
+    mapName?: string | null;
+    line?: string | null;
+    route?: string | null;
+    vehicleName?: string | null;
+  }[];
+  profileTransfer: {
+    notice?: string | null;
+    pending?: {
+      displayName: string;
+      companyName?: string | null;
+      includesTripHistory: boolean;
+      tripCount: number;
+      sourceVersion: number;
+    } | null;
+  };
 }
 
 export interface NavBrOmsiInstallation {
@@ -759,6 +780,10 @@ export type NavBrCommand =
   | "registerCurrentVehicle"
   | "removeFleetVehicle"
   | "saveDriverProfile"
+  | "exportDriverProfile"
+  | "selectDriverProfileImport"
+  | "applyDriverProfileImport"
+  | "cancelDriverProfileImport"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
   | "openOmsiProfileFolder"
