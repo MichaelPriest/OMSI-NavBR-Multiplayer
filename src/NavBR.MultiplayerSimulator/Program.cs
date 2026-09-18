@@ -27,9 +27,15 @@ Console.CancelKeyPress += (_, eventArgs) =>
 var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
     .ToArray();
+var probe = options.Verify ? new SimulationProbe(options) : null;
 
 try
 {
+    if (probe is not null)
+    {
+        await probe.ConnectAsync(shutdown.Token);
+    }
+
     await Task.WhenAll(bots.Select(bot => bot.ConnectAsync(shutdown.Token)));
     Console.WriteLine($"Connected {bots.Length} simulated players.");
 
@@ -49,6 +55,21 @@ catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
 finally
 {
     await Task.WhenAll(bots.Select(bot => bot.DisposeAsync().AsTask()));
+
+    if (probe is not null)
+    {
+        var result = probe.Verify(bots.Select(bot => bot.PlayerId).ToArray());
+        await probe.DisposeAsync();
+        if (!result.Success)
+        {
+            Console.Error.WriteLine($"Movement verification failed: {result.Message}");
+            Environment.ExitCode = 2;
+        }
+        else
+        {
+            Console.WriteLine($"Movement verification passed: {result.Message}");
+        }
+    }
 }
 
 internal sealed class SimulatedPlayer : IAsyncDisposable
@@ -60,6 +81,12 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     private readonly HubConnection _connection;
     private readonly double _phase;
     private bool _roleplayActive;
+    private double _roleplayX;
+    private double _roleplayY;
+    private double _roleplayHeading;
+    private double _lastElapsedSeconds;
+
+    public string PlayerId => _playerId;
 
     public SimulatedPlayer(int index, SimulatorOptions options)
     {
@@ -68,6 +95,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         _playerId = $"sim-{index:00}-{Guid.NewGuid():N}"[..24];
         _displayName = $"{options.NamePrefix} {index:00}";
         _phase = index * Math.PI * 2d / Math.Max(1, options.PlayerCount);
+        _roleplayX = options.CenterX + Math.Cos(_phase) * Math.Max(8d, options.RadiusMeters * 0.35d);
+        _roleplayY = options.CenterY + Math.Sin(_phase) * Math.Max(8d, options.RadiusMeters * 0.35d);
+        _roleplayHeading = (_phase * 180d / Math.PI + 90d) % 360d;
 
         _connection = new HubConnectionBuilder()
             .WithUrl(NormalizeHubUrl(options.ServerUrl))
@@ -143,15 +173,25 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
                 _ => 3.7d
             };
 
+            var deltaSeconds = Math.Clamp(elapsedSeconds - _lastElapsedSeconds, 0d, 0.5d);
+            _lastElapsedSeconds = elapsedSeconds;
+            _roleplayHeading = (_roleplayHeading + (8d + _index) * deltaSeconds) % 360d;
+            if (speed > 0d)
+            {
+                var rpRadians = _roleplayHeading * Math.PI / 180d;
+                _roleplayX += Math.Sin(rpRadians) * speed * deltaSeconds;
+                _roleplayY += Math.Cos(rpRadians) * speed * deltaSeconds;
+            }
+
             var character = new RoleplayCharacterState(
                 _playerId,
                 DateTimeOffset.UtcNow,
                 _options.MapName,
                 _options.MapCompatibilityId,
-                x,
-                y,
+                _roleplayX,
+                _roleplayY,
                 z,
-                heading,
+                _roleplayHeading,
                 speed,
                 activity,
                 true,
@@ -232,6 +272,130 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     }
 }
 
+internal sealed class SimulationProbe : IAsyncDisposable
+{
+    private readonly SimulatorOptions _options;
+    private readonly HubConnection _connection;
+    private readonly Dictionary<string, MovementSample> _samples =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _sync = new();
+    private readonly string _playerId = $"sim-probe-{Guid.NewGuid():N}"[..28];
+
+    public SimulationProbe(SimulatorOptions options)
+    {
+        _options = options;
+        _connection = new HubConnectionBuilder()
+            .WithUrl(NormalizeHubUrl(options.ServerUrl))
+            .Build();
+
+        _connection.On<PlayerTelemetryFrame>("telemetry", frame =>
+            Record(frame.Player.PlayerId, frame.Telemetry.LocalX ?? frame.Telemetry.X, frame.Telemetry.LocalY ?? frame.Telemetry.Y));
+        _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
+            Record(frame.Player.PlayerId, frame.Character.LocalX, frame.Character.LocalY));
+    }
+
+    public async Task ConnectAsync(CancellationToken cancellationToken)
+    {
+        await _connection.StartAsync(cancellationToken);
+        await _connection.InvokeAsync<RoomSnapshot>(
+            "JoinRoom",
+            new JoinRoomRequest(
+                _options.RoomId,
+                _playerId,
+                "SIM Probe",
+                _options.MapName,
+                _options.MapCompatibilityId),
+            cancellationToken);
+    }
+
+    public VerificationResult Verify(IReadOnlyList<string> expectedPlayerIds)
+    {
+        lock (_sync)
+        {
+            var missing = expectedPlayerIds
+                .Where(id => !_samples.TryGetValue(id, out var sample) ||
+                             sample.Count < 2 ||
+                             sample.DistanceMeters < 0.25d)
+                .ToArray();
+
+            if (missing.Length > 0)
+            {
+                return new VerificationResult(
+                    false,
+                    $"{missing.Length}/{expectedPlayerIds.Count} players did not produce verifiable movement.");
+            }
+
+            var minimum = expectedPlayerIds.Min(id => _samples[id].DistanceMeters);
+            return new VerificationResult(
+                true,
+                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m.");
+        }
+    }
+
+    private void Record(string playerId, double x, double y)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y))
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            if (!_samples.TryGetValue(playerId, out var sample))
+            {
+                _samples[playerId] = new MovementSample(x, y, x, y, 1);
+                return;
+            }
+
+            _samples[playerId] = sample with
+            {
+                LastX = x,
+                LastY = y,
+                Count = sample.Count + 1
+            };
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_connection.State == HubConnectionState.Connected)
+            {
+                await _connection.InvokeAsync("LeaveRoom");
+            }
+        }
+        catch
+        {
+        }
+
+        await _connection.DisposeAsync();
+    }
+
+    private static string NormalizeHubUrl(string serverUrl)
+    {
+        var value = serverUrl.Trim().TrimEnd('/');
+        return value.EndsWith("/hubs/multiplayer", StringComparison.OrdinalIgnoreCase)
+            ? value
+            : $"{value}/hubs/multiplayer";
+    }
+
+    private sealed record MovementSample(
+        double FirstX,
+        double FirstY,
+        double LastX,
+        double LastY,
+        int Count)
+    {
+        public double DistanceMeters =>
+            Math.Sqrt(
+                (LastX - FirstX) * (LastX - FirstX) +
+                (LastY - FirstY) * (LastY - FirstY));
+    }
+}
+
+internal sealed record VerificationResult(bool Success, string Message);
+
 internal enum SimulatorMode
 {
     Vehicles,
@@ -255,6 +419,7 @@ internal sealed record SimulatorOptions(
     int DurationSeconds,
     string NamePrefix,
     SimulatorMode Mode,
+    bool Verify,
     bool ShowHelp)
 {
     public static SimulatorOptions Parse(string[] args)
@@ -304,6 +469,7 @@ internal sealed record SimulatorOptions(
             DurationSeconds: Math.Max(0, ClampInt(values.GetValueOrDefault("duration"), 0, 0, 86400)),
             NamePrefix: NullIfEmpty(values.GetValueOrDefault("prefix")) ?? "SIM",
             Mode: mode,
+            Verify: values.ContainsKey("verify"),
             ShowHelp: values.ContainsKey("help"));
     }
 
@@ -326,6 +492,7 @@ Options:
   --radius N           Movement radius in meters (default 90)
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
+  --verify             Verify that frames cross SignalR and positions move.
   --prefix TEXT        Display-name prefix (default SIM)
   --vehicle-path PATH  Optional real .bus path for physical-vehicle testing.
   --vehicle-id ID      Optional real vehicle compatibility id.
