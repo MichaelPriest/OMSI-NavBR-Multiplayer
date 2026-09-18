@@ -11,6 +11,7 @@ internal sealed record RemotePhysicalVehicleStatus(
     string State,
     string? ErrorCode,
     int? PartCount,
+    int? ExpectedPartCount,
     DateTimeOffset UpdatedAtUtc);
 
 internal sealed class RemotePhysicalVehicleCoordinator
@@ -76,6 +77,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             state,
             ErrorCode: null,
             PartCount: null,
+            ExpectedPartCount: null,
             DateTimeOffset.UtcNow);
     }
 
@@ -234,6 +236,23 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 return;
             }
 
+            var consistInfo = await _vehicleAssetResolver.InspectConsistAsync(
+                resolvedVehiclePath,
+                cancellationToken);
+            if (consistInfo is { ExpectedPartCount: > 1 })
+            {
+                SetStatus(
+                    playerId,
+                    "consist-unsupported",
+                    "multi-vehicle-consist-declared",
+                    expectedPartCount: consistInfo.ExpectedPartCount);
+                ReportFailureOnce(
+                    playerId,
+                    "consist",
+                    $"multi-vehicle-consist-declared expected-parts={consistInfo.ExpectedPartCount} complete={consistInfo.IsComplete}");
+                return;
+            }
+
             // Asset resolution can take time on a large Vehicles folder.
             // Re-check the live local session after that await so a disconnect,
             // plugin shutdown or map change cannot race into a late spawn.
@@ -262,7 +281,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 if (spawn?.Success != true)
                 {
                     _spawned.TryRemove(playerId, out _);
-                    ReportCommandFailureOnce(playerId, "spawn", spawn);
+                    ReportCommandFailureOnce(
+                        playerId,
+                        "spawn",
+                        spawn,
+                        consistInfo?.ExpectedPartCount);
                     return;
                 }
 
@@ -399,7 +422,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private void ReportCommandFailureOnce(
         string playerId,
         string operation,
-        PluginBridgeMessage? result)
+        PluginBridgeMessage? result,
+        int? expectedPartCount = null)
     {
         var errorCode = result?.ErrorCode ?? "no-result";
         var detail = result?.ErrorMessage ?? string.Empty;
@@ -413,18 +437,20 @@ internal sealed class RemotePhysicalVehicleCoordinator
             playerId,
             state,
             errorCode,
-            result?.RemoteVehicleCount);
+            result?.RemoteVehicleCount,
+            expectedPartCount);
         ReportFailureOnce(
             playerId,
             operation,
-            $"{operation}-failed error={errorCode} parts={result?.RemoteVehicleCount?.ToString() ?? "n/a"} detail={detail}");
+            $"{operation}-failed error={errorCode} parts={result?.RemoteVehicleCount?.ToString() ?? "n/a"} expected-parts={expectedPartCount?.ToString() ?? "n/a"} detail={detail}");
     }
 
     private void SetStatus(
         string playerId,
         string state,
         string? errorCode = null,
-        int? partCount = null)
+        int? partCount = null,
+        int? expectedPartCount = null)
     {
         if (string.IsNullOrWhiteSpace(playerId))
         {
@@ -435,6 +461,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             state,
             string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
             partCount is > 0 ? partCount : null,
+            expectedPartCount is > 0 ? expectedPartCount : null,
             DateTimeOffset.UtcNow);
     }
 
