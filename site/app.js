@@ -1,13 +1,13 @@
 const repo = 'MichaelPriest/OMSI-NavBR-Multiplayer';
-const currentTag = 'v0.3.0-alpha.14-test.2';
+const currentTag = 'v0.3.0-alpha.14';
 
 const fallbackRelease = {
   tag_name: currentTag,
-  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14-test.2 — character roleplay test',
+  name: 'OMSI NavBR Multiplayer v0.3.0-alpha.14 — public alpha',
   prerelease: true,
   published_at: null,
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.14 Test 2 inicia a validação pública do modo Personagem/RP no modo normal e multiplayer, preservando o ônibus remoto físico da Alpha anterior.',
+  body: 'Alpha.14 pública consolida Central Multiplayer, HUD, Plugin/RP v3, rede, simulador e ônibus remoto físico experimental.',
   download_count: 0,
   assets: [
     {
@@ -100,6 +100,7 @@ function assetLabel(name = '') {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Cliente ZIP — alternativa';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado — opcional';
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Plugin OMSI x86';
+  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return 'Simulador Multiplayer — dev/test';
   return name;
 }
 
@@ -108,6 +109,7 @@ function assetHelp(name = '') {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return 'Mesmo cliente em pacote ZIP para uso extraído.';
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return 'Servidor dedicado opcional. O modo padrão continua peer-host.';
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return 'Pacote técnico do plugin Native AOT x86 e interop OMSI para os testes físicos.';
+  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return 'Ferramenta de teste: entra na mesma sala, herda mapa/operação e cria bots próximos ao host.';
   return '';
 }
 
