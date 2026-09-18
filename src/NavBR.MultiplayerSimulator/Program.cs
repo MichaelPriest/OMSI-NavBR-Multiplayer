@@ -43,36 +43,41 @@ if (localServer.StartedServer)
     Console.WriteLine($"No app: Central Multiplayer > Sala > Entrar em sala > servidor {localServer.ServerUrl} > sala {options.RoomId}.");
 }
 
-if (string.IsNullOrWhiteSpace(options.MapName))
+Console.WriteLine(
+    string.IsNullOrWhiteSpace(options.MapName)
+        ? "Map    : aguardando mapa real da sala..."
+        : $"Map    : {options.MapName} (fallback; a sala real tem prioridade)");
+
+var synchronized = await RoomSimulationContextResolver.ResolveAsync(options, shutdown.Token);
+if (!synchronized.Success || synchronized.Options is null)
 {
-    Console.WriteLine("Map    : aguardando mapa real da sala...");
-    var synchronized = await RoomSimulationContextResolver.ResolveAsync(options, shutdown.Token);
-    if (!synchronized.Success || synchronized.Options is null)
-    {
-        Console.Error.WriteLine();
-        Console.Error.WriteLine("NavBR Simulator: não foi possível sincronizar o mapa da sala.");
-        Console.Error.WriteLine(synchronized.ErrorMessage);
-        Console.Error.WriteLine("Entre na sala pelo NavBR com o OMSI carregado no mapa e execute o simulador novamente.");
-        Environment.ExitCode = 5;
-        return;
-    }
-
-    options = synchronized.Options;
-    Console.WriteLine($"Map    : {options.MapName} (herdado da sala)");
-    if (!string.IsNullOrWhiteSpace(options.MapCompatibilityId))
-    {
-        Console.WriteLine($"Map ID : {options.MapCompatibilityId}");
-    }
-
-    Console.WriteLine(
-        $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1}" +
-        (options.GridX is int gx && options.GridY is int gy
-            ? $" • grid {gx},{gy}" +
-              (options.TileX is double tx && options.TileY is double ty
-                  ? $" • tile {tx:F1},{ty:F1}"
-                  : string.Empty)
-            : string.Empty));
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("NavBR Simulator: não foi possível sincronizar o mapa da sala.");
+    Console.Error.WriteLine(synchronized.ErrorMessage);
+    Console.Error.WriteLine("Entre na sala pelo NavBR com o OMSI carregado no mapa e execute o simulador novamente.");
+    Environment.ExitCode = 5;
+    return;
 }
+
+options = synchronized.Options;
+Console.WriteLine(
+    synchronized.InheritedFromRoom
+        ? $"Map    : {options.MapName} (sincronizado com a sala)"
+        : $"Map    : {options.MapName} (fallback explícito; nenhuma sala real disponível)");
+
+if (!string.IsNullOrWhiteSpace(options.MapCompatibilityId))
+{
+    Console.WriteLine($"Map ID : {options.MapCompatibilityId}");
+}
+
+Console.WriteLine(
+    $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1}" +
+    (options.GridX is int gx && options.GridY is int gy
+        ? $" • grid {gx},{gy}" +
+          (options.TileX is double tx && options.TileY is double ty
+              ? $" • tile {tx:F1},{ty:F1}"
+              : string.Empty)
+        : string.Empty));
 
 var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
@@ -362,6 +367,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Telemetry.LocalX ?? frame.Telemetry.X,
                 frame.Telemetry.LocalY ?? frame.Telemetry.Y,
                 frame.Telemetry.HeadingDegrees,
+                frame.Telemetry.MapName,
                 MovementKind.Vehicle,
                 null));
         _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
@@ -370,6 +376,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Character.LocalX,
                 frame.Character.LocalY,
                 frame.Character.HeadingDegrees,
+                frame.Character.MapName,
                 MovementKind.Roleplay,
                 frame.Character.Activity));
     }
@@ -406,6 +413,24 @@ internal sealed class SimulationProbe : IAsyncDisposable
             }
 
             var samples = expectedPlayerIds.Select(id => _samples[id]).ToArray();
+
+            if (!string.IsNullOrWhiteSpace(_options.MapName))
+            {
+                var wrongMap = samples
+                    .Where(sample =>
+                        !string.Equals(
+                            sample.MapName,
+                            _options.MapName,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (wrongMap.Length > 0)
+                {
+                    return new VerificationResult(
+                        false,
+                        $"{wrongMap.Length}/{expectedPlayerIds.Count} simulated players published on a map different from '{_options.MapName}'.");
+                }
+            }
+
             if (_options.Mode == SimulatorMode.Mixed &&
                 (!samples.Any(sample => sample.Kind == MovementKind.Vehicle) ||
                  !samples.Any(sample => sample.Kind == MovementKind.Roleplay)))
@@ -436,6 +461,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
         double x,
         double y,
         double heading,
+        string? mapName,
         MovementKind kind,
         RoleplayCharacterActivity? activity)
     {
@@ -455,6 +481,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     y,
                     heading,
                     heading,
+                    mapName,
                     1,
                     kind,
                     activity is null ? [] : [activity.Value]);
@@ -473,6 +500,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 LastY = y,
                 LastHeading = heading,
                 Count = sample.Count + 1,
+                MapName = mapName ?? sample.MapName,
                 Kind = kind,
                 Activities = activities
             };
@@ -510,6 +538,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
         double LastY,
         double FirstHeading,
         double LastHeading,
+        string? MapName,
         int Count,
         MovementKind Kind,
         IReadOnlyList<RoleplayCharacterActivity> Activities)
@@ -532,6 +561,7 @@ internal enum MovementKind
 internal sealed record RoomSimulationContextResolution(
     bool Success,
     SimulatorOptions? Options,
+    bool InheritedFromRoom,
     string? ErrorMessage = null);
 
 internal sealed class RoomSimulationContextResolver : IAsyncDisposable
@@ -564,7 +594,8 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
         SimulatorOptions options,
         CancellationToken cancellationToken)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        var fallbackMap = !string.IsNullOrWhiteSpace(options.MapName);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(fallbackMap ? 5 : 30);
         var announcedWaiting = false;
 
         while (!cancellationToken.IsCancellationRequested &&
@@ -578,10 +609,13 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
             }
             catch (HttpRequestException ex)
             {
-                return new RoomSimulationContextResolution(
-                    false,
-                    null,
-                    $"Falha ao consultar a sala: {ex.Message}");
+                return fallbackMap
+                    ? new RoomSimulationContextResolution(true, options, false)
+                    : new RoomSimulationContextResolution(
+                        false,
+                        null,
+                        false,
+                        $"Falha ao consultar a sala: {ex.Message}");
             }
 
             var reference = SelectReferencePlayer(snapshot);
@@ -627,7 +661,14 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         telemetry?.VehicleCompatibilityId
                 };
 
-                return new RoomSimulationContextResolution(true, resolved);
+                if (!string.IsNullOrWhiteSpace(options.MapName) &&
+                    !string.Equals(options.MapName, resolved.MapName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(
+                        $"Map sync: ignorando --map '{options.MapName}' porque a sala está em '{resolved.MapName}'.");
+                }
+
+                return new RoomSimulationContextResolution(true, resolved, true);
             }
 
             if (!announcedWaiting)
@@ -640,9 +681,15 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
             await Task.Delay(1000, cancellationToken);
         }
 
+        if (fallbackMap)
+        {
+            return new RoomSimulationContextResolution(true, options, false);
+        }
+
         return new RoomSimulationContextResolution(
             false,
             null,
+            false,
             "A sala não apresentou nenhum jogador real com mapa OMSI válido dentro de 30 segundos.");
     }
 
