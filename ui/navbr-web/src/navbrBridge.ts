@@ -26,6 +26,7 @@ export interface NavBrMultiplayerState {
   displayName: string;
   hostRunning: boolean;
   hostPort?: number | null;
+  roomIsPrivate: boolean;
   inviteAddresses: string[];
   latencyMs?: number | null;
   voiceEnabled: boolean;
@@ -36,6 +37,28 @@ export interface NavBrMultiplayerState {
   playerCount: number;
   players: NavBrPlayer[];
   chat: NavBrChatMessage[];
+}
+
+export interface NavBrPublicRoom {
+  roomId: string;
+  playerCount: number;
+  mapName?: string | null;
+  mapCompatibilityId?: string | null;
+  updatedAtUtc: string;
+  omsiVersion?: string | null;
+  navbrVersion?: string | null;
+  vehiclePath?: string | null;
+  vehicleCompatibilityId?: string | null;
+  hofName?: string | null;
+  hofCompatibilityId?: string | null;
+  pluginProtocolVersion: number;
+  favorite: boolean;
+}
+
+export interface NavBrRoomDirectory {
+  serverUrl?: string | null;
+  error?: string | null;
+  rooms: NavBrPublicRoom[];
 }
 
 export interface NavBrState {
@@ -62,6 +85,7 @@ export interface NavBrState {
     speedKph: number;
   };
   multiplayer: NavBrMultiplayerState;
+  roomDirectory: NavBrRoomDirectory;
 }
 
 export type NavBrCommand =
@@ -75,6 +99,8 @@ export type NavBrCommand =
   | "createLocalRoom"
   | "disconnectRoom"
   | "stopLocalHost"
+  | "refreshPublicRooms"
+  | "toggleRoomFavorite"
   | "sendChat";
 
 declare global {
