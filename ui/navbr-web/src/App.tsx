@@ -3047,6 +3047,9 @@ function Multiplayer({
                     <small>
                       {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
                       {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
+                      {player.physicalVehicleSpawned
+                        ? ` · ${pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif")}`
+                        : ""}
                     </small>
                   </div>
                   <span className={`voice-state ${player.speaking ? "speaking" : ""} ${player.telemetryStale ? "stale" : ""}`}>

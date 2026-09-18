@@ -57,6 +57,9 @@ public partial class MultiplayerWindow
                     voiceEnabled = player.VoiceEnabled,
                     latencyMs = player.LatencyMs,
                     roleplayActive = roleplay,
+                    physicalVehicleSpawned =
+                        !isLocal &&
+                        _client.IsRemotePhysicalVehicleSpawned(player.PlayerId),
                     speaking,
                     isLocal,
                     line = telemetry?.Line,
