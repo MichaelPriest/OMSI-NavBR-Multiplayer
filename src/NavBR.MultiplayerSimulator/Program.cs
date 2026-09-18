@@ -43,6 +43,37 @@ if (localServer.StartedServer)
     Console.WriteLine($"No app: Central Multiplayer > Sala > Entrar em sala > servidor {localServer.ServerUrl} > sala {options.RoomId}.");
 }
 
+if (string.IsNullOrWhiteSpace(options.MapName))
+{
+    Console.WriteLine("Map    : aguardando mapa real da sala...");
+    var synchronized = await RoomSimulationContextResolver.ResolveAsync(options, shutdown.Token);
+    if (!synchronized.Success || synchronized.Options is null)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("NavBR Simulator: não foi possível sincronizar o mapa da sala.");
+        Console.Error.WriteLine(synchronized.ErrorMessage);
+        Console.Error.WriteLine("Entre na sala pelo NavBR com o OMSI carregado no mapa e execute o simulador novamente.");
+        Environment.ExitCode = 5;
+        return;
+    }
+
+    options = synchronized.Options;
+    Console.WriteLine($"Map    : {options.MapName} (herdado da sala)");
+    if (!string.IsNullOrWhiteSpace(options.MapCompatibilityId))
+    {
+        Console.WriteLine($"Map ID : {options.MapCompatibilityId}");
+    }
+
+    Console.WriteLine(
+        $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1}" +
+        (options.GridX is int gx && options.GridY is int gy
+            ? $" • grid {gx},{gy}" +
+              (options.TileX is double tx && options.TileY is double ty
+                  ? $" • tile {tx:F1},{ty:F1}"
+                  : string.Empty)
+            : string.Empty));
+}
+
 var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
     .ToArray();
@@ -498,6 +529,215 @@ internal enum MovementKind
     Roleplay
 }
 
+internal sealed record RoomSimulationContextResolution(
+    bool Success,
+    SimulatorOptions? Options,
+    string? ErrorMessage = null);
+
+internal sealed class RoomSimulationContextResolver : IAsyncDisposable
+{
+    private readonly SimulatorOptions _options;
+    private readonly HubConnection _connection;
+    private readonly TaskCompletionSource<VehicleTelemetry> _telemetrySeed =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private string? _referencePlayerId;
+
+    private RoomSimulationContextResolver(SimulatorOptions options)
+    {
+        _options = options;
+        _connection = new HubConnectionBuilder()
+            .WithUrl(NormalizeHubUrl(options.ServerUrl))
+            .Build();
+
+        _connection.On<PlayerTelemetryFrame>("telemetry", frame =>
+        {
+            if (IsRealPlayer(frame.Player) &&
+                (_referencePlayerId is null ||
+                 string.Equals(frame.Player.PlayerId, _referencePlayerId, StringComparison.OrdinalIgnoreCase)))
+            {
+                _telemetrySeed.TrySetResult(frame.Telemetry);
+            }
+        });
+    }
+
+    public static async Task<RoomSimulationContextResolution> ResolveAsync(
+        SimulatorOptions options,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        var announcedWaiting = false;
+
+        while (!cancellationToken.IsCancellationRequested &&
+               DateTimeOffset.UtcNow < deadline)
+        {
+            await using var resolver = new RoomSimulationContextResolver(options);
+            RoomSnapshot snapshot;
+            try
+            {
+                snapshot = await resolver.JoinForInspectionAsync(cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                return new RoomSimulationContextResolution(
+                    false,
+                    null,
+                    $"Falha ao consultar a sala: {ex.Message}");
+            }
+
+            var reference = SelectReferencePlayer(snapshot);
+            if (reference is not null && !string.IsNullOrWhiteSpace(reference.MapName))
+            {
+                resolver._referencePlayerId = reference.PlayerId;
+                var telemetry = await resolver.TryWaitForTelemetryAsync(
+                    reference.PlayerId,
+                    TimeSpan.FromSeconds(3),
+                    cancellationToken);
+
+                var resolved = options with
+                {
+                    MapName = reference.MapName,
+                    MapCompatibilityId =
+                        reference.MapCompatibilityId ??
+                        reference.Compatibility?.MapCompatibilityId ??
+                        options.MapCompatibilityId,
+                    CenterX = options.PositionExplicit
+                        ? options.CenterX
+                        : telemetry?.LocalX ?? telemetry?.X ?? options.CenterX,
+                    CenterY = options.PositionExplicit
+                        ? options.CenterY
+                        : telemetry?.LocalY ?? telemetry?.Y ?? options.CenterY,
+                    CenterZ = options.PositionExplicit
+                        ? options.CenterZ
+                        : telemetry?.LocalZ ?? telemetry?.Z ?? options.CenterZ,
+                    GridX = options.NavigationSeedExplicit
+                        ? options.GridX
+                        : telemetry?.GridX ?? options.GridX,
+                    GridY = options.NavigationSeedExplicit
+                        ? options.GridY
+                        : telemetry?.GridY ?? options.GridY,
+                    TileX = options.NavigationSeedExplicit
+                        ? options.TileX
+                        : telemetry?.TileX ?? options.TileX,
+                    TileY = options.NavigationSeedExplicit
+                        ? options.TileY
+                        : telemetry?.TileY ?? options.TileY,
+                    VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
+                    VehicleCompatibilityId =
+                        options.VehicleCompatibilityId ??
+                        telemetry?.VehicleCompatibilityId
+                };
+
+                return new RoomSimulationContextResolution(true, resolved);
+            }
+
+            if (!announcedWaiting)
+            {
+                Console.WriteLine(
+                    "Waiting for a real NavBR player with an OMSI map in this room (up to 30 s)...");
+                announcedWaiting = true;
+            }
+
+            await Task.Delay(1000, cancellationToken);
+        }
+
+        return new RoomSimulationContextResolution(
+            false,
+            null,
+            "A sala não apresentou nenhum jogador real com mapa OMSI válido dentro de 30 segundos.");
+    }
+
+    private async Task<RoomSnapshot> JoinForInspectionAsync(CancellationToken cancellationToken)
+    {
+        await _connection.StartAsync(cancellationToken);
+        return await _connection.InvokeAsync<RoomSnapshot>(
+            "JoinRoom",
+            new JoinRoomRequest(
+                _options.RoomId,
+                $"sim-map-sync-{Guid.NewGuid():N}"[..30],
+                "SIM Map Sync",
+                null,
+                null),
+            cancellationToken);
+    }
+
+    private async Task<VehicleTelemetry?> TryWaitForTelemetryAsync(
+        string referencePlayerId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        _referencePlayerId = referencePlayerId;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(timeout);
+        try
+        {
+            return await _telemetrySeed.Task.WaitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
+    private static PlayerPresence? SelectReferencePlayer(RoomSnapshot snapshot)
+    {
+        var realPlayers = snapshot.Players
+            .Where(IsRealPlayer)
+            .Where(player => !string.IsNullOrWhiteSpace(player.MapName))
+            .ToArray();
+
+        if (realPlayers.Length == 0)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(snapshot.TrafficAuthorityPlayerId))
+        {
+            var authority = realPlayers.FirstOrDefault(player =>
+                string.Equals(
+                    player.PlayerId,
+                    snapshot.TrafficAuthorityPlayerId,
+                    StringComparison.OrdinalIgnoreCase));
+            if (authority is not null)
+            {
+                return authority;
+            }
+        }
+
+        return realPlayers
+            .OrderBy(player => player.ConnectedAtUtc)
+            .First();
+    }
+
+    private static bool IsRealPlayer(PlayerPresence player) =>
+        !player.PlayerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase) &&
+        !player.DisplayName.StartsWith("SIM ", StringComparison.OrdinalIgnoreCase);
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_connection.State == HubConnectionState.Connected)
+            {
+                await _connection.InvokeAsync("LeaveRoom");
+            }
+        }
+        catch
+        {
+        }
+
+        await _connection.DisposeAsync();
+    }
+
+    private static string NormalizeHubUrl(string serverUrl)
+    {
+        var value = serverUrl.Trim().TrimEnd('/');
+        return value.EndsWith("/hubs/multiplayer", StringComparison.OrdinalIgnoreCase)
+            ? value
+            : $"{value}/hubs/multiplayer";
+    }
+}
+
 internal sealed class LocalServerBootstrap : IAsyncDisposable
 {
     private readonly Process? _process;
@@ -747,6 +987,8 @@ internal sealed record SimulatorOptions(
     SimulatorMode Mode,
     bool Verify,
     bool AutoStartLocalServer,
+    bool PositionExplicit,
+    bool NavigationSeedExplicit,
     bool ShowHelp)
 {
     public static SimulatorOptions Parse(string[] args)
@@ -802,6 +1044,15 @@ internal sealed record SimulatorOptions(
             Mode: mode,
             Verify: values.ContainsKey("verify"),
             AutoStartLocalServer: !values.ContainsKey("no-auto-server"),
+            PositionExplicit:
+                values.ContainsKey("x") ||
+                values.ContainsKey("y") ||
+                values.ContainsKey("z"),
+            NavigationSeedExplicit:
+                values.ContainsKey("grid-x") ||
+                values.ContainsKey("grid-y") ||
+                values.ContainsKey("tile-x") ||
+                values.ContainsKey("tile-y"),
             ShowHelp: values.ContainsKey("help"));
     }
 
@@ -818,12 +1069,12 @@ Options:
   --room ID            Room id (default navbr-sim)
   --players N          Simulated players, 1..32 (default 6)
   --mode vehicles|rp|mixed
-  --map NAME           OMSI map name. Use the real loaded map name to test HUD/minimap compatibility.
-  --map-id ID          Optional real map compatibility id.
-  --x N --y N --z N   Movement center in OMSI local coordinates.
+  --map NAME           Optional map override. When omitted, inherit the real map from the room host.
+  --map-id ID          Optional map compatibility id override.
+  --x N --y N --z N   Optional movement center. When omitted, inherit the host telemetry position.
   --grid-x N --grid-y N
   --tile-x N --tile-y N
-                       Optional real OMSI navigation position for HUD/minimap tests.
+                       Optional navigation override. When omitted, inherit host grid/tile when available.
   --radius N           Movement radius in meters (default 90)
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
