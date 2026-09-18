@@ -64,6 +64,15 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
     isRoomOwner: false,
     isTrafficAuthority: false
   },
+  transportMode: "none",
+  roomCompatibility: {
+    level: "none",
+    remoteCount: 0,
+    blocking: 0,
+    warnings: 0,
+    partial: 0,
+    affectedAreas: []
+  },
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -2367,6 +2376,15 @@ function Multiplayer({
         <div className="metric"><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.playerCount}</strong></div>
         <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
         <div className="metric"><small>HOST</small><strong>{multiplayer.hostRunning ? `TCP ${multiplayer.hostPort ?? 27730}` : pick("Local inativo", "Local inactive", "Local inactivo", "Lokal inaktiv", "Local inactif")}</strong></div>
+        <div className="metric"><small>{pick("TRANSPORTE", "TRANSPORT", "TRANSPORTE", "TRANSPORT", "TRANSPORT")}</small><strong>{
+          multiplayer.transportMode === "direct-host"
+            ? pick("Host direto", "Direct host", "Host directo", "Direkter Host", "Hôte direct")
+            : multiplayer.transportMode === "relay"
+              ? "Relay"
+              : multiplayer.transportMode === "remote-host"
+                ? pick("Conectado ao host", "Connected to host", "Conectado al host", "Mit Host verbunden", "Connecté à l’hôte")
+                : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")
+        }</strong></div>
       </section>
 
       <div className="mp-tabs" role="tablist">
@@ -2637,6 +2655,33 @@ function Multiplayer({
           <div className="section-heading">
             <div><span className="eyebrow">{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</span><h3>{visiblePlayers.length} {pick("na sessão", "in session", "en sesión", "in Sitzung", "dans la session")}</h3></div>
           </div>
+
+          <article className="compatibility-summary">
+            <div>
+              <small>{pick("COMPATIBILIDADE DA SALA", "ROOM COMPATIBILITY", "COMPATIBILIDAD DE SALA", "RAUMKOMPATIBILITÄT", "COMPATIBILITÉ DE LA SALLE")}</small>
+              <strong className={`compatibility-badge ${multiplayer.roomCompatibility.level === "blocked" ? "blocked" : multiplayer.roomCompatibility.level === "warning" || multiplayer.roomCompatibility.level === "partial" ? "warning" : "compatible"}`}>
+                {multiplayer.roomCompatibility.level === "blocked"
+                  ? pick("Bloqueio", "Blocked", "Bloqueo", "Blockiert", "Bloqué")
+                  : multiplayer.roomCompatibility.level === "warning"
+                    ? pick("Atenção", "Warning", "Atención", "Achtung", "Attention")
+                    : multiplayer.roomCompatibility.level === "partial"
+                      ? pick("Parcial", "Partial", "Parcial", "Teilweise", "Partiel")
+                      : multiplayer.roomCompatibility.level === "compatible"
+                        ? pick("Compatível", "Compatible", "Compatible", "Kompatibel", "Compatible")
+                        : multiplayer.roomCompatibility.level === "waiting"
+                          ? pick("Aguardando outro jogador", "Waiting for another player", "Esperando otro jugador", "Warte auf weiteren Spieler", "En attente d’un autre joueur")
+                          : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")}
+              </strong>
+            </div>
+            <p>
+              {multiplayer.roomCompatibility.remoteCount > 0
+                ? `${multiplayer.roomCompatibility.remoteCount} ${pick("remoto(s)", "remote player(s)", "jugador(es) remoto(s)", "Remote-Spieler", "joueur(s) distant(s)")} · ${multiplayer.roomCompatibility.blocking} ${pick("bloqueio(s)", "block(s)", "bloqueo(s)", "Blockierungen", "blocage(s)")} · ${multiplayer.roomCompatibility.warnings} ${pick("aviso(s)", "warning(s)", "aviso(s)", "Warnungen", "avertissement(s)")}`
+                : pick("A comparação usa mapa, ônibus, HOF, protocolo e a exigência de ônibus físico quando ativada.", "Comparison uses map, bus, HOF, protocol, and the physical-bus requirement when enabled.", "La comparación usa mapa, autobús, HOF, protocolo y la exigencia de autobús físico cuando está activada.", "Der Vergleich nutzt Karte, Bus, HOF, Protokoll und bei Aktivierung die physische Bus-Anforderung.", "La comparaison utilise carte, bus, HOF, protocole et l’exigence de bus physique lorsqu’elle est activée.")}
+            </p>
+            {multiplayer.roomCompatibility.affectedAreas.length > 0 && (
+              <small>{pick("Áreas", "Areas", "Áreas", "Bereiche", "Zones")}: {multiplayer.roomCompatibility.affectedAreas.join(", ")}</small>
+            )}
+          </article>
           {visiblePlayers.length === 0 ? (
             <div className="empty-state">{pick("Nenhum jogador remoto disponível.", "No remote player available.", "Ningún jugador remoto disponible.", "Kein Remote-Spieler verfügbar.", "Aucun joueur distant disponible.")}</div>
           ) : (
