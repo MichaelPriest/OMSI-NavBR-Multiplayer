@@ -70,6 +70,13 @@ if (!string.IsNullOrWhiteSpace(options.MapCompatibilityId))
     Console.WriteLine($"Map ID : {options.MapCompatibilityId}");
 }
 
+if (!string.IsNullOrWhiteSpace(options.ActiveLine) ||
+    !string.IsNullOrWhiteSpace(options.ActiveRoute))
+{
+    Console.WriteLine(
+        $"Route  : linha {options.ActiveLine ?? "—"} • rota {options.ActiveRoute ?? "—"} • destino {options.ActiveDestination ?? "—"}");
+}
+
 Console.WriteLine(
     $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1} • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
@@ -184,6 +191,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             NavBRVersion: "alpha.14-simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
+            NextStopName: _options.ActiveNextStop,
+            DestinationName: _options.ActiveDestination,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
             HofName: null,
@@ -293,8 +302,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             Timestamp: DateTimeOffset.UtcNow,
             MapName: _options.MapName,
             VehicleName: $"SIM Bus {_index:00}",
-            Line: $"{100 + _index}",
-            Route: "SIM",
+            Line: _options.ActiveLine,
+            Route: _options.ActiveRoute,
             X: x,
             Y: y,
             Z: z,
@@ -654,6 +663,22 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     continue;
                 }
 
+                var operationalState = await resolver.TryGetOperationalStateAsync(cancellationToken);
+                if (operationalState is null &&
+                    string.IsNullOrWhiteSpace(options.ActiveLine) &&
+                    string.IsNullOrWhiteSpace(options.ActiveRoute))
+                {
+                    if (!announcedWaiting)
+                    {
+                        Console.WriteLine(
+                            "Mapa e posição encontrados. Aguardando linha/rota ativa da autoridade da sala...");
+                        announcedWaiting = true;
+                    }
+
+                    await Task.Delay(750, cancellationToken);
+                    continue;
+                }
+
                 var resolved = options with
                 {
                     MapName = reference.MapName,
@@ -686,6 +711,10 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
                         telemetry?.VehicleCompatibilityId,
+                    ActiveLine = operationalState?.Line ?? options.ActiveLine,
+                    ActiveRoute = operationalState?.Route ?? options.ActiveRoute,
+                    ActiveDestination = operationalState?.DestinationName ?? options.ActiveDestination,
+                    ActiveNextStop = operationalState?.NextStopName ?? options.ActiveNextStop,
                     RadiusMeters = options.RadiusExplicit
                         ? options.RadiusMeters
                         : 18d
@@ -737,6 +766,37 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                 Compatibility: null,
                 RoomPassword: _options.RoomPassword),
             cancellationToken);
+    }
+
+    private async Task<SessionOperationalState?> TryGetOperationalStateAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var state = await _connection.InvokeAsync<SessionOperationalState?>(
+                "GetSessionOperationalState",
+                cancellationToken);
+
+            if (state is null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_referencePlayerId) &&
+                !string.Equals(
+                    state.AuthorityPlayerId,
+                    _referencePlayerId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return state;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<VehicleTelemetry?> TryWaitForTelemetryAsync(
@@ -1053,6 +1113,10 @@ internal sealed record SimulatorOptions(
     string? MapCompatibilityId,
     string? VehiclePath,
     string? VehicleCompatibilityId,
+    string? ActiveLine,
+    string? ActiveRoute,
+    string? ActiveDestination,
+    string? ActiveNextStop,
     int? GridX,
     int? GridY,
     double? TileX,
@@ -1112,6 +1176,10 @@ internal sealed record SimulatorOptions(
             MapCompatibilityId: NullIfEmpty(values.GetValueOrDefault("map-id")),
             VehiclePath: NullIfEmpty(values.GetValueOrDefault("vehicle-path")),
             VehicleCompatibilityId: NullIfEmpty(values.GetValueOrDefault("vehicle-id")),
+            ActiveLine: NullIfEmpty(values.GetValueOrDefault("line")),
+            ActiveRoute: NullIfEmpty(values.GetValueOrDefault("route")),
+            ActiveDestination: NullIfEmpty(values.GetValueOrDefault("destination")),
+            ActiveNextStop: NullIfEmpty(values.GetValueOrDefault("next-stop")),
             GridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
             GridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
             TileX: ParseNullableDouble(values.GetValueOrDefault("tile-x")),
@@ -1167,6 +1235,11 @@ Options:
   --prefix TEXT        Display-name prefix (default SIM)
   --vehicle-path PATH  Optional real .bus path for physical-vehicle testing.
   --vehicle-id ID      Optional real vehicle compatibility id.
+  --line TEXT          Fallback line only for isolated tests.
+  --route TEXT         Fallback route only for isolated tests.
+  --destination TEXT   Fallback destination only for isolated tests.
+  --next-stop TEXT     Fallback next stop only for isolated tests.
+                       In a real room, the authority's active operation wins.
 """);
     }
 
