@@ -85,9 +85,11 @@ Require-Text "src/NavBR.Client/App.xaml.cs" @(
 )
 
 Require-Text "src/NavBR.Client/MainWindow.xaml.cs" @(
+    "private const bool RetiredWpfVisualsEnabled = false;",
     "DriverStatisticsService",
     "_driverStatisticsService.Start();",
-    "_driverStatisticsService.Dispose();"
+    "_driverStatisticsService.Dispose();",
+    "if (!RetiredWpfVisualsEnabled)"
 )
 
 Reject-Text "src/NavBR.Client/App.xaml.cs" @(

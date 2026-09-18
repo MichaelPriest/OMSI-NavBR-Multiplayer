@@ -15,6 +15,7 @@ namespace NavBR.Client;
 
 public partial class MainWindow : Window
 {
+    private const bool RetiredWpfVisualsEnabled = false;
     private const double MinimumRoadmapZoom = 0.02d;
     private const double MaximumRoadmapZoom = 8d;
 
@@ -244,6 +245,11 @@ public partial class MainWindow : Window
 
     private void RenderCurrentState()
     {
+        if (!RetiredWpfVisualsEnabled)
+        {
+            return;
+        }
+
         StatusText.Text = LocalizationService.Get(_statusKey);
         TelemetryStateText.Text = LocalizationService.Get(_telemetryStatusKey);
         RenderGpsState();
@@ -681,6 +687,12 @@ public partial class MainWindow : Window
         _roadmapZoom = 1d;
         _roadmapZoomInitialized = false;
         _isPanning = false;
+
+        if (!RetiredWpfVisualsEnabled)
+        {
+            return;
+        }
+
         RoadmapImage.Source = null;
         RoadmapCanvas.Width = 0;
         RoadmapCanvas.Height = 0;

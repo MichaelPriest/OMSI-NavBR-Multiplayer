@@ -26,10 +26,7 @@ public partial class MainWindow
             }
 
             _webOmsiLaunchNotice = null;
-            var result = OmsiLauncherService.Launch(profile);
-            StatusText.Text = result.AlreadyRunning
-                ? $"OMSI já está em execução • {profile.Name}"
-                : $"OMSI iniciado • {profile.Name}";
+            _ = OmsiLauncherService.Launch(profile);
         }
         catch (Exception ex)
         {
