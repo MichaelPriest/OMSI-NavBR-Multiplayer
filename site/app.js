@@ -192,8 +192,20 @@ async function loadReleases() {
   const alphaDownloadsLabelElement = document.getElementById('alpha-downloads-label');
   const downloadButton = document.getElementById('latest-download');
   const releaseList = document.getElementById('release-list');
+  const heroReleaseStatus = document.getElementById('hero-release-status');
+  const consoleReleaseStatus = document.getElementById('console-release-status');
+  const releaseStatusLabel = document.getElementById('release-status-label');
 
   if (versionElement) versionElement.textContent = current?.tag_name || currentTag;
+  if (heroReleaseStatus) heroReleaseStatus.innerHTML = current
+    ? '<span class="live-dot"></span> Alpha.14 • Public Alpha • React/WebView2 + Multiplayer + GPS'
+    : '<span class="live-dot"></span> Alpha.14 • Em validação • React/WebView2 + Multiplayer + GPS';
+  if (consoleReleaseStatus) consoleReleaseStatus.innerHTML = current
+    ? '<i></i> PUBLIC ALPHA'
+    : '<i></i> EM VALIDAÇÃO';
+  if (releaseStatusLabel) releaseStatusLabel.textContent = current
+    ? 'prerelease pública atual'
+    : 'em validação';
   if (summaryElement) summaryElement.textContent = current
     ? summarizeBody(current.body).slice(0, 220)
     : validationSummary;
@@ -207,13 +219,11 @@ async function loadReleases() {
     if (current && standalone) {
       downloadButton.href = standalone.browser_download_url;
       downloadButton.textContent = 'Baixar Alpha.14 — EXE standalone';
-      downloadButton.removeAttribute('aria-disabled');
       downloadButton.classList.remove('disabled');
     } else {
       downloadButton.href = `https://github.com/${repo}/releases`;
       downloadButton.textContent = 'Alpha.14 em validação — ver releases';
-      downloadButton.setAttribute('aria-disabled', 'true');
-      downloadButton.classList.add('disabled');
+      downloadButton.classList.remove('disabled');
     }
   }
   if (releaseList) {
