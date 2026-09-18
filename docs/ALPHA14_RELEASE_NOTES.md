@@ -1,8 +1,8 @@
 # Alpha.14 — notas da versão pública
 
-Versão: **v0.3.0-alpha.14**
+Versão pública atual: **v0.3.0-alpha.14-test.4**
 
-A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública principal do OMSI NavBR Multiplayer.
+A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4** passa a ser a release pública atual do OMSI NavBR Multiplayer.
 
 ## Interface principal
 
@@ -95,7 +95,7 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 
 ## Observação
 
-A Alpha.14 continua prerelease. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
+A Alpha.14 Test 4 está liberada publicamente. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
 
 
 ## HUD / Roadmap Studio
