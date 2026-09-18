@@ -2998,7 +2998,7 @@ function Multiplayer({
           multiplayer.transportMode === "direct-host"
             ? pick("Host direto", "Direct host", "Host directo", "Direkter Host", "Hôte direct")
             : multiplayer.transportMode === "relay"
-              ? "Relay"
+              ? pick("Servidor online", "Online server", "Servidor online", "Online-Server", "Serveur en ligne")
               : multiplayer.transportMode === "remote-host"
                 ? pick("Conectado ao host", "Connected to host", "Conectado al host", "Mit Host verbunden", "Connecté à l’hôte")
                 : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")
@@ -3162,16 +3162,16 @@ function Multiplayer({
                   sendCommand("configureRelay", { enabled, relayServerUrl });
                 }}
               />
-              <span>{pick("Usar relay de aplicação (experimental)", "Use application relay (experimental)", "Usar relay de aplicación (experimental)", "Anwendungs-Relay verwenden (experimentell)", "Utiliser le relais applicatif (expérimental)")}</span>
+              <span>{pick("Usar servidor online", "Use online server", "Usar servidor online", "Online-Server verwenden", "Utiliser le serveur en ligne")}</span>
             </label>
             <label className="password-field">
-              <span>{pick("Servidor relay", "Relay server", "Servidor relay", "Relay-Server", "Serveur relais")}</span>
+              <span>{pick("URL do servidor online", "Online server URL", "URL del servidor online", "Online-Server-URL", "URL du serveur en ligne")}</span>
               <input
                 value={relayServerUrl}
                 disabled={!relayEnabled || multiplayer.connected || multiplayer.hostRunning}
                 onChange={event => setRelayServerUrl(event.target.value)}
                 onBlur={() => sendCommand("configureRelay", { enabled: relayEnabled, relayServerUrl })}
-                placeholder="https://relay.example"
+                placeholder="https://seu-servico.onrender.com"
               />
             </label>
           </div>
@@ -3181,7 +3181,7 @@ function Multiplayer({
               <>
                 <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
                 <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: relayEnabled, relayServerUrl })}>
-                  {relayEnabled ? pick("Criar sala via relay", "Create room via relay", "Crear sala vía relay", "Raum über Relay erstellen", "Créer la salle via relais") : pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}
+                  {relayEnabled ? pick("Criar sala online", "Create online room", "Crear sala online", "Online-Raum erstellen", "Créer une salle en ligne") : pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}
                 </button>
               </>
             ) : (
@@ -4085,11 +4085,11 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("3. Multiplayer", "3. Multiplayer", "3. Multijugador", "3. Multiplayer", "3. Multijoueur"),
       body: pick(
-        "Crie uma sala local em TCP 27730 ou use relay experimental; também é possível entrar em uma sala existente ou pública. Salas privadas usam senha. Firewall, NAT/CGNAT, UPnP e teste externo ficam em Configurações > Rede.",
-        "Create a local room on TCP 27730 or use the experimental relay; you can also join an existing or public room. Private rooms use a password. Firewall, NAT/CGNAT, UPnP and external testing are under Settings > Network.",
-        "Crea una sala local en TCP 27730 o usa relay experimental; también puedes entrar en una sala existente o pública. Firewall, NAT/CGNAT y UPnP están en Configuración > Red.",
-        "Erstelle einen lokalen Raum über TCP 27730 oder nutze das experimentelle Relay. Firewall, NAT/CGNAT, UPnP und externe Tests befinden sich unter Einstellungen > Netzwerk.",
-        "Créez une salle locale sur TCP 27730 ou utilisez le relais expérimental. Pare-feu, NAT/CGNAT, UPnP et test externe sont dans Paramètres > Réseau."
+        "Crie uma sala online usando um servidor NavBR hospedado (por exemplo, Render) ou use o modo local TCP 27730. Salas privadas usam senha. Firewall, NAT/CGNAT e UPnP só são necessários no modo local.",
+        "Create an online room using a hosted NavBR server (for example, Render), or use local TCP 27730 mode. Private rooms use a password. Firewall, NAT/CGNAT and UPnP are only needed for local hosting.",
+        "Crea una sala online usando un servidor NavBR alojado (por ejemplo, Render), o usa el modo local TCP 27730. Firewall, NAT/CGNAT y UPnP solo son necesarios para alojamiento local.",
+        "Erstelle einen Online-Raum über einen gehosteten NavBR-Server (zum Beispiel Render) oder nutze den lokalen TCP-27730-Modus. Firewall, NAT/CGNAT und UPnP sind nur für lokales Hosting nötig.",
+        "Créez une salle en ligne via un serveur NavBR hébergé (par exemple Render), ou utilisez le mode local TCP 27730. Pare-feu, NAT/CGNAT et UPnP ne sont nécessaires que pour l’hébergement local."
       )
     },
     {
