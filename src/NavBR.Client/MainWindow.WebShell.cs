@@ -1,12 +1,16 @@
 using System.Text.Json;
 using System.Windows;
 using NavBR.Client.Multiplayer;
+using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
 
 public partial class MainWindow
 {
     private WebShellWindow? _webShellWindow;
+    private IReadOnlyList<PublicRoomSummary> _webPublicRooms = Array.Empty<PublicRoomSummary>();
+    private string? _webPublicRoomDirectoryError;
+    private string? _webPublicRoomDirectoryServerUrl;
 
     private void WebShellButton_Click(object sender, RoutedEventArgs e)
     {
@@ -64,7 +68,33 @@ public partial class MainWindow
                     headingDegrees = telemetry.HeadingDegrees,
                     speedKph = telemetry.SpeedKph
                 },
-            multiplayer = BuildWebMultiplayerState()
+            multiplayer = BuildWebMultiplayerState(),
+            roomDirectory = new
+            {
+                serverUrl = _webPublicRoomDirectoryServerUrl,
+                error = _webPublicRoomDirectoryError,
+                rooms = _webPublicRooms
+                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+                    .ThenByDescending(room => room.PlayerCount)
+                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(room => new
+                    {
+                        roomId = room.RoomId,
+                        playerCount = room.PlayerCount,
+                        mapName = room.MapName,
+                        mapCompatibilityId = room.MapCompatibilityId,
+                        updatedAtUtc = room.UpdatedAtUtc,
+                        omsiVersion = room.OmsiVersion,
+                        navbrVersion = room.NavBRVersion,
+                        vehiclePath = room.VehiclePath,
+                        vehicleCompatibilityId = room.VehicleCompatibilityId,
+                        hofName = room.HofName,
+                        hofCompatibilityId = room.HofCompatibilityId,
+                        pluginProtocolVersion = room.PluginProtocolVersion,
+                        favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId)
+                    })
+                    .ToArray()
+            }
         };
     }
 
@@ -86,6 +116,7 @@ public partial class MainWindow
             displayName = settings.DisplayName,
             hostRunning = false,
             hostPort = null as int?,
+            roomIsPrivate = false,
             inviteAddresses = Array.Empty<string>(),
             latencyMs = null as double?,
             voiceEnabled = false,
@@ -126,7 +157,8 @@ public partial class MainWindow
                     await _multiplayerWindow.ConnectFromWebAsync(
                         GetWebPayloadString(payload, "serverUrl"),
                         GetWebPayloadString(payload, "roomId"),
-                        GetWebPayloadString(payload, "displayName"));
+                        GetWebPayloadString(payload, "displayName"),
+                        GetWebPayloadString(payload, "roomPassword"));
                 }
                 break;
 
@@ -136,7 +168,9 @@ public partial class MainWindow
                 {
                     await _multiplayerWindow.StartLocalHostFromWebAsync(
                         GetWebPayloadString(payload, "roomId"),
-                        GetWebPayloadString(payload, "displayName"));
+                        GetWebPayloadString(payload, "displayName"),
+                        GetWebPayloadBool(payload, "isPrivate"),
+                        GetWebPayloadString(payload, "roomPassword"));
                 }
                 break;
 
@@ -154,6 +188,36 @@ public partial class MainWindow
                 }
                 break;
 
+            case "refreshPublicRooms":
+            {
+                var serverUrl = GetWebPayloadString(payload, "serverUrl")
+                    ?? MultiplayerSettingsStore.Load().ServerUrl;
+                _webPublicRoomDirectoryServerUrl = serverUrl;
+                _webPublicRoomDirectoryError = null;
+
+                try
+                {
+                    using var directory = new PublicRoomDirectoryClient();
+                    _webPublicRooms = await directory.GetRoomsAsync(serverUrl);
+                }
+                catch (Exception ex)
+                {
+                    _webPublicRooms = Array.Empty<PublicRoomSummary>();
+                    _webPublicRoomDirectoryError = ex.Message;
+                }
+                break;
+            }
+
+            case "toggleRoomFavorite":
+            {
+                var roomId = GetWebPayloadString(payload, "roomId");
+                if (!string.IsNullOrWhiteSpace(roomId))
+                {
+                    PublicRoomFavoritesStore.Toggle(roomId);
+                }
+                break;
+            }
+
             case "sendChat":
                 if (_multiplayerWindow is null)
                 {
@@ -167,6 +231,19 @@ public partial class MainWindow
                 }
                 break;
         }
+    }
+
+    private static bool GetWebPayloadBool(JsonElement? payload, string propertyName)
+    {
+        if (payload is not JsonElement element ||
+            element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty(propertyName, out var value) ||
+            (value.ValueKind != JsonValueKind.True && value.ValueKind != JsonValueKind.False))
+        {
+            return false;
+        }
+
+        return value.GetBoolean();
     }
 
     private static string? GetWebPayloadString(JsonElement? payload, string propertyName)
