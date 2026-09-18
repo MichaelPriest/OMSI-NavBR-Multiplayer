@@ -575,6 +575,7 @@ function Navigation({ state }: { state: NavBrState | null }) {
 }
 
 function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
+  const { pick } = useI18n();
   const plotted = useMemo(() => {
     if (points.length === 0) return [];
 
@@ -600,8 +601,8 @@ function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
       <div className="session-map-placeholder">
         <div className="map-grid-lines" />
         <div className="map-center-message">
-          <strong>Sem posições válidas</strong>
-          <span>Ônibus e personagens só aparecem quando há telemetria real, recente e compatível.</span>
+          <strong>{pick("Sem posições válidas", "No valid positions", "Sin posiciones válidas", "Keine gültigen Positionen", "Aucune position valide")}</strong>
+          <span>{pick("Ônibus e personagens só aparecem quando há telemetria real, recente e compatível.", "Buses and characters only appear with real, recent and compatible telemetry.", "Autobuses y personajes solo aparecen con telemetría real, reciente y compatible.", "Busse und Charaktere erscheinen nur mit echter, aktueller und kompatibler Telemetrie.", "Les bus et personnages n’apparaissent qu’avec une télémétrie réelle, récente et compatible.")}</span>
         </div>
       </div>
     );
@@ -610,7 +611,7 @@ function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
   return (
     <div className="session-map-real">
       <div className="map-grid-lines" />
-      <svg viewBox="0 0 100 100" role="img" aria-label="Mapa relativo da sessão">
+      <svg viewBox="0 0 100 100" role="img" aria-label={pick("Mapa relativo da sessão", "Relative session map", "Mapa relativo de la sesión", "Relative Sitzungskarte", "Carte relative de la session")}>
         {plotted.map(point => (
           <g
             key={point.playerId}
@@ -625,19 +626,19 @@ function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
         ))}
         {plotted.map(point => (
           <g key={`label-${point.playerId}`} transform={`translate(${Math.min(92, point.px + 5)} ${Math.max(5, point.py - 4)})`}>
-            <text className="session-label">{point.isLocal ? "Você" : point.displayName}</text>
+            <text className="session-label">{point.isLocal ? pick("Você", "You", "Tú", "Du", "Vous") : point.displayName}</text>
             <text y="3.3" className="session-label-detail">
               {point.kind === "roleplay"
                 ? `${point.activity || "RP"} · ${format(point.speedKph, 0)} km/h`
-                : `${point.line ? `Linha ${point.line} · ` : ""}${format(point.speedKph, 0)} km/h`}
+                : `${point.line ? `${pick("Linha", "Line", "Línea", "Linie", "Ligne")} ${point.line} · ` : ""}${format(point.speedKph, 0)} km/h`}
             </text>
           </g>
         ))}
       </svg>
       <div className="map-legend">
-        <span><i className="legend-local" /> Você</span>
-        <span><i className="legend-bus" /> Ônibus</span>
-        <span><i className="legend-rp" /> Personagem</span>
+        <span><i className="legend-local" /> {pick("Você", "You", "Tú", "Du", "Vous")}</span>
+        <span><i className="legend-bus" /> {pick("Ônibus", "Bus", "Autobús", "Bus", "Bus")}</span>
+        <span><i className="legend-rp" /> {pick("Personagem", "Character", "Personaje", "Charakter", "Personnage")}</span>
       </div>
     </div>
   );
@@ -646,25 +647,34 @@ function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
 
 type OperationsTab = "overview" | "drivers" | "reports" | "company";
 
-function formatDelay(seconds: number | undefined | null) {
+function formatDelay(
+  seconds: number | undefined | null,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
   if (seconds == null || !Number.isFinite(seconds)) return "—";
   const abs = Math.abs(Math.round(seconds));
   const minutes = Math.floor(abs / 60);
   const remainder = abs % 60;
   const value = minutes > 0 ? `${minutes}m ${remainder.toString().padStart(2, "0")}s` : `${remainder}s`;
-  return seconds > 0 ? `+${value}` : seconds < 0 ? `-${value}` : "No horário";
+  return seconds > 0 ? `+${value}` : seconds < 0 ? `-${value}` : pick("No horário", "On time", "A tiempo", "Pünktlich", "À l’heure");
 }
 
-function reportSeverityLabel(severity: string) {
-  if (severity === "Critical") return "Crítica";
-  if (severity === "Attention") return "Atenção";
-  return "Informativa";
+function reportSeverityLabel(
+  severity: string,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
+  if (severity === "Critical") return pick("Crítica", "Critical", "Crítica", "Kritisch", "Critique");
+  if (severity === "Attention") return pick("Atenção", "Attention", "Atención", "Achtung", "Attention");
+  return pick("Informativa", "Informational", "Informativa", "Informativ", "Informative");
 }
 
-function reportStatusLabel(status: string) {
-  if (status === "Acknowledged") return "Reconhecida";
-  if (status === "Resolved") return "Resolvida";
-  return "Aberta";
+function reportStatusLabel(
+  status: string,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
+  if (status === "Acknowledged") return pick("Reconhecida", "Acknowledged", "Reconocida", "Bestätigt", "Reconnue");
+  if (status === "Resolved") return pick("Resolvida", "Resolved", "Resuelta", "Gelöst", "Résolue");
+  return pick("Aberta", "Open", "Abierta", "Offen", "Ouverte");
 }
 
 function Operations({
@@ -676,6 +686,7 @@ function Operations({
   error: string | null;
   onNavigate: (screen: Screen) => void;
 }) {
+  const { pick } = useI18n();
   const operations = state?.operations;
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const [tab, setTab] = useState<OperationsTab>("overview");
@@ -706,7 +717,7 @@ function Operations({
   }, [operations]);
 
   if (!operations) {
-    return <div className="card empty-state">Aguardando dados do CCO…</div>;
+    return <div className="card empty-state">{pick("Aguardando dados do CCO…", "Waiting for operations data…", "Esperando datos del CCO…", "Warte auf Leitstellendaten…", "En attente des données CCO…")}</div>;
   }
 
   const local = operations.localOperation;
@@ -719,13 +730,13 @@ function Operations({
     <>
       <header className="topbar operations-header">
         <div>
-          <span className="eyebrow">CENTRO DE CONTROLE OPERACIONAL</span>
+          <span className="eyebrow">{pick("CENTRO DE CONTROLE OPERACIONAL", "OPERATIONS CONTROL CENTER", "CENTRO DE CONTROL OPERACIONAL", "BETRIEBSLEITSTELLE", "CENTRE DE CONTRÔLE OPÉRATIONNEL")}</span>
           <h1>CCO</h1>
-          <p>Operação local, motoristas da sessão e ocorrências recebidas pelo backend NavBR.</p>
+          <p>{pick("Operação local, motoristas da sessão e ocorrências recebidas pelo backend NavBR.", "Local operation, session drivers and reports received by the NavBR backend.", "Operación local, conductores de la sesión e incidencias recibidas por el backend NavBR.", "Lokaler Betrieb, Sitzungsfahrer und Meldungen aus dem NavBR-Backend.", "Opération locale, conducteurs de session et incidents reçus par le backend NavBR.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${operations.connected ? "connected" : ""}`}>
-            <i /> {operations.connected ? operations.roomId || "Sessão ativa" : "Sem sessão"}
+            <i /> {operations.connected ? operations.roomId || pick("Sessão ativa", "Active session", "Sesión activa", "Aktive Sitzung", "Session active") : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")}
           </span>
           <button className="button ghost" onClick={() => onNavigate("multiplayer")}>Multiplayer</button>
         </div>
@@ -734,19 +745,19 @@ function Operations({
       {error && <div className="command-error">{error}</div>}
 
       <section className="cco-metrics">
-        <div className="metric"><small>MOTORISTAS REMOTOS</small><strong>{operations.drivers.length}</strong></div>
-        <div className="metric"><small>OCORRÊNCIAS ABERTAS</small><strong>{activeReports.length}</strong></div>
-        <div className="metric"><small>CRÍTICAS</small><strong>{criticalReports.length}</strong></div>
-        <div className="metric"><small>ATRASO &gt; 2 MIN</small><strong>{delayedDrivers.length}</strong></div>
-        <div className="metric"><small>SEM TELEMETRIA</small><strong>{staleDrivers.length}</strong></div>
+        <div className="metric"><small>{pick("MOTORISTAS REMOTOS", "REMOTE DRIVERS", "CONDUCTORES REMOTOS", "REMOTE-FAHRER", "CONDUCTEURS DISTANTS")}</small><strong>{operations.drivers.length}</strong></div>
+        <div className="metric"><small>{pick("OCORRÊNCIAS ABERTAS", "OPEN REPORTS", "INCIDENCIAS ABIERTAS", "OFFENE MELDUNGEN", "INCIDENTS OUVERTS")}</small><strong>{activeReports.length}</strong></div>
+        <div className="metric"><small>{pick("CRÍTICAS", "CRITICAL", "CRÍTICAS", "KRITISCH", "CRITIQUES")}</small><strong>{criticalReports.length}</strong></div>
+        <div className="metric"><small>{pick("ATRASO > 2 MIN", "DELAY > 2 MIN", "RETRASO > 2 MIN", "VERSPÄTUNG > 2 MIN", "RETARD > 2 MIN")}</small><strong>{delayedDrivers.length}</strong></div>
+        <div className="metric"><small>{pick("SEM TELEMETRIA", "NO TELEMETRY", "SIN TELEMETRÍA", "KEINE TELEMETRIE", "SANS TÉLÉMÉTRIE")}</small><strong>{staleDrivers.length}</strong></div>
       </section>
 
       <div className="mp-tabs cco-tabs" role="tablist">
         {([
           ["overview", pick("Visão geral", "Overview", "Resumen", "Übersicht", "Vue d’ensemble")],
-          ["drivers", "Motoristas"],
-          ["reports", "Ocorrências"],
-          ["company", "Empresa / Frota"]
+          ["drivers", pick("Motoristas", "Drivers", "Conductores", "Fahrer", "Conducteurs")],
+          ["reports", pick("Ocorrências", "Reports", "Incidencias", "Meldungen", "Incidents")],
+          ["company", pick("Empresa / Frota", "Company / Fleet", "Empresa / Flota", "Unternehmen / Flotte", "Entreprise / Flotte")]
         ] as [OperationsTab, string][]).map(([key, label]) => (
           <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
         ))}
@@ -757,8 +768,8 @@ function Operations({
           <article className="card cco-map-card">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">SESSÃO OPERACIONAL</span>
-                <h3>{local?.mapName || state?.telemetry?.mapName || "Sem mapa ativo"}</h3>
+                <span className="eyebrow">{pick("SESSÃO OPERACIONAL", "OPERATION SESSION", "SESIÓN OPERACIONAL", "BETRIEBSSITZUNG", "SESSION OPÉRATIONNELLE")}</span>
+                <h3>{local?.mapName || state?.telemetry?.mapName || pick("Sem mapa ativo", "No active map", "Sin mapa activo", "Keine aktive Karte", "Aucune carte active")}</h3>
               </div>
               <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
             </div>
@@ -767,26 +778,26 @@ function Operations({
 
           <aside className="cco-side-stack">
             <article className="card compact-card">
-              <span className="eyebrow">OPERAÇÃO LOCAL</span>
-              <h3>{local?.vehicleName || "Nenhum ônibus detectado"}</h3>
-              <p>{local?.line ? `Linha ${local.line}` : "Sem linha"} · {local?.route || "Sem rota"}</p>
-              <p>{local?.destination || "Destino não informado"}</p>
+              <span className="eyebrow">{pick("OPERAÇÃO LOCAL", "LOCAL OPERATION", "OPERACIÓN LOCAL", "LOKALER BETRIEB", "OPÉRATION LOCALE")}</span>
+              <h3>{local?.vehicleName || pick("Nenhum ônibus detectado", "No bus detected", "Ningún autobús detectado", "Kein Bus erkannt", "Aucun bus détecté")}</h3>
+              <p>{local?.line ? `${pick("Linha", "Line", "Línea", "Linie", "Ligne")} ${local.line}` : pick("Sem linha", "No line", "Sin línea", "Keine Linie", "Aucune ligne")} · {local?.route || pick("Sem rota", "No route", "Sin ruta", "Keine Route", "Aucun itinéraire")}</p>
+              <p>{local?.destination || pick("Destino não informado", "Destination not provided", "Destino no informado", "Ziel nicht angegeben", "Destination non renseignée")}</p>
             </article>
 
             <article className="card compact-card cco-speed-card">
-              <span className="eyebrow">AGORA</span>
+              <span className="eyebrow">{pick("AGORA", "NOW", "AHORA", "JETZT", "MAINTENANT")}</span>
               <div className="cco-live-values">
                 <span><strong>{local ? format(local.speedKph, 0) : "—"}</strong><small>km/h</small></span>
-                <span><strong>{formatDelay(local?.delaySeconds)}</strong><small>atraso</small></span>
+                <span><strong>{formatDelay(local?.delaySeconds, pick)}</strong><small>{pick("atraso", "delay", "retraso", "Verspätung", "retard")}</small></span>
               </div>
-              <p>{local?.currentStreet || local?.nextStop || "Aguardando telemetria operacional"}</p>
+              <p>{local?.currentStreet || local?.nextStop || pick("Aguardando telemetria operacional", "Waiting for operational telemetry", "Esperando telemetría operacional", "Warte auf Betriebstelemetrie", "En attente de la télémétrie opérationnelle")}</p>
             </article>
 
             <article className="card compact-card">
-              <span className="eyebrow">EMPRESA</span>
-              <h3>{operations.company.name || "Empresa não configurada"}</h3>
-              <p>{operations.company.fleet.length} veículo(s) cadastrados</p>
-              <button className="text-action" onClick={() => setTab("company")}>Abrir Empresa / Frota →</button>
+              <span className="eyebrow">{pick("EMPRESA", "COMPANY", "EMPRESA", "UNTERNEHMEN", "ENTREPRISE")}</span>
+              <h3>{operations.company.name || pick("Empresa não configurada", "Company not configured", "Empresa no configurada", "Unternehmen nicht konfiguriert", "Entreprise non configurée")}</h3>
+              <p>{operations.company.fleet.length} {pick("veículo(s) cadastrados", "registered vehicle(s)", "vehículo(s) registrados", "registrierte Fahrzeuge", "véhicule(s) enregistrés")}</p>
+              <button className="text-action" onClick={() => setTab("company")}>{pick("Abrir Empresa / Frota", "Open Company / Fleet", "Abrir Empresa / Flota", "Unternehmen / Flotte öffnen", "Ouvrir Entreprise / Flotte")} →</button>
             </article>
           </aside>
         </section>
@@ -795,12 +806,12 @@ function Operations({
       {tab === "drivers" && (
         <section className="card cco-panel">
           <div className="section-heading">
-            <div><span className="eyebrow">MOTORISTAS</span><h3>Operação remota da sala</h3></div>
-            <span className="stop-count">{operations.drivers.length} conectado(s)</span>
+            <div><span className="eyebrow">{pick("MOTORISTAS", "DRIVERS", "CONDUCTORES", "FAHRER", "CONDUCTEURS")}</span><h3>{pick("Operação remota da sala", "Remote room operation", "Operación remota de la sala", "Remote-Raumbetrieb", "Opération distante de la salle")}</h3></div>
+            <span className="stop-count">{operations.drivers.length} {pick("conectado(s)", "connected", "conectado(s)", "verbunden", "connecté(s)")}</span>
           </div>
 
           {operations.drivers.length === 0 ? (
-            <div className="empty-state">Nenhum motorista remoto com telemetria real disponível.</div>
+            <div className="empty-state">{pick("Nenhum motorista remoto com telemetria real disponível.", "No remote driver with real telemetry available.", "Ningún conductor remoto con telemetría real disponible.", "Kein Remote-Fahrer mit echter Telemetrie verfügbar.", "Aucun conducteur distant avec télémétrie réelle disponible.")}</div>
           ) : (
             <div className="drivers-table">
               {operations.drivers.map(driver => (
@@ -808,25 +819,25 @@ function Operations({
                   <span className="driver-avatar">{driver.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="driver-primary">
                     <strong>{driver.displayName}</strong>
-                    <small>{driver.vehicleName || "Ônibus não informado"} · {driver.mapName || "Mapa —"}</small>
+                    <small>{driver.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")} · {driver.mapName || pick("Mapa —", "Map —", "Mapa —", "Karte —", "Carte —")}</small>
                   </div>
                   <div className="driver-service">
                     <strong>{driver.line || "—"}</strong>
-                    <small>{driver.route || driver.destination || "Sem rota"}</small>
+                    <small>{driver.route || driver.destination || pick("Sem rota", "No route", "Sin ruta", "Keine Route", "Aucun itinéraire")}</small>
                   </div>
                   <div className="driver-live">
                     <strong>{format(driver.speedKph, 0)} km/h</strong>
-                    <small className={(driver.delaySeconds ?? 0) > 120 ? "late" : ""}>{formatDelay(driver.delaySeconds)}</small>
+                    <small className={(driver.delaySeconds ?? 0) > 120 ? "late" : ""}>{formatDelay(driver.delaySeconds, pick)}</small>
                   </div>
                   <div className="driver-status">
                     {driver.latestReport ? (
                       <span className={`report-chip ${driver.latestReport.severity.toLowerCase()}`}>
-                        {reportSeverityLabel(driver.latestReport.severity)}
+                        {reportSeverityLabel(driver.latestReport.severity, pick)}
                       </span>
                     ) : driver.stale ? (
-                      <span className="report-chip stale">Sem atualização</span>
+                      <span className="report-chip stale">{pick("Sem atualização", "No update", "Sin actualización", "Keine Aktualisierung", "Aucune mise à jour")}</span>
                     ) : (
-                      <span className="report-chip ok">Normal</span>
+                      <span className="report-chip ok">{pick("Normal", "Normal", "Normal", "Normal", "Normal")}</span>
                     )}
                   </div>
                 </div>
@@ -840,40 +851,40 @@ function Operations({
         <section className="card cco-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">OCORRÊNCIAS</span>
-              <h3>Assistência e incidentes da sessão</h3>
+              <span className="eyebrow">{pick("OCORRÊNCIAS", "REPORTS", "INCIDENCIAS", "MELDUNGEN", "INCIDENTS")}</span>
+              <h3>{pick("Assistência e incidentes da sessão", "Session assistance and incidents", "Asistencia e incidentes de la sesión", "Hilfe und Vorfälle der Sitzung", "Assistance et incidents de la session")}</h3>
             </div>
             <span className={`authority-pill ${operations.canManageReports ? "enabled" : ""}`}>
-              {operations.canManageReports ? "Autoridade CCO" : "Somente leitura"}
+              {operations.canManageReports ? pick("Autoridade CCO", "Operations authority", "Autoridad CCO", "Leitstellenberechtigung", "Autorité CCO") : pick("Somente leitura", "Read only", "Solo lectura", "Nur lesen", "Lecture seule")}
             </span>
           </div>
 
           {operations.reports.length === 0 ? (
-            <div className="empty-state">Nenhuma ocorrência recebida nesta sessão.</div>
+            <div className="empty-state">{pick("Nenhuma ocorrência recebida nesta sessão.", "No report received in this session.", "Ninguna incidencia recibida en esta sesión.", "Keine Meldung in dieser Sitzung empfangen.", "Aucun incident reçu dans cette session.")}</div>
           ) : (
             <div className="reports-list">
               {operations.reports.map(report => (
                 <article className={`report-card ${report.severity.toLowerCase()} ${report.status.toLowerCase()}`} key={report.reportId}>
                   <div className="report-card-top">
                     <div>
-                      <span className={`report-chip ${report.severity.toLowerCase()}`}>{reportSeverityLabel(report.severity)}</span>
+                      <span className={`report-chip ${report.severity.toLowerCase()}`}>{reportSeverityLabel(report.severity, pick)}</span>
                       <strong>{report.displayName}</strong>
                     </div>
-                    <span className="report-status">{reportStatusLabel(report.status)}</span>
+                    <span className="report-status">{reportStatusLabel(report.status, pick)}</span>
                   </div>
-                  <h4>{report.kind === "Incident" ? "Incidente" : "Pedido de assistência"}</h4>
-                  <p>{report.message || "Sem mensagem adicional."}</p>
+                  <h4>{report.kind === "Incident" ? pick("Incidente", "Incident", "Incidente", "Vorfall", "Incident") : pick("Pedido de assistência", "Assistance request", "Solicitud de asistencia", "Hilfeanfrage", "Demande d’assistance")}</h4>
+                  <p>{report.message || pick("Sem mensagem adicional.", "No additional message.", "Sin mensaje adicional.", "Keine zusätzliche Nachricht.", "Aucun message supplémentaire.")}</p>
                   <small>{new Date(report.updatedAtUtc).toLocaleString()}</small>
 
                   {operations.canManageReports && report.status !== "Resolved" && (
                     <div className="report-actions">
                       {report.status === "Open" && (
                         <button className="button ghost compact" onClick={() => sendCommand("acknowledgeOperationalReport", { reportId: report.reportId })}>
-                          Reconhecer
+                          {pick("Reconhecer", "Acknowledge", "Reconocer", "Bestätigen", "Reconnaître")}
                         </button>
                       )}
                       <button className="button primary compact" onClick={() => sendCommand("resolveOperationalReport", { reportId: report.reportId })}>
-                        Resolver
+                        {pick("Resolver", "Resolve", "Resolver", "Lösen", "Résoudre")}
                       </button>
                     </div>
                   )}
@@ -888,33 +899,33 @@ function Operations({
         <section className="company-layout">
           <article className="card company-card">
             <div className="section-heading">
-              <div><span className="eyebrow">EMPRESA VIRTUAL</span><h3>Identidade operacional</h3></div>
+              <div><span className="eyebrow">{pick("EMPRESA VIRTUAL", "VIRTUAL COMPANY", "EMPRESA VIRTUAL", "VIRTUELLES UNTERNEHMEN", "ENTREPRISE VIRTUELLE")}</span><h3>{pick("Identidade operacional", "Operational identity", "Identidad operacional", "Betriebsidentität", "Identité opérationnelle")}</h3></div>
             </div>
             <div className="company-form">
-              <label><span>Nome</span><input value={companyName} onChange={event => setCompanyName(event.target.value)} /></label>
-              <label><span>Sigla</span><input value={companyShortName} onChange={event => setCompanyShortName(event.target.value)} /></label>
-              <label className="wide"><span>Mapa base</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} /></label>
+              <label><span>{pick("Nome", "Name", "Nombre", "Name", "Nom")}</span><input value={companyName} onChange={event => setCompanyName(event.target.value)} /></label>
+              <label><span>{pick("Sigla", "Short name", "Sigla", "Kürzel", "Sigle")}</span><input value={companyShortName} onChange={event => setCompanyShortName(event.target.value)} /></label>
+              <label className="wide"><span>{pick("Mapa base", "Base map", "Mapa base", "Basiskarte", "Carte de base")}</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} /></label>
             </div>
             <button className="button primary" onClick={() => sendCommand("saveCompany", {
               name: companyName,
               shortName: companyShortName,
               baseMap: companyBaseMap
-            })}>Salvar empresa</button>
+            })}>{pick("Salvar empresa", "Save company", "Guardar empresa", "Unternehmen speichern", "Enregistrer l’entreprise")}</button>
           </article>
 
           <article className="card company-card">
             <div className="section-heading">
-              <div><span className="eyebrow">PERFIL</span><h3>Motorista</h3></div>
+              <div><span className="eyebrow">{pick("PERFIL", "PROFILE", "PERFIL", "PROFIL", "PROFIL")}</span><h3>{pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div>
             </div>
             <div className="company-form">
-              <label className="wide"><span>Nome no NavBR</span><input value={profileName} onChange={event => setProfileName(event.target.value)} /></label>
-              <label className="wide"><span>Empresa do perfil</span><input value={profileCompany} onChange={event => setProfileCompany(event.target.value)} /></label>
+              <label className="wide"><span>{pick("Nome no NavBR", "NavBR name", "Nombre en NavBR", "Name in NavBR", "Nom dans NavBR")}</span><input value={profileName} onChange={event => setProfileName(event.target.value)} /></label>
+              <label className="wide"><span>{pick("Empresa do perfil", "Profile company", "Empresa del perfil", "Profilunternehmen", "Entreprise du profil")}</span><input value={profileCompany} onChange={event => setProfileCompany(event.target.value)} /></label>
             </div>
             <div className="profile-stats">
-              <span><small>VIAGENS</small><strong>{operations.profile.trips}</strong></span>
-              <span><small>DISTÂNCIA</small><strong>{operations.profile.totalDistanceKm.toFixed(1)} km</strong></span>
-              <span><small>MÉDIA</small><strong>{operations.profile.averageMovingSpeedKph.toFixed(1)} km/h</strong></span>
-              <span><small>MÁXIMA</small><strong>{operations.profile.highestSpeedKph.toFixed(0)} km/h</strong></span>
+              <span><small>{pick("VIAGENS", "TRIPS", "VIAJES", "FAHRTEN", "TRAJETS")}</small><strong>{operations.profile.trips}</strong></span>
+              <span><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{operations.profile.totalDistanceKm.toFixed(1)} km</strong></span>
+              <span><small>{pick("MÉDIA", "AVERAGE", "MEDIA", "DURCHSCHNITT", "MOYENNE")}</small><strong>{operations.profile.averageMovingSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>{pick("MÁXIMA", "MAXIMUM", "MÁXIMA", "MAXIMUM", "MAXIMUM")}</small><strong>{operations.profile.highestSpeedKph.toFixed(0)} km/h</strong></span>
             </div>
             <button className="button ghost" onClick={() => sendCommand("saveDriverProfile", {
               displayName: profileName,
@@ -924,33 +935,33 @@ function Operations({
 
           <article className="card fleet-card">
             <div className="section-heading">
-              <div><span className="eyebrow">FROTA</span><h3>{operations.company.fleet.length} veículo(s)</h3></div>
+              <div><span className="eyebrow">{pick("FROTA", "FLEET", "FLOTA", "FLOTTE", "FLOTTE")}</span><h3>{operations.company.fleet.length} {pick("veículo(s)", "vehicle(s)", "vehículo(s)", "Fahrzeuge", "véhicule(s)")}</h3></div>
             </div>
 
             <div className="register-vehicle">
               <div>
-                <small>ÔNIBUS ATUAL DO OMSI</small>
-                <strong>{local?.vehicleName || "Nenhum ônibus detectado"}</strong>
+                <small>{pick("ÔNIBUS ATUAL DO OMSI", "CURRENT OMSI BUS", "AUTOBÚS ACTUAL DE OMSI", "AKTUELLER OMSI-BUS", "BUS OMSI ACTUEL")}</small>
+                <strong>{local?.vehicleName || pick("Nenhum ônibus detectado", "No bus detected", "Ningún autobús detectado", "Kein Bus erkannt", "Aucun bus détecté")}</strong>
               </div>
-              <input value={fleetNumber} onChange={event => setFleetNumber(event.target.value)} placeholder="Prefixo / número" />
-              <input value={fleetLivery} onChange={event => setFleetLivery(event.target.value)} placeholder="Pintura (opcional)" />
+              <input value={fleetNumber} onChange={event => setFleetNumber(event.target.value)} placeholder={pick("Prefixo / número", "Fleet number", "Prefijo / número", "Flottennummer", "Numéro de flotte")} />
+              <input value={fleetLivery} onChange={event => setFleetLivery(event.target.value)} placeholder={pick("Pintura (opcional)", "Livery (optional)", "Pintura (opcional)", "Lackierung (optional)", "Livrée (optionnel)")} />
               <button className="button primary" disabled={!local?.vehicleName} onClick={() => {
                 sendCommand("registerCurrentVehicle", { fleetNumber, livery: fleetLivery });
                 setFleetNumber("");
                 setFleetLivery("");
-              }}>Cadastrar atual</button>
+              }}>{pick("Cadastrar atual", "Register current", "Registrar actual", "Aktuellen registrieren", "Enregistrer l’actuel")}</button>
             </div>
 
             {operations.company.fleet.length === 0 ? (
-              <div className="empty-state compact-empty">Nenhum veículo cadastrado na frota.</div>
+              <div className="empty-state compact-empty">{pick("Nenhum veículo cadastrado na frota.", "No vehicle registered in the fleet.", "Ningún vehículo registrado en la flota.", "Kein Fahrzeug in der Flotte registriert.", "Aucun véhicule enregistré dans la flotte.")}</div>
             ) : (
               <div className="fleet-list">
                 {operations.company.fleet.map(vehicle => (
                   <div className="fleet-row" key={vehicle.id}>
                     <span className="fleet-number">{vehicle.fleetNumber}</span>
-                    <div><strong>{vehicle.vehicleModel}</strong><small>{vehicle.livery || "Pintura não informada"}</small></div>
-                    <small>{vehicle.lastUsedAt ? `Último uso: ${new Date(vehicle.lastUsedAt).toLocaleDateString()}` : "Sem uso registrado"}</small>
-                    <button className="button ghost compact danger" onClick={() => sendCommand("removeFleetVehicle", { vehicleId: vehicle.id })}>Remover</button>
+                    <div><strong>{vehicle.vehicleModel}</strong><small>{vehicle.livery || pick("Pintura não informada", "Livery not provided", "Pintura no informada", "Lackierung nicht angegeben", "Livrée non renseignée")}</small></div>
+                    <small>{vehicle.lastUsedAt ? `${pick("Último uso", "Last used", "Último uso", "Zuletzt verwendet", "Dernière utilisation")}: ${new Date(vehicle.lastUsedAt).toLocaleDateString()}` : pick("Sem uso registrado", "No recorded use", "Sin uso registrado", "Keine Nutzung registriert", "Aucune utilisation enregistrée")}</small>
+                    <button className="button ghost compact danger" onClick={() => sendCommand("removeFleetVehicle", { vehicleId: vehicle.id })}>{pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}</button>
                   </div>
                 ))}
               </div>
@@ -967,19 +978,26 @@ function Operations({
 
 type CompanyNetworkTab = "network" | "team";
 
-const companyRoleLabels: Record<string, string> = {
-  President: "Presidente",
-  VicePresident: "Vice-Presidente",
-  Director: "Diretoria",
-  OperationsManager: "Gerente Operacional",
-  Dispatcher: "CCO / Dispatcher",
-  Supervisor: "Fiscal / Supervisor",
-  SeniorDriver: "Motorista Sênior",
-  Driver: "Motorista",
-  Trainee: "Aprendiz"
-};
+function companyRoleLabel(
+  role: string,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
+  const labels: Record<string, string> = {
+    President: pick("Presidente", "President", "Presidente", "Präsident", "Président"),
+    VicePresident: pick("Vice-Presidente", "Vice President", "Vicepresidente", "Vizepräsident", "Vice-président"),
+    Director: pick("Diretoria", "Director", "Dirección", "Direktor", "Direction"),
+    OperationsManager: pick("Gerente Operacional", "Operations Manager", "Gerente Operacional", "Betriebsleiter", "Responsable des opérations"),
+    Dispatcher: pick("CCO / Dispatcher", "Dispatch", "CCO / Dispatcher", "Leitstelle", "CCO / Dispatch"),
+    Supervisor: pick("Fiscal / Supervisor", "Supervisor", "Supervisor", "Supervisor", "Superviseur"),
+    SeniorDriver: pick("Motorista Sênior", "Senior Driver", "Conductor Senior", "Senior-Fahrer", "Conducteur senior"),
+    Driver: pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur"),
+    Trainee: pick("Aprendiz", "Trainee", "Aprendiz", "Auszubildender", "Stagiaire")
+  };
+  return labels[role] || role;
+}
 
 function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMember; assignableRoles: string[] }) {
+  const { pick } = useI18n();
   const [role, setRole] = useState(member.role);
   useEffect(() => setRole(member.role), [member.role]);
 
@@ -987,27 +1005,28 @@ function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMem
     <div className={`company-member-row ${member.isSelf ? "self" : ""}`}>
       <span className="company-member-avatar">{member.displayName.slice(0, 1).toUpperCase()}</span>
       <div className="company-member-main">
-        <strong>{member.displayName}{member.isSelf ? " · Você" : ""}</strong>
+        <strong>{member.displayName}{member.isSelf ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
         <small>{member.playerId}{member.isOwner ? " · OWNER" : ""}</small>
       </div>
       <div className="company-member-role">
-        <span>{companyRoleLabels[member.role] || member.role}</span>
-        <small>{member.permissions || "Sem permissões administrativas"}</small>
+        <span>{companyRoleLabel(member.role, pick)}</span>
+        <small>{member.permissions || pick("Sem permissões administrativas", "No administrative permissions", "Sin permisos administrativos", "Keine administrativen Rechte", "Aucune permission administrative")}</small>
       </div>
       {member.canChangeRole ? (
         <div className="company-member-actions">
           <select value={role} onChange={event => setRole(event.target.value)}>
-            {assignableRoles.map(item => <option key={item} value={item}>{companyRoleLabels[item] || item}</option>)}
+            {assignableRoles.map(item => <option key={item} value={item}>{companyRoleLabel(item, pick)}</option>)}
           </select>
-          <button className="button ghost compact" disabled={role === member.role} onClick={() => sendCommand("changeCompanyMemberRole", { playerId: member.playerId, role })}>Aplicar cargo</button>
-          {member.canRemove && <button className="button ghost compact danger" onClick={() => { if (window.confirm("Remover " + member.displayName + " da empresa?")) sendCommand("removeCompanyMember", { playerId: member.playerId }); }}>Remover</button>}
+          <button className="button ghost compact" disabled={role === member.role} onClick={() => sendCommand("changeCompanyMemberRole", { playerId: member.playerId, role })}>{pick("Aplicar cargo", "Apply role", "Aplicar cargo", "Rolle anwenden", "Appliquer le rôle")}</button>
+          {member.canRemove && <button className="button ghost compact danger" onClick={() => { if (window.confirm(pick("Remover " + member.displayName + " da empresa?", "Remove " + member.displayName + " from the company?", "¿Eliminar a " + member.displayName + " de la empresa?", member.displayName + " aus dem Unternehmen entfernen?", "Retirer " + member.displayName + " de l’entreprise ?"))) sendCommand("removeCompanyMember", { playerId: member.playerId }); }}>{pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}</button>}
         </div>
-      ) : <span className="company-member-locked">{member.isOwner ? "Protegido" : "Sem permissão"}</span>}
+      ) : <span className="company-member-locked">{member.isOwner ? pick("Protegido", "Protected", "Protegido", "Geschützt", "Protégé") : pick("Sem permissão", "No permission", "Sin permiso", "Keine Berechtigung", "Sans permission")}</span>}
     </div>
   );
 }
 
 function CompanyNetwork({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const { pick } = useI18n();
   const companyNetwork = state?.companyNetwork;
   const localCompany = state?.operations.company;
   const [tab, setTab] = useState<CompanyNetworkTab>("network");
@@ -1028,7 +1047,7 @@ function CompanyNetwork({ state, error }: { state: NavBrState | null; error: str
     if (!companyNetwork.assignableRoles.includes(inviteRole)) setInviteRole(companyNetwork.assignableRoles.includes("Driver") ? "Driver" : companyNetwork.assignableRoles[0] || "Driver");
   }, [companyNetwork?.membership?.nodeUrl, companyNetwork?.assignableRoles]);
 
-  if (!companyNetwork?.available) return <div className="card empty-state">Aguardando o runtime da Rede da Empresa…</div>;
+  if (!companyNetwork?.available) return <div className="card empty-state">{pick("Aguardando o runtime da Rede da Empresa…", "Waiting for Company Network runtime…", "Esperando el runtime de la Red de Empresa…", "Warte auf Company-Network-Runtime…", "En attente du runtime Réseau Entreprise…")}</div>;
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
@@ -1037,26 +1056,26 @@ function CompanyNetwork({ state, error }: { state: NavBrState | null; error: str
   return (
     <>
       <header className="topbar company-network-header">
-        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>Rede da empresa</h1><p>Empresa online peer-hosted, identidade assinada e equipe administrada pelo backend nativo.</p></div>
-        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? "Vinculado" : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>Atualizar</button></div>
+        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Empresa online peer-hosted, identidade assinada e equipe administrada pelo backend nativo.", "Peer-hosted online company with signed identity and team managed by the native backend.", "Empresa online peer-hosted, identidad firmada y equipo gestionado por el backend nativo.", "Peer-gehostetes Online-Unternehmen mit signierter Identität und Teamverwaltung im nativen Backend.", "Entreprise en ligne peer-hosted avec identité signée et équipe gérée par le backend natif.")}</p></div>
+        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
       </header>
       {error && <div className="command-error">{error}</div>}
       <section className="company-network-metrics">
-        <div className="metric"><small>EMPRESA</small><strong>{company?.name || localCompany?.name || "—"}</strong></div>
-        <div className="metric"><small>CARGO</small><strong>{company?.selfRole ? companyRoleLabels[company.selfRole] || company.selfRole : companyNetwork.membership?.role ? companyRoleLabels[companyNetwork.membership.role] || companyNetwork.membership.role : "—"}</strong></div>
-        <div className="metric"><small>MEMBROS</small><strong>{company?.memberCount ?? 0}</strong></div>
+        <div className="metric"><small>{pick("EMPRESA", "COMPANY", "EMPRESA", "UNTERNEHMEN", "ENTREPRISE")}</small><strong>{company?.name || localCompany?.name || "—"}</strong></div>
+        <div className="metric"><small>{pick("CARGO", "ROLE", "CARGO", "ROLLE", "RÔLE")}</small><strong>{company?.selfRole ? companyRoleLabel(company.selfRole, pick) : companyNetwork.membership?.role ? companyRoleLabel(companyNetwork.membership.role, pick) : "—"}</strong></div>
+        <div className="metric"><small>{pick("MEMBROS", "MEMBERS", "MIEMBROS", "MITGLIEDER", "MEMBRES")}</small><strong>{company?.memberCount ?? 0}</strong></div>
         <div className="metric"><small>NODE</small><strong>{node?.running ? "Online" : "Offline"}</strong></div>
       </section>
-      <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>Rede</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Equipe</button></div>
+      <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>{pick("Equipe", "Team", "Equipo", "Team", "Équipe")}</button></div>
       {tab === "network" && (
         <section className="company-network-layout">
-          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || "Motorista"}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>A chave privada permanece protegida no Windows e nunca é enviada ao React.</p></article>
-          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>O nó da empresa é independente da sala multiplayer TCP 27730.</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>Parar Company Node</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>Hospedar empresa neste PC</button>}</div>{!localCompany?.name && <p className="network-note">Configure primeiro a Empresa/Frota no CCO.</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
-          <article className="card company-join-card"><span className="eyebrow">ENTRAR EM EMPRESA ONLINE</span><h3>Convite assinado</h3><label><span>Endereço do Company Node</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>Código do convite</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>Entrar na empresa</button></article>
-          <article className="card company-invite-card"><span className="eyebrow">CONVIDAR</span><h3>Novo membro</h3><p>Convites expiram em 7 dias e são criados para um único uso.</p><label><span>Cargo inicial</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabels[role] || role}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>Criar convite</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>Copiar convite</button></div>}</article>
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("A chave privada permanece protegida no Windows e nunca é enviada ao React.", "The private key remains protected in Windows and is never sent to React.", "La clave privada permanece protegida en Windows y nunca se envía a React.", "Der private Schlüssel bleibt in Windows geschützt und wird nie an React gesendet.", "La clé privée reste protégée dans Windows et n’est jamais envoyée à React.")}</p></article>
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
+          <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
+          <article className="card company-invite-card"><span className="eyebrow">{pick("CONVIDAR", "INVITE", "INVITAR", "EINLADEN", "INVITER")}</span><h3>{pick("Novo membro", "New member", "Nuevo miembro", "Neues Mitglied", "Nouveau membre")}</h3><p>{pick("Convites expiram em 7 dias e são criados para um único uso.", "Invites expire in 7 days and are created for one-time use.", "Las invitaciones caducan en 7 días y son de un solo uso.", "Einladungen laufen nach 7 Tagen ab und sind einmalig.", "Les invitations expirent après 7 jours et sont à usage unique.")}</p><label><span>{pick("Cargo inicial", "Initial role", "Cargo inicial", "Anfangsrolle", "Rôle initial")}</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabel(role, pick)}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>{pick("Criar convite", "Create invite", "Crear invitación", "Einladung erstellen", "Créer une invitation")}</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button></div>}</article>
         </section>
       )}
-      {tab === "team" && <section className="card company-team-card"><div className="section-heading"><div><span className="eyebrow">EQUIPE</span><h3>{company?.name || "Empresa Online"}</h3></div><span className="stop-count">{company?.memberCount ?? 0} membro(s)</span></div>{!company || company.members.length === 0 ? <div className="empty-state">Nenhum quadro de membros foi carregado. Atualize a Rede da Empresa.</div> : <div className="company-members-list">{company.members.map(member => <CompanyMemberRow key={member.playerId} member={member} assignableRoles={companyNetwork.assignableRoles} />)}</div>}</section>}
+      {tab === "team" && <section className="card company-team-card"><div className="section-heading"><div><span className="eyebrow">{pick("EQUIPE", "TEAM", "EQUIPO", "TEAM", "ÉQUIPE")}</span><h3>{company?.name || pick("Empresa Online", "Online Company", "Empresa Online", "Online-Unternehmen", "Entreprise en ligne")}</h3></div><span className="stop-count">{company?.memberCount ?? 0} {pick("membro(s)", "member(s)", "miembro(s)", "Mitglieder", "membre(s)")}</span></div>{!company || company.members.length === 0 ? <div className="empty-state">{pick("Nenhum quadro de membros foi carregado. Atualize a Rede da Empresa.", "No member roster has been loaded. Refresh Company Network.", "No se ha cargado la lista de miembros. Actualiza la Red de Empresa.", "Keine Mitgliederliste geladen. Unternehmensnetz aktualisieren.", "Aucune liste de membres chargée. Actualisez le Réseau Entreprise.")}</div> : <div className="company-members-list">{company.members.map(member => <CompanyMemberRow key={member.playerId} member={member} assignableRoles={companyNetwork.assignableRoles} />)}</div>}</section>}
     </>
   );
 }
