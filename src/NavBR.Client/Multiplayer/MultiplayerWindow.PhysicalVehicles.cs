@@ -48,12 +48,13 @@ public partial class MultiplayerWindow
             IsChecked = DiagnosticsConsentStore.IsEnabled,
             Content = DiagnosticsLabel(),
             ToolTip = DiagnosticsWarning(),
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4)
+            FontWeight = FontWeights.SemiBold
         };
         _diagnosticsCheckBox.Click += DiagnosticsCheckBox_Click;
         ExperimentalOptionsHost.Children.Add(_diagnosticsCheckBox);
 
+        // RP is a first-class tab now. Keep its controls out of the generic
+        // diagnostics/network area and reuse the same global selection/state.
         InstallRoleplayOptions(RoleplayOptionsHost);
     }
 
