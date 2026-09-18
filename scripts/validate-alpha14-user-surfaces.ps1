@@ -20,7 +20,9 @@ function Require-Text {
 
 Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
     "window.OpenNavigation3D",
+    "window.LaunchOmsiForShell",
     "alpha14-hud-move",
+    "alpha14-topbar-hud-move",
     "alpha14-hud-editor",
     "alpha14-connectivity",
     "alpha14-nat",
@@ -56,8 +58,24 @@ Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.xaml.cs" @(
 )
 
 Require-Text "src/NavBR.Client/App.xaml" @(
-    '<ControlTemplate TargetType="{x:Type ComboBox}">',
-    '<Style TargetType="{x:Type ComboBoxItem}">'
+    'x:Key="NavComboBoxStyle"',
+    'x:Key="NavComboBoxItemStyle"',
+    '<ControlTemplate TargetType="{x:Type ComboBox}">'
+)
+
+Require-Text "src/NavBR.Client/App.xaml.cs" @(
+    "NavBRControlThemeInstaller.Attach(window);"
+)
+
+Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(
+    "-Profile Any",
+    "EnsureInboundRuleDetailedAsync",
+    "BuildEncodedPowerShellArguments"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.OmsiLaunch.cs" @(
+    "OmsiInstallationProfileStore.DiscoverAndMerge",
+    "OmsiLauncherService.Launch"
 )
 
 Require-Text "src/NavBR.MultiplayerSimulator/Program.cs" @(
