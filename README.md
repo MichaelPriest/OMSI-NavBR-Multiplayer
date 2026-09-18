@@ -121,3 +121,6 @@ A Alpha.14 iniciou a migração da interface principal para **React + TypeScript
 A primeira Home web já possui ponte C# ↔ JavaScript e recebe o mesmo estado real de OMSI/telemetria usado pela interface WPF. Durante a migração, a interface WPF continua disponível como fallback e nenhuma tela de produção deve inventar telemetria quando o estado real não estiver disponível.
 
 Detalhes técnicos: [docs/WEB_UI_ARCHITECTURE.md](docs/WEB_UI_ARCHITECTURE.md).
+
+
+A Central Multiplayer web já compartilha o controlador C# existente e suporta sala local, entrada em servidor, salas privadas, diretório público, jogadores, chat, RP e atalhos de HUD sem criar um segundo cliente SignalR.
