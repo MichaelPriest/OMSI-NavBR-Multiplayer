@@ -463,3 +463,37 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .installation-top { grid-template-columns:1fr; }
   .diagnostic-facts { grid-template-columns:1fr; }
 }
+
+
+.hardware-header { align-items:center; }
+.hardware-layout { display:grid; grid-template-columns:minmax(320px,.75fr) minmax(0,1.25fr); gap:14px; }
+.hardware-connect-card, .hardware-live-card, .hardware-payload-card { padding:20px; }
+.hardware-state-pill { border:1px solid #34434e; border-radius:999px; padding:7px 10px; background:#111b22; color:#8798a4; font-size:9px; font-weight:800; }
+.hardware-state-pill.connected { border-color:#285743; background:#0d241a; color:#83dfad; }
+.hardware-controls { display:grid; grid-template-columns:1fr .8fr; gap:10px; margin:12px 0; }
+.hardware-controls label { display:grid; gap:6px; }
+.hardware-controls label > span { color:#7891a2; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.hardware-controls select { min-width:0; border:1px solid #263b4a; background:#08151f; color:#e8f2f8; border-radius:10px; padding:11px 12px; outline:none; }
+.hardware-controls select:focus { border-color:#4a8bb5; }
+.hardware-controls select:disabled { opacity:.58; }
+.hardware-auto { grid-column:1 / -1; display:flex !important; grid-template-columns:auto 1fr; align-items:center; gap:9px !important; padding:10px 11px; border:1px solid #1b3342; border-radius:10px; background:#081721; }
+.hardware-auto input { accent-color:#69c8ff; }
+.hardware-auto span { text-transform:none !important; letter-spacing:0 !important; font-size:11px !important; color:#afc2ce !important; }
+.hardware-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.hardware-note { margin:12px 0 0; color:#718899; font-size:10px; line-height:1.5; }
+.hardware-live-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.hardware-live-grid span { min-width:0; display:grid; gap:4px; padding:11px; border:1px solid #1b3342; border-radius:10px; background:#081721; }
+.hardware-live-grid span.attention { border-color:#684b27; background:#261d0d; }
+.hardware-live-grid small { color:#678398; font-size:8px; font-weight:800; letter-spacing:.07em; }
+.hardware-live-grid strong { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hardware-live-grid .attention strong { color:#ffd071; }
+.hardware-live-card .section-heading > small { color:#6e8798; font-size:9px; }
+.hardware-payload-card { margin-top:14px; }
+.hardware-payload-card pre { max-height:360px; overflow:auto; margin:0; padding:14px; border:1px solid #183043; border-radius:11px; background:#050f18; color:#a9cee4; font:11px/1.55 Consolas,"Courier New",monospace; white-space:pre; }
+@media (max-width:1050px) {
+  .hardware-layout { grid-template-columns:1fr; }
+}
+@media (max-width:700px) {
+  .hardware-controls, .hardware-live-grid { grid-template-columns:1fr; }
+  .hardware-auto { grid-column:auto; }
+}
