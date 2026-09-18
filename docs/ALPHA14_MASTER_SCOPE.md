@@ -62,8 +62,9 @@ Somente desenvolvimento/teste:
 - câmera dedicada seguindo o personagem na visão 3D React;
 - projeção do personagem no mesmo espaço mundial do roadmap;
 - ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada;
-- diagnóstico read-only da animação nativa do humano: `AIMode`, `AIModeEx`, `AISubMode`, velocidades Soll/Act, `LastMovedDist`, `State` e os campos `Activity_Leg`, `Activity_Arm_Umbrella`, `Activity_Arm_KI` e `Activity_Head_KI` são lidos do OMSI e exibidos no React;
-- `State` e `Activity_*` permanecem **raw**: seus valores não são convertidos em nomes de gesto sem evidência de runtime/documentação, e nenhuma escrita adicional nesses campos foi habilitada.
+- telemetria de animação com proveniência explícita: `AIMode`, `AIModeEx`, `AISubMode`, Soll/Act speed, `LastMovedDist` e `State` são relidos após o controle RP, mas são valores dirigidos pelo próprio NavBR e **não contam como validação independente**;
+- `Activity_Leg`, `Activity_Arm_Umbrella`, `Activity_Arm_KI` e `Activity_Head_KI` são observados sem escrita do NavBR e permanecem **raw**;
+- o cliente conta amostras e transições de `Activity_*`, inclusive quantas ocorreram enquanto havia movimento comandado, sem atribuir significado de gesto antes da validação prática.
 
 ### Próximas funções
 
