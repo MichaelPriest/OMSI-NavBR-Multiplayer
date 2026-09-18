@@ -3512,7 +3512,58 @@ function GhostReplay({
 
         <article className="card ghost-route-card">
           <div className="section-heading">
-            <div><span className="eyebrow">{t("ghost.preview")}</span><h3>{t("ghost.recordedRoute")}</h3></div>
+            <div><span className="eyebrow">{pick("COMPARAÇÃO", "COMPARISON", "COMPARACIÓN", "VERGLEICH", "COMPARAISON")}</span><h3>{pick("Comparar replays", "Compare replays", "Comparar replays", "Replays vergleichen", "Comparer les replays")}</h3></div>
+            <span className="route-source-pill">{compared.length}/2</span>
+          </div>
+          {compared.length !== 2 ? (
+            <div className="empty-state compact-empty">{pick("Marque dois replays na biblioteca para comparar métricas reais.", "Select two replays in the library to compare real metrics.", "Selecciona dos replays en la biblioteca para comparar métricas reales.", "Wähle zwei Replays in der Bibliothek, um echte Messwerte zu vergleichen.", "Sélectionnez deux replays dans la bibliothèque pour comparer les mesures réelles.")}</div>
+          ) : (() => {
+            const left = compared[0];
+            const right = compared[1];
+            const sameMap = (left.mapName || "").trim().toLowerCase() === (right.mapName || "").trim().toLowerCase();
+            const sameVehicle = (left.vehicleName || "").trim().toLowerCase() === (right.vehicleName || "").trim().toLowerCase();
+            return (
+              <div className="advanced-grid">
+                <article className="card compact-card">
+                  <span className="eyebrow">REPLAY A</span>
+                  <h3>{left.name}</h3>
+                  <p>{left.mapName || "—"} · {left.vehicleName || "—"}</p>
+                  <div className="details-grid">
+                    <div><small>{pick("DURAÇÃO", "DURATION", "DURACIÓN", "DAUER", "DURÉE")}</small><strong>{formatReplayDuration(left.durationSeconds)}</strong></div>
+                    <div><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{left.estimatedDistanceKm.toFixed(2)} km</strong></div>
+                    <div><small>{pick("MÉDIA", "AVERAGE", "MEDIA", "DURCHSCHNITT", "MOYENNE")}</small><strong>{left.averageSpeedKph.toFixed(1)} km/h</strong></div>
+                    <div><small>{pick("MÁXIMA", "MAXIMUM", "MÁXIMA", "MAXIMUM", "MAXIMUM")}</small><strong>{left.maximumSpeedKph.toFixed(1)} km/h</strong></div>
+                  </div>
+                </article>
+                <article className="card compact-card">
+                  <span className="eyebrow">REPLAY B</span>
+                  <h3>{right.name}</h3>
+                  <p>{right.mapName || "—"} · {right.vehicleName || "—"}</p>
+                  <div className="details-grid">
+                    <div><small>{pick("DURAÇÃO", "DURATION", "DURACIÓN", "DAUER", "DURÉE")}</small><strong>{formatReplayDuration(right.durationSeconds)}</strong></div>
+                    <div><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{right.estimatedDistanceKm.toFixed(2)} km</strong></div>
+                    <div><small>{pick("MÉDIA", "AVERAGE", "MEDIA", "DURCHSCHNITT", "MOYENNE")}</small><strong>{right.averageSpeedKph.toFixed(1)} km/h</strong></div>
+                    <div><small>{pick("MÁXIMA", "MAXIMUM", "MÁXIMA", "MAXIMUM", "MAXIMUM")}</small><strong>{right.maximumSpeedKph.toFixed(1)} km/h</strong></div>
+                  </div>
+                </article>
+                <article className="card compact-card">
+                  <span className="eyebrow">B − A</span>
+                  <h3>{sameMap && sameVehicle ? pick("Comparação direta", "Direct comparison", "Comparación directa", "Direkter Vergleich", "Comparaison directe") : sameMap ? pick("Mesmo mapa, veículo diferente", "Same map, different vehicle", "Mismo mapa, vehículo diferente", "Gleiche Karte, anderes Fahrzeug", "Même carte, véhicule différent") : pick("Mapas diferentes", "Different maps", "Mapas diferentes", "Unterschiedliche Karten", "Cartes différentes")}</h3>
+                  <div className="details-grid">
+                    <div><small>{pick("DURAÇÃO", "DURATION", "DURACIÓN", "DAUER", "DURÉE")}</small><strong>{formatReplayDuration(Math.abs(right.durationSeconds - left.durationSeconds))} {right.durationSeconds >= left.durationSeconds ? "+" : "−"}</strong></div>
+                    <div><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{(right.estimatedDistanceKm - left.estimatedDistanceKm).toFixed(2)} km</strong></div>
+                    <div><small>{pick("MÉDIA", "AVERAGE", "MEDIA", "DURCHSCHNITT", "MOYENNE")}</small><strong>{(right.averageSpeedKph - left.averageSpeedKph).toFixed(1)} km/h</strong></div>
+                    <div><small>{pick("MÁXIMA", "MAXIMUM", "MÁXIMA", "MAXIMUM", "MAXIMUM")}</small><strong>{(right.maximumSpeedKph - left.maximumSpeedKph).toFixed(1)} km/h</strong></div>
+                  </div>
+                  <p>{sameMap ? (sameVehicle ? pick("Mesmo mapa e mesmo veículo identificados.", "Same map and same vehicle identified.", "Mismo mapa y mismo vehículo identificados.", "Gleiche Karte und gleiches Fahrzeug erkannt.", "Même carte et même véhicule identifiés.") : pick("Mesmo mapa, mas veículos diferentes; interprete tempos e velocidades considerando o veículo.", "Same map, but different vehicles; interpret times and speeds with the vehicle difference in mind.", "Mismo mapa, pero vehículos diferentes; interpreta tiempos y velocidades considerando el vehículo.", "Gleiche Karte, aber unterschiedliche Fahrzeuge; Zeiten und Geschwindigkeiten entsprechend bewerten.", "Même carte, mais véhicules différents ; interprétez temps et vitesses en tenant compte du véhicule.")) : pick("Os replays foram gravados em mapas diferentes; as métricas são reais, mas não representam viagens equivalentes.", "The replays were recorded on different maps; metrics are real but do not represent equivalent trips.", "Los replays se grabaron en mapas diferentes; las métricas son reales, pero no representan viajes equivalentes.", "Die Replays wurden auf unterschiedlichen Karten aufgenommen; die Messwerte sind real, aber die Fahrten nicht gleichwertig.", "Les replays ont été enregistrés sur des cartes différentes ; les mesures sont réelles mais les trajets ne sont pas équivalents.")}</p>
+                </article>
+              </div>
+            );
+          })()}
+        </article>
+
+        <article className="card ghost-route-card">
+          <div className="section-heading">            <div><span className="eyebrow">{t("ghost.preview")}</span><h3>{t("ghost.recordedRoute")}</h3></div>
             <span className="route-source-pill">READ-ONLY</span>
           </div>
           <GhostRoutePreview points={selected?.routePoints || []} />
