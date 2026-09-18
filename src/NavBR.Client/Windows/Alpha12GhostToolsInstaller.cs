@@ -48,27 +48,8 @@ internal static class Alpha12GhostToolsInstaller
         tools.Children.Add(button);
     }
 
-    private static void Open(MainWindow owner)
-    {
-        var existing = Application.Current?.Windows
-            .OfType<GhostToolsWindow>()
-            .FirstOrDefault(window => ReferenceEquals(window.Owner, owner));
-        if (existing is not null)
-        {
-            if (existing.WindowState == WindowState.Minimized)
-            {
-                existing.WindowState = WindowState.Normal;
-            }
-            existing.Activate();
-            return;
-        }
-
-        var ghostWindow = new GhostToolsWindow(owner.GetCurrentTelemetryForAlpha11)
-        {
-            Owner = owner
-        };
-        ghostWindow.Show();
-    }
+    private static void Open(MainWindow owner) =>
+        owner.NavigatePrimaryWebShell("ghost");
 
     private static SolidColorBrush Brush(byte r, byte g, byte b) =>
         new(Color.FromRgb(r, g, b));
