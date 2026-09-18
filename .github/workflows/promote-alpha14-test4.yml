@@ -1,0 +1,37 @@
+name: promote alpha14 test4 public release
+
+on:
+  push:
+    branches:
+      - release/promote-alpha14-test4
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promote Alpha.14 Test 4 to public release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "repos/${{ github.repository }}/releases/391820876" \
+            -F draft=false \
+            -F prerelease=false \
+            -f make_latest=true \
+            -f name="OMSI NavBR Multiplayer v0.3.0-alpha.14-test.4 — Alpha.14 pública" \
+            > /tmp/release.json
+
+          jq -e '.draft == false and .prerelease == false' /tmp/release.json > /dev/null
+
+      - name: Refresh public site catalog
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run pages.yml --ref main
