@@ -1,16 +1,15 @@
 name: alpha14 validation
 
 on:
-  push:
-    branches:
-      - feature/alpha14-roleplay
   pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: alpha14-validation-${{ github.event_name }}-${{ github.ref }}
+  group: alpha14-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
