@@ -183,3 +183,9 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .player-row { grid-template-columns:auto 1fr auto; }
   .latency { display:none; }
 }
+
+.nav-item span { width:auto; text-align:left; color:inherit; }
+@media (max-width:1080px) {
+  .nav-item span { display:none; }
+  .nav-item b { font-size:18px; }
+}
