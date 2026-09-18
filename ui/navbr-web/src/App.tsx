@@ -743,7 +743,7 @@ function Operations({
 
       <div className="mp-tabs cco-tabs" role="tablist">
         {([
-          ["overview", "Visão geral"],
+          ["overview", pick("Visão geral", "Overview", "Resumen", "Übersicht", "Vue d’ensemble")],
           ["drivers", "Motoristas"],
           ["reports", "Ocorrências"],
           ["company", "Empresa / Frota"]
@@ -1920,7 +1920,7 @@ function Settings({
             <p>Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.</p>
             <div className="settings-action-row">
               <button className="button ghost" onClick={() => setTab("hud")}>Abrir HUD</button>
-              <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
+              <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
             </div>
           </article>
           <article className="card compact-card">
@@ -2119,6 +2119,7 @@ function Multiplayer({
   onOpenNetwork: () => void;
   onOpenHud: () => void;
 }) {
+  const { pick } = useI18n();
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const telemetry = state?.telemetry;
   const [tab, setTab] = useState<MultiplayerTab>("overview");
@@ -2146,10 +2147,10 @@ function Multiplayer({
   }, [multiplayer.voiceChannel, multiplayer.voiceProximityMeters, multiplayer.voiceDeafened]);
 
   const statusLabel = multiplayer.connected
-    ? "Conectado"
+    ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")
     : multiplayer.available
       ? multiplayer.connectionState
-      : "Controlador inativo";
+      : pick("Controlador inativo", "Controller inactive", "Controlador inactivo", "Controller inaktiv", "Contrôleur inactif");
 
   const visiblePlayers = useMemo(
     () => multiplayer.players.slice().sort((a, b) => a.displayName.localeCompare(b.displayName)),
@@ -2180,9 +2181,9 @@ function Multiplayer({
     <>
       <header className="topbar multiplayer-header">
         <div>
-          <span className="eyebrow">CENTRAL MULTIPLAYER</span>
-          <h1>Sessão NavBR</h1>
-          <p>Estado real da sala, jogadores, chat, voz e personagem vindo do controlador C#.</p>
+          <span className="eyebrow">{pick("CENTRAL MULTIPLAYER", "MULTIPLAYER CENTER", "CENTRAL MULTIJUGADOR", "MULTIPLAYER-ZENTRALE", "CENTRALE MULTIJOUEUR")}</span>
+          <h1>{pick("Sessão NavBR", "NavBR session", "Sesión NavBR", "NavBR-Sitzung", "Session NavBR")}</h1>
+          <p>{pick("Estado real da sala, jogadores, chat, voz e personagem vindo do controlador C#.", "Real room, players, chat, voice and character state from the C# controller.", "Estado real de sala, jugadores, chat, voz y personaje desde el controlador C#.", "Echter Raum-, Spieler-, Chat-, Sprach- und Charakterstatus aus dem C#-Controller.", "État réel de la salle, des joueurs, du chat, de la voix et du personnage depuis le contrôleur C#.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${multiplayer.connected ? "connected" : ""}`}>
@@ -2197,7 +2198,7 @@ function Multiplayer({
               setTab("room");
             }}
           >
-            {multiplayer.available ? "Controles da sala" : "Ativar multiplayer"}
+            {multiplayer.available ? pick("Controles da sala", "Room controls", "Controles de sala", "Raumsteuerung", "Contrôles de salle") : pick("Ativar multiplayer", "Enable multiplayer", "Activar multijugador", "Multiplayer aktivieren", "Activer le multijoueur")}
           </button>
         </div>
       </header>
@@ -2205,21 +2206,21 @@ function Multiplayer({
       {error && <div className="command-error">{error}</div>}
 
       <section className="session-metrics">
-        <div className="metric"><small>SALA ATUAL</small><strong>{multiplayer.connected ? multiplayer.roomId : "—"}</strong></div>
-        <div className="metric"><small>MAPA LOCAL</small><strong>{telemetry?.mapName || "—"}</strong></div>
-        <div className="metric"><small>JOGADORES</small><strong>{multiplayer.playerCount}</strong></div>
-        <div className="metric"><small>LATÊNCIA</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
-        <div className="metric"><small>HOST</small><strong>{multiplayer.hostRunning ? `TCP ${multiplayer.hostPort ?? 27730}` : "Local inativo"}</strong></div>
+        <div className="metric"><small>{pick("SALA ATUAL", "CURRENT ROOM", "SALA ACTUAL", "AKTUELLER RAUM", "SALLE ACTUELLE")}</small><strong>{multiplayer.connected ? multiplayer.roomId : "—"}</strong></div>
+        <div className="metric"><small>{pick("MAPA LOCAL", "LOCAL MAP", "MAPA LOCAL", "LOKALE KARTE", "CARTE LOCALE")}</small><strong>{telemetry?.mapName || "—"}</strong></div>
+        <div className="metric"><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.playerCount}</strong></div>
+        <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
+        <div className="metric"><small>HOST</small><strong>{multiplayer.hostRunning ? `TCP ${multiplayer.hostPort ?? 27730}` : pick("Local inativo", "Local inactive", "Local inactivo", "Lokal inaktiv", "Local inactif")}</strong></div>
       </section>
 
       <div className="mp-tabs" role="tablist">
         {([
           ["overview", "Visão geral"],
-          ["room", "Sala"],
-          ["players", "Jogadores"],
-          ["chat", "Chat & Voz"],
-          ["roleplay", "Personagem / RP"],
-          ["advanced", "Avançado"]
+          ["room", pick("Sala", "Room", "Sala", "Raum", "Salle")],
+          ["players", pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")],
+          ["chat", pick("Chat & Voz", "Chat & Voice", "Chat y Voz", "Chat & Sprache", "Chat & Voix")],
+          ["roleplay", pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP")],
+          ["advanced", pick("Avançado", "Advanced", "Avanzado", "Erweitert", "Avancé")]
         ] as [MultiplayerTab, string][]).map(([key, label]) => (
           <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
         ))}
@@ -2229,7 +2230,7 @@ function Multiplayer({
         <section className="mp-grid">
           <article className="card mp-main-card">
             <div className="section-heading">
-              <div><span className="eyebrow">SESSÃO AO VIVO</span><h3>Operação compartilhada</h3></div>
+              <div><span className="eyebrow">{pick("SESSÃO AO VIVO", "LIVE SESSION", "SESIÓN EN VIVO", "LIVE-SITZUNG", "SESSION EN DIRECT")}</span><h3>{pick("Operação compartilhada", "Shared operation", "Operación compartida", "Gemeinsamer Betrieb", "Opération partagée")}</h3></div>
               <span className={`live-pill ${multiplayer.connected ? "" : "muted"}`}><span /> {multiplayer.connected ? "LIVE" : "OFFLINE"}</span>
             </div>
             <SessionMap points={multiplayer.sessionPoints} />
@@ -2237,20 +2238,20 @@ function Multiplayer({
 
           <aside className="mp-side-stack">
             <article className="card compact-card">
-              <span className="eyebrow">VOCÊ</span>
-              <h3>{multiplayer.displayName || "Motorista"}</h3>
-              <p>{telemetry?.line ? `Linha ${telemetry.line}` : "Sem linha ativa"}</p>
-              <p>{telemetry?.route || telemetry?.destinationName || "Aguardando rota"}</p>
+              <span className="eyebrow">{pick("VOCÊ", "YOU", "TÚ", "DU", "VOUS")}</span>
+              <h3>{multiplayer.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3>
+              <p>{telemetry?.line ? `${pick("Linha", "Line", "Línea", "Linie", "Ligne")} ${telemetry.line}` : pick("Sem linha ativa", "No active line", "Sin línea activa", "Keine aktive Linie", "Aucune ligne active")}</p>
+              <p>{telemetry?.route || telemetry?.destinationName || pick("Aguardando rota", "Waiting for route", "Esperando ruta", "Warte auf Route", "En attente de l’itinéraire")}</p>
             </article>
             <article className="card compact-card">
-              <span className="eyebrow">VOZ</span>
-              <h3>{multiplayer.voiceEnabled ? "Ativa" : "Desativada"}</h3>
-              <p>Canal {multiplayer.voiceChannel || "general"}</p>
+              <span className="eyebrow">{pick("VOZ", "VOICE", "VOZ", "SPRACHE", "VOIX")}</span>
+              <h3>{multiplayer.voiceEnabled ? pick("Ativa", "Active", "Activa", "Aktiv", "Active") : pick("Desativada", "Disabled", "Desactivada", "Deaktiviert", "Désactivée")}</h3>
+              <p>{pick("Canal", "Channel", "Canal", "Kanal", "Canal")} {multiplayer.voiceChannel || "general"}</p>
             </article>
             <article className="card compact-card">
-              <span className="eyebrow">PERSONAGEM</span>
-              <h3>{multiplayer.localRoleplayActive ? "Fora do ônibus" : "No ônibus"}</h3>
-              <button className="text-action" onClick={() => setTab("roleplay")}>Abrir Personagem / RP →</button>
+              <span className="eyebrow">{pick("PERSONAGEM", "CHARACTER", "PERSONAJE", "CHARAKTER", "PERSONNAGE")}</span>
+              <h3>{multiplayer.localRoleplayActive ? pick("Fora do ônibus", "Outside the bus", "Fuera del autobús", "Außerhalb des Busses", "Hors du bus") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}</h3>
+              <button className="text-action" onClick={() => setTab("roleplay")}>{pick("Abrir Personagem / RP", "Open Character / RP", "Abrir Personaje / RP", "Charakter / RP öffnen", "Ouvrir Personnage / RP")} →</button>
             </article>
           </aside>
         </section>
@@ -2259,21 +2260,21 @@ function Multiplayer({
       {tab === "room" && (
         <section className="card mp-panel">
           <div className="section-heading">
-            <div><span className="eyebrow">SALA</span><h3>Conexão e host</h3></div>
-            <button className="button ghost" onClick={onOpenNetwork}>Rede / Firewall</button>
+            <div><span className="eyebrow">{pick("SALA", "ROOM", "SALA", "RAUM", "SALLE")}</span><h3>{pick("Conexão e host", "Connection and host", "Conexión y host", "Verbindung und Host", "Connexion et hôte")}</h3></div>
+            <button className="button ghost" onClick={onOpenNetwork}>{pick("Rede / Firewall", "Network / Firewall", "Red / Firewall", "Netzwerk / Firewall", "Réseau / Pare-feu")}</button>
           </div>
 
           <div className="room-form-grid">
             <label>
-              <span>Servidor</span>
+              <span>{pick("Servidor", "Server", "Servidor", "Server", "Serveur")}</span>
               <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder="http://127.0.0.1:27730" />
             </label>
             <label>
-              <span>Sala</span>
+              <span>{pick("Sala", "Room", "Sala", "Raum", "Salle")}</span>
               <input value={roomId} onChange={event => setRoomId(event.target.value)} disabled={multiplayer.connected} placeholder="navbr-1234" />
             </label>
             <label>
-              <span>Apelido</span>
+              <span>{pick("Apelido", "Display name", "Apodo", "Anzeigename", "Pseudo")}</span>
               <input value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={multiplayer.connected} placeholder="Driver" />
             </label>
           </div>
@@ -2286,16 +2287,16 @@ function Multiplayer({
                 disabled={multiplayer.connected}
                 onChange={event => setPrivateRoom(event.target.checked)}
               />
-              <span>Criar sala privada</span>
+              <span>{pick("Criar sala privada", "Create private room", "Crear sala privada", "Privaten Raum erstellen", "Créer une salle privée")}</span>
             </label>
             <label className="password-field">
-              <span>Senha da sala</span>
+              <span>{pick("Senha da sala", "Room password", "Contraseña de sala", "Raumpasswort", "Mot de passe de la salle")}</span>
               <input
                 type="password"
                 value={roomPassword}
                 disabled={multiplayer.connected}
                 onChange={event => setRoomPassword(event.target.value)}
-                placeholder={privateRoom ? "Mínimo 4 caracteres" : "Use ao entrar em sala privada"}
+                placeholder={privateRoom ? pick("Mínimo 4 caracteres", "Minimum 4 characters", "Mínimo 4 caracteres", "Mindestens 4 Zeichen", "Minimum 4 caractères") : pick("Use ao entrar em sala privada", "Use when joining a private room", "Usar al entrar en sala privada", "Beim Beitritt zu privatem Raum verwenden", "À utiliser pour rejoindre une salle privée")}
               />
             </label>
           </div>
@@ -2303,43 +2304,43 @@ function Multiplayer({
           <div className="room-actions">
             {!multiplayer.connected ? (
               <>
-                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>Entrar na sala</button>
-                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword })}>Criar sala local</button>
+                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
+                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword })}>{pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}</button>
               </>
             ) : (
               <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
-                {multiplayer.hostRunning ? "Encerrar sala local" : "Desconectar"}
+                {multiplayer.hostRunning ? pick("Encerrar sala local", "Stop local room", "Cerrar sala local", "Lokalen Raum beenden", "Fermer la salle locale") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
               </button>
             )}
           </div>
 
           <div className="details-grid room-status-grid">
-            <div><small>SERVIDOR ATIVO</small><strong>{multiplayer.serverUrl || "—"}</strong></div>
-            <div><small>ID DA SALA</small><strong>{multiplayer.roomId || "—"}</strong></div>
-            <div><small>APELIDO</small><strong>{multiplayer.displayName || "—"}</strong></div>
-            <div><small>ESTADO</small><strong>{statusLabel}</strong></div>
+            <div><small>{pick("SERVIDOR ATIVO", "ACTIVE SERVER", "SERVIDOR ACTIVO", "AKTIVER SERVER", "SERVEUR ACTIF")}</small><strong>{multiplayer.serverUrl || "—"}</strong></div>
+            <div><small>{pick("ID DA SALA", "ROOM ID", "ID DE SALA", "RAUM-ID", "ID DE SALLE")}</small><strong>{multiplayer.roomId || "—"}</strong></div>
+            <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
+            <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
           </div>
 
           {multiplayer.inviteAddresses.length > 0 && (
             <div className="invite-box">
-              <small>ENDEREÇOS PARA CONVITE</small>
+              <small>{pick("ENDEREÇOS PARA CONVITE", "INVITE ADDRESSES", "DIRECCIONES DE INVITACIÓN", "EINLADUNGSADRESSEN", "ADRESSES D’INVITATION")}</small>
               {multiplayer.inviteAddresses.map(address => <code key={address}>{address}</code>)}
             </div>
           )}
           <div className="public-room-browser">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">SALAS PÚBLICAS</span>
-                <h3>Encontrar operação ativa</h3>
+                <span className="eyebrow">{pick("SALAS PÚBLICAS", "PUBLIC ROOMS", "SALAS PÚBLICAS", "ÖFFENTLICHE RÄUME", "SALLES PUBLIQUES")}</span>
+                <h3>{pick("Encontrar operação ativa", "Find active operation", "Encontrar operación activa", "Aktiven Betrieb finden", "Trouver une opération active")}</h3>
               </div>
-              <button className="button ghost" onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}>Atualizar salas</button>
+              <button className="button ghost" onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}>{pick("Atualizar salas", "Refresh rooms", "Actualizar salas", "Räume aktualisieren", "Actualiser les salles")}</button>
             </div>
 
             <input
               className="room-search"
               value={roomSearch}
               onChange={event => setRoomSearch(event.target.value)}
-              placeholder="Buscar por sala, mapa, versão, ônibus ou HOF"
+              placeholder={pick("Buscar por sala, mapa, versão, ônibus ou HOF", "Search by room, map, version, bus or HOF", "Buscar por sala, mapa, versión, autobús o HOF", "Nach Raum, Karte, Version, Bus oder HOF suchen", "Rechercher par salle, carte, version, bus ou HOF")}
             />
 
             {state?.roomDirectory.error && (
@@ -2349,14 +2350,14 @@ function Multiplayer({
             <div className="public-room-list">
               {publicRooms.length === 0 ? (
                 <div className="empty-state">
-                  Nenhuma sala pública carregada. Use “Atualizar salas” para consultar o servidor.
+                  {pick("Nenhuma sala pública carregada. Use “Atualizar salas” para consultar o servidor.", "No public room loaded. Use “Refresh rooms” to query the server.", "No hay salas públicas cargadas. Usa “Actualizar salas” para consultar el servidor.", "Keine öffentlichen Räume geladen. Nutze „Räume aktualisieren“, um den Server abzufragen.", "Aucune salle publique chargée. Utilisez « Actualiser les salles » pour interroger le serveur.")}
                 </div>
               ) : publicRooms.map(room => (
                 <div className="public-room-row" key={room.roomId}>
                   <button
                     className={`favorite-button ${room.favorite ? "active" : ""}`}
                     onClick={() => sendCommand("toggleRoomFavorite", { roomId: room.roomId })}
-                    title={room.favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    title={room.favorite ? pick("Remover dos favoritos", "Remove from favorites", "Quitar de favoritos", "Aus Favoriten entfernen", "Retirer des favoris") : pick("Adicionar aos favoritos", "Add to favorites", "Añadir a favoritos", "Zu Favoriten hinzufügen", "Ajouter aux favoris")}
                   >
                     {room.favorite ? "★" : "☆"}
                   </button>
@@ -2369,12 +2370,12 @@ function Multiplayer({
                     }}
                   >
                     <strong>{room.roomId}</strong>
-                    <span>{room.mapName || "Mapa não informado"} · {room.playerCount} jogador(es)</span>
+                    <span>{room.mapName || pick("Mapa não informado", "Map not provided", "Mapa no informado", "Karte nicht angegeben", "Carte non renseignée")} · {room.playerCount} {pick("jogador(es)", "player(s)", "jugador(es)", "Spieler", "joueur(s)")}</span>
                     <small>
                       NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"} · Plugin {room.pluginProtocolVersion || "—"}
                     </small>
                     <em className={`compatibility-badge ${room.compatibility}`}>
-                      {room.compatibility === "compatible" ? "Compatível" : room.compatibility === "warning" ? "Compatibilidade parcial" : "Requer ajuste local"}
+                      {room.compatibility === "compatible" ? pick("Compatível", "Compatible", "Compatible", "Kompatibel", "Compatible") : room.compatibility === "warning" ? pick("Compatibilidade parcial", "Partial compatibility", "Compatibilidad parcial", "Teilweise kompatibel", "Compatibilité partielle") : pick("Requer ajuste local", "Requires local adjustment", "Requiere ajuste local", "Lokale Anpassung erforderlich", "Nécessite un ajustement local")}
                     </em>
                     {room.compatibilityIssues.length > 0 && (
                       <small className="compatibility-detail">{room.compatibilityIssues[0]}</small>
@@ -2383,7 +2384,7 @@ function Multiplayer({
                   <button
                     className="button compact"
                     disabled={!room.directJoinAllowed}
-                    title={!room.directJoinAllowed ? "Carregue a configuração compatível antes de entrar diretamente." : undefined}
+                    title={!room.directJoinAllowed ? pick("Carregue a configuração compatível antes de entrar diretamente.", "Load a compatible configuration before joining directly.", "Carga una configuración compatible antes de entrar directamente.", "Vor direktem Beitritt eine kompatible Konfiguration laden.", "Chargez une configuration compatible avant de rejoindre directement.") : undefined}
                     onClick={() => {
                       setRoomId(room.roomId);
                       setPrivateRoom(false);
@@ -2391,7 +2392,7 @@ function Multiplayer({
                       sendCommand("connectRoom", { serverUrl, roomId: room.roomId, displayName, roomPassword: "" });
                     }}
                   >
-                    Entrar
+                    {pick("Entrar", "Join", "Entrar", "Beitreten", "Rejoindre")}
                   </button>
                 </div>
               ))}
@@ -2399,7 +2400,7 @@ function Multiplayer({
           </div>
 
           <p className="migration-note">
-            Salas públicas e privadas já usam a ponte React. Firewall, NAT/UPnP e diagnósticos avançados continuam no controlador nativo enquanto essas telas são migradas.
+            {pick("Salas públicas e privadas usam a ponte React. Firewall, NAT/UPnP e diagnósticos de rede usam a aba Rede React e os serviços C# nativos.", "Public and private rooms use the React bridge. Firewall, NAT/UPnP and network diagnostics use the React Network tab backed by native C# services.", "Las salas públicas y privadas usan el puente React. Firewall, NAT/UPnP y diagnósticos de red usan la pestaña Red de React y servicios C# nativos.", "Öffentliche und private Räume nutzen die React-Bridge. Firewall, NAT/UPnP und Netzwerkdiagnose laufen über den React-Netzwerktab mit nativen C#-Diensten.", "Les salles publiques et privées utilisent le bridge React. Pare-feu, NAT/UPnP et diagnostics réseau utilisent l’onglet Réseau React avec les services C# natifs.")}
           </p>
         </section>
       )}
@@ -2407,10 +2408,10 @@ function Multiplayer({
       {tab === "players" && (
         <section className="card mp-panel">
           <div className="section-heading">
-            <div><span className="eyebrow">JOGADORES</span><h3>{visiblePlayers.length} na sessão</h3></div>
+            <div><span className="eyebrow">{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</span><h3>{visiblePlayers.length} {pick("na sessão", "in session", "en sesión", "in Sitzung", "dans la session")}</h3></div>
           </div>
           {visiblePlayers.length === 0 ? (
-            <div className="empty-state">Nenhum jogador remoto disponível.</div>
+            <div className="empty-state">{pick("Nenhum jogador remoto disponível.", "No remote player available.", "Ningún jugador remoto disponible.", "Kein Remote-Spieler verfügbar.", "Aucun joueur distant disponible.")}</div>
           ) : (
             <div className="players-table">
               {visiblePlayers.map(player => (
@@ -2418,9 +2419,9 @@ function Multiplayer({
                   <span className={`avatar-dot ${player.roleplayActive ? "rp" : ""}`}>{player.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="player-main">
                     <strong>{player.displayName}</strong>
-                    <small>{player.mapName || "Mapa não informado"} · {player.roleplayActive ? "Personagem / RP" : "No ônibus"}</small>
+                    <small>{player.mapName || pick("Mapa não informado", "Map not provided", "Mapa no informado", "Karte nicht angegeben", "Carte non renseignée")} · {player.roleplayActive ? pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}</small>
                   </div>
-                  <span className={`voice-state ${player.speaking ? "speaking" : ""}`}>{player.speaking ? "Falando" : player.voiceEnabled ? "Voz ativa" : "Sem voz"}</span>
+                  <span className={`voice-state ${player.speaking ? "speaking" : ""}`}>{player.speaking ? pick("Falando", "Speaking", "Hablando", "Spricht", "Parle") : player.voiceEnabled ? pick("Voz ativa", "Voice active", "Voz activa", "Sprache aktiv", "Voix active") : pick("Sem voz", "No voice", "Sin voz", "Keine Sprache", "Sans voix")}</span>
                   <span className="latency">{player.latencyMs == null ? "—" : `${player.latencyMs} ms`}</span>
                 </div>
               ))}
@@ -2433,11 +2434,11 @@ function Multiplayer({
         <section className="mp-chat-layout">
           <article className="card chat-card">
             <div className="section-heading">
-              <div><span className="eyebrow">CHAT</span><h3>Mensagens da sala</h3></div>
+              <div><span className="eyebrow">CHAT</span><h3>{pick("Mensagens da sala", "Room messages", "Mensajes de sala", "Raumnachrichten", "Messages de la salle")}</h3></div>
             </div>
             <div className="chat-log">
               {multiplayer.chat.length === 0 ? (
-                <div className="empty-state">Nenhuma mensagem recebida.</div>
+                <div className="empty-state">{pick("Nenhuma mensagem recebida.", "No message received.", "Ningún mensaje recibido.", "Keine Nachricht empfangen.", "Aucun message reçu.")}</div>
               ) : multiplayer.chat.map((message, index) => (
                 <div className={`chat-message ${message.isSystem ? "system" : ""}`} key={`${message.timestampUtc}-${index}`}>
                   <div><strong>{message.isSystem ? "NavBR" : message.displayName}</strong><time>{new Date(message.timestampUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>
@@ -2446,13 +2447,13 @@ function Multiplayer({
               ))}
             </div>
             <form className="chat-compose" onSubmit={submitChat}>
-              <input value={chatText} onChange={event => setChatText(event.target.value)} disabled={!multiplayer.connected} placeholder={multiplayer.connected ? "Escreva uma mensagem…" : "Conecte-se para conversar"} />
-              <button className="button primary" disabled={!multiplayer.connected || !chatText.trim()}>Enviar</button>
+              <input value={chatText} onChange={event => setChatText(event.target.value)} disabled={!multiplayer.connected} placeholder={multiplayer.connected ? pick("Escreva uma mensagem…", "Write a message…", "Escribe un mensaje…", "Nachricht schreiben…", "Écrivez un message…") : pick("Conecte-se para conversar", "Connect to chat", "Conéctate para conversar", "Zum Chatten verbinden", "Connectez-vous pour discuter")} />
+              <button className="button primary" disabled={!multiplayer.connected || !chatText.trim()}>{pick("Enviar", "Send", "Enviar", "Senden", "Envoyer")}</button>
             </form>
           </article>
           <aside className="card voice-card">
             <span className="eyebrow">VOZ</span>
-            <h3>{multiplayer.voiceEnabled ? "Voz habilitada" : "Voz desativada"}</h3>
+            <h3>{multiplayer.voiceEnabled ? pick("Voz habilitada", "Voice enabled", "Voz habilitada", "Sprache aktiviert", "Voix activée") : pick("Voz desativada", "Voice disabled", "Voz desactivada", "Sprache deaktiviert", "Voix désactivée")}</h3>
 
             <label className="voice-toggle">
               <input
@@ -2460,11 +2461,11 @@ function Multiplayer({
                 checked={multiplayer.voiceEnabled}
                 onChange={event => sendCommand("setVoiceEnabled", { enabled: event.target.checked })}
               />
-              <span>Ativar voz na sala</span>
+              <span>{pick("Ativar voz na sala", "Enable room voice", "Activar voz en la sala", "Raum-Sprache aktivieren", "Activer la voix dans la salle")}</span>
             </label>
 
             <label className="voice-field">
-              <span>Canal</span>
+              <span>{pick("Canal", "Channel", "Canal", "Kanal", "Canal")}</span>
               <select
                 value={voiceChannel}
                 onChange={event => {
@@ -2477,16 +2478,16 @@ function Multiplayer({
                   });
                 }}
               >
-                <option value="general">Geral</option>
-                <option value="company">Empresa/equipe</option>
+                <option value="general">{pick("Geral", "General", "General", "Allgemein", "Général")}</option>
+                <option value="company">{pick("Empresa/equipe", "Company/team", "Empresa/equipo", "Unternehmen/Team", "Entreprise/équipe")}</option>
                 <option value="dispatch">CCO</option>
-                <option value="proximity">Proximidade</option>
+                <option value="proximity">{pick("Proximidade", "Proximity", "Proximidad", "Nähe", "Proximité")}</option>
               </select>
             </label>
 
             {voiceChannel === "proximity" && (
               <label className="voice-field">
-                <span>Raio de proximidade: {voiceRadius.toFixed(0)} m</span>
+                <span>{pick("Raio de proximidade", "Proximity radius", "Radio de proximidad", "Nähe-Radius", "Rayon de proximité")}: {voiceRadius.toFixed(0)} m</span>
                 <input
                   type="range"
                   min="20"
@@ -2522,12 +2523,12 @@ function Multiplayer({
                   });
                 }}
               />
-              <span>Silenciar áudio remoto</span>
+              <span>{pick("Silenciar áudio remoto", "Mute remote audio", "Silenciar audio remoto", "Remote-Audio stummschalten", "Couper l’audio distant")}</span>
             </label>
 
             <div className="voice-device-grid">
               <label className="voice-field">
-                <span>Microfone</span>
+                <span>{pick("Microfone", "Microphone", "Micrófono", "Mikrofon", "Microphone")}</span>
                 <select
                   value={multiplayer.voiceInputDeviceNumber}
                   onChange={event => sendCommand("configureVoiceDevices", {
@@ -2536,7 +2537,7 @@ function Multiplayer({
                   })}
                 >
                   {multiplayer.voiceInputDevices.length === 0
-                    ? <option value={0}>Nenhum microfone detectado</option>
+                    ? <option value={0}>{pick("Nenhum microfone detectado", "No microphone detected", "Ningún micrófono detectado", "Kein Mikrofon erkannt", "Aucun microphone détecté")}</option>
                     : multiplayer.voiceInputDevices.map(device => (
                       <option key={device.deviceNumber} value={device.deviceNumber}>{device.displayName}</option>
                     ))}
@@ -2544,7 +2545,7 @@ function Multiplayer({
               </label>
 
               <label className="voice-field">
-                <span>Saída de áudio</span>
+                <span>{pick("Saída de áudio", "Audio output", "Salida de audio", "Audioausgabe", "Sortie audio")}</span>
                 <select
                   value={multiplayer.voiceOutputDeviceNumber}
                   onChange={event => sendCommand("configureVoiceDevices", {
@@ -2561,15 +2562,15 @@ function Multiplayer({
 
             <div className="voice-mixer">
               <div className="section-heading compact">
-                <div><span className="eyebrow">MIXER</span><h3>Jogadores</h3></div>
+                <div><span className="eyebrow">MIXER</span><h3>{pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")}</h3></div>
               </div>
               {multiplayer.voiceMixers.length === 0 ? (
-                <div className="empty-state compact-empty">Nenhum jogador remoto para ajustar.</div>
+                <div className="empty-state compact-empty">{pick("Nenhum jogador remoto para ajustar.", "No remote player to adjust.", "Ningún jugador remoto para ajustar.", "Kein Remote-Spieler zum Anpassen.", "Aucun joueur distant à régler.")}</div>
               ) : multiplayer.voiceMixers.map(player => (
                 <div className="voice-mixer-row" key={player.playerId}>
                   <div>
                     <strong>{player.displayName}</strong>
-                    <small>{player.speaking ? "Falando agora" : player.muted ? "Mutado" : "Áudio ativo"}</small>
+                    <small>{player.speaking ? pick("Falando agora", "Speaking now", "Hablando ahora", "Spricht gerade", "Parle maintenant") : player.muted ? pick("Mutado", "Muted", "Silenciado", "Stumm", "Muet") : pick("Áudio ativo", "Audio active", "Audio activo", "Audio aktiv", "Audio actif")}</small>
                   </div>
                   <label className="voice-mute-toggle">
                     <input
@@ -2611,21 +2612,21 @@ function Multiplayer({
         <section className="advanced-grid">
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
-            <h3>Mover HUD</h3>
-            <p>Ativa o modo de reposicionamento do overlay nativo.</p>
+            <h3>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</h3>
+            <p>{pick("Ativa o modo de reposicionamento do overlay nativo.", "Enables native overlay repositioning mode.", "Activa el modo de reposicionamiento del overlay nativo.", "Aktiviert den Verschiebemodus des nativen Overlays.", "Active le mode de repositionnement de l’overlay natif.")}</p>
             <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
-            <h3>Configurar HUD</h3>
-            <p>Abre o editor nativo de escala, opacidade e módulos.</p>
-            <button className="button ghost" onClick={onOpenHud}>Configurar HUD</button>
+            <h3>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</h3>
+            <p>{pick("Presets, tema, escala, opacidade e módulos são configurados na interface React.", "Presets, theme, scale, opacity and modules are configured in the React interface.", "Presets, tema, escala, opacidad y módulos se configuran en la interfaz React.", "Presets, Thema, Skalierung, Deckkraft und Module werden in der React-Oberfläche konfiguriert.", "Les presets, le thème, l’échelle, l’opacité et les modules se configurent dans l’interface React.")}</p>
+            <button className="button ghost" onClick={onOpenHud}>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</button>
           </article>
           <article className="card compact-card">
-            <span className="eyebrow">REDE</span>
-            <h3>Host local</h3>
-            <p>{multiplayer.hostRunning ? `Escutando na porta TCP ${multiplayer.hostPort ?? 27730}.` : "Host local não está ativo."}</p>
-            <button className="button ghost" onClick={onOpenNetwork}>Abrir Configurações &gt; Rede</button>
+            <span className="eyebrow">{pick("REDE", "NETWORK", "RED", "NETZWERK", "RÉSEAU")}</span>
+            <h3>{pick("Host local", "Local host", "Host local", "Lokaler Host", "Hôte local")}</h3>
+            <p>{multiplayer.hostRunning ? `${pick("Escutando na porta TCP", "Listening on TCP port", "Escuchando en el puerto TCP", "Lauscht auf TCP-Port", "Écoute sur le port TCP")} ${multiplayer.hostPort ?? 27730}.` : pick("Host local não está ativo.", "Local host is not active.", "El host local no está activo.", "Lokaler Host ist nicht aktiv.", "L’hôte local n’est pas actif.")}</p>
+            <button className="button ghost" onClick={onOpenNetwork}>{pick("Abrir Configurações", "Open Settings", "Abrir Configuración", "Einstellungen öffnen", "Ouvrir les paramètres")} &gt; {pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button>
           </article>
         </section>
       )}
