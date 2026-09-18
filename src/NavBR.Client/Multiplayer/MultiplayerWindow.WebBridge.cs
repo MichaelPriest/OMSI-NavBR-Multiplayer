@@ -67,6 +67,7 @@ public partial class MultiplayerWindow
                     physicalVehicleState = physicalVehicleStatus?.State,
                     physicalVehicleErrorCode = physicalVehicleStatus?.ErrorCode,
                     physicalVehiclePartCount = physicalVehicleStatus?.PartCount,
+                    physicalVehicleExpectedPartCount = physicalVehicleStatus?.ExpectedPartCount,
                     physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
                     speaking,
                     isLocal,
