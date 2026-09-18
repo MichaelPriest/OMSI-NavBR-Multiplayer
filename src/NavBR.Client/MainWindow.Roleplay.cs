@@ -1,4 +1,3 @@
-using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
@@ -8,7 +7,6 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private RoleplayCharacterController? _roleplayCharacterController;
-    private RoleplayCharacterWindow? _roleplayCharacterWindow;
     private DispatcherTimer? _roleplayAutoPromptTimer;
     private string? _roleplayPromptedMapKey;
     private bool _roleplayLifetimeHooked;
@@ -112,7 +110,13 @@ public partial class MainWindow
                 _ = _multiplayerWindow.ReleaseLocalRoleplayCharacterAsync();
             }
 
+            _multiplayerWindow?.SetLocalRoleplayCharacterState(state);
             UpdateHudRoleplayStateForShell();
+        };
+
+        controller.StatusChanged += status =>
+        {
+            _multiplayerWindow?.SetRoleplayRuntimeStatus(status);
         };
 
         _roleplayCharacterController = controller;
@@ -172,36 +176,11 @@ public partial class MainWindow
 
     internal void OpenRoleplayCharacterWindowForShell()
     {
-        if (_roleplayCharacterWindow is not null)
-        {
-            if (_roleplayCharacterWindow.WindowState == WindowState.Minimized)
-            {
-                _roleplayCharacterWindow.WindowState = WindowState.Normal;
-            }
-
-            _roleplayCharacterWindow.Activate();
-            return;
-        }
-
-        var window = new RoleplayCharacterWindow(
-            GetRoleplayCharacterOptionsForShell,
-            GetRoleplayMapKeyForShell,
-            IsRoleplayMapReadyForShell,
-            GetRoleplayControllerForShell())
-        {
-            Owner = this
-        };
-
-        window.Closed += (_, _) =>
-        {
-            if (ReferenceEquals(_roleplayCharacterWindow, window))
-            {
-                _roleplayCharacterWindow = null;
-            }
-        };
-
-        _roleplayCharacterWindow = window;
-        window.Show();
+        // Alpha.14 uses a single RP surface. HUD, automatic prompt and the
+        // multiplayer button all route to the same Central Multiplayer tab.
+        OpenMultiplayerRoleplayTabForShell();
+        _multiplayerWindow?.SetLocalRoleplayCharacterState(
+            _roleplayCharacterController?.CurrentState);
     }
 
     private void HookRoleplayLifetime()
