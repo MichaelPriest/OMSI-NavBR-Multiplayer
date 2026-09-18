@@ -21,14 +21,20 @@ public partial class MultiplayerWindow
     internal RoleplayCharacterOption? SelectedRoleplayCharacter =>
         RoleplayCharacterSelectionStore.Get(_roleplayMapKey);
 
-    internal Task PublishLocalRoleplayCharacterAsync(
+    internal async Task PublishLocalRoleplayCharacterAsync(
         RoleplayCharacterState state,
-        CancellationToken cancellationToken = default) =>
-        _client.PublishRoleplayCharacterAsync(state, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        SetLocalRoleplayCharacterState(state);
+        await _client.PublishRoleplayCharacterAsync(state, cancellationToken);
+    }
 
-    internal Task ReleaseLocalRoleplayCharacterAsync(
-        CancellationToken cancellationToken = default) =>
-        _client.ReleaseRoleplayCharacterAsync(cancellationToken);
+    internal async Task ReleaseLocalRoleplayCharacterAsync(
+        CancellationToken cancellationToken = default)
+    {
+        SetLocalRoleplayCharacterState(null);
+        await _client.ReleaseRoleplayCharacterAsync(cancellationToken);
+    }
 
     private void InitializeRoleplayCharacterSelector()
     {
