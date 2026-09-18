@@ -300,15 +300,13 @@ namespace
 
         const int humanDefinition = *reinterpret_cast<const int*>(base + HumanDefinitionOffset);
         const int myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
-        const auto aiModeEx = *reinterpret_cast<const unsigned char*>(base + HumanAiModeExOffset);
-        const auto fixDriver = *reinterpret_cast<const unsigned char*>(base + HumanFixDriverOffset);
 
-        // THAME_DrivingBus == 9 in OMSI's public enum. Some fixed driver
-        // instances expose Activity_FixDriver even while their extended mode
-        // is transitioning, so accept either signal.
+        // The selected Drivers definition plus the exact player-bus pointer is
+        // the stable identity check. AI mode / FixDriver flags can legitimately
+        // transition while the player takes control, so they must not prevent
+        // Character/RP from acquiring the real seated driver.
         return humanDefinition == definitionPointer &&
-               myBus == playerVehicle &&
-               (aiModeEx == 9 || fixDriver != 0);
+               myBus == playerVehicle;
     }
 
     bool IsHumanControllable(int humanPointer)
