@@ -24,6 +24,12 @@ C# remains authoritative for OMSI detection/launch, telemetry, native interop, P
 
 React owns visual composition and sends only explicit feature commands through the bridge. Production screens do not synthesize telemetry: missing native state is rendered as empty/waiting.
 
+## Localization bridge
+
+React uses the same native `LocalizationService` as the WPF fallback. The WebView state exposes the current culture and the five supported cultures (pt-BR, en-US, es-ES, de-DE and fr-FR). Changing language in the React sidebar calls the native `setLanguage` command, so the existing `language.txt` preference remains the single persisted source of truth.
+
+New React surfaces use the shared translation provider and fall back to English when a key is unavailable; raw OMSI/runtime values are never translated or replaced with synthetic data.
+
 ## Primary shell and fallback
 
 React/WebView2 is the primary visible desktop shell in Alpha.14.
