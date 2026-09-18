@@ -2,19 +2,19 @@ import React from "react";
 
 const concepts = [
   {
-    image: "./assets/concept-hud.webp",
+    image: "./assets/concept-hud.svg",
     eyebrow: "HUD NO JOGO",
     title: "Navegação e operação sem esconder o OMSI",
     text: "Conceito visual do HUD com próxima parada, rota, velocidade e estado multiplayer sobre a condução."
   },
   {
-    image: "./assets/concept-multiplayer.webp",
+    image: "./assets/concept-multiplayer.svg",
     eyebrow: "MULTIPLAYER",
     title: "Ônibus remotos e sala em tempo real",
     text: "Conceito da experiência com outros motoristas, presença, voz e posições sincronizadas no mapa."
   },
   {
-    image: "./assets/concept-roleplay.webp",
+    image: "./assets/concept-roleplay.svg",
     eyebrow: "PERSONAGEM / RP",
     title: "Saia do ônibus e continue no mesmo mapa",
     text: "Conceito do modo RP com personagem ativo, marcador e câmera de acompanhamento no mapa 3D."
