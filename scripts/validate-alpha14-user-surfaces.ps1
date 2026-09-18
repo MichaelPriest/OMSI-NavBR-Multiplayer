@@ -178,6 +178,17 @@ Reject-Text "src/NavBR.Client/Operations/DispatcherInstaller.cs" @(
     "dispatcher.ShowDialog();"
 )
 
+Require-Text "src/NavBR.Client/Windows/Alpha12ExperienceInstaller.cs" @(
+    'NavigatePrimaryWebShell("settings")',
+    'NavigatePrimaryWebShell("help")'
+)
+
+Reject-Text "src/NavBR.Client/Windows/Alpha12ExperienceInstaller.cs" @(
+    "new Alpha12SettingsWindow(",
+    "new Alpha12FirstRunWindow(",
+    ".ShowDialog()"
+)
+
 Reject-Text "src/NavBR.Client/WebUI/bootstrap/app.js" @(
     '"openMultiplayerCentral"',
     '"showLegacyShell"'
@@ -216,7 +227,10 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     "sessionOperationalState",
     "telemetryStale",
     "Sempre no topo",
-    "Ajustar"
+    "Ajustar",
+    "Modo avançado",
+    "Dicas de direção",
+    "Comparar replays"
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -249,6 +263,7 @@ Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
     "tripHistory:",
     "profileTransfer:",
     "sessionHealth:",
+    "legacyPreferences:",
     "shell:"
 )
 
