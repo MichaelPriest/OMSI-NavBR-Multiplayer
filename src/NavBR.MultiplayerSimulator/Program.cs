@@ -664,9 +664,19 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                 }
 
                 var operationalState = await resolver.TryGetOperationalStateAsync(cancellationToken);
-                if (operationalState is null &&
-                    string.IsNullOrWhiteSpace(options.ActiveLine) &&
-                    string.IsNullOrWhiteSpace(options.ActiveRoute))
+                var activeLine = operationalState?.Line ?? telemetry?.Line ?? options.ActiveLine;
+                var activeRoute = operationalState?.Route ?? telemetry?.Route ?? options.ActiveRoute;
+                var activeDestination =
+                    operationalState?.DestinationName ??
+                    telemetry?.DestinationName ??
+                    options.ActiveDestination;
+                var activeNextStop =
+                    operationalState?.NextStopName ??
+                    telemetry?.NextStopName ??
+                    options.ActiveNextStop;
+
+                if (string.IsNullOrWhiteSpace(activeLine) &&
+                    string.IsNullOrWhiteSpace(activeRoute))
                 {
                     if (!announcedWaiting)
                     {
@@ -711,10 +721,10 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
                         telemetry?.VehicleCompatibilityId,
-                    ActiveLine = operationalState?.Line ?? options.ActiveLine,
-                    ActiveRoute = operationalState?.Route ?? options.ActiveRoute,
-                    ActiveDestination = operationalState?.DestinationName ?? options.ActiveDestination,
-                    ActiveNextStop = operationalState?.NextStopName ?? options.ActiveNextStop,
+                    ActiveLine = activeLine,
+                    ActiveRoute = activeRoute,
+                    ActiveDestination = activeDestination,
+                    ActiveNextStop = activeNextStop,
                     RadiusMeters = options.RadiusExplicit
                         ? options.RadiusMeters
                         : 18d
