@@ -57,31 +57,22 @@ internal static class Alpha12MultiplayerStatusInstaller
 
         var healthButton = SecondaryButton();
         healthButton.Content = Text("OpenHealth");
-        healthButton.Click += (_, _) =>
-        {
-            if (Application.Current is App app)
-            {
-                new SessionHealthWindow(
-                    window,
-                    window.GetCurrentTelemetryForAlpha11,
-                    app.PluginBridge.GetConnectionInfo).ShowDialog();
-            }
-        };
+        healthButton.Click += (_, _) => window.NavigatePrimaryWebShell("settings-diagnostics");
 
         var connectivityButton = SecondaryButton();
         connectivityButton.Content = Alpha12ConnectivityWindow.ButtonText();
         connectivityButton.Margin = new Thickness(10d, 0d, 0d, 0d);
-        connectivityButton.Click += (_, _) => new Alpha12ConnectivityWindow(window).ShowDialog();
+        connectivityButton.Click += (_, _) => window.NavigatePrimaryWebShell("settings-network");
 
         var natButton = SecondaryButton();
         natButton.Content = NatDiagnosticsWindow.ButtonText();
         natButton.Margin = new Thickness(10d, 0d, 0d, 0d);
-        natButton.Click += (_, _) => new NatDiagnosticsWindow(window).ShowDialog();
+        natButton.Click += (_, _) => window.NavigatePrimaryWebShell("settings-network");
 
         var externalProbeButton = SecondaryButton();
         externalProbeButton.Content = ExternalPortProbeWindow.ButtonText();
         externalProbeButton.Margin = new Thickness(10d, 8d, 0d, 0d);
-        externalProbeButton.Click += (_, _) => new ExternalPortProbeWindow(window).ShowDialog();
+        externalProbeButton.Click += (_, _) => window.NavigatePrimaryWebShell("settings-network");
 
         var actions = new WrapPanel
         {
