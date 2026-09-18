@@ -5,12 +5,14 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 using NavBR.Client.Omsi;
+using NavBR.Client.Operations;
 
 namespace NavBR.Client;
 
 public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
+    private string? _webSessionHealthNotice;
 
     private object BuildWebSystemState()
     {
@@ -116,7 +118,9 @@ public partial class MainWindow
                 logExists = logInfo is not null,
                 logSizeBytes = logInfo?.Length ?? 0L,
                 logUpdatedAtUtc = logInfo?.LastWriteTimeUtc
-            }
+            },
+            sessionHealthNotice = _webSessionHealthNotice,
+            sessionHealth = BuildWebSessionHealthState()
         };
     }
 
@@ -340,6 +344,80 @@ public partial class MainWindow
 
     private static void PurgeDiagnosticsFromWeb() =>
         RemoteDiagnosticsService.PurgeQueuedEvents();
+
+    private object BuildWebSessionHealthState()
+    {
+        var session = DispatcherSessionFeed.Snapshot();
+        var network = SessionNetworkQualityFeed.Snapshot();
+        var plugin = (System.Windows.Application.Current as App)?.PluginBridge.GetConnectionInfo();
+        var now = DateTimeOffset.UtcNow;
+        double? freshnessSeconds = null;
+        if (session.Connected && session.RemoteDrivers.Count > 0)
+        {
+            var newest = session.RemoteDrivers.Max(driver => driver.ReceivedAtUtc);
+            freshnessSeconds = Math.Max(0d, (now - newest).TotalSeconds);
+        }
+
+        var networkReady = session.Connected &&
+                           network.Samples >= 2 &&
+                           network.RoundTripMs is not null;
+        double? telemetryRateHz = networkReady
+            ? network.Level switch
+            {
+                SessionNetworkQualityLevel.Poor => 1.5d,
+                SessionNetworkQualityLevel.Degraded => 2.5d,
+                _ => 4d
+            }
+            : null;
+
+        return new
+        {
+            omsiActive = _lastTelemetry?.IsInGame == true,
+            multiplayerConnected = session.Connected,
+            pluginConnected = plugin?.IsConnected == true,
+            pluginVersion = plugin?.PluginComponentVersion,
+            remoteDrivers = session.Connected ? session.RemoteDrivers.Count : 0,
+            remoteTelemetryAgeSeconds = freshnessSeconds,
+            latencyMs = networkReady ? network.RoundTripMs : null,
+            jitterMs = networkReady ? network.JitterMs : null,
+            lossPercent = networkReady ? network.LossPercent : null as double?,
+            telemetryRateHz,
+            networkLevel = network.Level.ToString(),
+            samples = network.Samples,
+            updatedAtUtc = now
+        };
+    }
+
+    private void ExportSessionHealthFromWeb()
+    {
+        _webSessionHealthNotice = null;
+        var report = new
+        {
+            schema = "navbr-session-health",
+            version = 1,
+            exportedAtUtc = DateTimeOffset.UtcNow,
+            metrics = BuildWebSessionHealthState(),
+            note = "Contains only aggregate Session Health values visible in NavBR. No room password, token, room id, PlayerId, IP address or local filesystem path is exported."
+        };
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exportar relatório sanitizado de saúde da sessão NavBR",
+            Filter = "NavBR Session Health (*.navbr-health.json)|*.navbr-health.json|JSON (*.json)|*.json",
+            FileName = $"navbr-session-health-{DateTime.Now:yyyyMMdd-HHmmss}.navbr-health.json",
+            DefaultExt = ".json",
+            AddExtension = true
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        File.WriteAllText(
+            dialog.FileName,
+            JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        _webSessionHealthNotice = "Relatório sanitizado de saúde da sessão exportado com sucesso.";
+    }
 
     private static void OpenFeedbackFromWeb(string? kind)
     {
