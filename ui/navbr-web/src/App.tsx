@@ -490,7 +490,15 @@ function reportStatusLabel(status: string) {
   return "Aberta";
 }
 
-function Operations({ state, error }: { state: NavBrState | null; error: string | null }) {
+function Operations({
+  state,
+  error,
+  onNavigate
+}: {
+  state: NavBrState | null;
+  error: string | null;
+  onNavigate: (screen: Screen) => void;
+}) {
   const operations = state?.operations;
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const [tab, setTab] = useState<OperationsTab>("overview");
@@ -542,7 +550,7 @@ function Operations({ state, error }: { state: NavBrState | null; error: string 
           <span className={`connection-pill ${operations.connected ? "connected" : ""}`}>
             <i /> {operations.connected ? operations.roomId || "Sessão ativa" : "Sem sessão"}
           </span>
-          <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Multiplayer</button>
+          <button className="button ghost" onClick={() => onNavigate("multiplayer")}>Multiplayer</button>
         </div>
       </header>
 
@@ -1097,12 +1105,26 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   );
 }
 
-function Settings({ state, error }: { state: NavBrState | null; error: string | null }) {
+function Settings({
+  state,
+  error,
+  requestedTab
+}: {
+  state: NavBrState | null;
+  error: string | null;
+  requestedTab?: SettingsTab | null;
+}) {
   const system = state?.system;
   const network = state?.network;
   const [tab, setTab] = useState<SettingsTab>("installations");
   const [manualPath, setManualPath] = useState("");
   const networkRequested = useRef(false);
+
+  useEffect(() => {
+    if (requestedTab) {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   useEffect(() => {
     if (tab === "network" && !network?.diagnostics && !networkRequested.current) {
@@ -1515,10 +1537,12 @@ function Roleplay({ state, error }: { state: NavBrState | null; error: string | 
 
 function Multiplayer({
   state,
-  error
+  error,
+  onOpenNetwork
 }: {
   state: NavBrState | null;
   error: string | null;
+  onOpenNetwork: () => void;
 }) {
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const telemetry = state?.telemetry;
@@ -1589,7 +1613,15 @@ function Multiplayer({
           <span className={`connection-pill ${multiplayer.connected ? "connected" : ""}`}>
             <i /> {statusLabel}
           </span>
-          <button className="button primary" onClick={() => sendCommand("openMultiplayerCentral")}>
+          <button
+            className="button primary"
+            onClick={() => {
+              if (!multiplayer.available) {
+                sendCommand("ensureMultiplayerController");
+              }
+              setTab("room");
+            }}
+          >
             {multiplayer.available ? "Controles da sala" : "Ativar multiplayer"}
           </button>
         </div>
@@ -1653,7 +1685,7 @@ function Multiplayer({
         <section className="card mp-panel">
           <div className="section-heading">
             <div><span className="eyebrow">SALA</span><h3>Conexão e host</h3></div>
-            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Controles avançados</button>
+            <button className="button ghost" onClick={onOpenNetwork}>Rede / Firewall</button>
           </div>
 
           <div className="room-form-grid">
@@ -2018,7 +2050,7 @@ function Multiplayer({
             <span className="eyebrow">REDE</span>
             <h3>Host local</h3>
             <p>{multiplayer.hostRunning ? `Escutando na porta TCP ${multiplayer.hostPort ?? 27730}.` : "Host local não está ativo."}</p>
-            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Firewall / NAT / UPnP</button>
+            <button className="button ghost" onClick={onOpenNetwork}>Abrir Configurações &gt; Rede</button>
           </article>
         </section>
       )}
@@ -2030,6 +2062,12 @@ export default function App() {
   const [state, setState] = useState<NavBrState | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [commandError, setCommandError] = useState<string | null>(null);
+  const [settingsTabRequest, setSettingsTabRequest] = useState<SettingsTab | null>(null);
+
+  const openSettingsTab = (tab: SettingsTab) => {
+    setSettingsTabRequest(tab);
+    setScreen("settings");
+  };
 
   useEffect(() => subscribeToNavBrState(
     next => {
@@ -2064,14 +2102,14 @@ export default function App() {
             : screen === "roleplay"
               ? <Roleplay state={state} error={commandError} />
               : screen === "operations"
-                ? <Operations state={state} error={commandError} />
+                ? <Operations state={state} error={commandError} onNavigate={setScreen} />
               : screen === "companyNetwork"
                 ? <CompanyNetwork state={state} error={commandError} />
                 : screen === "hardware"
                 ? <Hardware state={state} error={commandError} />
                 : screen === "settings"
-                  ? <Settings state={state} error={commandError} />
-                  : <Multiplayer state={state} error={commandError} />}
+                  ? <Settings state={state} error={commandError} requestedTab={settingsTabRequest} />
+                  : <Multiplayer state={state} error={commandError} onOpenNetwork={() => openSettingsTab("network")} />}
       </main>
     </div>
   );
