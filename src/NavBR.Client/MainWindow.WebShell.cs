@@ -353,6 +353,19 @@ public partial class MainWindow
                 await SelectGhostFileFromWebAsync();
                 break;
 
+            case "refreshGhostLibrary":
+                await RefreshGhostLibraryFromWebAsync();
+                break;
+
+            case "selectGhostLibraryItem":
+                await SelectGhostLibraryItemFromWebAsync(
+                    GetWebPayloadString(payload, "fileName"));
+                break;
+
+            case "importGhostReplay":
+                await ImportGhostReplayFromWebAsync();
+                break;
+
             case "playGhost":
                 await PlayGhostFromWebAsync(
                     GetWebPayloadDouble(payload, "playbackSpeed"),
