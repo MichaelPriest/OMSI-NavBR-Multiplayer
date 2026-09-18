@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/alpha14-test3
+      - publish/alpha14-test3
   pull_request:
     branches:
       - feature/alpha14-roleplay
@@ -46,7 +47,7 @@ jobs:
           if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
 
       - name: Reserve Alpha.14 Test 3 as draft
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -370,7 +371,7 @@ jobs:
           Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md "artifacts/release-notes.md" -Force
 
       - name: Upload private Alpha.14 Test 3 build
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/test/alpha14-test3'
         uses: actions/upload-artifact@v4
         with:
           name: OMSI-NavBR-Alpha14-Test3-${{ github.sha }}
@@ -380,7 +381,7 @@ jobs:
           retention-days: 7
 
       - name: Clean incomplete release assets
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -395,7 +396,7 @@ jobs:
           }
 
       - name: Upload release assets sequentially
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -447,7 +448,7 @@ jobs:
           }
 
       - name: Verify release assets and keep draft
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -475,8 +476,8 @@ jobs:
             --prerelease --draft=true
           if ($LASTEXITCODE -ne 0) { throw "Failed to finalize draft $env:TEST_TAG." }
 
-      - name: Publish prerelease after explicit manual approval
-        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+      - name: Publish prerelease after explicit approval
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish == true) || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -488,7 +489,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:TEST_TAG." }
 
       - name: Refresh GitHub Pages release catalog
-        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish == true) || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
