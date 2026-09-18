@@ -7,6 +7,12 @@ param(
     [string]$Mode = "mixed",
     [string]$Map = "",
     [string]$MapId = "",
+    [Nullable[int]]$GridX = $null,
+    [Nullable[int]]$GridY = $null,
+    [Nullable[double]]$TileX = $null,
+    [Nullable[double]]$TileY = $null,
+    [string]$VehiclePath = "",
+    [string]$VehicleId = "",
     [double]$X = 0,
     [double]$Y = 0,
     [double]$Z = 0,
@@ -39,6 +45,24 @@ if (-not [string]::IsNullOrWhiteSpace($Map)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($MapId)) {
     $argsList += @("--map-id", $MapId)
+}
+if ($null -ne $GridX) {
+    $argsList += @("--grid-x", "$GridX")
+}
+if ($null -ne $GridY) {
+    $argsList += @("--grid-y", "$GridY")
+}
+if ($null -ne $TileX) {
+    $argsList += @("--tile-x", $TileX.Value.ToString([Globalization.CultureInfo]::InvariantCulture))
+}
+if ($null -ne $TileY) {
+    $argsList += @("--tile-y", $TileY.Value.ToString([Globalization.CultureInfo]::InvariantCulture))
+}
+if (-not [string]::IsNullOrWhiteSpace($VehiclePath)) {
+    $argsList += @("--vehicle-path", $VehiclePath)
+}
+if (-not [string]::IsNullOrWhiteSpace($VehicleId)) {
+    $argsList += @("--vehicle-id", $VehicleId)
 }
 if ($Verify) {
     $argsList += "--verify"
