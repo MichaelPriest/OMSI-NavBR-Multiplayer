@@ -7,6 +7,11 @@ using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client.Multiplayer;
 
+internal sealed record RemotePhysicalVehicleStatus(
+    string State,
+    string? ErrorCode,
+    DateTimeOffset UpdatedAtUtc);
+
 internal sealed class RemotePhysicalVehicleCoordinator
 {
     private const int MaxPhysicalRemotePlayers = 32;
@@ -15,6 +20,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _lastFailureByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RemotePhysicalVehicleStatus> _statusByPlayer =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
@@ -51,6 +58,25 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public bool IsSpawned(string playerId) =>
         !string.IsNullOrWhiteSpace(playerId) && _spawned.ContainsKey(playerId);
 
+    public RemotePhysicalVehicleStatus GetStatus(string playerId)
+    {
+        if (!string.IsNullOrWhiteSpace(playerId) &&
+            _statusByPlayer.TryGetValue(playerId, out var status))
+        {
+            return status;
+        }
+
+        var state = !ExperimentalFeatureFlags.PhysicalVehiclesEnabled
+            ? "disabled"
+            : !IsPhysicalMultiplayerAvailable
+                ? "plugin-unavailable"
+                : "waiting-telemetry";
+        return new RemotePhysicalVehicleStatus(
+            state,
+            ErrorCode: null,
+            DateTimeOffset.UtcNow);
+    }
+
     public async Task ApplyAsync(
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken = default)
@@ -85,13 +111,33 @@ internal sealed class RemotePhysicalVehicleCoordinator
         PlayerTelemetryFrame frame,
         CancellationToken cancellationToken)
     {
-        if (!IsPhysicalMultiplayerAvailable ||
-            !frame.Telemetry.IsInGame ||
-            string.IsNullOrWhiteSpace(frame.Player.PlayerId))
+        var playerId = frame.Player.PlayerId;
+        if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled)
         {
-            if (_spawned.ContainsKey(frame.Player.PlayerId))
+            SetStatus(playerId, "disabled");
+            if (_spawned.ContainsKey(playerId))
             {
-                await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+                await DespawnOwnedAsync(playerId, cancellationToken);
+            }
+            return;
+        }
+
+        if (!frame.Telemetry.IsInGame)
+        {
+            SetStatus(playerId, "remote-not-in-game");
+            if (_spawned.ContainsKey(playerId))
+            {
+                await DespawnOwnedAsync(playerId, cancellationToken);
+            }
+            return;
+        }
+
+        if (!IsPhysicalMultiplayerAvailable)
+        {
+            SetStatus(playerId, "plugin-unavailable");
+            if (_spawned.ContainsKey(playerId))
+            {
+                await DespawnOwnedAsync(playerId, cancellationToken);
             }
             return;
         }
@@ -104,7 +150,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // VehiclePath is only a location hint and can differ between installs.
         if (string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
         {
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            SetStatus(playerId, "identity-missing");
+            await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
 
@@ -114,7 +161,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
         var localManifest = _localManifest;
         if (localManifest is null)
         {
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            SetStatus(playerId, "local-state-unavailable");
+            await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
 
@@ -128,7 +176,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
             requireVehicleForPhysicalMultiplayer: false);
         if (!report.IsCompatible)
         {
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            SetStatus(
+                playerId,
+                "incompatible",
+                report.Issues.FirstOrDefault()?.Code);
+            await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
 
@@ -145,7 +197,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
         {
             // The remote player changed vehicle. Remove the old NavBR-owned
             // instance before creating the newly reported asset.
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            SetStatus(playerId, "switching-vehicle");
+            await DespawnOwnedAsync(playerId, cancellationToken);
             if (_spawned.ContainsKey(frame.Player.PlayerId))
             {
                 // Despawn failed and restored the old ownership state. Never
@@ -154,23 +207,26 @@ internal sealed class RemotePhysicalVehicleCoordinator
             }
         }
 
-        if (!_spawned.ContainsKey(frame.Player.PlayerId) &&
+        if (!_spawned.ContainsKey(playerId) &&
             _spawned.Count >= MaxPhysicalRemotePlayers)
         {
-            ReportFailureOnce(frame.Player.PlayerId, "limit", "physical-vehicle-limit-reached");
+            SetStatus(playerId, "limit-reached");
+            ReportFailureOnce(playerId, "limit", "physical-vehicle-limit-reached");
             return;
         }
 
-        if (!_spawned.ContainsKey(frame.Player.PlayerId))
+        if (!_spawned.ContainsKey(playerId))
         {
+            SetStatus(playerId, "resolving-asset");
             var resolvedVehiclePath = await _vehicleAssetResolver.ResolveAsync(
                 remoteManifest.VehiclePath,
                 remoteVehicleCompatibilityId,
                 cancellationToken);
             if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
             {
+                SetStatus(playerId, "asset-unresolved");
                 ReportFailureOnce(
-                    frame.Player.PlayerId,
+                    playerId,
                     "asset",
                     "physical-vehicle-asset-unresolved");
                 return;
@@ -187,6 +243,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     remoteManifest,
                     requireVehicleForPhysicalMultiplayer: false).IsCompatible)
             {
+                SetStatus(playerId, "session-changed");
                 return;
             }
 
@@ -194,15 +251,16 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 frame,
                 remoteManifest,
                 resolvedVehiclePath);
-            if (_spawned.TryAdd(frame.Player.PlayerId, 0))
+            if (_spawned.TryAdd(playerId, 0))
             {
+                SetStatus(playerId, "spawning");
                 var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
                     spawnFrame,
                     cancellationToken);
                 if (spawn?.Success != true)
                 {
-                    _spawned.TryRemove(frame.Player.PlayerId, out _);
-                    ReportCommandFailureOnce(frame.Player.PlayerId, "spawn", spawn);
+                    _spawned.TryRemove(playerId, out _);
+                    ReportCommandFailureOnce(playerId, "spawn", spawn);
                     return;
                 }
 
@@ -210,7 +268,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     remoteVehicleCompatibilityId;
                 _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
                     resolvedVehiclePath;
-                _lastFailureByPlayer.TryRemove(frame.Player.PlayerId, out _);
+                _lastFailureByPlayer.TryRemove(playerId, out _);
+                SetStatus(playerId, "active");
                 RemoteDiagnosticsService.Record(
                     "physical-vehicle",
                     "info",
@@ -222,9 +281,10 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 frame.Player.PlayerId,
                 out var localVehiclePath))
         {
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(playerId, cancellationToken);
+            SetStatus(playerId, "path-state-missing");
             ReportFailureOnce(
-                frame.Player.PlayerId,
+                playerId,
                 "asset",
                 "physical-vehicle-path-state-missing");
             return;
@@ -239,12 +299,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
             cancellationToken);
         if (update is { Success: false })
         {
-            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
-            ReportCommandFailureOnce(frame.Player.PlayerId, "update", update);
+            await DespawnOwnedAsync(playerId, cancellationToken);
+            ReportCommandFailureOnce(playerId, "update", update);
             return;
         }
 
-        _lastFailureByPlayer.TryRemove(frame.Player.PlayerId, out _);
+        _lastFailureByPlayer.TryRemove(playerId, out _);
+        SetStatus(playerId, "active");
     }
 
     public async Task DespawnAsync(
@@ -330,6 +391,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         _spawnedCompatibilityByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
+        _statusByPlayer.Clear();
     }
 
     private void ReportCommandFailureOnce(
@@ -339,10 +401,27 @@ internal sealed class RemotePhysicalVehicleCoordinator
     {
         var errorCode = result?.ErrorCode ?? "no-result";
         var detail = result?.ErrorMessage ?? string.Empty;
+        SetStatus(playerId, $"{operation}-failed", errorCode);
         ReportFailureOnce(
             playerId,
             operation,
             $"{operation}-failed error={errorCode} detail={detail}");
+    }
+
+    private void SetStatus(
+        string playerId,
+        string state,
+        string? errorCode = null)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        _statusByPlayer[playerId] = new RemotePhysicalVehicleStatus(
+            state,
+            string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
+            DateTimeOffset.UtcNow);
     }
 
     private void ReportFailureOnce(string playerId, string key, string message)

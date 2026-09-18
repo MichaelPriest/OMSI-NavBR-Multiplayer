@@ -48,6 +48,10 @@ public partial class MultiplayerWindow
                     activeMap?.CompatibilityId,
                     player.MapCompatibilityId);
 
+                var physicalVehicleStatus = isLocal
+                    ? null
+                    : _client.GetRemotePhysicalVehicleStatus(player.PlayerId);
+
                 return new
                 {
                     playerId = player.PlayerId,
@@ -60,6 +64,9 @@ public partial class MultiplayerWindow
                     physicalVehicleSpawned =
                         !isLocal &&
                         _client.IsRemotePhysicalVehicleSpawned(player.PlayerId),
+                    physicalVehicleState = physicalVehicleStatus?.State,
+                    physicalVehicleErrorCode = physicalVehicleStatus?.ErrorCode,
+                    physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
                     speaking,
                     isLocal,
                     line = telemetry?.Line,

@@ -728,6 +728,35 @@ function Navigation({
   );
 }
 
+function physicalVehicleStatusLabel(
+  state: string | null | undefined,
+  errorCode: string | null | undefined,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
+  switch (state) {
+    case "active": return pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif");
+    case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
+    case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
+    case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
+    case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
+    case "incompatible": return errorCode
+      ? pick(`Incompatível: ${errorCode}`, `Incompatible: ${errorCode}`, `Incompatible: ${errorCode}`, `Inkompatibel: ${errorCode}`, `Incompatible : ${errorCode}`)
+      : pick("Sessão incompatível", "Incompatible session", "Sesión incompatible", "Inkompatible Sitzung", "Session incompatible");
+    case "plugin-unavailable": return pick("Plugin físico indisponível", "Physical plugin unavailable", "Plugin físico no disponible", "Physisches Plugin nicht verfügbar", "Plugin physique indisponible");
+    case "local-state-unavailable": return pick("Aguardando estado local", "Waiting for local state", "Esperando estado local", "Warte auf lokalen Status", "En attente de l’état local");
+    case "remote-not-in-game": return pick("Jogador fora do gameplay", "Player not in gameplay", "Jugador fuera del juego", "Spieler nicht im Gameplay", "Joueur hors gameplay");
+    case "limit-reached": return pick("Limite físico atingido", "Physical limit reached", "Límite físico alcanzado", "Physisches Limit erreicht", "Limite physique atteinte");
+    case "switching-vehicle": return pick("Trocando modelo físico", "Switching physical model", "Cambiando modelo físico", "Physisches Modell wird gewechselt", "Changement de modèle physique");
+    case "session-changed": return pick("Sessão mudou durante a resolução", "Session changed during resolution", "La sesión cambió durante la resolución", "Sitzung änderte sich während der Auflösung", "La session a changé pendant la résolution");
+    case "path-state-missing": return pick("Estado do asset local foi perdido", "Local asset state was lost", "Se perdió el estado del asset local", "Lokaler Asset-Status ging verloren", "L’état de l’asset local a été perdu");
+    case "spawn-failed": return pick("Falha ao criar ônibus físico", "Physical bus spawn failed", "Falló la creación del autobús físico", "Physischer Bus konnte nicht erstellt werden", "Échec de création du bus physique");
+    case "update-failed": return pick("Falha ao atualizar ônibus físico", "Physical bus update failed", "Falló la actualización del autobús físico", "Physischer Bus konnte nicht aktualisiert werden", "Échec de mise à jour du bus physique");
+    case "despawn-failed": return pick("Falha ao remover ônibus físico", "Physical bus removal failed", "Falló la eliminación del autobús físico", "Physischer Bus konnte nicht entfernt werden", "Échec de suppression du bus physique");
+    case "disabled": return pick("Ônibus físico desativado", "Physical bus disabled", "Autobús físico desactivado", "Physischer Bus deaktiviert", "Bus physique désactivé");
+    default: return pick("Aguardando telemetria física", "Waiting for physical telemetry", "Esperando telemetría física", "Warte auf physische Telemetrie", "En attente de télémétrie physique");
+  }
+}
+
 function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
   const { pick } = useI18n();
   const plotted = useMemo(() => {
@@ -3047,8 +3076,8 @@ function Multiplayer({
                     <small>
                       {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
                       {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
-                      {player.physicalVehicleSpawned
-                        ? ` · ${pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif")}`
+                      {!player.isLocal && multiplayer.physicalVehiclesEnabled
+                        ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, pick)}`
                         : ""}
                     </small>
                   </div>

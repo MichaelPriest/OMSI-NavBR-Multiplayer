@@ -7,6 +7,9 @@ export interface NavBrPlayer {
   latencyMs?: number | null;
   roleplayActive: boolean;
   physicalVehicleSpawned: boolean;
+  physicalVehicleState?: string | null;
+  physicalVehicleErrorCode?: string | null;
+  physicalVehicleUpdatedAtUtc?: string | null;
   speaking: boolean;
   isLocal: boolean;
   line?: string | null;
