@@ -277,6 +277,45 @@ export interface NavBrHardwareState {
   } | null;
 }
 
+export interface NavBrRoleplayCharacter {
+  id: string;
+  displayName: string;
+  sourceValue: string;
+  isActiveDriver: boolean;
+  selected: boolean;
+}
+
+export interface NavBrRoleplayState {
+  enabled: boolean;
+  mapReady: boolean;
+  mapKey?: string | null;
+  runtimeAvailable: boolean;
+  active: boolean;
+  status?: string | null;
+  selected?: {
+    id: string;
+    displayName: string;
+    sourceValue: string;
+    isActiveDriver: boolean;
+  } | null;
+  characters: NavBrRoleplayCharacter[];
+  current?: {
+    characterId?: string | null;
+    characterName?: string | null;
+    mapName?: string | null;
+    mapCompatibilityId?: string | null;
+    localX: number;
+    localY: number;
+    localZ: number;
+    headingDegrees: number;
+    speedMps: number;
+    activity: string;
+    isActive: boolean;
+    humanIndex?: number | null;
+    timestamp: string;
+  } | null;
+}
+
 export interface NavBrNetworkState {
   hostPort: number;
   hostRunning: boolean;
@@ -388,6 +427,7 @@ export interface NavBrState {
   hardware: NavBrHardwareState;
   network: NavBrNetworkState;
   companyNetwork: NavBrCompanyNetworkState;
+  roleplay: NavBrRoleplayState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -397,6 +437,9 @@ export type NavBrCommand =
   | "refreshState"
   | "openMultiplayerCentral"
   | "openRoleplay"
+  | "selectRoleplayCharacter"
+  | "startRoleplay"
+  | "stopRoleplay"
   | "openNavigation3D"
   | "toggleHudLayout"
   | "openHudEditor"
