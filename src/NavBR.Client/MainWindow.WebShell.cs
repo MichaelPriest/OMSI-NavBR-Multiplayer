@@ -161,6 +161,7 @@ public partial class MainWindow
             system = BuildWebSystemState(),
             hardware = BuildWebHardwareState(),
             network = BuildWebNetworkState(),
+            companyNetwork = BuildWebCompanyNetworkState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -429,6 +430,39 @@ public partial class MainWindow
 
             case "runExternalPortProbe":
                 await RunWebExternalPortProbeAsync();
+                break;
+
+            case "refreshCompanyNetwork":
+                await RefreshWebCompanyNetworkAsync();
+                break;
+
+            case "startCompanyNode":
+                await StartWebCompanyNodeAsync();
+                break;
+
+            case "stopCompanyNode":
+                await StopWebCompanyNodeAsync();
+                break;
+
+            case "createCompanyInvite":
+                CreateWebCompanyInvite(GetWebPayloadString(payload, "role"));
+                break;
+
+            case "joinCompany":
+                await JoinWebCompanyAsync(
+                    GetWebPayloadString(payload, "nodeUrl"),
+                    GetWebPayloadString(payload, "inviteCode"));
+                break;
+
+            case "changeCompanyMemberRole":
+                await ChangeWebCompanyMemberRoleAsync(
+                    GetWebPayloadString(payload, "playerId"),
+                    GetWebPayloadString(payload, "role"));
+                break;
+
+            case "removeCompanyMember":
+                await RemoveWebCompanyMemberAsync(
+                    GetWebPayloadString(payload, "playerId"));
                 break;
 
             case "connectHardware":

@@ -305,6 +305,60 @@ export interface NavBrNetworkState {
   } | null;
 }
 
+export interface NavBrCompanyMember {
+  playerId: string;
+  displayName: string;
+  role: string;
+  permissions: string;
+  joinedAtUtc: string;
+  lastSeenAtUtc: string;
+  isSelf: boolean;
+  isOwner: boolean;
+  canChangeRole: boolean;
+  canRemove: boolean;
+}
+
+export interface NavBrCompanyNetworkState {
+  available: boolean;
+  identity?: {
+    playerId: string;
+    displayName: string;
+    createdAtUtc: string;
+  } | null;
+  membership?: {
+    companyId: string;
+    companyName: string;
+    nodeUrl: string;
+    role: string;
+    joinedAtUtc: string;
+  } | null;
+  node?: {
+    running: boolean;
+    port: number;
+    localUrl: string;
+    lanUrls: string[];
+  } | null;
+  company?: {
+    companyId: string;
+    name: string;
+    shortName: string;
+    ownerPlayerId: string;
+    createdAtUtc: string;
+    updatedAtUtc: string;
+    memberCount: number;
+    selfRole?: string | null;
+    canInvite: boolean;
+    canManageRoles: boolean;
+    canRemoveMembers: boolean;
+    members: NavBrCompanyMember[];
+  } | null;
+  assignableRoles: string[];
+  invite?: {
+    code: string;
+    payload?: string | null;
+  } | null;
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -333,6 +387,7 @@ export interface NavBrState {
   system: NavBrSystemState;
   hardware: NavBrHardwareState;
   network: NavBrNetworkState;
+  companyNetwork: NavBrCompanyNetworkState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -376,6 +431,13 @@ export type NavBrCommand =
   | "applyFirewallRule"
   | "setAutomaticUpnp"
   | "runExternalPortProbe"
+  | "refreshCompanyNetwork"
+  | "startCompanyNode"
+  | "stopCompanyNode"
+  | "createCompanyInvite"
+  | "joinCompany"
+  | "changeCompanyMemberRole"
+  | "removeCompanyMember"
   | "sendChat";
 
 declare global {

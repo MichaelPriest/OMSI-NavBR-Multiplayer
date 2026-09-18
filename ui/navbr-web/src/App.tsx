@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type NavBrCompanyMember,
   type NavBrMultiplayerState,
   type NavBrNavigationState,
   type NavBrOmsiInstallation,
@@ -9,7 +10,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "operations" | "hardware" | "settings" | "multiplayer";
+type Screen = "home" | "navigation" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -68,6 +69,9 @@ function Sidebar({
         </button>
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
           <b>▣</b><span>CCO</span>
+        </button>
+        <button className={`nav-item ${screen === "companyNetwork" ? "active" : ""}`} onClick={() => setScreen("companyNetwork")}>
+          <b>◎</b><span>Rede da empresa</span>
         </button>
         <button className={`nav-item ${screen === "hardware" ? "active" : ""}`} onClick={() => setScreen("hardware")}>
           <b>⚡</b><span>Hardware Cockpit</span>
@@ -769,6 +773,103 @@ function Operations({ state, error }: { state: NavBrState | null; error: string 
 }
 
 
+
+
+type CompanyNetworkTab = "network" | "team";
+
+const companyRoleLabels: Record<string, string> = {
+  President: "Presidente",
+  VicePresident: "Vice-Presidente",
+  Director: "Diretoria",
+  OperationsManager: "Gerente Operacional",
+  Dispatcher: "CCO / Dispatcher",
+  Supervisor: "Fiscal / Supervisor",
+  SeniorDriver: "Motorista Sênior",
+  Driver: "Motorista",
+  Trainee: "Aprendiz"
+};
+
+function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMember; assignableRoles: string[] }) {
+  const [role, setRole] = useState(member.role);
+  useEffect(() => setRole(member.role), [member.role]);
+
+  return (
+    <div className={`company-member-row ${member.isSelf ? "self" : ""}`}>
+      <span className="company-member-avatar">{member.displayName.slice(0, 1).toUpperCase()}</span>
+      <div className="company-member-main">
+        <strong>{member.displayName}{member.isSelf ? " · Você" : ""}</strong>
+        <small>{member.playerId}{member.isOwner ? " · OWNER" : ""}</small>
+      </div>
+      <div className="company-member-role">
+        <span>{companyRoleLabels[member.role] || member.role}</span>
+        <small>{member.permissions || "Sem permissões administrativas"}</small>
+      </div>
+      {member.canChangeRole ? (
+        <div className="company-member-actions">
+          <select value={role} onChange={event => setRole(event.target.value)}>
+            {assignableRoles.map(item => <option key={item} value={item}>{companyRoleLabels[item] || item}</option>)}
+          </select>
+          <button className="button ghost compact" disabled={role === member.role} onClick={() => sendCommand("changeCompanyMemberRole", { playerId: member.playerId, role })}>Aplicar cargo</button>
+          {member.canRemove && <button className="button ghost compact danger" onClick={() => { if (window.confirm("Remover " + member.displayName + " da empresa?")) sendCommand("removeCompanyMember", { playerId: member.playerId }); }}>Remover</button>}
+        </div>
+      ) : <span className="company-member-locked">{member.isOwner ? "Protegido" : "Sem permissão"}</span>}
+    </div>
+  );
+}
+
+function CompanyNetwork({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const companyNetwork = state?.companyNetwork;
+  const localCompany = state?.operations.company;
+  const [tab, setTab] = useState<CompanyNetworkTab>("network");
+  const [nodeUrl, setNodeUrl] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteRole, setInviteRole] = useState("Driver");
+  const refreshRequested = useRef(false);
+
+  useEffect(() => {
+    if (!companyNetwork || refreshRequested.current) return;
+    refreshRequested.current = true;
+    sendCommand("refreshCompanyNetwork");
+  }, [companyNetwork?.available]);
+
+  useEffect(() => {
+    if (!companyNetwork) return;
+    setNodeUrl(current => current || companyNetwork.membership?.nodeUrl || "");
+    if (!companyNetwork.assignableRoles.includes(inviteRole)) setInviteRole(companyNetwork.assignableRoles.includes("Driver") ? "Driver" : companyNetwork.assignableRoles[0] || "Driver");
+  }, [companyNetwork?.membership?.nodeUrl, companyNetwork?.assignableRoles]);
+
+  if (!companyNetwork?.available) return <div className="card empty-state">Aguardando o runtime da Rede da Empresa…</div>;
+
+  const company = companyNetwork.company;
+  const node = companyNetwork.node;
+  const canCreateInvite = Boolean(node?.running && company?.canInvite);
+
+  return (
+    <>
+      <header className="topbar company-network-header">
+        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>Rede da empresa</h1><p>Empresa online peer-hosted, identidade assinada e equipe administrada pelo backend nativo.</p></div>
+        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? "Vinculado" : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>Atualizar</button></div>
+      </header>
+      {error && <div className="command-error">{error}</div>}
+      <section className="company-network-metrics">
+        <div className="metric"><small>EMPRESA</small><strong>{company?.name || localCompany?.name || "—"}</strong></div>
+        <div className="metric"><small>CARGO</small><strong>{company?.selfRole ? companyRoleLabels[company.selfRole] || company.selfRole : companyNetwork.membership?.role ? companyRoleLabels[companyNetwork.membership.role] || companyNetwork.membership.role : "—"}</strong></div>
+        <div className="metric"><small>MEMBROS</small><strong>{company?.memberCount ?? 0}</strong></div>
+        <div className="metric"><small>NODE</small><strong>{node?.running ? "Online" : "Offline"}</strong></div>
+      </section>
+      <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>Rede</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Equipe</button></div>
+      {tab === "network" && (
+        <section className="company-network-layout">
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || "Motorista"}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>A chave privada permanece protegida no Windows e nunca é enviada ao React.</p></article>
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>O nó da empresa é independente da sala multiplayer TCP 27730.</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>Parar Company Node</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>Hospedar empresa neste PC</button>}</div>{!localCompany?.name && <p className="network-note">Configure primeiro a Empresa/Frota no CCO.</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
+          <article className="card company-join-card"><span className="eyebrow">ENTRAR EM EMPRESA ONLINE</span><h3>Convite assinado</h3><label><span>Endereço do Company Node</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>Código do convite</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>Entrar na empresa</button></article>
+          <article className="card company-invite-card"><span className="eyebrow">CONVIDAR</span><h3>Novo membro</h3><p>Convites expiram em 7 dias e são criados para um único uso.</p><label><span>Cargo inicial</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabels[role] || role}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>Criar convite</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>Copiar convite</button></div>}</article>
+        </section>
+      )}
+      {tab === "team" && <section className="card company-team-card"><div className="section-heading"><div><span className="eyebrow">EQUIPE</span><h3>{company?.name || "Empresa Online"}</h3></div><span className="stop-count">{company?.memberCount ?? 0} membro(s)</span></div>{!company || company.members.length === 0 ? <div className="empty-state">Nenhum quadro de membros foi carregado. Atualize a Rede da Empresa.</div> : <div className="company-members-list">{company.members.map(member => <CompanyMemberRow key={member.playerId} member={member} assignableRoles={companyNetwork.assignableRoles} />)}</div>}</section>}
+    </>
+  );
+}
 
 const hardwareBaudRates = [9600, 19200, 38400, 57600, 115200, 230400];
 
@@ -1719,7 +1820,9 @@ export default function App() {
             ? <Navigation state={state} />
             : screen === "operations"
               ? <Operations state={state} error={commandError} />
-              : screen === "hardware"
+              : screen === "companyNetwork"
+                ? <CompanyNetwork state={state} error={commandError} />
+                : screen === "hardware"
                 ? <Hardware state={state} error={commandError} />
                 : screen === "settings"
                   ? <Settings state={state} error={commandError} />
