@@ -165,6 +165,23 @@ public partial class MainWindow
         _multiplayerWindow?.ShowRoleplayTab();
     }
 
+    internal void ToggleHudLayoutForShell()
+    {
+        var hud = EnsureHudOverlay();
+        hud.SetLayoutEditMode(!hud.IsLayoutEditMode);
+        if (hud.IsLayoutEditMode)
+        {
+            hud.Show();
+            hud.Activate();
+        }
+    }
+
+    internal void OpenHudEditorForShell()
+    {
+        _ = EnsureHudOverlay();
+        new HudCustomizationWindow(this).ShowDialog();
+    }
+
     private HudOverlayWindow EnsureHudOverlay()
     {
         if (_hudOverlay is not null)
