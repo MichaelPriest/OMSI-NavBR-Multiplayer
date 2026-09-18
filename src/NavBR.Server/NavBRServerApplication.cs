@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using NavBR.Server.Diagnostics;
 using NavBR.Server.Hubs;
@@ -15,6 +16,7 @@ public static class NavBRServerApplication
     public static WebApplication Build(string[]? args = null, string? listenUrl = null)
     {
         var builder = WebApplication.CreateBuilder(args ?? Array.Empty<string>());
+        var externalProbeEnabled = IsEnabled("NAVBR_ENABLE_EXTERNAL_PORT_PROBE");
 
         if (!string.IsNullOrWhiteSpace(listenUrl))
         {
@@ -26,12 +28,19 @@ public static class NavBRServerApplication
         }
 
         builder.Services.AddSingleton<MultiplayerRoomRegistry>();
+        builder.Services.AddSingleton<RoomAccessPolicyStore>();
         builder.Services.AddSingleton<DiagnosticsIngestStore>();
-        builder.Services.AddSignalR(options =>
-        {
-            options.MaximumReceiveMessageSize = 64 * 1024;
-            options.EnableDetailedErrors = false;
-        });
+        builder.Services.AddSingleton<ExternalPortProbeService>();
+        builder.Services
+            .AddSignalR(options =>
+            {
+                options.MaximumReceiveMessageSize = 64 * 1024;
+                options.EnableDetailedErrors = false;
+            })
+            .AddHubOptions<MultiplayerHub>(options =>
+            {
+                options.AddFilter<RoomPrivacyHubFilter>();
+            });
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = 429;
@@ -43,6 +52,47 @@ public static class NavBRServerApplication
                         PermitLimit = 120,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            options.AddPolicy("network-probe", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 90,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            options.AddPolicy("external-port-probe", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 6,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            options.AddPolicy("room-directory", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            options.AddPolicy("multiplayer-connect", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 40,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 2,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         AutoReplenishment = true
                     }));
         });
@@ -65,8 +115,22 @@ public static class NavBRServerApplication
             service = "NavBR.Server",
             multiplayer = "signalr",
             hosting = "peer-host",
-            diagnostics = "available"
+            diagnostics = "available",
+            externalPortProbe = externalProbeEnabled ? "enabled" : "disabled"
         }));
+
+        app.MapGet("/api/ping", () => Results.Ok(new
+            {
+                status = "ok",
+                serverUtc = DateTimeOffset.UtcNow
+            }))
+            .RequireRateLimiting("network-probe");
+
+        app.MapGet(
+                "/api/rooms",
+                (MultiplayerRoomRegistry registry, RoomAccessPolicyStore policies) =>
+                    Results.Ok(registry.GetPublicRoomSummaries(policies)))
+            .RequireRateLimiting("room-directory");
 
         app.MapPost(
                 "/api/diagnostics",
@@ -91,8 +155,43 @@ public static class NavBRServerApplication
                 })
             .RequireRateLimiting("diagnostics");
 
-        app.MapHub<MultiplayerHub>("/hubs/multiplayer");
+        if (externalProbeEnabled)
+        {
+            app.MapPost(
+                    "/api/network/external-port-probe",
+                    async (
+                        HttpContext httpContext,
+                        ExternalPortProbeService probe,
+                        CancellationToken cancellationToken) =>
+                    {
+                        if (httpContext.Request.ContentLength is > 0)
+                        {
+                            return Results.BadRequest(new
+                            {
+                                error = "request_body_not_allowed"
+                            });
+                        }
+
+                        httpContext.Response.Headers.CacheControl = "no-store";
+                        var result = await probe.ProbeAsync(
+                            httpContext.Connection.RemoteIpAddress,
+                            cancellationToken);
+                        return Results.Ok(result);
+                    })
+                .RequireRateLimiting("external-port-probe");
+        }
+
+        app.MapHub<MultiplayerHub>("/hubs/multiplayer")
+            .RequireRateLimiting("multiplayer-connect");
 
         return app;
+    }
+
+    private static bool IsEnabled(string variableName)
+    {
+        var value = Environment.GetEnvironmentVariable(variableName)?.Trim();
+        return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
     }
 }

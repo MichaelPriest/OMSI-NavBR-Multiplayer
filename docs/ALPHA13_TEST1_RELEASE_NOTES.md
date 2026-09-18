@@ -29,10 +29,10 @@ O objetivo desta pré-release é validar em 2+ PCs que os jogadores da mesma sal
 
 ## Downloads do portal
 
-O portal exibe:
+A partir desta fase o portal passa a exibir:
 
 - downloads de cada release individual;
-- downloads acumulados de **cada Alpha**, somando todas as Test builds daquela Alpha;
+- downloads acumulados da Alpha atual, somando todas as Test builds;
 - downloads totais do projeto, incluindo pré-releases públicas.
 
 Isso corrige a regra anterior que excluía tags `-test` do total agregado.

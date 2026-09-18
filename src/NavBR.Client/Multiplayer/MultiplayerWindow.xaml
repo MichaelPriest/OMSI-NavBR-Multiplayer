@@ -2,17 +2,129 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="OMSI NavBR Multiplayer"
-        Height="800" Width="980"
-        MinHeight="690" MinWidth="840"
+        Height="900" Width="1360"
+        MinHeight="760" MinWidth="1120"
         Icon="../Assets/NavBR.ico"
+        Background="#06101A"
         WindowStartupLocation="CenterOwner">
-    <Grid Margin="24">
+    <Window.Resources>
+        <SolidColorBrush x:Key="MpBackground" Color="#06101A" />
+        <SolidColorBrush x:Key="MpSidebar" Color="#07121B" />
+        <SolidColorBrush x:Key="MpCard" Color="#0A131A" />
+        <SolidColorBrush x:Key="MpElevated" Color="#0D1A24" />
+        <SolidColorBrush x:Key="MpBorder" Color="#1C2A33" />
+        <SolidColorBrush x:Key="MpBlue" Color="#3D89C4" />
+        <SolidColorBrush x:Key="MpInteraction" Color="#71C6FF" />
+        <SolidColorBrush x:Key="MpSuccess" Color="#38C98C" />
+        <SolidColorBrush x:Key="MpWarning" Color="#F2B84B" />
+        <SolidColorBrush x:Key="MpError" Color="#EF5B64" />
+        <SolidColorBrush x:Key="MpText" Color="#DAE6EE" />
+        <SolidColorBrush x:Key="MpMuted" Color="#97ABB9" />
+
+        <Style x:Key="NavMultiplayerTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="#7F96A7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="9">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#102638" />
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#3D89C4" />
+                                <Setter Property="Foreground" Value="#DAE6EE" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#0D1A24" />
+                                <Setter Property="Foreground" Value="#DAE6EE" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NavMultiplayerCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource MpCard}" />
+            <Setter Property="BorderBrush" Value="{StaticResource MpBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Padding" Value="17" />
+        </Style>
+
+        <Style x:Key="NavMultiplayerHeroCard" TargetType="Border" BasedOn="{StaticResource NavMultiplayerCard}">
+            <Setter Property="Background" Value="#081722" />
+            <Setter Property="BorderBrush" Value="#1C3B50" />
+        </Style>
+
+        <Style x:Key="NavMultiplayerSectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MpInteraction}" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="NavMetricLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#668198" />
+            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="NavMetricValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MpText}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style x:Key="NavInputLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#8EA4B3" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="NavSecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#0F2434" />
+            <Setter Property="BorderBrush" Value="#24465D" />
+            <Setter Property="Foreground" Value="#C7D9E4" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="NavQuickButton" TargetType="Button" BasedOn="{StaticResource NavSecondaryButton}">
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="12,9" />
+        </Style>
+
+        <Style x:Key="NavKeycap" TargetType="Border">
+            <Setter Property="Background" Value="#102333" />
+            <Setter Property="BorderBrush" Value="#28455A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="Margin" Value="0,0,7,7" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="22" Background="{StaticResource MpBackground}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
@@ -20,210 +132,1210 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+
             <StackPanel>
-                <TextBlock x:Name="HeadingText" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock Text="CENTRAL MULTIPLAYER"
+                           Foreground="{StaticResource MpInteraction}"
+                           FontSize="10"
+                           FontWeight="Bold" />
+                <TextBlock x:Name="HeadingText"
+                           Margin="0,3,0,0"
+                           FontSize="27"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource MpText}" />
                 <TextBlock x:Name="DescriptionText"
                            Margin="0,5,0,0"
-                           Style="{StaticResource NavMutedText}"
+                           Foreground="{StaticResource MpMuted}"
                            TextWrapping="Wrap" />
             </StackPanel>
-            <Border Grid.Column="1"
-                    Background="#12324B"
-                    BorderBrush="{StaticResource NavBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="12,7"
-                    VerticalAlignment="Center">
-                <TextBlock Text="PEER HOST • TCP 27730"
-                           Foreground="{StaticResource NavAccentBrush}"
-                           FontSize="11"
-                           FontWeight="Bold" />
-            </Border>
-        </Grid>
 
-        <Border Grid.Row="1" Margin="0,18,0,0" Style="{StaticResource NavCard}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <TextBlock x:Name="ServerLabelText" Grid.Row="0" Grid.Column="0" Margin="0,0,10,11" VerticalAlignment="Center" FontWeight="SemiBold" />
-                <TextBox x:Name="ServerTextBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,11" />
-
-                <TextBlock x:Name="RoomLabelText" Grid.Row="1" Grid.Column="0" Margin="0,0,10,11" VerticalAlignment="Center" FontWeight="SemiBold" />
-                <TextBox x:Name="RoomTextBox" Grid.Row="1" Grid.Column="1" Margin="0,0,18,11" MaxLength="64" />
-
-                <TextBlock x:Name="NicknameLabelText" Grid.Row="1" Grid.Column="2" Margin="0,0,10,11" VerticalAlignment="Center" FontWeight="SemiBold" />
-                <TextBox x:Name="NicknameTextBox" Grid.Row="1" Grid.Column="3" Margin="0,0,0,11" MaxLength="32" />
-
-                <TextBlock x:Name="LocalMapLabelText" Grid.Row="2" Grid.Column="0" Margin="0,0,10,11" VerticalAlignment="Center" FontWeight="SemiBold" />
-                <TextBlock x:Name="LocalMapValueText" Grid.Row="2" Grid.Column="1" Margin="0,0,18,11" VerticalAlignment="Center" TextWrapping="Wrap" />
-
-                <CheckBox x:Name="VoiceEnabledCheckBox"
-                          Grid.Row="2" Grid.Column="2"
-                          Grid.ColumnSpan="2"
-                          IsChecked="True"
-                          VerticalAlignment="Center"
-                          Margin="0,0,0,11" />
-
-                <TextBlock x:Name="ChatHotkeyLabelText"
-                           Grid.Row="3" Grid.Column="0"
-                           Margin="0,0,10,11"
-                           VerticalAlignment="Center"
-                           FontWeight="SemiBold" />
-                <ComboBox x:Name="ChatHotkeyComboBox"
-                          Grid.Row="3" Grid.Column="1"
-                          Width="155"
-                          HorizontalAlignment="Left"
-                          Margin="0,0,18,11"
-                          SelectionChanged="HotkeyComboBox_SelectionChanged" />
-
-                <TextBlock x:Name="VoiceHotkeyLabelText"
-                           Grid.Row="3" Grid.Column="2"
-                           Margin="0,0,10,11"
-                           VerticalAlignment="Center"
-                           FontWeight="SemiBold"
-                           Text="PTT" />
-                <ComboBox x:Name="VoiceHotkeyComboBox"
-                          Grid.Row="3" Grid.Column="3"
-                          Width="155"
-                          HorizontalAlignment="Left"
-                          Margin="0,0,0,11"
-                          SelectionChanged="HotkeyComboBox_SelectionChanged" />
-
-                <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4"
-                        Background="#091521"
-                        CornerRadius="9"
-                        Padding="11"
-                        Margin="0,1,0,12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="Windows Firewall" FontWeight="SemiBold" />
-                            <TextBlock x:Name="FirewallStatusText"
-                                       Margin="0,3,12,0"
-                                       Style="{StaticResource NavMutedText}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button x:Name="FirewallButton"
-                                Grid.Column="1"
-                                MinWidth="170"
-                                Loaded="FirewallButton_Loaded"
-                                Click="FirewallButton_Click" />
-                    </Grid>
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <Border Background="#0C2A20"
+                        BorderBrush="#1F5B45"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="13,8"
+                        Margin="0,0,9,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="StatusDot"
+                                 Width="9"
+                                 Height="9"
+                                 Fill="#888888"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,8,0" />
+                        <TextBlock x:Name="StatusText"
+                                   Foreground="#7BE0A7"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="CreateRoomButton"
-                            Grid.Column="0"
-                            Style="{StaticResource NavPrimaryButton}"
-                            Margin="0,0,8,0"
-                            Click="CreateRoomButton_Click" />
-                    <Button x:Name="ConnectButton"
-                            Grid.Column="1"
-                            Margin="0,0,8,0"
-                            Click="ConnectButton_Click" />
-                    <Button x:Name="CopyInviteButton"
-                            Grid.Column="2"
-                            Margin="0,0,8,0"
-                            IsEnabled="False"
-                            Loaded="CopyInviteButton_Loaded"
-                            Click="CopyInviteButton_Click" />
-                    <Button x:Name="PasteInviteButton"
-                            Grid.Column="3"
-                            Margin="0,0,10,0"
-                            Loaded="PasteInviteButton_Loaded"
-                            Click="PasteInviteButton_Click" />
-                    <TextBlock x:Name="InviteAddressText"
-                               Grid.Column="4"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource NavMutedBrush}"
-                               FontSize="12"
-                               TextWrapping="Wrap" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="2" Margin="0,14,0,0" Style="{StaticResource NavCard}" Padding="14">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Ellipse x:Name="StatusDot" Width="11" Height="11" Fill="#FF888888" VerticalAlignment="Center" Margin="0,0,11,0" />
-                <StackPanel Grid.Column="1">
-                    <TextBlock x:Name="StatusText" FontWeight="SemiBold" />
-                    <TextBlock x:Name="StatusDetailText" Margin="0,3,0,0" Style="{StaticResource NavMutedText}" TextWrapping="Wrap" />
-                </StackPanel>
-                <TextBlock x:Name="PlayerCountText" Grid.Column="2" VerticalAlignment="Center" FontWeight="SemiBold" Margin="16,0,0,0" />
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="3" Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="0.9*" />
-                <ColumnDefinition Width="14" />
-                <ColumnDefinition Width="1.1*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Style="{StaticResource NavCard}" Padding="14">
-                <DockPanel>
-                    <TextBlock x:Name="PlayersHeadingText" DockPanel.Dock="Top" Style="{StaticResource NavSectionTitle}" Margin="0,0,0,10" />
-                    <ListBox x:Name="PlayersListBox" FontFamily="Consolas" FontSize="12" />
-                </DockPanel>
-            </Border>
-
-            <Border Grid.Column="2" Style="{StaticResource NavCard}" Padding="14">
-                <DockPanel>
-                    <TextBlock x:Name="ChatHeadingText" DockPanel.Dock="Top" Style="{StaticResource NavSectionTitle}" Margin="0,0,0,10" />
-                    <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="ChatTextBox"
-                                 Grid.Column="0"
-                                 MaxLength="280"
-                                 KeyDown="ChatTextBox_KeyDown" />
-                        <Button x:Name="SendChatButton"
-                                Grid.Column="1"
-                                Margin="8,0,0,0"
-                                Style="{StaticResource NavPrimaryButton}"
-                                Click="SendChatButton_Click" />
-                    </Grid>
-                    <ListBox x:Name="ChatListBox" />
-                </DockPanel>
-            </Border>
+                <Border Background="#0B2132"
+                        BorderBrush="#23465F"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="13,8">
+                    <TextBlock Text="TCP 27730 • NAVBR"
+                               Foreground="{StaticResource MpInteraction}"
+                               FontSize="10.5"
+                               FontWeight="Bold" />
+                </Border>
+            </StackPanel>
         </Grid>
 
-        <TextBlock x:Name="FooterText"
-                   Grid.Row="4"
-                   Margin="2,14,2,0"
-                   Style="{StaticResource NavMutedText}"
-                   FontSize="11"
-                   TextWrapping="Wrap" />
+        <Border Grid.Row="1"
+                Margin="0,18,0,14"
+                Background="#081722"
+                BorderBrush="#1B3445"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="1.2*" />
+                    <ColumnDefinition Width="0.75*" />
+                    <ColumnDefinition Width="0.75*" />
+                    <ColumnDefinition Width="0.95*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Margin="2" Padding="12,9" Background="#0B1D2A" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock Text="SALA ATUAL" Style="{StaticResource NavMetricLabel}" />
+                        <TextBlock x:Name="SessionRoomValueText" Text="—" Style="{StaticResource NavMetricValue}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Margin="2" Padding="12,9" Background="#0B1D2A" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock x:Name="LocalMapLabelText" Text="MAPA LOCAL" Style="{StaticResource NavMetricLabel}" />
+                        <TextBlock x:Name="LocalMapValueText" Text="—" Style="{StaticResource NavMetricValue}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Margin="2" Padding="12,9" Background="#0B1D2A" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock Text="JOGADORES" Style="{StaticResource NavMetricLabel}" />
+                        <TextBlock x:Name="PlayerCountText" Text="0" Style="{StaticResource NavMetricValue}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="3" Margin="2" Padding="12,9" Background="#0B1D2A" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock Text="LATÊNCIA" Style="{StaticResource NavMetricLabel}" />
+                        <TextBlock x:Name="LatencyValueText" Text="—" Style="{StaticResource NavMetricValue}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Margin="2" Padding="12,9" Background="#0B1D2A" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock Text="HOST" Style="{StaticResource NavMetricLabel}" />
+                        <TextBlock x:Name="HostStateValueText" Text="Local inativo" Style="{StaticResource NavMetricValue}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="MultiplayerTabs"
+                    Grid.Row="2"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="0"
+                    SelectedIndex="0">
+            <TabControl.Resources>
+                <Style TargetType="TabItem" BasedOn="{StaticResource NavMultiplayerTabItem}" />
+            </TabControl.Resources>
+
+            <TabItem x:Name="OverviewTab" Header="Visão geral">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2.05*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="0.95*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Mapa da sessão"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="17"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Ônibus e personagens aparecem somente quando a sessão fornece telemetria real e compatível."
+                                               Margin="0,4,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Background="#0B2D22"
+                                        BorderBrush="#1E5D46"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="10,6"
+                                        VerticalAlignment="Top">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="7" Height="7" Fill="#38C98C" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="SESSÃO AO VIVO"
+                                                   Foreground="#6FDE9F"
+                                                   FontSize="9"
+                                                   FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Border Grid.Row="1"
+                                    Margin="0,14,0,14"
+                                    MinHeight="405"
+                                    Background="#050F18"
+                                    BorderBrush="#18384D"
+                                    BorderThickness="1"
+                                    CornerRadius="13"
+                                    ClipToBounds="True">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Canvas x:Name="LiveSessionCanvas"
+                                            Grid.Row="0"
+                                            Margin="13"
+                                            ClipToBounds="True" />
+                                    <Border Grid.Row="1"
+                                            Background="#081B28"
+                                            BorderBrush="#173247"
+                                            BorderThickness="0,1,0,0"
+                                            Padding="12,9">
+                                        <TextBlock x:Name="LiveSessionHintText"
+                                                   Text="Aguardando telemetria real compatível da sessão."
+                                                   Foreground="#728A9A"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="ENDEREÇO / CONVITE" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock x:Name="InviteAddressText"
+                                               Margin="0,4,16,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="#A5B8C5"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <TextBlock x:Name="OverviewConnectionText"
+                                           Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource MpInteraction}"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Text="Sessão desconectada" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="1.25*" />
+                            <RowDefinition Height="12" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="12" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource NavMultiplayerCard}">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,11">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Jogadores próximos"
+                                                   Foreground="{StaticResource MpText}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="Estado operacional da sala"
+                                                   Foreground="#718A9B"
+                                                   FontSize="10"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <Border Grid.Column="1"
+                                            Background="#102639"
+                                            CornerRadius="8"
+                                            Padding="8,4"
+                                            VerticalAlignment="Top">
+                                        <TextBlock Text="LIVE" Foreground="#78BFFF" FontSize="9" FontWeight="Bold" />
+                                    </Border>
+                                </Grid>
+
+                                <ListBox x:Name="PlayersOverviewListBox"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="0"
+                                         IsHitTestVisible="False">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,7"
+                                                    Padding="10"
+                                                    Background="#081722"
+                                                    BorderBrush="#172B38"
+                                                    BorderThickness="1"
+                                                    CornerRadius="9">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource MpText}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11.5"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Secondary}"
+                                                                   Margin="0,3,0,0"
+                                                                   Foreground="#718A9B"
+                                                                   FontSize="9.5"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1"
+                                                            Margin="8,0,0,0"
+                                                            Padding="7,4"
+                                                            Background="#102333"
+                                                            CornerRadius="7"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Mode}"
+                                                                   Foreground="{Binding AccentBrush}"
+                                                                   FontSize="9.5"
+                                                                   FontWeight="SemiBold" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource NavMultiplayerCard}">
+                            <StackPanel>
+                                <TextBlock Text="ESTADO DA SESSÃO" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock x:Name="StatusDetailText"
+                                           Margin="0,7,0,0"
+                                           Foreground="{StaticResource MpText}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="OverviewHostDetailText"
+                                           Margin="0,6,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="10"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="4" Style="{StaticResource NavMultiplayerCard}">
+                            <StackPanel>
+                                <TextBlock Text="ATALHOS" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <UniformGrid Columns="2" Margin="0,10,0,0">
+                                    <Button Content="Sala" Margin="0,0,5,5" Style="{StaticResource NavQuickButton}" Click="OpenRoomTab_Click" />
+                                    <Button Content="Jogadores" Margin="5,0,0,5" Style="{StaticResource NavQuickButton}" Click="OpenPlayersTab_Click" />
+                                    <Button Content="Chat &amp; Voz" Margin="0,5,5,0" Style="{StaticResource NavQuickButton}" Click="OpenChatTab_Click" />
+                                    <Button Content="Personagem / RP" Margin="5,5,0,0" Style="{StaticResource NavQuickButton}" Click="OpenRoleplayTab_Click" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="RoomTab" Header="Sala">
+                <Grid Margin="0,14,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0"
+                            Background="#081722"
+                            BorderBrush="#1B3445"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="14,11">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0"
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock Text="Identificador"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="9.5" />
+                            </StackPanel>
+
+                            <TextBox x:Name="RoomTextBox"
+                                     Grid.Column="1"
+                                     MaxLength="64"
+                                     VerticalContentAlignment="Center" />
+
+                            <StackPanel Grid.Column="3"
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="PERFIL" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock Text="Motorista"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="9.5" />
+                            </StackPanel>
+
+                            <TextBox x:Name="NicknameTextBox"
+                                     Grid.Column="4"
+                                     MaxLength="32"
+                                     VerticalContentAlignment="Center" />
+
+                            <StackPanel Grid.Column="6"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Border Background="#102333"
+                                        CornerRadius="8"
+                                        Padding="9,5"
+                                        Margin="0,0,8,0">
+                                    <TextBlock x:Name="RoomUpnpStateText"
+                                               Text="UPnP: —"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                                <Border Background="#0C2A20"
+                                        BorderBrush="#1F5B45"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="9,5">
+                                    <TextBlock Text="TCP 27730"
+                                               Foreground="#75D9A0"
+                                               FontSize="9.5"
+                                               FontWeight="Bold" />
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock x:Name="RoomLabelText"
+                                       Grid.Column="1"
+                                       Visibility="Collapsed"
+                                       Text="Sala" />
+                            <TextBlock x:Name="NicknameLabelText"
+                                       Grid.Column="4"
+                                       Visibility="Collapsed"
+                                       Text="Motorista" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="CRIAR SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Hospedar uma nova sessão"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="17"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Este computador será o host da sala. As opções técnicas ficam na aba Avançado."
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Border Grid.Row="1"
+                                        Margin="0,16,0,0"
+                                        Padding="12"
+                                        Background="#0D1A24"
+                                        BorderBrush="#1C2A33"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="PRIVACIDADE" Style="{StaticResource NavMetricLabel}" />
+                                            <CheckBox x:Name="PrivateRoomCheckBox"
+                                                      Margin="0,7,0,0"
+                                                      FontWeight="SemiBold"
+                                                      Loaded="PrivateRoomCheckBox_Loaded"
+                                                      Checked="PrivateRoomCheckBox_Changed"
+                                                      Unchecked="PrivateRoomCheckBox_Changed" />
+                                        </StackPanel>
+                                        <TextBlock x:Name="RoomPrivacyStateText"
+                                                   Grid.Column="1"
+                                                   Margin="12,0,0,0"
+                                                   Foreground="{StaticResource MpInteraction}"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   MaxWidth="180" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                                    <TextBlock x:Name="RoomPasswordLabelText"
+                                               Text="Senha da sala"
+                                               Style="{StaticResource NavInputLabel}" />
+                                    <PasswordBox x:Name="RoomPasswordBox"
+                                                 MaxLength="128"
+                                                 Padding="10,8"
+                                                 PasswordChanged="RoomPasswordBox_PasswordChanged" />
+                                    <TextBlock x:Name="RoomPasswordHintText"
+                                               Margin="0,5,0,0"
+                                               Foreground="#718A9B"
+                                               FontSize="9.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Border Grid.Row="3"
+                                        Margin="0,14,0,0"
+                                        Padding="12"
+                                        Background="#081722"
+                                        BorderBrush="#172B38"
+                                        BorderThickness="1"
+                                        CornerRadius="9">
+                                    <StackPanel>
+                                        <TextBlock Text="COMO FUNCIONA" Style="{StaticResource NavMetricLabel}" />
+                                        <TextBlock x:Name="RoomPrivacyDescriptionText"
+                                                   Margin="0,6,0,0"
+                                                   Foreground="{StaticResource MpMuted}"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="4" Margin="0,16,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="CreateRoomButton"
+                                            MinHeight="42"
+                                            Style="{StaticResource NavPrimaryButton}"
+                                            PreviewMouseLeftButtonDown="CreateRoomButton_PrivacyPreviewMouseLeftButtonDown"
+                                            PreviewKeyDown="CreateRoomButton_PrivacyPreviewKeyDown"
+                                            Click="CreateRoomButton_Click" />
+                                    <Button x:Name="CopyInviteButton"
+                                            Grid.Column="1"
+                                            Margin="10,0,0,0"
+                                            MinWidth="116"
+                                            Style="{StaticResource NavSecondaryButton}"
+                                            IsEnabled="False"
+                                            Loaded="CopyInviteButton_Loaded"
+                                            Click="CopyInviteButton_Click" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="2" Style="{StaticResource NavMultiplayerCard}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="ENTRAR EM SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Conectar a uma sessão existente"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="17"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Use o endereço do host ou cole um convite. A sala e o motorista ficam na faixa superior."
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                                    <TextBlock x:Name="ServerLabelText"
+                                               Text="Endereço do host"
+                                               Style="{StaticResource NavInputLabel}" />
+                                    <TextBox x:Name="ServerTextBox"
+                                             MinHeight="38"
+                                             VerticalContentAlignment="Center" />
+                                </StackPanel>
+
+                                <Border Grid.Row="2"
+                                        Margin="0,14,0,0"
+                                        Padding="13"
+                                        Background="#081722"
+                                        BorderBrush="#172B38"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="CONVITE" Style="{StaticResource NavMetricLabel}" />
+                                                <TextBlock Text="Cole um convite NavBR para preencher os dados da sessão."
+                                                           Margin="0,5,12,0"
+                                                           Foreground="{StaticResource MpMuted}"
+                                                           FontSize="10"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1"
+                                                        Margin="10,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                <Button x:Name="PasteInviteButton"
+                                                        MinWidth="132"
+                                                        Style="{StaticResource NavSecondaryButton}"
+                                                        Loaded="PasteInviteButton_Loaded"
+                                                        Click="PasteInviteButton_Click" />
+                                                <Button x:Name="PublicRoomsButton"
+                                                        Margin="0,8,0,0"
+                                                        MinWidth="132"
+                                                        Style="{StaticResource NavSecondaryButton}"
+                                                        Click="PublicRoomsButton_Click" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Separator Margin="0,13,0,13"
+                                                   Background="#1C2A33" />
+
+                                        <TextBlock Text="ENDEREÇO ATUAL" Style="{StaticResource NavMetricLabel}" />
+                                        <TextBlock x:Name="RoomInviteAddressText"
+                                                   Margin="0,5,0,0"
+                                                   Foreground="#A5B8C5"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button x:Name="ConnectButton"
+                                        Grid.Row="3"
+                                        Margin="0,16,0,0"
+                                        MinHeight="42"
+                                        HorizontalAlignment="Stretch"
+                                        Style="{StaticResource NavPrimaryButton}"
+                                        PreviewMouseLeftButtonDown="ConnectButton_PrivacyPreviewMouseLeftButtonDown"
+                                        PreviewKeyDown="ConnectButton_PrivacyPreviewKeyDown"
+                                        Click="ConnectButton_Click" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="PlayersTab" Header="Jogadores">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.65*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="0.55*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Name="PlayersHeadingText"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Presença, ônibus, linha, velocidade, ping, voz e estado físico derivados da sessão real."
+                                               Margin="0,3,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Background="#102639"
+                                        CornerRadius="8"
+                                        Padding="9,5"
+                                        VerticalAlignment="Top">
+                                    <TextBlock Text="SESSÃO" Foreground="{StaticResource MpInteraction}" FontSize="9" FontWeight="Bold" />
+                                </Border>
+                            </Grid>
+
+                            <Border DockPanel.Dock="Top"
+                                    Padding="11,7"
+                                    Background="#07131D"
+                                    BorderBrush="#172B38"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.45*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="1.35*" />
+                                        <ColumnDefinition Width="0.65*" />
+                                        <ColumnDefinition Width="0.75*" />
+                                        <ColumnDefinition Width="0.65*" />
+                                        <ColumnDefinition Width="0.75*" />
+                                        <ColumnDefinition Width="0.85*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="JOGADOR" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="1" Text="ESTADO" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="2" Text="ÔNIBUS" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="3" Text="LINHA" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="4" Text="VELOC." Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="5" Text="PING" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="6" Text="VOZ" Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock Grid.Column="7" Text="FÍSICO" Style="{StaticResource NavMetricLabel}" />
+                                </Grid>
+                            </Border>
+
+                            <ListBox x:Name="PlayersListBox"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,6"
+                                                Padding="11,9"
+                                                Background="#081722"
+                                                BorderBrush="#172B38"
+                                                BorderThickness="1"
+                                                CornerRadius="9">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.45*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1.35*" />
+                                                    <ColumnDefinition Width="0.65*" />
+                                                    <ColumnDefinition Width="0.75*" />
+                                                    <ColumnDefinition Width="0.65*" />
+                                                    <ColumnDefinition Width="0.75*" />
+                                                    <ColumnDefinition Width="0.85*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource MpText}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding YouLabel}" Margin="0,2,0,0" Foreground="{StaticResource MpInteraction}" FontSize="8.5" FontWeight="Bold" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Mode}" Foreground="{Binding AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Bus}" Foreground="#B9CAD5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding Line}" Foreground="#B9CAD5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="0" Grid.Column="4" Text="{Binding Speed}" Foreground="#B9CAD5" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Row="0" Grid.Column="5" Text="{Binding Ping}" Foreground="#B9CAD5" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Row="0" Grid.Column="6" Text="{Binding Voice}" Foreground="#B9CAD5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="0" Grid.Column="7" Text="{Binding Physical}" Foreground="#B9CAD5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="8"
+                                                           Text="{Binding Secondary}"
+                                                           Margin="0,5,0,0"
+                                                           Foreground="#6F8798"
+                                                           FontSize="9.5"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource NavMultiplayerCard}">
+                        <StackPanel>
+                            <TextBlock Text="LEITURA RÁPIDA" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                            <TextBlock Text="No ônibus"
+                                       Margin="0,11,0,0"
+                                       Foreground="{StaticResource MpText}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="Telemetria do veículo ativa."
+                                       Margin="0,2,0,0"
+                                       Foreground="{StaticResource MpMuted}"
+                                       FontSize="10"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="A pé / Correndo / Parado"
+                                       Margin="0,13,0,0"
+                                       Foreground="{StaticResource MpText}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="Estado RP recebido pelo canal de personagem."
+                                       Margin="0,2,0,0"
+                                       Foreground="{StaticResource MpMuted}"
+                                       FontSize="10"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="Ônibus físico"
+                                       Margin="0,13,0,0"
+                                       Foreground="{StaticResource MpText}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="Mostra se o veículo remoto está realmente criado pelo plugin local."
+                                       Margin="0,2,0,0"
+                                       Foreground="{StaticResource MpMuted}"
+                                       FontSize="10"
+                                       TextWrapping="Wrap" />
+
+                            <Border Margin="0,15,0,0"
+                                    Padding="11"
+                                    Background="#0D1A24"
+                                    BorderBrush="#1C2A33"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <TextBlock Text="Campos sem telemetria/capacidade real permanecem como “—”."
+                                           Foreground="#8FA5B4"
+                                           FontSize="10"
+                                           TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="ChatVoiceTab" Header="Chat &amp; Voz">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="0.5*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <TextBlock x:Name="ChatHeadingText"
+                                           Foreground="{StaticResource MpText}"
+                                           FontSize="16"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Mensagens da sala atual"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="10.5" />
+                            </StackPanel>
+
+                            <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ChatTextBox"
+                                         Grid.Column="0"
+                                         MinHeight="40"
+                                         MaxLength="280"
+                                         Padding="12,9"
+                                         KeyDown="ChatTextBox_KeyDown" />
+                                <Button x:Name="SendChatButton"
+                                        Grid.Column="1"
+                                        Margin="9,0,0,0"
+                                        MinWidth="98"
+                                        Style="{StaticResource NavPrimaryButton}"
+                                        Click="SendChatButton_Click" />
+                            </Grid>
+
+                            <ListBox x:Name="ChatListBox"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,8"
+                                                Padding="11,9"
+                                                Background="#081722"
+                                                BorderBrush="#172B38"
+                                                BorderThickness="1"
+                                                CornerRadius="10">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               Foreground="{Binding AccentBrush}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="10.5" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Time}"
+                                                               Foreground="#647E90"
+                                                               FontSize="9.5" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding Text}"
+                                                           Margin="0,5,0,0"
+                                                           Foreground="#C8D7E0"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="12" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource NavMultiplayerCard}">
+                            <StackPanel>
+                                <TextBlock Text="VOZ / PTT" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock x:Name="VoiceSessionStatusText"
+                                           Text="Voz disponível na sessão"
+                                           Margin="0,7,0,0"
+                                           Foreground="{StaticResource MpText}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <CheckBox x:Name="VoiceEnabledCheckBox"
+                                          IsChecked="True"
+                                          Margin="0,12,0,0"
+                                          FontWeight="SemiBold"
+                                          Checked="VoiceEnabledCheckBox_Changed"
+                                          Unchecked="VoiceEnabledCheckBox_Changed" />
+                                <Border Margin="0,13,0,0"
+                                        Padding="10"
+                                        Background="#102333"
+                                        CornerRadius="8">
+                                    <TextBlock Text="Segure o atalho PTT para transmitir. O estado “Falando” só aparece quando quadros de voz reais são recebidos."
+                                               Foreground="#8FA5B4"
+                                               FontSize="10"
+                                               TextWrapping="Wrap" />
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource NavMultiplayerCard}">
+                            <StackPanel>
+                                <TextBlock Text="ATALHOS" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock x:Name="ChatHotkeyLabelText"
+                                           Margin="0,11,0,0"
+                                           Style="{StaticResource NavInputLabel}" />
+                                <ComboBox x:Name="ChatHotkeyComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="HotkeyComboBox_SelectionChanged" />
+
+                                <TextBlock x:Name="VoiceHotkeyLabelText"
+                                           Text="PTT"
+                                           Margin="0,13,0,0"
+                                           Style="{StaticResource NavInputLabel}" />
+                                <ComboBox x:Name="VoiceHotkeyComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="HotkeyComboBox_SelectionChanged" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="RoleplayTab" Header="Personagem / RP">
+                <ScrollViewer Margin="0,14,0,0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.25*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="0.75*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="PERSONAGEM / RP" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Assuma o motorista humano real do ônibus"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="17"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="A seleção vem da lista Drivers do OMSI e é compartilhada com o HUD e a janela normal de Personagem/RP."
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Border Grid.Row="1"
+                                        Margin="0,16,0,0"
+                                        Padding="14"
+                                        Background="#0D1A24"
+                                        BorderBrush="#254358"
+                                        BorderThickness="1"
+                                        CornerRadius="11">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="ESTADO ATUAL" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                            <TextBlock x:Name="RoleplayStateText"
+                                                       Margin="0,6,0,0"
+                                                       Foreground="{StaticResource MpText}"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button x:Name="RoleplayActionButton"
+                                                Grid.Column="1"
+                                                MinWidth="195"
+                                                Margin="14,0,0,0"
+                                                Padding="14,9"
+                                                Style="{StaticResource NavPrimaryButton}"
+                                                VerticalAlignment="Center"
+                                                Click="RoleplayActionButton_Click" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel x:Name="RoleplayOptionsHost"
+                                            Grid.Row="2"
+                                            Margin="0,16,0,0" />
+
+                                <Border Grid.Row="3"
+                                        Margin="0,16,0,0"
+                                        Padding="12"
+                                        Background="#081722"
+                                        BorderBrush="#172B38"
+                                        BorderThickness="1"
+                                        CornerRadius="9">
+                                    <TextBlock Text="O modo a pé permanece experimental. Nenhum personagem é criado a partir de dados fictícios: sem Drivers, telemetria ou capacidade do plugin, a ação fica indisponível."
+                                               Foreground="#879EAD"
+                                               FontSize="10"
+                                               TextWrapping="Wrap" />
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Column="2">
+                            <Border Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="CAPACIDADE RP" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock x:Name="RoleplayPluginStatusText"
+                                               Margin="0,7,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="PLUGIN / BRIDGE"
+                                               Margin="0,13,0,0"
+                                               Style="{StaticResource NavMetricLabel}" />
+                                    <TextBlock x:Name="RoleplaySyncStatusText"
+                                               Margin="0,4,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,12,0,0" Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="CONTROLES" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <WrapPanel Margin="0,11,0,0">
+                                        <Border Style="{StaticResource NavKeycap}"><TextBlock Text="W / S" Foreground="{StaticResource MpText}" FontWeight="SemiBold" /></Border>
+                                        <Border Style="{StaticResource NavKeycap}"><TextBlock Text="A / D" Foreground="{StaticResource MpText}" FontWeight="SemiBold" /></Border>
+                                        <Border Style="{StaticResource NavKeycap}"><TextBlock Text="SHIFT" Foreground="{StaticResource MpText}" FontWeight="SemiBold" /></Border>
+                                        <Border Style="{StaticResource NavKeycap}"><TextBlock Text="ESC" Foreground="{StaticResource MpText}" FontWeight="SemiBold" /></Border>
+                                    </WrapPanel>
+                                    <TextBlock Text="W/S andar • A/D girar • Shift correr • Esc voltar ao ônibus"
+                                               Foreground="#8DA4B3"
+                                               FontSize="10"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,12,0,0" Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="SINCRONIZAÇÃO" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Quando conectado, o mesmo estado global do personagem é publicado para a sala. Sem multiplayer, o RP continua funcionando localmente."
+                                               Margin="0,7,0,0"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem x:Name="AdvancedTab" Header="Avançado">
+                <ScrollViewer Margin="0,14,0,0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <Border Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="EXPERIMENTAL / DIAGNÓSTICO" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Ônibus físico e diagnósticos"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Recursos técnicos que escrevem no OMSI continuam opt-in e dependem das capacidades reais anunciadas pelo plugin."
+                                               Margin="0,5,0,14"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel x:Name="ExperimentalOptionsHost" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,12,0,0" Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="BRIDGE / PLUGIN" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock x:Name="AdvancedBridgeStatusText"
+                                               Margin="0,7,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="FooterText"
+                                               Margin="0,8,0,0"
+                                               Foreground="#718A9B"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <Border Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="REDE / NAT" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="UPnP e exposição da porta"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+
+                                    <CheckBox x:Name="UpnpEnabledCheckBox"
+                                              Margin="0,13,0,0"
+                                              FontWeight="SemiBold"
+                                              Loaded="UpnpEnabledCheckBox_Loaded"
+                                              Checked="UpnpEnabledCheckBox_Changed"
+                                              Unchecked="UpnpEnabledCheckBox_Changed" />
+                                    <TextBlock x:Name="UpnpDescriptionText"
+                                               Margin="22,4,0,0"
+                                               Foreground="#718A9B"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+
+                                    <Separator Margin="0,14,0,14"
+                                               Background="#1C2A33" />
+
+                                    <TextBlock Text="RELAY DE APLICAÇÃO"
+                                               Style="{StaticResource NavMetricLabel}" />
+                                    <CheckBox x:Name="RelayEnabledCheckBox"
+                                              Margin="0,9,0,0"
+                                              FontWeight="SemiBold"
+                                              Checked="RelayEnabledCheckBox_Changed"
+                                              Unchecked="RelayEnabledCheckBox_Changed" />
+                                    <TextBlock x:Name="RelayServerLabelText"
+                                               Margin="22,9,0,5"
+                                               Text="Servidor relay"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold" />
+                                    <TextBox x:Name="RelayServerTextBox"
+                                             Margin="22,0,0,0"
+                                             MinHeight="36"
+                                             VerticalContentAlignment="Center"
+                                             LostFocus="RelayServerTextBox_LostFocus" />
+                                    <TextBlock x:Name="RelayDescriptionText"
+                                               Margin="22,6,0,0"
+                                               Foreground="#718A9B"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,12,0,0" Style="{StaticResource NavMultiplayerCard}">
+                                <StackPanel>
+                                    <TextBlock Text="FIREWALL" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                    <TextBlock Text="Windows Firewall"
+                                               Margin="0,5,0,0"
+                                               Foreground="{StaticResource MpText}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="FirewallStatusText"
+                                               Margin="0,6,0,9"
+                                               Foreground="#718A9B"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
+                                    <Button x:Name="FirewallButton"
+                                            HorizontalAlignment="Left"
+                                            MinWidth="180"
+                                            Style="{StaticResource NavSecondaryButton}"
+                                            Loaded="FirewallButton_Loaded"
+                                            Click="FirewallButton_Click" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

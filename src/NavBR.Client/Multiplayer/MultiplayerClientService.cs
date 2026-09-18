@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
@@ -5,11 +7,18 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
-public sealed class MultiplayerClientService : IAsyncDisposable
+public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
-    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
+
+    public MultiplayerClientService(
+        Func<string?>? omsiInstallDirectorySource = null)
+    {
+        _physicalVehicles = new RemotePhysicalVehicleCoordinator(
+            omsiInstallDirectorySource);
+    }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
     public event Action<RoomSnapshot>? RoomSnapshotReceived;
@@ -19,6 +28,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     public event Action<PlayerTelemetryFrame>? TelemetryReceived;
     public event Action<TrafficSnapshot>? TrafficSnapshotReceived;
     public event Action<string?>? TrafficAuthorityChanged;
+    public event Action<string?>? RoomOwnerChanged;
     public event Action<ChatMessage>? ChatMessageReceived;
     public event Action<VoiceFrame>? VoiceFrameReceived;
 
@@ -26,6 +36,12 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
     public bool IsConnected => State == HubConnectionState.Connected;
     public string? TrafficAuthorityPlayerId { get; private set; }
+    public bool CurrentRoomIsPrivate { get; private set; }
+    public string? RoomOwnerPlayerId { get; private set; }
+    public bool IsRoomOwner =>
+        _joinRequest is not null &&
+        !string.IsNullOrWhiteSpace(RoomOwnerPlayerId) &&
+        string.Equals(_joinRequest.PlayerId, RoomOwnerPlayerId, StringComparison.OrdinalIgnoreCase);
     public bool IsTrafficAuthority =>
         _joinRequest is not null &&
         !string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId) &&
@@ -60,14 +76,25 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         await DisconnectAsync();
 
-        var hubUrl = NormalizeHubUrl(settings.ServerUrl);
+        string hubUrl;
+        try
+        {
+            hubUrl = NormalizeHubUrl(settings.ServerUrl);
+        }
+        catch (Exception ex)
+        {
+            throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
+        }
+
         _joinRequest = new JoinRoomRequest(
             settings.RoomId.Trim(),
             settings.PlayerId.Trim(),
             settings.DisplayName.Trim(),
             NormalizeOptional(currentMapName),
             NormalizeOptional(currentMapCompatibilityId),
-            compatibility);
+            compatibility,
+            settings.EphemeralRoomPassword,
+            settings.EphemeralCreatePrivateRoom);
         _physicalVehicles.SetLocalManifest(compatibility);
 
         var connection = new HubConnectionBuilder()
@@ -99,7 +126,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             RoomSnapshotReceived?.Invoke(snapshot);
             return snapshot;
         }
-        catch
+        catch (Exception ex)
         {
             await DisposeConnectionAsync(connection);
             if (ReferenceEquals(_connection, connection))
@@ -108,12 +135,20 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             }
 
             _joinRequest = null;
-            SetTrafficAuthority(null);
+            ResetRoomMetadata();
             _physicalVehicles.SetLocalManifest(null);
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
-            throw;
+
+            if (ex is HubException)
+            {
+                throw new InvalidOperationException(
+                    RoomPrivacyText.DescribeServerError(ex.Message),
+                    ex);
+            }
+
+            throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
         }
     }
 
@@ -134,6 +169,12 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             MapCompatibilityId = compatibilityId
         };
 
+        // Keep physical rendering compatibility synchronized with the actual
+        // live OMSI state. Players often connect before the final map/bus/HOF
+        // identity is available, and may change vehicles without reconnecting.
+        _physicalVehicles.SetLocalManifest(
+            OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
             compatibilityId,
@@ -148,8 +189,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     {
         var connection = _connection;
         if (!IsTrafficAuthority ||
-            connection is null ||
-            connection.State != HubConnectionState.Connected)
+            connection is null || connection.State != HubConnectionState.Connected)
         {
             return;
         }
@@ -165,6 +205,49 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         await connection.SendAsync("SendChatMessage", text, cancellationToken);
     }
 
+    public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
+        bool voiceEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return null;
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        await connection.InvokeAsync("NavBrPing", cancellationToken);
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var latencyMs = Math.Clamp(
+            (int)Math.Round(elapsed.TotalMilliseconds),
+            0,
+            5000);
+
+        await PublishClientStatusAsync(
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+        return elapsed;
+    }
+
+    public async Task PublishClientStatusAsync(
+        bool voiceEnabled,
+        int? latencyMs,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null || connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        await connection.SendAsync(
+            "UpdateClientStatus",
+            voiceEnabled,
+            latencyMs,
+            cancellationToken);
+    }
+
     public async Task PublishVoiceFrameAsync(
         long sequence,
         byte[] opusPayload,
@@ -176,7 +259,12 @@ public sealed class MultiplayerClientService : IAsyncDisposable
             return;
         }
 
-        await connection.SendAsync("PublishVoiceFrame", sequence, opusPayload, cancellationToken);
+        await connection.SendAsync(
+            "PublishVoiceFrame",
+            sequence,
+            opusPayload,
+            VoiceChannelSession.CurrentChannel,
+            cancellationToken);
     }
 
     public async Task DisconnectAsync()
@@ -184,8 +272,9 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         var connection = _connection;
         _connection = null;
         _joinRequest = null;
-        SetTrafficAuthority(null);
+        ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
+        ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
@@ -223,6 +312,7 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         connection.On<string>("playerLeft", playerId =>
         {
             PlayerLeft?.Invoke(playerId);
+            RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
@@ -247,11 +337,16 @@ public sealed class MultiplayerClientService : IAsyncDisposable
         });
         connection.On<string?>("trafficAuthorityChanged", authorityPlayerId =>
             SetTrafficAuthority(authorityPlayerId));
+        connection.On<string?>("roomOwnerChanged", ownerPlayerId =>
+            SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
+        connection.On<RoleplayCharacterFrame>("roleplayCharacter", ApplyRoleplayCharacter);
+        connection.On<string>("roleplayCharacterRemoved", RemoveRoleplayCharacter);
 
         connection.Reconnecting += error =>
         {
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
@@ -272,7 +367,8 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         connection.Closed += error =>
         {
-            SetTrafficAuthority(null);
+            ResetRoomMetadata();
+            ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
@@ -283,6 +379,15 @@ public sealed class MultiplayerClientService : IAsyncDisposable
     private void ApplyRoomSnapshotMetadata(RoomSnapshot snapshot)
     {
         SetTrafficAuthority(snapshot.TrafficAuthorityPlayerId);
+        CurrentRoomIsPrivate = snapshot.IsPrivate;
+        SetRoomOwner(snapshot.OwnerPlayerId);
+    }
+
+    private void ResetRoomMetadata()
+    {
+        SetTrafficAuthority(null);
+        CurrentRoomIsPrivate = false;
+        SetRoomOwner(null);
     }
 
     private void SetTrafficAuthority(string? playerId)
@@ -298,6 +403,21 @@ public sealed class MultiplayerClientService : IAsyncDisposable
 
         TrafficAuthorityPlayerId = normalized;
         TrafficAuthorityChanged?.Invoke(normalized);
+    }
+
+    private void SetRoomOwner(string? playerId)
+    {
+        var normalized = NormalizeOptional(playerId);
+        if (string.Equals(
+                RoomOwnerPlayerId,
+                normalized,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        RoomOwnerPlayerId = normalized;
+        RoomOwnerChanged?.Invoke(normalized);
     }
 
     private HubConnection RequireConnectedConnection()

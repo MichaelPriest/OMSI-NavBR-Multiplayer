@@ -19,7 +19,8 @@ public partial class MultiplayerWindow
 
     private void CopyInviteButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_host.IsRunning)
+        var relayActive = _settings.EnableApplicationRelay && _client.IsConnected && !_host.IsRunning;
+        if (!_host.IsRunning && !relayActive)
         {
             StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerDisconnectedDetail");
             return;
@@ -32,14 +33,36 @@ public partial class MultiplayerWindow
             return;
         }
 
-        var lanUrls = _host.GetLanJoinUrls();
-        var serverUrl = lanUrls.FirstOrDefault() ?? _host.LocalServerUrl;
-        var invite = string.Join(
-            Environment.NewLine,
-            InviteHeader,
-            $"server={serverUrl}",
-            $"room={roomId}",
-            $"port={DefaultHostPort}");
+        string serverUrl;
+        string invite;
+        if (relayActive)
+        {
+            serverUrl = ServerTextBox.Text.Trim();
+            if (!TryNormalizeRelayUrl(serverUrl, out serverUrl))
+            {
+                StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerRequiredFields");
+                return;
+            }
+
+            invite = string.Join(
+                Environment.NewLine,
+                InviteHeader,
+                $"server={serverUrl}",
+                $"room={roomId}",
+                "mode=relay");
+        }
+        else
+        {
+            var lanUrls = _host.GetLanJoinUrls();
+            serverUrl = lanUrls.FirstOrDefault() ?? _host.LocalServerUrl;
+            invite = string.Join(
+                Environment.NewLine,
+                InviteHeader,
+                $"server={serverUrl}",
+                $"room={roomId}",
+                $"port={DefaultHostPort}",
+                "mode=peer-host");
+        }
 
         try
         {
@@ -67,7 +90,7 @@ public partial class MultiplayerWindow
         try
         {
             var clipboard = Clipboard.GetText()?.Trim();
-            if (!TryParseInvite(clipboard, out var serverUrl, out var roomId))
+            if (!TryParseInvite(clipboard, out var serverUrl, out var roomId, out var mode))
             {
                 StatusDetailText.Text = Localization.LocalizationService.Get("MultiplayerRequiredFields");
                 return;
@@ -76,7 +99,14 @@ public partial class MultiplayerWindow
             ServerTextBox.Text = serverUrl;
             RoomTextBox.Text = roomId;
             SyncDraftSettings();
-            StatusDetailText.Text = $"{serverUrl} • {roomId}";
+            StatusDetailText.Text = mode == "relay"
+                ? RelayText(
+                    $"Convite relay • {serverUrl} • {roomId}",
+                    $"Relay invite • {serverUrl} • {roomId}",
+                    $"Invitación relay • {serverUrl} • {roomId}",
+                    $"Relay-Einladung • {serverUrl} • {roomId}",
+                    $"Invitation relais • {serverUrl} • {roomId}")
+                : $"{serverUrl} • {roomId}";
         }
         catch (Exception ex)
         {
@@ -86,10 +116,15 @@ public partial class MultiplayerWindow
         }
     }
 
-    private static bool TryParseInvite(string? text, out string serverUrl, out string roomId)
+    private static bool TryParseInvite(
+        string? text,
+        out string serverUrl,
+        out string roomId,
+        out string mode)
     {
         serverUrl = string.Empty;
         roomId = string.Empty;
+        mode = string.Empty;
 
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -125,6 +160,10 @@ public partial class MultiplayerWindow
                 else if (string.Equals(key, "room", StringComparison.OrdinalIgnoreCase))
                 {
                     roomId = value;
+                }
+                else if (string.Equals(key, "mode", StringComparison.OrdinalIgnoreCase))
+                {
+                    mode = value.ToLowerInvariant();
                 }
             }
         }

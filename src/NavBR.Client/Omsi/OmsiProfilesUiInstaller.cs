@@ -27,14 +27,7 @@ internal static class OmsiProfilesUiInstaller
         {
             var roadmapButton = Alpha11ShellUiInstaller.CreateToolButton("▦  Roadmap Studio", "Gerar whole.roadmap.bmp sem depender do OMSI Editor");
             roadmapButton.Name = RoadmapButtonName;
-            roadmapButton.Click += (_, _) =>
-            {
-                var window = new RoadmapStudioWindow(mainWindow.GetMapsForAlpha11Tools)
-                {
-                    Owner = mainWindow
-                };
-                window.Show();
-            };
+            roadmapButton.Click += (_, _) => mainWindow.NavigatePrimaryWebShell("settings-roadmap");
             toolsPanel.Children.Add(roadmapButton);
             mainWindow.RegisterName(RoadmapButtonName, roadmapButton);
         }
@@ -43,11 +36,7 @@ internal static class OmsiProfilesUiInstaller
         {
             var profilesButton = Alpha11ShellUiInstaller.CreateToolButton("▤  Instalações OMSI", "Detectar, escolher e iniciar instalações/perfis do OMSI");
             profilesButton.Name = ProfilesButtonName;
-            profilesButton.Click += (_, _) =>
-            {
-                var window = new OmsiProfilesWindow { Owner = mainWindow };
-                window.ShowDialog();
-            };
+            profilesButton.Click += (_, _) => mainWindow.NavigatePrimaryWebShell("settings-installations");
             toolsPanel.Children.Add(profilesButton);
             mainWindow.RegisterName(ProfilesButtonName, profilesButton);
         }
@@ -56,14 +45,7 @@ internal static class OmsiProfilesUiInstaller
         {
             var ghostButton = Alpha11ShellUiInstaller.CreateToolButton("◈  Ghost 3D", "Gravar/reproduzir viagens e validar o futuro ônibus remoto físico");
             ghostButton.Name = GhostButtonName;
-            ghostButton.Click += (_, _) =>
-            {
-                var window = new GhostToolsWindow(mainWindow.GetCurrentTelemetryForAlpha11)
-                {
-                    Owner = mainWindow
-                };
-                window.Show();
-            };
+            ghostButton.Click += (_, _) => mainWindow.NavigatePrimaryWebShell("ghost");
             toolsPanel.Children.Add(ghostButton);
             mainWindow.RegisterName(GhostButtonName, ghostButton);
         }

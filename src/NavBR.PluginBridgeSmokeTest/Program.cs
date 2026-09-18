@@ -60,7 +60,13 @@ var pluginStatus = new PluginBridgeMessage(
     CompatibleRemoteVehicleCount: 1,
     StaleRemovedCount: 3,
     LastSystemVariableIndex: 7,
-    StopRequested: true);
+    StopRequested: true,
+    Capabilities:
+    [
+        PluginBridgeProtocol.CapabilityAdvancedTelemetry,
+        PluginBridgeProtocol.CapabilityCharacterPossession,
+        PluginBridgeProtocol.CapabilityCharacterTransform
+    ]);
 
 await writer.WriteLineAsync(JsonSerializer.Serialize(pluginStatus));
 
@@ -88,6 +94,10 @@ Require(info.LastStatus.StaleRemovedCount == 3, "stale count mismatch");
 Require(info.LastStatus.LastSystemVariableIndex == 7, "system variable index mismatch");
 Require(info.LastStatus.SpeedKph == 37.5, "plugin Velocity status mismatch");
 Require(info.LastStatus.StopRequested == true, "stop request status mismatch");
+Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterPossession),
+    "runtime character-possession capability was not refreshed from plugin status");
+Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform),
+    "runtime character-transform capability was not refreshed from plugin status");
 
 var spoofedStatus = pluginStatus with
 {
@@ -167,7 +177,7 @@ var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
 Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
     "traffic clear message type mismatch");
 
-Console.WriteLine("Plugin bridge smoke test passed: handshake + runtime/hardware status + traffic delivery + rejection checks.");
+Console.WriteLine("Plugin bridge v3 smoke test passed: handshake + runtime capability refresh + status + traffic delivery + rejection checks.");
 
 static void Require(bool condition, string message)
 {

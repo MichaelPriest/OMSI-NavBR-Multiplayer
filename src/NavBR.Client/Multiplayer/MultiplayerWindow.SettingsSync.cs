@@ -6,6 +6,9 @@ public partial class MultiplayerWindow
     {
         base.OnContentRendered(e);
 
+        InitializePersistentLifetime();
+        InitializeNavigation3DFeed();
+
         RoomTextBox.TextChanged -= RoomTextBox_SettingsChanged;
         RoomTextBox.TextChanged += RoomTextBox_SettingsChanged;
         NicknameTextBox.TextChanged -= NicknameTextBox_SettingsChanged;
@@ -14,6 +17,9 @@ public partial class MultiplayerWindow
         SyncDraftSettings();
         InitializePhysicalVehiclesPublicTest();
         HookDiagnosticsLifecycle();
+        InitializeNetworkQualityLifecycle();
+        InitializePublicRoomBrowser();
+        InitializeVoiceChannels();
     }
 
     private void RoomTextBox_SettingsChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)

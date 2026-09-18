@@ -5,7 +5,7 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Server.Hubs;
 
-public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
+public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
 {
     private const int MaxChatLength = 280;
     private const int MaxVoicePayloadBytes = 1500;
@@ -185,6 +185,34 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             .SendAsync("trafficSnapshot", safeSnapshot);
     }
 
+    public Task NavBrPing() => Task.CompletedTask;
+
+    public async Task UpdateClientStatus(bool voiceEnabled, int? latencyMs)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before updating client status.");
+        }
+
+        if (latencyMs is < 0 or > 5000)
+        {
+            throw new HubException("Invalid client latency.");
+        }
+
+        var updated = registry.UpdateClientStatus(
+            Context.ConnectionId,
+            voiceEnabled,
+            latencyMs);
+        if (updated is null)
+        {
+            return;
+        }
+
+        await Clients
+            .Group(presence.RoomId)
+            .SendAsync("playerPresenceChanged", updated);
+    }
+
     public async Task SendChatMessage(string text)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
@@ -207,7 +235,7 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         await Clients.Group(presence.RoomId).SendAsync("chatMessage", message);
     }
 
-    public async Task PublishVoiceFrame(long sequence, byte[] opusPayload)
+    public async Task PublishVoiceFrame(long sequence, byte[] opusPayload, string? channel = null)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
         {
@@ -221,11 +249,13 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
             throw new HubException("Invalid voice frame.");
         }
 
+        var normalizedChannel = NormalizeVoiceChannel(channel);
         var frame = new VoiceFrame(
             presence.PlayerId,
             sequence,
             opusPayload,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            normalizedChannel);
 
         await Clients
             .OthersInGroup(presence.RoomId)
@@ -344,6 +374,19 @@ public sealed class MultiplayerHub(MultiplayerRoomRegistry registry) : Hub
         }
 
         return normalized;
+    }
+
+    private static string NormalizeVoiceChannel(string? value)
+    {
+        var normalized = (value ?? "general").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" or "general" => "general",
+            "company" or "team" => "company",
+            "dispatch" or "cco" => "dispatch",
+            "proximity" => "proximity",
+            _ => throw new HubException("Invalid voice channel.")
+        };
     }
 
     private static OmsiCompatibilityManifest? NormalizeCompatibility(

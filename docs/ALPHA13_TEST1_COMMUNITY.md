@@ -14,6 +14,32 @@ Nesta primeira etapa o foco é deliberadamente limitado:
 - luzes e setas quando suportadas pelo backend atual;
 - remoção segura ao sair da sala/desconectar;
 - sessão física continua ativa mesmo fechando a Central Multiplayer.
+- marcador remoto no minimapa/mapa principal deve ter o mesmo formato do marcador local, em cor diferente;
+- nome do usuário deve aparecer acima do marcador remoto;
+- com ônibus físico realmente spawnado, o nome do usuário deve acompanhar a posição projetada acima do ônibus 3D quando ele estiver visível na câmera.
+- trocar/carregar ônibus ou mapa depois de entrar na sala não deve exigir reconexão para atualizar a compatibilidade física;
+- na Central Multiplayer, host e remotos devem ter o mesmo formato/tamanho de ícone, mudando apenas a cor.
+
+### Teste opcional Personagem / RP
+
+O modo Personagem/RP desta Alpha também funciona **sem entrar em uma sala multiplayer**.
+
+1. Carregue completamente um mapa no OMSI.
+2. Abra **DIRIGIR → Personagem / RP**.
+3. Ative o recurso experimental.
+4. Confirme que o seletor mostra somente personagens reais da lista `Drivers` do mapa.
+5. Selecione o personagem correspondente ao motorista do ônibus atual.
+6. Use **Sair do ônibus / controlar personagem**.
+7. Verifique W/S, A/D, Shift e Esc.
+8. Ao pressionar Esc ou **Voltar ao ônibus**, confirme que o estado original do motorista/IA é restaurado.
+
+Resultados esperados nesta primeira fase:
+- sem mapa carregado: seletor indisponível/aguardando;
+- personagem que não é o motorista humano ativo do ônibus: posse recusada;
+- sem plugin compatível: modo a pé indisponível, sem escrita alternativa;
+- modo normal: personagem funciona sem servidor multiplayer;
+- com sala online: o mesmo personagem selecionado é reutilizado e o estado RP é retransmitido;
+- terreno inclinado, câmera dedicada e personagem físico remoto ainda não devem ser considerados concluídos.
 
 Ainda não fazem parte deste teste:
 

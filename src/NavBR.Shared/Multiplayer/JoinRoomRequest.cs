@@ -6,4 +6,6 @@ public sealed record JoinRoomRequest(
     string DisplayName,
     string? MapName,
     string? MapCompatibilityId = null,
-    OmsiCompatibilityManifest? Compatibility = null);
+    OmsiCompatibilityManifest? Compatibility = null,
+    string? RoomPassword = null,
+    bool CreatePrivateRoom = false);

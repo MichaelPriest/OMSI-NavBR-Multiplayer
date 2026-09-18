@@ -76,8 +76,6 @@ internal sealed class NavBRTrayIconService : IDisposable
             {
                 if (_mainWindow is not null)
                 {
-                    _mainWindow.ShowInTaskbar = true;
-                    _mainWindow.Show();
                     _mainWindow.Close();
                 }
             }
@@ -99,21 +97,7 @@ internal sealed class NavBRTrayIconService : IDisposable
 
         window.Dispatcher.BeginInvoke(() =>
         {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.ShowInTaskbar = true;
-            if (window.WindowState == WindowState.Minimized)
-            {
-                window.WindowState = WindowState.Normal;
-            }
-
-            window.Activate();
-            window.Topmost = true;
-            window.Topmost = false;
-            window.Focus();
+            window.ShowPrimaryInterfaceForShell();
         });
     }
 
@@ -127,8 +111,7 @@ internal sealed class NavBRTrayIconService : IDisposable
 
         window.Dispatcher.BeginInvoke(() =>
         {
-            window.ShowInTaskbar = false;
-            window.Hide();
+            window.HidePrimaryInterfaceForShell();
 
             if (showNotification)
             {
@@ -156,7 +139,7 @@ internal sealed class NavBRTrayIconService : IDisposable
                 return;
             }
 
-            if (window.IsVisible && window.WindowState != WindowState.Minimized)
+            if (window.IsPrimaryInterfaceVisibleForShell())
             {
                 HideMainWindow(showNotification: false);
             }

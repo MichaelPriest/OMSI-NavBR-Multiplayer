@@ -2,8 +2,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Diagnostics;
+using NavBR.Client.Driver;
+using NavBR.Client.Hardware;
 using NavBR.Client.Localization;
+using NavBR.Client.Multiplayer;
+using NavBR.Client.Network;
 using NavBR.Client.Omsi;
+using NavBR.Client.Operations;
+using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Windows;
 using NavBR.Shared.PluginBridge;
@@ -14,6 +20,7 @@ public partial class App : Application
 {
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
     internal NavBRTrayIconService TrayIcon { get; } = new();
+    internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -33,7 +40,24 @@ public partial class App : Application
             typeof(Window),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(Window_Loaded));
+        EventManager.RegisterClassHandler(
+            typeof(HardwareCockpitView),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(HardwareCockpitView_Loaded));
+
         base.OnStartup(e);
+
+        // The historical WPF MainWindow is now only an in-memory native-service
+        // host. Do not Show() it: React/WebView2 is the only desktop window
+        // exposed to the user. Explicit shutdown keeps the tray/runtime alive
+        // when the React shell is closed.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var nativeHost = new MainWindow();
+        MainWindow = nativeHost;
+        nativeHost.InitializeRoleplayForShell();
+        TrayIcon.Attach(nativeHost);
+        nativeHost.StartNativeRuntimeForReact();
+        nativeHost.OpenPrimaryWebShell();
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -48,6 +72,16 @@ public partial class App : Application
         TrayIcon.Dispose();
 
         RemoteDiagnosticsService.Record("session", "info", "client-stop");
+
+        try
+        {
+            NetworkRuntime.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            NavBRAppLog.Info("network-runtime-stop");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("network-runtime-stop-error", ex);
+        }
 
         try
         {
@@ -98,6 +132,14 @@ public partial class App : Application
             $"error={message.ErrorCode ?? "unknown"} detail={message.ErrorMessage ?? string.Empty}");
     }
 
+    private static void HardwareCockpitView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is HardwareCockpitView hardwareView)
+        {
+            HardwareCockpitPersistenceInstaller.Attach(hardwareView);
+        }
+    }
+
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not Window window)
@@ -106,13 +148,40 @@ public partial class App : Application
         }
 
         WindowsThemeService.ApplyDarkTitleBar(window);
-
-        if (window is MainWindow mainWindow)
+        if (window is not NavBR.Client.MainWindow)
         {
-            Alpha11ShellUiInstaller.Install(mainWindow);
-            Alpha11VisualTuning.Apply(mainWindow);
-            OmsiProfilesUiInstaller.Install(mainWindow);
-            TrayIcon.Attach(mainWindow);
+            Alpha12FigmaOperationalWindowStyler.Apply(window);
+        }
+
+        if (window is DriverProfileWindow driverProfileWindow)
+        {
+            DriverProfilePortabilityInstaller.Attach(driverProfileWindow);
+            DriverTripHistoryInstaller.Attach(driverProfileWindow);
+        }
+
+        if (window is SessionHealthWindow sessionHealthWindow)
+        {
+            SessionHealthDiagnosticsExportInstaller.Attach(sessionHealthWindow);
+        }
+
+        if (window is DispatcherWindow dispatcher && dispatcher.Owner is MainWindow dispatcherOwner)
+        {
+            DispatcherFigmaMapInstaller.Attach(
+                dispatcher,
+                dispatcherOwner.GetCurrentTelemetryForAlpha11,
+                dispatcherOwner.GetActiveMapForOperations);
+        }
+
+        if (window is HudOverlayWindow hudOverlay)
+        {
+            Alpha12HudThemeService.Attach(hudOverlay);
+        }
+
+        // Auxiliary native windows still use the shared dark control theme.
+        // The hidden MainWindow host has no user-facing controls anymore.
+        if (window is not NavBR.Client.MainWindow)
+        {
+            NavBRControlThemeInstaller.Attach(window);
         }
     }
 

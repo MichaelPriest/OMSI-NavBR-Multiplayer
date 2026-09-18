@@ -145,6 +145,85 @@ public static class OmsiPluginBridgeRelay
                 VehicleInstanceId: playerId),
             cancellationToken);
 
+    public static Task<PluginBridgeMessage?> AcquireRoleplayCharacterAsync(
+        string characterInstanceId,
+        string? playerId,
+        string? displayName,
+        double localX,
+        double localY,
+        double localZ,
+        double headingDegrees,
+        int characterDefinitionPointer,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.AcquireRoleplayCharacter,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                DisplayName: displayName,
+                CharacterInstanceId: characterInstanceId,
+                CharacterDefinitionPointer: characterDefinitionPointer,
+                LocalX: localX,
+                LocalY: localY,
+                LocalZ: localZ,
+                HeadingDegrees: headingDegrees,
+                CharacterActive: true),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> UpdateRoleplayCharacterAsync(
+        string characterInstanceId,
+        RoleplayCharacterState state,
+        string? displayName = null,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.UpdateRoleplayCharacter,
+                PluginBridgeProtocol.Version,
+                PlayerId: state.PlayerId,
+                DisplayName: displayName,
+                MapName: state.MapName,
+                MapCompatibilityId: state.MapCompatibilityId,
+                TimestampUnixMilliseconds: state.Timestamp.ToUnixTimeMilliseconds(),
+                CharacterInstanceId: characterInstanceId,
+                CharacterActivity: state.Activity.ToString(),
+                CharacterActive: state.IsActive,
+                LocalX: state.LocalX,
+                LocalY: state.LocalY,
+                LocalZ: state.LocalZ,
+                HeadingDegrees: state.HeadingDegrees,
+                SpeedMps: state.SpeedMps),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> ReleaseRoleplayCharacterAsync(
+        string characterInstanceId,
+        string? playerId = null,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.ReleaseRoleplayCharacter,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                CharacterInstanceId: characterInstanceId,
+                CharacterActive: false),
+            cancellationToken);
+
+    public static Task<PluginBridgeMessage?> SetRoleplayVehicleTriggerAsync(
+        string characterInstanceId,
+        string? playerId,
+        string triggerName,
+        bool active,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.TriggerRoleplayVehicle,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                CharacterInstanceId: characterInstanceId,
+                CharacterActive: true,
+                TriggerName: triggerName,
+                TriggerActive: active),
+            cancellationToken);
+
     private static PluginBridgeMessage CreateCommandMessage(
         string type,
         string vehicleInstanceId,

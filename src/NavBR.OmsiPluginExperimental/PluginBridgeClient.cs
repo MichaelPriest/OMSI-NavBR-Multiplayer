@@ -72,7 +72,7 @@ internal static class PluginBridgeClient
 
         OutboundCommandResults.Enqueue(result);
         Log(
-            $"vehicle-command-result id={result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
+            $"command-result id={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
             $"success={result.Success} error={result.ErrorCode ?? "-"}");
     }
 
@@ -96,7 +96,10 @@ internal static class PluginBridgeClient
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
-            ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled);
+            ExperimentalWritesEnabled:
+                ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
+                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
+            Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
 
         lock (StatusSync)
         {
@@ -161,7 +164,9 @@ internal static class PluginBridgeClient
                     ProcessId: Environment.ProcessId,
                     ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
                     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    ExperimentalWritesEnabled: ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled,
+                    ExperimentalWritesEnabled:
+                        ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
+                        RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
                     Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
                 await writer.WriteLineAsync(SerializeMessage(capabilities));
                 await writer.FlushAsync(cancellationToken);
@@ -369,6 +374,29 @@ internal static class PluginBridgeClient
             Log(
                 $"vehicle-command queued type={message.Type} " +
                 $"id={message.VehicleInstanceId ?? message.PlayerId ?? "-"} " +
+                $"pending={OmsiThreadCommandQueue.Count}");
+            return null;
+        }
+
+        if (RoleplayCharacterCommandProcessor.IsCharacterCommandType(message.Type))
+        {
+            if (RoleplayCharacterCommandProcessor.TryRejectBeforeOmsiThread(message, out var rejection))
+            {
+                return rejection;
+            }
+
+            if (!OmsiThreadCommandQueue.TryEnqueue(message))
+            {
+                return RoleplayCharacterCommandProcessor.Result(
+                    message,
+                    false,
+                    "command-queue-full",
+                    "The OMSI roleplay command queue is full.");
+            }
+
+            Log(
+                $"character-command queued type={message.Type} " +
+                $"id={message.CharacterInstanceId ?? message.PlayerId ?? "-"} " +
                 $"pending={OmsiThreadCommandQueue.Count}");
             return null;
         }

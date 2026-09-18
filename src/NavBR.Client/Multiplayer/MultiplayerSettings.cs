@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace NavBR.Client.Multiplayer;
 
 public sealed record MultiplayerSettings(
@@ -11,7 +13,7 @@ public sealed record MultiplayerSettings(
     double HudY = 1.0d,
     double HudZoom = 1.0d,
     double HudMapOpacity = 0.52d,
-    int DashboardSettingsVersion = 2,
+    int DashboardSettingsVersion = 3,
     bool DashboardEnabled = true,
     double DashboardX = 0.02d,
     double DashboardY = 0.58d,
@@ -22,7 +24,32 @@ public sealed record MultiplayerSettings(
     bool DashboardShowStatus = true,
     string StopIconStyle = "omsi",
     string? StopCustomIconPath = null,
-    bool ExperimentalPhysicalVehiclesEnabled = false)
+    bool ExperimentalPhysicalVehiclesEnabled = false,
+    bool EnableAutomaticUpnp = false,
+    bool EnableApplicationRelay = false,
+    string RelayServerUrl = "",
+    string VoiceChannel = "general",
+    double VoiceProximityMeters = 120d,
+    bool VoiceDeafened = false,
+    int VoiceInputDeviceNumber = 0,
+    int VoiceOutputDeviceNumber = -1,
+    string DashboardPreset = "normal",
+    string DashboardTheme = "navbr-modern",
+    string DashboardAnchor = "free",
+    double DashboardWidth = 470d,
+    double DashboardHeight = 0d,
+    bool DashboardAutoScale = true,
+    bool DashboardShowMinimap = true,
+    bool DashboardShowMultiplayer = true,
+    bool DashboardShowAlerts = true,
+    bool DashboardShowSideIndicators = true,
+    double DashboardMinimapScale = 1d,
+    double DashboardMultiplayerScale = 1d,
+    double DashboardAlertsScale = 1d,
+    double DashboardSideIndicatorsScale = 1d,
+    bool ExperimentalRoleplayCharacterEnabled = false,
+    [property: JsonIgnore] string? EphemeralRoomPassword = null,
+    [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
@@ -35,7 +62,7 @@ public sealed record MultiplayerSettings(
         1.0d,
         1.0d,
         0.52d,
-        2,
+        3,
         true,
         0.02d,
         0.58d,
@@ -46,5 +73,6 @@ public sealed record MultiplayerSettings(
         true,
         "omsi",
         null,
+        false,
         false);
 }

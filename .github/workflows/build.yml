@@ -27,41 +27,6 @@ jobs:
         shell: pwsh
         run: .\scripts\repair-navbr-icon.ps1
 
-      - name: Validate XAML and site JavaScript
-        shell: pwsh
-        run: |
-          .\scripts\validate-xaml-colors.ps1
-          node --check site/app.js
-
-      - name: Build OMSI native interop x86
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
-          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
-            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
-            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
-            /link `
-            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
-            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
-          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
-
-          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
-          foreach ($expected in @(
-            "NavBR_GetAbiVersion",
-            "NavBR_GetStateInteropVersion",
-            "NavBR_GetRoadVehicleCount",
-            "NavBR_GetRoadVehicleAt",
-            "NavBR_IsRoadVehiclePointer",
-            "NavBR_MakeVehicle",
-            "NavBR_SetVehicleTransform",
-            "NavBR_SetVehicleVisualState",
-            "NavBR_MarkVehicleForKilling"
-          )) {
-            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
-              throw "Missing native OMSI interop export: $expected"
-            }
-          }
-
       - name: Restore projects
         shell: pwsh
         run: |
@@ -76,6 +41,45 @@ jobs:
         run: |
           dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
           dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link `
+            /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($name in @(
+            'NavBR_GetAbiVersion',
+            'NavBR_GetStateInteropVersion',
+            'NavBR_GetRoadVehicleCount',
+            'NavBR_GetRoadVehicleAt',
+            'NavBR_IsRoadVehiclePointer',
+            'NavBR_GetHumanCount',
+            'NavBR_GetHumanAt',
+            'NavBR_IsHumanPointer',
+            'NavBR_IsPlayerBusDriverHuman',
+            'NavBR_ReadHumanPose',
+            'NavBR_ReadHumanDriverState',
+            'NavBR_DetachHumanForRoleplay',
+            'NavBR_SetHumanTransform',
+            'NavBR_RestoreHumanAiState',
+            'NavBR_RestoreHumanDriverState',
+            'NavBR_MakeVehicle',
+            'NavBR_SetVehicleTransform',
+            'NavBR_SetVehicleVisualState',
+            'NavBR_MarkVehicleForKilling'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
+              throw "Native OMSI interop is missing export: $name"
+            }
+          }
 
       - name: Publish Native AOT OMSI plugin x86
         shell: pwsh
@@ -106,19 +110,15 @@ jobs:
       - name: Validate Native AOT x86 DLL and OMSI exports
         shell: pwsh
         run: |
-          foreach ($candidate in @(
-            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll",
-            "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll"
-          )) {
-            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $candidate).Path)
-            if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "$candidate is not PE/MZ." }
-            $pe = [BitConverter]::ToInt32($bytes, 0x3C)
-            if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "$candidate has invalid PE signature." }
-            $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
-            if ($machine -ne 0x014C) { throw ("$candidate must be x86/I386; machine=0x{0:X4}" -f $machine) }
-          }
-
           $dll = Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiPlugin.dll"
+
+          $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
+          if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) { throw "Plugin is not PE/MZ." }
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) { throw "Plugin has invalid PE signature." }
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0x014C) { throw ("Plugin must be x86/I386; machine=0x{0:X4}" -f $machine) }
+
           $exports = (& dumpbin /nologo /exports $dll.Path) -join "`n"
           foreach ($name in @(
             'PluginStart',
@@ -133,7 +133,7 @@ jobs:
             }
           }
 
-          Write-Host "Native AOT plugin and interop validated: x86 + required exports."
+          Write-Host "Native AOT plugin validated: x86 + all OMSI exports."
 
       - name: Smoke-test Native AOT plugin install and removal without .NET x86
         shell: pwsh

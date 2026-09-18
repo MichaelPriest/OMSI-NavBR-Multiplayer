@@ -52,6 +52,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         {
             return _lastPluginCapabilities?.Capabilities?.Contains(
                        capability,
+                       StringComparer.OrdinalIgnoreCase) == true ||
+                   _lastPluginStatus?.Capabilities?.Contains(
+                       capability,
                        StringComparer.OrdinalIgnoreCase) == true;
         }
     }
@@ -313,7 +316,10 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
+        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateRoleplayCharacter, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal);
 
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {
