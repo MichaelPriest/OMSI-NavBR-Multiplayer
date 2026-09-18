@@ -1,0 +1,124 @@
+using NavBR.Client.Multiplayer;
+
+namespace NavBR.Client;
+
+public partial class MainWindow
+{
+    private string? _webRoleplayStatus;
+
+    private object BuildWebRoleplayState()
+    {
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+        var options = IsRoleplayMapReadyForShell()
+            ? GetRoleplayCharacterOptionsForShell()
+            : Array.Empty<RoleplayCharacterOption>();
+        var controller = GetRoleplayControllerForShell();
+        var current = controller.CurrentState;
+
+        return new
+        {
+            enabled = ExperimentalFeatureFlags.RoleplayCharacterEnabled,
+            mapReady = IsRoleplayMapReadyForShell(),
+            mapKey,
+            runtimeAvailable = controller.IsRuntimeAvailable,
+            active = controller.IsActive,
+            status = _webRoleplayStatus,
+            selected = selected is null
+                ? null
+                : new
+                {
+                    id = selected.Id,
+                    displayName = selected.DisplayName,
+                    sourceValue = selected.SourceValue,
+                    isActiveDriver = selected.IsActiveDriver
+                },
+            characters = options
+                .Select(option => new
+                {
+                    id = option.Id,
+                    displayName = option.DisplayName,
+                    sourceValue = option.SourceValue,
+                    isActiveDriver = option.IsActiveDriver,
+                    selected = string.Equals(
+                        option.Id,
+                        selected?.Id,
+                        StringComparison.OrdinalIgnoreCase)
+                })
+                .ToArray(),
+            current = current is null
+                ? null
+                : new
+                {
+                    current.CharacterId,
+                    current.CharacterName,
+                    current.MapName,
+                    current.MapCompatibilityId,
+                    current.LocalX,
+                    current.LocalY,
+                    current.LocalZ,
+                    current.HeadingDegrees,
+                    current.SpeedMps,
+                    activity = current.Activity.ToString(),
+                    current.IsActive,
+                    current.HumanIndex,
+                    current.Timestamp
+                }
+        };
+    }
+
+    private void SelectRoleplayCharacterFromWeb(string? characterId)
+    {
+        if (string.IsNullOrWhiteSpace(characterId))
+        {
+            throw new InvalidOperationException("Selecione um personagem válido.");
+        }
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        if (string.IsNullOrWhiteSpace(mapKey) || !IsRoleplayMapReadyForShell())
+        {
+            throw new InvalidOperationException("O mapa do OMSI ainda não está pronto para Personagem / RP.");
+        }
+
+        if (_roleplayCharacterController?.IsActive == true)
+        {
+            throw new InvalidOperationException("Retorne ao ônibus antes de trocar de personagem.");
+        }
+
+        var option = GetRoleplayCharacterOptionsForShell()
+            .FirstOrDefault(item =>
+                string.Equals(item.Id, characterId, StringComparison.OrdinalIgnoreCase));
+        if (option is null)
+        {
+            throw new InvalidOperationException("O personagem selecionado não está mais disponível no mapa atual.");
+        }
+
+        RoleplayCharacterSelectionStore.Set(mapKey, option);
+        _webRoleplayStatus = "roleplay-character-selected";
+        _multiplayerWindow?.SetLocalRoleplayCharacterState(null);
+        UpdateHudRoleplayStateForShell();
+    }
+
+    private async Task StartRoleplayFromWebAsync()
+    {
+        var controller = GetRoleplayControllerForShell();
+        var started = await controller.StartAsync();
+        if (!started && string.IsNullOrWhiteSpace(_webRoleplayStatus))
+        {
+            _webRoleplayStatus = "roleplay-start-failed";
+        }
+
+        UpdateHudRoleplayStateForShell();
+    }
+
+    private async Task StopRoleplayFromWebAsync()
+    {
+        if (_roleplayCharacterController is { } controller)
+        {
+            await controller.StopAsync("roleplay-returned-to-bus");
+        }
+
+        _webRoleplayStatus = "roleplay-returned-to-bus";
+        UpdateHudRoleplayStateForShell();
+    }
+}
