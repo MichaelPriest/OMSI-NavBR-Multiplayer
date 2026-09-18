@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   type NavBrCompanyMember,
+  type NavBrHudState,
   type NavBrMultiplayerState,
   type NavBrNavigationState,
   type NavBrOmsiInstallation,
@@ -1039,7 +1040,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "installations" | "diagnostics" | "network" | "advanced";
+type SettingsTab = "installations" | "hud" | "diagnostics" | "network" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const [name, setName] = useState(profile.name);
@@ -1108,6 +1109,208 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   );
 }
 
+
+function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
+  const [draft, setDraft] = useState<NavBrHudState>(hud);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) {
+      setDraft(hud);
+    }
+  }, [hud, dirty]);
+
+  const patch = (next: Partial<NavBrHudState>) => {
+    setDraft(current => ({ ...current, ...next }));
+    setDirty(true);
+  };
+
+  const applyPreset = (presetId: string) => {
+    const preset = hud.presets.find(item => item.id === presetId);
+    if (!preset) {
+      patch({ preset: presetId });
+      return;
+    }
+
+    patch({
+      preset: preset.id,
+      width: preset.width,
+      scale: preset.scale,
+      opacity: preset.opacity,
+      showFuel: preset.showFuel,
+      showPedals: preset.showPedals,
+      showStatus: preset.showStatus,
+      showMinimap: preset.showMinimap,
+      showMultiplayer: preset.showMultiplayer,
+      showAlerts: preset.showAlerts,
+      showSideIndicators: preset.showSideIndicators
+    });
+  };
+
+  const save = () => {
+    sendCommand("saveHudSettings", {
+      enabled: draft.enabled,
+      preset: draft.preset,
+      theme: draft.theme,
+      anchor: draft.anchor,
+      scale: draft.scale,
+      width: draft.width,
+      height: draft.height,
+      opacity: draft.opacity,
+      autoScale: draft.autoScale,
+      showFuel: draft.showFuel,
+      showPedals: draft.showPedals,
+      showStatus: draft.showStatus,
+      showMinimap: draft.showMinimap,
+      showMultiplayer: draft.showMultiplayer,
+      showAlerts: draft.showAlerts,
+      showSideIndicators: draft.showSideIndicators,
+      minimapScale: draft.minimapScale,
+      multiplayerScale: draft.multiplayerScale,
+      alertsScale: draft.alertsScale,
+      sideIndicatorsScale: draft.sideIndicatorsScale
+    });
+    setDirty(false);
+  };
+
+  const moduleChecks = [
+    ["showFuel", "Combustível"],
+    ["showPedals", "Acelerador / freio"],
+    ["showStatus", "Indicadores"],
+    ["showMinimap", "Minimapa integrado"],
+    ["showMultiplayer", "Multiplayer no painel"],
+    ["showAlerts", "Alertas discretos"],
+    ["showSideIndicators", "Indicadores laterais"]
+  ] as const;
+
+  return (
+    <section className="hud-settings-layout">
+      <article className="card hud-settings-card">
+        <div className="section-heading">
+          <div><span className="eyebrow">HUD</span><h3>Identidade e comportamento</h3></div>
+          <span className={`hardware-state-pill ${draft.enabled ? "connected" : ""}`}>
+            {draft.enabled ? "Ativo" : "Desativado"}
+          </span>
+        </div>
+
+        <label className="diagnostics-toggle hud-enabled-toggle">
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={event => patch({ enabled: event.target.checked })}
+          />
+          <span>Exibir painel do ônibus no HUD</span>
+        </label>
+
+        <div className="hud-select-grid">
+          <label className="voice-field">
+            <span>Estilo</span>
+            <select value={draft.preset} onChange={event => applyPreset(event.target.value)}>
+              {hud.presets.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+            </select>
+          </label>
+          <label className="voice-field">
+            <span>Tema</span>
+            <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
+              {hud.themes.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+            </select>
+          </label>
+          <label className="voice-field">
+            <span>Ancoragem</span>
+            <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
+              {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+            </select>
+          </label>
+          <label className="diagnostics-toggle compact-toggle">
+            <input
+              type="checkbox"
+              checked={draft.autoScale}
+              onChange={event => patch({ autoScale: event.target.checked })}
+            />
+            <span>Escala automática pela resolução</span>
+          </label>
+        </div>
+
+        <div className="hud-preview-line">
+          <strong>{hud.presets.find(item => item.id === draft.preset)?.displayName || draft.preset}</strong>
+          <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}% · {Math.round(draft.opacity * 100)}%</span>
+        </div>
+      </article>
+
+      <article className="card hud-settings-card">
+        <span className="eyebrow">TAMANHO DO PAINEL</span>
+        <div className="hud-slider-list">
+          <label>
+            <span><strong>Escala geral</strong><em>{Math.round(draft.scale * 100)}%</em></span>
+            <input type="range" min="0.6" max="1.8" step="0.05" value={draft.scale}
+              onChange={event => patch({ scale: Number(event.target.value) })} />
+          </label>
+          <label>
+            <span><strong>Largura</strong><em>{Math.round(draft.width)} px</em></span>
+            <input type="range" min="280" max="960" step="10" value={draft.width}
+              onChange={event => patch({ width: Number(event.target.value) })} />
+          </label>
+          <label>
+            <span><strong>Altura</strong><em>{draft.height < 1 ? "Automática" : `${Math.round(draft.height)} px`}</em></span>
+            <input type="range" min="0" max="720" step="10" value={draft.height}
+              onChange={event => patch({ height: Number(event.target.value) })} />
+          </label>
+          <label>
+            <span><strong>Opacidade</strong><em>{Math.round(draft.opacity * 100)}%</em></span>
+            <input type="range" min="0.35" max="1" step="0.05" value={draft.opacity}
+              onChange={event => patch({ opacity: Number(event.target.value) })} />
+          </label>
+        </div>
+      </article>
+
+      <article className="card hud-settings-card">
+        <span className="eyebrow">MÓDULOS VISÍVEIS</span>
+        <div className="hud-module-grid">
+          {moduleChecks.map(([key, label]) => (
+            <label className="diagnostics-toggle compact-toggle" key={key}>
+              <input
+                type="checkbox"
+                checked={draft[key]}
+                onChange={event => patch({ [key]: event.target.checked } as Partial<NavBrHudState>)}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </article>
+
+      <article className="card hud-settings-card">
+        <span className="eyebrow">ESCALA DOS WIDGETS</span>
+        <div className="hud-slider-list">
+          {([
+            ["minimapScale", "Minimapa"],
+            ["multiplayerScale", "Multiplayer"],
+            ["alertsScale", "Alertas"],
+            ["sideIndicatorsScale", "Indicadores laterais"]
+          ] as const).map(([key, label]) => (
+            <label key={key}>
+              <span><strong>{label}</strong><em>{draft[key].toFixed(2)}×</em></span>
+              <input type="range" min="0.55" max="2" step="0.05" value={draft[key]}
+                onChange={event => patch({ [key]: Number(event.target.value) } as Partial<NavBrHudState>)} />
+            </label>
+          ))}
+        </div>
+      </article>
+
+      <div className="hud-settings-actions">
+        <button className="button primary" disabled={!dirty} onClick={save}>
+          {dirty ? "Aplicar HUD" : "HUD aplicado"}
+        </button>
+        <button className="button ghost" onClick={() => {
+          sendCommand("resetHudSettings");
+          setDirty(false);
+        }}>Restaurar padrão</button>
+        <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD no OMSI</button>
+      </div>
+    </section>
+  );
+}
+
 function Settings({
   state,
   error,
@@ -1164,6 +1367,7 @@ function Settings({
       <div className="mp-tabs settings-tabs" role="tablist">
         {([
           ["installations", "Instalações OMSI"],
+          ["hud", "HUD"],
           ["diagnostics", "Diagnóstico"],
           ["network", "Rede"],
           ["advanced", "Avançado"]
@@ -1201,6 +1405,8 @@ function Settings({
           </div>
         </section>
       )}
+
+      {tab === "hud" && <HudSettingsPanel hud={system.hud} />}
 
       {tab === "diagnostics" && (
         <section className="diagnostics-layout">
@@ -1351,9 +1557,9 @@ function Settings({
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
             <h3>Personalização</h3>
-            <p>Escala, módulos, presets, opacidade e posição do HUD continuam no editor nativo.</p>
+            <p>Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.</p>
             <div className="settings-action-row">
-              <button className="button ghost" onClick={() => sendCommand("openHudEditor")}>Configurar HUD</button>
+              <button className="button ghost" onClick={() => setTab("hud")}>Abrir HUD</button>
               <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
             </div>
           </article>
