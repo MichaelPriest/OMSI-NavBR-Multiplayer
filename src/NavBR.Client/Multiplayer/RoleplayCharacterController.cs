@@ -143,6 +143,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             anchorX,
             anchorY,
             anchorZ,
+            telemetry.HeadingDegrees,
             selected.DefinitionPointer,
             cancellationToken);
 
