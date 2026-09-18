@@ -245,6 +245,38 @@ export interface NavBrSystemState {
   };
 }
 
+export interface NavBrHardwareState {
+  protocol: string;
+  connected: boolean;
+  portName?: string | null;
+  baudRate: number;
+  autoReconnect: boolean;
+  availablePorts: string[];
+  lastError?: string | null;
+  lastFrameSentAtUtc?: string | null;
+  payloadPreview?: string | null;
+  telemetry?: {
+    line?: string | null;
+    route?: string | null;
+    destination?: string | null;
+    currentStreet?: string | null;
+    nextStop?: string | null;
+    currentStopIndex?: number | null;
+    stopRequested: boolean;
+    speedKph: number;
+    delaySeconds?: number | null;
+    throttlePercent?: number | null;
+    brakePercent?: number | null;
+    doors: string;
+    lights: string;
+    turnSignal: string;
+    hornActive: boolean;
+    wipersActive: boolean;
+    parkingBrakeActive: boolean;
+    reverseGear: boolean;
+  } | null;
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -271,6 +303,7 @@ export interface NavBrState {
   navigation: NavBrNavigationState;
   operations: NavBrOperationsState;
   system: NavBrSystemState;
+  hardware: NavBrHardwareState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -306,6 +339,9 @@ export type NavBrCommand =
   | "flushDiagnostics"
   | "purgeDiagnostics"
   | "openOmsiProfiles"
+  | "connectHardware"
+  | "disconnectHardware"
+  | "saveHardwareSelection"
   | "sendChat";
 
 declare global {
