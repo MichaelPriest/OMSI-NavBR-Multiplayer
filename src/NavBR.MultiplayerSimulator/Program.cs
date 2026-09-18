@@ -71,7 +71,7 @@ if (!string.IsNullOrWhiteSpace(options.MapCompatibilityId))
 }
 
 Console.WriteLine(
-    $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1}" +
+    $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1} • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
         ? $" • grid {gx},{gy}" +
           (options.TileX is double tx && options.TileY is double ty
@@ -164,8 +164,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         _playerId = $"sim-{index:00}-{Guid.NewGuid():N}"[..24];
         _displayName = $"{options.NamePrefix} {index:00}";
         _phase = index * Math.PI * 2d / Math.Max(1, options.PlayerCount);
-        _roleplayX = options.CenterX + Math.Cos(_phase) * Math.Max(8d, options.RadiusMeters * 0.35d);
-        _roleplayY = options.CenterY + Math.Sin(_phase) * Math.Max(8d, options.RadiusMeters * 0.35d);
+        var initialRadius = Math.Max(4d, options.RadiusMeters * 0.45d);
+        _roleplayX = options.CenterX + Math.Cos(_phase) * initialRadius;
+        _roleplayY = options.CenterY + Math.Sin(_phase) * initialRadius;
         _roleplayHeading = (_phase * 180d / Math.PI + 90d) % 360d;
 
         _connection = new HubConnectionBuilder()
@@ -214,7 +215,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
     public async Task PublishFrameAsync(double elapsedSeconds, CancellationToken cancellationToken)
     {
-        var radius = _options.RadiusMeters + (_index % 4) * 8d;
+        var radius = Math.Max(
+            4d,
+            _options.RadiusMeters * (0.55d + (_index % 4) * 0.12d));
         var angularSpeed = 0.035d + (_index % 3) * 0.008d;
         var angle = _phase + elapsedSeconds * angularSpeed;
         var x = _options.CenterX + Math.Cos(angle) * radius;
@@ -635,8 +638,21 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                 resolver._referencePlayerId = reference.PlayerId;
                 var telemetry = await resolver.TryWaitForTelemetryAsync(
                     reference.PlayerId,
-                    TimeSpan.FromSeconds(3),
+                    TimeSpan.FromSeconds(8),
                     cancellationToken);
+
+                if (telemetry is null && !options.PositionExplicit)
+                {
+                    if (!announcedWaiting)
+                    {
+                        Console.WriteLine(
+                            $"Mapa '{reference.MapName}' encontrado. Aguardando posição real do host para posicionar os simulados próximos...");
+                        announcedWaiting = true;
+                    }
+
+                    await Task.Delay(500, cancellationToken);
+                    continue;
+                }
 
                 var resolved = options with
                 {
@@ -669,7 +685,10 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
-                        telemetry?.VehicleCompatibilityId
+                        telemetry?.VehicleCompatibilityId,
+                    RadiusMeters = options.RadiusExplicit
+                        ? options.RadiusMeters
+                        : 18d
                 };
 
                 if (!string.IsNullOrWhiteSpace(options.MapName) &&
@@ -1050,6 +1069,7 @@ internal sealed record SimulatorOptions(
     bool AutoStartLocalServer,
     bool PositionExplicit,
     bool NavigationSeedExplicit,
+    bool RadiusExplicit,
     bool ShowHelp)
 {
     public static SimulatorOptions Parse(string[] args)
@@ -1099,7 +1119,7 @@ internal sealed record SimulatorOptions(
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),
             CenterY: ParseDouble(values.GetValueOrDefault("y"), 0d),
             CenterZ: ParseDouble(values.GetValueOrDefault("z"), 0d),
-            RadiusMeters: Math.Clamp(ParseDouble(values.GetValueOrDefault("radius"), 90d), 10d, 2000d),
+            RadiusMeters: Math.Clamp(ParseDouble(values.GetValueOrDefault("radius"), 18d), 6d, 2000d),
             IntervalMilliseconds: ClampInt(values.GetValueOrDefault("interval"), 250, 100, 5000),
             DurationSeconds: Math.Max(0, ClampInt(values.GetValueOrDefault("duration"), 0, 0, 86400)),
             NamePrefix: NullIfEmpty(values.GetValueOrDefault("prefix")) ?? "SIM",
@@ -1115,6 +1135,7 @@ internal sealed record SimulatorOptions(
                 values.ContainsKey("grid-y") ||
                 values.ContainsKey("tile-x") ||
                 values.ContainsKey("tile-y"),
+            RadiusExplicit: values.ContainsKey("radius"),
             ShowHelp: values.ContainsKey("help"));
     }
 
@@ -1134,11 +1155,11 @@ Options:
   --mode vehicles|rp|mixed
   --map NAME           Optional map override. When omitted, inherit the real map from the room host.
   --map-id ID          Optional map compatibility id override.
-  --x N --y N --z N   Optional movement center. When omitted, inherit the host telemetry position.
+  --x N --y N --z N   Optional movement center. When omitted, bots spawn around the real host position.
   --grid-x N --grid-y N
   --tile-x N --tile-y N
                        Optional navigation override. When omitted, inherit host grid/tile when available.
-  --radius N           Movement radius in meters (default 90)
+  --radius N           Movement radius in meters (default 18; centered on the real host when synchronized)
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
   --verify             Verify that frames cross SignalR and positions move.
