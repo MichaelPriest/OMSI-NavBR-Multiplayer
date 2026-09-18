@@ -412,3 +412,54 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .fleet-row { grid-template-columns:85px 1fr; }
   .fleet-row > small, .fleet-row > button { grid-column:2; justify-self:start; }
 }
+
+
+.settings-header { align-items:center; }
+.settings-installations { display:grid; gap:14px; }
+.discovery-card { padding:20px; }
+.discovery-card > p { color:#8398a8; font-size:12px; line-height:1.5; margin:0 0 13px; }
+.discovery-actions { display:grid; grid-template-columns:1fr auto; gap:9px; }
+.discovery-actions input { min-width:0; border:1px solid #263b4a; background:#08151f; color:#e8f2f8; border-radius:10px; padding:11px 13px; outline:none; }
+.discovery-actions input:focus { border-color:#4a8bb5; }
+.installation-list { display:grid; gap:10px; }
+.installation-card { padding:16px; border:1px solid #1c3343; border-radius:13px; background:#091620; }
+.installation-card.preferred { border-color:#315a74; box-shadow:inset 3px 0 0 #4aa7e3; }
+.installation-card.running { background:linear-gradient(135deg,#0a2119,#091620 42%); }
+.installation-top { display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px; }
+.installation-top h3 { margin:6px 0 6px; font-size:15px; }
+.installation-top code { display:block; max-width:100%; color:#7792a4; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.installation-badges { display:flex; gap:6px; flex-wrap:wrap; }
+.install-badge { border:1px solid #34434e; border-radius:999px; padding:4px 7px; background:#111b22; color:#91a2ad; font-size:8px; font-weight:900; text-transform:uppercase; letter-spacing:.07em; }
+.install-badge.preferred { border-color:#285875; background:#0d2638; color:#8cd5ff; }
+.install-badge.running { border-color:#285743; background:#0d241a; color:#83dfad; }
+.install-badge.invalid { border-color:#64373b; background:#2a1619; color:#f09aa0; }
+.installation-edit-grid { display:grid; grid-template-columns:.85fr 1.15fr; gap:9px; margin:13px 0; }
+.installation-edit-grid label { display:grid; gap:6px; min-width:0; }
+.installation-edit-grid label > span { color:#7891a2; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.installation-edit-grid input { min-width:0; border:1px solid #253a49; border-radius:9px; padding:9px 10px; background:#07141d; color:#e7f0f5; outline:none; }
+.installation-edit-grid input:focus { border-color:#4a8bb5; }
+.installation-actions { display:flex; gap:7px; flex-wrap:wrap; }
+.install-last-used { display:block; margin-top:10px; color:#607886; font-size:9px; }
+.diagnostics-layout { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.diagnostics-consent-card, .diagnostics-log-card { padding:20px; }
+.diagnostics-consent-card h3, .diagnostics-log-card h3 { margin:7px 0 10px; }
+.diagnostics-consent-card > p, .diagnostics-log-card > p { color:#8398a8; font-size:12px; line-height:1.55; }
+.diagnostics-toggle { display:flex; gap:10px; align-items:center; padding:12px; margin:14px 0; border:1px solid #1b3342; border-radius:10px; background:#081721; color:#c1d1db; font-size:12px; font-weight:800; }
+.diagnostics-toggle input { accent-color:#69c8ff; }
+.diagnostics-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.diagnostic-facts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0; }
+.diagnostic-facts span { min-width:0; display:grid; gap:4px; padding:10px; border:1px solid #1b3342; border-radius:9px; background:#081721; }
+.diagnostic-facts small { color:#678398; font-size:8px; font-weight:800; letter-spacing:.07em; }
+.diagnostic-facts strong { font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.diagnostics-log-card code { display:block; margin:12px 0; padding:10px; border:1px solid #1a3140; border-radius:9px; background:#07131d; color:#91cdec; font-size:10px; overflow-wrap:anywhere; }
+.settings-action-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.settings-advanced .compact-card { min-height:210px; }
+@media (max-width:1000px) {
+  .diagnostics-layout { grid-template-columns:1fr; }
+  .installation-edit-grid { grid-template-columns:1fr; }
+}
+@media (max-width:760px) {
+  .discovery-actions { grid-template-columns:1fr; }
+  .installation-top { grid-template-columns:1fr; }
+  .diagnostic-facts { grid-template-columns:1fr; }
+}
