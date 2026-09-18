@@ -153,6 +153,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         }
 
         var instanceId = _instanceId;
+        var sessionGeneration = Volatile.Read(ref _sessionGeneration);
         try
         {
             var pressed = await OmsiPluginBridgeRelay.SetRoleplayVehicleTriggerAsync(
@@ -163,9 +164,15 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 cancellationToken);
             if (pressed?.Success != true)
             {
-                StatusChanged?.Invoke(
-                    pressed?.ErrorCode ??
-                    "roleplay-trigger-failed");
+                if (IsCurrentInteractionSession(
+                        instanceId,
+                        sessionGeneration))
+                {
+                    StatusChanged?.Invoke(
+                        pressed?.ErrorCode ??
+                        "roleplay-trigger-failed");
+                }
+
                 return false;
             }
 
@@ -189,13 +196,25 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 CancellationToken.None);
             if (released?.Success != true)
             {
-                StatusChanged?.Invoke(
-                    released?.ErrorCode ??
-                    "roleplay-trigger-release-failed");
+                if (IsCurrentInteractionSession(
+                        instanceId,
+                        sessionGeneration))
+                {
+                    StatusChanged?.Invoke(
+                        released?.ErrorCode ??
+                        "roleplay-trigger-release-failed");
+                }
+
                 return false;
             }
 
-            StatusChanged?.Invoke("roleplay-interaction-triggered");
+            if (IsCurrentInteractionSession(
+                    instanceId,
+                    sessionGeneration))
+            {
+                StatusChanged?.Invoke("roleplay-interaction-triggered");
+            }
+
             return true;
         }
         finally
@@ -203,6 +222,16 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             Interlocked.Exchange(ref _interactionInFlight, 0);
         }
     }
+
+    private bool IsCurrentInteractionSession(
+        string instanceId,
+        long sessionGeneration) =>
+        sessionGeneration == Volatile.Read(ref _sessionGeneration) &&
+        string.Equals(
+            _instanceId,
+            instanceId,
+            StringComparison.Ordinal) &&
+        _state?.IsActive == true;
 
     public async Task<bool> TryEnterBusAsync(
         CancellationToken cancellationToken = default)
