@@ -1942,19 +1942,22 @@ function Settings({
 }
 
 
-function roleplayStatusLabel(status: string | null | undefined) {
+function roleplayStatusLabel(
+  status: string | null | undefined,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
   switch (status) {
-    case "roleplay-active": return "Personagem ativo";
-    case "roleplay-returned-to-bus": return "Motorista retornou ao ônibus";
-    case "roleplay-character-selected": return "Personagem selecionado";
-    case "roleplay-plugin-unavailable": return "Plugin Bridge sem suporte RP";
-    case "roleplay-character-required": return "Selecione um personagem";
-    case "roleplay-waiting-telemetry": return "Aguardando telemetria do OMSI";
-    case "roleplay-map-or-character-changed": return "Mapa/personagem alterado";
-    case "roleplay-control-lost": return "Controle do personagem perdido";
-    case "roleplay-disabled": return "Recurso RP desativado";
-    case "roleplay-enabled": return "Recurso RP ativado";
-    default: return status || "Pronto";
+    case "roleplay-active": return pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif");
+    case "roleplay-returned-to-bus": return pick("Motorista retornou ao ônibus", "Driver returned to the bus", "El conductor volvió al autobús", "Fahrer ist zum Bus zurückgekehrt", "Le conducteur est retourné au bus");
+    case "roleplay-character-selected": return pick("Personagem selecionado", "Character selected", "Personaje seleccionado", "Charakter ausgewählt", "Personnage sélectionné");
+    case "roleplay-plugin-unavailable": return pick("Plugin Bridge sem suporte RP", "Plugin Bridge has no RP support", "Plugin Bridge sin soporte RP", "Plugin Bridge ohne RP-Unterstützung", "Plugin Bridge sans prise en charge RP");
+    case "roleplay-character-required": return pick("Selecione um personagem", "Select a character", "Selecciona un personaje", "Charakter auswählen", "Sélectionnez un personnage");
+    case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
+    case "roleplay-map-or-character-changed": return pick("Mapa/personagem alterado", "Map/character changed", "Mapa/personaje cambiado", "Karte/Charakter geändert", "Carte/personnage modifié");
+    case "roleplay-control-lost": return pick("Controle do personagem perdido", "Character control lost", "Control del personaje perdido", "Charaktersteuerung verloren", "Contrôle du personnage perdu");
+    case "roleplay-disabled": return pick("Recurso RP desativado", "RP feature disabled", "Función RP desactivada", "RP-Funktion deaktiviert", "Fonction RP désactivée");
+    case "roleplay-enabled": return pick("Recurso RP ativado", "RP feature enabled", "Función RP activada", "RP-Funktion aktiviert", "Fonction RP activée");
+    default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
   }
 }
 
@@ -1967,11 +1970,12 @@ function RoleplayPanel({
   error: string | null;
   embedded?: boolean;
 }) {
+  const { pick } = useI18n();
   const roleplay = state?.roleplay;
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
 
   if (!roleplay) {
-    return <div className="card empty-state">Aguardando estado do Personagem / RP…</div>;
+    return <div className="card empty-state">{pick("Aguardando estado do Personagem / RP…", "Waiting for Character / RP state…", "Esperando el estado del Personaje / RP…", "Warte auf Charakter-/RP-Status…", "En attente de l’état Personnage / RP…")}</div>;
   }
 
   const canStart = roleplay.enabled && roleplay.mapReady && roleplay.runtimeAvailable && Boolean(roleplay.selected) && !roleplay.active;
@@ -1982,13 +1986,13 @@ function RoleplayPanel({
       {!embedded && (
         <header className="topbar roleplay-header">
           <div>
-            <span className="eyebrow">PERSONAGEM / RP</span>
-            <h1>Motorista fora do ônibus</h1>
-            <p>Seleção e controle do personagem usando o estado real do OMSI e do Plugin Bridge v3.</p>
+            <span className="eyebrow">{pick("PERSONAGEM / RP", "CHARACTER / RP", "PERSONAJE / RP", "CHARAKTER / RP", "PERSONNAGE / RP")}</span>
+            <h1>{pick("Motorista fora do ônibus", "Driver outside the bus", "Conductor fuera del autobús", "Fahrer außerhalb des Busses", "Conducteur hors du bus")}</h1>
+            <p>{pick("Seleção e controle do personagem usando o estado real do OMSI e do Plugin Bridge v3.", "Character selection and control using real OMSI and Plugin Bridge v3 state.", "Selección y control del personaje usando el estado real de OMSI y Plugin Bridge v3.", "Charakterauswahl und -steuerung mit echtem OMSI- und Plugin-Bridge-v3-Status.", "Sélection et contrôle du personnage à partir de l’état réel d’OMSI et de Plugin Bridge v3.")}</p>
           </div>
           <div className="top-actions">
             <span className={`connection-pill ${roleplay.active ? "connected" : ""}`}>
-              <i /> {roleplay.active ? "Fora do ônibus" : "No ônibus"}
+              <i /> {roleplay.active ? pick("Fora do ônibus", "Outside the bus", "Fuera del autobús", "Außerhalb des Busses", "Hors du bus") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}
             </span>
           </div>
         </header>
@@ -2000,11 +2004,11 @@ function RoleplayPanel({
         <article className="card rp-status-card">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">ESTADO</span>
-              <h3>{roleplay.active ? current?.characterName || roleplay.selected?.displayName || "Personagem ativo" : roleplay.selected?.displayName || "Nenhum personagem selecionado"}</h3>
+              <span className="eyebrow">{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</span>
+              <h3>{roleplay.active ? current?.characterName || roleplay.selected?.displayName || pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif") : roleplay.selected?.displayName || pick("Nenhum personagem selecionado", "No character selected", "Ningún personaje seleccionado", "Kein Charakter ausgewählt", "Aucun personnage sélectionné")}</h3>
             </div>
             <span className={`hardware-state-pill ${roleplay.runtimeAvailable ? "connected" : ""}`}>
-              {roleplay.runtimeAvailable ? "Bridge RP disponível" : "Bridge RP indisponível"}
+              {roleplay.runtimeAvailable ? pick("Bridge RP disponível", "RP Bridge available", "Bridge RP disponible", "RP-Bridge verfügbar", "Bridge RP disponible") : pick("Bridge RP indisponível", "RP Bridge unavailable", "Bridge RP no disponible", "RP-Bridge nicht verfügbar", "Bridge RP indisponible")}
             </span>
           </div>
 
@@ -2015,49 +2019,49 @@ function RoleplayPanel({
               onChange={event => sendCommand("setRoleplayEnabled", { enabled: event.target.checked })}
             />
             <span>
-              <strong>Ativar Personagem / RP</strong>
-              <small>Habilita o modo experimental sem depender da janela Multiplayer WPF.</small>
+              <strong>{pick("Ativar Personagem / RP", "Enable Character / RP", "Activar Personaje / RP", "Charakter / RP aktivieren", "Activer Personnage / RP")}</strong>
+              <small>{pick("Habilita o modo experimental sem depender da janela Multiplayer WPF.", "Enables experimental mode without depending on the WPF Multiplayer window.", "Activa el modo experimental sin depender de la ventana Multiplayer WPF.", "Aktiviert den experimentellen Modus ohne Abhängigkeit vom WPF-Multiplayerfenster.", "Active le mode expérimental sans dépendre de la fenêtre Multiplayer WPF.")}</small>
             </span>
           </label>
 
           <div className="details-grid rp-status-grid">
-            <div><small>MAPA</small><strong>{state?.telemetry?.mapName || "—"}</strong></div>
-            <div><small>STATUS</small><strong>{roleplayStatusLabel(roleplay.status)}</strong></div>
-            <div><small>MAPA PRONTO</small><strong>{roleplay.mapReady ? "Sim" : "Não"}</strong></div>
-            <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : "Não conectado"}</strong></div>
+            <div><small>{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</small><strong>{state?.telemetry?.mapName || "—"}</strong></div>
+            <div><small>STATUS</small><strong>{roleplayStatusLabel(roleplay.status, pick)}</strong></div>
+            <div><small>{pick("MAPA PRONTO", "MAP READY", "MAPA LISTO", "KARTE BEREIT", "CARTE PRÊTE")}</small><strong>{roleplay.mapReady ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></div>
+            <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : pick("Não conectado", "Not connected", "No conectado", "Nicht verbunden", "Non connecté")}</strong></div>
           </div>
 
           {current && (
             <div className="rp-current-state">
-              <span><small>ATIVIDADE</small><strong>{current.activity}</strong></span>
-              <span><small>VELOCIDADE</small><strong>{format(current.speedMps * 3.6, 1)} km/h</strong></span>
-              <span><small>DIREÇÃO</small><strong>{format(current.headingDegrees, 0)}°</strong></span>
+              <span><small>{pick("ATIVIDADE", "ACTIVITY", "ACTIVIDAD", "AKTIVITÄT", "ACTIVITÉ")}</small><strong>{current.activity}</strong></span>
+              <span><small>{pick("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE")}</small><strong>{format(current.speedMps * 3.6, 1)} km/h</strong></span>
+              <span><small>{pick("DIREÇÃO", "HEADING", "DIRECCIÓN", "RICHTUNG", "DIRECTION")}</small><strong>{format(current.headingDegrees, 0)}°</strong></span>
               <span><small>HUMAN INDEX</small><strong>{current.humanIndex ?? "—"}</strong></span>
             </div>
           )}
 
           <div className="action-row rp-actions">
             {roleplay.active ? (
-              <button className="button primary" onClick={() => sendCommand("stopRoleplay")}>Retornar ao ônibus</button>
+              <button className="button primary" onClick={() => sendCommand("stopRoleplay")}>{pick("Retornar ao ônibus", "Return to bus", "Volver al autobús", "Zum Bus zurückkehren", "Retourner au bus")}</button>
             ) : (
-              <button className="button primary" disabled={!canStart} onClick={() => sendCommand("startRoleplay")}>Sair do ônibus</button>
+              <button className="button primary" disabled={!canStart} onClick={() => sendCommand("startRoleplay")}>{pick("Sair do ônibus", "Leave bus", "Salir del autobús", "Bus verlassen", "Sortir du bus")}</button>
             )}
-            <button className="button ghost" onClick={() => sendCommand("refreshState")}>Atualizar catálogo</button>
+            <button className="button ghost" onClick={() => sendCommand("refreshState")}>{pick("Atualizar catálogo", "Refresh catalog", "Actualizar catálogo", "Katalog aktualisieren", "Actualiser le catalogue")}</button>
           </div>
 
-          {!roleplay.enabled && <p className="migration-note">O modo Personagem / RP está desativado nas configurações experimentais.</p>}
-          {roleplay.enabled && !roleplay.mapReady && <p className="migration-note">Entre em um mapa do OMSI para carregar os personagens reais de Map.Drivers.</p>}
-          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.</p>}
+          {!roleplay.enabled && <p className="migration-note">{pick("O modo Personagem / RP está desativado nas configurações experimentais.", "Character / RP mode is disabled in experimental settings.", "El modo Personaje / RP está desactivado en la configuración experimental.", "Charakter-/RP-Modus ist in den experimentellen Einstellungen deaktiviert.", "Le mode Personnage / RP est désactivé dans les paramètres expérimentaux.")}</p>}
+          {roleplay.enabled && !roleplay.mapReady && <p className="migration-note">{pick("Entre em um mapa do OMSI para carregar os personagens reais de Map.Drivers.", "Enter an OMSI map to load real Map.Drivers characters.", "Entra en un mapa de OMSI para cargar los personajes reales de Map.Drivers.", "Öffne eine OMSI-Karte, um echte Map.Drivers-Charaktere zu laden.", "Entrez dans une carte OMSI pour charger les personnages réels de Map.Drivers.")}</p>}
+          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.", "Plugin Bridge must advertise character possession and transform capabilities.", "Plugin Bridge debe anunciar las capacidades de posesión y transformación del personaje.", "Plugin Bridge muss Fähigkeiten für Charakterübernahme und Transformation melden.", "Plugin Bridge doit annoncer les capacités de possession et de transformation du personnage.")}</p>}
         </article>
 
         <article className="card rp-character-card">
           <div className="section-heading">
-            <div><span className="eyebrow">MAP.DRIVERS</span><h3>Personagens disponíveis</h3></div>
+            <div><span className="eyebrow">MAP.DRIVERS</span><h3>{pick("Personagens disponíveis", "Available characters", "Personajes disponibles", "Verfügbare Charaktere", "Personnages disponibles")}</h3></div>
             <span className="stop-count">{roleplay.characters.length}</span>
           </div>
 
           {roleplay.characters.length === 0 ? (
-            <div className="empty-state">Nenhum personagem disponível para o mapa atual.</div>
+            <div className="empty-state">{pick("Nenhum personagem disponível para o mapa atual.", "No character available for the current map.", "Ningún personaje disponible para el mapa actual.", "Kein Charakter für die aktuelle Karte verfügbar.", "Aucun personnage disponible pour la carte actuelle.")}</div>
           ) : (
             <div className="rp-character-list">
               {roleplay.characters.map(character => (
@@ -2070,30 +2074,30 @@ function RoleplayPanel({
                   <span className="rp-character-avatar">♙</span>
                   <span>
                     <strong>{character.displayName}</strong>
-                    <small>{character.isActiveDriver ? "Motorista ativo do mapa" : character.sourceValue}</small>
+                    <small>{character.isActiveDriver ? pick("Motorista ativo do mapa", "Active map driver", "Conductor activo del mapa", "Aktiver Kartenfahrer", "Conducteur actif de la carte") : character.sourceValue}</small>
                   </span>
-                  <em>{character.selected ? "Selecionado" : "Usar"}</em>
+                  <em>{character.selected ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné") : pick("Usar", "Use", "Usar", "Verwenden", "Utiliser")}</em>
                 </button>
               ))}
             </div>
           )}
-          <p className="hardware-note">A seleção é válida somente para a sessão/mapa atual. O DefinitionPointer nativo não é persistido.</p>
+          <p className="hardware-note">{pick("A seleção é válida somente para a sessão/mapa atual. O DefinitionPointer nativo não é persistido.", "Selection is valid only for the current session/map. The native DefinitionPointer is not persisted.", "La selección solo es válida para la sesión/mapa actual. El DefinitionPointer nativo no se conserva.", "Die Auswahl gilt nur für die aktuelle Sitzung/Karte. Der native DefinitionPointer wird nicht gespeichert.", "La sélection n’est valable que pour la session/carte actuelle. Le DefinitionPointer natif n’est pas persisté.")}</p>
         </article>
       </section>
 
       {!embedded && (
         <section className="card rp-controls-card">
           <div className="section-heading">
-            <div><span className="eyebrow">CONTROLES</span><h3>Durante o RP</h3></div>
+            <div><span className="eyebrow">{pick("CONTROLES", "CONTROLS", "CONTROLES", "STEUERUNG", "COMMANDES")}</span><h3>{pick("Durante o RP", "During RP", "Durante RP", "Während RP", "Pendant le RP")}</h3></div>
           </div>
           <div className="rp-key-grid">
-            <span><kbd>W</kbd><strong>Andar para frente</strong></span>
-            <span><kbd>S</kbd><strong>Andar para trás</strong></span>
-            <span><kbd>A / D</kbd><strong>Virar</strong></span>
-            <span><kbd>Shift</kbd><strong>Correr</strong></span>
-            <span><kbd>Esc</kbd><strong>Retornar ao ônibus</strong></span>
+            <span><kbd>W</kbd><strong>{pick("Andar para frente", "Walk forward", "Caminar hacia delante", "Vorwärts gehen", "Marcher en avant")}</strong></span>
+            <span><kbd>S</kbd><strong>{pick("Andar para trás", "Walk backward", "Caminar hacia atrás", "Rückwärts gehen", "Marcher en arrière")}</strong></span>
+            <span><kbd>A / D</kbd><strong>{pick("Virar", "Turn", "Girar", "Drehen", "Tourner")}</strong></span>
+            <span><kbd>Shift</kbd><strong>{pick("Correr", "Run", "Correr", "Laufen", "Courir")}</strong></span>
+            <span><kbd>Esc</kbd><strong>{pick("Retornar ao ônibus", "Return to bus", "Volver al autobús", "Zum Bus zurückkehren", "Retourner au bus")}</strong></span>
           </div>
-          <p>Os atalhos só são capturados quando o OMSI está em primeiro plano. O personagem permanece limitado à área segura ao redor do ônibus.</p>
+          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. O personagem permanece limitado à área segura ao redor do ônibus.", "Shortcuts are captured only while OMSI is in the foreground. The character remains limited to the safe area around the bus.", "Los atajos solo se capturan cuando OMSI está en primer plano. El personaje permanece limitado al área segura alrededor del autobús.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. Der Charakter bleibt auf den sicheren Bereich um den Bus begrenzt.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. Le personnage reste limité à la zone sûre autour du bus.")}</p>
         </section>
       )}
     </>
