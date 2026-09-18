@@ -2524,30 +2524,49 @@ function RoleplayPanel({
             <>
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">{pick("ANIMAÇÃO NATIVA", "NATIVE ANIMATION", "ANIMACIÓN NATIVA", "NATIVE ANIMATION", "ANIMATION NATIVE")}</span>
-                  <h3>{pick("Estado real lido do humano OMSI", "Real state read from OMSI human", "Estado real leído del humano OMSI", "Echter gelesener OMSI-Human-Status", "État réel lu du personnage OMSI")}</h3>
+                  <span className="eyebrow">{pick("TELEMETRIA DE ANIMAÇÃO", "ANIMATION TELEMETRY", "TELEMETRÍA DE ANIMACIÓN", "ANIMATIONS-TELEMETRIE", "TÉLÉMÉTRIE D’ANIMATION")}</span>
+                  <h3>{pick("Proveniência dos estados do humano OMSI", "OMSI human state provenance", "Procedencia de los estados del humano OMSI", "Herkunft der OMSI-Human-Zustände", "Provenance des états du personnage OMSI")}</h3>
                 </div>
-                <span className="hardware-state-pill connected">{pick("Somente leitura", "Read-only", "Solo lectura", "Nur Lesen", "Lecture seule")}</span>
+                <span className="hardware-state-pill connected">{pick("Proveniência explícita", "Explicit provenance", "Procedencia explícita", "Explizite Herkunft", "Provenance explicite")}</span>
               </div>
               <div className="details-grid rp-status-grid">
-                <div><small>AI MODE</small><strong>{humanAiModeLabel(roleplay.nativeAnimation.aiMode)}</strong></div>
-                <div><small>AI MODE EX</small><strong>{humanAiModeExLabel(roleplay.nativeAnimation.aiModeEx)}</strong></div>
-                <div><small>AI SUBMODE</small><strong>{humanAiSubModeLabel(roleplay.nativeAnimation.aiSubMode)}</strong></div>
-                <div><small>LAST MOVED DIST</small><strong>{format(roleplay.nativeAnimation.lastMovedDistanceMeters, 3)} m</strong></div>
-                <div><small>STATE RAW</small><strong>{format(roleplay.nativeAnimation.animationState, 3)}</strong></div>
-                <div><small>SOLL / ACT SPEED</small><strong>{format(roleplay.nativeAnimation.sollSpeedMps, 2)} / {format(roleplay.nativeAnimation.actSpeedMps, 2)} m/s</strong></div>
-                <div><small>ACTIVITY LEG RAW</small><strong>{roleplay.nativeAnimation.activityLegRaw ?? "—"}</strong></div>
-                <div><small>ARM UMBRELLA RAW</small><strong>{roleplay.nativeAnimation.activityArmUmbrellaRaw ?? "—"}</strong></div>
-                <div><small>ARM KI RAW</small><strong>{roleplay.nativeAnimation.activityArmKiRaw ?? "—"}</strong></div>
-                <div><small>HEAD KI RAW</small><strong>{roleplay.nativeAnimation.activityHeadKiRaw ?? "—"}</strong></div>
+                <div><small>AI MODE · NAVBR → OMSI</small><strong>{humanAiModeLabel(roleplay.nativeAnimation.aiMode)}</strong></div>
+                <div><small>AI MODE EX · NAVBR → OMSI</small><strong>{humanAiModeExLabel(roleplay.nativeAnimation.aiModeEx)}</strong></div>
+                <div><small>AI SUBMODE · NAVBR → OMSI</small><strong>{humanAiSubModeLabel(roleplay.nativeAnimation.aiSubMode)}</strong></div>
+                <div><small>LAST MOVED · NAVBR → OMSI</small><strong>{format(roleplay.nativeAnimation.lastMovedDistanceMeters, 3)} m</strong></div>
+                <div><small>STATE RAW · NAVBR → OMSI</small><strong>{format(roleplay.nativeAnimation.animationState, 3)}</strong></div>
+                <div><small>SOLL / ACT · NAVBR → OMSI</small><strong>{format(roleplay.nativeAnimation.sollSpeedMps, 2)} / {format(roleplay.nativeAnimation.actSpeedMps, 2)} m/s</strong></div>
+                <div><small>ACTIVITY LEG · OMSI OBSERVED</small><strong>{roleplay.nativeAnimation.activityLegRaw ?? "—"}</strong></div>
+                <div><small>ARM UMBRELLA · OMSI OBSERVED</small><strong>{roleplay.nativeAnimation.activityArmUmbrellaRaw ?? "—"}</strong></div>
+                <div><small>ARM KI · OMSI OBSERVED</small><strong>{roleplay.nativeAnimation.activityArmKiRaw ?? "—"}</strong></div>
+                <div><small>HEAD KI · OMSI OBSERVED</small><strong>{roleplay.nativeAnimation.activityHeadKiRaw ?? "—"}</strong></div>
               </div>
+
+              {roleplay.nativeActivityObservation && (
+                <>
+                  <div className="section-heading">
+                    <div>
+                      <span className="eyebrow">{pick("OBSERVAÇÃO INDEPENDENTE", "INDEPENDENT OBSERVATION", "OBSERVACIÓN INDEPENDIENTE", "UNABHÄNGIGE BEOBACHTUNG", "OBSERVATION INDÉPENDANTE")}</span>
+                      <h3>{pick("Transições reais de Activity_*", "Real Activity_* transitions", "Transiciones reales de Activity_*", "Echte Activity_*-Übergänge", "Transitions réelles Activity_*")}</h3>
+                    </div>
+                  </div>
+                  <div className="details-grid rp-status-grid">
+                    <div><small>{pick("AMOSTRAS", "SAMPLES", "MUESTRAS", "SAMPLES", "ÉCHANTILLONS")}</small><strong>{roleplay.nativeActivityObservation.samples}</strong></div>
+                    <div><small>{pick("AMOSTRAS EM MOVIMENTO", "MOVING SAMPLES", "MUESTRAS EN MOVIMIENTO", "SAMPLES IN BEWEGUNG", "ÉCHANTILLONS EN MOUVEMENT")}</small><strong>{roleplay.nativeActivityObservation.movingSamples}</strong></div>
+                    <div><small>{pick("TRANSIÇÕES RAW", "RAW TRANSITIONS", "TRANSICIONES RAW", "RAW-ÜBERGÄNGE", "TRANSITIONS BRUTES")}</small><strong>{roleplay.nativeActivityObservation.transitionCount}</strong></div>
+                    <div><small>{pick("TRANSIÇÕES DURANTE MOVIMENTO", "TRANSITIONS WHILE MOVING", "TRANSICIONES DURANTE MOVIMIENTO", "ÜBERGÄNGE BEI BEWEGUNG", "TRANSITIONS EN MOUVEMENT")}</small><strong>{roleplay.nativeActivityObservation.movingTransitionCount}</strong></div>
+                    <div><small>{pick("MUDOU NESTA AMOSTRA", "CHANGED THIS SAMPLE", "CAMBIÓ EN ESTA MUESTRA", "IN DIESEM SAMPLE GEÄNDERT", "MODIFIÉ CET ÉCHANTILLON")}</small><strong>{roleplay.nativeActivityObservation.changedThisFrame ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></div>
+                    <div><small>{pick("ÚLTIMA TRANSIÇÃO", "LAST TRANSITION", "ÚLTIMA TRANSICIÓN", "LETZTER ÜBERGANG", "DERNIÈRE TRANSITION")}</small><strong>{roleplay.nativeActivityObservation.lastTransitionAtUtc ? new Date(roleplay.nativeActivityObservation.lastTransitionAtUtc).toLocaleTimeString() : "—"}</strong></div>
+                  </div>
+                </>
+              )}
               <p className="migration-note">
                 {pick(
-                  "Diagnóstico somente leitura. State e Activity_* são exibidos como valores brutos: o NavBR não atribui significado de gesto sem validação e não usa este painel para forçar animações.",
-                  "Read-only diagnostics. State and Activity_* are shown as raw values: NavBR does not assign gesture meaning without validation and does not use this panel to force animations.",
-                  "Diagnóstico de solo lectura. State y Activity_* se muestran como valores brutos: NavBR no les asigna significado de gesto sin validación ni usa este panel para forzar animaciones.",
-                  "Nur-Lese-Diagnose. State und Activity_* werden als Rohwerte angezeigt: NavBR weist ihnen ohne Validierung keine Gestenbedeutung zu und erzwingt hier keine Animationen.",
-                  "Diagnostic en lecture seule. State et Activity_* sont affichés comme valeurs brutes : NavBR ne leur attribue aucun sens gestuel sans validation et ne force aucune animation ici."
+                  "AI modes, velocidades, LastMovedDist e State refletem valores dirigidos pelo controle RP do NavBR e não contam como validação independente. Apenas Activity_* é observado sem escrita do NavBR; as transições são contadas sem atribuir significado de gesto.",
+                  "AI modes, speeds, LastMovedDist and State reflect values driven by NavBR RP control and do not count as independent validation. Only Activity_* is observed without NavBR writes; transitions are counted without assigning gesture meaning.",
+                  "Los modos AI, velocidades, LastMovedDist y State reflejan valores dirigidos por el control RP de NavBR y no cuentan como validación independiente. Solo Activity_* se observa sin escrituras de NavBR; las transiciones se cuentan sin asignar significado de gesto.",
+                  "AI-Modi, Geschwindigkeiten, LastMovedDist und State spiegeln vom NavBR-RP gesteuerte Werte wider und gelten nicht als unabhängige Validierung. Nur Activity_* wird ohne NavBR-Schreibzugriff beobachtet; Übergänge werden ohne Gesteninterpretation gezählt.",
+                  "Les modes AI, vitesses, LastMovedDist et State reflètent des valeurs pilotées par le contrôle RP de NavBR et ne constituent pas une validation indépendante. Seuls Activity_* sont observés sans écriture NavBR ; les transitions sont comptées sans interprétation gestuelle."
                 )}
               </p>
             </>
