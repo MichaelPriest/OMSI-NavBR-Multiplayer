@@ -1,6 +1,7 @@
 param(
     [string]$Server = "http://127.0.0.1:27730",
     [string]$Room = "navbr-sim",
+    [string]$RoomPassword = "",
     [ValidateRange(1, 32)]
     [int]$Players = 6,
     [ValidateSet("vehicles", "rp", "mixed")]
@@ -37,6 +38,10 @@ $argsList = @(
     "--radius", $Radius.ToString([Globalization.CultureInfo]::InvariantCulture),
     "--duration", "$Duration"
 )
+
+if (-not [string]::IsNullOrWhiteSpace($RoomPassword)) {
+    $argsList += @("--password", $RoomPassword)
+}
 
 if (-not [string]::IsNullOrWhiteSpace($Map)) {
     $argsList += @("--map", $Map)
