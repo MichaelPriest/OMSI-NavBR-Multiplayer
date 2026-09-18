@@ -53,6 +53,11 @@
                                   Width="168"
                                   SelectionChanged="LanguageComboBox_SelectionChanged" />
                     </StackPanel>
+                    <Button x:Name="WebShellButton"
+                            MinWidth="138"
+                            Margin="0,0,10,0"
+                            Content="Nova interface"
+                            Click="WebShellButton_Click" />
                     <Button x:Name="MultiplayerButton"
                             MinWidth="160"
                             Style="{StaticResource NavPrimaryButton}"
