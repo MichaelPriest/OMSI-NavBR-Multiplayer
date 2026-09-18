@@ -4,8 +4,8 @@ namespace NavBR.Shared.PluginBridge;
 
 public static class PluginBridgeProtocol
 {
-    public const int Version = 2;
-    public const string PipeName = "OMSI.NavBR.Multiplayer.Plugin.v2";
+    public const int Version = 3;
+    public const string PipeName = "OMSI.NavBR.Multiplayer.Plugin.v3";
     public const int MaxMessageChars = 32_768;
 
     public const string PluginHello = "plugin-hello";
