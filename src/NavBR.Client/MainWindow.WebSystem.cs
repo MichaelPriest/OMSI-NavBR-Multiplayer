@@ -135,7 +135,8 @@ public partial class MainWindow
             Multiselect = false
         };
 
-        if (dialog.ShowDialog(this) != true)
+        var owner = GetPrimaryWebDialogOwner();
+        if ((owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner)) != true)
         {
             return;
         }

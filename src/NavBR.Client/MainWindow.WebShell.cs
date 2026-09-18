@@ -44,6 +44,9 @@ public partial class MainWindow
         Hide();
     }
 
+    private Window? GetPrimaryWebDialogOwner() =>
+        _webShellWindow is { IsVisible: true } ? _webShellWindow : null;
+
     private void OpenWebShell(bool primary)
     {
         if (primary)

@@ -96,6 +96,18 @@ Require-Text "src/NavBR.Client/MainWindow.OmsiLaunch.cs" @(
     'NavigatePrimaryWebShell("settings-installations")'
 )
 
+Require-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
+    "GetPrimaryWebDialogOwner"
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.WebSystem.cs" @(
+    "dialog.ShowDialog(this)"
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.WebGhost.cs" @(
+    "dialog.ShowDialog(this)"
+)
+
 Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     '"showLegacyShell"',
     '"openOmsiProfiles"',

@@ -163,7 +163,8 @@ public partial class MainWindow
             Filter = $"NavBR Ghost (*{GhostReplayFormat.Extension})|*{GhostReplayFormat.Extension}|Todos os arquivos (*.*)|*.*",
             InitialDirectory = Directory.Exists(directory) ? directory : null
         };
-        if (dialog.ShowDialog(this) != true)
+        var owner = GetPrimaryWebDialogOwner();
+        if ((owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner)) != true)
         {
             return;
         }
@@ -246,7 +247,8 @@ public partial class MainWindow
             Title = "Importar replay NavBR",
             Filter = $"NavBR Ghost (*{GhostReplayFormat.Extension})|*{GhostReplayFormat.Extension}|Todos os arquivos (*.*)|*.*"
         };
-        if (dialog.ShowDialog(this) != true)
+        var owner = GetPrimaryWebDialogOwner();
+        if ((owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner)) != true)
         {
             return;
         }
