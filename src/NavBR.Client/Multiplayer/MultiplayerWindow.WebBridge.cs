@@ -130,6 +130,17 @@ public partial class MultiplayerWindow
         var voiceQuality = _voiceChat.GetQualitySnapshot();
         var sessionOperationalState = _client.CurrentSessionOperationalState;
         var roomCompatibility = BuildWebRoomCompatibility();
+        var internetInviteAddress = _host.GetInternetInviteAddress();
+        var upnpResult = _host.LastUpnpResult;
+        var hostReachability = !_host.IsRunning
+            ? "inactive"
+            : !string.IsNullOrWhiteSpace(internetInviteAddress)
+                ? "internet-address-available"
+                : upnpResult?.Success == true
+                    ? "upnp-mapped-unverified"
+                    : _settings.EnableAutomaticUpnp && upnpResult is null
+                        ? "checking"
+                        : "lan-only";
         var transportMode = !_client.IsConnected
             ? "none"
             : _host.IsRunning
@@ -149,6 +160,11 @@ public partial class MultiplayerWindow
             displayName = _settings.DisplayName,
             hostRunning = _host.IsRunning,
             hostPort = _host.IsRunning ? _host.Port : null as int?,
+            hostReachability,
+            internetInviteAddress,
+            upnpMapped = upnpResult?.Success == true,
+            upnpMessage = upnpResult?.Message,
+            externalProbeConfigured = ExternalPortProbeClient.IsConfiguredForCurrentEnvironment(),
             roomIsPrivate = _client.CurrentRoomIsPrivate,
             inviteAddresses = _host.IsRunning ? _host.GetLanJoinUrls() : Array.Empty<string>(),
             latencyMs = _lastLatencyMs,
