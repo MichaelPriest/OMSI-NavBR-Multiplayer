@@ -75,6 +75,7 @@ public partial class MainWindow
             navigation = BuildWebNavigationState(),
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(),
+            hardware = BuildWebHardwareState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -325,6 +326,24 @@ public partial class MainWindow
                 OpenOmsiProfilesForShell();
                 break;
 
+            case "connectHardware":
+                ConnectHardwareFromWeb(
+                    GetWebPayloadString(payload, "portName"),
+                    GetWebPayloadInt(payload, "baudRate") ?? 115200,
+                    GetWebPayloadBool(payload, "autoReconnect"));
+                break;
+
+            case "disconnectHardware":
+                DisconnectHardwareFromWeb();
+                break;
+
+            case "saveHardwareSelection":
+                SaveHardwareSelectionFromWeb(
+                    GetWebPayloadString(payload, "portName"),
+                    GetWebPayloadInt(payload, "baudRate") ?? 115200,
+                    GetWebPayloadBool(payload, "autoReconnect"));
+                break;
+
             case "sendChat":
                 if (_multiplayerWindow is null)
                 {
@@ -383,6 +402,20 @@ public partial class MainWindow
         }
 
         return new WebRoomCompatibility("compatible", true, issues);
+    }
+
+    private static int? GetWebPayloadInt(JsonElement? payload, string propertyName)
+    {
+        if (payload is not JsonElement element ||
+            element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty(propertyName, out var value) ||
+            value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetInt32(out var number))
+        {
+            return null;
+        }
+
+        return number;
     }
 
     private static double? GetWebPayloadDouble(JsonElement? payload, string propertyName)
