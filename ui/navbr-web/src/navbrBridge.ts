@@ -594,6 +594,7 @@ export interface NavBrRoleplayState {
   mapKey?: string | null;
   runtimeAvailable: boolean;
   active: boolean;
+  terrainFollowing: boolean;
   status?: string | null;
   selected?: {
     id: string;
