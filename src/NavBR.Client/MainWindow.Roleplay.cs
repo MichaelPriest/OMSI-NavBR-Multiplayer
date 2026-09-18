@@ -179,9 +179,10 @@ public partial class MainWindow
 
     internal void OpenRoleplayCentralForShell()
     {
-        // Alpha.14 uses a single RP surface. HUD, automatic prompt and the
-        // multiplayer button all route to the same Central Multiplayer tab.
-        OpenMultiplayerRoleplayTabForShell();
+        // React/WebView2 is the primary Alpha.14 surface. Native HUD and
+        // automatic prompts route into the React RP screen; WPF remains only
+        // as an explicit fallback from Settings.
+        NavigatePrimaryWebShell("roleplay");
         _multiplayerWindow?.SetLocalRoleplayCharacterState(
             _roleplayCharacterController?.CurrentState);
     }
