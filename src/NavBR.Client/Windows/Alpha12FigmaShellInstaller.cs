@@ -188,11 +188,13 @@ internal static class Alpha12FigmaShellInstaller
         var quickStack = (StackPanel)quick.Child;
         var actions = new WrapPanel { Margin = new Thickness(0d, 18d, 0d, 0d) };
         actions.Children.Add(ActionButton("Navegação", () => RaiseNavigation(window, "⌖")));
+        actions.Children.Add(ActionButton("Mapa 3D", window.OpenNavigation3D));
         actions.Children.Add(ActionButton("Multiplayer", () => RaiseNavigation(window, "●")));
         actions.Children.Add(ActionButton(
             L("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP"),
             window.OpenRoleplayCentralForShell));
-        actions.Children.Add(ActionButton("Abrir HUD", () => RaiseTaggedButton(window, "alpha12-hud-shortcut")));
+        actions.Children.Add(ActionButton("Mover HUD", window.ToggleHudLayoutForShell));
+        actions.Children.Add(ActionButton("Configurar HUD", window.OpenHudEditorForShell));
         actions.Children.Add(ActionButton("Empresa / Frota", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
         actions.Children.Add(ActionButton("CCO", () => RaiseTaggedButton(window, "alpha12-dispatcher")));
         actions.Children.Add(ActionButton("Perfil", () => RaiseTaggedButton(window, "alpha12-driver-profile")));
@@ -303,6 +305,11 @@ internal static class Alpha12FigmaShellInstaller
         AddPageButton(body, "⌖  Navegação", pages.Navigation, pages, pageButtons);
         AddActionNavigationButton(
             body,
+            L("◇  Mapa 3D", "◇  3D map", "◇  Mapa 3D", "◇  3D-Karte", "◇  Carte 3D"),
+            window.OpenNavigation3D,
+            pageButtons);
+        AddActionNavigationButton(
+            body,
             "●  Multiplayer",
             window.OpenMultiplayerCentralForShell,
             pageButtons);
@@ -323,6 +330,19 @@ internal static class Alpha12FigmaShellInstaller
         var system = new StackPanel();
         window.RegisterName(Alpha12ProfessionalShellInstaller.SystemPanelName, system);
         AddPageButton(system, "▣  Hardware", pages.Hardware, pages, pageButtons);
+
+        var moveHudButton = NavigationButton(
+            L("↔  Mover HUD", "↔  Move HUD", "↔  Mover HUD", "↔  HUD verschieben", "↔  Déplacer HUD"),
+            window.ToggleHudLayoutForShell);
+        moveHudButton.Tag = "alpha14-hud-move";
+        system.Children.Add(moveHudButton);
+
+        var editHudButton = NavigationButton(
+            L("▦  Configurar HUD", "▦  Configure HUD", "▦  Configurar HUD", "▦  HUD konfigurieren", "▦  Configurer HUD"),
+            window.OpenHudEditorForShell);
+        editHudButton.Tag = "alpha14-hud-editor";
+        system.Children.Add(editHudButton);
+
         AddPageButton(system, "◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons);
         body.Children.Add(system);
 
@@ -330,6 +350,25 @@ internal static class Alpha12FigmaShellInstaller
         body.Children.Add(Section("FERRAMENTAS"));
         var tools = new StackPanel();
         window.RegisterName(Alpha12ProfessionalShellInstaller.ToolsPanelName, tools);
+
+        var connectivityButton = NavigationButton(
+            L("◎  Conectividade Multiplayer", "◎  Multiplayer connectivity", "◎  Conectividad multijugador", "◎  Multiplayer-Verbindung", "◎  Connectivité multijoueur"),
+            () => new Alpha12ConnectivityWindow(window).ShowDialog());
+        connectivityButton.Tag = "alpha14-connectivity";
+        tools.Children.Add(connectivityButton);
+
+        var natButton = NavigationButton(
+            L("◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP", "◉  NAT / UPnP"),
+            () => new NatDiagnosticsWindow(window).ShowDialog());
+        natButton.Tag = "alpha14-nat";
+        tools.Children.Add(natButton);
+
+        var externalPortButton = NavigationButton(
+            L("⇄  Teste externo TCP 27730", "⇄  External TCP 27730 test", "⇄  Prueba externa TCP 27730", "⇄  Externer TCP-27730-Test", "⇄  Test externe TCP 27730"),
+            () => new ExternalPortProbeWindow(window).ShowDialog());
+        externalPortButton.Tag = "alpha14-external-port";
+        tools.Children.Add(externalPortButton);
+
         body.Children.Add(tools);
 
         body.Children.Add(Separator());
