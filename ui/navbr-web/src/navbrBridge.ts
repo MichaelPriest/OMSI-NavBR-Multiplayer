@@ -620,6 +620,15 @@ export interface NavBrRoleplayState {
     activityArmUmbrellaRaw?: number | null;
     activityArmKiRaw?: number | null;
     activityHeadKiRaw?: number | null;
+    legacyFieldsDrivenByNavBr: boolean;
+  } | null;
+  nativeActivityObservation?: {
+    samples: number;
+    movingSamples: number;
+    transitionCount: number;
+    movingTransitionCount: number;
+    changedThisFrame: boolean;
+    lastTransitionAtUtc?: string | null;
   } | null;
   busDistanceMeters?: number | null;
   enterBusRangeMeters: number;
