@@ -5,15 +5,46 @@ public partial class MultiplayerWindow
     internal object BuildWebBridgeState()
     {
         var now = DateTimeOffset.UtcNow;
+        var localTelemetry = _telemetrySource();
+        var activeMap = _activeMapSource();
         var players = _players.Values
             .OrderBy(player => player.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .Select(player =>
             {
+                var isLocal = string.Equals(
+                    player.PlayerId,
+                    _settings.PlayerId,
+                    StringComparison.OrdinalIgnoreCase);
+                var telemetry = isLocal
+                    ? localTelemetry
+                    : _remoteTelemetry.TryGetValue(player.PlayerId, out var remoteTelemetry)
+                        ? remoteTelemetry
+                        : null;
                 var roleplay = _remoteRoleplayCharacters.TryGetValue(player.PlayerId, out var frame) &&
                                frame.Character.IsActive &&
                                now - frame.Character.Timestamp <= TimeSpan.FromSeconds(3d);
-                var speaking = _voiceActivity.TryGetValue(player.PlayerId, out var voiceAt) &&
-                               now - voiceAt <= TimeSpan.FromSeconds(1.5d);
+                var speaking = isLocal
+                    ? _voiceChat.IsPushToTalkActive
+                    : _voiceActivity.TryGetValue(player.PlayerId, out var voiceAt) &&
+                      now - voiceAt <= TimeSpan.FromSeconds(1.5d);
+                var receivedAt = isLocal
+                    ? telemetry is null ? null as DateTimeOffset? : now
+                    : _playerCardTelemetryReceivedAt.TryGetValue(player.PlayerId, out var seenAt)
+                        ? seenAt
+                        : null;
+                var telemetryAgeSeconds = receivedAt.HasValue
+                    ? Math.Max(0d, (now - receivedAt.Value).TotalSeconds)
+                    : null as double?;
+                var telemetryStale = !isLocal &&
+                                     telemetry is not null &&
+                                     telemetryAgeSeconds is > 3d;
+                var distanceText = GetDistanceText(
+                    localTelemetry,
+                    telemetry,
+                    localTelemetry?.MapName,
+                    player.MapName,
+                    activeMap?.CompatibilityId,
+                    player.MapCompatibilityId);
 
                 return new
                 {
@@ -24,7 +55,18 @@ public partial class MultiplayerWindow
                     voiceEnabled = player.VoiceEnabled,
                     latencyMs = player.LatencyMs,
                     roleplayActive = roleplay,
-                    speaking
+                    speaking,
+                    isLocal,
+                    line = telemetry?.Line,
+                    route = telemetry?.Route,
+                    destinationName = telemetry?.DestinationName,
+                    nextStopName = telemetry?.NextStopName,
+                    vehicleName = telemetry?.VehicleName,
+                    speedKph = telemetry?.SpeedKph,
+                    delaySeconds = telemetry?.DelaySeconds,
+                    telemetryAgeSeconds,
+                    telemetryStale,
+                    distanceText
                 };
             })
             .ToArray();
