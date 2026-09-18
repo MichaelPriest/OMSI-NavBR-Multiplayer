@@ -12,7 +12,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const int MaxPhysicalRemotePlayers = 32;
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _inFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _lastFailureByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
@@ -55,9 +56,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
         CancellationToken cancellationToken = default)
     {
         var playerId = frame.Player.PlayerId;
-        if (string.IsNullOrWhiteSpace(playerId) ||
-            !_inFlight.TryAdd(playerId, 0))
+        if (string.IsNullOrWhiteSpace(playerId))
         {
+            return;
+        }
+
+        var gate = _playerGates.GetOrAdd(
+            playerId,
+            static _ => new SemaphoreSlim(1, 1));
+        if (!await gate.WaitAsync(0, cancellationToken))
+        {
+            // Telemetry is high-frequency. Drop overlapping frames instead of
+            // building an unbounded per-player queue behind asset resolution.
             return;
         }
 
@@ -67,7 +77,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
         finally
         {
-            _inFlight.TryRemove(playerId, out _);
+            gate.Release();
         }
     }
 
@@ -81,7 +91,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         {
             if (_spawned.ContainsKey(frame.Player.PlayerId))
             {
-                await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+                await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             }
             return;
         }
@@ -94,7 +104,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // VehiclePath is only a location hint and can differ between installs.
         if (string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
         {
-            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             return;
         }
 
@@ -108,7 +118,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             requireVehicleForPhysicalMultiplayer: false);
         if (!report.IsCompatible)
         {
-            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             return;
         }
 
@@ -125,7 +135,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         {
             // The remote player changed vehicle. Remove the old NavBR-owned
             // instance before creating the newly reported asset.
-            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             if (_spawned.ContainsKey(frame.Player.PlayerId))
             {
                 // Despawn failed and restored the old ownership state. Never
@@ -188,7 +198,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 frame.Player.PlayerId,
                 out var localVehiclePath))
         {
-            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             ReportFailureOnce(
                 frame.Player.PlayerId,
                 "asset",
@@ -205,7 +215,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             cancellationToken);
         if (update is { Success: false })
         {
-            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
             ReportCommandFailureOnce(frame.Player.PlayerId, "update", update);
             return;
         }
@@ -216,6 +226,29 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public async Task DespawnAsync(
         string playerId,
         CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        var gate = _playerGates.GetOrAdd(
+            playerId,
+            static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await DespawnOwnedAsync(playerId, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task DespawnOwnedAsync(
+        string playerId,
+        CancellationToken cancellationToken)
     {
         if (!_spawned.TryRemove(playerId, out _))
         {
@@ -253,30 +286,26 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         _lastFailureByPlayer.TryRemove(playerId, out _);
-        RemoteDiagnosticsService.Record("physical-vehicle", "info", "despawn-success");
+        RemoteDiagnosticsService.Record(
+            "physical-vehicle",
+            "info",
+            "despawn-success");
     }
 
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
-        var players = _spawned.Keys.ToArray();
-        _spawned.Clear();
-        _spawnedCompatibilityByPlayer.Clear();
-        _resolvedVehiclePathByPlayer.Clear();
+        var players = _spawned.Keys
+            .Concat(_playerGates.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         foreach (var playerId in players)
         {
-            var result = await OmsiPluginBridgeRelay.DespawnRemoteVehicleAsync(
-                playerId,
-                cancellationToken);
-            if (result is { Success: false })
-            {
-                ReportCommandFailureOnce(playerId, "despawn", result);
-            }
-            else
-            {
-                _lastFailureByPlayer.TryRemove(playerId, out _);
-            }
+            await DespawnAsync(playerId, cancellationToken);
         }
+
+        _spawnedCompatibilityByPlayer.Clear();
+        _resolvedVehiclePathByPlayer.Clear();
     }
 
     private void ReportCommandFailureOnce(
