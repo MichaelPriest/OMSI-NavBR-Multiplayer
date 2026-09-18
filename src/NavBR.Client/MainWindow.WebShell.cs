@@ -893,14 +893,17 @@ public partial class MainWindow
         return number;
     }
 
-    private static bool GetWebPayloadBool(JsonElement? payload, string propertyName)
+    private static bool GetWebPayloadBool(
+        JsonElement? payload,
+        string propertyName,
+        bool defaultValue = false)
     {
         if (payload is not JsonElement element ||
             element.ValueKind != JsonValueKind.Object ||
             !element.TryGetProperty(propertyName, out var value) ||
             (value.ValueKind != JsonValueKind.True && value.ValueKind != JsonValueKind.False))
         {
-            return false;
+            return defaultValue;
         }
 
         return value.GetBoolean();
