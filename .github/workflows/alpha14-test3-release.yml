@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - test/alpha14-test3
+  pull_request:
+    branches:
+      - feature/alpha14-roleplay
 
 permissions:
   contents: write
@@ -15,14 +18,17 @@ concurrency:
 
 jobs:
   publish-test-release:
+    if: github.event_name == 'push' || github.head_ref == 'test/alpha14-test3'
     runs-on: windows-latest
     env:
       TEST_TAG: v0.3.0-alpha.14-test.3
+      RELEASE_TARGET: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Verify Alpha.14 Test 3 version
         shell: pwsh
@@ -42,7 +48,7 @@ jobs:
             $global:LASTEXITCODE = 0
             gh release create $env:TEST_TAG `
               --repo "${{ github.repository }}" `
-              --target "$env:GITHUB_SHA" `
+              --target "$env:RELEASE_TARGET" `
               --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
               --notes "Draft reservado enquanto a Alpha.14 Test 3 passa pela validação automática." `
               --prerelease --draft
@@ -402,7 +408,7 @@ jobs:
 
           gh release edit $env:TEST_TAG `
             --repo "${{ github.repository }}" `
-            --target "$env:GITHUB_SHA" `
+            --target "$env:RELEASE_TARGET" `
             --title "OMSI NavBR Multiplayer $env:TEST_TAG — Central Multiplayer + RP v3" `
             --notes-file "artifacts/release-notes.md" `
             --prerelease --draft=false
