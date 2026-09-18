@@ -8,6 +8,16 @@
 html, body { margin: 0; min-height: 100%; background: #071019; }
 body { min-height: 100vh; }
 button { font: inherit; }
+select {
+  color-scheme: dark;
+  background-color: #08151f;
+  color: #e8f2f8;
+}
+select option,
+select optgroup {
+  background-color: #08151f;
+  color: #e8f2f8;
+}
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 248px 1fr; }
 .sidebar {
   position: sticky; top: 0; height: 100vh; padding: 24px 18px;
