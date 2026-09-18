@@ -143,6 +143,38 @@ export interface NavBrNavigationState {
   };
 }
 
+export interface NavBrNavigation3DVehicle {
+  x: number;
+  y: number;
+  headingDegrees: number;
+  speedKph: number;
+  line?: string | null;
+}
+
+export interface NavBrNavigation3DRemoteVehicle extends NavBrNavigation3DVehicle {
+  playerId: string;
+  displayName: string;
+}
+
+export interface NavBrNavigation3DState {
+  available: boolean;
+  mapName?: string | null;
+  mapFolder?: string | null;
+  roadmapAvailable: boolean;
+  roadmapUrl?: string | null;
+  bounds?: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  } | null;
+  routePoints: NavBrNavigationPoint[];
+  localVehicle?: NavBrNavigation3DVehicle | null;
+  remoteVehicles: NavBrNavigation3DRemoteVehicle[];
+  routeAvailable: boolean;
+  remoteCount: number;
+}
+
 export interface NavBrOperationalReport {
   reportId: string;
   roomId: string;
@@ -576,6 +608,7 @@ export interface NavBrState {
     speedKph: number;
   };
   navigation: NavBrNavigationState;
+  navigation3D: NavBrNavigation3DState;
   operations: NavBrOperationsState;
   system: NavBrSystemState;
   roadmapStudio: NavBrRoadmapStudioState;
