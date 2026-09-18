@@ -779,11 +779,11 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   const [autoReconnect, setAutoReconnect] = useState(false);
 
   useEffect(() => {
-    if (!hardware) return;
-    setPortName(current => current || hardware.portName || hardware.availablePorts[0] || "");
-    setBaudRate(current => current || hardware.baudRate || 115200);
+    if (!hardware || hardware.connected) return;
+    setPortName(hardware.portName || hardware.availablePorts[0] || "");
+    setBaudRate(hardware.baudRate || 115200);
     setAutoReconnect(hardware.autoReconnect);
-  }, [hardware?.portName, hardware?.baudRate, hardware?.autoReconnect, hardware?.availablePorts]);
+  }, [hardware?.connected, hardware?.portName, hardware?.baudRate, hardware?.autoReconnect, hardware?.availablePorts]);
 
   if (!hardware) {
     return <div className="card empty-state">Aguardando estado do Hardware Cockpit…</div>;
