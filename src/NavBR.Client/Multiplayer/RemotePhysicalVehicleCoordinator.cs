@@ -10,6 +10,7 @@ namespace NavBR.Client.Multiplayer;
 internal sealed record RemotePhysicalVehicleStatus(
     string State,
     string? ErrorCode,
+    int? PartCount,
     DateTimeOffset UpdatedAtUtc);
 
 internal sealed class RemotePhysicalVehicleCoordinator
@@ -74,6 +75,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         return new RemotePhysicalVehicleStatus(
             state,
             ErrorCode: null,
+            PartCount: null,
             DateTimeOffset.UtcNow);
     }
 
@@ -401,17 +403,28 @@ internal sealed class RemotePhysicalVehicleCoordinator
     {
         var errorCode = result?.ErrorCode ?? "no-result";
         var detail = result?.ErrorMessage ?? string.Empty;
-        SetStatus(playerId, $"{operation}-failed", errorCode);
+        var state = string.Equals(
+                errorCode,
+                "multi-vehicle-consist-unsupported",
+                StringComparison.Ordinal)
+            ? "consist-unsupported"
+            : $"{operation}-failed";
+        SetStatus(
+            playerId,
+            state,
+            errorCode,
+            result?.RemoteVehicleCount);
         ReportFailureOnce(
             playerId,
             operation,
-            $"{operation}-failed error={errorCode} detail={detail}");
+            $"{operation}-failed error={errorCode} parts={result?.RemoteVehicleCount?.ToString() ?? "n/a"} detail={detail}");
     }
 
     private void SetStatus(
         string playerId,
         string state,
-        string? errorCode = null)
+        string? errorCode = null,
+        int? partCount = null)
     {
         if (string.IsNullOrWhiteSpace(playerId))
         {
@@ -421,6 +434,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _statusByPlayer[playerId] = new RemotePhysicalVehicleStatus(
             state,
             string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
+            partCount is > 0 ? partCount : null,
             DateTimeOffset.UtcNow);
     }
 
