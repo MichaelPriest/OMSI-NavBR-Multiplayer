@@ -228,6 +228,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             HeadingDegrees: heading,
             SpeedKph: speedKph,
             IsInGame: true,
+            GridX: _options.GridX,
+            GridY: _options.GridY,
+            TileX: _options.TileX is double baseTileX ? baseTileX + (x - _options.CenterX) : null,
+            TileY: _options.TileY is double baseTileY ? baseTileY + (y - _options.CenterY) : null,
             MapCompatibilityId: _options.MapCompatibilityId,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
@@ -411,6 +415,10 @@ internal sealed record SimulatorOptions(
     string? MapCompatibilityId,
     string? VehiclePath,
     string? VehicleCompatibilityId,
+    int? GridX,
+    int? GridY,
+    double? TileX,
+    double? TileY,
     double CenterX,
     double CenterY,
     double CenterZ,
@@ -461,6 +469,10 @@ internal sealed record SimulatorOptions(
             MapCompatibilityId: NullIfEmpty(values.GetValueOrDefault("map-id")),
             VehiclePath: NullIfEmpty(values.GetValueOrDefault("vehicle-path")),
             VehicleCompatibilityId: NullIfEmpty(values.GetValueOrDefault("vehicle-id")),
+            GridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
+            GridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
+            TileX: ParseNullableDouble(values.GetValueOrDefault("tile-x")),
+            TileY: ParseNullableDouble(values.GetValueOrDefault("tile-y")),
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),
             CenterY: ParseDouble(values.GetValueOrDefault("y"), 0d),
             CenterZ: ParseDouble(values.GetValueOrDefault("z"), 0d),
@@ -489,6 +501,9 @@ Options:
   --map NAME           OMSI map name. Use the real loaded map name to test HUD/minimap compatibility.
   --map-id ID          Optional real map compatibility id.
   --x N --y N --z N   Movement center in OMSI local coordinates.
+  --grid-x N --grid-y N
+  --tile-x N --tile-y N
+                       Optional real OMSI navigation position for HUD/minimap tests.
   --radius N           Movement radius in meters (default 90)
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
@@ -510,6 +525,18 @@ Options:
             out var parsed)
             ? parsed
             : fallback;
+
+    private static int? ParseNullableInt(string? value) =>
+        int.TryParse(value, out var parsed) ? parsed : null;
+
+    private static double? ParseNullableDouble(string? value) =>
+        double.TryParse(
+            value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : null;
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
