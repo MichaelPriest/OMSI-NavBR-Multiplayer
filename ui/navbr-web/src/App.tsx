@@ -32,6 +32,11 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   voiceChannel: "general",
   voiceProximityMeters: 120,
   voiceDeafened: false,
+  voiceInputDeviceNumber: 0,
+  voiceOutputDeviceNumber: -1,
+  voiceInputDevices: [],
+  voiceOutputDevices: [],
+  voiceMixers: [],
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -1913,8 +1918,82 @@ function Multiplayer({
               <span>Silenciar áudio remoto</span>
             </label>
 
-            <p>Microfone, saída de áudio e volumes individuais continuam nos controles avançados.</p>
-            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Dispositivos e volumes</button>
+            <div className="voice-device-grid">
+              <label className="voice-field">
+                <span>Microfone</span>
+                <select
+                  value={multiplayer.voiceInputDeviceNumber}
+                  onChange={event => sendCommand("configureVoiceDevices", {
+                    inputDeviceNumber: Number(event.target.value),
+                    outputDeviceNumber: multiplayer.voiceOutputDeviceNumber
+                  })}
+                >
+                  {multiplayer.voiceInputDevices.length === 0
+                    ? <option value={0}>Nenhum microfone detectado</option>
+                    : multiplayer.voiceInputDevices.map(device => (
+                      <option key={device.deviceNumber} value={device.deviceNumber}>{device.displayName}</option>
+                    ))}
+                </select>
+              </label>
+
+              <label className="voice-field">
+                <span>Saída de áudio</span>
+                <select
+                  value={multiplayer.voiceOutputDeviceNumber}
+                  onChange={event => sendCommand("configureVoiceDevices", {
+                    inputDeviceNumber: multiplayer.voiceInputDeviceNumber,
+                    outputDeviceNumber: Number(event.target.value)
+                  })}
+                >
+                  {multiplayer.voiceOutputDevices.map(device => (
+                    <option key={device.deviceNumber} value={device.deviceNumber}>{device.displayName}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="voice-mixer">
+              <div className="section-heading compact">
+                <div><span className="eyebrow">MIXER</span><h3>Jogadores</h3></div>
+              </div>
+              {multiplayer.voiceMixers.length === 0 ? (
+                <div className="empty-state compact-empty">Nenhum jogador remoto para ajustar.</div>
+              ) : multiplayer.voiceMixers.map(player => (
+                <div className="voice-mixer-row" key={player.playerId}>
+                  <div>
+                    <strong>{player.displayName}</strong>
+                    <small>{player.speaking ? "Falando agora" : player.muted ? "Mutado" : "Áudio ativo"}</small>
+                  </div>
+                  <label className="voice-mute-toggle">
+                    <input
+                      type="checkbox"
+                      checked={player.muted}
+                      onChange={event => sendCommand("configureRemoteVoice", {
+                        playerId: player.playerId,
+                        muted: event.target.checked,
+                        gain: player.gain
+                      })}
+                    />
+                    <span>Mute</span>
+                  </label>
+                  <label className="voice-gain">
+                    <span>{Math.round(player.gain * 100)}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.05"
+                      value={player.gain}
+                      onChange={event => sendCommand("configureRemoteVoice", {
+                        playerId: player.playerId,
+                        muted: player.muted,
+                        gain: Number(event.target.value)
+                      })}
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
           </aside>
         </section>
       )}
