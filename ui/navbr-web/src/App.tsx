@@ -370,8 +370,16 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
 
 function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   const { t, pick } = useI18n();
-  const [camera, setCamera] = useState<"follow" | "aerial">("follow");
+  const [camera, setCamera] = useState<"follow" | "roleplay" | "aerial">("follow");
   const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    if (state.localRoleplayCharacter) {
+      setCamera("roleplay");
+    } else {
+      setCamera(current => current === "roleplay" ? "follow" : current);
+    }
+  }, [Boolean(state.localRoleplayCharacter)]);
 
   const scene = useMemo(() => {
     if (!state.bounds || !state.roadmapAvailable || !state.roadmapUrl) {
@@ -396,17 +404,24 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       ...vehicle,
       ...project(vehicle.x, vehicle.y)
     }));
+    const roleplay = state.localRoleplayCharacter
+      ? {
+          ...state.localRoleplayCharacter,
+          ...project(state.localRoleplayCharacter.x, state.localRoleplayCharacter.y)
+        }
+      : null;
 
     let viewBox = `0 0 ${sceneWidth} ${sceneHeight}`;
-    if (camera === "follow" && local) {
+    const followTarget = camera === "roleplay" ? roleplay : camera === "follow" ? local : null;
+    if (followTarget) {
       const spanX = Math.max(150, 430 / zoom);
       const spanY = Math.max(110, 290 / zoom);
-      const minX = Math.max(0, Math.min(sceneWidth - spanX, local.x - spanX / 2));
-      const minY = Math.max(0, Math.min(sceneHeight - spanY, local.y - spanY * 0.58));
+      const minX = Math.max(0, Math.min(sceneWidth - spanX, followTarget.x - spanX / 2));
+      const minY = Math.max(0, Math.min(sceneHeight - spanY, followTarget.y - spanY * 0.58));
       viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
     }
 
-    return { sceneWidth, sceneHeight, route, local, remotes, viewBox };
+    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, viewBox };
   }, [state, camera, zoom]);
 
   if (!state.roadmapAvailable) {
@@ -433,6 +448,13 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     <div className="navigation-3d">
       <div className="navigation-map-toolbar nav3d-toolbar">
         <button className={camera === "follow" ? "active" : ""} onClick={() => setCamera("follow")}>{t("nav.followBus")}</button>
+        <button
+          className={camera === "roleplay" ? "active" : ""}
+          disabled={!scene?.roleplay}
+          onClick={() => setCamera("roleplay")}
+        >
+          {pick("Seguir personagem", "Follow character", "Seguir personaje", "Charakter folgen", "Suivre le personnage")}
+        </button>
         <button className={camera === "aerial" ? "active" : ""} onClick={() => setCamera("aerial")}>{pick("Visão aérea", "Aerial view", "Vista aérea", "Luftansicht", "Vue aérienne")}</button>
         <label>
           <span>Zoom</span>
@@ -501,6 +523,25 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
                 <path d="M 0 -29 L -8 -17 L 8 -17 Z" />
               </g>
             )}
+
+            {scene.roleplay && (
+              <g
+                className="nav3d-roleplay-character"
+                transform={`translate(${scene.roleplay.x} ${scene.roleplay.y}) rotate(${scene.roleplay.headingDegrees})`}
+              >
+                <circle r="18" className="nav3d-roleplay-halo" />
+                <circle cy="-3" r="6" className="nav3d-roleplay-head" />
+                <path className="nav3d-roleplay-body" d="M 0 4 L 0 18 M -8 9 L 8 9 M 0 18 L -7 29 M 0 18 L 7 29" />
+                <path className="nav3d-roleplay-heading" d="M 0 -29 L -6 -19 L 6 -19 Z" />
+                <text
+                  x="22"
+                  y="-20"
+                  transform={`rotate(${-scene.roleplay.headingDegrees} 22 -20)`}
+                >
+                  {scene.roleplay.characterName || pick("Personagem", "Character", "Personaje", "Charakter", "Personnage")}
+                </text>
+              </g>
+            )}
           </svg>
         </div>
       </div>
@@ -509,6 +550,17 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
         <span><strong>{state.mapName || pick("Mapa OMSI", "OMSI map", "Mapa OMSI", "OMSI-Karte", "Carte OMSI")}</strong></span>
         <span>{state.routeAvailable ? pick("Rota real carregada", "Real route loaded", "Ruta real cargada", "Echte Route geladen", "Itinéraire réel chargé") : pick("Rota não resolvida", "Route not resolved", "Ruta no resuelta", "Route nicht aufgelöst", "Itinéraire non résolu")}</span>
         <span>{state.remoteCount} {pick("ônibus remoto(s) compatível(is)", "compatible remote bus(es)", "autobús(es) remoto(s) compatible(s)", "kompatible Remote-Busse", "bus distant(s) compatible(s)")}</span>
+        <span>
+          {scene.roleplay
+            ? pick(
+                `RP ativo: ${scene.roleplay.characterName || "Personagem"} • ${scene.roleplay.activity}`,
+                `RP active: ${scene.roleplay.characterName || "Character"} • ${scene.roleplay.activity}`,
+                `RP activo: ${scene.roleplay.characterName || "Personaje"} • ${scene.roleplay.activity}`,
+                `RP aktiv: ${scene.roleplay.characterName || "Charakter"} • ${scene.roleplay.activity}`,
+                `RP actif : ${scene.roleplay.characterName || "Personnage"} • ${scene.roleplay.activity}`
+              )
+            : pick("RP inativo", "RP inactive", "RP inactivo", "RP inaktiv", "RP inactif")}
+        </span>
       </div>
     </div>
   );
