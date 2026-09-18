@@ -23,6 +23,7 @@ A antiga página Multiplayer paralela do shell foi removida. O menu abre diretam
 - HUD, Central e fluxo automático usam o mesmo `RoleplayCharacterController`;
 - removida a antiga janela RP duplicada;
 - seleção continua usando os personagens reais de `Map.Drivers`;
+- `★` identifica no seletor a definição atualmente vinculada ao motorista do ônibus do jogador;
 - plugin NavBR atualizado para **bridge protocol v3**;
 - interop nativo atualizado para **state ABI v3**;
 - capacidades RP do plugin são atualizadas após o OMSI terminar de inicializar;
