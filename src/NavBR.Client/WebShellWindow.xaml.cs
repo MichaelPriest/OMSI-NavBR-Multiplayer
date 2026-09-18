@@ -13,6 +13,9 @@ public partial class WebShellWindow : Window
     private readonly DispatcherTimer _pushTimer;
     private bool _ready;
 
+    public bool IsReady => _ready;
+    public event EventHandler? ShellReady;
+
     public WebShellWindow(
         Func<object> stateProvider,
         Action launchOmsi,
@@ -53,9 +56,14 @@ public partial class WebShellWindow : Window
                     return;
                 }
 
+                var wasReady = _ready;
                 _ready = true;
                 PushState();
                 _pushTimer.Start();
+                if (!wasReady)
+                {
+                    ShellReady?.Invoke(this, EventArgs.Empty);
+                }
             };
 
             var preferredRoot = Path.Combine(AppContext.BaseDirectory, "WebUI", "dist");
