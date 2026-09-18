@@ -80,6 +80,15 @@ export interface NavBrMultiplayerState {
     isRoomOwner: boolean;
     isTrafficAuthority: boolean;
   };
+  transportMode: "none" | "direct-host" | "remote-host" | "relay";
+  roomCompatibility: {
+    level: "none" | "waiting" | "compatible" | "partial" | "warning" | "blocked";
+    remoteCount: number;
+    blocking: number;
+    warnings: number;
+    partial: number;
+    affectedAreas: string[];
+  };
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
