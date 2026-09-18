@@ -2,13 +2,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   type NavBrMultiplayerState,
   type NavBrNavigationState,
+  type NavBrOmsiInstallation,
   type NavBrSessionPoint,
   type NavBrState,
   sendCommand,
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "operations" | "multiplayer";
+type Screen = "home" | "navigation" | "operations" | "settings" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -68,7 +69,9 @@ function Sidebar({
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
           <b>▣</b><span>CCO</span>
         </button>
-        <button className="nav-item" disabled><b>⚙</b><span>Configurações</span></button>
+        <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
+          <b>⚙</b><span>Configurações</span>
+        </button>
       </nav>
       <div className="sidebar-footer">
         <i />
@@ -762,6 +765,212 @@ function Operations({ state, error }: { state: NavBrState | null; error: string 
   );
 }
 
+
+type SettingsTab = "installations" | "diagnostics" | "advanced";
+
+function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
+  const [name, setName] = useState(profile.name);
+  const [launchArguments, setLaunchArguments] = useState(profile.launchArguments || "");
+
+  useEffect(() => {
+    setName(profile.name);
+    setLaunchArguments(profile.launchArguments || "");
+  }, [profile.id, profile.name, profile.launchArguments]);
+
+  return (
+    <article className={`installation-card ${profile.isPreferred ? "preferred" : ""} ${profile.isRunning ? "running" : ""}`}>
+      <div className="installation-top">
+        <div>
+          <div className="installation-badges">
+            {profile.isPreferred && <span className="install-badge preferred">Preferido</span>}
+            {profile.isRunning && <span className="install-badge running">Em execução</span>}
+            {!profile.executableExists && <span className="install-badge invalid">Omsi.exe ausente</span>}
+          </div>
+          <h3>{profile.name}</h3>
+          <code>{profile.installDirectory}</code>
+        </div>
+        <button
+          className="button primary compact"
+          disabled={!profile.executableExists}
+          onClick={() => sendCommand("launchOmsiProfile", { profileId: profile.id })}
+        >
+          {profile.isRunning ? "Ativar OMSI" : "Executar"}
+        </button>
+      </div>
+
+      <div className="installation-edit-grid">
+        <label>
+          <span>Nome do perfil</span>
+          <input value={name} onChange={event => setName(event.target.value)} />
+        </label>
+        <label>
+          <span>Argumentos de inicialização</span>
+          <input value={launchArguments} onChange={event => setLaunchArguments(event.target.value)} placeholder="Opcional" />
+        </label>
+      </div>
+
+      <div className="installation-actions">
+        <button className="button ghost compact" onClick={() => sendCommand("updateOmsiProfile", {
+          profileId: profile.id,
+          name,
+          launchArguments
+        })}>Salvar perfil</button>
+        {!profile.isPreferred && (
+          <button className="button ghost compact" onClick={() => sendCommand("setPreferredOmsiProfile", { profileId: profile.id })}>
+            Tornar preferido
+          </button>
+        )}
+        <button className="button ghost compact danger" onClick={() => sendCommand("removeOmsiProfile", { profileId: profile.id })}>
+          Remover
+        </button>
+      </div>
+
+      {profile.lastUsedAtUtc && (
+        <small className="install-last-used">Último uso: {new Date(profile.lastUsedAtUtc).toLocaleString()}</small>
+      )}
+    </article>
+  );
+}
+
+function Settings({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const system = state?.system;
+  const [tab, setTab] = useState<SettingsTab>("installations");
+  const [manualPath, setManualPath] = useState("");
+
+  if (!system) {
+    return <div className="card empty-state">Aguardando configurações do sistema…</div>;
+  }
+
+  const logSize = system.diagnostics.logSizeBytes >= 1024 * 1024
+    ? `${(system.diagnostics.logSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(0, system.diagnostics.logSizeBytes / 1024).toFixed(1)} KB`;
+
+  return (
+    <>
+      <header className="topbar settings-header">
+        <div>
+          <span className="eyebrow">SISTEMA NAVBR</span>
+          <h1>Configurações</h1>
+          <p>Instalações do OMSI, diagnóstico e atalhos avançados mantidos pelo backend C#.</p>
+        </div>
+        <div className="top-actions">
+          <span className={`connection-pill ${state?.omsi.running ? "connected" : ""}`}>
+            <i /> {state?.omsi.running ? "OMSI detectado" : "OMSI fechado"}
+          </span>
+        </div>
+      </header>
+
+      {error && <div className="command-error">{error}</div>}
+
+      <div className="mp-tabs settings-tabs" role="tablist">
+        {([
+          ["installations", "Instalações OMSI"],
+          ["diagnostics", "Diagnóstico"],
+          ["advanced", "Avançado"]
+        ] as [SettingsTab, string][]).map(([key, label]) => (
+          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
+
+      {tab === "installations" && (
+        <section className="settings-installations">
+          <article className="card discovery-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">DESCOBERTA</span><h3>Encontrar OMSI 2</h3></div>
+              <button className="button ghost" onClick={() => sendCommand("openOmsiProfiles")}>Editor nativo</button>
+            </div>
+            <p>O NavBR pode localizar instalações registradas, bibliotecas Steam e também validar uma pasta informada manualmente.</p>
+            <div className="discovery-actions">
+              <input
+                value={manualPath}
+                onChange={event => setManualPath(event.target.value)}
+                placeholder="Ex.: G:\Games\OMSI 2 Steam Edition"
+              />
+              <button className="button primary" onClick={() => sendCommand("discoverOmsiProfiles", { path: manualPath })}>
+                {manualPath.trim() ? "Adicionar / descobrir" : "Descobrir automaticamente"}
+              </button>
+            </div>
+          </article>
+
+          <div className="installation-list">
+            {system.installations.length === 0 ? (
+              <div className="card empty-state">Nenhum perfil OMSI cadastrado. Use a descoberta acima para localizar uma instalação real.</div>
+            ) : system.installations.map(profile => (
+              <OmsiProfileCard key={profile.id} profile={profile} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "diagnostics" && (
+        <section className="diagnostics-layout">
+          <article className="card diagnostics-consent-card">
+            <span className="eyebrow">PRIVACIDADE</span>
+            <h3>Diagnóstico remoto</h3>
+            <p>
+              O envio é opt-in. Quando desativado, o NavBR não registra eventos para envio remoto e limpa a fila local de diagnóstico.
+            </p>
+            <label className="diagnostics-toggle">
+              <input
+                type="checkbox"
+                checked={system.diagnostics.enabled}
+                onChange={event => sendCommand("setDiagnosticsEnabled", { enabled: event.target.checked })}
+              />
+              <span>{system.diagnostics.enabled ? "Diagnóstico remoto ativado" : "Diagnóstico remoto desativado"}</span>
+            </label>
+            <div className="diagnostics-actions">
+              <button className="button ghost" disabled={!system.diagnostics.enabled} onClick={() => sendCommand("flushDiagnostics")}>
+                Tentar enviar fila agora
+              </button>
+              <button className="button ghost danger" onClick={() => sendCommand("purgeDiagnostics")}>
+                Limpar fila de diagnóstico
+              </button>
+            </div>
+          </article>
+
+          <article className="card diagnostics-log-card">
+            <span className="eyebrow">LOG LOCAL</span>
+            <h3>navbr.log</h3>
+            <div className="diagnostic-facts">
+              <span><small>ARQUIVO</small><strong>{system.diagnostics.logExists ? "Disponível" : "Ainda não criado"}</strong></span>
+              <span><small>TAMANHO</small><strong>{system.diagnostics.logExists ? logSize : "—"}</strong></span>
+              <span><small>ATUALIZAÇÃO</small><strong>{system.diagnostics.logUpdatedAtUtc ? new Date(system.diagnostics.logUpdatedAtUtc).toLocaleString() : "—"}</strong></span>
+            </div>
+            <code>{system.diagnostics.logPath}</code>
+            <p>O log local continua existindo independentemente do consentimento de diagnóstico remoto e é usado para suporte técnico local.</p>
+          </article>
+        </section>
+      )}
+
+      {tab === "advanced" && (
+        <section className="advanced-grid settings-advanced">
+          <article className="card compact-card">
+            <span className="eyebrow">MULTIPLAYER</span>
+            <h3>Rede e conectividade</h3>
+            <p>Firewall, NAT, UPnP, relay, ônibus físico e demais opções sensíveis continuam no controlador nativo.</p>
+            <button className="button ghost" onClick={() => sendCommand("openMultiplayerCentral")}>Abrir avançado multiplayer</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">HUD</span>
+            <h3>Personalização</h3>
+            <p>Escala, módulos, presets, opacidade e posição do HUD continuam no editor nativo.</p>
+            <div className="settings-action-row">
+              <button className="button ghost" onClick={() => sendCommand("openHudEditor")}>Configurar HUD</button>
+              <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
+            </div>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">OMSI</span>
+            <h3>Perfis avançados</h3>
+            <p>Mapas/veículos habilitados por perfil e edições detalhadas permanecem disponíveis no editor WPF durante a migração.</p>
+            <button className="button ghost" onClick={() => sendCommand("openOmsiProfiles")}>Abrir editor de perfis</button>
+          </article>
+        </section>
+      )}
+    </>
+  );
+}
+
 function Multiplayer({
   state,
   error
@@ -1237,7 +1446,9 @@ export default function App() {
             ? <Navigation state={state} />
             : screen === "operations"
               ? <Operations state={state} error={commandError} />
-              : <Multiplayer state={state} error={commandError} />}
+              : screen === "settings"
+                ? <Settings state={state} error={commandError} />
+                : <Multiplayer state={state} error={commandError} />}
       </main>
     </div>
   );
