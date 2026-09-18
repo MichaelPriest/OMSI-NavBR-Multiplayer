@@ -392,6 +392,9 @@ export interface NavBrOmsiInstallation {
 export interface NavBrHudPreset {
   id: string;
   displayName: string;
+  themeId: string;
+  inspiration: string;
+  description: string;
   width: number;
   scale: number;
   opacity: number;
