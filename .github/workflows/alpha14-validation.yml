@@ -1,11 +1,10 @@
 name: alpha14 validation
 
 on:
-  push:
-    branches:
-      - feature/alpha14-roleplay
   pull_request:
-    branches: [ main ]
+    branches:
+      - feature/alpha13-online-vehicles
+      - main
   workflow_dispatch:
 
 permissions:
