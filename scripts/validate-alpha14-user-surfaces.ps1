@@ -199,14 +199,24 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     'sendCommand("setPhysicalVehiclesEnabled"',
     'sendCommand("submitOperationalReport"',
     'sendCommand("resolveMyOperationalReports"',
+    'sendCommand("openFeedback"',
+    'sendCommand("exportSessionHealth"',
+    'sendCommand("exportDriverProfile"',
+    'sendCommand("selectDriverProfileImport"',
+    'sendCommand("setShellTopmost"',
+    'sendCommand("refreshOmsiDetection"',
     "Copiar convite",
     "Colar convite",
     "QUALIDADE DA SESSÃO",
     "AUTORIDADE",
     "COMPATIBILIDADE DA SALA",
+    "Manual do NavBR",
+    "Viagens reais",
     "voicePushToTalkActive",
     "sessionOperationalState",
-    "telemetryStale"
+    "telemetryStale",
+    "Sempre no topo",
+    "Ajustar"
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -222,12 +232,24 @@ Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
     '"setPhysicalVehiclesEnabled"',
     '"submitOperationalReport"',
     '"resolveMyOperationalReports"',
+    '"openFeedback"',
+    '"exportSessionHealth"',
+    '"exportDriverProfile"',
+    '"selectDriverProfileImport"',
+    '"applyDriverProfileImport"',
+    '"cancelDriverProfileImport"',
+    '"refreshOmsiDetection"',
+    '"setShellTopmost"',
     "networkQuality:",
     "sessionAuthority:",
     "roomCompatibility:",
     "voiceQuality:",
     "sessionOperationalState?:",
-    "telemetryStale:"
+    "telemetryStale:",
+    "tripHistory:",
+    "profileTransfer:",
+    "sessionHealth:",
+    "shell:"
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.WebBridge.cs" @(
@@ -242,7 +264,28 @@ Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.WebBridge.cs" @(
 
 Require-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     '"setPhysicalVehiclesEnabled"',
+    '"openFeedback"',
+    '"exportSessionHealth"',
+    '"exportDriverProfile"',
+    '"selectDriverProfileImport"',
+    '"applyDriverProfileImport"',
+    '"cancelDriverProfileImport"',
+    '"refreshOmsiDetection"',
+    '"setShellTopmost"',
     "sessionPoints = Array.Empty<object>()"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.WebSystem.cs" @(
+    "BuildWebSessionHealthState",
+    "ExportSessionHealthFromWeb",
+    "OpenFeedbackFromWeb"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.WebOperations.cs" @(
+    "DriverTripHistoryStore.Load()",
+    "DriverProfilePortability.ExportToFile",
+    "DriverProfilePortability.ImportFromFile",
+    "DriverProfilePortability.ApplyImport"
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(
