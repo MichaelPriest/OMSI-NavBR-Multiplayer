@@ -41,6 +41,15 @@ CGNAT/double NAT podem impedir conexões diretas mesmo com Firewall e UPnP corre
 
 O probe externo TCP 27730 é independente. Ele só funciona quando o serviço de callback estiver configurado. Seu resultado não é inferido a partir do Firewall, UPnP ou IP WAN.
 
+Quando o serviço não está configurado, a interface mostra **Teste externo indisponível** em vez de tratar a situação como erro. Sala local/LAN, Firewall e UPnP continuam operando normalmente.
+
+A Central Multiplayer também expõe o estado de alcance do host separadamente:
+- host inativo;
+- verificando UPnP;
+- somente LAN;
+- UPnP mapeado sem confirmação externa;
+- endereço de Internet disponível via UPnP.
+
 ## Relay experimental
 
 O relay usa NavBR.Server remoto configurado. Não existe endpoint público embutido e o recurso permanece experimental.
