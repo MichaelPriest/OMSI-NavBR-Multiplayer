@@ -178,13 +178,6 @@ public partial class MultiplayerWindow
     internal void ShowRoleplayTab()
     {
         MultiplayerTabs.SelectedItem = RoleplayTab;
-        if (WindowState == WindowState.Minimized)
-        {
-            WindowState = WindowState.Normal;
-        }
-
-        ShowInTaskbar = true;
-        Activate();
         RefreshRoleplayCharacterSelector(openWhenReady: false);
         RefreshRoleplayTechnicalStatus();
     }
@@ -483,7 +476,9 @@ public partial class MultiplayerWindow
 
     private void OpenRoleplayCharacterSelector()
     {
-        if (_roleplaySelectorOpen ||
+        if (!IsVisible ||
+            !ShowInTaskbar ||
+            _roleplaySelectorOpen ||
             _roleplayCharacterSelectButton?.IsEnabled != true)
         {
             return;
