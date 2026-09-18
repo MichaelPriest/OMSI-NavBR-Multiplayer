@@ -223,6 +223,16 @@ export interface NavBrNavigation3DRemoteVehicle extends NavBrNavigation3DVehicle
   displayName: string;
 }
 
+export interface NavBrNavigation3DRoleplayCharacter {
+  x: number;
+  y: number;
+  z: number;
+  headingDegrees: number;
+  speedMps: number;
+  activity: string;
+  characterName?: string | null;
+}
+
 export interface NavBrNavigation3DState {
   available: boolean;
   mapName?: string | null;
@@ -237,6 +247,7 @@ export interface NavBrNavigation3DState {
   } | null;
   routePoints: NavBrNavigationPoint[];
   localVehicle?: NavBrNavigation3DVehicle | null;
+  localRoleplayCharacter?: NavBrNavigation3DRoleplayCharacter | null;
   remoteVehicles: NavBrNavigation3DRemoteVehicle[];
   routeAvailable: boolean;
   remoteCount: number;
