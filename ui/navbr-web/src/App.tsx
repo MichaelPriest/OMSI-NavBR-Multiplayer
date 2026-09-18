@@ -1352,8 +1352,9 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
   }, [roadmap.maps, roadmap.selectedFolder]);
 
   const selectedMap = roadmap.maps.find(map => map.folderName === selectedFolder) || null;
-  const analysis = roadmap.analysis;
-  const result = roadmap.result;
+  const selectedMatchesNative = roadmap.selectedFolder === selectedFolder;
+  const analysis = selectedMatchesNative ? roadmap.analysis : null;
+  const result = selectedMatchesNative ? roadmap.result : null;
   const progress = Math.max(0, Math.min(100, (roadmap.progress ?? 0) * 100));
 
   return (
