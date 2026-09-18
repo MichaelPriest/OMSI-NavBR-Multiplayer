@@ -893,7 +893,7 @@ function Operations({
             <div className="company-form">
               <label><span>Nome</span><input value={companyName} onChange={event => setCompanyName(event.target.value)} /></label>
               <label><span>Sigla</span><input value={companyShortName} onChange={event => setCompanyShortName(event.target.value)} /></label>
-              <label className="wide"><span>Mapa base</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder="Opcional" /></label>
+              <label className="wide"><span>Mapa base</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} /></label>
             </div>
             <button className="button primary" onClick={() => sendCommand("saveCompany", {
               name: companyName,
@@ -919,7 +919,7 @@ function Operations({
             <button className="button ghost" onClick={() => sendCommand("saveDriverProfile", {
               displayName: profileName,
               companyName: profileCompany
-            })}>Salvar perfil</button>
+            })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
           </article>
 
           <article className="card fleet-card">
@@ -1220,6 +1220,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
 type SettingsTab = "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
+  const { pick } = useI18n();
   const [name, setName] = useState(profile.name);
   const [launchArguments, setLaunchArguments] = useState(profile.launchArguments || "");
 
@@ -1233,9 +1234,9 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
       <div className="installation-top">
         <div>
           <div className="installation-badges">
-            {profile.isPreferred && <span className="install-badge preferred">Preferido</span>}
-            {profile.isRunning && <span className="install-badge running">Em execução</span>}
-            {!profile.executableExists && <span className="install-badge invalid">Omsi.exe ausente</span>}
+            {profile.isPreferred && <span className="install-badge preferred">{pick("Preferido", "Preferred", "Preferido", "Bevorzugt", "Préféré")}</span>}
+            {profile.isRunning && <span className="install-badge running">{pick("Em execução", "Running", "En ejecución", "Läuft", "En cours")}</span>}
+            {!profile.executableExists && <span className="install-badge invalid">{pick("Omsi.exe ausente", "Omsi.exe missing", "Falta Omsi.exe", "Omsi.exe fehlt", "Omsi.exe absent")}</span>}
           </div>
           <h3>{profile.name}</h3>
           <code>{profile.installDirectory}</code>
@@ -1245,17 +1246,17 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
           disabled={!profile.executableExists}
           onClick={() => sendCommand("launchOmsiProfile", { profileId: profile.id })}
         >
-          {profile.isRunning ? "Ativar OMSI" : "Executar"}
+          {profile.isRunning ? pick("Ativar OMSI", "Activate OMSI", "Activar OMSI", "OMSI aktivieren", "Activer OMSI") : pick("Executar", "Run", "Ejecutar", "Starten", "Exécuter")}
         </button>
       </div>
 
       <div className="installation-edit-grid">
         <label>
-          <span>Nome do perfil</span>
+          <span>{pick("Nome do perfil", "Profile name", "Nombre del perfil", "Profilname", "Nom du profil")}</span>
           <input value={name} onChange={event => setName(event.target.value)} />
         </label>
         <label>
-          <span>Argumentos de inicialização</span>
+          <span>{pick("Argumentos de inicialização", "Launch arguments", "Argumentos de inicio", "Startargumente", "Arguments de lancement")}</span>
           <input value={launchArguments} onChange={event => setLaunchArguments(event.target.value)} placeholder="Opcional" />
         </label>
       </div>
@@ -1268,19 +1269,19 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
         })}>Salvar perfil</button>
         {!profile.isPreferred && (
           <button className="button ghost compact" onClick={() => sendCommand("setPreferredOmsiProfile", { profileId: profile.id })}>
-            Tornar preferido
+            {pick("Tornar preferido", "Make preferred", "Hacer preferido", "Als bevorzugt setzen", "Définir comme préféré")}
           </button>
         )}
         <button className="button ghost compact" onClick={() => sendCommand("openOmsiProfileFolder", { profileId: profile.id })}>
-          Abrir pasta
+          {pick("Abrir pasta", "Open folder", "Abrir carpeta", "Ordner öffnen", "Ouvrir le dossier")}
         </button>
         <button className="button ghost compact danger" onClick={() => sendCommand("removeOmsiProfile", { profileId: profile.id })}>
-          Remover
+          {pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}
         </button>
       </div>
 
       {profile.lastUsedAtUtc && (
-        <small className="install-last-used">Último uso: {new Date(profile.lastUsedAtUtc).toLocaleString()}</small>
+        <small className="install-last-used">{pick("Último uso", "Last used", "Último uso", "Zuletzt verwendet", "Dernière utilisation")}: {new Date(profile.lastUsedAtUtc).toLocaleString()}</small>
       )}
     </article>
   );
@@ -1651,7 +1652,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
             <div className="roadmap-analysis-grid">
               <span><small>MODO</small><strong>{result.mode === "tiles" ? "Imagens de tile" : "Vetorial / splines"}</strong></span>
               <span><small>DIMENSÃO</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
-              <span><small>TAMANHO</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
+              <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
               <span><small>TEMPO</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
               {result.tileImagesUsed != null && <span><small>TILES USADOS</small><strong>{result.tileImagesUsed}</strong></span>}
               {result.missingTileImages != null && <span><small>VAZIOS</small><strong>{result.missingTileImages}</strong></span>}
@@ -1676,7 +1677,7 @@ function Settings({
   error: string | null;
   requestedTab?: SettingsTab | null;
 }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const system = state?.system;
   const network = state?.network;
   const [tab, setTab] = useState<SettingsTab>("installations");
@@ -1708,7 +1709,7 @@ function Settings({
     <>
       <header className="topbar settings-header">
         <div>
-          <span className="eyebrow">SISTEMA NAVBR</span>
+          <span className="eyebrow">{pick("SISTEMA NAVBR", "NAVBR SYSTEM", "SISTEMA NAVBR", "NAVBR-SYSTEM", "SYSTÈME NAVBR")}</span>
           <h1>{t("settings.title")}</h1>
           <p>{t("settings.subtitle")}</p>
         </div>
@@ -1738,10 +1739,10 @@ function Settings({
         <section className="settings-installations">
           <article className="card discovery-card">
             <div className="section-heading">
-              <div><span className="eyebrow">DESCOBERTA</span><h3>Encontrar OMSI 2</h3></div>
-              <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>Selecionar pasta</button>
+              <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
+              <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
             </div>
-            <p>O NavBR pode localizar instalações registradas, bibliotecas Steam e também validar uma pasta informada manualmente.</p>
+            <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também validar uma pasta informada manualmente.", "NavBR can locate registered installations, Steam libraries and validate a manually supplied folder.", "NavBR puede localizar instalaciones registradas, bibliotecas Steam y validar una carpeta indicada manualmente.", "NavBR kann registrierte Installationen, Steam-Bibliotheken und einen manuell angegebenen Ordner prüfen.", "NavBR peut localiser les installations enregistrées, les bibliothèques Steam et valider un dossier indiqué manuellement.")}</p>
             <div className="discovery-actions">
               <input
                 value={manualPath}
@@ -1749,14 +1750,14 @@ function Settings({
                 placeholder="Ex.: G:\Games\OMSI 2 Steam Edition"
               />
               <button className="button primary" onClick={() => sendCommand("discoverOmsiProfiles", { path: manualPath })}>
-                {manualPath.trim() ? "Adicionar / descobrir" : "Descobrir automaticamente"}
+                {manualPath.trim() ? pick("Adicionar / descobrir", "Add / discover", "Añadir / descubrir", "Hinzufügen / erkennen", "Ajouter / détecter") : pick("Descobrir automaticamente", "Discover automatically", "Descubrir automáticamente", "Automatisch erkennen", "Détecter automatiquement")}
               </button>
             </div>
           </article>
 
           <div className="installation-list">
             {system.installations.length === 0 ? (
-              <div className="card empty-state">Nenhum perfil OMSI cadastrado. Use a descoberta acima para localizar uma instalação real.</div>
+              <div className="card empty-state">{pick("Nenhum perfil OMSI cadastrado. Use a descoberta acima para localizar uma instalação real.", "No OMSI profile registered. Use discovery above to locate a real installation.", "Ningún perfil OMSI registrado. Usa el descubrimiento para localizar una instalación real.", "Kein OMSI-Profil registriert. Nutze die Erkennung oben, um eine echte Installation zu finden.", "Aucun profil OMSI enregistré. Utilisez la détection ci-dessus pour trouver une installation réelle.")}</div>
             ) : system.installations.map(profile => (
               <OmsiProfileCard key={profile.id} profile={profile} />
             ))}
@@ -1771,10 +1772,10 @@ function Settings({
       {tab === "diagnostics" && (
         <section className="diagnostics-layout">
           <article className="card diagnostics-consent-card">
-            <span className="eyebrow">PRIVACIDADE</span>
-            <h3>Diagnóstico remoto</h3>
+            <span className="eyebrow">{pick("PRIVACIDADE", "PRIVACY", "PRIVACIDAD", "DATENSCHUTZ", "CONFIDENTIALITÉ")}</span>
+            <h3>{pick("Diagnóstico remoto", "Remote diagnostics", "Diagnóstico remoto", "Remote-Diagnose", "Diagnostic distant")}</h3>
             <p>
-              O envio é opt-in. Quando desativado, o NavBR não registra eventos para envio remoto e limpa a fila local de diagnóstico.
+              {pick("O envio é opt-in. Quando desativado, o NavBR não registra eventos para envio remoto e limpa a fila local de diagnóstico.", "Sending is opt-in. When disabled, NavBR does not queue remote diagnostic events and clears the local diagnostic queue.", "El envío es opcional. Cuando está desactivado, NavBR no registra eventos para envío remoto y limpia la cola local.", "Das Senden ist Opt-in. Wenn deaktiviert, sammelt NavBR keine Remote-Diagnoseereignisse und leert die lokale Warteschlange.", "L’envoi est volontaire. Lorsqu’il est désactivé, NavBR n’enregistre pas d’événements de diagnostic distant et vide la file locale.")}
             </p>
             <label className="diagnostics-toggle">
               <input
@@ -1782,28 +1783,28 @@ function Settings({
                 checked={system.diagnostics.enabled}
                 onChange={event => sendCommand("setDiagnosticsEnabled", { enabled: event.target.checked })}
               />
-              <span>{system.diagnostics.enabled ? "Diagnóstico remoto ativado" : "Diagnóstico remoto desativado"}</span>
+              <span>{system.diagnostics.enabled ? pick("Diagnóstico remoto ativado", "Remote diagnostics enabled", "Diagnóstico remoto activado", "Remote-Diagnose aktiviert", "Diagnostic distant activé") : pick("Diagnóstico remoto desativado", "Remote diagnostics disabled", "Diagnóstico remoto desactivado", "Remote-Diagnose deaktiviert", "Diagnostic distant désactivé")}</span>
             </label>
             <div className="diagnostics-actions">
               <button className="button ghost" disabled={!system.diagnostics.enabled} onClick={() => sendCommand("flushDiagnostics")}>
-                Tentar enviar fila agora
+                {pick("Tentar enviar fila agora", "Try sending queue now", "Intentar enviar la cola ahora", "Warteschlange jetzt senden", "Tenter d’envoyer la file maintenant")}
               </button>
               <button className="button ghost danger" onClick={() => sendCommand("purgeDiagnostics")}>
-                Limpar fila de diagnóstico
+                {pick("Limpar fila de diagnóstico", "Clear diagnostic queue", "Limpiar cola de diagnóstico", "Diagnosewarteschlange leeren", "Vider la file de diagnostic")}
               </button>
             </div>
           </article>
 
           <article className="card diagnostics-log-card">
-            <span className="eyebrow">LOG LOCAL</span>
+            <span className="eyebrow">{pick("LOG LOCAL", "LOCAL LOG", "LOG LOCAL", "LOKALES LOG", "JOURNAL LOCAL")}</span>
             <h3>navbr.log</h3>
             <div className="diagnostic-facts">
-              <span><small>ARQUIVO</small><strong>{system.diagnostics.logExists ? "Disponível" : "Ainda não criado"}</strong></span>
+              <span><small>{pick("ARQUIVO", "FILE", "ARCHIVO", "DATEI", "FICHIER")}</small><strong>{system.diagnostics.logExists ? pick("Disponível", "Available", "Disponible", "Verfügbar", "Disponible") : pick("Ainda não criado", "Not created yet", "Aún no creado", "Noch nicht erstellt", "Pas encore créé")}</strong></span>
               <span><small>TAMANHO</small><strong>{system.diagnostics.logExists ? logSize : "—"}</strong></span>
-              <span><small>ATUALIZAÇÃO</small><strong>{system.diagnostics.logUpdatedAtUtc ? new Date(system.diagnostics.logUpdatedAtUtc).toLocaleString() : "—"}</strong></span>
+              <span><small>{pick("ATUALIZAÇÃO", "UPDATED", "ACTUALIZACIÓN", "AKTUALISIERT", "MISE À JOUR")}</small><strong>{system.diagnostics.logUpdatedAtUtc ? new Date(system.diagnostics.logUpdatedAtUtc).toLocaleString() : "—"}</strong></span>
             </div>
             <code>{system.diagnostics.logPath}</code>
-            <p>O log local continua existindo independentemente do consentimento de diagnóstico remoto e é usado para suporte técnico local.</p>
+            <p>{pick("O log local continua existindo independentemente do consentimento de diagnóstico remoto e é usado para suporte técnico local.", "The local log remains available regardless of remote diagnostics consent and is used for local technical support.", "El log local sigue existiendo independientemente del consentimiento de diagnóstico remoto y se usa para soporte técnico local.", "Das lokale Log bleibt unabhängig von der Remote-Diagnoseeinwilligung bestehen und dient dem lokalen Support.", "Le journal local reste disponible indépendamment du consentement au diagnostic distant et sert au support technique local.")}</p>
           </article>
         </section>
       )}
@@ -1812,8 +1813,8 @@ function Settings({
         <section className="network-layout">
           <article className="card network-overview-card">
             <div className="section-heading">
-              <div><span className="eyebrow">CONECTIVIDADE</span><h3>TCP {network?.hostPort ?? 27730}</h3></div>
-              <button className="button ghost" onClick={() => sendCommand("refreshNetworkDiagnostics")}>Atualizar diagnóstico</button>
+              <div><span className="eyebrow">{pick("CONECTIVIDADE", "CONNECTIVITY", "CONECTIVIDAD", "KONNEKTIVITÄT", "CONNECTIVITÉ")}</span><h3>TCP {network?.hostPort ?? 27730}</h3></div>
+              <button className="button ghost" onClick={() => sendCommand("refreshNetworkDiagnostics")}>{pick("Atualizar diagnóstico", "Refresh diagnostics", "Actualizar diagnóstico", "Diagnose aktualisieren", "Actualiser le diagnostic")}</button>
             </div>
 
             {network?.message && <div className="network-message">{network.message}</div>}
@@ -1821,44 +1822,44 @@ function Settings({
 
             <div className="network-status-grid">
               <div>
-                <small>FIREWALL WINDOWS</small>
+                <small>WINDOWS FIREWALL</small>
                 <strong className={network?.diagnostics?.firewallRulePresent ? "ok" : "warn"}>
-                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.firewallRulePresent ? "Regra confirmada" : "Regra ausente"}
+                  {network?.diagnostics == null ? pick("Não verificado", "Not checked", "No verificado", "Nicht geprüft", "Non vérifié") : network.diagnostics.firewallRulePresent ? pick("Regra confirmada", "Rule confirmed", "Regla confirmada", "Regel bestätigt", "Règle confirmée") : pick("Regra ausente", "Rule missing", "Regla ausente", "Regel fehlt", "Règle absente")}
                 </strong>
-                <span>Entrada TCP {network?.hostPort ?? 27730} em todos os perfis de rede.</span>
+                <span>{pick("Entrada TCP", "TCP inbound", "Entrada TCP", "TCP-Eingang", "Entrée TCP")} {network?.hostPort ?? 27730} {pick("em todos os perfis de rede.", "on all network profiles.", "en todos los perfiles de red.", "für alle Netzwerkprofile.", "sur tous les profils réseau.")}</span>
               </div>
               <div>
-                <small>PORTA LOCAL</small>
+                <small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small>
                 <strong className={network?.diagnostics?.localPortListening ? "ok" : ""}>
-                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.localPortListening ? "Ouvindo" : "Sem listener"}
+                  {network?.diagnostics == null ? pick("Não verificado", "Not checked", "No verificado", "Nicht geprüft", "Non vérifié") : network.diagnostics.localPortListening ? pick("Ouvindo", "Listening", "Escuchando", "Lauscht", "À l’écoute") : pick("Sem listener", "No listener", "Sin listener", "Kein Listener", "Aucun listener")}
                 </strong>
-                <span>{network?.hostRunning ? "Host NavBR ativo." : "Nenhuma sala local hospedada agora."}</span>
+                <span>{network?.hostRunning ? pick("Host NavBR ativo.", "NavBR host active.", "Host NavBR activo.", "NavBR-Host aktiv.", "Hôte NavBR actif.") : pick("Nenhuma sala local hospedada agora.", "No local room hosted now.", "Ninguna sala local alojada ahora.", "Aktuell kein lokaler Raum gehostet.", "Aucune salle locale hébergée actuellement.")}</span>
               </div>
               <div>
                 <small>UPNP</small>
                 <strong className={network?.diagnostics?.upnpGatewayFound ? "ok" : ""}>
-                  {network?.diagnostics == null ? "Não verificado" : network.diagnostics.upnpGatewayFound ? "Gateway encontrado" : "Gateway não encontrado"}
+                  {network?.diagnostics == null ? pick("Não verificado", "Not checked", "No verificado", "Nicht geprüft", "Non vérifié") : network.diagnostics.upnpGatewayFound ? pick("Gateway encontrado", "Gateway found", "Gateway encontrado", "Gateway gefunden", "Passerelle trouvée") : pick("Gateway não encontrado", "Gateway not found", "Gateway no encontrado", "Gateway nicht gefunden", "Passerelle introuvable")}
                 </strong>
-                <span>{network?.automaticUpnpEnabled ? "Automático habilitado." : "Automático desabilitado."}</span>
+                <span>{network?.automaticUpnpEnabled ? pick("Automático habilitado.", "Automatic enabled.", "Automático habilitado.", "Automatisch aktiviert.", "Automatique activé.") : pick("Automático desabilitado.", "Automatic disabled.", "Automático deshabilitado.", "Automatisch deaktiviert.", "Automatique désactivé.")}</span>
               </div>
               <div>
-                <small>AMBIENTE WAN</small>
+                <small>{pick("AMBIENTE WAN", "WAN ENVIRONMENT", "ENTORNO WAN", "WAN-UMGEBUNG", "ENVIRONNEMENT WAN")}</small>
                 <strong>{network?.diagnostics?.environmentKind || "—"}</strong>
-                <span>{network?.diagnostics?.gatewayExternalAddress || "IP externo não informado"}</span>
+                <span>{network?.diagnostics?.gatewayExternalAddress || pick("IP externo não informado", "External IP not provided", "IP externa no informada", "Externe IP nicht angegeben", "IP externe non renseignée")}</span>
               </div>
             </div>
 
             <div className="network-actions">
               <button className="button primary" onClick={() => sendCommand("applyFirewallRule")}>
-                Aplicar / corrigir Firewall TCP {network?.hostPort ?? 27730}
+                {pick("Aplicar / corrigir Firewall TCP", "Apply / fix TCP Firewall", "Aplicar / corregir Firewall TCP", "TCP-Firewall anwenden / korrigieren", "Appliquer / corriger le pare-feu TCP")} {network?.hostPort ?? 27730}
               </button>
-              <span>{network?.runningAsAdministrator ? "NavBR já está elevado." : "O Windows solicitará permissão de administrador."}</span>
+              <span>{network?.runningAsAdministrator ? pick("NavBR já está elevado.", "NavBR is already elevated.", "NavBR ya está elevado.", "NavBR läuft bereits erhöht.", "NavBR est déjà élevé.") : pick("O Windows solicitará permissão de administrador.", "Windows will request administrator permission.", "Windows solicitará permiso de administrador.", "Windows fordert Administratorrechte an.", "Windows demandera l’autorisation administrateur.")}</span>
             </div>
 
             {network?.diagnostics && (
               <>
                 <div className="network-addresses">
-                  <small>IPv4 LOCAL</small>
+                  <small>{pick("IPv4 LOCAL", "LOCAL IPv4", "IPv4 LOCAL", "LOKALES IPv4", "IPv4 LOCAL")}</small>
                   <div>
                     {network.diagnostics.localIpv4Addresses.length === 0
                       ? <code>—</code>
@@ -1871,7 +1872,7 @@ function Settings({
           </article>
 
           <article className="card network-upnp-card">
-            <span className="eyebrow">ROTEADOR</span>
+            <span className="eyebrow">{pick("ROTEADOR", "ROUTER", "ROUTER", "ROUTER", "ROUTEUR")}</span>
             <h3>NAT / UPnP</h3>
             <label className="diagnostics-toggle">
               <input
@@ -1880,24 +1881,24 @@ function Settings({
                 disabled={network?.hostRunning}
                 onChange={event => sendCommand("setAutomaticUpnp", { enabled: event.target.checked })}
               />
-              <span>Tentar mapear TCP {network?.hostPort ?? 27730} automaticamente ao hospedar</span>
+              <span>{pick("Tentar mapear TCP automaticamente ao hospedar", "Automatically map TCP while hosting", "Mapear TCP automáticamente al alojar", "TCP beim Hosten automatisch mappen", "Mapper TCP automatiquement pendant l’hébergement")} {network?.hostPort ?? 27730}</span>
             </label>
-            {network?.hostRunning && <p className="network-note">Pare a sala hospedada antes de alterar o UPnP.</p>}
+            {network?.hostRunning && <p className="network-note">{pick("Pare a sala hospedada antes de alterar o UPnP.", "Stop the hosted room before changing UPnP.", "Detén la sala alojada antes de cambiar UPnP.", "Gehosteten Raum vor Änderung von UPnP stoppen.", "Arrêtez la salle hébergée avant de modifier UPnP.")}</p>}
             <div className="diagnostic-facts">
-              <span><small>GATEWAY LOCAL</small><strong>{network?.diagnostics?.gatewayLocalAddress || "—"}</strong></span>
-              <span><small>IP EXTERNO</small><strong>{network?.diagnostics?.gatewayExternalAddress || "—"}</strong></span>
-              <span><small>TIPO</small><strong>{network?.diagnostics?.environmentKind || "—"}</strong></span>
+              <span><small>{pick("GATEWAY LOCAL", "LOCAL GATEWAY", "GATEWAY LOCAL", "LOKALES GATEWAY", "PASSERELLE LOCALE")}</small><strong>{network?.diagnostics?.gatewayLocalAddress || "—"}</strong></span>
+              <span><small>{pick("IP EXTERNO", "EXTERNAL IP", "IP EXTERNA", "EXTERNE IP", "IP EXTERNE")}</small><strong>{network?.diagnostics?.gatewayExternalAddress || "—"}</strong></span>
+              <span><small>{pick("TIPO", "TYPE", "TIPO", "TYP", "TYPE")}</small><strong>{network?.diagnostics?.environmentKind || "—"}</strong></span>
             </div>
           </article>
 
           <article className="card network-probe-card">
-            <span className="eyebrow">TESTE EXTERNO</span>
-            <h3>Alcance pela Internet</h3>
-            <p>O teste externo é separado do Firewall e do UPnP. Ele só funciona quando um serviço de callback externo está configurado.</p>
-            <button className="button ghost" onClick={() => sendCommand("runExternalPortProbe")}>Testar TCP 27730 externamente</button>
+            <span className="eyebrow">{pick("TESTE EXTERNO", "EXTERNAL TEST", "PRUEBA EXTERNA", "EXTERNER TEST", "TEST EXTERNE")}</span>
+            <h3>{pick("Alcance pela Internet", "Internet reachability", "Alcance por Internet", "Internet-Erreichbarkeit", "Accessibilité Internet")}</h3>
+            <p>{pick("O teste externo é separado do Firewall e do UPnP. Ele só funciona quando um serviço de callback externo está configurado.", "The external test is separate from Firewall and UPnP. It only works when an external callback service is configured.", "La prueba externa es independiente del Firewall y UPnP. Solo funciona cuando hay un servicio callback externo configurado.", "Der externe Test ist von Firewall und UPnP getrennt und funktioniert nur mit konfiguriertem externen Callback-Dienst.", "Le test externe est séparé du pare-feu et d’UPnP. Il ne fonctionne que si un service callback externe est configuré.")}</p>
+            <button className="button ghost" onClick={() => sendCommand("runExternalPortProbe")}>{pick("Testar TCP 27730 externamente", "Test TCP 27730 externally", "Probar TCP 27730 externamente", "TCP 27730 extern testen", "Tester TCP 27730 depuis l’extérieur")}</button>
             {network?.externalProbe && (
               <div className={`external-probe-result ${network.externalProbe.reachable ? "reachable" : "blocked"}`}>
-                <strong>{network.externalProbe.reachable ? "Porta alcançável" : "Porta não alcançável"}</strong>
+                <strong>{network.externalProbe.reachable ? pick("Porta alcançável", "Port reachable", "Puerto accesible", "Port erreichbar", "Port accessible") : pick("Porta não alcançável", "Port not reachable", "Puerto no accesible", "Port nicht erreichbar", "Port inaccessible")}</strong>
                 <span>{network.externalProbe.status} · {network.externalProbe.durationMilliseconds} ms</span>
                 <small>{new Date(network.externalProbe.checkedAtUtc).toLocaleString()}</small>
               </div>
