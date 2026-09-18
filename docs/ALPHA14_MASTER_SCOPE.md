@@ -1,104 +1,66 @@
 # Alpha.14 — escopo mestre
 
-A **Alpha.14** consolida a evolução visual/física da Alpha.13 e inaugura o **Modo Personagem / RP** como um fluxo experimental próprio, disponível tanto no modo normal quanto no multiplayer.
+A **Alpha.14 pública** consolida o shell Figma, o multiplayer físico experimental, o modo Personagem/RP e a expansão de ferramentas operacionais.
 
-Versão inicial:
+Versão pública: **v0.3.0-alpha.14**.
 
-`0.3.0-alpha.14-test.1`
+## 1. Interface
 
-## Test 2
+- Home com Executar OMSI, Navegação e ações operacionais;
+- Mover HUD disponível no topo, Sistema e Home;
+- selects/ComboBox com tema escuro consistente;
+- Central Multiplayer sem wizard legado sobreposto;
+- funções restauradas: Mapa 3D, CCO, Empresa/Frota, Rede, Equipe, Perfil, Saúde da sessão, Roadmap Studio, Instalações OMSI, Ghost, conectividade/NAT, teste TCP, Manual e Feedback;
+- interface em pt-BR, inglês, espanhol, alemão e francês.
 
-A **Alpha.14 Test 2** congela o primeiro passe de usabilidade do RP:
+## 2. Multiplayer
 
-- Central Multiplayer com abas reais;
-- aba própria **Personagem / RP**;
-- aba **Jogadores** mostrando No ônibus / RP a pé / RP correndo / RP parado;
-- mapa da sessão com marcador distinto para personagem RP;
-- botão **Personagem** diretamente no HUD;
-- estados do botão: configurar, ativar e voltar ao ônibus;
-- interação do botão preservando o overlay click-through;
-- portal da Test 2 sem comunicação de cobrança, licença comercial futura, Steam/chaves ou assinatura.
+- peer-host TCP 27730 como padrão;
+- servidor dedicado opcional;
+- salas públicas e privadas;
+- chat e voz;
+- UPnP opcional;
+- relay experimental;
+- Firewall do Windows configurável para TCP 27730 em todos os perfis;
+- presença, telemetria, mapa e estado operacional sincronizados por SignalR.
 
-Os commits posteriores ao corte da Test 2 continuam na branch Alpha.14 e entram na próxima Test.
+## 3. Simulador
 
-## 1. Personagem / RP
+O simulador é somente de desenvolvimento/teste.
 
-A Alpha.14 Test 1 introduz o primeiro fluxo real de personagem controlável no OMSI:
+- reutiliza host existente ou inicia servidor local empacotado;
+- suporta senha de sala privada;
+- herda mapa e compatibilidade da sala real;
+- aguarda telemetria real para posicionar os bots perto do host;
+- raio padrão de 18 m;
+- herda linha, rota, destino e próxima parada da autoridade da sala;
+- --verify exige movimento mensurável e mapa consistente.
 
-- entrada **Personagem / RP** em DIRIGIR e ação rápida na Home;
-- funciona também sem sala multiplayer;
-- após o mapa carregar, o NavBR lê somente personagens reais da lista `Drivers` do mapa;
-- seletor liberado apenas com mapa carregado e catálogo real disponível;
-- seletor pode abrir automaticamente uma vez por mapa quando o recurso estiver habilitado;
-- seleção compartilhada entre modo normal e multiplayer;
-- ponteiros nativos da definição do personagem permanecem somente na sessão local;
-- backend exige que o personagem escolhido corresponda ao motorista humano real do ônibus do jogador;
-- posse/desvinculação do motorista é opt-in, experimental e processada no thread seguro do plugin;
-- snapshot do vínculo/IA é restaurado ao voltar ao ônibus;
-- controles iniciais: **W/S**, **A/D**, **Shift** e **Esc**;
-- deslocamento inicial limitado à área próxima ao ônibus;
-- multiplayer usa canal RP separado da telemetria do ônibus, com publicação limitada a 10 Hz.
+## 4. Personagem / RP
 
-Ainda não concluído nesta Test 1:
+- usa personagens reais da lista Drivers;
+- funciona também sem multiplayer;
+- bridge/plugin v3;
+- entrada/saída e restauração de vínculo/IA;
+- controles W/S, A/D, Shift e Esc;
+- sincronização RP separada da telemetria do ônibus.
 
-- câmera dedicada seguindo o personagem;
-- adaptação ao terreno inclinado;
-- animações e gestos RP;
-- entrar/sentar/interagir com veículos e objetos;
-- personagem físico remoto completo em todos os clientes;
-- criação de personagem quando não existir uma instância de motorista compatível.
+Ainda em validação física: câmera dedicada, terreno inclinado, animações/gestos, interação com objetos/veículos e personagem remoto físico completo.
 
-## 2. Multiplayer físico
+## 5. Multiplayer físico
 
-Tudo que foi consolidado na Alpha.13 permanece:
+- spawn/update/despawn experimental;
+- pose local/quaternion nativos;
+- velocidade, luzes e setas quando suportadas;
+- compatibilidade de mapa/veículo validada antes da escrita;
+- opt-in obrigatório.
 
-- ônibus remoto físico experimental;
-- coordenador físico único;
-- spawn/update/despawn;
-- pose nativa do OMSI 2.3.004;
-- manifesto físico atualizado pela telemetria viva;
-- luzes e setas básicas;
-- nomes dos jogadores em HUD/minimapa/mapa;
-- projeção de nome 3D fail-safe sobre ônibus físicos spawnados;
-- marcadores uniformes entre host e remotos;
-- sessão persistente ao fechar a Central Multiplayer.
+## 6. Critério da Alpha pública
 
-## 3. Interface
-
-A Alpha.14 parte do shell Figma já refinado:
-
-- Home responsiva;
-- Navegação com mapa dominante e rail responsivo;
-- Central Multiplayer responsiva;
-- CCO com mapa operacional dominante;
-- Configurações com versão real e seleção lateral;
-- Hardware com preview técnico recolhível;
-- Saúde da Sessão em grade responsiva;
-- Empresa/Rede/Perfil refinados;
-- estados dinâmicos localizados em pt-BR, inglês, espanhol, alemão e francês.
-
-## 4. Compatibilidade e segurança
-
-- alvo principal: **OMSI 2.3.004**;
-- cliente Windows x86;
-- plugin Native AOT x86;
-- escritas experimentais somente com opt-in explícito;
-- caminhos de leitura continuam separados dos caminhos de escrita;
-- personagem/ônibus físicos falham fechados: sem capacidade válida, sem escrita;
-- restauração de NPC/driver ocorre em saída normal e finalização do plugin quando possível.
-
-## 5. Critério da Test 1
-
-A Test 1 deve validar primeiro:
-
-1. cliente, servidor, plugin e interop compilando;
-2. catálogo `Drivers` real aparecendo após carregar mapa;
-3. seleção correta do motorista;
-4. entrada/saída do modo personagem sem quebrar o ônibus;
-5. restauração do vínculo/IA ao retornar;
-6. controles básicos em mapa plano;
-7. modo normal funcionando sem servidor;
-8. sincronização RP básica quando uma sala online estiver ativa;
-9. regressões zero no multiplayer físico de ônibus.
-
-Os resultados definem a Alpha.14 Test 2.
+1. cliente, servidor, plugin e bridge compilando;
+2. layout sem superfícies sobrepostas;
+3. funções principais acessíveis;
+4. peer-host e servidor dedicado funcionando;
+5. simulador entrando no mesmo mapa e operação ativa;
+6. regressões zero no HUD/telemetria;
+7. RP e ônibus físico continuando fail-safe e experimentais.
