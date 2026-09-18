@@ -10,8 +10,10 @@ public partial class WebShellWindow : Window
     private readonly Func<object> _stateProvider;
     private readonly Action _launchOmsi;
     private readonly Func<string, JsonElement?, Task>? _commandHandler;
+    private readonly Func<string?>? _activeMapDirectoryProvider;
     private readonly DispatcherTimer _pushTimer;
     private bool _ready;
+    private string? _mappedMapDirectory;
 
     public bool IsReady => _ready;
     public event EventHandler? ShellReady;
@@ -19,7 +21,8 @@ public partial class WebShellWindow : Window
     public WebShellWindow(
         Func<object> stateProvider,
         Action launchOmsi,
-        Func<string, JsonElement?, Task>? commandHandler = null)
+        Func<string, JsonElement?, Task>? commandHandler = null,
+        Func<string?>? activeMapDirectoryProvider = null)
     {
         ArgumentNullException.ThrowIfNull(stateProvider);
         ArgumentNullException.ThrowIfNull(launchOmsi);
@@ -27,6 +30,7 @@ public partial class WebShellWindow : Window
         _stateProvider = stateProvider;
         _launchOmsi = launchOmsi;
         _commandHandler = commandHandler;
+        _activeMapDirectoryProvider = activeMapDirectoryProvider;
 
         InitializeComponent();
 
@@ -149,6 +153,8 @@ public partial class WebShellWindow : Window
             return;
         }
 
+        RefreshActiveMapResourceMapping();
+
         var envelope = new
         {
             type = "navbr-state",
@@ -156,6 +162,55 @@ public partial class WebShellWindow : Window
         };
 
         WebView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(envelope));
+    }
+
+    private void RefreshActiveMapResourceMapping()
+    {
+        if (WebView.CoreWebView2 is null || _activeMapDirectoryProvider is null)
+        {
+            return;
+        }
+
+        string? directory = null;
+        try
+        {
+            directory = _activeMapDirectoryProvider();
+        }
+        catch
+        {
+            directory = null;
+        }
+
+        directory = !string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)
+            ? Path.GetFullPath(directory)
+            : null;
+
+        if (string.Equals(
+                directory,
+                _mappedMapDirectory,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            WebView.CoreWebView2.ClearVirtualHostNameToFolderMapping("navbr-map.local");
+        }
+        catch
+        {
+        }
+
+        _mappedMapDirectory = directory;
+        if (_mappedMapDirectory is null)
+        {
+            return;
+        }
+
+        WebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+            "navbr-map.local",
+            _mappedMapDirectory,
+            CoreWebView2HostResourceAccessKind.Allow);
     }
 
     private void ShowError(string message)
