@@ -34,6 +34,8 @@ namespace
     constexpr int AiBlinkerLeftOffset = 0x63C;
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
+    // OmsiVehicleInst::AI_Lichthupe in the public OmsiHook layout.
+    constexpr int AiHighBeamFlashOffset = 0x651;
 
     // OmsiHumanBeingInst offsets documented by public OMSI reverse-engineering
     // references. These are guarded by membership in the global Humans array.
@@ -849,6 +851,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
     }
 
     const bool externalLights = (lightFlags & 0x0F) != 0;
+    const bool highBeam = (lightFlags & (1 << 2)) != 0;
     const bool brakeLights = (lightFlags & (1 << 4)) != 0;
     const bool interiorLights = (lightFlags & (1 << 6)) != 0;
     const bool hazard = (lightFlags & (1 << 7)) != 0 || turnSignal == 3;
@@ -856,6 +859,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
     const bool right = hazard || turnSignal == 2;
 
     const float externalValue = externalLights ? 1.0f : 0.0f;
+    const unsigned char highBeamValue = highBeam ? 1 : 0;
     const float brakeValue = brakeLights ? 1.0f : 0.0f;
     const float interiorValue = interiorLights ? 1.0f : 0.0f;
     const float leftValue = left ? 1.0f : 0.0f;
@@ -867,7 +871,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
            WriteValue(vehiclePointer, AiInteriorLightOffset, interiorValue) &&
            WriteValue(vehiclePointer, AiBlinkerLeftOffset, leftValue) &&
            WriteValue(vehiclePointer, AiBlinkerRightOffset, rightValue) &&
-           WriteValue(vehiclePointer, AiBrakeLightOffset, brakeValue)
+           WriteValue(vehiclePointer, AiBrakeLightOffset, brakeValue) &&
+           WriteByte(vehiclePointer, AiHighBeamFlashOffset, highBeamValue)
         ? 1
         : 0;
 }
