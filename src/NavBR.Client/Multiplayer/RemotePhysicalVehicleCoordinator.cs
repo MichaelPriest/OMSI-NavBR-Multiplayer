@@ -176,6 +176,20 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 return;
             }
 
+            // Asset resolution can take time on a large Vehicles folder.
+            // Re-check the live local session after that await so a disconnect,
+            // plugin shutdown or map change cannot race into a late spawn.
+            var currentLocalManifest = _localManifest;
+            if (!IsPhysicalMultiplayerAvailable ||
+                currentLocalManifest is null ||
+                !OmsiCompatibilityEvaluator.Compare(
+                    currentLocalManifest,
+                    remoteManifest,
+                    requireVehicleForPhysicalMultiplayer: false).IsCompatible)
+            {
+                return;
+            }
+
             var spawnFrame = BuildPhysicalFrame(
                 frame,
                 remoteManifest,
