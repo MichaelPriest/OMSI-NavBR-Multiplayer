@@ -58,6 +58,12 @@ public partial class MainWindow
 
     private void StartGhostRecordingFromWeb(string? name)
     {
+        if (_webGhostRecorder.IsRecording)
+        {
+            throw new InvalidOperationException(
+                "Já existe uma gravação Ghost em andamento.");
+        }
+
         var telemetry = GetCurrentTelemetryForAlpha11();
         if (telemetry is null || !telemetry.IsInGame)
         {
@@ -149,6 +155,12 @@ public partial class MainWindow
         double? playbackSpeed,
         bool loop)
     {
+        if (_webGhostPlayer.IsPlaying)
+        {
+            throw new InvalidOperationException(
+                "Já existe uma reprodução Ghost 3D em andamento.");
+        }
+
         if (string.IsNullOrWhiteSpace(_webGhostSelectedPath))
         {
             throw new InvalidOperationException(
