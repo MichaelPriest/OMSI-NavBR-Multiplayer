@@ -52,7 +52,7 @@
             <Setter Property="Padding" Value="9,6" />
         </Style>
 
-        <Style TargetType="{x:Type ComboBox}">
+        <Style x:Key="NavComboBoxStyle" TargetType="{x:Type ComboBox}">
             <Setter Property="Background" Value="{StaticResource NavControlBrush}" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource NavBorderBrush}" />
@@ -60,6 +60,7 @@
             <Setter Property="Padding" Value="10,7,34,7" />
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="MaxDropDownHeight" Value="320" />
+            <Setter Property="ItemContainerStyle" Value="{DynamicResource NavComboBoxItemStyle}" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
             <Setter Property="Template">
@@ -112,8 +113,8 @@
                                         MaxHeight="{TemplateBinding MaxDropDownHeight}"
                                         Margin="0,4,0,0"
                                         Padding="4"
-                                        Background="{StaticResource NavSurfaceBrush}"
-                                        BorderBrush="{StaticResource NavBorderBrush}"
+                                        Background="#0A131A"
+                                        BorderBrush="#1C2A33"
                                         BorderThickness="1"
                                         CornerRadius="8">
                                     <ScrollViewer CanContentScroll="True"
@@ -144,8 +145,10 @@
             </Setter>
         </Style>
 
-        <Style TargetType="{x:Type ComboBoxItem}">
-            <Setter Property="Background" Value="{StaticResource NavSurfaceBrush}" />
+        <Style TargetType="{x:Type ComboBox}" BasedOn="{StaticResource NavComboBoxStyle}" />
+
+        <Style x:Key="NavComboBoxItemStyle" TargetType="{x:Type ComboBoxItem}">
+            <Setter Property="Background" Value="#0A131A" />
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
             <Setter Property="Padding" Value="9,7" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -179,6 +182,8 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style TargetType="{x:Type ComboBoxItem}" BasedOn="{StaticResource NavComboBoxItemStyle}" />
 
         <Style TargetType="ListBox">
             <Setter Property="Background" Value="#0A131A" />
