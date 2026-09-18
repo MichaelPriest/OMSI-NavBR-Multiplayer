@@ -58,7 +58,22 @@ public partial class MainWindow
                     estimatedBytes = _webRoadmapAnalysis.EstimatedBytes,
                     canBuildFromTiles = _webRoadmapAnalysis.CanBuild
                 },
-            result = _webRoadmapResult
+            result = _webRoadmapResult is null
+                ? null
+                : new
+                {
+                    mode = _webRoadmapResult.Mode,
+                    outputPath = _webRoadmapResult.OutputPath,
+                    backupPath = _webRoadmapResult.BackupPath,
+                    pixelWidth = _webRoadmapResult.PixelWidth,
+                    pixelHeight = _webRoadmapResult.PixelHeight,
+                    elapsedSeconds = _webRoadmapResult.ElapsedSeconds,
+                    fileSizeBytes = _webRoadmapResult.FileSizeBytes,
+                    tileImagesUsed = _webRoadmapResult.TileImagesUsed,
+                    missingTileImages = _webRoadmapResult.MissingTileImages,
+                    tileFilesRead = _webRoadmapResult.TileFilesRead,
+                    splinesDrawn = _webRoadmapResult.SplinesDrawn
+                }
         };
     }
 
