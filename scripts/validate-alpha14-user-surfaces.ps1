@@ -458,6 +458,22 @@ Require-Text "src/NavBR.Client/MainWindow.Navigation3D.cs" @(
     'NavigatePrimaryWebShell("navigation-3d")'
 )
 
+
+Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.Roleplay.cs" @(
+    "!ShowInTaskbar"
+)
+Reject-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.Roleplay.cs" @(
+    "ShowInTaskbar = true;"
+)
+
+Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.PublicRooms.cs" @(
+    "!ShowInTaskbar"
+)
+
+Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.VoiceChannels.cs" @(
+    "!ShowInTaskbar"
+)
+
 foreach ($legacy in @(
     "src/NavBR.Client/Multiplayer/MultiplayerWindow.RoomWizard.cs",
     "src/NavBR.Client/Multiplayer/MultiplayerWindow.RelayWizardPolish.cs"
