@@ -52,10 +52,9 @@ public partial class MainWindow
             .Where(name => name.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
-        IReadOnlyList<object> stopPoints = tileSize is double stopTileSize
+        IReadOnlyList<object> stopPoints = tileSize is double stopTileSize && orderedNameSet.Count > 0
             ? _webNavigationBusStops
-                .Where(stop => orderedNameSet.Count == 0 ||
-                               orderedNameSet.Contains(OmsiOrderedRouteStopReader.Normalize(stop.Name)))
+                .Where(stop => orderedNameSet.Contains(OmsiOrderedRouteStopReader.Normalize(stop.Name)))
                 .Select(stop => new
                 {
                     name = stop.Name,
@@ -85,7 +84,18 @@ public partial class MainWindow
             };
         }
 
-        var ordered = GetOrderedRouteStopsForAlpha12();
+        var nextStopIndex = _webNavigationOrderedStops.RouteResolved
+            ? ResolveNextStopIndex(
+                _webNavigationOrderedStops.StopNames,
+                telemetry.NextStopName,
+                telemetry.CurrentStopIndex)
+            : null;
+        var upcomingStops = nextStopIndex is int resolvedStopIndex
+            ? _webNavigationOrderedStops.StopNames
+                .Skip(resolvedStopIndex)
+                .Take(6)
+                .ToArray()
+            : Array.Empty<string>();
 
         return new
         {
@@ -115,10 +125,10 @@ public partial class MainWindow
             vehicle,
             stopSequence = new
             {
-                routeResolved = ordered.RouteResolved,
-                totalStops = ordered.TotalStops,
-                nextStopIndex = ordered.NextStopIndex,
-                upcomingStops = ordered.UpcomingStops
+                routeResolved = _webNavigationOrderedStops.RouteResolved,
+                totalStops = _webNavigationOrderedStops.StopNames.Count,
+                nextStopIndex,
+                upcomingStops
             }
         };
     }
