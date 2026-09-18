@@ -302,7 +302,11 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (tag.Contains("company-network", StringComparison.OrdinalIgnoreCase)) return "network";
         if (tag.Contains("company-members", StringComparison.OrdinalIgnoreCase)) return "team";
         if (tag.Contains("driver-profile", StringComparison.OrdinalIgnoreCase)) return "profile";
-        if (tag.Contains("hud-shortcut", StringComparison.OrdinalIgnoreCase)) return "hud";
+        if (tag.Contains("hud-shortcut", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("alpha14-hud-", StringComparison.OrdinalIgnoreCase)) return "hud";
+        if (tag.Contains("alpha14-connectivity", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("alpha14-nat", StringComparison.OrdinalIgnoreCase)) return "network";
+        if (tag.Contains("alpha14-external-port", StringComparison.OrdinalIgnoreCase)) return "diagnostics";
         if (tag.Contains("ghost", StringComparison.OrdinalIgnoreCase)) return "ghost";
         if (tag.Contains("SettingsButton", StringComparison.OrdinalIgnoreCase)) return "settings";
         if (tag.Contains("session", StringComparison.OrdinalIgnoreCase)) return "health";
@@ -310,7 +314,12 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         var label = Normalize(CleanLabel(button.Content?.ToString()));
         if (label.Length == 0) return null;
         if (label.Contains("inicio", StringComparison.Ordinal) || label == "home") return "home";
-        if (label.Contains("naveg", StringComparison.Ordinal) || label.Contains("navigation", StringComparison.Ordinal)) return "navigation";
+        if (label.Contains("naveg", StringComparison.Ordinal) ||
+            label.Contains("navigation", StringComparison.Ordinal) ||
+            label.Contains("mapa 3d", StringComparison.Ordinal) ||
+            label.Contains("3d map", StringComparison.Ordinal) ||
+            label.Contains("3d-karte", StringComparison.Ordinal) ||
+            label.Contains("carte 3d", StringComparison.Ordinal)) return "navigation";
         if (label.Contains("multiplayer", StringComparison.Ordinal)) return "multiplayer";
         if (label.Contains("personagem", StringComparison.Ordinal) || label.Contains("character", StringComparison.Ordinal) || label.Contains("roleplay", StringComparison.Ordinal) || label.Contains("role play", StringComparison.Ordinal)) return "roleplay";
         if (label.Contains("roadmap", StringComparison.Ordinal)) return "roadmap";
@@ -322,11 +331,12 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (label.Contains("perfil", StringComparison.Ordinal) || label.Contains("profile", StringComparison.Ordinal)) return "profile";
         if (label.Contains("empresa", StringComparison.Ordinal) || label.Contains("company", StringComparison.Ordinal)) return "company";
         if (label.Contains("hardware", StringComparison.Ordinal)) return "hardware";
-        if (label == "hud" || label.Contains("head up", StringComparison.Ordinal)) return "hud";
+        if (label == "hud" || label.Contains("hud", StringComparison.Ordinal) || label.Contains("head up", StringComparison.Ordinal)) return "hud";
         if (label.Contains("config", StringComparison.Ordinal) || label.Contains("settings", StringComparison.Ordinal)) return "settings";
         if (label.Contains("saude", StringComparison.Ordinal) || label.Contains("health", StringComparison.Ordinal) || label.Contains("session", StringComparison.Ordinal)) return "health";
         if (label.Contains("diagnost", StringComparison.Ordinal) || label.Contains("diagnostic", StringComparison.Ordinal)) return "diagnostics";
         if (label.Contains("manual", StringComparison.Ordinal) || label.Contains("handbuch", StringComparison.Ordinal)) return "manual";
+        if (label.Contains("feedback", StringComparison.Ordinal)) return "feedback";
         if (label.Contains("minimizar", StringComparison.Ordinal) || label.Contains("bandeja", StringComparison.Ordinal) || label.Contains("tray", StringComparison.Ordinal)) return "tray";
         return "grid";
     }
@@ -351,6 +361,7 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         "health" => "M3,13 H7 L9,8 L12,17 L15,11 L17,13 H21 M5,5 C8,3 11,5 12,8 C13,5 16,3 19,5 C23,9 18,15 12,20 C6,15 1,9 5,5 Z",
         "diagnostics" => "M4,5 H20 V19 H4 Z M7,9 L10,12 L7,15 M12,15 H17",
         "manual" => "M4,4 C8,3 10,4 12,6 V21 C10,19 8,18 4,19 Z M20,4 C16,3 14,4 12,6 V21 C14,19 16,18 20,19 Z",
+        "feedback" => "M4,4 H20 V16 H9 L5,20 V16 H4 Z M8,8 H16 M8,12 H14",
         "tray" => "M4,5 H20 V17 H4 Z M8,21 H16 M12,8 V15 M9,12 L12,15 L15,12",
         _ => "M4,4 H10 V10 H4 Z M14,4 H20 V10 H14 Z M4,14 H10 V20 H4 Z M14,14 H20 V20 H14 Z"
     };
