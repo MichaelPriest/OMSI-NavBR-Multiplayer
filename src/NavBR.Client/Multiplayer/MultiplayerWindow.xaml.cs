@@ -21,15 +21,19 @@ public partial class MultiplayerWindow : Window
     private readonly RoomHostService _host = new();
     private readonly VoiceChatService _voiceChat = new();
     private readonly DispatcherTimer _publishTimer;
+    private readonly DispatcherTimer _latencyTimer;
     private readonly SemaphoreSlim _voiceSendGate = new(1, 1);
     private readonly Dictionary<string, PlayerPresence> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, VehicleTelemetry> _remoteTelemetry = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RoleplayCharacterFrame> _remoteRoleplayCharacters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTimeOffset> _voiceActivity = new(StringComparer.OrdinalIgnoreCase);
     private RoleplayCharacterState? _localRoleplayCharacter;
     private readonly List<ChatMessage> _chatMessages = [];
 
     private MultiplayerSettings _settings;
     private bool _publishing;
+    private bool _measuringLatency;
+    private double? _lastLatencyMs;
 
     public event Action<PlayerTelemetryFrame>? RemoteTelemetryReceived;
     public event Action<string>? RemotePlayerLeft;
@@ -71,6 +75,12 @@ public partial class MultiplayerWindow : Window
         };
         _publishTimer.Tick += PublishTimer_Tick;
 
+        _latencyTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2d)
+        };
+        _latencyTimer.Tick += LatencyTimer_Tick;
+
         _client.ConnectionStateChanged += state => Dispatcher.BeginInvoke(() => RenderConnectionState(state));
         _client.RoomSnapshotReceived += snapshot => Dispatcher.BeginInvoke(() => ApplySnapshot(snapshot));
         _client.PlayerJoined += presence => Dispatcher.BeginInvoke(() => UpsertPresence(presence));
@@ -108,9 +118,11 @@ public partial class MultiplayerWindow : Window
         _voiceChat.RemoteSpeakerActive += playerId =>
             Dispatcher.BeginInvoke(() =>
             {
+                _voiceActivity[playerId] = DateTimeOffset.UtcNow;
                 var displayName = _players.TryGetValue(playerId, out var player)
                     ? player.DisplayName
                     : playerId;
+                RenderPlayers();
                 RemoteSpeakerActive?.Invoke(playerId, displayName);
             });
         _voiceChat.VoiceError += message => Dispatcher.BeginInvoke(() =>
@@ -130,11 +142,13 @@ public partial class MultiplayerWindow : Window
             HookDiagnosticsLifecycle();
             InitializePersistentLifetime();
             InitializeRoleplayCharacterSelector();
+            RefreshSessionSummary();
         };
 
         Closed += async (_, _) =>
         {
             _publishTimer.Stop();
+            _latencyTimer.Stop();
             _voiceChat.Dispose();
             await _client.DisposeAsync();
             await _host.DisposeAsync();
@@ -190,6 +204,7 @@ public partial class MultiplayerWindow : Window
         UpdateButtons();
         RenderPlayers();
         RenderChat();
+        RefreshSessionSummary();
     }
 
     private async void CreateRoomButton_Click(object sender, RoutedEventArgs e)
@@ -201,6 +216,7 @@ public partial class MultiplayerWindow : Window
             InviteAddressText.Text = string.Empty;
             SetInputsEnabled(true);
             UpdateButtons();
+            RefreshSessionSummary();
             return;
         }
 
@@ -221,6 +237,7 @@ public partial class MultiplayerWindow : Window
             ServerTextBox.Text = _host.LocalServerUrl;
             RenderInviteAddresses();
             UpdateButtons();
+            RefreshSessionSummary();
             await ConnectToConfiguredServerAsync();
         }
         catch (Exception ex)
@@ -228,6 +245,7 @@ public partial class MultiplayerWindow : Window
             StatusDetailText.Text = LocalizationService.Format("MultiplayerHostError", ex.Message);
             await _host.StopAsync();
             UpdateButtons();
+            RefreshSessionSummary();
         }
     }
 
@@ -267,6 +285,7 @@ public partial class MultiplayerWindow : Window
 
         SetInputsEnabled(false);
         StatusDetailText.Text = LocalizationService.Get("MultiplayerConnectingDetail");
+        RefreshSessionSummary();
 
         try
         {
@@ -283,6 +302,7 @@ public partial class MultiplayerWindow : Window
 
             ApplySnapshot(snapshot);
             _publishTimer.Start();
+            _latencyTimer.Start();
             if (VoiceEnabledCheckBox.IsChecked == true)
             {
                 _voiceChat.Start();
@@ -290,31 +310,41 @@ public partial class MultiplayerWindow : Window
 
             MultiplayerConnectionChanged?.Invoke(true, _settings.RoomId);
             await PublishLocalTelemetryAsync();
+            await RefreshLatencyAsync();
+            RefreshSessionSummary();
         }
         catch (Exception ex)
         {
             _publishTimer.Stop();
+            _latencyTimer.Stop();
             _voiceChat.Stop();
+            _lastLatencyMs = null;
             SetInputsEnabled(true);
             RenderConnectionState(HubConnectionState.Disconnected);
             StatusDetailText.Text = LocalizationService.Format(
                 "MultiplayerConnectionError",
                 ex.Message);
+            RefreshSessionSummary();
         }
     }
 
     private async Task DisconnectAsync()
     {
         _publishTimer.Stop();
+        _latencyTimer.Stop();
         _voiceChat.Stop();
+        _lastLatencyMs = null;
         await _client.DisconnectAsync();
         _players.Clear();
         _remoteTelemetry.Clear();
+        _remoteRoleplayCharacters.Clear();
+        _voiceActivity.Clear();
         SetInputsEnabled(true);
         RemotePlayersReset?.Invoke();
         MultiplayerConnectionChanged?.Invoke(false, null);
         RenderPlayers();
         RenderConnectionState(HubConnectionState.Disconnected);
+        RefreshSessionSummary();
     }
 
     private async void PublishTimer_Tick(object? sender, EventArgs e)
@@ -322,6 +352,33 @@ public partial class MultiplayerWindow : Window
         await PublishLocalTelemetryAsync();
         UpdateLocalMapText();
         RenderPlayers();
+    }
+
+    private async void LatencyTimer_Tick(object? sender, EventArgs e)
+    {
+        await RefreshLatencyAsync();
+    }
+
+    private async Task RefreshLatencyAsync()
+    {
+        if (_measuringLatency || !_client.IsConnected)
+        {
+            return;
+        }
+
+        _measuringLatency = true;
+        try
+        {
+            var latency = await _client.MeasureAndPublishLatencyAsync(
+                VoiceEnabledCheckBox.IsChecked == true);
+            _lastLatencyMs = latency?.TotalMilliseconds;
+            RefreshSessionSummary();
+            RenderPlayers();
+        }
+        finally
+        {
+            _measuringLatency = false;
+        }
     }
 
     private async Task PublishLocalTelemetryAsync()
@@ -386,6 +443,36 @@ public partial class MultiplayerWindow : Window
         }
     }
 
+    private async void VoiceEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        var enabled = VoiceEnabledCheckBox.IsChecked == true;
+        if (enabled && _client.IsConnected)
+        {
+            _voiceChat.Start();
+        }
+        else
+        {
+            _voiceChat.Stop();
+        }
+
+        if (_client.IsConnected)
+        {
+            await _client.PublishClientStatusAsync(
+                enabled,
+                _lastLatencyMs is double latency
+                    ? (int?)Math.Clamp((int)Math.Round(latency), 0, 5000)
+                    : null);
+        }
+
+        RenderPlayers();
+        RefreshSessionSummary();
+    }
+
     private void ApplySnapshot(RoomSnapshot snapshot)
     {
         _players.Clear();
@@ -403,12 +490,14 @@ public partial class MultiplayerWindow : Window
 
         RenderPlayers();
         RenderLiveSessionView();
+        RefreshSessionSummary();
     }
 
     private void UpsertPresence(PlayerPresence presence)
     {
         _players[presence.PlayerId] = presence;
         RenderPlayers();
+        RefreshSessionSummary();
     }
 
     private void ApplyRemoteTelemetry(PlayerTelemetryFrame frame)
@@ -440,6 +529,7 @@ public partial class MultiplayerWindow : Window
         _localRoleplayCharacter = state;
         RenderPlayers();
         RenderLiveSessionView();
+        RefreshSessionSummary();
     }
 
     private void RemovePlayer(string playerId)
@@ -447,9 +537,11 @@ public partial class MultiplayerWindow : Window
         _players.Remove(playerId);
         _remoteTelemetry.Remove(playerId);
         _remoteRoleplayCharacters.Remove(playerId);
+        _voiceActivity.Remove(playerId);
         _voiceChat.RemoveRemotePlayer(playerId);
         RemotePlayerLeft?.Invoke(playerId);
         RenderPlayers();
+        RefreshSessionSummary();
     }
 
     private void ApplyChatMessage(ChatMessage message)
@@ -466,8 +558,15 @@ public partial class MultiplayerWindow : Window
 
     private void RenderChat()
     {
+        var localPlayerId = _settings.PlayerId;
         ChatListBox.ItemsSource = _chatMessages
-            .Select(message => $"[{message.TimestampUtc.ToLocalTime():HH:mm}] {message.DisplayName}: {message.Text}")
+            .Select(message => new MultiplayerChatRow(
+                message.TimestampUtc.ToLocalTime().ToString("HH:mm"),
+                message.DisplayName,
+                message.Text,
+                string.Equals(message.PlayerId, localPlayerId, StringComparison.OrdinalIgnoreCase)
+                    ? new SolidColorBrush(Color.FromRgb(113, 198, 255))
+                    : new SolidColorBrush(Color.FromRgb(151, 171, 185))))
             .ToArray();
 
         if (ChatListBox.Items.Count > 0)
@@ -516,13 +615,21 @@ public partial class MultiplayerWindow : Window
         var localTelemetry = _telemetrySource();
         var localMap = localTelemetry?.MapName;
         var localCompatibilityId = _activeMapSource()?.CompatibilityId;
-        var rows = new List<string>();
+        var rows = new List<MultiplayerPlayerRow>();
         var now = DateTimeOffset.UtcNow;
 
         foreach (var player in _players.Values.OrderBy(player => player.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
             var isLocal = string.Equals(player.PlayerId, _settings.PlayerId, StringComparison.OrdinalIgnoreCase);
-            _remoteTelemetry.TryGetValue(player.PlayerId, out var telemetry);
+            VehicleTelemetry? telemetry;
+            if (isLocal)
+            {
+                telemetry = localTelemetry;
+            }
+            else
+            {
+                _remoteTelemetry.TryGetValue(player.PlayerId, out telemetry);
+            }
 
             RoleplayCharacterState? roleplay = null;
             if (isLocal)
@@ -539,7 +646,7 @@ public partial class MultiplayerWindow : Window
             var roleplayActive = roleplay?.IsActive == true;
             var mapNameValue = roleplayActive
                 ? roleplay!.MapName
-                : player.MapName;
+                : telemetry?.MapName ?? player.MapName;
             var mapName = string.IsNullOrWhiteSpace(mapNameValue)
                 ? LocalizationService.Get("NotAvailable")
                 : mapNameValue;
@@ -551,13 +658,13 @@ public partial class MultiplayerWindow : Window
             var speed = roleplayActive
                 ? string.Format(
                     LocalizationService.CurrentCulture,
-                    "{0,4:F1} m/s",
+                    "{0:F1} m/s",
                     roleplay!.SpeedMps)
                 : telemetry is null
-                    ? "--.- km/h"
+                    ? "—"
                     : string.Format(
                         LocalizationService.CurrentCulture,
-                        "{0,5:F1} km/h",
+                        "{0:F1} km/h",
                         telemetry.SpeedKph);
 
             var distance = roleplayActive
@@ -570,45 +677,107 @@ public partial class MultiplayerWindow : Window
                     localTelemetry,
                     telemetry,
                     localMap,
-                    player.MapName,
+                    mapNameValue,
                     localCompatibilityId,
                     player.MapCompatibilityId);
 
-            var localMarker = isLocal ? LocalizationService.Get("MultiplayerYouMarker") : "  ";
-            rows.Add($"{localMarker} {player.DisplayName,-18} | {activity,-12} | {mapName,-18} | {speed} | {distance}");
+            var bus = roleplayActive || string.IsNullOrWhiteSpace(telemetry?.VehicleName)
+                ? "—"
+                : telemetry.VehicleName.Trim();
+            var line = roleplayActive || string.IsNullOrWhiteSpace(telemetry?.Line)
+                ? "—"
+                : telemetry.Line.Trim();
+            var ping = player.LatencyMs is int latencyMs
+                ? $"{latencyMs} ms"
+                : isLocal && _lastLatencyMs is double localLatency
+                    ? $"{Math.Round(localLatency):F0} ms"
+                    : "—";
+
+            var speaking = _voiceActivity.TryGetValue(player.PlayerId, out var lastVoice) &&
+                           now - lastVoice <= TimeSpan.FromSeconds(1.5d);
+            var voice = speaking
+                ? MultiplayerTabText("Falando", "Speaking", "Hablando", "Spricht", "Parle")
+                : player.VoiceEnabled switch
+                {
+                    true => MultiplayerTabText("Ativo", "On", "Activo", "Aktiv", "Actif"),
+                    false => MultiplayerTabText("Desligado", "Off", "Apagado", "Aus", "Désactivé"),
+                    _ => "—"
+                };
+
+            var physical = roleplayActive
+                ? "—"
+                : isLocal
+                    ? MultiplayerTabText("Local", "Local", "Local", "Lokal", "Local")
+                    : !ExperimentalFeatureFlags.PhysicalVehiclesEnabled
+                        ? MultiplayerTabText("Desligado", "Off", "Apagado", "Aus", "Désactivé")
+                        : _client.IsRemotePhysicalVehicleSpawned(player.PlayerId)
+                            ? MultiplayerTabText("Ativo", "Active", "Activo", "Aktiv", "Actif")
+                            : MultiplayerTabText("Aguardando", "Waiting", "Esperando", "Wartet", "En attente");
+
+            rows.Add(new MultiplayerPlayerRow(
+                player.DisplayName,
+                isLocal ? LocalizationService.Get("MultiplayerYouMarker").Trim() : string.Empty,
+                activity,
+                bus,
+                line,
+                speed,
+                ping,
+                voice,
+                physical,
+                $"{mapName} • {distance}",
+                roleplayActive
+                    ? new SolidColorBrush(Color.FromRgb(113, 198, 255))
+                    : new SolidColorBrush(Color.FromRgb(56, 201, 140))));
         }
 
         if (rows.Count == 0)
         {
-            rows.Add(LocalizationService.Get("MultiplayerNoPlayers"));
+            rows.Add(new MultiplayerPlayerRow(
+                LocalizationService.Get("MultiplayerNoPlayers"),
+                string.Empty,
+                "—",
+                "—",
+                "—",
+                "—",
+                "—",
+                "—",
+                "—",
+                MultiplayerTabText(
+                    "Aguardando presença real da sala.",
+                    "Waiting for real room presence.",
+                    "Esperando presencia real de la sala.",
+                    "Warte auf echte Raumpräsenz.",
+                    "En attente de présence réelle dans le salon."),
+                new SolidColorBrush(Color.FromRgb(151, 171, 185))));
         }
 
         PlayersListBox.ItemsSource = rows;
         PlayersOverviewListBox.ItemsSource = rows.Take(6).ToArray();
         PlayerCountText.Text = LocalizationService.Format("MultiplayerPlayerCount", _players.Count);
+        RefreshSessionSummary();
     }
 
     private static string PlayerModeText(RoleplayCharacterActivity activity) =>
         activity switch
         {
             RoleplayCharacterActivity.Running => MultiplayerTabText(
-                "RP • correndo",
-                "RP • running",
-                "RP • corriendo",
-                "RP • läuft",
-                "RP • course"),
+                "Correndo",
+                "Running",
+                "Corriendo",
+                "Läuft",
+                "Course"),
             RoleplayCharacterActivity.Walking => MultiplayerTabText(
-                "RP • a pé",
-                "RP • on foot",
-                "RP • a pie",
-                "RP • zu Fuß",
-                "RP • à pied"),
+                "A pé",
+                "On foot",
+                "A pie",
+                "Zu Fuß",
+                "À pied"),
             _ => MultiplayerTabText(
-                "RP • parado",
-                "RP • idle",
-                "RP • quieto",
-                "RP • steht",
-                "RP • immobile")
+                "Parado",
+                "Idle",
+                "Quieto",
+                "Steht",
+                "Immobile")
         };
 
     private string GetRoleplayDistanceText(
@@ -756,6 +925,10 @@ public partial class MultiplayerWindow : Window
                     "MultiplayerConnectedDetail",
                     _settings.RoomId);
                 SetInputsEnabled(false);
+                if (!_latencyTimer.IsEnabled)
+                {
+                    _latencyTimer.Start();
+                }
                 break;
 
             case HubConnectionState.Connecting:
@@ -772,6 +945,8 @@ public partial class MultiplayerWindow : Window
             default:
                 StatusDot.Fill = Brushes.Gray;
                 StatusText.Text = LocalizationService.Get("MultiplayerDisconnected");
+                _latencyTimer.Stop();
+                _lastLatencyMs = null;
                 if (string.IsNullOrWhiteSpace(StatusDetailText.Text))
                 {
                     StatusDetailText.Text = LocalizationService.Get("MultiplayerDisconnectedDetail");
@@ -780,6 +955,7 @@ public partial class MultiplayerWindow : Window
         }
 
         UpdateButtons();
+        RefreshSessionSummary();
     }
 
     private void SetInputsEnabled(bool enabled)
@@ -809,5 +985,126 @@ public partial class MultiplayerWindow : Window
                 "MultiplayerInviteAddress",
                 string.Join("  |  ", addresses),
                 _settings.RoomId);
+        RefreshSessionSummary();
     }
+
+    private void RefreshSessionSummary()
+    {
+        if (!IsInitialized)
+        {
+            return;
+        }
+
+        SessionRoomValueText.Text = _client.IsConnected
+            ? _settings.RoomId
+            : string.IsNullOrWhiteSpace(RoomTextBox.Text)
+                ? "—"
+                : RoomTextBox.Text.Trim();
+
+        LatencyValueText.Text = _client.IsConnected && _lastLatencyMs is double latency
+            ? $"{Math.Round(latency):F0} ms"
+            : "—";
+
+        HostStateValueText.Text = _host.IsRunning
+            ? MultiplayerTabText("Local ativo", "Local active", "Local activo", "Lokal aktiv", "Local actif")
+            : _client.IsConnected
+                ? MultiplayerTabText("Host remoto", "Remote host", "Host remoto", "Remote-Host", "Hôte distant")
+                : MultiplayerTabText("Inativo", "Inactive", "Inactivo", "Inaktiv", "Inactif");
+
+        OverviewConnectionText.Text = _client.IsConnected
+            ? MultiplayerTabText("Sincronização ativa", "Sync active", "Sincronización activa", "Synchronisierung aktiv", "Synchronisation active")
+            : MultiplayerTabText("Sessão desconectada", "Session disconnected", "Sesión desconectada", "Sitzung getrennt", "Session déconnectée");
+
+        OverviewHostDetailText.Text = _host.IsRunning
+            ? MultiplayerTabText(
+                $"Host local ativo em TCP {_host.Port}.",
+                $"Local host active on TCP {_host.Port}.",
+                $"Host local activo en TCP {_host.Port}.",
+                $"Lokaler Host aktiv auf TCP {_host.Port}.",
+                $"Hôte local actif sur TCP {_host.Port}.")
+            : _client.IsConnected
+                ? MultiplayerTabText(
+                    "Conectado a um host externo; o servidor local permanece desligado.",
+                    "Connected to an external host; the local server remains off.",
+                    "Conectado a un host externo; el servidor local sigue apagado.",
+                    "Mit externem Host verbunden; lokaler Server bleibt aus.",
+                    "Connecté à un hôte externe ; le serveur local reste arrêté.")
+                : MultiplayerTabText(
+                    "Nenhum host local ou remoto ativo.",
+                    "No local or remote host active.",
+                    "No hay host local ni remoto activo.",
+                    "Kein lokaler oder Remote-Host aktiv.",
+                    "Aucun hôte local ou distant actif.");
+
+        var upnpEnabled = _settings.EnableAutomaticUpnp;
+        RoomUpnpStateText.Text = !upnpEnabled
+            ? "UPnP: " + MultiplayerTabText("desligado", "off", "apagado", "aus", "désactivé")
+            : !_host.IsRunning
+                ? "UPnP: " + MultiplayerTabText("ativado", "enabled", "activado", "aktiviert", "activé")
+                : _host.LastUpnpResult switch
+                {
+                    { Success: true } => "UPnP: " + MultiplayerTabText("mapeado", "mapped", "mapeado", "zugeordnet", "mappé"),
+                    { Success: false } => "UPnP: " + MultiplayerTabText("falhou", "failed", "falló", "fehlgeschlagen", "échec"),
+                    _ => "UPnP: " + MultiplayerTabText("aguardando", "waiting", "esperando", "wartet", "en attente")
+                };
+
+        VoiceSessionStatusText.Text = !_client.IsConnected
+            ? MultiplayerTabText(
+                "Voz pronta quando a sala conectar",
+                "Voice ready when the room connects",
+                "Voz lista al conectar la sala",
+                "Sprache bereit nach Raumverbindung",
+                "Voix prête à la connexion")
+            : VoiceEnabledCheckBox.IsChecked == true
+                ? MultiplayerTabText("Voz ativa • PTT", "Voice active • PTT", "Voz activa • PTT", "Sprache aktiv • PTT", "Voix active • PTT")
+                : MultiplayerTabText("Voz desligada", "Voice off", "Voz apagada", "Sprache aus", "Voix désactivée");
+
+        AdvancedBridgeStatusText.Text =
+            Application.Current is App app && app.PluginBridge.IsConnected
+                ? MultiplayerTabText(
+                    "Plugin NavBR conectado ao OMSI.",
+                    "NavBR plugin connected to OMSI.",
+                    "Plugin NavBR conectado a OMSI.",
+                    "NavBR-Plugin mit OMSI verbunden.",
+                    "Plugin NavBR connecté à OMSI.")
+                : MultiplayerTabText(
+                    "Plugin NavBR desconectado ou OMSI ainda não disponível.",
+                    "NavBR plugin disconnected or OMSI not available yet.",
+                    "Plugin NavBR desconectado u OMSI aún no disponible.",
+                    "NavBR-Plugin getrennt oder OMSI noch nicht verfügbar.",
+                    "Plugin NavBR déconnecté ou OMSI pas encore disponible.");
+
+        RefreshRoleplayTechnicalStatus();
+    }
+
+    private void OpenRoomTab_Click(object sender, RoutedEventArgs e) =>
+        MultiplayerTabs.SelectedItem = RoomTab;
+
+    private void OpenPlayersTab_Click(object sender, RoutedEventArgs e) =>
+        MultiplayerTabs.SelectedItem = PlayersTab;
+
+    private void OpenChatTab_Click(object sender, RoutedEventArgs e) =>
+        MultiplayerTabs.SelectedItem = ChatVoiceTab;
+
+    private void OpenRoleplayTab_Click(object sender, RoutedEventArgs e) =>
+        MultiplayerTabs.SelectedItem = RoleplayTab;
 }
+
+internal sealed record MultiplayerPlayerRow(
+    string Name,
+    string YouLabel,
+    string Mode,
+    string Bus,
+    string Line,
+    string Speed,
+    string Ping,
+    string Voice,
+    string Physical,
+    string Secondary,
+    Brush AccentBrush);
+
+internal sealed record MultiplayerChatRow(
+    string Time,
+    string DisplayName,
+    string Text,
+    Brush AccentBrush);
