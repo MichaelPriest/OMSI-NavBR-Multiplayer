@@ -41,6 +41,11 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   voiceInputDevices: [],
   voiceOutputDevices: [],
   voiceMixers: [],
+  chatHotkey: "F9",
+  voiceHotkey: "F10",
+  hotkeyOptions: [],
+  relayEnabled: false,
+  relayServerUrl: "",
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -2153,6 +2158,11 @@ function Multiplayer({
   const [voiceChannel, setVoiceChannel] = useState("general");
   const [voiceRadius, setVoiceRadius] = useState(120);
   const [voiceDeafened, setVoiceDeafened] = useState(false);
+  const [relayEnabled, setRelayEnabled] = useState(false);
+  const [relayServerUrl, setRelayServerUrl] = useState("");
+  const [chatHotkey, setChatHotkey] = useState("F9");
+  const [voiceHotkey, setVoiceHotkey] = useState("F10");
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || "");
@@ -2165,6 +2175,18 @@ function Multiplayer({
     setVoiceRadius(multiplayer.voiceProximityMeters || 120);
     setVoiceDeafened(multiplayer.voiceDeafened);
   }, [multiplayer.voiceChannel, multiplayer.voiceProximityMeters, multiplayer.voiceDeafened]);
+
+  useEffect(() => {
+    setRelayEnabled(multiplayer.relayEnabled);
+    setRelayServerUrl(multiplayer.relayServerUrl || "");
+    setChatHotkey(multiplayer.chatHotkey || "F9");
+    setVoiceHotkey(multiplayer.voiceHotkey || "F10");
+  }, [
+    multiplayer.relayEnabled,
+    multiplayer.relayServerUrl,
+    multiplayer.chatHotkey,
+    multiplayer.voiceHotkey
+  ]);
 
   const statusLabel = multiplayer.connected
     ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")
@@ -2195,6 +2217,79 @@ function Multiplayer({
     if (!text || !multiplayer.connected) return;
     sendCommand("sendChat", { text });
     setChatText("");
+  };
+
+  const buildInviteText = () => {
+    if (!multiplayer.connected || !multiplayer.roomId) return null;
+
+    const useRelay = multiplayer.relayEnabled && !multiplayer.hostRunning;
+    const activeServer = useRelay
+      ? (multiplayer.serverUrl || multiplayer.relayServerUrl || serverUrl)
+      : (multiplayer.inviteAddresses[0] || multiplayer.serverUrl || serverUrl);
+
+    if (!activeServer) return null;
+
+    const lines = [
+      "NAVBR_INVITE_V1",
+      `server=${activeServer}`,
+      `room=${multiplayer.roomId}`
+    ];
+    if (!useRelay) {
+      lines.push(`port=${multiplayer.hostPort ?? 27730}`);
+    }
+    lines.push(`mode=${useRelay ? "relay" : "peer-host"}`);
+    return lines.join("\n");
+  };
+
+  const copyInvite = async () => {
+    const invite = buildInviteText();
+    if (!invite) {
+      setInviteNotice(pick("Crie ou entre em uma sala antes de copiar o convite.", "Create or join a room before copying the invite.", "Crea o entra en una sala antes de copiar la invitación.", "Erstelle oder betrete einen Raum, bevor du die Einladung kopierst.", "Créez ou rejoignez une salle avant de copier l’invitation."));
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(invite);
+      setInviteNotice(pick("Convite copiado.", "Invite copied.", "Invitación copiada.", "Einladung kopiert.", "Invitation copiée."));
+    } catch {
+      setInviteNotice(pick("Não foi possível acessar a área de transferência.", "Clipboard access was not available.", "No se pudo acceder al portapapeles.", "Kein Zugriff auf die Zwischenablage.", "Impossible d’accéder au presse-papiers."));
+    }
+  };
+
+  const pasteInvite = async () => {
+    try {
+      const raw = (await navigator.clipboard.readText()).trim();
+      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (lines[0]?.toUpperCase() !== "NAVBR_INVITE_V1") {
+        throw new Error("invalid-invite");
+      }
+
+      const values = new Map<string, string>();
+      for (const line of lines.slice(1)) {
+        const separator = line.indexOf("=");
+        if (separator <= 0) continue;
+        values.set(line.slice(0, separator).trim().toLowerCase(), line.slice(separator + 1).trim());
+      }
+
+      const importedServer = values.get("server") || "";
+      const importedRoom = values.get("room") || "";
+      const mode = (values.get("mode") || "peer-host").toLowerCase();
+      if (!importedServer || !importedRoom) {
+        throw new Error("invalid-invite");
+      }
+
+      setServerUrl(importedServer);
+      setRoomId(importedRoom);
+      setRoomPassword("");
+      if (mode === "relay") {
+        setRelayEnabled(true);
+        setRelayServerUrl(importedServer);
+        sendCommand("configureRelay", { enabled: true, relayServerUrl: importedServer });
+      }
+      setInviteNotice(pick("Convite importado para os campos da sala.", "Invite imported into the room fields.", "Invitación importada en los campos de la sala.", "Einladung in die Raumfelder übernommen.", "Invitation importée dans les champs de la salle."));
+    } catch {
+      setInviteNotice(pick("Convite inválido ou área de transferência indisponível.", "Invalid invite or clipboard unavailable.", "Invitación no válida o portapapeles no disponible.", "Ungültige Einladung oder Zwischenablage nicht verfügbar.", "Invitation invalide ou presse-papiers indisponible."));
+    }
   };
 
   return (
@@ -2273,6 +2368,16 @@ function Multiplayer({
               <h3>{multiplayer.localRoleplayActive ? pick("Fora do ônibus", "Outside the bus", "Fuera del autobús", "Außerhalb des Busses", "Hors du bus") : pick("No ônibus", "In the bus", "En el autobús", "Im Bus", "Dans le bus")}</h3>
               <button className="text-action" onClick={() => setTab("roleplay")}>{pick("Abrir Personagem / RP", "Open Character / RP", "Abrir Personaje / RP", "Charakter / RP öffnen", "Ouvrir Personnage / RP")} →</button>
             </article>
+            <article className="card compact-card">
+              <span className="eyebrow">{pick("APOIO CCO", "DISPATCH SUPPORT", "APOYO CCO", "LEITSTELLENHILFE", "ASSISTANCE CCO")}</span>
+              <h3>{pick("Ocorrência do motorista", "Driver report", "Incidencia del conductor", "Fahrermeldung", "Signalement conducteur")}</h3>
+              <p>{pick("Envia apoio/incidente real para o CCO da sessão ou marca seus chamados como normalizados.", "Sends a real support/incident report to session dispatch or marks your reports resolved.", "Envía apoyo/incidente real al CCO de la sesión o marca tus avisos como normalizados.", "Sendet eine echte Hilfe-/Vorfallmeldung an die Leitstelle oder markiert eigene Meldungen als erledigt.", "Envoie une demande/incidence réelle au CCO ou clôture vos propres signalements.")}</p>
+              <div className="room-actions">
+                <button className="button ghost" disabled={!multiplayer.connected} onClick={() => sendCommand("submitOperationalReport", { kind: "assistance" })}>{pick("Pedir apoio", "Request support", "Pedir apoyo", "Hilfe anfordern", "Demander de l’aide")}</button>
+                <button className="button ghost danger" disabled={!multiplayer.connected} onClick={() => sendCommand("submitOperationalReport", { kind: "incident" })}>{pick("Reportar incidente", "Report incident", "Reportar incidente", "Vorfall melden", "Signaler un incident")}</button>
+                <button className="button ghost" disabled={!multiplayer.connected} onClick={() => sendCommand("resolveMyOperationalReports")}>{pick("Normalizado", "Resolved", "Normalizado", "Normalisiert", "Normalisé")}</button>
+              </div>
+            </article>
           </aside>
         </section>
       )}
@@ -2321,11 +2426,39 @@ function Multiplayer({
             </label>
           </div>
 
+          <div className="room-privacy-row">
+            <label className="privacy-toggle">
+              <input
+                type="checkbox"
+                checked={relayEnabled}
+                disabled={multiplayer.connected || multiplayer.hostRunning}
+                onChange={event => {
+                  const enabled = event.target.checked;
+                  setRelayEnabled(enabled);
+                  sendCommand("configureRelay", { enabled, relayServerUrl });
+                }}
+              />
+              <span>{pick("Usar relay de aplicação (experimental)", "Use application relay (experimental)", "Usar relay de aplicación (experimental)", "Anwendungs-Relay verwenden (experimentell)", "Utiliser le relais applicatif (expérimental)")}</span>
+            </label>
+            <label className="password-field">
+              <span>{pick("Servidor relay", "Relay server", "Servidor relay", "Relay-Server", "Serveur relais")}</span>
+              <input
+                value={relayServerUrl}
+                disabled={!relayEnabled || multiplayer.connected || multiplayer.hostRunning}
+                onChange={event => setRelayServerUrl(event.target.value)}
+                onBlur={() => sendCommand("configureRelay", { enabled: relayEnabled, relayServerUrl })}
+                placeholder="https://relay.example"
+              />
+            </label>
+          </div>
+
           <div className="room-actions">
             {!multiplayer.connected ? (
               <>
                 <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
-                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword })}>{pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}</button>
+                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: relayEnabled, relayServerUrl })}>
+                  {relayEnabled ? pick("Criar sala via relay", "Create room via relay", "Crear sala vía relay", "Raum über Relay erstellen", "Créer la salle via relais") : pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}
+                </button>
               </>
             ) : (
               <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
@@ -2340,6 +2473,12 @@ function Multiplayer({
             <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
           </div>
+
+          <div className="room-actions">
+            <button className="button ghost" disabled={!multiplayer.connected} onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
+            <button className="button ghost" disabled={multiplayer.connected || multiplayer.hostRunning} onClick={pasteInvite}>📥 {pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
+          </div>
+          {inviteNotice && <div className="migration-note">{inviteNotice}</div>}
 
           {multiplayer.inviteAddresses.length > 0 && (
             <div className="invite-box">
@@ -2647,6 +2786,38 @@ function Multiplayer({
             <h3>{pick("Host local", "Local host", "Host local", "Lokaler Host", "Hôte local")}</h3>
             <p>{multiplayer.hostRunning ? `${pick("Escutando na porta TCP", "Listening on TCP port", "Escuchando en el puerto TCP", "Lauscht auf TCP-Port", "Écoute sur le port TCP")} ${multiplayer.hostPort ?? 27730}.` : pick("Host local não está ativo.", "Local host is not active.", "El host local no está activo.", "Lokaler Host ist nicht aktiv.", "L’hôte local n’est pas actif.")}</p>
             <button className="button ghost" onClick={onOpenNetwork}>{pick("Abrir Configurações", "Open Settings", "Abrir Configuración", "Einstellungen öffnen", "Ouvrir les paramètres")} &gt; {pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">{pick("ATALHOS", "HOTKEYS", "ATAJOS", "HOTKEYS", "RACCOURCIS")}</span>
+            <h3>{pick("Chat e Push-to-Talk", "Chat and Push-to-Talk", "Chat y Push-to-Talk", "Chat und Push-to-Talk", "Chat et Push-to-Talk")}</h3>
+            <div className="voice-device-grid">
+              <label className="voice-field">
+                <span>{pick("Abrir chat", "Open chat", "Abrir chat", "Chat öffnen", "Ouvrir le chat")}</span>
+                <select
+                  value={chatHotkey}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setChatHotkey(value);
+                    sendCommand("configureMultiplayerHotkeys", { chatHotkey: value, voiceHotkey });
+                  }}
+                >
+                  {multiplayer.hotkeyOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="voice-field">
+                <span>PTT</span>
+                <select
+                  value={voiceHotkey}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setVoiceHotkey(value);
+                    sendCommand("configureMultiplayerHotkeys", { chatHotkey, voiceHotkey: value });
+                  }}
+                >
+                  {multiplayer.hotkeyOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
           </article>
         </section>
       )}
