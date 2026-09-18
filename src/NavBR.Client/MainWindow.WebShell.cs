@@ -671,6 +671,10 @@ public partial class MainWindow
                 CancelDriverProfileImportFromWeb();
                 break;
 
+            case "installOmsiPlugin":
+                InstallOmsiPluginFromWeb();
+                break;
+
             case "discoverOmsiProfiles":
                 DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
                 break;
