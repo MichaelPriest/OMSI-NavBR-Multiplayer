@@ -503,6 +503,12 @@ internal sealed class RoleplayCharacterWindow : Window
             "Plugin Personaje/RP no disponible.",
             "Charakter/RP-Plugin nicht verfügbar.",
             "Plugin Personnage/RP indisponible."),
+        "roleplay-release-failed" => T(
+            "O modo personagem foi encerrado no NavBR, mas o plugin não confirmou a restauração do motorista. Volte ao ônibus no OMSI e evite reativar o RP até recarregar a sessão.",
+            "Character mode was closed in NavBR, but the plugin did not confirm driver restoration. Return to the bus in OMSI and avoid reactivating RP until the session is reloaded.",
+            "El modo personaje se cerró en NavBR, pero el plugin no confirmó la restauración del conductor. Vuelve al autobús en OMSI antes de reactivar RP.",
+            "Der Charaktermodus wurde in NavBR beendet, aber das Plugin bestätigte die Wiederherstellung des Fahrers nicht. Kehren Sie in OMSI zum Bus zurück.",
+            "Le mode personnage a été fermé dans NavBR, mais le plugin n’a pas confirmé la restauration du conducteur. Revenez au bus dans OMSI."),
         _ => status.Replace('-', ' ')
     };
 
