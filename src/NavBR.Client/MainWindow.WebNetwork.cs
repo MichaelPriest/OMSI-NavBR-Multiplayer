@@ -22,6 +22,8 @@ public partial class MainWindow
             hostRunning = _multiplayerWindow?.IsHostRunningForWeb == true,
             runningAsAdministrator = WindowsFirewallService.IsRunningAsAdministrator(),
             automaticUpnpEnabled = settings.EnableAutomaticUpnp,
+            externalProbeConfigured = ExternalPortProbeClient.IsConfiguredForCurrentEnvironment(),
+            externalProbeServiceOrigin = ExternalPortProbeClient.GetConfiguredServiceOrigin(),
             message = _webNetworkMessage,
             error = _webNetworkError,
             diagnostics = diagnostics is null
@@ -146,9 +148,9 @@ public partial class MainWindow
             if (!probe.IsConfigured)
             {
                 _webExternalPortProbe = null;
-                _webNetworkError =
-                    "O serviço de teste externo não está configurado nesta instalação.";
-                _webNetworkMessage = null;
+                _webNetworkError = null;
+                _webNetworkMessage =
+                    "Teste externo indisponível nesta instalação. A sala local/LAN continua funcionando; UPnP e endereço externo são verificados separadamente.";
                 return;
             }
 
