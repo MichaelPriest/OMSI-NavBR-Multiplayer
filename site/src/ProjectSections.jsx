@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ReleaseCard from "./ReleaseCard.jsx";
 import { GITHUB_URL } from "./lib.js";
 
@@ -56,6 +56,19 @@ export function DocumentationSection({ releases }) {
 }
 
 export function SupportSection() {
+  const pixKey = "b07a9cc9-b10d-48a8-b201-d28bddc4399a";
+  const [copyStatus, setCopyStatus] = useState("");
+
+  const copyPix = async () => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      setCopyStatus("Chave copiada ✓");
+      window.setTimeout(() => setCopyStatus(""), 1800);
+    } catch {
+      window.prompt("Copie a chave Pix:", pixKey);
+    }
+  };
+
   return (
     <section id="contribua" className="section shell support-wrap">
       <div className="support-card">
@@ -65,9 +78,10 @@ export function SupportSection() {
           <p>Contribuições são voluntárias e ajudam com desenvolvimento, infraestrutura e testes.</p>
         </div>
         <div className="pix-box">
-          <span>APOIO AO PROJETO</span>
-          <strong>As formas de contribuição permanecem documentadas no projeto oficial.</strong>
-          <a className="button primary" href={GITHUB_URL} target="_blank" rel="noreferrer">Abrir projeto no GitHub</a>
+          <span>PIX — CHAVE ALEATÓRIA</span>
+          <strong>{pixKey}</strong>
+          <button className="button primary" type="button" onClick={copyPix}>Copiar chave Pix</button>
+          <small className="pix-status" aria-live="polite">{copyStatus}</small>
         </div>
       </div>
     </section>
