@@ -71,6 +71,10 @@ export type NavBrCommand =
   | "openRoleplay"
   | "toggleHudLayout"
   | "openHudEditor"
+  | "connectRoom"
+  | "createLocalRoom"
+  | "disconnectRoom"
+  | "stopLocalHost"
   | "sendChat";
 
 declare global {
