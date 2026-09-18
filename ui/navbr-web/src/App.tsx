@@ -394,9 +394,17 @@ function Multiplayer({
                     <small>
                       NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"} · Plugin {room.pluginProtocolVersion || "—"}
                     </small>
+                    <em className={`compatibility-badge ${room.compatibility}`}>
+                      {room.compatibility === "compatible" ? "Compatível" : room.compatibility === "warning" ? "Compatibilidade parcial" : "Requer ajuste local"}
+                    </em>
+                    {room.compatibilityIssues.length > 0 && (
+                      <small className="compatibility-detail">{room.compatibilityIssues[0]}</small>
+                    )}
                   </button>
                   <button
                     className="button compact"
+                    disabled={!room.directJoinAllowed}
+                    title={!room.directJoinAllowed ? "Carregue a configuração compatível antes de entrar diretamente." : undefined}
                     onClick={() => {
                       setRoomId(room.roomId);
                       setPrivateRoom(false);
