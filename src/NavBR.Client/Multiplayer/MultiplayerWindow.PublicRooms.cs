@@ -6,53 +6,15 @@ namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow
 {
-    private Button? _publicRoomsButton;
-
     private void InitializePublicRoomBrowser()
     {
-        if (_publicRoomsButton is not null)
-        {
-            return;
-        }
-
-        Panel? actions = CopyInviteButton.Parent as Panel;
-        if (actions is null)
-        {
-            actions = PasteInviteButton.Parent as Panel;
-        }
-
-        if (actions is null)
-        {
-            return;
-        }
-
-        _publicRoomsButton = new Button
-        {
-            Content = PublicRoomsButtonText(),
-            Margin = new Thickness(8d, 0d, 0d, 0d),
-            MinWidth = 112d,
-            Height = 34d,
-            ToolTip = PublicRoomsToolTipText()
-        };
-        _publicRoomsButton.Click += PublicRoomsButton_Click;
-
-        if (actions is StackPanel stack)
-        {
-            stack.Children.Insert(0, _publicRoomsButton);
-        }
-        else
-        {
-            actions.Children.Add(_publicRoomsButton);
-        }
+        RefreshPublicRoomBrowserLocalization();
     }
 
     private void RefreshPublicRoomBrowserLocalization()
     {
-        if (_publicRoomsButton is not null)
-        {
-            _publicRoomsButton.Content = PublicRoomsButtonText();
-            _publicRoomsButton.ToolTip = PublicRoomsToolTipText();
-        }
+        PublicRoomsButton.Content = PublicRoomsButtonText();
+        PublicRoomsButton.ToolTip = PublicRoomsToolTipText();
     }
 
     private void PublicRoomsButton_Click(object sender, RoutedEventArgs e)
