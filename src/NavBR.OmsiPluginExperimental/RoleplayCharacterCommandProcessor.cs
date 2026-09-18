@@ -102,6 +102,27 @@ internal static class RoleplayCharacterCommandProcessor
         return null;
     }
 
+    private static bool TryNormalizeTriggerName(
+        string? value,
+        out string triggerName)
+    {
+        triggerName = value?.Trim() ?? string.Empty;
+        if (triggerName.Length is <= 0 or > 128)
+        {
+            return false;
+        }
+
+        foreach (var character in triggerName)
+        {
+            if (char.IsControl(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal static PluginBridgeMessage Result(
         PluginBridgeMessage command,
         bool success,
