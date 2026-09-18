@@ -280,7 +280,7 @@ public partial class MainWindow
             : "-";
 
         _pluginDiagnosticsStatusText.Text =
-            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  deployment=NATIVE-AOT-X86  install={install.State}  files={install.RequiredFilesFound}/2  manifest={install.Manifest}\n" +
+            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  deployment=NATIVE-AOT-X86  install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
             $"runtime=BUILT-IN  status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
@@ -315,6 +315,7 @@ public partial class MainWindow
             var requiredFiles = new[]
             {
                 "NavBR.OmsiPlugin.dll",
+                "NavBR.OmsiInterop.dll",
                 "NavBR.OmsiPlugin.opl"
             };
 
@@ -328,8 +329,8 @@ public partial class MainWindow
             var state = found switch
             {
                 0 => "MISSING",
-                2 when hasManifest => "INSTALLED",
-                2 => "UNTRACKED",
+                3 when hasManifest => "INSTALLED",
+                3 => "UNTRACKED",
                 _ => "PARTIAL"
             };
 
