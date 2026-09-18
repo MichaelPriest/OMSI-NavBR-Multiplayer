@@ -1004,10 +1004,65 @@ function Operations({
               <span><small>{pick("MÉDIA", "AVERAGE", "MEDIA", "DURCHSCHNITT", "MOYENNE")}</small><strong>{operations.profile.averageMovingSpeedKph.toFixed(1)} km/h</strong></span>
               <span><small>{pick("MÁXIMA", "MAXIMUM", "MÁXIMA", "MAXIMUM", "MAXIMUM")}</small><strong>{operations.profile.highestSpeedKph.toFixed(0)} km/h</strong></span>
             </div>
-            <button className="button ghost" onClick={() => sendCommand("saveDriverProfile", {
-              displayName: profileName,
-              companyName: profileCompany
-            })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
+            <div className="room-actions">
+              <button className="button ghost" onClick={() => sendCommand("saveDriverProfile", { displayName: profileName, companyName: profileCompany })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
+              <button className="button ghost" onClick={() => sendCommand("selectDriverProfileImport")}>{pick("Importar", "Import", "Importar", "Importieren", "Importer")}</button>
+              <button className="button ghost" onClick={() => sendCommand("exportDriverProfile")}>{pick("Exportar", "Export", "Exportar", "Exportieren", "Exporter")}</button>
+            </div>
+            {operations.profileTransfer.notice && <div className="network-message">{operations.profileTransfer.notice}</div>}
+            {operations.profileTransfer.pending && (
+              <div className="card compact-card">
+                <span className="eyebrow">{pick("CONFIRMAR IMPORTAÇÃO", "CONFIRM IMPORT", "CONFIRMAR IMPORTACIÓN", "IMPORT BESTÄTIGEN", "CONFIRMER L’IMPORT")}</span>
+                <h3>{operations.profileTransfer.pending.displayName}</h3>
+                <p>
+                  {operations.profileTransfer.pending.includesTripHistory
+                    ? pick(
+                        `Substituir o perfil local e o histórico atual por este arquivo (${operations.profileTransfer.pending.tripCount} viagens)?`,
+                        `Replace the local profile and current history with this file (${operations.profileTransfer.pending.tripCount} trips)?`,
+                        `¿Sustituir el perfil local y el historial actual por este archivo (${operations.profileTransfer.pending.tripCount} viajes)?`,
+                        `Lokales Profil und Verlauf durch diese Datei ersetzen (${operations.profileTransfer.pending.tripCount} Fahrten)?`,
+                        `Remplacer le profil local et l’historique par ce fichier (${operations.profileTransfer.pending.tripCount} trajets) ?`
+                      )
+                    : pick(
+                        "Este arquivo antigo não contém histórico. O perfil será substituído e o histórico local será preservado.",
+                        "This older file has no trip history. The profile will be replaced and local history preserved.",
+                        "Este archivo antiguo no contiene historial. El perfil se sustituirá y el historial local se conservará.",
+                        "Diese ältere Datei enthält keinen Verlauf. Das Profil wird ersetzt, der lokale Verlauf bleibt erhalten.",
+                        "Cet ancien fichier ne contient pas d’historique. Le profil sera remplacé et l’historique local conservé."
+                      )}
+                </p>
+                <div className="room-actions">
+                  <button className="button primary" onClick={() => sendCommand("applyDriverProfileImport")}>{pick("Importar agora", "Import now", "Importar ahora", "Jetzt importieren", "Importer maintenant")}</button>
+                  <button className="button ghost" onClick={() => sendCommand("cancelDriverProfileImport")}>{pick("Cancelar", "Cancel", "Cancelar", "Abbrechen", "Annuler")}</button>
+                </div>
+              </div>
+            )}
+          </article>
+
+          <article className="card fleet-card">
+            <div className="section-heading">
+              <div><span className="eyebrow">{pick("HISTÓRICO", "HISTORY", "HISTORIAL", "VERLAUF", "HISTORIQUE")}</span><h3>{pick("Viagens reais", "Real trips", "Viajes reales", "Echte Fahrten", "Trajets réels")}</h3></div>
+              <span className="stop-count">{tripHistory.length} {pick("viagem(ns)", "trip(s)", "viaje(s)", "Fahrt(en)", "trajet(s)")}</span>
+            </div>
+            <div className="profile-stats">
+              <span><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{historyDistanceKm.toFixed(1)} km</strong></span>
+              <span><small>{pick("TEMPO", "TIME", "TIEMPO", "ZEIT", "TEMPS")}</small><strong>{formatReplayDuration(historyDrivingSeconds)}</strong></span>
+              <span><small>{pick("LINHAS", "LINES", "LÍNEAS", "LINIEN", "LIGNES")}</small><strong>{historyLines}</strong></span>
+              <span><small>{pick("MAPAS", "MAPS", "MAPAS", "KARTEN", "CARTES")}</small><strong>{historyMaps}</strong></span>
+            </div>
+            {tripHistory.length === 0 ? (
+              <div className="empty-state compact-empty">{pick("Nenhuma viagem concluída foi registrada ainda. O histórico é preenchido ao encerrar sessões reais do OMSI.", "No completed trip has been recorded yet. History is populated when real OMSI sessions end.", "Aún no se registró ningún viaje completado. El historial se llena al terminar sesiones reales de OMSI.", "Noch keine abgeschlossene Fahrt aufgezeichnet. Der Verlauf wird nach echten OMSI-Sitzungen gefüllt.", "Aucun trajet terminé n’a encore été enregistré. L’historique se remplit à la fin des sessions OMSI réelles.")}</div>
+            ) : (
+              <div className="fleet-list">
+                {tripHistory.map((trip, index) => (
+                  <div className="fleet-row" key={`${trip.startedAtUtc}-${index}`}>
+                    <div><strong>{new Date(trip.startedAtUtc).toLocaleString()}</strong><small>{[trip.line, trip.route].filter(Boolean).join(" / ") || trip.mapName || "—"}</small></div>
+                    <div><strong>{trip.distanceKm.toFixed(1)} km · {formatReplayDuration(trip.drivingSeconds)}</strong><small>{trip.mapName || "—"} · {trip.vehicleName || "—"}</small></div>
+                    <small>{pick("Máxima", "Top", "Máxima", "Max.", "Max.")}: {trip.highestSpeedKph.toFixed(1)} km/h · {new Date(trip.endedAtUtc).toLocaleString()}</small>
+                  </div>
+                ))}
+              </div>
+            )}
           </article>
 
           <article className="card fleet-card">
