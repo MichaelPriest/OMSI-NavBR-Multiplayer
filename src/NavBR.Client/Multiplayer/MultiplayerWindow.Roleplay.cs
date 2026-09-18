@@ -146,8 +146,156 @@ public partial class MultiplayerWindow
     private void RoleplayCharacterSelectButton_Click(object sender, RoutedEventArgs e) =>
         OpenRoleplayCharacterSelector();
 
-    private void RoleplayActionButton_Click(object sender, RoutedEventArgs e) =>
+    private void RoleplayActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        var enabled = _roleplayCharacterCheckBox?.IsChecked == true &&
+                      ExperimentalFeatureFlags.RoleplayCharacterEnabled;
+        var telemetry = _telemetrySource();
+        var map = _activeMapSource();
+        var mapKey = telemetry?.MapCompatibilityId ??
+                     map?.CompatibilityId ??
+                     telemetry?.MapName ??
+                     map?.FolderName;
+        var mapReady = enabled &&
+                       telemetry?.IsInGame == true &&
+                       !string.IsNullOrWhiteSpace(mapKey);
+
+        if (!enabled)
+        {
+            StatusDetailText.Text = RoleplayDisabledText();
+            return;
+        }
+
+        if (mapReady && RoleplayCharacterSelectionStore.Get(mapKey) is null)
+        {
+            OpenRoleplayCharacterSelector();
+            return;
+        }
+
         RoleplayActionRequested?.Invoke();
+    }
+
+    internal void ShowRoleplayTab()
+    {
+        MultiplayerTabs.SelectedItem = RoleplayTab;
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        ShowInTaskbar = true;
+        Activate();
+        RefreshRoleplayCharacterSelector(openWhenReady: false);
+        RefreshRoleplayTechnicalStatus();
+    }
+
+    internal void SetRoleplayRuntimeStatus(string status)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => SetRoleplayRuntimeStatus(status));
+            return;
+        }
+
+        StatusDetailText.Text = RoleplayRuntimeStatusText(status);
+        RefreshRoleplayTechnicalStatus();
+    }
+
+    private void RefreshRoleplayTechnicalStatus()
+    {
+        if (!IsInitialized)
+        {
+            return;
+        }
+
+        var bridgeConnected =
+            Application.Current is App app &&
+            app.PluginBridge.IsConnected;
+        var possession =
+            Application.Current is App possessionApp &&
+            possessionApp.PluginBridge.SupportsCapability(
+                Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterPossession);
+        var transform =
+            Application.Current is App transformApp &&
+            transformApp.PluginBridge.SupportsCapability(
+                Shared.PluginBridge.PluginBridgeProtocol.CapabilityCharacterTransform);
+
+        RoleplayPluginStatusText.Text = !bridgeConnected
+            ? RpT(
+                "Plugin NavBR v3 desconectado.",
+                "NavBR v3 plugin disconnected.",
+                "Plugin NavBR v3 desconectado.",
+                "NavBR-v3-Plugin getrennt.",
+                "Plugin NavBR v3 déconnecté.")
+            : possession && transform
+                ? RpT(
+                    "Plugin v3 pronto para Personagem/RP.",
+                    "Plugin v3 ready for Character/RP.",
+                    "Plugin v3 listo para Personaje/RP.",
+                    "Plugin v3 bereit für Charakter/RP.",
+                    "Plugin v3 prêt pour Personnage/RP.")
+                : RpT(
+                    "Plugin conectado; aguardando capacidades RP do OMSI.",
+                    "Plugin connected; waiting for OMSI RP capabilities.",
+                    "Plugin conectado; esperando capacidades RP de OMSI.",
+                    "Plugin verbunden; warte auf OMSI-RP-Funktionen.",
+                    "Plugin connecté ; attente des capacités RP d’OMSI.");
+
+        RoleplaySyncStatusText.Text = _client.IsConnected
+            ? RpT(
+                "Multiplayer conectado • estado RP é sincronizado com a sala.",
+                "Multiplayer connected • RP state is synchronized with the room.",
+                "Multijugador conectado • el estado RP se sincroniza con la sala.",
+                "Multiplayer verbunden • RP-Status wird mit dem Raum synchronisiert.",
+                "Multijoueur connecté • l’état RP est synchronisé avec le salon.")
+            : RpT(
+                "Modo local • o mesmo controlador RP funciona sem multiplayer.",
+                "Local mode • the same RP controller works without multiplayer.",
+                "Modo local • el mismo controlador RP funciona sin multijugador.",
+                "Lokaler Modus • derselbe RP-Controller funktioniert ohne Multiplayer.",
+                "Mode local • le même contrôleur RP fonctionne sans multijoueur.");
+    }
+
+    private static string RoleplayRuntimeStatusText(string status) => status switch
+    {
+        "roleplay-active" => RpT(
+            "Personagem ativo.",
+            "Character active.",
+            "Personaje activo.",
+            "Charakter aktiv.",
+            "Personnage actif."),
+        "roleplay-character-required" => RpT(
+            "Selecione o personagem do motorista primeiro.",
+            "Select the driver character first.",
+            "Selecciona primero el personaje del conductor.",
+            "Wähle zuerst den Fahrercharakter.",
+            "Sélectionnez d’abord le personnage conducteur."),
+        "selected-driver-not-active" => RpT(
+            "O personagem selecionado não corresponde ao motorista humano do ônibus atual.",
+            "The selected character does not match the human driver of the current bus.",
+            "El personaje seleccionado no corresponde al conductor humano del autobús actual.",
+            "Der ausgewählte Charakter entspricht nicht dem menschlichen Fahrer des aktuellen Busses.",
+            "Le personnage sélectionné ne correspond pas au conducteur humain du bus actuel."),
+        "roleplay-plugin-unavailable" or "character-backend-unavailable" => RpT(
+            "Plugin Personagem/RP indisponível. Atualize o plugin NavBR v3 e reinicie o OMSI.",
+            "Character/RP plugin unavailable. Update to the NavBR v3 plugin and restart OMSI.",
+            "Plugin Personaje/RP no disponible. Actualiza el plugin NavBR v3 y reinicia OMSI.",
+            "Charakter/RP-Plugin nicht verfügbar. NavBR-v3-Plugin aktualisieren und OMSI neu starten.",
+            "Plugin Personnage/RP indisponible. Mettez à jour le plugin NavBR v3 et redémarrez OMSI."),
+        "roleplay-release-failed" => RpT(
+            "RP encerrado no NavBR, mas o plugin não confirmou a restauração do motorista.",
+            "RP ended in NavBR, but the plugin did not confirm driver restoration.",
+            "RP terminó en NavBR, pero el plugin no confirmó la restauración del conductor.",
+            "RP in NavBR beendet, aber die Fahrerwiederherstellung wurde nicht bestätigt.",
+            "RP terminé dans NavBR, mais la restauration du conducteur n’a pas été confirmée."),
+        "roleplay-returned-to-bus" or "roleplay-exit" => RpT(
+            "No ônibus.",
+            "In bus.",
+            "En autobús.",
+            "Im Bus.",
+            "Dans le bus."),
+        _ => status.Replace('-', ' ')
+    };
 
     private void RefreshRoleplayCharacterSelector(bool openWhenReady)
     {
