@@ -132,6 +132,96 @@ export interface NavBrNavigationState {
   };
 }
 
+export interface NavBrOperationalReport {
+  reportId: string;
+  roomId: string;
+  playerId: string;
+  displayName: string;
+  kind: string;
+  severity: string;
+  status: string;
+  message?: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  acknowledgedByPlayerId?: string | null;
+}
+
+export interface NavBrRemoteDriver {
+  playerId: string;
+  displayName: string;
+  roomId: string;
+  mapName?: string | null;
+  vehicleName?: string | null;
+  line?: string | null;
+  route?: string | null;
+  destination?: string | null;
+  nextStop?: string | null;
+  speedKph: number;
+  delaySeconds?: number | null;
+  headingDegrees: number;
+  receivedAtUtc: string;
+  stale: boolean;
+  latestReport?: {
+    reportId: string;
+    kind: string;
+    severity: string;
+    status: string;
+    message?: string | null;
+  } | null;
+}
+
+export interface NavBrFleetVehicle {
+  id: string;
+  fleetNumber: string;
+  vehicleModel: string;
+  livery?: string | null;
+  addedAt?: string | null;
+  lastUsedAt?: string | null;
+}
+
+export interface NavBrOperationsState {
+  connected: boolean;
+  roomId?: string | null;
+  updatedAtUtc: string;
+  canManageReports: boolean;
+  localOperation?: {
+    inGame: boolean;
+    mapName?: string | null;
+    vehicleName?: string | null;
+    line?: string | null;
+    route?: string | null;
+    destination?: string | null;
+    nextStop?: string | null;
+    currentStreet?: string | null;
+    speedKph: number;
+    delaySeconds?: number | null;
+    doors: string;
+    stopRequested: boolean;
+    headingDegrees: number;
+  } | null;
+  drivers: NavBrRemoteDriver[];
+  reports: NavBrOperationalReport[];
+  company: {
+    name: string;
+    shortName: string;
+    baseMap?: string | null;
+    fleet: NavBrFleetVehicle[];
+  };
+  profile: {
+    displayName: string;
+    companyName?: string | null;
+    totalDrivingSeconds: number;
+    totalDistanceKm: number;
+    trips: number;
+    highestSpeedKph: number;
+    averageMovingSpeedKph: number;
+    lastMap?: string | null;
+    lastLine?: string | null;
+    lastRoute?: string | null;
+    lastDrivenAt?: string | null;
+  };
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -156,6 +246,7 @@ export interface NavBrState {
     speedKph: number;
   };
   navigation: NavBrNavigationState;
+  operations: NavBrOperationsState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -176,6 +267,12 @@ export type NavBrCommand =
   | "toggleRoomFavorite"
   | "setVoiceEnabled"
   | "configureVoice"
+  | "acknowledgeOperationalReport"
+  | "resolveOperationalReport"
+  | "saveCompany"
+  | "registerCurrentVehicle"
+  | "removeFleetVehicle"
+  | "saveDriverProfile"
   | "sendChat";
 
 declare global {
