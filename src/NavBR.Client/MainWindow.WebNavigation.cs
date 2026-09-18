@@ -34,9 +34,9 @@ public partial class MainWindow
         var eta = _webNavigationEta.Observe(navigation, DateTimeOffset.UtcNow);
         var tileSize = _webNavigationLayout?.TileSize;
 
-        var routePoints = tileSize is double resolvedTileSize
+        IReadOnlyList<object> routePoints = tileSize is double resolvedTileSize
             ? DecimateRoute(_webNavigationRoute, 1200)
-                .Select(point => new
+                .Select(point => (object)new
                 {
                     x = point.GridX * resolvedTileSize + point.TileX,
                     y = point.GridY * resolvedTileSize + point.TileY
@@ -52,7 +52,7 @@ public partial class MainWindow
             .Where(name => name.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
-        var stopPoints = tileSize is double stopTileSize
+        IReadOnlyList<object> stopPoints = tileSize is double stopTileSize
             ? _webNavigationBusStops
                 .Where(stop => orderedNameSet.Count == 0 ||
                                orderedNameSet.Contains(OmsiOrderedRouteStopReader.Normalize(stop.Name)))
@@ -64,7 +64,7 @@ public partial class MainWindow
                     isNext = StopNamesMatch(stop.Name, telemetry.NextStopName)
                 })
                 .GroupBy(stop => $"{OmsiOrderedRouteStopReader.Normalize(stop.name)}|{Math.Round(stop.x)}|{Math.Round(stop.y)}")
-                .Select(group => group.First())
+                .Select(group => (object)group.First())
                 .Take(500)
                 .ToArray()
             : Array.Empty<object>();
