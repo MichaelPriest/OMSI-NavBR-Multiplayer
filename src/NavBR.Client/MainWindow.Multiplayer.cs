@@ -69,7 +69,10 @@ public partial class MainWindow
         MultiplayerButton.Content = LocalizationService.Get("MultiplayerOpen");
     }
 
-    private void MultiplayerButton_Click(object sender, RoutedEventArgs e)
+    private void MultiplayerButton_Click(object sender, RoutedEventArgs e) =>
+        OpenMultiplayerCentralForShell();
+
+    internal void OpenMultiplayerCentralForShell()
     {
         if (_multiplayerWindow is not null)
         {
@@ -154,11 +157,6 @@ public partial class MainWindow
         _multiplayerWindow = window;
         UpdateHudLocalState();
         window.Show();
-    }
-
-    internal void OpenMultiplayerCentralForShell()
-    {
-        MultiplayerButton_Click(this, new RoutedEventArgs());
     }
 
     internal void OpenMultiplayerRoleplayTabForShell()
