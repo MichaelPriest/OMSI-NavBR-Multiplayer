@@ -433,6 +433,10 @@ export interface NavBrSystemState {
     samples: number;
     updatedAtUtc: string;
   };
+  legacyPreferences: {
+    advancedModeEnabled: boolean;
+    showDrivingTips: boolean;
+  };
 }
 
 export interface NavBrRoadmapStudioState {
@@ -801,6 +805,7 @@ export type NavBrCommand =
   | "purgeDiagnostics"
   | "openFeedback"
   | "exportSessionHealth"
+  | "saveLegacyPreferences"
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
