@@ -323,21 +323,24 @@ internal static class Alpha12FigmaShellInstaller
         body.Children.Add(system);
 
         body.Children.Add(Separator());
+        body.Children.Add(Section("FERRAMENTAS"));
+        var tools = new StackPanel();
+        window.RegisterName(Alpha12ProfessionalShellInstaller.ToolsPanelName, tools);
+        body.Children.Add(tools);
+
+        body.Children.Add(Separator());
         body.Children.Add(Section("AJUDA"));
         body.Children.Add(NavigationButton(GetManualButtonText(), () => new NavBRManualWindow { Owner = window }.ShowDialog()));
 
         var advanced = new Expander
         {
-            Header = Text("⋯  Ferramentas avançadas", 11.5d, Muted(), FontWeights.SemiBold),
+            Header = Text("⋯  Diagnóstico e modo avançado", 11.5d, Muted(), FontWeights.SemiBold),
             IsExpanded = false,
-            Visibility = Visibility.Collapsed,
+            Visibility = Visibility.Visible,
             Margin = new Thickness(0d, 8d, 0d, 0d)
         };
         var advancedBody = new StackPanel { Margin = new Thickness(0d, 8d, 0d, 0d) };
         advancedBody.Children.Add(AddStandalonePageButton("◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons));
-        var tools = new StackPanel();
-        window.RegisterName(Alpha12ProfessionalShellInstaller.ToolsPanelName, tools);
-        advancedBody.Children.Add(tools);
         advanced.Content = advancedBody;
         body.Children.Add(advanced);
         footer.Tag = advanced;
@@ -416,7 +419,7 @@ internal static class Alpha12FigmaShellInstaller
         {
             if (stack.Tag is Expander expander)
             {
-                expander.Visibility = Visibility.Visible;
+                expander.IsExpanded = true;
             }
         };
         advancedToggle.Unchecked += (_, _) =>
@@ -424,7 +427,6 @@ internal static class Alpha12FigmaShellInstaller
             if (stack.Tag is Expander expander)
             {
                 expander.IsExpanded = false;
-                expander.Visibility = Visibility.Collapsed;
             }
         };
         stack.Children.Add(advancedToggle);
