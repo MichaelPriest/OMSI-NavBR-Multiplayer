@@ -732,27 +732,59 @@ function physicalVehicleStatusLabel(
   state: string | null | undefined,
   errorCode: string | null | undefined,
   partCount: number | null | undefined,
+  expectedPartCount: number | null | undefined,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
     case "active": return pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif");
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
-    case "consist-unsupported": return partCount && partCount > 1
-      ? pick(
-          `Articulado/consist detectado (${partCount} partes) — bloqueado por segurança`,
-          `Articulated/consist detected (${partCount} parts) — safely blocked`,
-          `Articulado/consist detectado (${partCount} partes) — bloqueado de forma segura`,
-          `Gelenk-/Mehrfachverband erkannt (${partCount} Teile) — sicher blockiert`,
-          `Articulé/convoi détecté (${partCount} parties) — bloqué en sécurité`
-        )
-      : pick(
-          "Articulado/consist detectado — suporte físico ainda bloqueado",
-          "Articulated/consist detected — physical support still blocked",
-          "Articulado/consist detectado — soporte físico todavía bloqueado",
-          "Gelenk-/Mehrfachverband erkannt — physische Unterstützung noch blockiert",
-          "Articulé/convoi détecté — prise en charge physique encore bloquée"
+    case "consist-unsupported":
+      if (expectedPartCount && expectedPartCount > 1 && partCount && partCount > 1) {
+        if (expectedPartCount !== partCount) {
+          return pick(
+            `Consist bloqueado — addon declara ${expectedPartCount} partes, OMSI criou ${partCount}`,
+            `Consist blocked — addon declares ${expectedPartCount} parts, OMSI created ${partCount}`,
+            `Consist bloqueado — el addon declara ${expectedPartCount} partes, OMSI creó ${partCount}`,
+            `Verband blockiert — Add-on deklariert ${expectedPartCount} Teile, OMSI erzeugte ${partCount}`,
+            `Convoi bloqué — l’addon déclare ${expectedPartCount} parties, OMSI en a créé ${partCount}`
+          );
+        }
+
+        return pick(
+          `Articulado/consist confirmado (${partCount} partes) — bloqueado por segurança`,
+          `Articulated/consist confirmed (${partCount} parts) — safely blocked`,
+          `Articulado/consist confirmado (${partCount} partes) — bloqueado de forma segura`,
+          `Gelenk-/Mehrfachverband bestätigt (${partCount} Teile) — sicher blockiert`,
+          `Articulé/convoi confirmé (${partCount} parties) — bloqué en sécurité`
         );
+      }
+
+      if (expectedPartCount && expectedPartCount > 1) {
+        return pick(
+          `Addon declara articulado/consist com ${expectedPartCount} partes — spawn bloqueado por segurança`,
+          `Addon declares an articulated/consist with ${expectedPartCount} parts — spawn safely blocked`,
+          `El addon declara un articulado/consist de ${expectedPartCount} partes — spawn bloqueado de forma segura`,
+          `Add-on deklariert einen Gelenk-/Mehrfachverband mit ${expectedPartCount} Teilen — Spawn sicher blockiert`,
+          `L’addon déclare un articulé/convoi de ${expectedPartCount} parties — spawn bloqué en sécurité`
+        );
+      }
+
+      return partCount && partCount > 1
+        ? pick(
+            `OMSI criou um articulado/consist com ${partCount} partes — removido por segurança`,
+            `OMSI created an articulated/consist with ${partCount} parts — safely removed`,
+            `OMSI creó un articulado/consist de ${partCount} partes — eliminado de forma segura`,
+            `OMSI erzeugte einen Gelenk-/Mehrfachverband mit ${partCount} Teilen — sicher entfernt`,
+            `OMSI a créé un articulé/convoi de ${partCount} parties — supprimé en sécurité`
+          )
+        : pick(
+            "Articulado/consist detectado — suporte físico ainda bloqueado",
+            "Articulated/consist detected — physical support still blocked",
+            "Articulado/consist detectado — soporte físico todavía bloqueado",
+            "Gelenk-/Mehrfachverband erkannt — physische Unterstützung noch blockiert",
+            "Articulé/convoi détecté — prise en charge physique encore bloquée"
+          );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
@@ -3145,7 +3177,7 @@ function Multiplayer({
                       {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
                       {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
                       {!player.isLocal && multiplayer.physicalVehiclesEnabled
-                        ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, player.physicalVehiclePartCount, pick)}`
+                        ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, player.physicalVehiclePartCount, player.physicalVehicleExpectedPartCount, pick)}`
                         : ""}
                     </small>
                   </div>
