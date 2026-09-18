@@ -663,6 +663,10 @@ public partial class MainWindow
                 PurgeDiagnosticsFromWeb();
                 break;
 
+            case "openFeedback":
+                OpenFeedbackFromWeb(GetWebPayloadString(payload, "kind"));
+                break;
+
             case "refreshNetworkDiagnostics":
                 await RefreshWebNetworkDiagnosticsAsync();
                 break;
