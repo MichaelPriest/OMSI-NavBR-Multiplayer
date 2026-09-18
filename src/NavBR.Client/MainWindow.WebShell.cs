@@ -258,6 +258,8 @@ public partial class MainWindow
                 .ToArray(),
             relayEnabled = settings.EnableApplicationRelay,
             relayServerUrl = settings.RelayServerUrl,
+            physicalVehiclesEnabled = settings.ExperimentalPhysicalVehiclesEnabled,
+            physicalVehiclesAvailable = false,
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
@@ -507,6 +509,15 @@ public partial class MainWindow
                 _multiplayerWindow?.ConfigureRelayFromWeb(
                     GetWebPayloadBool(payload, "enabled"),
                     GetWebPayloadString(payload, "relayServerUrl"));
+                break;
+
+            case "setPhysicalVehiclesEnabled":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.ConfigurePhysicalVehiclesFromWebAsync(
+                        GetWebPayloadBool(payload, "enabled"));
+                }
                 break;
 
             case "submitOperationalReport":
