@@ -158,6 +158,7 @@ jobs:
             "NavBR_GetHumanCount",
             "NavBR_GetHumanAt",
             "NavBR_IsHumanPointer",
+            "NavBR_ReadRoadVehiclePosition",
             "NavBR_IsPlayerBusDriverHuman",
             "NavBR_ReadHumanPose",
             "NavBR_ReadHumanDriverState",
@@ -168,6 +169,7 @@ jobs:
             "NavBR_MakeVehicle",
             "NavBR_SetVehicleTransform",
             "NavBR_SetVehicleVisualState",
+            "NavBR_TriggerRoadVehicle",
             "NavBR_MarkVehicleForKilling"
           )) {
             if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {

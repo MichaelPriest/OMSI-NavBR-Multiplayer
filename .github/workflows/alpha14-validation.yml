@@ -201,13 +201,15 @@ jobs:
             'NavBR_GetHumanCount',
             'NavBR_GetHumanAt',
             'NavBR_IsHumanPointer',
+            'NavBR_ReadRoadVehiclePosition',
             'NavBR_IsPlayerBusDriverHuman',
             'NavBR_ReadHumanPose',
             'NavBR_ReadHumanDriverState',
             'NavBR_DetachHumanForRoleplay',
             'NavBR_SetHumanTransform',
             'NavBR_RestoreHumanAiState',
-            'NavBR_RestoreHumanDriverState'
+            'NavBR_RestoreHumanDriverState',
+            'NavBR_TriggerRoadVehicle'
           )) {
             if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
               throw "Native OMSI interop is missing RP export: $name"
@@ -253,13 +255,13 @@ jobs:
           if ($protocol -notmatch 'Plugin\.v3') { throw "Alpha.14 requires the v3 named pipe." }
 
           $managedInterop = Get-Content "src/NavBR.OmsiPluginExperimental/OmsiNativeInterop.cs" -Raw
-          if ($managedInterop -notmatch 'ExpectedStateInteropVersion\s*=\s*3\s*;') {
-            throw "Managed OMSI interop must require state ABI v3."
+          if ($managedInterop -notmatch 'ExpectedStateInteropVersion\s*=\s*4\s*;') {
+            throw "Managed OMSI interop must require state ABI v4."
           }
 
           $nativeInterop = Get-Content "native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp" -Raw
-          if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+3\s*;') {
-            throw "Native OMSI interop must expose state ABI v3."
+          if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+4\s*;') {
+            throw "Native OMSI interop must expose state ABI v4."
           }
 
       - name: Build Windows x86 client
