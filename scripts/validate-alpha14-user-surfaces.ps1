@@ -132,6 +132,14 @@ Require-Text "src/NavBR.Client/MainWindow.OmsiLaunch.cs" @(
     'NavigatePrimaryWebShell("settings-installations")'
 )
 
+Require-Text "src/NavBR.Client/MainWindow.WebNavigation3D.cs" @(
+    "localRoleplayCharacter",
+    "roleplayWorldX",
+    "roleplayWorldY",
+    "roleplayState.LocalX - busLocalX",
+    "roleplayState.LocalY - busLocalY"
+)
+
 Require-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     "GetPrimaryWebDialogOwner"
 )
@@ -251,7 +259,10 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     'requested?.startsWith("settings-")',
     'requested === "navigation-3d"',
     'requested === "operations-company"',
-    'requested === "companyNetwork-team"'
+    'requested === "companyNetwork-team"',
+    'state.localRoleplayCharacter',
+    'Seguir personagem',
+    'nav3d-roleplay-character'
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
