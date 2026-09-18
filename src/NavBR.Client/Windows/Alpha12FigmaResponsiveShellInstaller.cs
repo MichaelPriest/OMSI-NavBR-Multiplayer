@@ -118,7 +118,7 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         foreach (var text in Enumerate<TextBlock>(body))
         {
             if (text.FontSize <= 10d &&
-                (text.Text is "DIRIGIR" or "OPERAÇÃO" or "SISTEMA" or "AJUDA"))
+                (text.Text is "DIRIGIR" or "OPERAÇÃO" or "SISTEMA" or "FERRAMENTAS" or "AJUDA"))
             {
                 text.Margin = new Thickness(4d, 0d, 0d, 10d);
             }
@@ -303,6 +303,7 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (tag.Contains("company-members", StringComparison.OrdinalIgnoreCase)) return "team";
         if (tag.Contains("driver-profile", StringComparison.OrdinalIgnoreCase)) return "profile";
         if (tag.Contains("hud-shortcut", StringComparison.OrdinalIgnoreCase)) return "hud";
+        if (tag.Contains("ghost", StringComparison.OrdinalIgnoreCase)) return "ghost";
         if (tag.Contains("SettingsButton", StringComparison.OrdinalIgnoreCase)) return "settings";
         if (tag.Contains("session", StringComparison.OrdinalIgnoreCase)) return "health";
 
@@ -311,6 +312,10 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         if (label.Contains("inicio", StringComparison.Ordinal) || label == "home") return "home";
         if (label.Contains("naveg", StringComparison.Ordinal) || label.Contains("navigation", StringComparison.Ordinal)) return "navigation";
         if (label.Contains("multiplayer", StringComparison.Ordinal)) return "multiplayer";
+        if (label.Contains("personagem", StringComparison.Ordinal) || label.Contains("character", StringComparison.Ordinal) || label.Contains("roleplay", StringComparison.Ordinal) || label.Contains("role play", StringComparison.Ordinal)) return "roleplay";
+        if (label.Contains("roadmap", StringComparison.Ordinal)) return "roadmap";
+        if (label.Contains("instalacoes omsi", StringComparison.Ordinal) || label.Contains("omsi installations", StringComparison.Ordinal) || label.Contains("profile", StringComparison.Ordinal) && label.Contains("omsi", StringComparison.Ordinal)) return "installations";
+        if (label.Contains("ghost", StringComparison.Ordinal)) return "ghost";
         if (label == "cco" || label.Contains("despach", StringComparison.Ordinal) || label.Contains("dispatcher", StringComparison.Ordinal)) return "cco";
         if (label.Contains("rede da empresa", StringComparison.Ordinal) || label.Contains("company network", StringComparison.Ordinal) || label.Contains("unternehmensnetzwerk", StringComparison.Ordinal)) return "network";
         if (label.Contains("equipe", StringComparison.Ordinal) || label.Contains("team", StringComparison.Ordinal) || label.Contains("miembros", StringComparison.Ordinal)) return "team";
@@ -331,6 +336,10 @@ internal static class Alpha12FigmaResponsiveShellInstaller
         "home" => "M3,10.5 L12,3 L21,10.5 M5.5,9.5 V21 H18.5 V9.5 M9.5,21 V14 H14.5 V21",
         "navigation" => "M12,2.5 L20,21 L12,17 L4,21 Z M12,2.5 V17",
         "multiplayer" => "M8,11 C9.657,11 11,9.657 11,8 C11,6.343 9.657,5 8,5 C6.343,5 5,6.343 5,8 C5,9.657 6.343,11 8,11 Z M2.5,21 C2.5,16.5 13.5,16.5 13.5,21 M17,11 C18.381,11 19.5,9.881 19.5,8.5 C19.5,7.119 18.381,6 17,6 M15.5,16 C19,15.5 21.5,17 21.5,21",
+        "roleplay" => "M12,11 A3.5,3.5 0 1 1 12,4 A3.5,3.5 0 0 1 12,11 Z M8,21 L9,14 H15 L16,21 M9,15 L5,18 M15,15 L19,18",
+        "roadmap" => "M4,5 L9,3 L15,5 L20,3 V19 L15,21 L9,19 L4,21 Z M9,3 V19 M15,5 V21 M11,11 L13,9 L16,12",
+        "installations" => "M4,5 H20 V19 H4 Z M8,9 H16 M8,13 H14 M7,2 V5 M17,2 V5",
+        "ghost" => "M12,3 C7.5,3 5,6.8 5,11 V21 L8.5,18.5 L12,21 L15.5,18.5 L19,21 V11 C19,6.8 16.5,3 12,3 Z M9,10 H9.1 M15,10 H15.1 M9.5,14 C11,15 13,15 14.5,14",
         "cco" => "M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M7,9 H10 L12,7 L14,12 L17,8",
         "company" => "M4,21 V5 H14 V21 M14,9 H20 V21 M7,8 H11 M7,12 H11 M7,16 H11 M17,12 H18 M17,16 H18",
         "network" => "M6,8 A2.5,2.5 0 1 1 6,3 A2.5,2.5 0 0 1 6,8 Z M18,8 A2.5,2.5 0 1 1 18,3 A2.5,2.5 0 0 1 18,8 Z M12,21 A2.5,2.5 0 1 1 12,16 A2.5,2.5 0 0 1 12,21 Z M8,7 L11,16 M16,7 L13,16 M8.5,5.5 H15.5",
