@@ -275,7 +275,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
           <span>{t("nav.routeUnavailableDetail")}</span>
         </div>
       ) : (
-        <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Roadmap da rota ativa">
+        <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
           <polyline className="nav-route-shadow" points={geometry.routePoints} />
           <polyline className="nav-route-line" points={geometry.routePoints} />
 
@@ -1276,7 +1276,7 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
         </label>
         <label>
           <span>{pick("Argumentos de inicialização", "Launch arguments", "Argumentos de inicio", "Startargumente", "Arguments de lancement")}</span>
-          <input value={launchArguments} onChange={event => setLaunchArguments(event.target.value)} placeholder="Opcional" />
+          <input value={launchArguments} onChange={event => setLaunchArguments(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} />
         </label>
       </div>
 
@@ -1285,7 +1285,7 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
           profileId: profile.id,
           name,
           launchArguments
-        })}>Salvar perfil</button>
+        })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
         {!profile.isPreferred && (
           <button className="button ghost compact" onClick={() => sendCommand("setPreferredOmsiProfile", { profileId: profile.id })}>
             {pick("Tornar preferido", "Make preferred", "Hacer preferido", "Als bevorzugt setzen", "Définir comme préféré")}
@@ -1567,7 +1567,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
             <h3>{t("roadmap.title")}</h3>
           </div>
           <span className={`hardware-state-pill ${roadmap.busy ? "connected" : ""}`}>
-            {roadmap.busy ? "Processando" : roadmapStatusLabel(roadmap.status, pick)}
+            {roadmap.busy ? pick("Processando", "Processing", "Procesando", "Verarbeitung", "Traitement") : roadmapStatusLabel(roadmap.status, pick)}
           </span>
         </div>
 
@@ -1590,9 +1590,9 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
 
             {selectedMap && (
               <div className="roadmap-map-facts">
-                <span><small>PASTA</small><strong>{selectedMap.folderName}</strong></span>
-                <span><small>TILES DO MAPA</small><strong>{selectedMap.tileCount}</strong></span>
-                <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? "Existe" : "Ausente"}</strong></span>
+                <span><small>{pick("PASTA", "FOLDER", "CARPETA", "ORDNER", "DOSSIER")}</small><strong>{selectedMap.folderName}</strong></span>
+                <span><small>{pick("TILES DO MAPA", "MAP TILES", "TILES DEL MAPA", "KARTEN-TILES", "TILES DE LA CARTE")}</small><strong>{selectedMap.tileCount}</strong></span>
+                <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? pick("Existe", "Exists", "Existe", "Vorhanden", "Présente") : pick("Ausente", "Missing", "Ausente", "Fehlt", "Absente")}</strong></span>
               </div>
             )}
 
@@ -1649,14 +1649,14 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         ) : (
           <>
             <div className="roadmap-analysis-grid">
-              <span><small>IMAGENS DE TILE</small><strong>{analysis.tileImageCount}</strong></span>
-              <span><small>POSIÇÕES SEM IMAGEM</small><strong>{analysis.missingTileImages}</strong></span>
-              <span><small>GRADE X</small><strong>{analysis.minGridX} … {analysis.maxGridX}</strong></span>
-              <span><small>GRADE Y</small><strong>{analysis.minGridY} … {analysis.maxGridY}</strong></span>
+              <span><small>{pick("IMAGENS DE TILE", "TILE IMAGES", "IMÁGENES DE TILE", "TILE-BILDER", "IMAGES DE TILE")}</small><strong>{analysis.tileImageCount}</strong></span>
+              <span><small>{pick("POSIÇÕES SEM IMAGEM", "POSITIONS WITHOUT IMAGE", "POSICIONES SIN IMAGEN", "POSITIONEN OHNE BILD", "POSITIONS SANS IMAGE")}</small><strong>{analysis.missingTileImages}</strong></span>
+              <span><small>{pick("GRADE X", "GRID X", "CUADRÍCULA X", "RASTER X", "GRILLE X")}</small><strong>{analysis.minGridX} … {analysis.maxGridX}</strong></span>
+              <span><small>{pick("GRADE Y", "GRID Y", "CUADRÍCULA Y", "RASTER Y", "GRILLE Y")}</small><strong>{analysis.minGridY} … {analysis.maxGridY}</strong></span>
               <span><small>TILE</small><strong>{analysis.tilePixelWidth > 0 ? `${analysis.tilePixelWidth}×${analysis.tilePixelHeight}` : "—"}</strong></span>
-              <span><small>SAÍDA</small><strong>{analysis.outputPixelWidth > 0 ? `${analysis.outputPixelWidth}×${analysis.outputPixelHeight}` : "—"}</strong></span>
-              <span><small>ESTIMATIVA</small><strong>{formatFileSize(analysis.estimatedBytes)}</strong></span>
-              <span><small>BACKUP NECESSÁRIO</small><strong>{analysis.existingWholeRoadmap ? "Sim" : "Não"}</strong></span>
+              <span><small>{pick("SAÍDA", "OUTPUT", "SALIDA", "AUSGABE", "SORTIE")}</small><strong>{analysis.outputPixelWidth > 0 ? `${analysis.outputPixelWidth}×${analysis.outputPixelHeight}` : "—"}</strong></span>
+              <span><small>{pick("ESTIMATIVA", "ESTIMATE", "ESTIMACIÓN", "SCHÄTZUNG", "ESTIMATION")}</small><strong>{formatFileSize(analysis.estimatedBytes)}</strong></span>
+              <span><small>{pick("BACKUP NECESSÁRIO", "BACKUP REQUIRED", "BACKUP NECESARIO", "BACKUP ERFORDERLICH", "SAUVEGARDE REQUISE")}</small><strong>{analysis.existingWholeRoadmap ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></span>
             </div>
             <code className="roadmap-output-path">{analysis.outputPath}</code>
           </>
@@ -1672,10 +1672,10 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         ) : (
           <>
             <div className="roadmap-analysis-grid">
-              <span><small>MODO</small><strong>{result.mode === "tiles" ? "Imagens de tile" : "Vetorial / splines"}</strong></span>
-              <span><small>DIMENSÃO</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
+              <span><small>{pick("MODO", "MODE", "MODO", "MODUS", "MODE")}</small><strong>{result.mode === "tiles" ? pick("Imagens de tile", "Tile images", "Imágenes de tile", "Tile-Bilder", "Images de tile") : pick("Vetorial / splines", "Vector / splines", "Vectorial / splines", "Vektor / Splines", "Vectoriel / splines")}</strong></span>
+              <span><small>{pick("DIMENSÃO", "DIMENSIONS", "DIMENSIÓN", "ABMESSUNGEN", "DIMENSIONS")}</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
               <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
-              <span><small>TEMPO</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
+              <span><small>{pick("TEMPO", "TIME", "TIEMPO", "ZEIT", "TEMPS")}</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
               {result.tileImagesUsed != null && <span><small>TILES USADOS</small><strong>{result.tileImagesUsed}</strong></span>}
               {result.missingTileImages != null && <span><small>VAZIOS</small><strong>{result.missingTileImages}</strong></span>}
               {result.tileFilesRead != null && <span><small>TILES LIDOS</small><strong>{result.tileFilesRead}</strong></span>}
@@ -1822,7 +1822,7 @@ function Settings({
             <h3>navbr.log</h3>
             <div className="diagnostic-facts">
               <span><small>{pick("ARQUIVO", "FILE", "ARCHIVO", "DATEI", "FICHIER")}</small><strong>{system.diagnostics.logExists ? pick("Disponível", "Available", "Disponible", "Verfügbar", "Disponible") : pick("Ainda não criado", "Not created yet", "Aún no creado", "Noch nicht erstellt", "Pas encore créé")}</strong></span>
-              <span><small>TAMANHO</small><strong>{system.diagnostics.logExists ? logSize : "—"}</strong></span>
+              <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{system.diagnostics.logExists ? logSize : "—"}</strong></span>
               <span><small>{pick("ATUALIZAÇÃO", "UPDATED", "ACTUALIZACIÓN", "AKTUALISIERT", "MISE À JOUR")}</small><strong>{system.diagnostics.logUpdatedAtUtc ? new Date(system.diagnostics.logUpdatedAtUtc).toLocaleString() : "—"}</strong></span>
             </div>
             <code>{system.diagnostics.logPath}</code>
@@ -1844,7 +1844,7 @@ function Settings({
 
             <div className="network-status-grid">
               <div>
-                <small>WINDOWS FIREWALL</small>
+                <small>{pick("FIREWALL WINDOWS", "WINDOWS FIREWALL", "FIREWALL WINDOWS", "WINDOWS-FIREWALL", "PARE-FEU WINDOWS")}</small>
                 <strong className={network?.diagnostics?.firewallRulePresent ? "ok" : "warn"}>
                   {network?.diagnostics == null ? pick("Não verificado", "Not checked", "No verificado", "Nicht geprüft", "Non vérifié") : network.diagnostics.firewallRulePresent ? pick("Regra confirmada", "Rule confirmed", "Regla confirmada", "Regel bestätigt", "Règle confirmée") : pick("Regra ausente", "Rule missing", "Regla ausente", "Regel fehlt", "Règle absente")}
                 </strong>
@@ -1933,30 +1933,30 @@ function Settings({
         <section className="advanced-grid settings-advanced">
           <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
-            <h3>Rede e conectividade</h3>
-            <p>Firewall, NAT e UPnP já estão disponíveis na aba Rede. Relay e ônibus físico continuam no controlador nativo.</p>
-            <button className="button ghost" onClick={() => setTab("network")}>Abrir Rede</button>
+            <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
+            <p>{pick("Firewall, NAT e UPnP já estão disponíveis na aba Rede. Relay e ônibus físico continuam no controlador nativo.", "Firewall, NAT and UPnP are available in the Network tab. Relay and physical bus remain in the native controller.", "Firewall, NAT y UPnP están disponibles en la pestaña Red. Relay y autobús físico permanecen en el controlador nativo.", "Firewall, NAT und UPnP sind im Netzwerktab verfügbar. Relay und physischer Bus bleiben im nativen Controller.", "Pare-feu, NAT et UPnP sont disponibles dans l’onglet Réseau. Relay et bus physique restent dans le contrôleur natif.")}</p>
+            <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
-            <h3>Personalização</h3>
-            <p>Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.</p>
+            <h3>{pick("Personalização", "Customization", "Personalización", "Anpassung", "Personnalisation")}</h3>
+            <p>{pick("Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.", "Presets, theme, scale, opacity and modules are available in the HUD tab.", "Presets, tema, escala, opacidad y módulos están disponibles en la pestaña HUD.", "Presets, Thema, Skalierung, Deckkraft und Module sind im HUD-Tab verfügbar.", "Préréglages, thème, échelle, opacité et modules sont disponibles dans l’onglet HUD.")}</p>
             <div className="settings-action-row">
-              <button className="button ghost" onClick={() => setTab("hud")}>Abrir HUD</button>
+              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir HUD", "Open HUD", "Abrir HUD", "HUD öffnen", "Ouvrir HUD")}</button>
               <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
             </div>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">ROADMAP</span>
             <h3>Roadmap Studio</h3>
-            <p>Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.</p>
-            <button className="button ghost" onClick={() => setTab("roadmap")}>Abrir Roadmap Studio</button>
+            <p>{pick("Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.", "Analysis, tile assembly and vector generation from splines already use native services through the React interface.", "El análisis, montaje por tiles y generación vectorial por splines ya usan los servicios nativos desde la interfaz React.", "Analyse, Tile-Zusammenbau und Vektorerzeugung aus Splines verwenden bereits native Dienste über die React-Oberfläche.", "L’analyse, l’assemblage des tiles et la génération vectorielle par splines utilisent déjà les services natifs via l’interface React.")}</p>
+            <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">FALLBACK</span>
-            <h3>Interface WPF</h3>
-            <p>Abre o shell técnico anterior caso seja necessário comparar comportamento ou acessar uma área ainda não migrada.</p>
-            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>Abrir interface WPF</button>
+            <h3>{pick("Interface WPF", "WPF interface", "Interfaz WPF", "WPF-Oberfläche", "Interface WPF")}</h3>
+            <p>{pick("Abre o shell técnico anterior caso seja necessário comparar comportamento ou acessar uma área ainda não migrada.", "Opens the previous technical shell when behavior must be compared or an area has not yet been migrated.", "Abre el shell técnico anterior cuando sea necesario comparar el comportamiento o acceder a un área aún no migrada.", "Öffnet die vorherige technische Oberfläche, wenn Verhalten verglichen oder ein noch nicht migrierter Bereich aufgerufen werden muss.", "Ouvre l’ancien shell technique pour comparer le comportement ou accéder à une zone pas encore migrée.")}</p>
+            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>{pick("Abrir interface WPF", "Open WPF interface", "Abrir interfaz WPF", "WPF-Oberfläche öffnen", "Ouvrir l’interface WPF")}</button>
           </article>
         </section>
       )}
