@@ -567,7 +567,7 @@ Require-Text "site/src/ConceptGallery.jsx" @(
     "concept-hud.svg",
     "concept-multiplayer.svg",
     "concept-roleplay.svg",
-    "Estas imagens são conceituais"
+    "Conceitos visuais gerados por IA"
 )
 
 Require-Text "src/NavBR.Client/Maps/OmsiSplineGroundHeightResolver.cs" @(
