@@ -1,4 +1,5 @@
 using NavBR.Client.Multiplayer;
+using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
 
