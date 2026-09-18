@@ -132,6 +132,8 @@ public partial class MainWindow
             latencyMs = null as double?,
             voiceEnabled = false,
             voiceChannel = settings.VoiceChannel,
+            voiceProximityMeters = settings.VoiceProximityMeters,
+            voiceDeafened = settings.VoiceDeafened,
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
@@ -229,6 +231,19 @@ public partial class MainWindow
                 break;
             }
 
+            case "setVoiceEnabled":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.SetVoiceEnabledFromWeb(GetWebPayloadBool(payload, "enabled"));
+                break;
+
+            case "configureVoice":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.ConfigureVoiceFromWeb(
+                    GetWebPayloadString(payload, "channel"),
+                    GetWebPayloadDouble(payload, "proximityMeters"),
+                    GetWebPayloadBool(payload, "deafened"));
+                break;
+
             case "sendChat":
                 if (_multiplayerWindow is null)
                 {
@@ -287,6 +302,21 @@ public partial class MainWindow
         }
 
         return new WebRoomCompatibility("compatible", true, issues);
+    }
+
+    private static double? GetWebPayloadDouble(JsonElement? payload, string propertyName)
+    {
+        if (payload is not JsonElement element ||
+            element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty(propertyName, out var value) ||
+            value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetDouble(out var number) ||
+            !double.IsFinite(number))
+        {
+            return null;
+        }
+
+        return number;
     }
 
     private static bool GetWebPayloadBool(JsonElement? payload, string propertyName)
