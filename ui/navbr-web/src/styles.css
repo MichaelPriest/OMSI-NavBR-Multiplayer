@@ -920,3 +920,117 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .ghost-metadata-grid,
   .ghost-analytics-grid { grid-template-columns:1fr 1fr; }
 }
+
+
+.ghost-library-card,
+.ghost-route-card {
+  padding:20px;
+}
+.ghost-library-actions {
+  display:flex;
+  gap:7px;
+}
+.ghost-library-list {
+  display:grid;
+  gap:8px;
+  max-height:420px;
+  overflow:auto;
+  margin-top:12px;
+  padding-right:3px;
+}
+.ghost-library-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  width:100%;
+  padding:11px 12px;
+  text-align:left;
+  border:1px solid #1b3342;
+  border-radius:10px;
+  background:#081721;
+  color:#dceaf3;
+  cursor:pointer;
+}
+.ghost-library-row:hover {
+  border-color:#31536a;
+  background:#0b1c28;
+}
+.ghost-library-row.selected {
+  border-color:#316d51;
+  background:#0d241a;
+}
+.ghost-library-row:disabled {
+  cursor:default;
+  opacity:.6;
+}
+.ghost-library-row > span {
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+.ghost-library-row > span:last-child {
+  text-align:right;
+}
+.ghost-library-row strong {
+  overflow:hidden;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.ghost-library-row small {
+  overflow:hidden;
+  color:#708a9b;
+  font-size:9px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.ghost-route-preview {
+  display:grid;
+  place-items:center;
+  min-height:320px;
+  margin-top:12px;
+  overflow:hidden;
+  border:1px solid #1b3342;
+  border-radius:11px;
+  background:
+    linear-gradient(rgba(64,104,128,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(64,104,128,.08) 1px, transparent 1px),
+    #06131c;
+  background-size:24px 24px;
+}
+.ghost-route-preview svg {
+  width:100%;
+  height:100%;
+  min-height:320px;
+}
+.ghost-route-shadow {
+  fill:none;
+  stroke:#031018;
+  stroke-width:4.2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.ghost-route-line {
+  fill:none;
+  stroke:#5fbdf2;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.ghost-route-start {
+  fill:#74d49e;
+  stroke:#dff7e9;
+  stroke-width:.6;
+}
+.ghost-route-end {
+  fill:#f2b65f;
+  stroke:#fff0d3;
+  stroke-width:.6;
+}
+@media (max-width:720px) {
+  .ghost-library-row { grid-template-columns:1fr; }
+  .ghost-library-row > span:last-child { text-align:left; }
+  .ghost-route-preview,
+  .ghost-route-preview svg { min-height:240px; }
+}
