@@ -83,6 +83,9 @@ public partial class MainWindow
                     {
                         id = item.Id,
                         displayName = item.DisplayName,
+                        themeId = item.ThemeId,
+                        inspiration = item.Inspiration,
+                        description = item.Description,
                         width = item.Width,
                         scale = item.Scale,
                         opacity = item.Opacity,
