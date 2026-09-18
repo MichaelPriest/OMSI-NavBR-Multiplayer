@@ -166,6 +166,8 @@ internal static class RoleplayCharacterBackend
     {
         if (!TryGetCharacterId(command, out var instanceId) ||
             !TryReadAnchor(command, out var anchorX, out var anchorY, out var anchorZ) ||
+            command.HeadingDegrees is not double busHeadingValue ||
+            !double.IsFinite(busHeadingValue) ||
             command.CharacterDefinitionPointer is not int definitionPointer ||
             definitionPointer <= 0)
         {
@@ -254,6 +256,15 @@ internal static class RoleplayCharacterBackend
                     "The selected character is not the active human driver of the player's bus.");
             }
 
+            if (bestDistance > MaxAcquireDistanceMeters ||
+                Math.Abs(driverZ - anchorZ) > MaxAcquireHeightDifferenceMeters)
+            {
+                return Fail(
+                    command,
+                    "selected-driver-too-far",
+                    "The selected driver is not close enough to the current player bus.");
+            }
+
             if (OmsiNativeInterop.ReadHumanAiState(
                     driverPointer,
                     out var aiMode,
@@ -282,12 +293,19 @@ internal static class RoleplayCharacterBackend
                     "OMSI rejected detaching the selected driver from the bus.");
             }
 
+            var spawnHeading = NormalizeHeading((float)busHeadingValue);
+            var spawnRadians = spawnHeading * (Math.PI / 180d);
+            const double SideExitOffsetMeters = 1.8d;
+            var spawnX = anchorX + (float)(Math.Cos(spawnRadians) * SideExitOffsetMeters);
+            var spawnY = anchorY - (float)(Math.Sin(spawnRadians) * SideExitOffsetMeters);
+            var spawnZ = anchorZ;
+
             if (OmsiNativeInterop.SetHumanTransform(
                     driverPointer,
-                    driverX,
-                    driverY,
-                    driverZ,
-                    NormalizeHeading(driverHeading),
+                    spawnX,
+                    spawnY,
+                    spawnZ,
+                    spawnHeading,
                     0f) != 1)
             {
                 _ = OmsiNativeInterop.RestoreHumanDriverState(
@@ -324,6 +342,11 @@ internal static class RoleplayCharacterBackend
                 aiSubMode,
                 sollSpeed,
                 actSpeed,
+                driverX,
+                driverY,
+                driverZ,
+                NormalizeHeading(driverHeading),
+                driverSpeed,
                 DateTimeOffset.UtcNow);
 
             Owned[instanceId] = instance;
@@ -332,10 +355,10 @@ internal static class RoleplayCharacterBackend
                 command,
                 true,
                 humanIndex: driverIndex,
-                x: driverX,
-                y: driverY,
-                z: driverZ,
-                heading: NormalizeHeading(driverHeading),
+                x: spawnX,
+                y: spawnY,
+                z: spawnZ,
+                heading: spawnHeading,
                 speed: 0f);
         }
     }
@@ -404,6 +427,13 @@ internal static class RoleplayCharacterBackend
 
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
             {
+                _ = OmsiNativeInterop.SetHumanTransform(
+                    instance.HumanPointer,
+                    instance.OriginalX,
+                    instance.OriginalY,
+                    instance.OriginalZ,
+                    instance.OriginalHeading,
+                    Math.Clamp(Math.Abs(instance.OriginalSpeed), 0f, MaxCharacterSpeedMps));
                 _ = OmsiNativeInterop.RestoreHumanDriverState(
                     instance.HumanPointer,
                     instance.OriginalBusPointer,
@@ -431,6 +461,13 @@ internal static class RoleplayCharacterBackend
             {
                 if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
                 {
+                    _ = OmsiNativeInterop.SetHumanTransform(
+                        instance.HumanPointer,
+                        instance.OriginalX,
+                        instance.OriginalY,
+                        instance.OriginalZ,
+                        instance.OriginalHeading,
+                        Math.Clamp(Math.Abs(instance.OriginalSpeed), 0f, MaxCharacterSpeedMps));
                     _ = OmsiNativeInterop.RestoreHumanDriverState(
                         instance.HumanPointer,
                         instance.OriginalBusPointer,
@@ -568,5 +605,10 @@ internal static class RoleplayCharacterBackend
         byte AiSubMode,
         float SollSpeed,
         float ActSpeed,
+        float OriginalX,
+        float OriginalY,
+        float OriginalZ,
+        float OriginalHeading,
+        float OriginalSpeed,
         DateTimeOffset AcquiredAtUtc);
 }
