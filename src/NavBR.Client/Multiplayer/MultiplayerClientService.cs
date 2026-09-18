@@ -9,9 +9,16 @@ namespace NavBR.Client.Multiplayer;
 
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
-    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles = new();
+    private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
+
+    public MultiplayerClientService(
+        Func<string?>? omsiInstallDirectorySource = null)
+    {
+        _physicalVehicles = new RemotePhysicalVehicleCoordinator(
+            omsiInstallDirectorySource);
+    }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
     public event Action<RoomSnapshot>? RoomSnapshotReceived;

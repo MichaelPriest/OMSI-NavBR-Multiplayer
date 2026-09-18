@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using System.Security.Cryptography;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 
@@ -142,12 +140,7 @@ internal static class ExperimentalVehicleCommandProcessor
 internal static class PhysicalVehicleBackend
 {
     private const int MaxRetainedVehiclePathStrings = 256;
-    private const int MaxVehicleDefinitionsToScan = 10_000;
     private static int _retainedVehiclePathStrings;
-    private static readonly ConcurrentDictionary<string, FingerprintCacheEntry> VehicleFingerprintCache =
-        new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, string> VehiclePathByCompatibilityId =
-        new(StringComparer.OrdinalIgnoreCase);
 
     public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
 
@@ -203,15 +196,9 @@ internal static class PhysicalVehicleBackend
             return ApplyState(command, existing);
         }
 
-        if (!TryResolveVehiclePath(
-                command.VehiclePath,
-                command.VehicleCompatibilityId,
-                out var vehiclePath))
+        if (!TryResolveVehiclePath(command.VehiclePath, out var vehiclePath))
         {
-            return Fail(
-                command,
-                "invalid-vehicle-path",
-                "The remote vehicle asset could not be resolved by its reported Vehicles path or sha256 compatibility fingerprint.");
+            return Fail(command, "invalid-vehicle-path", "Vehicle path must resolve to an existing Vehicles\\*.bus or Vehicles\\*.ovh file.");
         }
 
         if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var before))
@@ -454,156 +441,7 @@ internal static class PhysicalVehicleBackend
         return true;
     }
 
-    private static bool TryResolveVehiclePath(
-        string? value,
-        string? compatibilityId,
-        out string relativePath)
-    {
-        relativePath = string.Empty;
-
-        try
-        {
-            var executable = Environment.ProcessPath;
-            var omsiRoot = string.IsNullOrWhiteSpace(executable)
-                ? null
-                : Path.GetDirectoryName(executable);
-            if (string.IsNullOrWhiteSpace(omsiRoot))
-            {
-                return false;
-            }
-
-            var root = Path.GetFullPath(omsiRoot);
-            var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar)
-                ? root
-                : root + Path.DirectorySeparatorChar;
-
-            var hasFingerprint = TryNormalizeVehicleCompatibilityId(
-                compatibilityId,
-                out var normalizedCompatibilityId);
-
-            if (TryNormalizeVehicleRelativePath(value, out var candidate))
-            {
-                var fullPath = Path.GetFullPath(Path.Combine(root, candidate));
-                if (fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
-                    File.Exists(fullPath) &&
-                    (!hasFingerprint ||
-                     TryFingerprintVehicle(fullPath, out var candidateCompatibilityId) &&
-                     string.Equals(
-                         candidateCompatibilityId,
-                         normalizedCompatibilityId,
-                         StringComparison.OrdinalIgnoreCase)))
-                {
-                    relativePath = candidate;
-                    if (hasFingerprint)
-                    {
-                        VehiclePathByCompatibilityId[normalizedCompatibilityId] = candidate;
-                    }
-
-                    return true;
-                }
-            }
-
-            if (!hasFingerprint)
-            {
-                return false;
-            }
-
-            if (VehiclePathByCompatibilityId.TryGetValue(
-                    normalizedCompatibilityId,
-                    out var cachedRelativePath) &&
-                TryNormalizeVehicleRelativePath(
-                    cachedRelativePath,
-                    out cachedRelativePath))
-            {
-                var cachedFullPath = Path.GetFullPath(
-                    Path.Combine(root, cachedRelativePath));
-                if (cachedFullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
-                    File.Exists(cachedFullPath) &&
-                    TryFingerprintVehicle(
-                        cachedFullPath,
-                        out var cachedCompatibilityId) &&
-                    string.Equals(
-                        cachedCompatibilityId,
-                        normalizedCompatibilityId,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    relativePath = cachedRelativePath;
-                    return true;
-                }
-
-                VehiclePathByCompatibilityId.TryRemove(
-                    normalizedCompatibilityId,
-                    out _);
-            }
-
-            var vehiclesRoot = Path.Combine(root, "Vehicles");
-            if (!Directory.Exists(vehiclesRoot))
-            {
-                return false;
-            }
-
-            var options = new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                IgnoreInaccessible = true,
-                ReturnSpecialDirectories = false,
-                AttributesToSkip = FileAttributes.ReparsePoint
-            };
-
-            var inspected = 0;
-            foreach (var fullPath in Directory.EnumerateFiles(
-                         vehiclesRoot,
-                         "*.*",
-                         options))
-            {
-                if (!(fullPath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-                      fullPath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                if (++inspected > MaxVehicleDefinitionsToScan)
-                {
-                    break;
-                }
-
-                if (!TryFingerprintVehicle(
-                        fullPath,
-                        out var localCompatibilityId) ||
-                    !string.Equals(
-                        localCompatibilityId,
-                        normalizedCompatibilityId,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var localRelativePath = Path.GetRelativePath(root, fullPath)
-                    .Replace('/', '\\');
-                if (!TryNormalizeVehicleRelativePath(
-                        localRelativePath,
-                        out localRelativePath))
-                {
-                    continue;
-                }
-
-                VehiclePathByCompatibilityId[normalizedCompatibilityId] =
-                    localRelativePath;
-                relativePath = localRelativePath;
-                return true;
-            }
-
-            return false;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryNormalizeVehicleRelativePath(
-        string? value,
-        out string relativePath)
+    private static bool TryResolveVehiclePath(string? value, out string relativePath)
     {
         relativePath = string.Empty;
         if (string.IsNullOrWhiteSpace(value) || value.Length > 1024)
@@ -620,76 +458,29 @@ internal static class PhysicalVehicleBackend
             return false;
         }
 
-        relativePath = candidate;
-        return true;
-    }
-
-    private static bool TryNormalizeVehicleCompatibilityId(
-        string? value,
-        out string compatibilityId)
-    {
-        compatibilityId = string.Empty;
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var normalized = value.Trim().ToLowerInvariant();
-        const string prefix = "sha256:";
-        if (!normalized.StartsWith(prefix, StringComparison.Ordinal) ||
-            normalized.Length != prefix.Length + 64)
-        {
-            return false;
-        }
-
-        foreach (var character in normalized.AsSpan(prefix.Length))
-        {
-            if (!Uri.IsHexDigit(character))
-            {
-                return false;
-            }
-        }
-
-        compatibilityId = normalized;
-        return true;
-    }
-
-    private static bool TryFingerprintVehicle(
-        string fullPath,
-        out string compatibilityId)
-    {
-        compatibilityId = string.Empty;
-
         try
         {
-            var info = new FileInfo(fullPath);
-            if (!info.Exists)
+            var executable = Environment.ProcessPath;
+            var omsiRoot = string.IsNullOrWhiteSpace(executable)
+                ? null
+                : Path.GetDirectoryName(executable);
+            if (string.IsNullOrWhiteSpace(omsiRoot))
             {
                 return false;
             }
 
-            if (VehicleFingerprintCache.TryGetValue(
-                    fullPath,
-                    out var cached) &&
-                cached.Length == info.Length &&
-                cached.LastWriteUtc == info.LastWriteTimeUtc)
+            var root = Path.GetFullPath(omsiRoot);
+            var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar)
+                ? root
+                : root + Path.DirectorySeparatorChar;
+            var fullPath = Path.GetFullPath(Path.Combine(root, candidate));
+            if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) ||
+                !File.Exists(fullPath))
             {
-                compatibilityId = cached.CompatibilityId;
-                return true;
+                return false;
             }
 
-            using var stream = File.Open(
-                fullPath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-            var hash = Convert.ToHexString(SHA256.HashData(stream))
-                .ToLowerInvariant();
-            compatibilityId = $"sha256:{hash}";
-            VehicleFingerprintCache[fullPath] = new FingerprintCacheEntry(
-                info.Length,
-                info.LastWriteTimeUtc,
-                compatibilityId);
+            relativePath = candidate;
             return true;
         }
         catch
@@ -697,11 +488,6 @@ internal static class PhysicalVehicleBackend
             return false;
         }
     }
-
-    private sealed record FingerprintCacheEntry(
-        long Length,
-        DateTime LastWriteUtc,
-        string CompatibilityId);
 
     private static bool TryGetInstanceId(PluginBridgeMessage command, out string instanceId)
     {

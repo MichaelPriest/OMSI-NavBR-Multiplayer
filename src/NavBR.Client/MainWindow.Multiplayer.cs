@@ -95,7 +95,8 @@ public partial class MainWindow
         var window = new MultiplayerWindow(
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
-            _telemetryProvider.ReadRoleplayCharacterOptions);
+            _telemetryProvider.ReadRoleplayCharacterOptions,
+            () => _currentOmsi?.InstallDirectory);
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);

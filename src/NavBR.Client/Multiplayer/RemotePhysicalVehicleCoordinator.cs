@@ -14,7 +14,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _inFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _lastFailureByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
+
+    public RemotePhysicalVehicleCoordinator(
+        Func<string?>? omsiInstallDirectorySource = null)
+    {
+        _vehicleAssetResolver = new OmsiVehicleAssetResolver(
+            omsiInstallDirectorySource ?? (() => null));
+    }
 
     public bool IsPhysicalMultiplayerAvailable
     {
@@ -102,16 +112,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
-        var physicalFrame = frame with
+        var remoteVehicleCompatibilityId =
+            remoteManifest.VehicleCompatibilityId.Trim();
+        if (_spawned.ContainsKey(frame.Player.PlayerId) &&
+            (!_spawnedCompatibilityByPlayer.TryGetValue(
+                 frame.Player.PlayerId,
+                 out var spawnedCompatibilityId) ||
+             !string.Equals(
+                 spawnedCompatibilityId,
+                 remoteVehicleCompatibilityId,
+                 StringComparison.OrdinalIgnoreCase)))
         {
-            Telemetry = frame.Telemetry with
-            {
-                VehiclePath = remoteManifest.VehiclePath,
-                VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
-                HofName = remoteManifest.HofName,
-                HofCompatibilityId = remoteManifest.HofCompatibilityId
-            }
-        };
+            // The remote player changed vehicle. Remove the old NavBR-owned
+            // instance before creating the newly reported asset.
+            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+        }
 
         if (!_spawned.ContainsKey(frame.Player.PlayerId) &&
             _spawned.Count >= MaxPhysicalRemotePlayers)
@@ -120,22 +135,65 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
-        if (_spawned.TryAdd(frame.Player.PlayerId, 0))
+        if (!_spawned.ContainsKey(frame.Player.PlayerId))
         {
-            var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
-                physicalFrame,
+            var resolvedVehiclePath = await _vehicleAssetResolver.ResolveAsync(
+                remoteManifest.VehiclePath,
+                remoteVehicleCompatibilityId,
                 cancellationToken);
-            if (spawn?.Success != true)
+            if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
             {
-                _spawned.TryRemove(frame.Player.PlayerId, out _);
-                ReportCommandFailureOnce(frame.Player.PlayerId, "spawn", spawn);
+                ReportFailureOnce(
+                    frame.Player.PlayerId,
+                    "asset",
+                    "physical-vehicle-asset-unresolved");
                 return;
             }
 
-            _lastFailureByPlayer.TryRemove(frame.Player.PlayerId, out _);
-            RemoteDiagnosticsService.Record("physical-vehicle", "info", "spawn-success");
+            var spawnFrame = BuildPhysicalFrame(
+                frame,
+                remoteManifest,
+                resolvedVehiclePath);
+            if (_spawned.TryAdd(frame.Player.PlayerId, 0))
+            {
+                var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
+                    spawnFrame,
+                    cancellationToken);
+                if (spawn?.Success != true)
+                {
+                    _spawned.TryRemove(frame.Player.PlayerId, out _);
+                    ReportCommandFailureOnce(frame.Player.PlayerId, "spawn", spawn);
+                    return;
+                }
+
+                _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
+                    remoteVehicleCompatibilityId;
+                _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
+                    resolvedVehiclePath;
+                _lastFailureByPlayer.TryRemove(frame.Player.PlayerId, out _);
+                RemoteDiagnosticsService.Record(
+                    "physical-vehicle",
+                    "info",
+                    "spawn-success");
+            }
         }
 
+        if (!_resolvedVehiclePathByPlayer.TryGetValue(
+                frame.Player.PlayerId,
+                out var localVehiclePath))
+        {
+            await DespawnAsync(frame.Player.PlayerId, cancellationToken);
+            ReportFailureOnce(
+                frame.Player.PlayerId,
+                "asset",
+                "physical-vehicle-path-state-missing");
+            return;
+        }
+
+        var physicalFrame = BuildPhysicalFrame(
+            frame,
+            remoteManifest,
+            localVehiclePath);
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
             physicalFrame,
             cancellationToken);
@@ -153,6 +211,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string playerId,
         CancellationToken cancellationToken = default)
     {
+        _spawnedCompatibilityByPlayer.TryRemove(playerId, out _);
+        _resolvedVehiclePathByPlayer.TryRemove(playerId, out _);
+
         if (!_spawned.TryRemove(playerId, out _))
         {
             return;
@@ -175,6 +236,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     {
         var players = _spawned.Keys.ToArray();
         _spawned.Clear();
+        _spawnedCompatibilityByPlayer.Clear();
+        _resolvedVehiclePathByPlayer.Clear();
 
         foreach (var playerId in players)
         {
@@ -217,6 +280,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _lastFailureByPlayer[playerId] = fingerprint;
         RemoteDiagnosticsService.Record("physical-vehicle", "error", message);
     }
+
+    private static PlayerTelemetryFrame BuildPhysicalFrame(
+        PlayerTelemetryFrame frame,
+        OmsiCompatibilityManifest remoteManifest,
+        string resolvedVehiclePath) =>
+        frame with
+        {
+            Telemetry = frame.Telemetry with
+            {
+                VehiclePath = resolvedVehiclePath,
+                VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
+                HofName = remoteManifest.HofName,
+                HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
 
     private static OmsiCompatibilityManifest BuildLiveRemoteManifest(PlayerTelemetryFrame frame)
     {

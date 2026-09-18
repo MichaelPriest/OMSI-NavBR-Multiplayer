@@ -17,7 +17,7 @@ public partial class MultiplayerWindow : Window
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
     private readonly Func<IReadOnlyList<RoleplayCharacterOption>> _roleplayCharacterOptionsSource;
-    private readonly MultiplayerClientService _client = new();
+    private readonly MultiplayerClientService _client;
     private readonly RoomHostService _host = new();
     private readonly VoiceChatService _voiceChat = new();
     private readonly DispatcherTimer _publishTimer;
@@ -53,17 +53,19 @@ public partial class MultiplayerWindow : Window
     public MultiplayerWindow(
         Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource)
-        : this(telemetrySource, activeMapSource, null)
+        : this(telemetrySource, activeMapSource, null, null)
     {
     }
 
     internal MultiplayerWindow(
         Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource,
-        Func<IReadOnlyList<RoleplayCharacterOption>>? roleplayCharacterOptionsSource)
+        Func<IReadOnlyList<RoleplayCharacterOption>>? roleplayCharacterOptionsSource,
+        Func<string?>? omsiInstallDirectorySource = null)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
+        _client = new MultiplayerClientService(omsiInstallDirectorySource);
         _roleplayCharacterOptionsSource =
             roleplayCharacterOptionsSource ?? (() => Array.Empty<RoleplayCharacterOption>());
         _settings = MultiplayerSettingsStore.Load();
