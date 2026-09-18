@@ -187,6 +187,9 @@ internal static class Alpha12FigmaShellInstaller
         quick.Margin = new Thickness(0d, 20d, 0d, 0d);
         var quickStack = (StackPanel)quick.Child;
         var actions = new WrapPanel { Margin = new Thickness(0d, 18d, 0d, 0d) };
+        actions.Children.Add(ActionButton(
+            L("▶  Executar OMSI", "▶  Launch OMSI", "▶  Ejecutar OMSI", "▶  OMSI starten", "▶  Lancer OMSI"),
+            window.LaunchOmsiForShell));
         actions.Children.Add(ActionButton("Navegação", () => RaiseNavigation(window, "⌖")));
         actions.Children.Add(ActionButton("Mapa 3D", window.OpenNavigation3D));
         actions.Children.Add(ActionButton("Multiplayer", () => RaiseNavigation(window, "●")));
