@@ -148,7 +148,7 @@ public partial class App : Application
         }
 
         WindowsThemeService.ApplyDarkTitleBar(window);
-        if (window is not MainWindow)
+        if (window is not NavBR.Client.MainWindow)
         {
             Alpha12FigmaOperationalWindowStyler.Apply(window);
         }
@@ -179,7 +179,7 @@ public partial class App : Application
 
         // Auxiliary native windows still use the shared dark control theme.
         // The hidden MainWindow host has no user-facing controls anymore.
-        if (window is not MainWindow)
+        if (window is not NavBR.Client.MainWindow)
         {
             NavBRControlThemeInstaller.Attach(window);
         }
