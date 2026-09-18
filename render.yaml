@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: omsi-navbr-multiplayer-server
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: main
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: NAVBR_ENABLE_EXTERNAL_PORT_PROBE
+        value: "false"
