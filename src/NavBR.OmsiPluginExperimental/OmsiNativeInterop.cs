@@ -345,6 +345,12 @@ internal static class OmsiNativeInterop
         out float sollSpeed,
         out float actSpeed);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadHumanAnimationState")]
+    internal static extern int ReadHumanAnimationState(
+        int humanPointer,
+        out float lastMovedDist,
+        out float state);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetHumanTransform")]
     internal static extern int SetHumanTransform(
         int humanPointer,
