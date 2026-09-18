@@ -142,6 +142,7 @@ public partial class MultiplayerWindow : Window
             HookDiagnosticsLifecycle();
             InitializePersistentLifetime();
             InitializeRoleplayCharacterSelector();
+            InitializeRelayUi();
             RefreshSessionSummary();
         };
 
