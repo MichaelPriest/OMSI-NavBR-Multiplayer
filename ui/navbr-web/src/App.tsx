@@ -3704,6 +3704,29 @@ function Help({ state }: { state: NavBrState | null }) {
         </div>
       </header>
 
+      {state?.system.legacyPreferences.firstRunCompleted === false && (
+        <section className="card cco-panel">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{pick("PRIMEIRO ACESSO", "FIRST RUN", "PRIMER ACCESO", "ERSTER START", "PREMIER DÉMARRAGE")}</span>
+              <h3>{pick("Bem-vindo ao OMSI NavBR Multiplayer", "Welcome to OMSI NavBR Multiplayer", "Bienvenido a OMSI NavBR Multiplayer", "Willkommen bei OMSI NavBR Multiplayer", "Bienvenue dans OMSI NavBR Multiplayer")}</h3>
+            </div>
+          </div>
+          <p>{pick(
+            "Escolha o idioma no seletor da barra lateral, leia os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto. A interface principal agora é React/WebView2; o WPF antigo não é aberto como tela de uso.",
+            "Choose your language from the sidebar selector, review the essential steps below, and complete first run when ready. The primary interface is now React/WebView2; the retired WPF UI is not opened as a user-facing screen.",
+            "Elige el idioma en el selector lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo. La interfaz principal ahora es React/WebView2.",
+            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab. Die primäre Oberfläche ist jetzt React/WebView2.",
+            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage. L’interface principale est désormais React/WebView2."
+          )}</p>
+          <div className="room-actions">
+            <button className="button primary" onClick={() => sendCommand("completeFirstRun")}>
+              {pick("Começar a usar o NavBR", "Start using NavBR", "Empezar a usar NavBR", "NavBR verwenden", "Commencer à utiliser NavBR")}
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="company-layout">
         {sections.map(section => (
           <article className="card company-card" key={section.title}>
