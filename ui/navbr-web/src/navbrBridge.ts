@@ -57,6 +57,11 @@ export interface NavBrMultiplayerState {
     gain: number;
     speaking: boolean;
   }[];
+  chatHotkey: string;
+  voiceHotkey: string;
+  hotkeyOptions: string[];
+  relayEnabled: boolean;
+  relayServerUrl: string;
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
@@ -665,6 +670,10 @@ export type NavBrCommand =
   | "configureVoice"
   | "configureVoiceDevices"
   | "configureRemoteVoice"
+  | "configureMultiplayerHotkeys"
+  | "configureRelay"
+  | "submitOperationalReport"
+  | "resolveMyOperationalReports"
   | "acknowledgeOperationalReport"
   | "resolveOperationalReport"
   | "saveCompany"
