@@ -29,6 +29,11 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   displayName: "—",
   hostRunning: false,
   hostPort: null,
+  hostReachability: "inactive",
+  internetInviteAddress: null,
+  upnpMapped: false,
+  upnpMessage: null,
+  externalProbeConfigured: false,
   roomIsPrivate: false,
   inviteAddresses: [],
   latencyMs: null,
@@ -2825,6 +2830,28 @@ function Multiplayer({
       ? multiplayer.connectionState
       : pick("Controlador inativo", "Controller inactive", "Controlador inactivo", "Controller inaktiv", "Contrôleur inactif");
 
+  const hostReachabilityLabel =
+    multiplayer.hostReachability === "internet-address-available"
+      ? pick("Internet via UPnP", "Internet via UPnP", "Internet vía UPnP", "Internet über UPnP", "Internet via UPnP")
+      : multiplayer.hostReachability === "upnp-mapped-unverified"
+        ? pick("UPnP ativo · não verificado externamente", "UPnP active · not externally verified", "UPnP activo · no verificado externamente", "UPnP aktiv · extern nicht geprüft", "UPnP actif · non vérifié depuis l’extérieur")
+        : multiplayer.hostReachability === "checking"
+          ? pick("Verificando UPnP", "Checking UPnP", "Verificando UPnP", "UPnP wird geprüft", "Vérification UPnP")
+          : multiplayer.hostReachability === "lan-only"
+            ? pick("Somente LAN", "LAN only", "Solo LAN", "Nur LAN", "LAN uniquement")
+            : pick("Host inativo", "Host inactive", "Host inactivo", "Host inaktiv", "Hôte inactif");
+
+  const hostReachabilityDetail =
+    multiplayer.hostReachability === "internet-address-available"
+      ? (multiplayer.externalProbeConfigured
+          ? pick("Endereço externo disponível. Use o teste externo para confirmar alcance.", "External address available. Use the external test to confirm reachability.", "Dirección externa disponible. Usa la prueba externa para confirmar alcance.", "Externe Adresse verfügbar. Externen Test zur Bestätigung verwenden.", "Adresse externe disponible. Utilisez le test externe pour confirmer l’accessibilité.")
+          : pick("Endereço externo obtido por UPnP. O teste externo não está configurado nesta instalação.", "External address obtained via UPnP. External testing is not configured in this installation.", "Dirección externa obtenida por UPnP. La prueba externa no está configurada en esta instalación.", "Externe Adresse über UPnP erhalten. Externer Test ist in dieser Installation nicht konfiguriert.", "Adresse externe obtenue via UPnP. Le test externe n’est pas configuré dans cette installation."))
+      : multiplayer.hostReachability === "upnp-mapped-unverified"
+        ? pick("A porta foi mapeada por UPnP, mas não há confirmação externa.", "The port was mapped by UPnP, but there is no external confirmation.", "El puerto fue mapeado por UPnP, pero no hay confirmación externa.", "Der Port wurde per UPnP gemappt, aber extern nicht bestätigt.", "Le port a été mappé via UPnP, sans confirmation externe.")
+        : multiplayer.hostReachability === "lan-only"
+          ? pick("A sala funciona na rede local. Para Internet, ative UPnP ou configure redirecionamento da TCP 27730.", "The room works on the local network. For Internet access, enable UPnP or forward TCP 27730.", "La sala funciona en la red local. Para Internet, activa UPnP o redirige TCP 27730.", "Der Raum funktioniert im lokalen Netz. Für Internet UPnP aktivieren oder TCP 27730 weiterleiten.", "La salle fonctionne sur le réseau local. Pour Internet, activez UPnP ou redirigez TCP 27730.")
+          : null;
+
   const visiblePlayers = useMemo(
     () => multiplayer.players.slice().sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [multiplayer.players]
@@ -3159,7 +3186,15 @@ function Multiplayer({
             <div><small>{pick("ID DA SALA", "ROOM ID", "ID DE SALA", "RAUM-ID", "ID DE SALLE")}</small><strong>{multiplayer.roomId || "—"}</strong></div>
             <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
+            <div><small>{pick("ALCANCE DO HOST", "HOST REACHABILITY", "ALCANCE DEL HOST", "HOST-ERREICHBARKEIT", "ACCESSIBILITÉ DE L’HÔTE")}</small><strong>{hostReachabilityLabel}</strong></div>
+            <div><small>{pick("ENDEREÇO INTERNET", "INTERNET ADDRESS", "DIRECCIÓN INTERNET", "INTERNET-ADRESSE", "ADRESSE INTERNET")}</small><strong>{multiplayer.internetInviteAddress || "—"}</strong></div>
           </div>
+          {multiplayer.hostRunning && hostReachabilityDetail && (
+            <div className="migration-note">
+              <strong>{hostReachabilityLabel}</strong><br />
+              {hostReachabilityDetail}
+            </div>
+          )}
 
           <div className="room-actions">
             <button className="button ghost" disabled={!multiplayer.connected} onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
