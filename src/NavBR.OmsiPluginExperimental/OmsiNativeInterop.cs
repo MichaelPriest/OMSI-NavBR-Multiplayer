@@ -182,25 +182,32 @@ internal static class OmsiNativeInterop
         }
     }
 
-    internal static bool TryFindNewRoadVehicle(
+    internal static bool TryFindNewRoadVehicles(
         IReadOnlyCollection<int> before,
-        out int vehiclePointer)
+        out int[] vehiclePointers)
     {
-        vehiclePointer = 0;
+        vehiclePointers = [];
         if (!TrySnapshotRoadVehicles(out var after))
         {
             return false;
         }
 
         var known = new HashSet<int>(before);
-        var added = after.Where(pointer => !known.Contains(pointer)).Distinct().ToArray();
-        if (added.Length != 1 || added[0] == 0 || IsRoadVehiclePointer(added[0]) != 1)
+        var added = after
+            .Where(pointer => pointer != 0 && !known.Contains(pointer))
+            .Distinct()
+            .ToArray();
+
+        if (added.Length == 0)
         {
             return false;
         }
 
-        vehiclePointer = added[0];
-        return true;
+        var valid = added
+            .Where(pointer => IsRoadVehiclePointer(pointer) == 1)
+            .ToArray();
+        vehiclePointers = valid;
+        return valid.Length == added.Length;
     }
 
     private static bool EnsureShimLoaded()

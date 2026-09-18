@@ -201,11 +201,6 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "invalid-vehicle-path", "Vehicle path must resolve to an existing Vehicles\\*.bus or Vehicles\\*.ovh file.");
         }
 
-        if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var before))
-        {
-            return Fail(command, "roadvehicles-unavailable", "Could not snapshot the OMSI road vehicle list before spawn.");
-        }
-
         var programManager = OmsiNativeInterop.GetProgramManager();
         var roadVehicleTypes = OmsiNativeInterop.GetRoadVehicleTypes();
         if (programManager == 0 || roadVehicleTypes == 0)
@@ -238,12 +233,24 @@ internal static class PhysicalVehicleBackend
 
         var locked = false;
         var handedToOmsi = false;
+        var createdVehiclePointers = Array.Empty<int>();
         try
         {
             locked = OmsiNativeInterop.LockMakeVehicle(programManager) == 1;
             if (!locked)
             {
                 return Fail(command, "makevehicle-lock-failed", "Could not enter OMSI's MakeVehicle critical section.");
+            }
+
+            // Snapshot while holding OMSI's own MakeVehicle critical section.
+            // This prevents an unrelated vehicle creation from being mistaken
+            // for a NavBR-owned result between the before/after snapshots.
+            if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var before))
+            {
+                return Fail(
+                    command,
+                    "roadvehicles-unavailable",
+                    "Could not snapshot the OMSI road vehicle list inside the MakeVehicle critical section.");
             }
 
             handedToOmsi = true;
@@ -275,6 +282,35 @@ internal static class PhysicalVehicleBackend
                 filenameAnsiString: filename);
 
             _ = OmsiNativeInterop.CopyTempRoadVehicleListIntoMain(tempList);
+
+            var completeDiff = OmsiNativeInterop.TryFindNewRoadVehicles(
+                before,
+                out createdVehiclePointers);
+            if (!completeDiff || createdVehiclePointers.Length == 0)
+            {
+                foreach (var pointer in createdVehiclePointers)
+                {
+                    _ = OmsiNativeInterop.MarkVehicleForKilling(pointer);
+                }
+
+                return Fail(
+                    command,
+                    "spawn-pointer-unresolved",
+                    "OMSI spawn did not produce a fully identifiable RoadVehicle set.");
+            }
+
+            if (createdVehiclePointers.Length != 1)
+            {
+                foreach (var pointer in createdVehiclePointers)
+                {
+                    _ = OmsiNativeInterop.MarkVehicleForKilling(pointer);
+                }
+
+                return Fail(
+                    command,
+                    "multi-vehicle-consist-unsupported",
+                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet.");
+            }
         }
         finally
         {
@@ -293,10 +329,7 @@ internal static class PhysicalVehicleBackend
             }
         }
 
-        if (!OmsiNativeInterop.TryFindNewRoadVehicle(before, out var vehiclePointer))
-        {
-            return Fail(command, "spawn-pointer-unresolved", "OMSI spawn returned without one identifiable new RoadVehicle instance.");
-        }
+        var vehiclePointer = createdVehiclePointers[0];
 
         var instance = new PhysicalVehicleInstance(
             instanceId,
