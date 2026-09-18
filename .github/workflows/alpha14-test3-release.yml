@@ -46,6 +46,7 @@ jobs:
           if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
 
       - name: Reserve Alpha.14 Test 3 as draft
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -368,8 +369,18 @@ jobs:
 
           Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md "artifacts/release-notes.md" -Force
 
+      - name: Upload private Alpha.14 Test 3 build
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Alpha14-Test3-${{ github.sha }}
+          path: artifacts/release/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
       - name: Clean incomplete release assets
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -384,6 +395,7 @@ jobs:
           }
 
       - name: Upload release assets sequentially
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -435,6 +447,7 @@ jobs:
           }
 
       - name: Verify release assets and keep draft
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
