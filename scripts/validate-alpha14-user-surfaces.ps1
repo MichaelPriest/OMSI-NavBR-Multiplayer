@@ -196,10 +196,17 @@ Reject-Text "ui/navbr-web/src/App.tsx" @(
 Require-Text "ui/navbr-web/src/App.tsx" @(
     'sendCommand("configureMultiplayerHotkeys"',
     'sendCommand("configureRelay"',
+    'sendCommand("setPhysicalVehiclesEnabled"',
     'sendCommand("submitOperationalReport"',
     'sendCommand("resolveMyOperationalReports"',
     "Copiar convite",
-    "Colar convite"
+    "Colar convite",
+    "QUALIDADE DA SESSÃO",
+    "AUTORIDADE",
+    "COMPATIBILIDADE DA SALA",
+    "voicePushToTalkActive",
+    "sessionOperationalState",
+    "telemetryStale"
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -212,8 +219,30 @@ Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
 Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
     '"configureMultiplayerHotkeys"',
     '"configureRelay"',
+    '"setPhysicalVehiclesEnabled"',
     '"submitOperationalReport"',
-    '"resolveMyOperationalReports"'
+    '"resolveMyOperationalReports"',
+    "networkQuality:",
+    "sessionAuthority:",
+    "roomCompatibility:",
+    "voiceQuality:",
+    "sessionOperationalState?:",
+    "telemetryStale:"
+)
+
+Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.WebBridge.cs" @(
+    "BuildWebRoomCompatibility",
+    "SessionNetworkQualityFeed.Snapshot()",
+    "_voiceChat.GetQualitySnapshot()",
+    "_client.CurrentSessionOperationalState",
+    "physicalVehiclesAvailable",
+    "telemetryAgeSeconds",
+    "distanceText"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
+    '"setPhysicalVehiclesEnabled"',
+    "sessionPoints = Array.Empty<object>()"
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(
