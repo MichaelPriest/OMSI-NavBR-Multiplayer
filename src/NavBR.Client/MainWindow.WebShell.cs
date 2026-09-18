@@ -379,6 +379,11 @@ public partial class MainWindow
                 await EnterRoleplayBusFromWebAsync();
                 break;
 
+            case "triggerRoleplayVehicle":
+                await TriggerRoleplayVehicleFromWebAsync(
+                    GetWebPayloadString(payload, "triggerName"));
+                break;
+
             case "stopRoleplay":
                 await StopRoleplayFromWebAsync();
                 break;

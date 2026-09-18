@@ -17,6 +17,13 @@ public partial class MainWindow
         var controller = GetRoleplayControllerForShell();
         var current = controller.CurrentState;
         var busDistanceMeters = controller.GetBusDistanceMeters();
+        var interactions = GetRoleplayVehicleInteractionsForShell();
+        var canInteractWithBus =
+            controller.IsActive &&
+            controller.IsInteractionRuntimeAvailable &&
+            busDistanceMeters is double interactionDistance &&
+            interactionDistance <= controller.InteractionRangeMeters &&
+            interactions.Count > 0;
 
         return new
         {
@@ -31,6 +38,12 @@ public partial class MainWindow
             canEnterBus = controller.IsActive &&
                           busDistanceMeters is double distance &&
                           distance <= controller.EnterBusRangeMeters,
+            interactionRuntimeAvailable = controller.IsInteractionRuntimeAvailable,
+            interactionRangeMeters = controller.InteractionRangeMeters,
+            canInteractWithBus,
+            interactions = interactions
+                .Select(name => new { name })
+                .ToArray(),
             status = _webRoleplayStatus,
             selected = selected is null
                 ? null
@@ -143,6 +156,45 @@ public partial class MainWindow
             _webRoleplayStatus = "roleplay-start-failed";
         }
 
+        UpdateHudRoleplayStateForShell();
+    }
+
+    private IReadOnlyList<string> GetRoleplayVehicleInteractionsForShell()
+    {
+        if (_roleplayCharacterController?.IsActive != true)
+        {
+            return Array.Empty<string>();
+        }
+
+        return OmsiVehicleInteractionCatalog.Read(
+            _currentOmsi?.InstallDirectory,
+            _lastTelemetry?.VehiclePath);
+    }
+
+    private async Task TriggerRoleplayVehicleFromWebAsync(
+        string? triggerName)
+    {
+        triggerName = triggerName?.Trim();
+        if (string.IsNullOrWhiteSpace(triggerName))
+        {
+            _webRoleplayStatus = "roleplay-interaction-invalid";
+            return;
+        }
+
+        var interactions = GetRoleplayVehicleInteractionsForShell();
+        if (!interactions.Contains(triggerName, StringComparer.Ordinal))
+        {
+            _webRoleplayStatus = "roleplay-interaction-not-in-catalog";
+            return;
+        }
+
+        if (_roleplayCharacterController is not { } controller)
+        {
+            _webRoleplayStatus = "roleplay-interaction-unavailable";
+            return;
+        }
+
+        _ = await controller.TryTriggerBusInteractionAsync(triggerName);
         UpdateHudRoleplayStateForShell();
     }
 

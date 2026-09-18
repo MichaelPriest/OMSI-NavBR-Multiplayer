@@ -2263,6 +2263,17 @@ function roleplayStatusLabel(
     case "roleplay-control-lost": return pick("Controle do personagem perdido", "Character control lost", "Control del personaje perdido", "Charaktersteuerung verloren", "Contrôle du personnage perdu");
     case "roleplay-bus-too-far": return pick("Aproxime-se do ônibus para entrar", "Move closer to the bus to enter", "Acércate al autobús para entrar", "Gehe näher zum Bus, um einzusteigen", "Rapprochez-vous du bus pour entrer");
     case "roleplay-bus-position-unavailable": return pick("Posição do ônibus indisponível", "Bus position unavailable", "Posición del autobús no disponible", "Busposition nicht verfügbar", "Position du bus indisponible");
+    case "roleplay-interaction-triggered": return pick("Interação enviada ao ônibus", "Bus interaction sent", "Interacción enviada al autobús", "Bus-Interaktion ausgelöst", "Interaction envoyée au bus");
+    case "roleplay-interaction-too-far": return pick("Aproxime-se do ônibus para interagir", "Move closer to the bus to interact", "Acércate al autobús para interactuar", "Gehe näher zum Bus, um zu interagieren", "Rapprochez-vous du bus pour interagir");
+    case "roleplay-interaction-plugin-unavailable": return pick("Plugin Bridge sem suporte a interações RP", "Plugin Bridge has no RP interaction support", "Plugin Bridge sin soporte de interacción RP", "Plugin Bridge ohne RP-Interaktionsunterstützung", "Plugin Bridge sans prise en charge des interactions RP");
+    case "roleplay-interaction-busy": return pick("Outra interação ainda está em andamento", "Another interaction is still in progress", "Otra interacción sigue en curso", "Eine andere Interaktion läuft noch", "Une autre interaction est encore en cours");
+    case "roleplay-interaction-invalid": return pick("Interação inválida", "Invalid interaction", "Interacción inválida", "Ungültige Interaktion", "Interaction invalide");
+    case "roleplay-interaction-not-in-catalog": return pick("Esse evento não existe mais no addon atual", "That event no longer exists in the current addon", "Ese evento ya no existe en el addon actual", "Dieses Ereignis existiert im aktuellen Add-on nicht mehr", "Cet événement n’existe plus dans l’addon actuel");
+    case "roleplay-interaction-unavailable": return pick("Interação RP indisponível", "RP interaction unavailable", "Interacción RP no disponible", "RP-Interaktion nicht verfügbar", "Interaction RP indisponible");
+    case "roleplay-bus-changed": return pick("O ônibus original do RP não é mais o veículo do jogador", "The original RP bus is no longer the player vehicle", "El autobús RP original ya no es el vehículo del jugador", "Der ursprüngliche RP-Bus ist nicht mehr das Spielerfahrzeug", "Le bus RP d’origine n’est plus le véhicule du joueur");
+    case "roleplay-interaction-position-unavailable": return pick("Não foi possível validar a posição para interagir", "Could not validate position for interaction", "No se pudo validar la posición para interactuar", "Position für die Interaktion konnte nicht geprüft werden", "Impossible de valider la position pour l’interaction");
+    case "roleplay-trigger-failed": return pick("O OMSI rejeitou a interação", "OMSI rejected the interaction", "OMSI rechazó la interacción", "OMSI hat die Interaktion abgelehnt", "OMSI a rejeté l’interaction");
+    case "roleplay-trigger-release-failed": return pick("O acionamento ocorreu, mas a liberação do evento não foi confirmada", "The trigger fired, but release was not confirmed", "El evento se activó, pero no se confirmó su liberación", "Der Trigger wurde ausgelöst, aber das Loslassen wurde nicht bestätigt", "Le déclencheur a été activé, mais son relâchement n’a pas été confirmé");
     case "roleplay-entered-bus": return pick("Retornou ao ônibus", "Returned to the bus", "Volvió al autobús", "Zum Bus zurückgekehrt", "Retour au bus");
     case "roleplay-emergency-return": return pick("RP encerrado pelo retorno de emergência", "RP ended by emergency return", "RP finalizado por retorno de emergencia", "RP durch Notfall-Rückkehr beendet", "RP terminé par retour d’urgence");
     case "roleplay-release-failed": return pick("O RP foi encerrado, mas o plugin não confirmou a restauração do motorista", "RP ended, but the plugin did not confirm driver restoration", "El RP terminó, pero el plugin no confirmó la restauración del conductor", "RP wurde beendet, aber das Plugin bestätigte die Fahrerwiederherstellung nicht", "Le RP est terminé, mais le plugin n’a pas confirmé la restauration du conducteur");
@@ -2403,6 +2414,52 @@ function RoleplayPanel({
           )}
           <p className="hardware-note">{pick("A seleção é válida somente para a sessão/mapa atual. O DefinitionPointer nativo não é persistido.", "Selection is valid only for the current session/map. The native DefinitionPointer is not persisted.", "La selección solo es válida para la sesión/mapa actual. El DefinitionPointer nativo no se conserva.", "Die Auswahl gilt nur für die aktuelle Sitzung/Karte. Der native DefinitionPointer wird nicht gespeichert.", "La sélection n’est valable que pour la session/carte actuelle. Le DefinitionPointer natif n’est pas persisté.")}</p>
         </article>
+
+        {roleplay.active && (
+          <article className="card rp-character-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">[MOUSEEVENT]</span>
+                <h3>{pick("Interações do ônibus", "Bus interactions", "Interacciones del autobús", "Bus-Interaktionen", "Interactions du bus")}</h3>
+              </div>
+              <span className="stop-count">{roleplay.interactions.length}</span>
+            </div>
+
+            {!roleplay.interactionRuntimeAvailable ? (
+              <div className="empty-state">{pick("O Plugin Bridge atual ainda não anuncia suporte a interações RP.", "The current Plugin Bridge does not yet advertise RP interaction support.", "El Plugin Bridge actual todavía no anuncia soporte para interacciones RP.", "Der aktuelle Plugin Bridge meldet noch keine RP-Interaktionsunterstützung.", "Le Plugin Bridge actuel n’annonce pas encore la prise en charge des interactions RP.")}</div>
+            ) : roleplay.interactions.length === 0 ? (
+              <div className="empty-state">{pick("Nenhum [mouseevent] real foi encontrado nos model.cfg deste veículo.", "No real [mouseevent] was found in this vehicle's model.cfg files.", "No se encontró ningún [mouseevent] real en los model.cfg de este vehículo.", "In den model.cfg-Dateien dieses Fahrzeugs wurde kein echtes [mouseevent] gefunden.", "Aucun [mouseevent] réel n’a été trouvé dans les model.cfg de ce véhicule.")}</div>
+            ) : (
+              <div className="rp-character-list">
+                {roleplay.interactions.map(interaction => (
+                  <button
+                    key={interaction.name}
+                    className="rp-character-row"
+                    disabled={!roleplay.canInteractWithBus}
+                    onClick={() => sendCommand("triggerRoleplayVehicle", { triggerName: interaction.name })}
+                  >
+                    <span className="rp-character-avatar">↯</span>
+                    <span>
+                      <strong>{interaction.name}</strong>
+                      <small>{pick("Evento real declarado pelo addon", "Real event declared by the addon", "Evento real declarado por el addon", "Vom Add-on deklariertes echtes Ereignis", "Événement réel déclaré par l’addon")}</small>
+                    </span>
+                    <em>{pick("Acionar", "Trigger", "Activar", "Auslösen", "Déclencher")}</em>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="hardware-note">
+              {pick(
+                `Os eventos vêm diretamente dos [mouseevent] do ônibus ativo. O acionamento só é liberado a até ${roleplay.interactionRangeMeters.toFixed(0)} m do ônibus original do RP.`,
+                `Events come directly from the active bus [mouseevent] entries. Triggering is enabled only within ${roleplay.interactionRangeMeters.toFixed(0)} m of the original RP bus.`,
+                `Los eventos provienen directamente de los [mouseevent] del autobús activo. Solo se pueden activar a menos de ${roleplay.interactionRangeMeters.toFixed(0)} m del autobús RP original.`,
+                `Die Ereignisse stammen direkt aus den [mouseevent]-Einträgen des aktiven Busses. Auslösen ist nur innerhalb von ${roleplay.interactionRangeMeters.toFixed(0)} m vom ursprünglichen RP-Bus möglich.`,
+                `Les événements proviennent directement des entrées [mouseevent] du bus actif. Le déclenchement n’est autorisé qu’à moins de ${roleplay.interactionRangeMeters.toFixed(0)} m du bus RP d’origine.`
+              )}
+            </p>
+          </article>
+        )}
       </section>
 
       {!embedded && (

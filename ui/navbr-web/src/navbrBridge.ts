@@ -598,6 +598,10 @@ export interface NavBrRoleplayState {
   busDistanceMeters?: number | null;
   enterBusRangeMeters: number;
   canEnterBus: boolean;
+  interactionRuntimeAvailable: boolean;
+  interactionRangeMeters: number;
+  canInteractWithBus: boolean;
+  interactions: { name: string }[];
   status?: string | null;
   selected?: {
     id: string;
@@ -766,6 +770,7 @@ export type NavBrCommand =
   | "selectRoleplayCharacter"
   | "startRoleplay"
   | "enterRoleplayBus"
+  | "triggerRoleplayVehicle"
   | "stopRoleplay"
   | "openNavigation3D"
   | "toggleHudLayout"
