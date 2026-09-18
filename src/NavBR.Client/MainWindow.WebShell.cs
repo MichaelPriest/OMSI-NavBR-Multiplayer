@@ -9,6 +9,8 @@ public partial class MainWindow
 {
     private WebShellWindow? _webShellWindow;
     private bool _webShellPrimaryMode;
+    private long _webNavigationRequestId;
+    private string? _webRequestedScreen;
     private IReadOnlyList<PublicRoomSummary> _webPublicRooms = Array.Empty<PublicRoomSummary>();
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
@@ -24,6 +26,18 @@ public partial class MainWindow
 
     internal void ShowPrimaryInterfaceForShell() =>
         OpenWebShell(primary: true);
+
+    internal void NavigatePrimaryWebShell(string screen)
+    {
+        if (string.IsNullOrWhiteSpace(screen))
+        {
+            return;
+        }
+
+        _webRequestedScreen = screen.Trim();
+        _webNavigationRequestId++;
+        OpenWebShell(primary: true);
+    }
 
     internal void HidePrimaryInterfaceForShell()
     {
@@ -132,6 +146,13 @@ public partial class MainWindow
         {
             generatedAtUtc = DateTimeOffset.UtcNow,
             appVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(),
+            navigationRequest = string.IsNullOrWhiteSpace(_webRequestedScreen)
+                ? null
+                : new
+                {
+                    id = _webNavigationRequestId,
+                    screen = _webRequestedScreen
+                },
             omsi = new
             {
                 running = omsi is not null,
@@ -248,6 +269,7 @@ public partial class MainWindow
                 break;
 
             case "openRoleplay":
+                NavigatePrimaryWebShell("roleplay");
                 break;
 
             case "setRoleplayEnabled":
