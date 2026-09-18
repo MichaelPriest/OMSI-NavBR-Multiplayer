@@ -152,6 +152,7 @@ public static class OmsiPluginBridgeRelay
         double localX,
         double localY,
         double localZ,
+        double headingDegrees,
         int characterDefinitionPointer,
         CancellationToken cancellationToken = default) =>
         SendCommandBestEffortAsync(
@@ -165,6 +166,7 @@ public static class OmsiPluginBridgeRelay
                 LocalX: localX,
                 LocalY: localY,
                 LocalZ: localZ,
+                HeadingDegrees: headingDegrees,
                 CharacterActive: true),
             cancellationToken);
 
