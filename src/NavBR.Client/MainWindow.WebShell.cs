@@ -667,6 +667,10 @@ public partial class MainWindow
                 OpenFeedbackFromWeb(GetWebPayloadString(payload, "kind"));
                 break;
 
+            case "exportSessionHealth":
+                ExportSessionHealthFromWeb();
+                break;
+
             case "refreshNetworkDiagnostics":
                 await RefreshWebNetworkDiagnosticsAsync();
                 break;
