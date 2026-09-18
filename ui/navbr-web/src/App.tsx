@@ -731,12 +731,28 @@ function Navigation({
 function physicalVehicleStatusLabel(
   state: string | null | undefined,
   errorCode: string | null | undefined,
+  partCount: number | null | undefined,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
     case "active": return pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif");
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
+    case "consist-unsupported": return partCount && partCount > 1
+      ? pick(
+          `Articulado/consist detectado (${partCount} partes) — bloqueado por segurança`,
+          `Articulated/consist detected (${partCount} parts) — safely blocked`,
+          `Articulado/consist detectado (${partCount} partes) — bloqueado de forma segura`,
+          `Gelenk-/Mehrfachverband erkannt (${partCount} Teile) — sicher blockiert`,
+          `Articulé/convoi détecté (${partCount} parties) — bloqué en sécurité`
+        )
+      : pick(
+          "Articulado/consist detectado — suporte físico ainda bloqueado",
+          "Articulated/consist detected — physical support still blocked",
+          "Articulado/consist detectado — soporte físico todavía bloqueado",
+          "Gelenk-/Mehrfachverband erkannt — physische Unterstützung noch blockiert",
+          "Articulé/convoi détecté — prise en charge physique encore bloquée"
+        );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
@@ -3129,7 +3145,7 @@ function Multiplayer({
                       {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
                       {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
                       {!player.isLocal && multiplayer.physicalVehiclesEnabled
-                        ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, pick)}`
+                        ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, player.physicalVehiclePartCount, pick)}`
                         : ""}
                     </small>
                   </div>
