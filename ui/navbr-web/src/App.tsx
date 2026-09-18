@@ -514,11 +514,23 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   );
 }
 
-function Navigation({ state }: { state: NavBrState | null }) {
+function Navigation({
+  state,
+  requestedView
+}: {
+  state: NavBrState | null;
+  requestedView?: { id: number; view: "2d" | "3d" } | null;
+}) {
   const { t, pick } = useI18n();
   const navigation = state?.navigation;
   const navigation3D = state?.navigation3D;
   const [mapView, setMapView] = useState<"2d" | "3d">("2d");
+
+  useEffect(() => {
+    if (requestedView) {
+      setMapView(requestedView.view);
+    }
+  }, [requestedView?.id]);
   const telemetry = state?.telemetry;
   const maneuver = maneuverLabel(navigation?.maneuver || "None", pick);
   const routeActive = Boolean(navigation?.available);
@@ -745,16 +757,24 @@ function reportStatusLabel(
 function Operations({
   state,
   error,
-  onNavigate
+  onNavigate,
+  requestedTab
 }: {
   state: NavBrState | null;
   error: string | null;
   onNavigate: (screen: Screen) => void;
+  requestedTab?: { id: number; tab: OperationsTab } | null;
 }) {
   const { pick } = useI18n();
   const operations = state?.operations;
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const [tab, setTab] = useState<OperationsTab>("overview");
+
+  useEffect(() => {
+    if (requestedTab) {
+      setTab(requestedTab.tab);
+    }
+  }, [requestedTab?.id]);
 
   const companyHydrated = useRef(false);
   const profileHydrated = useRef(false);
@@ -3723,6 +3743,9 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [commandError, setCommandError] = useState<string | null>(null);
   const [settingsTabRequest, setSettingsTabRequest] = useState<SettingsTab | null>(null);
+  const [navigationViewRequest, setNavigationViewRequest] = useState<{ id: number; view: "2d" | "3d" } | null>(null);
+  const [operationsTabRequest, setOperationsTabRequest] = useState<{ id: number; tab: OperationsTab } | null>(null);
+  const lastNavigationRequestId = useRef<number | null>(null);
 
   const openSettingsTab = (tab: SettingsTab) => {
     setSettingsTabRequest(tab);
@@ -3734,26 +3757,36 @@ export default function App() {
       setState(next);
       setCommandError(null);
 
-      const requested = next.navigationRequest?.screen;
-      const requestedSettingsTab = requested?.startsWith("settings-")
-        ? requested.slice("settings-".length) as SettingsTab
-        : null;
-      if (requestedSettingsTab && ["installations", "hud", "roadmap", "diagnostics", "network", "advanced"].includes(requestedSettingsTab)) {
-        setSettingsTabRequest(requestedSettingsTab);
-        setScreen("settings");
-      } else if (requested && [
-        "home",
-        "navigation",
-        "roleplay",
-        "ghost",
-        "operations",
-        "companyNetwork",
-        "hardware",
-        "settings",
-        "multiplayer",
-        "help"
-      ].includes(requested)) {
-        setScreen(requested as Screen);
+      const navigationRequest = next.navigationRequest;
+      if (navigationRequest && navigationRequest.id !== lastNavigationRequestId.current) {
+        lastNavigationRequestId.current = navigationRequest.id;
+        const requested = navigationRequest.screen;
+        const requestedSettingsTab = requested?.startsWith("settings-")
+          ? requested.slice("settings-".length) as SettingsTab
+          : null;
+        if (requestedSettingsTab && ["installations", "hud", "roadmap", "diagnostics", "network", "advanced"].includes(requestedSettingsTab)) {
+          setSettingsTabRequest(requestedSettingsTab);
+          setScreen("settings");
+        } else if (requested === "navigation-3d") {
+          setNavigationViewRequest({ id: navigationRequest.id, view: "3d" });
+          setScreen("navigation");
+        } else if (requested === "operations-company") {
+          setOperationsTabRequest({ id: navigationRequest.id, tab: "company" });
+          setScreen("operations");
+        } else if (requested && [
+          "home",
+          "navigation",
+          "roleplay",
+          "ghost",
+          "operations",
+          "companyNetwork",
+          "hardware",
+          "settings",
+          "multiplayer",
+          "help"
+        ].includes(requested)) {
+          setScreen(requested as Screen);
+        }
       }
     },
     setCommandError
@@ -3767,13 +3800,13 @@ export default function App() {
         {screen === "home"
           ? <Home state={state} />
           : screen === "navigation"
-            ? <Navigation state={state} />
+            ? <Navigation state={state} requestedView={navigationViewRequest} />
             : screen === "roleplay"
               ? <Roleplay state={state} error={commandError} />
               : screen === "ghost"
                 ? <GhostReplay state={state} error={commandError} />
               : screen === "operations"
-                ? <Operations state={state} error={commandError} onNavigate={setScreen} />
+                ? <Operations state={state} error={commandError} onNavigate={setScreen} requestedTab={operationsTabRequest} />
               : screen === "companyNetwork"
                 ? <CompanyNetwork state={state} error={commandError} />
                 : screen === "hardware"
