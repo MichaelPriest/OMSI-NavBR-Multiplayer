@@ -137,8 +137,7 @@
                 <TextBlock Text="CENTRAL MULTIPLAYER"
                            Foreground="{StaticResource MpInteraction}"
                            FontSize="10"
-                           FontWeight="Bold"
-                           CharacterSpacing="110" />
+                           FontWeight="Bold" />
                 <TextBlock x:Name="HeadingText"
                            Margin="0,3,0,0"
                            FontSize="27"
