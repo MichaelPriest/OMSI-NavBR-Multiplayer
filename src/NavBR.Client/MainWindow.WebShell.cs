@@ -14,7 +14,13 @@ public partial class MainWindow
             return;
         }
 
-        _webShellWindow = new WebShellWindow(BuildWebShellState, LaunchOmsiForShell)
+        _webShellWindow = new WebShellWindow(
+            BuildWebShellState,
+            () =>
+            {
+                LaunchOmsiForShell();
+                _ = RefreshOmsiStatusAsync();
+            })
         {
             Owner = this
         };
