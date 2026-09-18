@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   type NavBrMultiplayerState,
+  type NavBrSessionPoint,
   type NavBrState,
   sendCommand,
   subscribeToNavBrState
@@ -33,6 +34,7 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   selectedRoleplayCharacter: null,
   playerCount: 0,
   players: [],
+  sessionPoints: [],
   chat: []
 };
 
@@ -139,6 +141,75 @@ function Home({ state }: { state: NavBrState | null }) {
         </article>
       </section>
     </>
+  );
+}
+
+function SessionMap({ points }: { points: NavBrSessionPoint[] }) {
+  const plotted = useMemo(() => {
+    if (points.length === 0) return [];
+
+    const minX = Math.min(...points.map(point => point.x));
+    const maxX = Math.max(...points.map(point => point.x));
+    const minY = Math.min(...points.map(point => point.y));
+    const maxY = Math.max(...points.map(point => point.y));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const spanX = Math.max(60, maxX - minX);
+    const spanY = Math.max(60, maxY - minY);
+    const scale = Math.min(72 / spanX, 72 / spanY, 0.9);
+
+    return points.map(point => ({
+      ...point,
+      px: 50 + (point.x - centerX) * scale,
+      py: 50 - (point.y - centerY) * scale
+    }));
+  }, [points]);
+
+  if (plotted.length === 0) {
+    return (
+      <div className="session-map-placeholder">
+        <div className="map-grid-lines" />
+        <div className="map-center-message">
+          <strong>Sem posições válidas</strong>
+          <span>Ônibus e personagens só aparecem quando há telemetria real, recente e compatível.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="session-map-real">
+      <div className="map-grid-lines" />
+      <svg viewBox="0 0 100 100" role="img" aria-label="Mapa relativo da sessão">
+        {plotted.map(point => (
+          <g
+            key={point.playerId}
+            className={`session-point ${point.kind} ${point.isLocal ? "local" : ""}`}
+            transform={`translate(${point.px} ${point.py}) rotate(${point.headingDegrees})`}
+          >
+            {point.kind === "bus"
+              ? <path d="M -3.5 -5.5 L 3.5 -5.5 L 4 4.5 L 0 7 L -4 4.5 Z" />
+              : <circle r="4.2" />}
+            <path className="heading-arrow" d="M 0 -8 L -1.8 -4.8 L 1.8 -4.8 Z" />
+          </g>
+        ))}
+        {plotted.map(point => (
+          <g key={`label-${point.playerId}`} transform={`translate(${Math.min(92, point.px + 5)} ${Math.max(5, point.py - 4)})`}>
+            <text className="session-label">{point.isLocal ? "Você" : point.displayName}</text>
+            <text y="3.3" className="session-label-detail">
+              {point.kind === "roleplay"
+                ? `${point.activity || "RP"} · ${format(point.speedKph, 0)} km/h`
+                : `${point.line ? `Linha ${point.line} · ` : ""}${format(point.speedKph, 0)} km/h`}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="map-legend">
+        <span><i className="legend-local" /> Você</span>
+        <span><i className="legend-bus" /> Ônibus</span>
+        <span><i className="legend-rp" /> Personagem</span>
+      </div>
+    </div>
   );
 }
 
@@ -254,17 +325,7 @@ function Multiplayer({
               <div><span className="eyebrow">SESSÃO AO VIVO</span><h3>Operação compartilhada</h3></div>
               <span className={`live-pill ${multiplayer.connected ? "" : "muted"}`}><span /> {multiplayer.connected ? "LIVE" : "OFFLINE"}</span>
             </div>
-            <div className="session-map-placeholder">
-              <div className="map-grid-lines" />
-              <div className="map-center-message">
-                <strong>{telemetry?.mapName || "Sem mapa ativo"}</strong>
-                <span>
-                  {multiplayer.connected
-                    ? `${multiplayer.playerCount} jogador(es) na sessão. O mapa web completo entra no próximo bloco da migração.`
-                    : "Conecte a uma sala para acompanhar a operação compartilhada."}
-                </span>
-              </div>
-            </div>
+            <SessionMap points={multiplayer.sessionPoints} />
           </article>
 
           <aside className="mp-side-stack">
