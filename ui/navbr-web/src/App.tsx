@@ -9,7 +9,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "operations" | "settings" | "multiplayer";
+type Screen = "home" | "navigation" | "operations" | "hardware" | "settings" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -68,6 +68,9 @@ function Sidebar({
         </button>
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
           <b>▣</b><span>CCO</span>
+        </button>
+        <button className={`nav-item ${screen === "hardware" ? "active" : ""}`} onClick={() => setScreen("hardware")}>
+          <b>⚡</b><span>Hardware Cockpit</span>
         </button>
         <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
           <b>⚙</b><span>Configurações</span>
@@ -766,6 +769,162 @@ function Operations({ state, error }: { state: NavBrState | null; error: string 
 }
 
 
+
+const hardwareBaudRates = [9600, 19200, 38400, 57600, 115200, 230400];
+
+function Hardware({ state, error }: { state: NavBrState | null; error: string | null }) {
+  const hardware = state?.hardware;
+  const [portName, setPortName] = useState("");
+  const [baudRate, setBaudRate] = useState(115200);
+  const [autoReconnect, setAutoReconnect] = useState(false);
+
+  useEffect(() => {
+    if (!hardware) return;
+    setPortName(current => current || hardware.portName || hardware.availablePorts[0] || "");
+    setBaudRate(current => current || hardware.baudRate || 115200);
+    setAutoReconnect(hardware.autoReconnect);
+  }, [hardware?.portName, hardware?.baudRate, hardware?.autoReconnect, hardware?.availablePorts]);
+
+  if (!hardware) {
+    return <div className="card empty-state">Aguardando estado do Hardware Cockpit…</div>;
+  }
+
+  const telemetry = hardware.telemetry;
+
+  const persistSelection = (nextPort: string, nextBaud: number, nextAutoReconnect: boolean) => {
+    sendCommand("saveHardwareSelection", {
+      portName: nextPort,
+      baudRate: nextBaud,
+      autoReconnect: nextAutoReconnect
+    });
+  };
+
+  return (
+    <>
+      <header className="topbar hardware-header">
+        <div>
+          <span className="eyebrow">HARDWARE COCKPIT</span>
+          <h1>Painel físico</h1>
+          <p>Bridge serial compartilhada para Arduino, ESP32, letreiros, LEDs e computador de bordo.</p>
+        </div>
+        <div className="top-actions">
+          <span className={`connection-pill ${hardware.connected ? "connected" : ""}`}>
+            <i /> {hardware.connected ? `${hardware.portName} @ ${hardware.baudRate}` : "Serial desconectada"}
+          </span>
+        </div>
+      </header>
+
+      {error && <div className="command-error">{error}</div>}
+      {hardware.lastError && <div className="command-error">{hardware.lastError}</div>}
+
+      <section className="hardware-layout">
+        <article className="card hardware-connect-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">USB / SERIAL</span>
+              <h3>{hardware.protocol}</h3>
+            </div>
+            <span className={`hardware-state-pill ${hardware.connected ? "connected" : ""}`}>
+              {hardware.connected ? "5 Hz ativo" : "Aguardando conexão"}
+            </span>
+          </div>
+
+          <div className="hardware-controls">
+            <label>
+              <span>Porta COM</span>
+              <select
+                value={portName}
+                disabled={hardware.connected}
+                onChange={event => {
+                  const value = event.target.value;
+                  setPortName(value);
+                  persistSelection(value, baudRate, autoReconnect);
+                }}
+              >
+                <option value="">Selecione…</option>
+                {hardware.availablePorts.map(port => <option key={port} value={port}>{port}</option>)}
+              </select>
+            </label>
+
+            <label>
+              <span>Baud</span>
+              <select
+                value={baudRate}
+                disabled={hardware.connected}
+                onChange={event => {
+                  const value = Number(event.target.value);
+                  setBaudRate(value);
+                  persistSelection(portName, value, autoReconnect);
+                }}
+              >
+                {hardwareBaudRates.map(baud => <option key={baud} value={baud}>{baud}</option>)}
+              </select>
+            </label>
+
+            <label className="hardware-auto">
+              <input
+                type="checkbox"
+                checked={autoReconnect}
+                onChange={event => {
+                  const value = event.target.checked;
+                  setAutoReconnect(value);
+                  persistSelection(portName, baudRate, value);
+                }}
+              />
+              <span>Reconectar automaticamente na mesma COM</span>
+            </label>
+          </div>
+
+          <div className="hardware-actions">
+            {hardware.connected ? (
+              <button className="button ghost danger" onClick={() => sendCommand("disconnectHardware")}>Desconectar</button>
+            ) : (
+              <button
+                className="button primary"
+                disabled={!portName}
+                onClick={() => sendCommand("connectHardware", { portName, baudRate, autoReconnect })}
+              >
+                Conectar hardware
+              </button>
+            )}
+            <button className="button ghost" onClick={() => sendCommand("refreshState")}>Atualizar portas</button>
+          </div>
+
+          <p className="hardware-note">
+            O NavBR nunca troca silenciosamente para outra porta COM. O auto-reconnect tenta apenas a porta explicitamente escolhida.
+          </p>
+        </article>
+
+        <article className="card hardware-live-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">TELEMETRIA AO VIVO</span><h3>{telemetry ? "Quadro atual" : "Aguardando OMSI"}</h3></div>
+            {hardware.lastFrameSentAtUtc && <small>Último envio: {new Date(hardware.lastFrameSentAtUtc).toLocaleTimeString()}</small>}
+          </div>
+
+          <div className="hardware-live-grid">
+            <span><small>LINHA</small><strong>{telemetry?.line || "—"}</strong></span>
+            <span><small>DESTINO</small><strong>{telemetry?.destination || "—"}</strong></span>
+            <span><small>PRÓXIMA PARADA</small><strong>{telemetry?.nextStop || "—"}</strong></span>
+            <span><small>RUA ATUAL</small><strong>{telemetry?.currentStreet || "—"}</strong></span>
+            <span><small>VELOCIDADE</small><strong>{telemetry ? `${format(telemetry.speedKph, 1)} km/h` : "—"}</strong></span>
+            <span className={telemetry?.stopRequested ? "attention" : ""}><small>PARADA SOLICITADA</small><strong>{telemetry ? telemetry.stopRequested ? "SIM" : "Não" : "—"}</strong></span>
+            <span><small>PORTAS</small><strong>{telemetry?.doors || "—"}</strong></span>
+            <span><small>SETA</small><strong>{telemetry?.turnSignal || "—"}</strong></span>
+          </div>
+        </article>
+      </section>
+
+      <section className="card hardware-payload-card">
+        <div className="section-heading">
+          <div><span className="eyebrow">PREVIEW TÉCNICO</span><h3>Pacote enviado ao cockpit</h3></div>
+          <span className="route-source-pill">JSON LINES</span>
+        </div>
+        <pre>{hardware.payloadPreview || `{"protocol":"${hardware.protocol}","state":"waiting-for-telemetry"}`}</pre>
+      </section>
+    </>
+  );
+}
+
 type SettingsTab = "installations" | "diagnostics" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
@@ -1446,9 +1605,11 @@ export default function App() {
             ? <Navigation state={state} />
             : screen === "operations"
               ? <Operations state={state} error={commandError} />
-              : screen === "settings"
-                ? <Settings state={state} error={commandError} />
-                : <Multiplayer state={state} error={commandError} />}
+              : screen === "hardware"
+                ? <Hardware state={state} error={commandError} />
+                : screen === "settings"
+                  ? <Settings state={state} error={commandError} />
+                  : <Multiplayer state={state} error={commandError} />}
       </main>
     </div>
   );
