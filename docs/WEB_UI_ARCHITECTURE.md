@@ -26,23 +26,23 @@ React owns visual composition and sends only explicit feature commands through t
 
 ## Localization bridge
 
-React uses the same native `LocalizationService` as the WPF fallback. The WebView state exposes the current culture and the five supported cultures (pt-BR, en-US, es-ES, de-DE and fr-FR). Changing language in the React sidebar calls the native `setLanguage` command, so the existing `language.txt` preference remains the single persisted source of truth.
+React uses the same native `LocalizationService` owned by the .NET/WPF host. The WebView state exposes the current culture and the five supported cultures (pt-BR, en-US, es-ES, de-DE and fr-FR). Changing language in the React sidebar calls the native `setLanguage` command, so the existing `language.txt` preference remains the single persisted source of truth.
 
 New React surfaces use the shared translation provider and fall back to English when a key is unavailable; raw OMSI/runtime values are never translated or replaced with synthetic data.
 
-## Primary shell and fallback
+## Primary shell and native host
 
 React/WebView2 is the primary visible desktop shell in Alpha.14.
 
-1. `MainWindow` starts first and initializes native services.
-2. `OpenPrimaryWebShell()` opens WebView2.
-3. WPF is hidden only after `WebShellWindow.ShellReady` confirms successful navigation.
-4. If WebView2 cannot load, WPF remains visible automatically.
-5. The tray icon opens/hides the React primary shell.
-6. Settings contains an explicit **Abrir interface WPF** fallback.
-7. `ui/navbr-web/dist` is copied into build and publish output; the packaged static bootstrap remains a fallback when the React dist is unavailable.
+1. `MainWindow` starts first only to initialize native services that have not yet been detached from the historical WPF shell.
+2. The host window is created off-screen, without taskbar presence and with zero opacity; it is never a user-facing fallback.
+3. `OpenPrimaryWebShell()` opens `WebShellWindow`, which is the only desktop shell exposed to the user.
+4. If WebView2 navigation fails, `WebShellWindow` shows its own native error panel instead of revealing the retired WPF layout.
+5. Closing the React shell leaves the hidden native host running in the tray; the tray icon always reopens React.
+6. The bridge no longer exposes `showLegacyShell` or `openOmsiProfiles`.
+7. `ui/navbr-web/dist` is copied into build and publish output; the packaged static bootstrap remains a WebView content fallback when the React dist is unavailable.
 
-Normal user flows for OMSI installations, HUD configuration and Roadmap Studio stay inside React. WPF is opened only as an explicit technical fallback/comparison surface or for areas not yet migrated. **Move HUD** remains native because it requires direct mouse interaction with the OMSI overlay.
+Normal user flows for OMSI installations, HUD configuration, Roadmap Studio and launch recovery stay inside React. When no valid OMSI profile exists, the shell navigates to **Settings → Installations** instead of opening the old WPF profile window. **Move HUD** remains native because it requires direct mouse interaction with the OMSI overlay.
 
 ## Migrated desktop surfaces
 
@@ -87,7 +87,7 @@ Recognize/resolve actions go back through the native operational feed. Fleet reg
 
 ## Hardware Cockpit bridge
 
-React and WPF share one `HardwareCockpitBridgeController`. It owns the only serial connection, persisted COM/baud settings and exact-port auto-reconnect behavior.
+The React shell and native host share one `HardwareCockpitBridgeController`. It owns the only serial connection, persisted COM/baud settings and exact-port auto-reconnect behavior.
 
 The authoritative 200 ms MainWindow telemetry tick publishes `NAVBR_HW_V1` frames at approximately 5 Hz, so serial streaming does not depend on a UI page being open. React only configures the controller and renders the exact native frame preview.
 

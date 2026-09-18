@@ -17,7 +17,7 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 
 ## Destaques da Alpha.14
 
-- **React + TypeScript + Vite em WebView2 como interface principal**, com host .NET/WPF x86 e fallback WPF seguro;
+- **React + TypeScript + Vite em WebView2 como única interface desktop acessível ao usuário**, com .NET/WPF x86 preservado apenas como host técnico invisível dos serviços nativos;
 - Home com **Executar OMSI**, Navegação/GPS 2D/3D, Multiplayer, CCO, Empresa/Frota, Perfil, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
 - **HUD configurável no React** com preset, tema, ancoragem, escala, opacidade e módulos; **Mover HUD** continua sobre o overlay nativo;
 - selects/ComboBox com tema escuro consistente;
@@ -130,7 +130,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
-O shell WPF anterior permanece apenas como fallback técnico para comparação, diagnóstico e áreas ainda não migradas. Ele só é ocultado depois que o WebView2 confirma o carregamento da interface; se o WebView2 falhar, o WPF continua disponível. O ícone da bandeja também reabre a interface React principal. Nos fluxos normais, Instalações OMSI, configuração do HUD e Roadmap Studio permanecem no React; **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
+O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico invisível** enquanto serviços nativos ainda são desacoplados de seus controles. A janela nasce fora da área visível, sem taskbar e com opacidade zero; fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 
 Superfícies já migradas para React:
 
