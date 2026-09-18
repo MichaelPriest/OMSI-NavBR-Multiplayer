@@ -44,6 +44,11 @@ namespace
     constexpr int HumanSollSpeedOffset = 0x6A0;
     constexpr int HumanActSpeedOffset = 0x6A4;
     constexpr int HumanActHeadingOffset = 0x6A8;
+    // Legacy human animation variables exposed by OMSI as LastMovedDist and
+    // PAX_State. OmsiHook documents these at 0x644 and 0x64C respectively.
+    // PAX_State: 0 = standing, 1 = walking, 2 = sitting.
+    constexpr int HumanLastMovedDistOffset = 0x644;
+    constexpr int HumanStateOffset = 0x64C;
     constexpr int HumanFixDriverOffset = 0x662;
     constexpr int HumanMyBusOffset = 0x6B4;
     constexpr int HumanAiModeOffset = 0x6C4;
@@ -698,6 +703,34 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
         return 0;
     }
 
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+    {
+        return 0;
+    }
+
+    const auto previousPosition = *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    const float movedX = x - previousPosition.x;
+    const float movedY = y - previousPosition.y;
+    const float movedZ = z - previousPosition.z;
+    const float movedDistance = std::sqrt(
+        movedX * movedX +
+        movedY * movedY +
+        movedZ * movedZ);
+    if (!std::isfinite(movedDistance))
+    {
+        return 0;
+    }
+
+    // Normal RP frames are sub-metre. Do not turn a guarded teleport (for
+    // example returning to the bus) into a huge legacy walk-animation step.
+    const bool locomotionFrame =
+        speedMps > 0.01f &&
+        movedDistance > 0.0001f &&
+        movedDistance <= 1.0f;
+    const float lastMovedDist = locomotionFrame ? movedDistance : 0.0f;
+    const float paxState = locomotionFrame ? 1.0f : 0.0f;
+
     constexpr float Pi = 3.14159265358979323846f;
     const float headingRadians = headingDegrees * Pi / 180.0f;
     const float half = headingRadians * 0.5f;
@@ -712,6 +745,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
            WriteValue(humanPointer, RotationOffset, rotation) &&
            WriteValue(humanPointer, LastPositionOffset, position) &&
            WriteValue(humanPointer, LastRotationOffset, rotation) &&
+           WriteValue(humanPointer, HumanLastMovedDistOffset, lastMovedDist) &&
+           WriteValue(humanPointer, HumanStateOffset, paxState) &&
            WriteValue(humanPointer, HumanSollSpeedOffset, speedMps) &&
            WriteValue(humanPointer, HumanActSpeedOffset, speedMps) &&
            WriteByte(humanPointer, HumanAiModeOffset, aiStop) &&
