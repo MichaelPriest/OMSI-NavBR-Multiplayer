@@ -37,9 +37,9 @@ export function Downloads({ currentAssets, loading, error, releasesPage }) {
   return (
     <section id="download" className="section shell">
       <span className="eyebrow">Builds</span>
-      <h2>Baixe a Alpha.14 Test 3.</h2>
+      <h2>Baixe a Alpha.14 pública.</h2>
       <p className="section-lead">
-        Use o EXE standalone para o teste normal. Plugin, servidor dedicado e simulador ficam disponíveis separadamente.
+        Use o EXE standalone para jogar e testar. Plugin, servidor dedicado e simulador ficam disponíveis separadamente.
       </p>
       <div className="release-grid">
         {currentAssets.length ? currentAssets.map(asset => (
