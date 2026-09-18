@@ -14,7 +14,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "roleplay" | "ghost" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
+type Screen = "home" | "navigation" | "roleplay" | "ghost" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer" | "help";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -103,7 +103,7 @@ function Sidebar({
   screen: Screen;
   setScreen: (screen: Screen) => void;
 }) {
-  const { t, cultureName, languages, setLanguage } = useI18n();
+  const { t, pick, cultureName, languages, setLanguage } = useI18n();
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -137,6 +137,9 @@ function Sidebar({
         </button>
         <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
           <b>⚙</b><span>{t("nav.settings")}</span>
+        </button>
+        <button className={`nav-item ${screen === "help" ? "active" : ""}`} onClick={() => setScreen("help")}>
+          <b>?</b><span>{pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide")}</span>
         </button>
       </nav>
       <div className="sidebar-footer">
