@@ -148,16 +148,37 @@ internal sealed class Alpha12ConnectivityWindow : Window
         _checking = true;
         _firewallButton.IsEnabled = false;
         _firewallValue.Text = Text("Requesting");
+        FirewallRuleApplyResult? result = null;
         try
         {
-            var ok = await WindowsFirewallService.EnsureInboundRuleAsync(HostPort);
-            _firewallValue.Text = ok ? Text("Ready") : Text("Failed");
-            _firewallValue.Foreground = ok ? Brush(101, 224, 154) : Brush(255, 112, 112);
+            result = await WindowsFirewallService.EnsureInboundRuleDetailedAsync(HostPort);
+            _firewallValue.Text = result.Success
+                ? Text("Ready")
+                : result.Cancelled
+                    ? Text("Cancelled")
+                    : Text("Failed");
+            _firewallValue.Foreground = result.Success
+                ? Brush(101, 224, 154)
+                : Brush(255, 112, 112);
+
+            if (!result.Success)
+            {
+                _summary.Text = result.Cancelled
+                    ? Text("FirewallCancelled")
+                    : $"{Text("FirewallFailedDetail")} {result.ErrorMessage}".Trim();
+            }
         }
         finally
         {
             _checking = false;
-            await RefreshAsync();
+            if (result?.Success == true)
+            {
+                await RefreshAsync();
+            }
+            else
+            {
+                _firewallButton.IsEnabled = true;
+            }
         }
     }
 
@@ -328,6 +349,9 @@ internal sealed class Alpha12ConnectivityWindow : Window
             ("pt", "NotVerified") => "Ainda não verificado",
             ("pt", "Requesting") => "Solicitando permissão…",
             ("pt", "Failed") => "Não confirmado",
+            ("pt", "Cancelled") => "Cancelado",
+            ("pt", "FirewallCancelled") => "A solicitação de administrador foi cancelada. O Firewall não foi alterado.",
+            ("pt", "FirewallFailedDetail") => "O Windows não confirmou a criação da regra TCP 27730.",
             ("pt", "AllowFirewall") => "Permitir TCP 27730 no Firewall",
             ("pt", "FirewallReadyButton") => "Firewall pronto",
             ("pt", "SummaryNoNetwork") => "O NavBR não encontrou uma rede local IPv4 privada ativa neste momento.",
@@ -351,6 +375,9 @@ internal sealed class Alpha12ConnectivityWindow : Window
             ("es", "NotVerified") => "Aún no verificado",
             ("es", "Requesting") => "Solicitando permiso…",
             ("es", "Failed") => "No confirmado",
+            ("es", "Cancelled") => "Cancelado",
+            ("es", "FirewallCancelled") => "Se canceló la solicitud de administrador. El Firewall no fue modificado.",
+            ("es", "FirewallFailedDetail") => "Windows no confirmó la creación de la regla TCP 27730.",
             ("es", "AllowFirewall") => "Permitir TCP 27730 en Firewall",
             ("es", "FirewallReadyButton") => "Firewall listo",
             ("es", "SummaryNoNetwork") => "NavBR no encontró una red IPv4 privada activa.",
@@ -374,6 +401,9 @@ internal sealed class Alpha12ConnectivityWindow : Window
             ("de", "NotVerified") => "Noch nicht geprüft",
             ("de", "Requesting") => "Berechtigung wird angefordert…",
             ("de", "Failed") => "Nicht bestätigt",
+            ("de", "Cancelled") => "Abgebrochen",
+            ("de", "FirewallCancelled") => "Die Administratoranforderung wurde abgebrochen. Die Firewall wurde nicht geändert.",
+            ("de", "FirewallFailedDetail") => "Windows hat die TCP-27730-Regel nicht bestätigt.",
             ("de", "AllowFirewall") => "TCP 27730 in Firewall erlauben",
             ("de", "FirewallReadyButton") => "Firewall bereit",
             ("de", "SummaryNoNetwork") => "NavBR hat derzeit kein aktives privates IPv4-Netzwerk gefunden.",
@@ -397,6 +427,9 @@ internal sealed class Alpha12ConnectivityWindow : Window
             ("fr", "NotVerified") => "Pas encore vérifié",
             ("fr", "Requesting") => "Demande d’autorisation…",
             ("fr", "Failed") => "Non confirmé",
+            ("fr", "Cancelled") => "Annulé",
+            ("fr", "FirewallCancelled") => "La demande administrateur a été annulée. Le pare-feu n’a pas été modifié.",
+            ("fr", "FirewallFailedDetail") => "Windows n’a pas confirmé la création de la règle TCP 27730.",
             ("fr", "AllowFirewall") => "Autoriser TCP 27730 dans le pare-feu",
             ("fr", "FirewallReadyButton") => "Pare-feu prêt",
             ("fr", "SummaryNoNetwork") => "NavBR n’a détecté aucun réseau IPv4 privé actif.",
@@ -420,6 +453,9 @@ internal sealed class Alpha12ConnectivityWindow : Window
             (_, "NotVerified") => "Not verified yet",
             (_, "Requesting") => "Requesting permission…",
             (_, "Failed") => "Not confirmed",
+            (_, "Cancelled") => "Cancelled",
+            (_, "FirewallCancelled") => "Administrator permission was cancelled. The firewall was not changed.",
+            (_, "FirewallFailedDetail") => "Windows did not confirm creation of the TCP 27730 rule.",
             (_, "AllowFirewall") => "Allow TCP 27730 in Firewall",
             (_, "FirewallReadyButton") => "Firewall ready",
             (_, "SummaryNoNetwork") => "NavBR did not find an active private IPv4 network right now.",
