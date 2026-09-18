@@ -133,7 +133,14 @@ internal static class RoleplayCharacterCommandProcessor
         float? y = null,
         float? z = null,
         float? heading = null,
-        float? speed = null) =>
+        float? speed = null,
+        byte? aiMode = null,
+        byte? aiModeEx = null,
+        byte? aiSubMode = null,
+        float? sollSpeed = null,
+        float? actSpeed = null,
+        float? lastMovedDist = null,
+        float? animationState = null) =>
         new(
             PluginBridgeProtocol.CommandResult,
             PluginBridgeProtocol.Version,
@@ -157,6 +164,13 @@ internal static class RoleplayCharacterCommandProcessor
             LocalZ: z,
             HeadingDegrees: heading,
             SpeedMps: speed,
+            CharacterAiMode: aiMode,
+            CharacterAiModeEx: aiModeEx,
+            CharacterAiSubMode: aiSubMode,
+            CharacterSollSpeedMps: sollSpeed,
+            CharacterActSpeedMps: actSpeed,
+            CharacterLastMovedDistanceMeters: lastMovedDist,
+            CharacterAnimationState: animationState,
             ExperimentalWritesEnabled:
                 ExperimentalFeatureFlags.PhysicalVehiclesEnabled ||
                 ExperimentalFeatureFlags.RoleplayCharacterEnabled,
@@ -401,15 +415,14 @@ internal static class RoleplayCharacterBackend
 
             Owned[instanceId] = instance;
 
-            return RoleplayCharacterCommandProcessor.Result(
+            return BuildSuccessStateResult(
                 command,
-                true,
-                humanIndex: driverIndex,
-                x: spawnX,
-                y: spawnY,
-                z: spawnZ,
-                heading: spawnHeading,
-                speed: 0f);
+                instance,
+                spawnX,
+                spawnY,
+                spawnZ,
+                spawnHeading,
+                0f);
         }
     }
 
@@ -449,15 +462,14 @@ internal static class RoleplayCharacterBackend
                 return Fail(command, "character-transform-failed", "OMSI rejected the guarded human transform.");
             }
 
-            return RoleplayCharacterCommandProcessor.Result(
+            return BuildSuccessStateResult(
                 command,
-                true,
-                humanIndex: instance.HumanIndex,
-                x: x,
-                y: y,
-                z: z,
-                heading: heading,
-                speed: speed);
+                instance,
+                x,
+                y,
+                z,
+                heading,
+                speed);
         }
     }
 
@@ -737,6 +749,57 @@ internal static class RoleplayCharacterBackend
             return Fail(command, "character-pose-read-failed", "Could not read the possessed NPC pose.");
         }
 
+        return BuildSuccessStateResult(
+            command,
+            instance,
+            x,
+            y,
+            z,
+            NormalizeHeading(heading),
+            Math.Clamp(Math.Abs(speed), 0f, MaxCharacterSpeedMps));
+    }
+
+    private static PluginBridgeMessage BuildSuccessStateResult(
+        PluginBridgeMessage command,
+        RoleplayCharacterInstance instance,
+        float x,
+        float y,
+        float z,
+        float heading,
+        float speed)
+    {
+        byte? aiMode = null;
+        byte? aiModeEx = null;
+        byte? aiSubMode = null;
+        float? sollSpeed = null;
+        float? actSpeed = null;
+        float? lastMovedDist = null;
+        float? animationState = null;
+
+        if (OmsiNativeInterop.ReadHumanAiState(
+                instance.HumanPointer,
+                out var readAiMode,
+                out var readAiModeEx,
+                out var readAiSubMode,
+                out var readSollSpeed,
+                out var readActSpeed) == 1)
+        {
+            aiMode = readAiMode;
+            aiModeEx = readAiModeEx;
+            aiSubMode = readAiSubMode;
+            sollSpeed = readSollSpeed;
+            actSpeed = readActSpeed;
+        }
+
+        if (OmsiNativeInterop.ReadHumanAnimationState(
+                instance.HumanPointer,
+                out var readLastMovedDist,
+                out var readAnimationState) == 1)
+        {
+            lastMovedDist = readLastMovedDist;
+            animationState = readAnimationState;
+        }
+
         return RoleplayCharacterCommandProcessor.Result(
             command,
             true,
@@ -744,8 +807,15 @@ internal static class RoleplayCharacterBackend
             x: x,
             y: y,
             z: z,
-            heading: NormalizeHeading(heading),
-            speed: Math.Clamp(Math.Abs(speed), 0f, MaxCharacterSpeedMps));
+            heading: heading,
+            speed: speed,
+            aiMode: aiMode,
+            aiModeEx: aiModeEx,
+            aiSubMode: aiSubMode,
+            sollSpeed: sollSpeed,
+            actSpeed: actSpeed,
+            lastMovedDist: lastMovedDist,
+            animationState: animationState);
     }
 
     private static bool TryReadAnchor(
