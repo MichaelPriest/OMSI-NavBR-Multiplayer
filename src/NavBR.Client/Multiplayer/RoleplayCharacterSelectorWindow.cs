@@ -52,11 +52,11 @@ internal sealed class RoleplayCharacterSelectorWindow : Window
         header.Children.Add(new TextBlock
         {
             Text = T(
-                "Escolha um dos personagens reais disponibilizados pelo mapa carregado no OMSI.",
-                "Choose one of the real driver characters exposed by the loaded OMSI map.",
-                "Elige uno de los personajes de conductor reales del mapa cargado en OMSI.",
-                "Wähle einen echten Fahrercharakter der geladenen OMSI-Karte.",
-                "Choisissez un personnage conducteur réel de la carte OMSI chargée."),
+                "Escolha um personagem real do mapa. ★ indica o motorista atualmente vinculado ao seu ônibus.",
+                "Choose a real map character. ★ marks the driver currently linked to your bus.",
+                "Elige un personaje real del mapa. ★ indica el conductor vinculado actualmente a tu autobús.",
+                "Wähle einen echten Kartencharakter. ★ markiert den aktuell mit deinem Bus verbundenen Fahrer.",
+                "Choisissez un personnage réel de la carte. ★ indique le conducteur actuellement lié à votre bus."),
             Margin = new Thickness(0d, 6d, 0d, 16d),
             FontSize = 12d,
             Foreground = Brush(151, 171, 185),
@@ -66,7 +66,7 @@ internal sealed class RoleplayCharacterSelectorWindow : Window
         root.Children.Add(header);
 
         _list.ItemsSource = options;
-        _list.DisplayMemberPath = nameof(RoleplayCharacterOption.DisplayName);
+        _list.DisplayMemberPath = nameof(RoleplayCharacterOption.DisplayLabel);
         _list.Background = Brush(9, 20, 29);
         _list.Foreground = Brushes.White;
         _list.BorderBrush = Brush(31, 47, 57);
@@ -81,7 +81,10 @@ internal sealed class RoleplayCharacterSelectorWindow : Window
         };
         var selected = options.FirstOrDefault(option =>
             string.Equals(option.Id, selectedId, StringComparison.OrdinalIgnoreCase));
-        _list.SelectedItem = selected ?? options.FirstOrDefault();
+        _list.SelectedItem =
+            selected ??
+            options.FirstOrDefault(option => option.IsActiveDriver) ??
+            options.FirstOrDefault();
 
         Grid.SetRow(_list, 1);
         root.Children.Add(_list);
