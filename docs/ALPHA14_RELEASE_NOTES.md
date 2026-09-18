@@ -12,7 +12,7 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - WPF só é ocultado depois que o WebView2 confirma carregamento;
 - o ícone da bandeja abre/oculta a interface React;
 - Home com Executar OMSI e dados reais da operação;
-- Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Personagem/RP, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e Rede migrados para React;
+- Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Personagem/RP, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e Rede migrados para React;
 - Mapa 3D e a interação de mover o HUD continuam nativos; renderização do HUD, geração de roadmap e runtime físico do RP continuam no C#.
 
 ## Navegação
@@ -81,6 +81,16 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - bots próximos por padrão em raio de 18 m;
 - herda linha, rota, destino e próxima parada;
 - \`--verify\` valida movimento e consistência de mapa.
+
+## Ghost / Replay
+
+- gravação read-only da telemetria local a 10 Hz;
+- arquivos `.navbrghost` salvos e carregados pelos serviços nativos existentes;
+- biblioteca local e importação validada no React;
+- analytics reais de duração, distância estimada e velocidades;
+- prévia read-only do trajeto usando coordenadas reais dos frames;
+- replay Ghost 3D experimental com velocidade configurável e loop;
+- spawn/update/despawn continuam no Plugin Bridge, não no JavaScript.
 
 ## Observação
 

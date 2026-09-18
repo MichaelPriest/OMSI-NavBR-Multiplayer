@@ -20,7 +20,7 @@ React + TypeScript UI
 
 ## Native authority
 
-C# remains authoritative for OMSI detection/launch, telemetry, native interop, Plugin Bridge, SignalR multiplayer, peer-host TCP 27730, Firewall/NAT/UPnP, voice, OMSI files/installations, Hardware Cockpit transport, HUD rendering/interaction, roadmap generation and the physical RP runtime.
+C# remains authoritative for OMSI detection/launch, telemetry, native interop, Plugin Bridge, SignalR multiplayer, peer-host TCP 27730, Firewall/NAT/UPnP, voice, OMSI files/installations, Hardware Cockpit transport, HUD rendering/interaction, roadmap generation, Ghost recording/file I/O/physical replay and the physical RP runtime.
 
 React owns visual composition and sends only explicit feature commands through the bridge. Production screens do not synthesize telemetry: missing native state is rendered as empty/waiting.
 
@@ -48,6 +48,7 @@ The React shell now provides real-data surfaces for:
 - OMSI installation profiles, launch arguments, native folder selection and Explorer handoff;
 - HUD customization backed by `MultiplayerSettingsStore` and `HudProfileCatalog`;
 - Roadmap Studio backed by `OmsiRoadmapGeneratorService` and `OmsiRoadmapVectorGeneratorService`;
+- Ghost / Replay backed by `GhostRecorder`, `GhostReplayPlayer` and `GhostReplayAnalyticsCalculator`;
 - diagnostics consent and log status;
 - Personagem/RP selection and controls backed by the single native `RoleplayCharacterController` and real `Map.Drivers` catalog;
 - Hardware Cockpit serial configuration and native packet preview;
@@ -92,6 +93,19 @@ Firewall/NAT/UPnP remain native:
 - the external TCP probe is independent and only runs when its callback service is configured.
 
 The React Network page presents these checks separately so a valid firewall rule is never treated as proof of Internet reachability.
+
+## Ghost / Replay bridge
+
+`MainWindow.WebGhost.cs` owns the React-facing Ghost controller while reusing the existing native services.
+
+- recording uses the same `GhostRecorder` at the legacy 100 ms cadence and only consumes real local telemetry;
+- saved/imported `.navbrghost` files are parsed by `GhostReplayPlayer.LoadAsync` before being accepted;
+- library analytics reuse `GhostReplayAnalyticsCalculator`;
+- the React route preview receives only decimated real X/Z frame coordinates and is strictly read-only;
+- library selection accepts only file names inside the NavBR Ghost directory instead of arbitrary paths from JavaScript;
+- physical Ghost 3D playback continues through `GhostReplayPlayer`, which delegates spawn/update/despawn to the existing Plugin Bridge and fails safely when the plugin rejects writes.
+
+React does not implement a second replay engine and does not synthesize route frames.
 
 ## Bridge safety
 

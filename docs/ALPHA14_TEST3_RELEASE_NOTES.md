@@ -15,6 +15,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - Instalações OMSI e perfis de lançamento completos no React, com seletor nativo de pasta e Explorer;
 - HUD configurável no React e aplicado ao vivo pelo store nativo;
 - Roadmap Studio no React com análise por tiles e geração vetorial por splines;
+- Ghost / Replay no React com gravação, biblioteca/importação, analytics, prévia read-only e replay 3D;
 - Diagnóstico/privacidade;
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
 - tray abre/oculta o shell React;
@@ -76,3 +77,15 @@ A validação Alpha.14 compila o frontend React antes do cliente e valida Shared
 - análise de tiles e montagem de `whole.roadmap.bmp` usam `OmsiRoadmapGeneratorService`;
 - geração vetorial usa `OmsiRoadmapVectorGeneratorService` e as splines reais do mapa;
 - progresso e resultado são exibidos no React, sem duplicar o algoritmo no frontend.
+
+
+## Ghost / Replay
+
+- gravação de telemetria local real em cadência de 100 ms usando o `GhostRecorder` existente;
+- parada/salvamento produz `.navbrghost` e recarrega os metadados reais;
+- biblioteca local mostra somente replays válidos e contabiliza incompatíveis ignorados;
+- importação valida o arquivo antes de copiá-lo para a biblioteca;
+- analytics reutilizam `GhostReplayAnalyticsCalculator`;
+- prévia React usa coordenadas X/Z reais dos frames e não envia comandos ao OMSI;
+- playback físico usa `GhostReplayPlayer` e o Plugin Bridge existente, com velocidade de 0,1× a 4× e loop opcional;
+- gravação e playback possuem proteções nativas contra concorrência.
