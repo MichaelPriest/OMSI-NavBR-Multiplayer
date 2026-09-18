@@ -75,6 +75,10 @@ Somente desenvolvimento/teste:
 - pose/quaternion nativos;
 - velocidade/luzes/setas quando suportadas;
 - compatibilidade antes da escrita;
+- resolução de asset remoto por fingerprint SHA-256;
+- lifecycle/erro físico exposto por jogador no React;
+- consist/multi-veículo detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; enquanto ownership/ordem/transforms das partes não forem verificáveis, todas as partes criadas são removidas fail-safe e a quantidade detectada é exposta no diagnóstico;
+- **articulados ainda não são considerados suportados**;
 - opt-in obrigatório.
 
 ## 6. Hardware Cockpit
