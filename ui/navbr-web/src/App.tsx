@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { I18nProvider, useI18n } from "./i18n";
 import {
   type NavBrCompanyMember,
   type NavBrGhostState,
@@ -56,6 +57,7 @@ function Sidebar({
   screen: Screen;
   setScreen: (screen: Screen) => void;
 }) {
+  const { t, cultureName, languages, setLanguage } = useI18n();
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -64,42 +66,53 @@ function Sidebar({
       </div>
       <nav className="nav">
         <button className={`nav-item ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
-          <b>⌂</b><span>Início</span>
+          <b>⌂</b><span>{t("nav.home")}</span>
         </button>
         <button className={`nav-item ${screen === "navigation" ? "active" : ""}`} onClick={() => setScreen("navigation")}>
-          <b>⌖</b><span>Navegação</span>
+          <b>⌖</b><span>{t("nav.navigation")}</span>
         </button>
         <button className={`nav-item ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
-          <b>◉</b><span>Multiplayer</span>
+          <b>◉</b><span>{t("nav.multiplayer")}</span>
         </button>
         <button className={`nav-item ${screen === "roleplay" ? "active" : ""}`} onClick={() => setScreen("roleplay")}>
-          <b>♙</b><span>Personagem / RP</span>
+          <b>♙</b><span>{t("nav.roleplay")}</span>
         </button>
         <button className={`nav-item ${screen === "ghost" ? "active" : ""}`} onClick={() => setScreen("ghost")}>
-          <b>◈</b><span>Ghost / Replay</span>
+          <b>◈</b><span>{t("nav.ghost")}</span>
         </button>
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
-          <b>▣</b><span>CCO</span>
+          <b>▣</b><span>{t("nav.operations")}</span>
         </button>
         <button className={`nav-item ${screen === "companyNetwork" ? "active" : ""}`} onClick={() => setScreen("companyNetwork")}>
-          <b>◎</b><span>Rede da empresa</span>
+          <b>◎</b><span>{t("nav.company")}</span>
         </button>
         <button className={`nav-item ${screen === "hardware" ? "active" : ""}`} onClick={() => setScreen("hardware")}>
-          <b>⚡</b><span>Hardware Cockpit</span>
+          <b>⚡</b><span>{t("nav.hardware")}</span>
         </button>
         <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
-          <b>⚙</b><span>Configurações</span>
+          <b>⚙</b><span>{t("nav.settings")}</span>
         </button>
       </nav>
       <div className="sidebar-footer">
         <i />
-        <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
+        <div className="sidebar-footer-main">
+          <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
+          <label className="sidebar-language">
+            <span>{t("common.language")}</span>
+            <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
+              {languages.map(language => (
+                <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
     </aside>
   );
 }
 
 function Home({ state }: { state: NavBrState | null }) {
+  const { t } = useI18n();
   const omsi = state?.omsi;
   const telemetry = state?.telemetry;
   const active = Boolean(omsi?.running && telemetry?.inGame);
@@ -108,14 +121,14 @@ function Home({ state }: { state: NavBrState | null }) {
     <>
       <header className="topbar">
         <div>
-          <span className="eyebrow">CENTRAL OPERACIONAL</span>
-          <h1>Boa viagem.</h1>
-          <p>Acompanhe o OMSI e continue sua operação pelo NavBR.</p>
+          <span className="eyebrow">{t("home.eyebrow")}</span>
+          <h1>{t("home.title")}</h1>
+          <p>{t("home.subtitle")}</p>
         </div>
         <div className="top-actions">
-          <button className="button ghost" onClick={() => sendCommand("refreshState")}>Atualizar</button>
+          <button className="button ghost" onClick={() => sendCommand("refreshState")}>{t("common.refresh")}</button>
           <button className="button primary" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
-            {omsi?.running ? "OMSI aberto" : "Executar OMSI"}
+            {omsi?.running ? t("home.open") : t("home.launch")}
           </button>
         </div>
       </header>
@@ -123,27 +136,27 @@ function Home({ state }: { state: NavBrState | null }) {
       <section className="hero card">
         <div>
           <span className={`badge ${omsi?.running ? "online" : ""}`}>
-            {active ? "Operação ativa" : omsi?.running ? "OMSI detectado" : "Aguardando OMSI"}
+            {active ? t("home.operationActive") : omsi?.running ? t("home.omsiDetected") : t("home.waitingOmsi")}
           </span>
-          <h2>{active ? telemetry?.mapName || "Viagem em andamento" : omsi?.running ? "OMSI está aberto" : "Nenhuma operação ativa"}</h2>
+          <h2>{active ? telemetry?.mapName || t("home.trip") : omsi?.running ? t("home.open") : t("home.noOperation")}</h2>
           <p>
             {active
-              ? "Telemetria recebida diretamente do cliente NavBR."
+              ? t("home.telemetryLive")
               : omsi?.running
-                ? "Aguardando o OMSI entrar em uma viagem com telemetria disponível."
-                : "Abra o OMSI para iniciar a telemetria e carregar os dados reais da viagem."}
+                ? t("home.telemetryWaiting")
+                : t("home.telemetryClosed")}
           </p>
           {active && (
             <div className="operation-strip">
-              <span><small>LINHA</small><strong>{telemetry?.line || "—"}</strong></span>
-              <span><small>ROTA</small><strong>{telemetry?.route || "—"}</strong></span>
-              <span><small>DESTINO</small><strong>{telemetry?.destinationName || "—"}</strong></span>
-              <span><small>PRÓXIMA PARADA</small><strong>{telemetry?.nextStopName || "—"}</strong></span>
+              <span><small>{t("home.line")}</small><strong>{telemetry?.line || "—"}</strong></span>
+              <span><small>{t("home.route")}</small><strong>{telemetry?.route || "—"}</strong></span>
+              <span><small>{t("home.destination")}</small><strong>{telemetry?.destinationName || "—"}</strong></span>
+              <span><small>{t("home.nextStop")}</small><strong>{telemetry?.nextStopName || "—"}</strong></span>
             </div>
           )}
         </div>
         <div className="speed-panel">
-          <span>VELOCIDADE</span>
+          <span>{t("home.speed")}</span>
           <strong>{telemetry ? format(telemetry.speedKph, 0) : "--"}</strong>
           <small>km/h</small>
         </div>
@@ -152,18 +165,18 @@ function Home({ state }: { state: NavBrState | null }) {
       <section className="status-grid">
         <article className="card status-card">
           <span className="card-label">OMSI</span>
-          <strong>{omsi?.running ? "Em execução" : "Não detectado"}</strong>
-          <small>{omsi?.version ? `Versão ${omsi.version}` : "Versão —"}</small>
+          <strong>{omsi?.running ? t("home.running") : t("home.notDetected")}</strong>
+          <small>{omsi?.version ? `${t("home.version")} ${omsi.version}` : `${t("home.version")} —`}</small>
         </article>
         <article className="card status-card">
-          <span className="card-label">MAPA</span>
+          <span className="card-label">{t("home.map")}</span>
           <strong>{telemetry?.mapName || "—"}</strong>
-          <small>{telemetry ? `X ${format(telemetry.x, 2)} · Y ${format(telemetry.y, 2)}` : "Posição indisponível"}</small>
+          <small>{telemetry ? `X ${format(telemetry.x, 2)} · Y ${format(telemetry.y, 2)}` : t("home.positionUnavailable")}</small>
         </article>
         <article className="card status-card">
           <span className="card-label">MULTIPLAYER</span>
-          <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : "Desconectado"}</strong>
-          <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : "Nenhuma sala ativa"}</small>
+          <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : t("home.disconnected")}</strong>
+          <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : t("home.noRoom")}</small>
         </article>
       </section>
     </>
@@ -200,6 +213,7 @@ const maneuverLabel = (maneuver: string) => {
 };
 
 function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
 
   const geometry = useMemo(() => {
@@ -248,14 +262,14 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
   return (
     <div className="navigation-map">
       <div className="navigation-map-toolbar">
-        <button className={mode === "follow" ? "active" : ""} onClick={() => setMode("follow")}>Seguir ônibus</button>
-        <button className={mode === "full" ? "active" : ""} onClick={() => setMode("full")}>Rota completa</button>
+        <button className={mode === "follow" ? "active" : ""} onClick={() => setMode("follow")}>{t("nav.followBus")}</button>
+        <button className={mode === "full" ? "active" : ""} onClick={() => setMode("full")}>{t("nav.fullRoute")}</button>
       </div>
 
       {!geometry ? (
         <div className="map-center-message navigation-empty">
-          <strong>Rota ainda não resolvida</strong>
-          <span>O NavBR só desenha o trajeto quando encontra geometria real da rota ativa nos arquivos do mapa OMSI.</span>
+          <strong>{t("nav.routeUnavailable")}</strong>
+          <span>{t("nav.routeUnavailableDetail")}</span>
         </div>
       ) : (
         <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Roadmap da rota ativa">
@@ -290,6 +304,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         <span><i className="bus" /> Seu ônibus</span>
       </div>
     </div>
+    </I18nProvider>
   );
 }
 
@@ -2987,6 +3002,7 @@ export default function App() {
   ), []);
 
   return (
+    <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
     <div className="app-shell">
       <Sidebar screen={screen} setScreen={setScreen} />
       <main>
