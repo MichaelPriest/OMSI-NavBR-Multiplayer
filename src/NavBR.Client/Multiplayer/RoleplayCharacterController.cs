@@ -24,6 +24,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double BackwardSpeedMps = 1.05d;
     private const double TurnSpeedDegreesPerSecond = 105d;
     private const double MaxDistanceFromBusMeters = 85d;
+    private const double MaxVerticalFollowSpeedMps = 2.75d;
 
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
@@ -42,6 +43,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private int _consecutiveFailures;
     private double _originX;
     private double _originY;
+    private double _groundHeightOffset;
+    private bool _groundHeightCalibrated;
+    private bool _groundFollowing;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -64,6 +68,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     }
 
     public bool IsActive => _state?.IsActive == true;
+    public bool IsGroundFollowing => _groundFollowing;
     public RoleplayCharacterState? CurrentState => _state;
 
     public bool IsRuntimeAvailable
@@ -160,6 +165,18 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         _originX = x;
         _originY = y;
+        _groundFollowing = map is not null &&
+                           OmsiSplineGroundHeightResolver.TryResolve(
+                               map,
+                               telemetry,
+                               x,
+                               y,
+                               out var initialGroundZ);
+        _groundHeightCalibrated = _groundFollowing;
+        _groundHeightOffset = _groundFollowing
+            ? z - initialGroundZ
+            : 0d;
+
         _state = new RoleplayCharacterState(
             PlayerId: playerId,
             Timestamp: DateTimeOffset.UtcNow,
@@ -207,6 +224,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _instanceId = null;
             _state = null;
             _consecutiveFailures = 0;
+            _groundFollowing = false;
+            _groundHeightCalibrated = false;
+            _groundHeightOffset = 0d;
             lock (_inputSync)
             {
                 _pressedKeys.Clear();
@@ -251,6 +271,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         {
             var mapKey = _mapKeySource();
             var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+            var telemetry = _telemetrySource();
+            var map = _activeMapSource();
             if (selected is null ||
                 !string.Equals(selected.Id, current.CharacterId, StringComparison.OrdinalIgnoreCase))
             {
@@ -325,6 +347,37 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 }
             }
 
+            var z = current.LocalZ;
+            if (map is not null &&
+                telemetry is not null &&
+                OmsiSplineGroundHeightResolver.TryResolve(
+                    map,
+                    telemetry,
+                    x,
+                    y,
+                    out var groundZ))
+            {
+                if (!_groundHeightCalibrated)
+                {
+                    _groundHeightOffset = current.LocalZ - groundZ;
+                    _groundHeightCalibrated = true;
+                }
+
+                var targetZ = groundZ + _groundHeightOffset;
+                var maxVerticalDelta = Math.Max(
+                    0.02d,
+                    MaxVerticalFollowSpeedMps * deltaSeconds);
+                z += Math.Clamp(
+                    targetZ - z,
+                    -maxVerticalDelta,
+                    maxVerticalDelta);
+                _groundFollowing = true;
+            }
+            else
+            {
+                _groundFollowing = false;
+            }
+
             var activity = speed <= 0.01d
                 ? RoleplayCharacterActivity.Idle
                 : running && direction > 0d
@@ -336,6 +389,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 Timestamp = now,
                 LocalX = x,
                 LocalY = y,
+                LocalZ = z,
                 HeadingDegrees = heading,
                 SpeedMps = speed,
                 Activity = activity
