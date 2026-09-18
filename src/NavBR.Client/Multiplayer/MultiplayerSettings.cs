@@ -27,7 +27,7 @@ public sealed record MultiplayerSettings(
     bool ExperimentalPhysicalVehiclesEnabled = false,
     bool EnableAutomaticUpnp = false,
     bool EnableApplicationRelay = false,
-    string RelayServerUrl = "",
+    string RelayServerUrl = "https://omsi-navbr-multiplayer-server.onrender.com",
     string VoiceChannel = "general",
     double VoiceProximityMeters = 120d,
     bool VoiceDeafened = false,
@@ -51,6 +51,9 @@ public sealed record MultiplayerSettings(
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
+    public const string DefaultOnlineServerUrl =
+        "https://omsi-navbr-multiplayer-server.onrender.com";
+
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
         "http://127.0.0.1:27730",
