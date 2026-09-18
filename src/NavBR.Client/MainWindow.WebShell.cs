@@ -278,6 +278,16 @@ public partial class MainWindow
                 isRoomOwner = false,
                 isTrafficAuthority = false
             },
+            transportMode = "none",
+            roomCompatibility = new
+            {
+                level = "none",
+                remoteCount = 0,
+                blocking = 0,
+                warnings = 0,
+                partial = 0,
+                affectedAreas = Array.Empty<string>()
+            },
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
