@@ -245,6 +245,11 @@ public partial class MainWindow
             case "openRoleplay":
                 break;
 
+            case "setRoleplayEnabled":
+                await SetRoleplayEnabledFromWebAsync(
+                    GetWebPayloadBool(payload, "enabled"));
+                break;
+
             case "selectRoleplayCharacter":
                 SelectRoleplayCharacterFromWeb(
                     GetWebPayloadString(payload, "characterId"));
