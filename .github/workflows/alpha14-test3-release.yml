@@ -401,6 +401,23 @@ jobs:
           compression-level: 0
           retention-days: 7
 
+      - name: Report private build artifact to PR
+        if: github.ref == 'refs/heads/test/alpha14-test3'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $artifactName = "OMSI-NavBR-Alpha14-Test3-${{ github.sha }}"
+          $body = @"
+          PRIVATE_BUILD_READY
+          run_id=${{ github.run_id }}
+          head_sha=${{ github.sha }}
+          artifact=$artifactName
+          workflow=alpha14 test3 roleplay prerelease
+          "@
+          gh api "repos/${{ github.repository }}/issues/22/comments" -f body="$body" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "Could not report private artifact to PR #22." }
+
       - name: Clean incomplete release assets
         if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/publish/alpha14-test3'
         shell: pwsh
