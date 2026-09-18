@@ -195,30 +195,46 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return;
         }
 
-        _timer.Stop();
-        DisposeKeyboardHook();
-
-        var instanceId = _instanceId;
-        var playerId = _state?.PlayerId;
-        if (!string.IsNullOrWhiteSpace(instanceId))
+        try
         {
-            _ = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
-                instanceId,
-                playerId,
-                cancellationToken);
-        }
+            _timer.Stop();
+            DisposeKeyboardHook();
 
-        _instanceId = null;
-        _state = null;
-        _consecutiveFailures = 0;
-        lock (_inputSync)
+            var instanceId = _instanceId;
+            var playerId = _state?.PlayerId;
+
+            _instanceId = null;
+            _state = null;
+            _consecutiveFailures = 0;
+            lock (_inputSync)
+            {
+                _pressedKeys.Clear();
+            }
+
+            // Clear local state first so the UI/HUD can always leave RP mode,
+            // even if the experimental plugin fails while restoring the driver.
+            StateChanged?.Invoke(null);
+            StatusChanged?.Invoke(reason);
+
+            if (!string.IsNullOrWhiteSpace(instanceId))
+            {
+                try
+                {
+                    _ = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
+                        instanceId,
+                        playerId,
+                        cancellationToken);
+                }
+                catch
+                {
+                    StatusChanged?.Invoke("roleplay-release-failed");
+                }
+            }
+        }
+        finally
         {
-            _pressedKeys.Clear();
+            Interlocked.Exchange(ref _stopping, 0);
         }
-
-        StateChanged?.Invoke(null);
-        StatusChanged?.Invoke(reason);
-        Interlocked.Exchange(ref _stopping, 0);
     }
 
     private async Task TickAsync()
