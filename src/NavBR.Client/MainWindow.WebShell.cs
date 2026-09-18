@@ -74,6 +74,7 @@ public partial class MainWindow
                 },
             navigation = BuildWebNavigationState(),
             operations = BuildWebOperationsState(),
+            system = BuildWebSystemState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -283,6 +284,45 @@ public partial class MainWindow
                 SaveWebDriverProfile(
                     GetWebPayloadString(payload, "displayName"),
                     GetWebPayloadString(payload, "companyName"));
+                break;
+
+            case "discoverOmsiProfiles":
+                DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
+                break;
+
+            case "launchOmsiProfile":
+                LaunchOmsiProfileFromWeb(GetWebPayloadString(payload, "profileId"));
+                break;
+
+            case "setPreferredOmsiProfile":
+                SetPreferredOmsiProfileFromWeb(GetWebPayloadString(payload, "profileId"));
+                break;
+
+            case "updateOmsiProfile":
+                UpdateOmsiProfileFromWeb(
+                    GetWebPayloadString(payload, "profileId"),
+                    GetWebPayloadString(payload, "name"),
+                    GetWebPayloadString(payload, "launchArguments"));
+                break;
+
+            case "removeOmsiProfile":
+                RemoveOmsiProfileFromWeb(GetWebPayloadString(payload, "profileId"));
+                break;
+
+            case "setDiagnosticsEnabled":
+                SetDiagnosticsEnabledFromWeb(GetWebPayloadBool(payload, "enabled"));
+                break;
+
+            case "flushDiagnostics":
+                await FlushDiagnosticsFromWebAsync();
+                break;
+
+            case "purgeDiagnostics":
+                PurgeDiagnosticsFromWeb();
+                break;
+
+            case "openOmsiProfiles":
+                OpenOmsiProfilesForShell();
                 break;
 
             case "sendChat":
