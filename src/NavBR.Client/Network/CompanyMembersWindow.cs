@@ -23,13 +23,7 @@ internal static class CompanyMembersInstaller
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
         ApplyLocalization(button);
-        button.Click += (_, _) =>
-        {
-            if (Application.Current is App app)
-            {
-                new CompanyMembersWindow(window, app.NetworkRuntime).ShowDialog();
-            }
-        };
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("companyNetwork");
         panel.Children.Add(button);
 
         SelectionChangedEventHandler languageChanged = (_, _) => ApplyLocalization(button);
