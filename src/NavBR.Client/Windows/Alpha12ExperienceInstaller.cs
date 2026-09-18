@@ -104,7 +104,6 @@ internal static class Alpha12ExperienceInstaller
             return;
         }
 
-        Alpha12PreferencesStore.Save(preferences with { FirstRunCompleted = true });
         window.NavigatePrimaryWebShell("help");
         ApplyLocalization(window, FindSettingsButton(window));
         ApplyRuntimeVersionBadge(window);
