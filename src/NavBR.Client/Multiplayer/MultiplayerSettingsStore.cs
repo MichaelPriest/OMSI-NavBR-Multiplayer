@@ -113,6 +113,9 @@ public static class MultiplayerSettingsStore
         var customIconPath = string.IsNullOrWhiteSpace(settings.StopCustomIconPath)
             ? null
             : settings.StopCustomIconPath.Trim();
+        var relayServerUrl = string.IsNullOrWhiteSpace(settings.RelayServerUrl)
+            ? MultiplayerSettings.DefaultOnlineServerUrl
+            : settings.RelayServerUrl.Trim();
         if (stopIconStyle == "custom" && customIconPath is null)
         {
             stopIconStyle = "omsi";
@@ -181,7 +184,8 @@ public static class MultiplayerSettingsStore
                 0.55d,
                 2d),
             StopIconStyle = stopIconStyle,
-            StopCustomIconPath = customIconPath
+            StopCustomIconPath = customIconPath,
+            RelayServerUrl = relayServerUrl
         };
     }
 }
