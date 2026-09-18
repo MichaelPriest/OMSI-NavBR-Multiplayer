@@ -51,6 +51,7 @@ public partial class MultiplayerWindow
             displayName = _settings.DisplayName,
             hostRunning = _host.IsRunning,
             hostPort = _host.IsRunning ? _host.Port : null as int?,
+            roomIsPrivate = _client.CurrentRoomIsPrivate,
             inviteAddresses = _host.IsRunning ? _host.GetLanJoinUrls() : Array.Empty<string>(),
             latencyMs = _lastLatencyMs,
             voiceEnabled = VoiceEnabledCheckBox.IsChecked == true,
@@ -78,7 +79,8 @@ public partial class MultiplayerWindow
     internal async Task ConnectFromWebAsync(
         string? serverUrl,
         string? roomId,
-        string? displayName)
+        string? displayName,
+        string? roomPassword)
     {
         if (_client.IsConnected)
         {
@@ -88,6 +90,16 @@ public partial class MultiplayerWindow
         ServerTextBox.Text = MultiplayerWebInput.Normalize(serverUrl, _settings.ServerUrl);
         RoomTextBox.Text = MultiplayerWebInput.Normalize(roomId, _settings.RoomId);
         NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
+
+        var password = NormalizePassword(roomPassword);
+        RoomPasswordBox.Password = password ?? string.Empty;
+        PrivateRoomCheckBox.IsChecked = false;
+        _settings = _settings with
+        {
+            EphemeralRoomPassword = password,
+            EphemeralCreatePrivateRoom = false
+        };
+
         await ConnectToConfiguredServerAsync();
     }
 
@@ -95,17 +107,32 @@ public partial class MultiplayerWindow
 
     internal async Task StartLocalHostFromWebAsync(
         string? roomId,
-        string? displayName)
+        string? displayName,
+        bool createPrivateRoom,
+        string? roomPassword)
     {
         if (_host.IsRunning)
         {
             return;
         }
 
+        var password = NormalizePassword(roomPassword);
+        if (createPrivateRoom && (password is null || password.Length < 4))
+        {
+            throw new InvalidOperationException(RoomPrivacyText.PasswordTooShort);
+        }
+
         RoomTextBox.Text = MultiplayerWebInput.Normalize(
             roomId,
             $"navbr-{Random.Shared.Next(1000, 9999)}");
         NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
+        PrivateRoomCheckBox.IsChecked = createPrivateRoom;
+        RoomPasswordBox.Password = password ?? string.Empty;
+        _settings = _settings with
+        {
+            EphemeralRoomPassword = password,
+            EphemeralCreatePrivateRoom = createPrivateRoom
+        };
 
         try
         {
