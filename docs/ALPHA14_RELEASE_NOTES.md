@@ -8,8 +8,8 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 
 - **React + TypeScript + Vite em WebView2 como shell principal**;
 - host .NET/WPF x86 preservado temporariamente apenas para serviços nativos ainda acoplados ao `MainWindow`;
-- shell WPF anterior retirado do fluxo do usuário e mantido invisível/off-screen como host técnico;
-- falha do WebView2 é exibida no painel de erro da própria janela nova, sem revelar o layout antigo;
+- shell WPF anterior retirado do fluxo do usuário; `MainWindow` permanece somente como objeto técnico em memória e não recebe `Show()`;
+- antigos installers e renderização visual do shell Alpha.11/12 deixam de rodar; falha do WebView2 é exibida no painel de erro da própria janela nova, sem revelar o layout antigo;
 - fechar a interface React mantém o NavBR na bandeja, e o ícone da bandeja sempre reabre o React;
 - Home com Executar OMSI e dados reais da operação;
 - Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Personagem/RP, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e Rede migrados para React;

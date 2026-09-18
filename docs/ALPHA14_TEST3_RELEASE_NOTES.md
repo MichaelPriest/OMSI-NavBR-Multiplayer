@@ -7,7 +7,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - React + TypeScript + Vite hospedado no cliente .NET/WPF x86;
 - idioma do shell React sincronizado com o `LocalizationService` nativo, com pt-BR, en-US, es-ES, de-DE e fr-FR usando a mesma preferência persistida do app;
 - React passa a ser o shell principal após carregamento confirmado;
-- o layout WPF anterior deixa de ser uma superfície acessível: `MainWindow` permanece apenas como host técnico invisível enquanto serviços nativos são desacoplados;
+- o layout WPF anterior deixa de ser uma superfície acessível: `MainWindow` permanece apenas como host técnico em memória, sem `Show()`, enquanto serviços nativos são desacoplados;
 - falhas do WebView2 usam o painel de erro da própria janela nova e o tray sempre reabre React;
 - Instalações OMSI, HUD e Roadmap Studio não abrem o editor WPF; **Executar OMSI** direciona para Instalações React quando nenhum perfil válido existe;
 - Home e Executar OMSI;

@@ -35,9 +35,9 @@ New React surfaces use the shared translation provider and fall back to English 
 React/WebView2 is the primary visible desktop shell in Alpha.14.
 
 1. `App.xaml` no longer declares `StartupUri="MainWindow.xaml"`.
-2. `App.OnStartup` explicitly creates `MainWindow` only as a native-service host for code that has not yet been detached from the historical WPF class.
-3. The host window is created off-screen, without taskbar presence and with zero opacity, and the old Alpha.11/12 visual installers are not executed.
-4. `OpenPrimaryWebShell()` opens `WebShellWindow`, which is the only desktop shell exposed to the user.
+2. `App.OnStartup` explicitly creates `MainWindow` only as an in-memory native-service host for code that has not yet been detached from the historical WPF class.
+3. The host is **never shown**: `Show()` is not called. Telemetry, driver statistics, RP lifetime and tray integration are started explicitly, and the old Alpha.11/12 visual installers/render loop are not executed.
+4. `OpenPrimaryWebShell()` opens `WebShellWindow`, which is the only desktop window exposed to the user.
 5. If WebView2 navigation fails, `WebShellWindow` shows its own native error panel instead of revealing the retired WPF layout.
 6. Closing the React shell leaves the hidden native host running in the tray; the tray icon always reopens React.
 7. The bridge no longer exposes `showLegacyShell` or `openOmsiProfiles`.
