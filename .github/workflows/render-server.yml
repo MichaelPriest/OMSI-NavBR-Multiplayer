@@ -1,0 +1,59 @@
+name: render server validation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/NavBR.Server/**'
+      - 'src/NavBR.Shared/**'
+      - 'Directory.Build.props'
+      - 'Dockerfile.render'
+      - '.dockerignore'
+      - 'render.yaml'
+      - '.github/workflows/render-server.yml'
+  pull_request:
+    paths:
+      - 'src/NavBR.Server/**'
+      - 'src/NavBR.Shared/**'
+      - 'Directory.Build.props'
+      - 'Dockerfile.render'
+      - '.dockerignore'
+      - 'render.yaml'
+      - '.github/workflows/render-server.yml'
+
+jobs:
+  validate-render-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Render Docker image
+        run: docker build -f Dockerfile.render -t navbr-render-server .
+
+      - name: Start container on Render port
+        run: |
+          docker run -d --name navbr-render-test \
+            -e PORT=10000 \
+            -p 10000:10000 \
+            navbr-render-server
+
+      - name: Verify health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:10000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs navbr-render-test
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker logs navbr-render-test || true
+
+      - name: Stop test container
+        if: always()
+        run: docker rm -f navbr-render-test || true
