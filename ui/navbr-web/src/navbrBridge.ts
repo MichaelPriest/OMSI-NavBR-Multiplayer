@@ -616,6 +616,10 @@ export interface NavBrRoleplayState {
     actSpeedMps: number;
     lastMovedDistanceMeters: number;
     animationState: number;
+    activityLegRaw?: number | null;
+    activityArmUmbrellaRaw?: number | null;
+    activityArmKiRaw?: number | null;
+    activityHeadKiRaw?: number | null;
   } | null;
   busDistanceMeters?: number | null;
   enterBusRangeMeters: number;
