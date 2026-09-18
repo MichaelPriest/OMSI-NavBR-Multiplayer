@@ -71,6 +71,15 @@ public partial class MultiplayerWindow
             })
             .ToArray();
         var networkQuality = SessionNetworkQualityFeed.Snapshot();
+        var roomCompatibility = BuildWebRoomCompatibility();
+        var transportMode = !_client.IsConnected
+            ? "none"
+            : _host.IsRunning
+                ? "direct-host"
+                : _settings.EnableApplicationRelay &&
+                  !IsLoopbackServerUrl(ServerTextBox.Text.Trim())
+                    ? "relay"
+                    : "remote-host";
 
         return new
         {
@@ -121,6 +130,8 @@ public partial class MultiplayerWindow
                 isRoomOwner = _client.IsRoomOwner,
                 isTrafficAuthority = _client.IsTrafficAuthority
             },
+            transportMode,
+            roomCompatibility,
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
@@ -552,6 +563,79 @@ public partial class MultiplayerWindow
         SetInputsEnabled(true);
         UpdateButtons();
         RefreshSessionSummary();
+    }
+
+    private object BuildWebRoomCompatibility()
+    {
+        var remotes = _players.Values
+            .Where(player => !string.Equals(
+                player.PlayerId,
+                _settings.PlayerId,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (!_client.IsConnected || remotes.Length == 0)
+        {
+            return new
+            {
+                level = _client.IsConnected ? "waiting" : "none",
+                remoteCount = remotes.Length,
+                blocking = 0,
+                warnings = 0,
+                partial = 0,
+                affectedAreas = Array.Empty<string>()
+            };
+        }
+
+        var localManifest = OmsiCompatibilityManifestFactory.Create(
+            _telemetrySource(),
+            _activeMapSource());
+        var requirePhysicalVehicle = _settings.ExperimentalPhysicalVehiclesEnabled;
+        var reports = remotes
+            .Select(player => OmsiCompatibilityEvaluator.Compare(
+                localManifest,
+                player.Compatibility,
+                requirePhysicalVehicle))
+            .ToArray();
+
+        var blocking = reports.Count(report => report.HasBlockingIssues);
+        var warnings = reports.Count(report =>
+            !report.HasBlockingIssues &&
+            report.Issues.Any(issue =>
+                issue.Severity == CompatibilityIssueSeverity.Warning));
+        var partial = reports.Count(report =>
+            !report.HasBlockingIssues &&
+            !report.Issues.Any(issue =>
+                issue.Severity == CompatibilityIssueSeverity.Warning) &&
+            report.Issues.Any(issue => IsUnknownCompatibilityIssue(issue.Code)));
+        var affectedAreas = reports
+            .SelectMany(report => report.Issues)
+            .Where(issue =>
+                issue.Severity != CompatibilityIssueSeverity.Info ||
+                IsUnknownCompatibilityIssue(issue.Code))
+            .Select(issue => CompatibilityArea(issue.Code))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Take(4)
+            .ToArray();
+
+        var level = blocking > 0
+            ? "blocked"
+            : warnings > 0
+                ? "warning"
+                : partial > 0
+                    ? "partial"
+                    : "compatible";
+
+        return new
+        {
+            level,
+            remoteCount = remotes.Length,
+            blocking,
+            warnings,
+            partial,
+            affectedAreas
+        };
     }
 
     private sealed record WebSessionPoint(
