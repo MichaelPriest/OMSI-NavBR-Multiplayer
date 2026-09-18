@@ -73,6 +73,7 @@ public partial class MainWindow
                     speedKph = telemetry.SpeedKph
                 },
             navigation = BuildWebNavigationState(),
+            operations = BuildWebOperationsState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -247,6 +248,41 @@ public partial class MainWindow
                     GetWebPayloadString(payload, "channel"),
                     GetWebPayloadDouble(payload, "proximityMeters"),
                     GetWebPayloadBool(payload, "deafened"));
+                break;
+
+            case "acknowledgeOperationalReport":
+                await HandleWebOperationalReportAsync(
+                    GetWebPayloadString(payload, "reportId") ?? string.Empty,
+                    resolve: false);
+                break;
+
+            case "resolveOperationalReport":
+                await HandleWebOperationalReportAsync(
+                    GetWebPayloadString(payload, "reportId") ?? string.Empty,
+                    resolve: true);
+                break;
+
+            case "saveCompany":
+                SaveWebCompany(
+                    GetWebPayloadString(payload, "name"),
+                    GetWebPayloadString(payload, "shortName"),
+                    GetWebPayloadString(payload, "baseMap"));
+                break;
+
+            case "registerCurrentVehicle":
+                RegisterCurrentVehicleFromWeb(
+                    GetWebPayloadString(payload, "fleetNumber"),
+                    GetWebPayloadString(payload, "livery"));
+                break;
+
+            case "removeFleetVehicle":
+                RemoveFleetVehicleFromWeb(GetWebPayloadString(payload, "vehicleId"));
+                break;
+
+            case "saveDriverProfile":
+                SaveWebDriverProfile(
+                    GetWebPayloadString(payload, "displayName"),
+                    GetWebPayloadString(payload, "companyName"));
                 break;
 
             case "sendChat":
