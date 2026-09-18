@@ -26,8 +26,8 @@ Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
     "alpha14-nat",
     "alpha14-external-port",
     "FeedbackWindow",
-    "Alpha12OperationsMenuPanel",
-    "Alpha11ToolsPanel"
+    "Alpha12ProfessionalShellInstaller.OperationsPanelName",
+    "Alpha12ProfessionalShellInstaller.ToolsPanelName"
 )
 
 Require-Text "src/NavBR.Client/App.xaml.cs" @(
