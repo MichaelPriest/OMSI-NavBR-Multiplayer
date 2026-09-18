@@ -80,6 +80,58 @@ export interface NavBrRoomDirectory {
   rooms: NavBrPublicRoom[];
 }
 
+export interface NavBrNavigationPoint {
+  x: number;
+  y: number;
+}
+
+export interface NavBrNavigationStop {
+  name: string;
+  x: number;
+  y: number;
+  isNext: boolean;
+}
+
+export interface NavBrNavigationVehicle {
+  x: number;
+  y: number;
+  headingDegrees: number;
+  speedKph: number;
+}
+
+export interface NavBrNavigationState {
+  available: boolean;
+  mapName?: string | null;
+  mapFolder?: string | null;
+  line?: string | null;
+  route?: string | null;
+  destinationName?: string | null;
+  nextStopName?: string | null;
+  currentStreetName?: string | null;
+  currentStopIndex?: number | null;
+  isOnRoute: boolean;
+  offRouteDistanceMeters: number;
+  routeProgressPercent: number;
+  distanceRemainingMeters: number;
+  distanceToNextStopMeters?: number | null;
+  maneuver: string;
+  distanceToManeuverMeters?: number | null;
+  etaToNextStopSeconds?: number | null;
+  etaToRouteEndSeconds?: number | null;
+  paceMetersPerSecond?: number | null;
+  usesWorldCoordinates: boolean;
+  tileSize?: number | null;
+  routePoints: NavBrNavigationPoint[];
+  stopPoints: NavBrNavigationStop[];
+  vehicle?: NavBrNavigationVehicle | null;
+  stopSequence: {
+    routeResolved: boolean;
+    totalStops: number;
+    nextStopIndex?: number | null;
+    upcomingStops: string[];
+  };
+}
+
 export interface NavBrState {
   generatedAtUtc?: string;
   appVersion?: string | null;
@@ -103,6 +155,7 @@ export interface NavBrState {
     headingDegrees: number;
     speedKph: number;
   };
+  navigation: NavBrNavigationState;
   multiplayer: NavBrMultiplayerState;
   roomDirectory: NavBrRoomDirectory;
 }
@@ -112,6 +165,7 @@ export type NavBrCommand =
   | "refreshState"
   | "openMultiplayerCentral"
   | "openRoleplay"
+  | "openNavigation3D"
   | "toggleHudLayout"
   | "openHudEditor"
   | "connectRoom"
