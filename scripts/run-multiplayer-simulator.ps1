@@ -18,17 +18,15 @@ param(
     [double]$Z = 0,
     [double]$Radius = 90,
     [int]$Duration = 0,
-    [switch]$Verify
+    [switch]$Verify,
+    [switch]$NoAutoServer
 )
 
 $ErrorActionPreference = "Stop"
+$simulatorExe = Join-Path $PSScriptRoot "NavBR.MultiplayerSimulator.exe"
 $project = Join-Path $PSScriptRoot "..\src\NavBR.MultiplayerSimulator\NavBR.MultiplayerSimulator.csproj"
 
 $argsList = @(
-    "run",
-    "--project", $project,
-    "-c", "Release",
-    "--",
     "--server", $Server,
     "--room", $Room,
     "--players", "$Players",
@@ -67,6 +65,9 @@ if (-not [string]::IsNullOrWhiteSpace($VehicleId)) {
 if ($Verify) {
     $argsList += "--verify"
 }
+if ($NoAutoServer) {
+    $argsList += "--no-auto-server"
+}
 
 Write-Host "NavBR Multiplayer Simulator"
 Write-Host "Server : $Server"
@@ -77,5 +78,22 @@ Write-Host ""
 Write-Host "Os jogadores simulados usam clientes SignalR reais e aparecem na Central Multiplayer."
 Write-Host "Ctrl+C encerra o simulador."
 
-& dotnet @argsList
+if (Test-Path $simulatorExe) {
+    & $simulatorExe @argsList
+    exit $LASTEXITCODE
+}
+
+if (-not (Test-Path $project)) {
+    Write-Error "NavBR.MultiplayerSimulator.exe não foi encontrado e o projeto de desenvolvimento também não existe neste caminho."
+    exit 4
+}
+
+$dotnetArgs = @(
+    "run",
+    "--project", $project,
+    "-c", "Release",
+    "--"
+) + $argsList
+
+& dotnet @dotnetArgs
 exit $LASTEXITCODE
