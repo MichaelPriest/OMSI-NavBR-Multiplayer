@@ -63,7 +63,7 @@ public partial class MainWindow
         }
 
         _roleplayPromptedMapKey = mapKey;
-        OpenRoleplayCharacterWindowForShell();
+        OpenRoleplayCentralForShell();
     }
 
     internal IReadOnlyList<RoleplayCharacterOption> GetRoleplayCharacterOptionsForShell() =>
@@ -152,7 +152,7 @@ public partial class MainWindow
             !IsRoleplayMapReadyForShell() ||
             selected is null)
         {
-            OpenRoleplayCharacterWindowForShell();
+            OpenRoleplayCentralForShell();
             UpdateHudRoleplayStateForShell();
             return;
         }
@@ -170,11 +170,11 @@ public partial class MainWindow
 
         if (!started)
         {
-            OpenRoleplayCharacterWindowForShell();
+            OpenRoleplayCentralForShell();
         }
     }
 
-    internal void OpenRoleplayCharacterWindowForShell()
+    internal void OpenRoleplayCentralForShell()
     {
         // Alpha.14 uses a single RP surface. HUD, automatic prompt and the
         // multiplayer button all route to the same Central Multiplayer tab.
