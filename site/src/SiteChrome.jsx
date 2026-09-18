@@ -7,15 +7,14 @@ export function ScrollProgress() {
   return <div className="site-progress" style={{ width: `${width}%` }} aria-hidden="true" />;
 }
 
-export function Header({ activeSection }) {
+export function Header({ activeSection, onOpenDownloads }) {
   const navItems = [
+    ["contribua", "❤ Contribua"],
     ["estado", "Alpha.14"],
-    ["downloads-por-alpha", "Downloads"],
     ["download", "Builds"],
     ["recursos", "Recursos"],
     ["multiplayer", "Multiplayer"],
-    ["documentacao", "Documentação"],
-    ["contribua", "Contribua"]
+    ["documentacao", "Documentação"]
   ];
 
   return (
@@ -35,11 +34,38 @@ export function Header({ activeSection }) {
           {navItems.map(([id, label]) => (
             <a key={id} href={`#${id}`} className={activeSection === id ? "is-active" : ""}>{label}</a>
           ))}
+          <button className="topbar-downloads" type="button" onClick={onOpenDownloads}>Downloads</button>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
     </>
   );
+}
+
+export function MonetizationScripts() {
+  useEffect(() => {
+    const scripts = [
+      {
+        id: "navbr-profitablerate-ed6a145b",
+        src: "https://pl31372716.profitableratecpmnetwork.com/ed/6a/14/ed6a145b997a12d36e14a919de76a3ca.js"
+      },
+      {
+        id: "navbr-profitablerate-e700431c",
+        src: "https://pl31372717.profitableratecpmnetwork.com/e7/00/43/e700431c5e6534141987ce3a30b0adfd.js"
+      }
+    ];
+
+    scripts.forEach(({ id, src }) => {
+      if (document.getElementById(id)) return;
+      const script = document.createElement("script");
+      script.id = id;
+      script.src = src;
+      script.async = true;
+      document.body.appendChild(script);
+    });
+  }, []);
+
+  return null;
 }
 
 export function AdSlot({ name }) {
@@ -96,6 +122,26 @@ export function AdSlot({ name }) {
       // Mantém o espaço reservado se a rede de anúncios não responder.
     }
   }, [enabled, client, slot]);
+
+  if (name === "direct") {
+    return (
+      <aside className="navbr-ad-slot shell sponsored-link" aria-label="Publicidade">
+        <div className="navbr-ad-label">Publicidade</div>
+        <div className="navbr-ad-content">
+          <strong>Conteúdo patrocinado</strong>
+          <span>Este acesso ajuda a financiar hospedagem, testes e desenvolvimento do NavBR.</span>
+          <a
+            className="button secondary"
+            href="https://www.profitableratecpmnetwork.com/a8tvv2zu8n?key=65f851ce1b0f30c80d91f114566cfb88"
+            target="_blank"
+            rel="sponsored noreferrer"
+          >
+            Ver oferta patrocinada
+          </a>
+        </div>
+      </aside>
+    );
+  }
 
   if (name === "top") {
     return (
