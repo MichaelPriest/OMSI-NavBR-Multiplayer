@@ -7,6 +7,7 @@ using NavBR.Client.Overlay;
 using NavBR.Client.Omsi;
 using NavBR.Client.Windows;
 using NavBR.Client.Operations;
+using NavBR.Client.PluginInstaller;
 
 namespace NavBR.Client;
 
@@ -21,6 +22,9 @@ public partial class MainWindow
         var currentInstall = _currentOmsi?.InstallDirectory;
         var hudSettings = MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
+        var pluginInstall = GetPluginInstallDiagnostics();
+        var pluginOmsiRoot = OmsiPluginInstallationService.ResolveOmsiRoot(
+            _currentOmsi?.InstallDirectory);
 
         FileInfo? logInfo = null;
         try
@@ -38,6 +42,19 @@ public partial class MainWindow
         return new
         {
             installationsNotice = _webOmsiLaunchNotice,
+            pluginInstallation = new
+            {
+                state = pluginInstall.State.ToLowerInvariant(),
+                requiredFilesFound = pluginInstall.RequiredFilesFound,
+                requiredFilesTotal = 3,
+                manifestPresent = string.Equals(pluginInstall.Manifest, "YES", StringComparison.OrdinalIgnoreCase),
+                pluginsDirectory = pluginInstall.DisplayPath,
+                omsiRoot = pluginOmsiRoot,
+                embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
+                installAvailable = OmsiPluginInstallationService.HasEmbeddedPackage &&
+                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot),
+                omsiRunning = _currentOmsi is not null
+            },
             installations = profiles
                 .Select(profile => new
                 {
@@ -133,6 +150,21 @@ public partial class MainWindow
                 showDrivingTips = alpha12Preferences.ShowDrivingTips
             }
         };
+    }
+
+    private void InstallOmsiPluginFromWeb()
+    {
+        var root = OmsiPluginInstallationService.ResolveOmsiRoot(
+            _currentOmsi?.InstallDirectory);
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            throw new InvalidOperationException(
+                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta do OMSI em Configurações primeiro.");
+        }
+
+        var result = OmsiPluginInstallationService.InstallOrUpdate(root);
+        _webOmsiLaunchNotice =
+            $"Plugin NavBR instalado/atualizado em {result.PluginsDirectory}. Inicie o OMSI para carregar o plugin.";
     }
 
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
