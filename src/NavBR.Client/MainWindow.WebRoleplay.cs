@@ -19,6 +19,7 @@ public partial class MainWindow
             : Array.Empty<RoleplayCharacterOption>();
         var controller = GetRoleplayControllerForShell();
         var current = controller.CurrentState;
+        var nativeAnimation = controller.CurrentNativeAnimationDiagnostics;
         var busDistanceMeters = controller.GetBusDistanceMeters();
         var interactions = GetRoleplayVehicleInteractionsForShell();
         var lastInteraction =
@@ -46,6 +47,19 @@ public partial class MainWindow
             runtimeAvailable = controller.IsRuntimeAvailable,
             active = controller.IsActive,
             terrainFollowing = controller.IsGroundFollowing,
+            nativeAnimation = nativeAnimation is null
+                ? null
+                : new
+                {
+                    aiMode = nativeAnimation.AiMode,
+                    aiModeEx = nativeAnimation.AiModeEx,
+                    aiSubMode = nativeAnimation.AiSubMode,
+                    sollSpeedMps = nativeAnimation.SollSpeedMps,
+                    actSpeedMps = nativeAnimation.ActSpeedMps,
+                    lastMovedDistanceMeters =
+                        nativeAnimation.LastMovedDistanceMeters,
+                    animationState = nativeAnimation.AnimationState
+                },
             busDistanceMeters,
             enterBusRangeMeters = controller.EnterBusRangeMeters,
             canEnterBus = controller.IsActive &&
