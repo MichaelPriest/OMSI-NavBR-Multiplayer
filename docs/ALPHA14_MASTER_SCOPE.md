@@ -94,6 +94,19 @@ Somente desenvolvimento/teste:
 - COM/baud persistidos;
 - reconexão somente à mesma COM.
 
+## HUD in-game — estilos adicionais
+
+- o HUD atual foi preservado como **Normal (HUD atual)** / tema **Atual / NavBR Clássico**;
+- os presets antigos continuam disponíveis e retornam à aparência legada do HUD;
+- novos estilos são opt-in e usam somente telemetria real já disponível no cliente:
+  - **RP Urbano** — cards compactos e vidro escuro, inspirado em padrões de HUD de jogos RP/open-world;
+  - **Route Advisor** — foco em linha, destino, próxima parada e navegação, inspirado em simuladores rodoviários;
+  - **Corrida Minimal** — velocidade em destaque e baixa obstrução, inspirado em padrões de telemetria de jogos de corrida;
+  - **Transit Pro** — foco operacional de ônibus, atraso, parada solicitada e estados do veículo;
+- nomes, paletas, componentes e composição são originais do NavBR; não são copiados logos, assets ou layouts proprietários de outros jogos;
+- o React atua como configurador; a exibição in-game continua no HUD nativo/overlay;
+- presets podem definir escala, largura, opacidade e módulos, mas continuam consumindo estado real do OMSI/NavBR.
+
 ## 7. Release e validação
 
 - `test/alpha14-test3`: build privada em GitHub Actions, sem alterar release;
