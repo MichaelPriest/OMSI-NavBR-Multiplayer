@@ -353,6 +353,20 @@ export interface NavBrGhostState {
   status?: string | null;
   error?: string | null;
   ghostDirectory: string;
+  libraryInvalidCount: number;
+  library: {
+    fileName: string;
+    name: string;
+    recordedAtUtc: string;
+    mapName?: string | null;
+    vehicleName?: string | null;
+    durationSeconds: number;
+    estimatedDistanceKm: number;
+    averageSpeedKph: number;
+    maximumSpeedKph: number;
+    frameCount: number;
+    selected: boolean;
+  }[];
   selected?: {
     name: string;
     recordedAtUtc: string;
@@ -365,6 +379,12 @@ export interface NavBrGhostState {
     hofCompatibilityId?: string | null;
     durationSeconds: number;
     frameCount: number;
+    line?: string | null;
+    routePoints: {
+      x: number;
+      z: number;
+      offsetMilliseconds: number;
+    }[];
     analytics?: {
       durationSeconds: number;
       estimatedDistanceKm: number;
@@ -591,6 +611,9 @@ export type NavBrCommand =
   | "stopGhostRecording"
   | "cancelGhostRecording"
   | "selectGhostFile"
+  | "refreshGhostLibrary"
+  | "selectGhostLibraryItem"
+  | "importGhostReplay"
   | "playGhost"
   | "stopGhostPlayback"
   | "openGhostFolder"
