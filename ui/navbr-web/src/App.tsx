@@ -275,7 +275,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
           <span>{t("nav.routeUnavailableDetail")}</span>
         </div>
       ) : (
-        <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
+        <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Roadmap da rota ativa">
           <polyline className="nav-route-shadow" points={geometry.routePoints} />
           <polyline className="nav-route-line" points={geometry.routePoints} />
 
@@ -1285,7 +1285,7 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
           profileId: profile.id,
           name,
           launchArguments
-        })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
+        })}>Salvar perfil</button>
         {!profile.isPreferred && (
           <button className="button ghost compact" onClick={() => sendCommand("setPreferredOmsiProfile", { profileId: profile.id })}>
             {pick("Tornar preferido", "Make preferred", "Hacer preferido", "Als bevorzugt setzen", "Définir comme préféré")}
@@ -1518,23 +1518,26 @@ function formatFileSize(bytes: number | null | undefined) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function roadmapStatusLabel(status: string | null | undefined) {
+function roadmapStatusLabel(
+  status: string | null | undefined,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) {
   switch (status) {
-    case "analysis-ready": return "Análise pronta";
-    case "analysis-no-tile-images": return "Sem imagens de tile";
-    case "analysis-failed": return "Falha na análise";
-    case "building-tiles": return "Montando roadmap por tiles";
-    case "building-vector": return "Gerando roadmap vetorial";
-    case "tiles-built": return "Roadmap por tiles concluído";
-    case "vector-built": return "Roadmap vetorial concluído";
-    case "tiles-build-failed": return "Falha na geração por tiles";
-    case "vector-build-failed": return "Falha na geração vetorial";
-    default: return status || "Pronto";
+    case "analysis-ready": return pick("Análise pronta", "Analysis ready", "Análisis listo", "Analyse bereit", "Analyse prête");
+    case "analysis-no-tile-images": return pick("Sem imagens de tile", "No tile images", "Sin imágenes de tile", "Keine Tile-Bilder", "Aucune image de tile");
+    case "analysis-failed": return pick("Falha na análise", "Analysis failed", "Falló el análisis", "Analyse fehlgeschlagen", "Échec de l’analyse");
+    case "building-tiles": return pick("Montando roadmap por tiles", "Building roadmap from tiles", "Montando roadmap por tiles", "Roadmap aus Tiles wird erstellt", "Construction de la roadmap depuis les tiles");
+    case "building-vector": return pick("Gerando roadmap vetorial", "Generating vector roadmap", "Generando roadmap vectorial", "Vektor-Roadmap wird erzeugt", "Génération de la roadmap vectorielle");
+    case "tiles-built": return pick("Roadmap por tiles concluído", "Tile roadmap completed", "Roadmap por tiles completado", "Tile-Roadmap abgeschlossen", "Roadmap par tiles terminée");
+    case "vector-built": return pick("Roadmap vetorial concluído", "Vector roadmap completed", "Roadmap vectorial completado", "Vektor-Roadmap abgeschlossen", "Roadmap vectorielle terminée");
+    case "tiles-build-failed": return pick("Falha na geração por tiles", "Tile build failed", "Falló la generación por tiles", "Tile-Erzeugung fehlgeschlagen", "Échec de la génération par tiles");
+    case "vector-build-failed": return pick("Falha na geração vetorial", "Vector build failed", "Falló la generación vectorial", "Vektor-Erzeugung fehlgeschlagen", "Échec de la génération vectorielle");
+    default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
   }
 }
 
 function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const [selectedFolder, setSelectedFolder] = useState("");
 
   useEffect(() => {
@@ -1564,7 +1567,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
             <h3>{t("roadmap.title")}</h3>
           </div>
           <span className={`hardware-state-pill ${roadmap.busy ? "connected" : ""}`}>
-            {roadmap.busy ? "Processando" : roadmapStatusLabel(roadmap.status)}
+            {roadmap.busy ? "Processando" : roadmapStatusLabel(roadmap.status, pick)}
           </span>
         </div>
 
@@ -1588,7 +1591,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
             {selectedMap && (
               <div className="roadmap-map-facts">
                 <span><small>PASTA</small><strong>{selectedMap.folderName}</strong></span>
-                <span><small>{pick("TILES DO MAPA", "MAP TILES", "TILES DEL MAPA", "KARTEN-TILES", "TILES DE LA CARTE")}</small><strong>{selectedMap.tileCount}</strong></span>
+                <span><small>TILES DO MAPA</small><strong>{selectedMap.tileCount}</strong></span>
                 <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? "Existe" : "Ausente"}</strong></span>
               </div>
             )}
@@ -1626,7 +1629,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
 
             {roadmap.busy && (
               <div className="roadmap-progress">
-                <div><span>{roadmapStatusLabel(roadmap.status)}</span><strong>{Math.round(progress)}%</strong></div>
+                <div><span>{roadmapStatusLabel(roadmap.status, pick)}</span><strong>{Math.round(progress)}%</strong></div>
                 <div className="roadmap-progress-track"><i style={{ width: `${progress}%` }} /></div>
               </div>
             )}
@@ -1651,7 +1654,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               <span><small>GRADE X</small><strong>{analysis.minGridX} … {analysis.maxGridX}</strong></span>
               <span><small>GRADE Y</small><strong>{analysis.minGridY} … {analysis.maxGridY}</strong></span>
               <span><small>TILE</small><strong>{analysis.tilePixelWidth > 0 ? `${analysis.tilePixelWidth}×${analysis.tilePixelHeight}` : "—"}</strong></span>
-              <span><small>{pick("SAÍDA", "OUTPUT", "SALIDA", "AUSGABE", "SORTIE")}</small><strong>{analysis.outputPixelWidth > 0 ? `${analysis.outputPixelWidth}×${analysis.outputPixelHeight}` : "—"}</strong></span>
+              <span><small>SAÍDA</small><strong>{analysis.outputPixelWidth > 0 ? `${analysis.outputPixelWidth}×${analysis.outputPixelHeight}` : "—"}</strong></span>
               <span><small>ESTIMATIVA</small><strong>{formatFileSize(analysis.estimatedBytes)}</strong></span>
               <span><small>BACKUP NECESSÁRIO</small><strong>{analysis.existingWholeRoadmap ? "Sim" : "Não"}</strong></span>
             </div>
@@ -1841,7 +1844,7 @@ function Settings({
 
             <div className="network-status-grid">
               <div>
-                <small>{pick("FIREWALL WINDOWS", "WINDOWS FIREWALL", "FIREWALL WINDOWS", "WINDOWS-FIREWALL", "PARE-FEU WINDOWS")}</small>
+                <small>WINDOWS FIREWALL</small>
                 <strong className={network?.diagnostics?.firewallRulePresent ? "ok" : "warn"}>
                   {network?.diagnostics == null ? pick("Não verificado", "Not checked", "No verificado", "Nicht geprüft", "Non vérifié") : network.diagnostics.firewallRulePresent ? pick("Regra confirmada", "Rule confirmed", "Regla confirmada", "Regel bestätigt", "Règle confirmée") : pick("Regra ausente", "Rule missing", "Regla ausente", "Regel fehlt", "Règle absente")}
                 </strong>
@@ -1930,16 +1933,16 @@ function Settings({
         <section className="advanced-grid settings-advanced">
           <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
-            <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
-            <p>{pick("Firewall, NAT e UPnP estão disponíveis na aba Rede React. Relay e ônibus físico continuam no controlador nativo.", "Firewall, NAT and UPnP are available in the React Network tab. Relay and physical bus remain in the native controller.", "Firewall, NAT y UPnP están disponibles en la pestaña Red de React. Relay y autobús físico permanecen en el controlador nativo.", "Firewall, NAT und UPnP sind im React-Netzwerktab verfügbar. Relay und physischer Bus bleiben im nativen Controller.", "Pare-feu, NAT et UPnP sont disponibles dans l’onglet Réseau React. Relay et bus physique restent dans le contrôleur natif.")}</p>
-            <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
+            <h3>Rede e conectividade</h3>
+            <p>Firewall, NAT e UPnP já estão disponíveis na aba Rede. Relay e ônibus físico continuam no controlador nativo.</p>
+            <button className="button ghost" onClick={() => setTab("network")}>Abrir Rede</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
             <h3>Personalização</h3>
             <p>Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.</p>
             <div className="settings-action-row">
-              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir HUD", "Open HUD", "Abrir HUD", "HUD öffnen", "Ouvrir HUD")}</button>
+              <button className="button ghost" onClick={() => setTab("hud")}>Abrir HUD</button>
               <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
             </div>
           </article>
@@ -1947,13 +1950,13 @@ function Settings({
             <span className="eyebrow">ROADMAP</span>
             <h3>Roadmap Studio</h3>
             <p>Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.</p>
-            <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
+            <button className="button ghost" onClick={() => setTab("roadmap")}>Abrir Roadmap Studio</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">FALLBACK</span>
             <h3>Interface WPF</h3>
             <p>Abre o shell técnico anterior caso seja necessário comparar comportamento ou acessar uma área ainda não migrada.</p>
-            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>{pick("Abrir interface WPF", "Open WPF interface", "Abrir interfaz WPF", "WPF-Oberfläche öffnen", "Ouvrir l’interface WPF")}</button>
+            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>Abrir interface WPF</button>
           </article>
         </section>
       )}
@@ -2472,7 +2475,7 @@ function Multiplayer({
             </form>
           </article>
           <aside className="card voice-card">
-            <span className="eyebrow">{pick("VOZ", "VOICE", "VOZ", "SPRACHE", "VOIX")}</span>
+            <span className="eyebrow">VOZ</span>
             <h3>{multiplayer.voiceEnabled ? pick("Voz habilitada", "Voice enabled", "Voz habilitada", "Sprache aktiviert", "Voix activée") : pick("Voz desativada", "Voice disabled", "Voz desactivada", "Sprache deaktiviert", "Voix désactivée")}</h3>
 
             <label className="voice-toggle">
@@ -2687,7 +2690,6 @@ function GhostRoutePreview({
 }: {
   points: { x: number; z: number; offsetMilliseconds: number }[];
 }) {
-  const { pick } = useI18n();
   const plot = useMemo(() => {
     if (points.length < 2) return null;
     const minX = Math.min(...points.map(point => point.x));
@@ -2712,12 +2714,12 @@ function GhostRoutePreview({
   }, [points]);
 
   if (!plot || plot.length < 2) {
-    return <div className="empty-state">{pick("Replay sem coordenadas suficientes para pré-visualização.", "Replay does not have enough coordinates for preview.", "El replay no tiene suficientes coordenadas para la vista previa.", "Das Replay hat nicht genügend Koordinaten für die Vorschau.", "Le replay ne contient pas assez de coordonnées pour l’aperçu.")}</div>;
+    return <div className="empty-state">Replay sem coordenadas suficientes para pré-visualização.</div>;
   }
 
   return (
     <div className="ghost-route-preview">
-      <svg viewBox="0 0 100 100" role="img" aria-label={pick("Trajeto real gravado no Ghost", "Real route recorded in Ghost", "Trayecto real grabado en Ghost", "Im Ghost aufgezeichnete echte Strecke", "Trajet réel enregistré dans Ghost")}>
+      <svg viewBox="0 0 100 100" role="img" aria-label="Trajeto real gravado no Ghost">
         <polyline
           className="ghost-route-shadow"
           points={plot.map(point => `${point.px},${point.py}`).join(" ")}
@@ -2740,7 +2742,7 @@ function GhostReplay({
   state: NavBrState | null;
   error: string | null;
 }) {
-  const { t, pick } = useI18n();
+  const { t } = useI18n();
   const ghost: NavBrGhostState | undefined = state?.ghost;
   const [recordName, setRecordName] = useState("");
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -2791,7 +2793,7 @@ function GhostReplay({
               value={recordName}
               disabled={ghost.recording || ghost.playing}
               onChange={event => setRecordName(event.target.value)}
-              placeholder={pick("Opcional — ex.: Linha 675N manhã", "Optional — e.g. Line 675N morning", "Opcional — ej.: Línea 675N mañana", "Optional — z. B. Linie 675N morgens", "Optionnel — ex. Ligne 675N matin")}
+              placeholder="Opcional — ex.: Linha 675N manhã"
             />
           </label>
 
@@ -2848,12 +2850,12 @@ function GhostReplay({
 
           {selected && (
             <div className="ghost-metadata-grid">
-              <span><small>{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</small><strong>{selected.mapName || "—"}</strong></span>
+              <span><small>MAPA</small><strong>{selected.mapName || "—"}</strong></span>
               <span><small>VEÍCULO</small><strong>{selected.vehicleName || "—"}</strong></span>
               <span><small>HOF</small><strong>{selected.hofName || "—"}</strong></span>
               <span><small>DURAÇÃO</small><strong>{formatReplayDuration(selected.durationSeconds)}</strong></span>
               <span><small>FRAMES</small><strong>{selected.frameCount.toLocaleString()}</strong></span>
-              <span><small>{pick("LINHA", "LINE", "LÍNEA", "LINIE", "LIGNE")}</small><strong>{selected.line || "—"}</strong></span>
+              <span><small>LINHA</small><strong>{selected.line || "—"}</strong></span>
               <span><small>GRAVADO</small><strong>{new Date(selected.recordedAtUtc).toLocaleString()}</strong></span>
             </div>
           )}
@@ -2970,7 +2972,7 @@ function GhostReplay({
                 >
                   <span>
                     <strong>{item.name}</strong>
-                    <small>{item.mapName || pick("Mapa —", "Map —", "Mapa —", "Karte —", "Carte —")} · {item.vehicleName || pick("Veículo —", "Vehicle —", "Vehículo —", "Fahrzeug —", "Véhicule —")}</small>
+                    <small>{item.mapName || "Mapa —"} · {item.vehicleName || "Veículo —"}</small>
                   </span>
                   <span>
                     <strong>{formatReplayDuration(item.durationSeconds)}</strong>
