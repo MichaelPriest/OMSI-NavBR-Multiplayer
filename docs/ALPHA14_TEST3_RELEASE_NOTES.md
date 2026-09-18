@@ -9,14 +9,15 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - fallback WPF seguro quando WebView2 falha ou quando o usuário solicita;
 - Home e Executar OMSI;
 - Navegação/GPS com rota, paradas, manobras e ETA reais;
-- Central Multiplayer completa;
+- Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;
 - CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;
 - Hardware Cockpit com conexão serial compartilhada;
 - Instalações OMSI e perfis de lançamento;
 - Diagnóstico/privacidade;
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
 - tray abre/oculta o shell React;
-- Mapa 3D, HUD e RP continuam nativos.
+- Personagem/RP possui tela React própria e também integra a aba Multiplayer;
+- Mapa 3D e HUD continuam nativos; posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
 
 ## Multiplayer
 
@@ -27,6 +28,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - diretório público, busca e favoritos;
 - avaliação nativa de compatibilidade;
 - jogadores, latência, voz, chat e RP reais;
+- dispositivos de entrada/saída de áudio e mute/ganho por jogador usam o `VoiceChatService` existente, sem segundo pipeline de áudio;
 - mapa da sessão somente com posições recentes e compatíveis.
 
 ## Personagem / RP
@@ -36,7 +38,9 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - bridge protocol v3 / interop v3;
 - vínculo real com ônibus;
 - restauração de pose/vínculo/IA ao retornar;
-- W/S, A/D, Shift e Esc no controlador global.
+- ativação experimental, catálogo real de `Map.Drivers`, seleção, Sair do ônibus e Retornar ao ônibus diretamente no React;
+- HUD e auto-prompt abrem a tela RP React;
+- W/S, A/D, Shift e Esc continuam no controlador global nativo.
 
 ## Hardware e rede
 

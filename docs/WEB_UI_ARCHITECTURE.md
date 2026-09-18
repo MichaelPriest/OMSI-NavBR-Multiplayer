@@ -47,14 +47,15 @@ The React shell now provides real-data surfaces for:
 - Company/Fleet and Driver Profile stores;
 - OMSI installation profiles and launch arguments;
 - diagnostics consent and log status;
+- Personagem/RP selection and controls backed by the single native `RoleplayCharacterController` and real `Map.Drivers` catalog;
 - Hardware Cockpit serial configuration and native packet preview;
 - verified networking diagnostics for Firewall TCP 27730, listener state, NAT/CGNAT, UPnP and optional external probe.
 
-The native HUD and RP overlay remain native because focus, click-through and OMSI window behavior are native responsibilities.
+The HUD remains native because focus, click-through and OMSI window behavior are native responsibilities. The RP control surface is React, while physical character possession, keyboard capture, transforms and Plugin Bridge interaction remain native C# responsibilities.
 
 ## Multiplayer bridge
 
-React does not create a second SignalR client. The existing C# \`MultiplayerWindow\` can run hidden as the live session controller. The bridge exposes room lifecycle, public/private rooms, compatibility, players, chat, voice, RP state and real session positions.
+React does not create a second SignalR client. The existing C# \`MultiplayerWindow\` can run hidden as the live session controller. The bridge exposes room lifecycle, public/private rooms, compatibility, players, chat, voice, audio devices, per-player mute/gain, RP state and real session positions. React never creates a second audio pipeline: device changes and mixer controls call the existing `VoiceChatService`.
 
 Passwords remain ephemeral and are not persisted.
 

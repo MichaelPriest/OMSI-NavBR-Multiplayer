@@ -12,8 +12,8 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - WPF só é ocultado depois que o WebView2 confirma carregamento;
 - o ícone da bandeja abre/oculta a interface React;
 - Home com Executar OMSI e dados reais da operação;
-- Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Hardware Cockpit, Instalações OMSI, Diagnóstico e Rede migrados para React;
-- Mapa 3D, HUD e RP continuam chamando os componentes nativos.
+- Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Personagem/RP, Hardware Cockpit, Instalações OMSI, Diagnóstico e Rede migrados para React;
+- Mapa 3D e HUD continuam nativos; o runtime físico do RP continua no C#/Plugin Bridge.
 
 ## Navegação
 
@@ -33,7 +33,8 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - diretório, busca e favoritos;
 - compatibilidade de mapa/plugin/HOF antes da entrada direta;
 - jogadores, latência, mapa real da sessão, chat e voz;
-- Personagem/RP;
+- seleção de microfone/saída e mixer temporário de mute/ganho por jogador usando o `VoiceChatService` nativo;
+- Personagem/RP com catálogo real de `Map.Drivers`, seleção e comandos Sair/Retornar ao ônibus;
 - peer-host TCP 27730 e servidor dedicado opcional.
 
 ## CCO / Empresa
@@ -66,7 +67,8 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - Named Pipe \`OMSI.NavBR.Multiplayer.Plugin.v3\`;
 - ABI/state v3;
 - capabilities atualizadas em runtime;
-- personagem real do mapa;
+- personagem real do mapa, selecionado pela interface React;
+- HUD e auto-prompt direcionam para a tela RP React;
 - restauração de pose/vínculo/IA;
 - ônibus remoto físico continua experimental.
 

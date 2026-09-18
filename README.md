@@ -22,11 +22,11 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 - **Mover HUD** visível no topo, Sistema e ações rápidas;
 - selects/ComboBox com tema escuro consistente;
 - Central Multiplayer sem o wizard legado sobreposto;
-- abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
+- abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado, com dispositivos de áudio e mixer por jogador no próprio React;
 - salas públicas/privadas, senha, convite, peer-host TCP 27730, UPnP e relay experimental;
 - tela **Rede** com verificação real do Firewall TCP 27730, listener local, NAT/CGNAT, UPnP e teste externo quando configurado;
 - Plugin Bridge **v3** + interop RP v3;
-- modo Personagem/RP disponível também sem multiplayer;
+- modo Personagem/RP disponível também sem multiplayer, com catálogo real de `Map.Drivers`, ativação, seleção e retorno ao ônibus pelo React;
 - ônibus remoto físico experimental;
 - simulador multiplayer com bots no **mesmo mapa**, **próximos do host** e herdando **linha/rota/destino/próxima parada** da operação ativa da sala;
 - interface pt-BR, English, Español, Deutsch e Français.
@@ -115,7 +115,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, voz, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI e HUD/RP nativos.
+A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, HUD nativo e runtime físico do RP.
 
 O shell WPF anterior permanece como fallback técnico. Ele só é ocultado depois que o WebView2 confirma o carregamento da interface; se o WebView2 falhar, o WPF continua disponível. O ícone da bandeja também reabre a interface React principal.
 
@@ -123,8 +123,9 @@ Superfícies já migradas para React:
 
 - Home operacional e Executar OMSI;
 - Navegação/GPS com geometria real da rota, paradas, manobras e ETA;
-- Central Multiplayer, salas públicas/privadas, jogadores, chat, voz e RP;
+- Central Multiplayer, salas públicas/privadas, jogadores, chat, voz, seleção de microfone/saída, mixer por jogador e RP;
 - CCO, ocorrências, Empresa/Frota e Perfil;
+- Personagem/RP com personagens reais de `Map.Drivers`, estado do Plugin Bridge e comandos Sair/Retornar ao ônibus;
 - Hardware Cockpit com uma única conexão serial compartilhada;
 - Instalações OMSI e perfis de lançamento;
 - Diagnóstico e privacidade;
