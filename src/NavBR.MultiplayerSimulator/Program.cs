@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Http;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
@@ -24,10 +26,27 @@ Console.CancelKeyPress += (_, eventArgs) =>
     shutdown.Cancel();
 };
 
+await using var localServer = await LocalServerBootstrap.EnsureAsync(options, shutdown.Token);
+if (!localServer.Ready)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("NavBR Simulator: servidor indisponível.");
+    Console.Error.WriteLine(localServer.ErrorMessage);
+    Console.Error.WriteLine("Crie uma sala no NavBR, inicie o servidor dedicado ou use a build do simulador que inclui a pasta 'server'.");
+    Environment.ExitCode = 3;
+    return;
+}
+
+if (localServer.StartedServer)
+{
+    Console.WriteLine($"Local NavBR.Server started automatically at {localServer.ServerUrl}.");
+}
+
 var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
     .ToArray();
 var probe = options.Verify ? new SimulationProbe(options) : null;
+var connected = false;
 
 try
 {
@@ -37,6 +56,7 @@ try
     }
 
     await Task.WhenAll(bots.Select(bot => bot.ConnectAsync(shutdown.Token)));
+    connected = true;
     Console.WriteLine($"Connected {bots.Length} simulated players.");
 
     var started = DateTimeOffset.UtcNow;
@@ -52,23 +72,35 @@ try
 catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
 {
 }
+catch (HttpRequestException ex)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine($"NavBR Simulator: não foi possível conectar em {options.ServerUrl}.");
+    Console.Error.WriteLine($"Detalhe: {ex.Message}");
+    Console.Error.WriteLine("Confirme que o host/sala está ativo e que a porta configurada está correta.");
+    Environment.ExitCode = 3;
+}
 finally
 {
     await Task.WhenAll(bots.Select(bot => bot.DisposeAsync().AsTask()));
 
     if (probe is not null)
     {
-        var result = probe.Verify(bots.Select(bot => bot.PlayerId).ToArray());
+        if (connected)
+        {
+            var result = probe.Verify(bots.Select(bot => bot.PlayerId).ToArray());
+            if (!result.Success)
+            {
+                Console.Error.WriteLine($"Movement verification failed: {result.Message}");
+                Environment.ExitCode = 2;
+            }
+            else
+            {
+                Console.WriteLine($"Movement verification passed: {result.Message}");
+            }
+        }
+
         await probe.DisposeAsync();
-        if (!result.Success)
-        {
-            Console.Error.WriteLine($"Movement verification failed: {result.Message}");
-            Environment.ExitCode = 2;
-        }
-        else
-        {
-            Console.WriteLine($"Movement verification passed: {result.Message}");
-        }
     }
 }
 
@@ -465,6 +497,226 @@ internal enum MovementKind
     Roleplay
 }
 
+internal sealed class LocalServerBootstrap : IAsyncDisposable
+{
+    private readonly Process? _process;
+
+    private LocalServerBootstrap(bool ready, string serverUrl, bool startedServer, string? errorMessage, Process? process)
+    {
+        Ready = ready;
+        ServerUrl = serverUrl;
+        StartedServer = startedServer;
+        ErrorMessage = errorMessage;
+        _process = process;
+    }
+
+    public bool Ready { get; }
+    public string ServerUrl { get; }
+    public bool StartedServer { get; }
+    public string? ErrorMessage { get; }
+
+    public static async Task<LocalServerBootstrap> EnsureAsync(
+        SimulatorOptions options,
+        CancellationToken cancellationToken)
+    {
+        var baseUrl = NormalizeBaseUrl(options.ServerUrl);
+        if (await IsHealthyAsync(baseUrl, cancellationToken))
+        {
+            return new LocalServerBootstrap(true, baseUrl, false, null, null);
+        }
+
+        if (!options.AutoStartLocalServer || !IsLoopback(baseUrl))
+        {
+            return new LocalServerBootstrap(
+                false,
+                baseUrl,
+                false,
+                $"Nenhum NavBR.Server respondeu em {baseUrl}.",
+                null);
+        }
+
+        var startInfo = BuildStartInfo(baseUrl);
+        if (startInfo is null)
+        {
+            return new LocalServerBootstrap(
+                false,
+                baseUrl,
+                false,
+                "O servidor local não está em execução e o simulador não encontrou NavBR.Server.exe nem o projeto do servidor para iniciá-lo.",
+                null);
+        }
+
+        Process? process = null;
+        try
+        {
+            process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return new LocalServerBootstrap(false, baseUrl, false, "Falha ao iniciar o NavBR.Server local.", null);
+            }
+
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (process.HasExited)
+                {
+                    return new LocalServerBootstrap(
+                        false,
+                        baseUrl,
+                        false,
+                        $"NavBR.Server encerrou durante a inicialização (exit code {process.ExitCode}).",
+                        process);
+                }
+
+                if (await IsHealthyAsync(baseUrl, cancellationToken))
+                {
+                    return new LocalServerBootstrap(true, baseUrl, true, null, process);
+                }
+
+                await Task.Delay(500, cancellationToken);
+            }
+
+            return new LocalServerBootstrap(
+                false,
+                baseUrl,
+                false,
+                $"NavBR.Server foi iniciado, mas /health não respondeu em {baseUrl} dentro do tempo esperado.",
+                process);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new LocalServerBootstrap(
+                false,
+                baseUrl,
+                false,
+                $"Falha ao iniciar o NavBR.Server local: {ex.Message}",
+                process);
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_process is not null && !_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+                _process.WaitForExit(3000);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _process?.Dispose();
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    private static async Task<bool> IsHealthyAsync(string baseUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(1.5) };
+            using var response = await client.GetAsync($"{baseUrl}/health", cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static ProcessStartInfo? BuildStartInfo(string baseUrl)
+    {
+        var packagedCandidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "server", "NavBR.Server.exe"),
+            Path.Combine(AppContext.BaseDirectory, "NavBR.Server.exe")
+        };
+
+        foreach (var executable in packagedCandidates)
+        {
+            if (!File.Exists(executable))
+            {
+                continue;
+            }
+
+            var info = new ProcessStartInfo(executable)
+            {
+                WorkingDirectory = Path.GetDirectoryName(executable)!,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            info.Environment["ASPNETCORE_URLS"] = baseUrl;
+            return info;
+        }
+
+        var project = FindServerProject();
+        if (project is null)
+        {
+            return null;
+        }
+
+        var sourceInfo = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = Directory.GetParent(Path.GetDirectoryName(project)!)?.Parent?.FullName
+                               ?? Path.GetDirectoryName(project)!,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        sourceInfo.ArgumentList.Add("run");
+        sourceInfo.ArgumentList.Add("--project");
+        sourceInfo.ArgumentList.Add(project);
+        sourceInfo.ArgumentList.Add("-c");
+        sourceInfo.ArgumentList.Add("Release");
+        sourceInfo.ArgumentList.Add("--no-launch-profile");
+        sourceInfo.Environment["ASPNETCORE_URLS"] = baseUrl;
+        return sourceInfo;
+    }
+
+    private static string? FindServerProject()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        for (var depth = 0; current is not null && depth < 10; depth++, current = current.Parent)
+        {
+            var candidate = Path.Combine(current.FullName, "src", "NavBR.Server", "NavBR.Server.csproj");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsLoopback(string serverUrl)
+    {
+        if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(uri.Host, "::1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeBaseUrl(string serverUrl)
+    {
+        var value = serverUrl.Trim().TrimEnd('/');
+        const string hubPath = "/hubs/multiplayer";
+        if (value.EndsWith(hubPath, StringComparison.OrdinalIgnoreCase))
+        {
+            value = value[..^hubPath.Length];
+        }
+
+        return value;
+    }
+}
+
 internal enum SimulatorMode
 {
     Vehicles,
@@ -493,6 +745,7 @@ internal sealed record SimulatorOptions(
     string NamePrefix,
     SimulatorMode Mode,
     bool Verify,
+    bool AutoStartLocalServer,
     bool ShowHelp)
 {
     public static SimulatorOptions Parse(string[] args)
@@ -547,6 +800,7 @@ internal sealed record SimulatorOptions(
             NamePrefix: NullIfEmpty(values.GetValueOrDefault("prefix")) ?? "SIM",
             Mode: mode,
             Verify: values.ContainsKey("verify"),
+            AutoStartLocalServer: !values.ContainsKey("no-auto-server"),
             ShowHelp: values.ContainsKey("help"));
     }
 
@@ -573,6 +827,7 @@ Options:
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
   --verify             Verify that frames cross SignalR and positions move.
+  --no-auto-server     Do not auto-start a bundled/local NavBR.Server on loopback.
   --prefix TEXT        Display-name prefix (default SIM)
   --vehicle-path PATH  Optional real .bus path for physical-vehicle testing.
   --vehicle-id ID      Optional real vehicle compatibility id.
