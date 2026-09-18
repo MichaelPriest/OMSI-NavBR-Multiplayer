@@ -127,32 +127,57 @@ jobs:
       - name: Verify simulated players moving through the room
         shell: pwsh
         run: |
-          $server = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
-            "run", "--project", "src/NavBR.Server/NavBR.Server.csproj",
-            "-c", "Release", "--no-build", "--",
-            "--urls", "http://127.0.0.1:27831"
-          )
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force "artifacts/simulator" | Out-Null
+          $serverOut = "artifacts/simulator/server-27831.out.log"
+          $serverErr = "artifacts/simulator/server-27831.err.log"
+
+          $serverDll = Get-ChildItem "src/NavBR.Server/bin" -Recurse -Filter "NavBR.Server.dll" |
+            Where-Object { $_.FullName -match '[\\/]Release[\\/]net10\.0[\\/]' } |
+            Select-Object -First 1
+          if (-not $serverDll) {
+            throw "Compiled NavBR.Server.dll was not found."
+          }
+
+          $previousUrls = $env:ASPNETCORE_URLS
+          $env:ASPNETCORE_URLS = "http://127.0.0.1:27831"
+          $server = Start-Process dotnet -PassThru -WindowStyle Hidden             -ArgumentList @($serverDll.FullName)             -RedirectStandardOutput $serverOut             -RedirectStandardError $serverErr
+
           try {
             $ready = $false
             for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              if ($server.HasExited) {
+                break
+              }
+
               try {
                 $health = Invoke-WebRequest "http://127.0.0.1:27831/health" -UseBasicParsing -TimeoutSec 2
-                if ($health.StatusCode -eq 200) { $ready = $true; break }
-              } catch { Start-Sleep -Milliseconds 500 }
+                if ($health.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Milliseconds 500
+              }
             }
-            if (-not $ready) { throw "NavBR Test 3 server did not become ready." }
 
-            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
-              -c Release --no-build -- `
-              --server http://127.0.0.1:27831 `
-              --room alpha14-test3-ci `
-              --players 8 --mode mixed `
-              --map "Alpha14 Test 3 CI" `
-              --radius 70 --interval 200 --duration 9 --verify
-            if ($LASTEXITCODE -ne 0) { throw "Test 3 movement simulation failed." }
+            if (-not $ready) {
+              if (Test-Path $serverOut) { Get-Content $serverOut }
+              if (Test-Path $serverErr) { Get-Content $serverErr }
+              throw "NavBR test server did not become ready on port 27831."
+            }
+
+            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj               -c Release --no-build --               --server http://127.0.0.1:27831               --room alpha14-test3-ci               --players 8               --mode mixed               --map "Alpha14 Test 3 CI"               --x 120 --y 80 --z 0               --radius 70               --interval 200               --duration 9               --verify
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Multiplayer map movement simulation failed."
+            }
           }
           finally {
-            if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force
+            }
+            $env:ASPNETCORE_URLS = $previousUrls
           }
 
       - name: Publish Native AOT OMSI plugin x86
