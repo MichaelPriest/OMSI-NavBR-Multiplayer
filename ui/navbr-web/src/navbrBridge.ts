@@ -440,6 +440,17 @@ export interface NavBrHudState {
 
 export interface NavBrSystemState {
   installationsNotice?: string | null;
+  pluginInstallation: {
+    state: "missing" | "partial" | "installed" | "untracked" | "unknown" | "error";
+    requiredFilesFound: number;
+    requiredFilesTotal: number;
+    manifestPresent: boolean;
+    pluginsDirectory: string;
+    omsiRoot?: string | null;
+    embeddedPackageAvailable: boolean;
+    installAvailable: boolean;
+    omsiRunning: boolean;
+  };
   installations: NavBrOmsiInstallation[];
   hud: NavBrHudState;
   diagnostics: {
@@ -865,6 +876,7 @@ export type NavBrCommand =
   | "selectDriverProfileImport"
   | "applyDriverProfileImport"
   | "cancelDriverProfileImport"
+  | "installOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
   | "openOmsiProfileFolder"
