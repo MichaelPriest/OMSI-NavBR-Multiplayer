@@ -1,27 +1,27 @@
-name: alpha14 test3 roleplay prerelease
+name: alpha14 public prerelease
 
 on:
   push:
     branches:
-      - test/alpha14-test3
+      - release/alpha14-public
   pull_request:
     branches:
-      - feature/alpha14-roleplay
+      - release/alpha14-public
 
 permissions:
   contents: write
   actions: write
 
 concurrency:
-  group: alpha14-test3-roleplay-release
+  group: alpha14-public-release
   cancel-in-progress: true
 
 jobs:
   publish-test-release:
-    if: github.event_name == 'push' || github.head_ref == 'test/alpha14-test3'
+    if: github.event_name == 'push' || github.head_ref == 'build/alpha14-public'
     runs-on: windows-latest
     env:
-      TEST_TAG: v0.3.0-alpha.14-test.3
+      TEST_TAG: v0.3.0-alpha.14
       RELEASE_TARGET: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Verify Alpha.14 Test 3 version
+      - name: Verify Alpha.14 version
         shell: pwsh
         run: |
           [xml]$props = Get-Content "Directory.Build.props"
@@ -38,7 +38,7 @@ jobs:
           $tag = "v$([string]$group.VersionPrefix)-$([string]$group.VersionSuffix)"
           if ($tag -ne $env:TEST_TAG) { throw "Unexpected version/tag: $tag" }
 
-      - name: Reserve Alpha.14 Test 3 as draft
+      - name: Reserve Alpha.14 as draft
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,9 +50,9 @@ jobs:
               --repo "${{ github.repository }}" `
               --target "$env:RELEASE_TARGET" `
               --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
-              --notes "Draft reservado enquanto a Alpha.14 Test 3 passa pela validação automática." `
+              --notes "Draft reservado enquanto a Alpha.14 pública passa pela validação automática." `
               --prerelease --draft
-            if ($LASTEXITCODE -ne 0) { throw "Could not reserve Alpha.14 Test 3 draft." }
+            if ($LASTEXITCODE -ne 0) { throw "Could not reserve Alpha.14 draft." }
           }
 
       - name: Verify preinstalled .NET 10 SDK
@@ -186,10 +186,10 @@ jobs:
 
             & dotnet $simulatorDll.FullName `
               --server http://127.0.0.1:27831 `
-              --room alpha14-test3-ci `
+              --room alpha14-public-ci `
               --players 8 `
               --mode mixed `
-              --map "Alpha14 Test 3 CI" `
+              --map "Alpha14 Public CI" `
               --x 120 --y 80 --z 0 `
               --radius 70 `
               --interval 200 `
@@ -297,7 +297,7 @@ jobs:
           Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
           Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
 
-      - name: Prepare Alpha.14 Test 3 assets and notes
+      - name: Prepare Alpha.14 public assets and notes
         shell: pwsh
         run: |
           $releaseDir = "artifacts/release"
@@ -315,8 +315,8 @@ jobs:
           Compress-Archive -Path "artifacts/plugin/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Plugin-$env:TEST_TAG-win-x86.zip") -Force
           Compress-Archive -Path "artifacts/simulator/*" -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-Simulator-$env:TEST_TAG-win-x64-dev.zip") -Force
 
-          Copy-Item docs/ALPHA14_TEST3_COMMUNITY.md (Join-Path $releaseDir "ALPHA14_TEST3_COMMUNITY.md") -Force
-          Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md (Join-Path $releaseDir "ALPHA14_TEST3_RELEASE_NOTES.md") -Force
+          Copy-Item docs/ALPHA14_COMMUNITY.md (Join-Path $releaseDir "ALPHA14_COMMUNITY.md") -Force
+          Copy-Item docs/ALPHA14_RELEASE_NOTES.md (Join-Path $releaseDir "ALPHA14_RELEASE_NOTES.md") -Force
           Copy-Item docs/ALPHA14_MASTER_SCOPE.md (Join-Path $releaseDir "ALPHA14_MASTER_SCOPE.md") -Force
           Copy-Item docs/MULTIPLAYER_SIMULATOR.md (Join-Path $releaseDir "MULTIPLAYER_SIMULATOR.md") -Force
           Copy-Item docs/OMSI_PLUGIN_EXPERIMENTAL.md (Join-Path $releaseDir "OMSI_PLUGIN_EXPERIMENTAL.md") -Force
@@ -331,7 +331,7 @@ jobs:
           }
           $hashLines | Set-Content (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
 
-          Copy-Item docs/ALPHA14_TEST3_RELEASE_NOTES.md "artifacts/release-notes.md" -Force
+          Copy-Item docs/ALPHA14_RELEASE_NOTES.md "artifacts/release-notes.md" -Force
 
 
       - name: Clean incomplete release assets
@@ -422,7 +422,7 @@ jobs:
           gh release edit $env:TEST_TAG `
             --repo "${{ github.repository }}" `
             --target "$env:RELEASE_TARGET" `
-            --title "OMSI NavBR Multiplayer $env:TEST_TAG — Central Multiplayer + RP v3" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — Public Alpha • Multiplayer + RP + HUD" `
             --notes-file "artifacts/release-notes.md" `
             --prerelease --draft=false
           if ($LASTEXITCODE -ne 0) { throw "Failed to publish $env:TEST_TAG." }
