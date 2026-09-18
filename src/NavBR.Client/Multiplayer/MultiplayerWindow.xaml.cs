@@ -207,6 +207,7 @@ public partial class MultiplayerWindow : Window
         UpdateButtons();
         RenderPlayers();
         RenderChat();
+        RefreshPublicRoomBrowserLocalization();
         RefreshSessionSummary();
     }
 
