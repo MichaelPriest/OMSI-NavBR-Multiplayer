@@ -162,6 +162,7 @@ public partial class MainWindow
             hardware = BuildWebHardwareState(),
             network = BuildWebNetworkState(),
             companyNetwork = BuildWebCompanyNetworkState(),
+            roleplay = BuildWebRoleplayState(),
             multiplayer = BuildWebMultiplayerState(),
             roomDirectory = new
             {
@@ -242,7 +243,19 @@ public partial class MainWindow
                 break;
 
             case "openRoleplay":
-                OpenMultiplayerRoleplayTabForShell();
+                break;
+
+            case "selectRoleplayCharacter":
+                SelectRoleplayCharacterFromWeb(
+                    GetWebPayloadString(payload, "characterId"));
+                break;
+
+            case "startRoleplay":
+                await StartRoleplayFromWebAsync();
+                break;
+
+            case "stopRoleplay":
+                await StopRoleplayFromWebAsync();
                 break;
 
             case "openNavigation3D":
