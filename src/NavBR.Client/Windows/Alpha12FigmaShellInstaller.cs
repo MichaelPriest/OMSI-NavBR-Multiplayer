@@ -194,7 +194,7 @@ internal static class Alpha12FigmaShellInstaller
         actions.Children.Add(ActionButton("Multiplayer", () => RaiseNavigation(window, "●")));
         actions.Children.Add(ActionButton(
             L("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP"),
-            window.OpenRoleplayCharacterWindowForShell));
+            window.OpenRoleplayCentralForShell));
         actions.Children.Add(ActionButton("Abrir HUD", () => RaiseTaggedButton(window, "alpha12-hud-shortcut")));
         actions.Children.Add(ActionButton("Empresa", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
         actions.Children.Add(ActionButton("CCO", () => RaiseTaggedButton(window, "alpha12-dispatcher")));
@@ -374,7 +374,7 @@ internal static class Alpha12FigmaShellInstaller
         AddPageButton(body, "●  Multiplayer", pages.Multiplayer, pages, pageButtons);
         body.Children.Add(NavigationButton(
             L("♙  Personagem / RP", "♙  Character / RP", "♙  Personaje / RP", "♙  Charakter / RP", "♙  Personnage / RP"),
-            window.OpenRoleplayCharacterWindowForShell));
+            window.OpenRoleplayCentralForShell));
 
         body.Children.Add(Separator());
         body.Children.Add(Section("OPERAÇÃO"));
