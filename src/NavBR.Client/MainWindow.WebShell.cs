@@ -251,6 +251,13 @@ public partial class MainWindow
             voiceInputDevices = Array.Empty<object>(),
             voiceOutputDevices = Array.Empty<object>(),
             voiceMixers = Array.Empty<object>(),
+            chatHotkey = settings.ChatHotkey,
+            voiceHotkey = settings.VoiceHotkey,
+            hotkeyOptions = NavBR.Client.Overlay.NavBRHotkeyCatalog.Options
+                .Select(option => option.Name)
+                .ToArray(),
+            relayEnabled = settings.EnableApplicationRelay,
+            relayServerUrl = settings.RelayServerUrl,
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
@@ -396,11 +403,23 @@ public partial class MainWindow
                 OpenMultiplayerCentralForShell(showWindow: false);
                 if (_multiplayerWindow is not null)
                 {
-                    await _multiplayerWindow.StartLocalHostFromWebAsync(
-                        GetWebPayloadString(payload, "roomId"),
-                        GetWebPayloadString(payload, "displayName"),
-                        GetWebPayloadBool(payload, "isPrivate"),
-                        GetWebPayloadString(payload, "roomPassword"));
+                    if (GetWebPayloadBool(payload, "useRelay"))
+                    {
+                        await _multiplayerWindow.StartRelayRoomFromWebAsync(
+                            GetWebPayloadString(payload, "roomId"),
+                            GetWebPayloadString(payload, "displayName"),
+                            GetWebPayloadBool(payload, "isPrivate"),
+                            GetWebPayloadString(payload, "roomPassword"),
+                            GetWebPayloadString(payload, "relayServerUrl"));
+                    }
+                    else
+                    {
+                        await _multiplayerWindow.StartLocalHostFromWebAsync(
+                            GetWebPayloadString(payload, "roomId"),
+                            GetWebPayloadString(payload, "displayName"),
+                            GetWebPayloadBool(payload, "isPrivate"),
+                            GetWebPayloadString(payload, "roomPassword"));
+                    }
                 }
                 break;
 
@@ -474,6 +493,40 @@ public partial class MainWindow
                     GetWebPayloadString(payload, "playerId"),
                     GetWebPayloadBool(payload, "muted"),
                     GetWebPayloadDouble(payload, "gain"));
+                break;
+
+            case "configureMultiplayerHotkeys":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.ConfigureHotkeysFromWeb(
+                    GetWebPayloadString(payload, "chatHotkey"),
+                    GetWebPayloadString(payload, "voiceHotkey"));
+                break;
+
+            case "configureRelay":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.ConfigureRelayFromWeb(
+                    GetWebPayloadBool(payload, "enabled"),
+                    GetWebPayloadString(payload, "relayServerUrl"));
+                break;
+
+            case "submitOperationalReport":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.SubmitOperationalReportFromWebAsync(
+                        string.Equals(
+                            GetWebPayloadString(payload, "kind"),
+                            "incident",
+                            StringComparison.OrdinalIgnoreCase));
+                }
+                break;
+
+            case "resolveMyOperationalReports":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is not null)
+                {
+                    await _multiplayerWindow.ResolveOwnOperationalReportsFromWebAsync();
+                }
                 break;
 
             case "acknowledgeOperationalReport":
