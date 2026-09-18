@@ -75,7 +75,14 @@ public partial class MainWindow
                             maximumSpeedKph = _webGhostSelectedAnalytics.MaximumSpeedKph,
                             validSpeedSamples = _webGhostSelectedAnalytics.ValidSpeedSamples
                         },
-                    routePoints = BuildWebGhostRoutePoints(_webGhostSelectedDocument),
+                    routePoints = BuildWebGhostRoutePoints(_webGhostSelectedDocument)
+                        .Select(point => new
+                        {
+                            x = point.X,
+                            z = point.Z,
+                            offsetMilliseconds = point.OffsetMilliseconds
+                        })
+                        .ToArray(),
                     line = _webGhostSelectedDocument?.Frames
                         .Select(frame => frame.Telemetry.Line)
                         .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
