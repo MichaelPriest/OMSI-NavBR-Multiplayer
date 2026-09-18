@@ -1,12 +1,24 @@
 # Alpha.14 Test 3 — roteiro de teste
 
+A Test 3 é a prerelease pública de validação da Alpha.14. O objetivo é confirmar o novo shell React/WebView2 e o ciclo funcional multiplayer/RP antes da promoção final.
+
 ## 1. Atualize o plugin
 
 A Test 3 usa **Plugin Bridge v3 + Interop v3**.
 
 Instale/atualize o plugin entregue junto da Test 3 antes de validar Personagem/RP. Plugin antigo deve ser tratado como incompatível, não como funcional.
 
-## 2. Central Multiplayer
+## 2. Interface React
+
+Confirme:
+
+- o app abre diretamente no shell React/WebView2;
+- nenhuma tela antiga WPF aparece durante navegação normal;
+- primeiro acesso, ajuda, configurações, perfil, empresa, Ghost, instalações, roadmap e diagnóstico permanecem dentro do React;
+- seletores de arquivo/pasta do Windows podem abrir como diálogos nativos;
+- o HUD OMSI continua nativo quando necessário.
+
+## 3. Central Multiplayer
 
 Confirme:
 
@@ -14,12 +26,13 @@ Confirme:
 - o item Multiplayer do menu abre diretamente a Central;
 - Visão geral mostra o mapa em destaque;
 - Sala separa criação e entrada;
+- diretório de salas públicas, busca/favoritos e entrada funcionam no React;
 - Jogadores não aparece como formulário;
 - Chat & Voz mantém chat separado das opções PTT;
 - Personagem/RP tem aba própria;
 - Avançado concentra firewall, UPnP/NAT, bridge e ônibus físico.
 
-## 3. Personagem / RP sem multiplayer
+## 4. Personagem / RP sem multiplayer
 
 1. abra OMSI 2.3.004;
 2. carregue completamente mapa e ônibus;
@@ -35,7 +48,7 @@ Confirme:
 
 Registre qualquer mensagem exibida pela aba RP.
 
-## 4. Movimento no mapa
+## 5. Movimento no mapa
 
 Durante RP:
 
@@ -43,11 +56,12 @@ Durante RP:
 - a pé: posição deve mudar continuamente;
 - correndo: deslocamento deve ser maior;
 - giro A/D deve atualizar heading;
-- o marcador da Central deve acompanhar o estado.
+- o marcador React/HUD deve acompanhar o estado;
+- nenhum marcador paralelo deve aparecer em layout WPF antigo.
 
-## 5. Simulação de sala
+## 6. Simulação de sala
 
-Desenvolvedores podem usar `docs/multiplayer-simulator.md` para gerar vários players sem vários PCs.
+Desenvolvedores podem usar `docs/MULTIPLAYER_SIMULATOR.md` para gerar vários players sem vários PCs.
 
 Teste sugerido:
 
@@ -63,7 +77,7 @@ dotnet run --project src/NavBR.MultiplayerSimulator -- `
 
 Na Central, observe entradas/saídas, movimento, rotação, nomes e alternância entre ônibus/RP.
 
-## 6. Multiplayer físico real
+## 7. Multiplayer físico real
 
 O simulador não substitui este teste. Para ônibus físico e RP dentro do OMSI, repita com dois PCs reais:
 
@@ -82,6 +96,7 @@ O simulador não substitui este teste. Para ônibus físico e RP dentro do OMSI,
 - personagem Drivers selecionado;
 - versão do plugin exibida;
 - mensagem de erro, se houver;
+- se alguma tela WPF antiga apareceu;
 - se o personagem apareceu fora do ônibus;
 - se W/S/A/D/Shift funcionaram;
 - se Esc restaurou o motorista;
