@@ -53,6 +53,36 @@ public partial class MainWindow
             }
             : null;
 
+        object? localRoleplayCharacter = null;
+        var roleplayState = _roleplayCharacterController?.CurrentState;
+        if (localVehicle is not null &&
+            roleplayState is { IsActive: true } &&
+            telemetry.LocalX is double busLocalX &&
+            telemetry.LocalY is double busLocalY &&
+            double.IsFinite(busLocalX) &&
+            double.IsFinite(busLocalY))
+        {
+            // Vehicle and human native Position fields use the same OMSI local
+            // coordinate frame. Anchor the character to the already-resolved
+            // navigation world position by applying only the native local delta;
+            // this remains stable when the bus sits near a tile boundary.
+            var roleplayWorldX = localX + (roleplayState.LocalX - busLocalX);
+            var roleplayWorldY = localY + (roleplayState.LocalY - busLocalY);
+            if (double.IsFinite(roleplayWorldX) && double.IsFinite(roleplayWorldY))
+            {
+                localRoleplayCharacter = new
+                {
+                    x = roleplayWorldX,
+                    y = roleplayWorldY,
+                    z = roleplayState.LocalZ,
+                    headingDegrees = roleplayState.HeadingDegrees,
+                    speedMps = roleplayState.SpeedMps,
+                    activity = roleplayState.Activity.ToString(),
+                    characterName = roleplayState.CharacterName
+                };
+            }
+        }
+
         var remoteVehicles = Navigation3DSessionFeed.Snapshot()
             .Where(item =>
                 IsWebNavigation3DCompatible(map, item.Frame) &&
@@ -101,6 +131,7 @@ public partial class MainWindow
             },
             routePoints,
             localVehicle,
+            localRoleplayCharacter,
             remoteVehicles,
             routeAvailable = routePoints.Length >= 2,
             remoteCount = remoteVehicles.Length
@@ -129,6 +160,7 @@ public partial class MainWindow
             bounds = null as object,
             routePoints = Array.Empty<object>(),
             localVehicle = null as object,
+            localRoleplayCharacter = null as object,
             remoteVehicles = Array.Empty<object>(),
             routeAvailable = false,
             remoteCount = 0
