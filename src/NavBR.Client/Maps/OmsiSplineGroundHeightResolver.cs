@@ -351,6 +351,8 @@ internal static class OmsiSplineGroundHeightResolver
         var normalizedY = localY / radius;
         var normalizedX = (radius - localX) / radius;
         var rawAngle = Math.Atan2(normalizedY, normalizedX);
+        var bestDistanceAlongSpline = 0d;
+        var bestDistanceSquared = double.PositiveInfinity;
         var minAngle = Math.Min(0d, totalAngle);
         var maxAngle = Math.Max(0d, totalAngle);
         var twoPi = Math.PI * 2d;
@@ -376,10 +378,10 @@ internal static class OmsiSplineGroundHeightResolver
                 candidateDy * candidateDy;
 
             if (double.IsFinite(candidateDistanceSquared) &&
-                candidateDistanceSquared < distanceSquared)
+                candidateDistanceSquared < bestDistanceSquared)
             {
-                distanceSquared = candidateDistanceSquared;
-                distanceAlongSpline = distance;
+                bestDistanceSquared = candidateDistanceSquared;
+                bestDistanceAlongSpline = distance;
             }
         }
 
@@ -400,6 +402,8 @@ internal static class OmsiSplineGroundHeightResolver
             ConsiderDistance(angle * radius);
         }
 
+        distanceAlongSpline = bestDistanceAlongSpline;
+        distanceSquared = bestDistanceSquared;
         return double.IsFinite(distanceSquared);
     }
 
