@@ -1741,11 +1741,13 @@ function Roleplay({ state, error }: { state: NavBrState | null; error: string | 
 function Multiplayer({
   state,
   error,
-  onOpenNetwork
+  onOpenNetwork,
+  onOpenHud
 }: {
   state: NavBrState | null;
   error: string | null;
   onOpenNetwork: () => void;
+  onOpenHud: () => void;
 }) {
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const telemetry = state?.telemetry;
@@ -2247,7 +2249,7 @@ function Multiplayer({
             <span className="eyebrow">HUD</span>
             <h3>Configurar HUD</h3>
             <p>Abre o editor nativo de escala, opacidade e módulos.</p>
-            <button className="button ghost" onClick={() => sendCommand("openHudEditor")}>Configurar HUD</button>
+            <button className="button ghost" onClick={onOpenHud}>Configurar HUD</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">REDE</span>
@@ -2312,7 +2314,12 @@ export default function App() {
                 ? <Hardware state={state} error={commandError} />
                 : screen === "settings"
                   ? <Settings state={state} error={commandError} requestedTab={settingsTabRequest} />
-                  : <Multiplayer state={state} error={commandError} onOpenNetwork={() => openSettingsTab("network")} />}
+                  : <Multiplayer
+                      state={state}
+                      error={commandError}
+                      onOpenNetwork={() => openSettingsTab("network")}
+                      onOpenHud={() => openSettingsTab("hud")}
+                    />}
       </main>
     </div>
   );
