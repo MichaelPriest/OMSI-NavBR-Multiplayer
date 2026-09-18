@@ -15,7 +15,11 @@ internal sealed record RoleplayNativeAnimationDiagnostics(
     double SollSpeedMps,
     double ActSpeedMps,
     double LastMovedDistanceMeters,
-    double AnimationState);
+    double AnimationState,
+    int? ActivityLegRaw,
+    int? ActivityArmUmbrellaRaw,
+    int? ActivityArmKiRaw,
+    int? ActivityHeadKiRaw);
 
 internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
@@ -682,8 +686,17 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             sollSpeed,
             actSpeed,
             lastMovedDistance,
-            animationState);
+            animationState,
+            NormalizeOptionalByte(result.CharacterActivityLegRaw),
+            NormalizeOptionalByte(result.CharacterActivityArmUmbrellaRaw),
+            NormalizeOptionalByte(result.CharacterActivityArmKiRaw),
+            NormalizeOptionalByte(result.CharacterActivityHeadKiRaw));
     }
+
+    private static int? NormalizeOptionalByte(int? value) =>
+        value is >= byte.MinValue and <= byte.MaxValue
+            ? value
+            : null;
 
     private bool TryFollowGround(
         OmsiMapInfo? map,
