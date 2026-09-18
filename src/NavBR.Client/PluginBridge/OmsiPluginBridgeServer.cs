@@ -52,6 +52,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         {
             return _lastPluginCapabilities?.Capabilities?.Contains(
                        capability,
+                       StringComparer.OrdinalIgnoreCase) == true ||
+                   _lastPluginStatus?.Capabilities?.Contains(
+                       capability,
                        StringComparer.OrdinalIgnoreCase) == true;
         }
     }
