@@ -702,6 +702,12 @@ public partial class MainWindow
                 ExportSessionHealthFromWeb();
                 break;
 
+            case "saveLegacyPreferences":
+                SaveLegacyPreferencesFromWeb(
+                    GetWebPayloadBool(payload, "advancedModeEnabled"),
+                    GetWebPayloadBool(payload, "showDrivingTips"));
+                break;
+
             case "refreshNetworkDiagnostics":
                 await RefreshWebNetworkDiagnosticsAsync();
                 break;
