@@ -87,10 +87,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         }
 
         var telemetry = _telemetrySource();
-        if (telemetry?.LocalX is not double busX ||
+        var map = _activeMapSource();
+        if (telemetry?.IsInGame != true ||
+            telemetry.LocalX is not double busX ||
             telemetry.LocalY is not double busY ||
             !double.IsFinite(busX) ||
-            !double.IsFinite(busY))
+            !double.IsFinite(busY) ||
+            !IsSameRoleplayMap(current, telemetry, map))
         {
             return null;
         }
@@ -313,10 +316,14 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             {
                 try
                 {
-                    _ = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
+                    var release = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
                         instanceId,
                         playerId,
                         cancellationToken);
+                    if (release?.Success != true)
+                    {
+                        StatusChanged?.Invoke("roleplay-release-failed");
+                    }
                 }
                 catch
                 {
@@ -663,6 +670,34 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _keyboardHook.HandleKey = null;
         _keyboardHook.Dispose();
         _keyboardHook = null;
+    }
+
+    private static bool IsSameRoleplayMap(
+        RoleplayCharacterState state,
+        VehicleTelemetry telemetry,
+        OmsiMapInfo? map)
+    {
+        var currentCompatibilityId =
+            telemetry.MapCompatibilityId ??
+            map?.CompatibilityId;
+        if (!string.IsNullOrWhiteSpace(state.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(currentCompatibilityId))
+        {
+            return string.Equals(
+                state.MapCompatibilityId,
+                currentCompatibilityId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        var currentMapName =
+            telemetry.MapName ??
+            map?.FolderName;
+        return !string.IsNullOrWhiteSpace(state.MapName) &&
+               !string.IsNullOrWhiteSpace(currentMapName) &&
+               string.Equals(
+                   state.MapName,
+                   currentMapName,
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static double NormalizeHeading(double value)
