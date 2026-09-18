@@ -39,9 +39,9 @@ export function DocumentationSection({ releases }) {
         Roteiro de teste, escopo mestre, plugin experimental e simulador permanecem versionados junto ao código.
       </p>
       <div className="actions">
-        <a className="button primary" href={`${GITHUB_URL}/blob/feature/alpha14-roleplay/docs/ALPHA14_TEST3_COMMUNITY.md`} target="_blank" rel="noreferrer">Roteiro Test 3</a>
-        <a className="button secondary" href={`${GITHUB_URL}/blob/feature/alpha14-roleplay/docs/ALPHA14_MASTER_SCOPE.md`} target="_blank" rel="noreferrer">Escopo Alpha.14</a>
-        <a className="button secondary" href={`${GITHUB_URL}/blob/feature/alpha14-roleplay/docs/OMSI_PLUGIN_EXPERIMENTAL.md`} target="_blank" rel="noreferrer">Plugin experimental</a>
+        <a className="button primary" href={`${GITHUB_URL}/blob/main/docs/ALPHA14_COMMUNITY.md`} target="_blank" rel="noreferrer">Roteiro Alpha.14</a>
+        <a className="button secondary" href={`${GITHUB_URL}/blob/main/docs/ALPHA14_MASTER_SCOPE.md`} target="_blank" rel="noreferrer">Escopo Alpha.14</a>
+        <a className="button secondary" href={`${GITHUB_URL}/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md`} target="_blank" rel="noreferrer">Plugin experimental</a>
       </div>
       <div className="release-history">
         <h3>Releases recentes</h3>
