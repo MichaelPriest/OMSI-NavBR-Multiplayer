@@ -233,7 +233,8 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     "Comparar replays",
     'requested?.startsWith("settings-")',
     'requested === "navigation-3d"',
-    'requested === "operations-company"'
+    'requested === "operations-company"',
+    'requested === "companyNetwork-team"'
 )
 
 Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
@@ -480,6 +481,21 @@ Reject-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.PersistentLifetime.c
 )
 Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.PersistentLifetime.cs" @(
     "ShowInTaskbar = false;"
+)
+
+
+Reject-Text "src/NavBR.Client/Network/CompanyNetworkWindow.cs" @(
+    "new CompanyNetworkWindow("
+)
+Require-Text "src/NavBR.Client/Network/CompanyNetworkWindow.cs" @(
+    'NavigatePrimaryWebShell("companyNetwork")'
+)
+
+Reject-Text "src/NavBR.Client/Network/CompanyMembersWindow.cs" @(
+    "new CompanyMembersWindow("
+)
+Require-Text "src/NavBR.Client/Network/CompanyMembersWindow.cs" @(
+    'NavigatePrimaryWebShell("companyNetwork-team")'
 )
 
 foreach ($legacy in @(
