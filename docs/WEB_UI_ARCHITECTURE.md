@@ -41,7 +41,7 @@ React/WebView2 is the primary visible desktop shell in Alpha.14.
 The React shell now provides real-data surfaces for:
 
 - Home and native OMSI launcher;
-- Navigation/GPS using \`NavBRNavigationEngine\`, route traces, ordered stops and ETA;
+- Navigation/GPS using \`NavBRNavigationEngine\`, route traces, ordered stops and ETA, with an embedded React 3D scene backed by the real OMSI roadmap;
 - Multiplayer Central backed by the existing \`MultiplayerWindow\` controller;
 - CCO, remote drivers and operational reports;
 - Company/Fleet and Driver Profile stores;
@@ -106,6 +106,12 @@ The React Network page presents these checks separately so a valid firewall rule
 - physical Ghost 3D playback continues through `GhostReplayPlayer`, which delegates spawn/update/despawn to the existing Plugin Bridge and fails safely when the plugin rejects writes.
 
 React does not implement a second replay engine and does not synthesize route frames.
+
+## React 3D navigation bridge
+
+The old separate WPF 3D map is no longer required by the normal React flow. `MainWindow.WebNavigation3D.cs` reuses the active native map/layout/route and `Navigation3DSessionFeed` to expose only real scene data: map bounds, local bus, compatible remote buses and route state. The active map directory is mapped into WebView2 as `navbr-map.local`, so the browser loads `whole.roadmap.bmp` directly instead of serializing the bitmap into every state update. Only the currently active map directory is exposed by that mapping.
+
+React handles camera mode, zoom and perspective only; route resolution, map compatibility and vehicle positions remain native C# responsibilities.
 
 ## Bridge safety
 

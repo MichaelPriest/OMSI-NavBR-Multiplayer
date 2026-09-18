@@ -8,7 +8,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - React passa a ser o shell principal após carregamento confirmado;
 - fallback WPF seguro quando WebView2 falha ou quando o usuário solicita;
 - Home e Executar OMSI;
-- Navegação/GPS com rota, paradas, manobras e ETA reais;
+- Navegação/GPS com rota, paradas, manobras e ETA reais, mais visão 3D integrada ao React usando o roadmap real do mapa;
 - Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;
 - CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;
 - Hardware Cockpit com conexão serial compartilhada;
@@ -20,7 +20,7 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
 - tray abre/oculta o shell React;
 - Personagem/RP possui tela React própria e também integra a aba Multiplayer;
-- Mapa 3D e o modo de mover o HUD continuam nativos; a configuração do HUD já está no React. Posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
+- Mapa 3D agora está integrado à Navegação React; apenas o modo de mover o HUD continua como interação nativa. Posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
 
 ## Multiplayer
 

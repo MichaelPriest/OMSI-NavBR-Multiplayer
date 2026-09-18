@@ -18,7 +18,7 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 ## Destaques da Alpha.14
 
 - **React + TypeScript + Vite em WebView2 como interface principal**, com host .NET/WPF x86 e fallback WPF seguro;
-- Home com **Executar OMSI**, Navegação/GPS, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
+- Home com **Executar OMSI**, Navegação/GPS 2D/3D, Multiplayer, CCO, Empresa/Frota, Perfil, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
 - **HUD configurável no React** com preset, tema, ancoragem, escala, opacidade e módulos; **Mover HUD** continua sobre o overlay nativo;
 - selects/ComboBox com tema escuro consistente;
 - Central Multiplayer sem o wizard legado sobreposto;
@@ -128,14 +128,14 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior permanece como fallback técnico. Ele só é ocultado depois que o WebView2 confirma o carregamento da interface; se o WebView2 falhar, o WPF continua disponível. O ícone da bandeja também reabre a interface React principal.
 
 Superfícies já migradas para React:
 
 - Home operacional e Executar OMSI;
-- Navegação/GPS com geometria real da rota, paradas, manobras e ETA;
+- Navegação/GPS com geometria real da rota, paradas, manobras e ETA, incluindo visão 3D React com roadmap real e ônibus remotos compatíveis;
 - Central Multiplayer, salas públicas/privadas, jogadores, chat, voz, seleção de microfone/saída, mixer por jogador e RP;
 - CCO, ocorrências, Empresa/Frota e Perfil;
 - Personagem/RP com personagens reais de `Map.Drivers`, estado do Plugin Bridge e comandos Sair/Retornar ao ônibus;

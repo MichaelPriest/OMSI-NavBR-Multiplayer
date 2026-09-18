@@ -23,7 +23,7 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - detecção de desvio de rota;
 - ETA adaptativa somente após amostras confiáveis;
 - modos Seguir ônibus e Rota completa;
-- atalho para o Mapa 3D nativo.
+- alternância 2D/3D dentro da própria Navegação React, com roadmap real, seguir ônibus, visão aérea e ônibus remotos compatíveis.
 
 ## Central Multiplayer
 
