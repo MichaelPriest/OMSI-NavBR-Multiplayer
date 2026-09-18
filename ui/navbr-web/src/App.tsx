@@ -3245,11 +3245,12 @@ function GhostReplay({
   state: NavBrState | null;
   error: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const ghost: NavBrGhostState | undefined = state?.ghost;
   const [recordName, setRecordName] = useState("");
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [loop, setLoop] = useState(false);
+  const [compareFiles, setCompareFiles] = useState<string[]>([]);
 
   useEffect(() => {
     sendCommand("refreshGhostLibrary");
@@ -3263,6 +3264,16 @@ function GhostReplay({
   const analytics = selected?.analytics;
   const canRecord = Boolean(state?.telemetry?.inGame) && !ghost.recording && !ghost.playing;
   const canPlay = Boolean(ghost.selectedPath) && !ghost.recording && !ghost.playing;
+  const compared = compareFiles
+    .map(fileName => ghost.library.find(item => item.fileName === fileName))
+    .filter((item): item is NavBrGhostState["library"][number] => Boolean(item));
+  const toggleCompare = (fileName: string) => {
+    setCompareFiles(current => current.includes(fileName)
+      ? current.filter(item => item !== fileName)
+      : current.length < 2
+        ? [...current, fileName]
+        : [current[1], fileName]);
+  };
 
   return (
     <>
