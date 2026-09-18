@@ -26,6 +26,13 @@ Use a ação de Firewall do NavBR para criar a regra TCP 27730 em todos os perfi
 
 Dependendo da rede podem ser necessários UPnP, port forwarding ou relay. CGNAT pode impedir host direto.
 
+Ao criar uma sala, a Central Multiplayer mostra o alcance real conhecido pelo cliente:
+- **Somente LAN**: o host está ativo e acessível na rede local, sem endereço externo confirmado;
+- **Internet via UPnP**: o roteador aceitou o mapeamento e forneceu endereço externo;
+- **UPnP ativo · não verificado externamente**: o mapeamento foi criado, mas não há confirmação por um serviço externo.
+
+O teste externo é opcional. Se a instalação informar que o serviço não está configurado, isso **não significa que a sala falhou**; apenas significa que o NavBR não consegue testar a porta a partir de fora da rede.
+
 ## Estado físico
 
 A Alpha.14 inclui multiplayer físico experimental de ônibus via plugin v3. O recurso é opt-in, exige compatibilidade local e ainda precisa de validação em modelos/mapas reais.
