@@ -1274,6 +1274,33 @@
                                                Foreground="#718A9B"
                                                FontSize="10.5"
                                                TextWrapping="Wrap" />
+
+                                    <Separator Margin="0,14,0,14"
+                                               Background="#1C2A33" />
+
+                                    <TextBlock Text="RELAY DE APLICAÇÃO"
+                                               Style="{StaticResource NavMetricLabel}" />
+                                    <CheckBox x:Name="RelayEnabledCheckBox"
+                                              Margin="0,9,0,0"
+                                              FontWeight="SemiBold"
+                                              Checked="RelayEnabledCheckBox_Changed"
+                                              Unchecked="RelayEnabledCheckBox_Changed" />
+                                    <TextBlock x:Name="RelayServerLabelText"
+                                               Margin="22,9,0,5"
+                                               Text="Servidor relay"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold" />
+                                    <TextBox x:Name="RelayServerTextBox"
+                                             Margin="22,0,0,0"
+                                             MinHeight="36"
+                                             VerticalContentAlignment="Center"
+                                             LostFocus="RelayServerTextBox_LostFocus" />
+                                    <TextBlock x:Name="RelayDescriptionText"
+                                               Margin="22,6,0,0"
+                                               Foreground="#718A9B"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
 
