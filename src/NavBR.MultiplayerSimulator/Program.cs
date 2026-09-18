@@ -154,7 +154,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
         var roleplayThisFrame =
             _options.Mode == SimulatorMode.Roleplay ||
-            (_options.Mode == SimulatorMode.Mixed && _index % 3 == 0);
+            (_options.Mode == SimulatorMode.Mixed && _index % 2 == 0);
 
         if (roleplayThisFrame)
         {
@@ -293,9 +293,21 @@ internal sealed class SimulationProbe : IAsyncDisposable
             .Build();
 
         _connection.On<PlayerTelemetryFrame>("telemetry", frame =>
-            Record(frame.Player.PlayerId, frame.Telemetry.LocalX ?? frame.Telemetry.X, frame.Telemetry.LocalY ?? frame.Telemetry.Y));
+            Record(
+                frame.Player.PlayerId,
+                frame.Telemetry.LocalX ?? frame.Telemetry.X,
+                frame.Telemetry.LocalY ?? frame.Telemetry.Y,
+                frame.Telemetry.HeadingDegrees,
+                MovementKind.Vehicle,
+                null));
         _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
-            Record(frame.Player.PlayerId, frame.Character.LocalX, frame.Character.LocalY));
+            Record(
+                frame.Player.PlayerId,
+                frame.Character.LocalX,
+                frame.Character.LocalY,
+                frame.Character.HeadingDegrees,
+                MovementKind.Roleplay,
+                frame.Character.Activity));
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
@@ -329,16 +341,41 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     $"{missing.Length}/{expectedPlayerIds.Count} players did not produce verifiable movement.");
             }
 
-            var minimum = expectedPlayerIds.Min(id => _samples[id].DistanceMeters);
+            var samples = expectedPlayerIds.Select(id => _samples[id]).ToArray();
+            if (_options.Mode == SimulatorMode.Mixed &&
+                (!samples.Any(sample => sample.Kind == MovementKind.Vehicle) ||
+                 !samples.Any(sample => sample.Kind == MovementKind.Roleplay)))
+            {
+                return new VerificationResult(
+                    false,
+                    "Mixed simulation did not deliver both vehicle and RP frames.");
+            }
+
+            var minimum = samples.Min(sample => sample.DistanceMeters);
+            var rpStates = samples
+                .Where(sample => sample.Kind == MovementKind.Roleplay)
+                .SelectMany(sample => sample.Activities)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+            var rpSummary = rpStates.Length == 0
+                ? "no RP states"
+                : $"RP states: {string.Join(", ", rpStates)}";
             return new VerificationResult(
                 true,
-                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m.");
+                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}.");
         }
     }
 
-    private void Record(string playerId, double x, double y)
+    private void Record(
+        string playerId,
+        double x,
+        double y,
+        double heading,
+        MovementKind kind,
+        RoleplayCharacterActivity? activity)
     {
-        if (!double.IsFinite(x) || !double.IsFinite(y))
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(heading))
         {
             return;
         }
@@ -347,15 +384,33 @@ internal sealed class SimulationProbe : IAsyncDisposable
         {
             if (!_samples.TryGetValue(playerId, out var sample))
             {
-                _samples[playerId] = new MovementSample(x, y, x, y, 1);
+                _samples[playerId] = new MovementSample(
+                    x,
+                    y,
+                    x,
+                    y,
+                    heading,
+                    heading,
+                    1,
+                    kind,
+                    activity is null ? [] : [activity.Value]);
                 return;
+            }
+
+            var activities = sample.Activities;
+            if (activity is RoleplayCharacterActivity value && !activities.Contains(value))
+            {
+                activities = [.. activities, value];
             }
 
             _samples[playerId] = sample with
             {
                 LastX = x,
                 LastY = y,
-                Count = sample.Count + 1
+                LastHeading = heading,
+                Count = sample.Count + 1,
+                Kind = kind,
+                Activities = activities
             };
         }
     }
@@ -389,7 +444,11 @@ internal sealed class SimulationProbe : IAsyncDisposable
         double FirstY,
         double LastX,
         double LastY,
-        int Count)
+        double FirstHeading,
+        double LastHeading,
+        int Count,
+        MovementKind Kind,
+        IReadOnlyList<RoleplayCharacterActivity> Activities)
     {
         public double DistanceMeters =>
             Math.Sqrt(
@@ -399,6 +458,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
 }
 
 internal sealed record VerificationResult(bool Success, string Message);
+
+internal enum MovementKind
+{
+    Vehicle,
+    Roleplay
+}
 
 internal enum SimulatorMode
 {
