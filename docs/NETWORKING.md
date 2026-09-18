@@ -1,45 +1,59 @@
 # Rede multiplayer
 
-## Peer-host direto
+## Peer-host
 
-O PC de quem cria a sala pode executar o servidor da própria sessão em **TCP 27730**.
+O PC que cria a sala pode hospedar a própria sessão em **TCP 27730**. Presença, telemetria, chat, voz e estado operacional passam pelo SignalR.
 
-Presença, telemetria, chat, voz, estado operacional e canais experimentais passam pelo SignalR.
+## Firewall Windows
 
-## Windows Firewall
+A regra de entrada chama-se **OMSI NavBR Multiplayer - TCP 27730**.
 
-A Alpha.14 cria uma regra de entrada chamada **OMSI NavBR Multiplayer - TCP 27730**.
-
-- protocolo TCP;
-- porta local 27730;
+- TCP 27730;
 - perfis Privado, Público e Domínio;
-- solicita UAC;
-- verifica a regra depois de criar;
-- se o UAC for cancelado, o app informa que a regra não foi alterada.
+- regra baseada em porta;
+- UAC;
+- verificação depois da criação.
 
-A regra é de porta para cobrir tanto o host embutido do cliente quanto o servidor dedicado.
+Em **Configurações → Rede**, React chama o mesmo \`WindowsFirewallService\` e mostra se a regra foi realmente encontrada. A tela permite aplicar/corrigir e verifica novamente depois.
+
+Uma regra correta **não prova** alcance pela Internet.
+
+## Listener local
+
+A tela Rede verifica separadamente se existe listener TCP local em 27730. Sem sala local/servidor ativo, é normal o listener aparecer inativo mesmo com Firewall correto.
 
 ## UPnP / NAT
 
-UPnP é opcional. Pela Internet, o host direto ainda pode exigir port forwarding e um endereço público alcançável.
+\`NatDiagnosticsService\` mostra:
 
-CGNAT/double NAT podem impedir conexão direta mesmo com Firewall correto.
+- IPv4 locais;
+- listener TCP;
+- regra do Firewall;
+- gateway UPnP;
+- endereço WAN reportado;
+- classificação Public WAN / CGNAT / Private WAN / Reserved / Unknown.
+
+UPnP é opcional e só é alterável quando a hospedagem local está parada.
+
+CGNAT/double NAT podem impedir conexões diretas mesmo com Firewall e UPnP corretos.
+
+## Teste externo
+
+O probe externo TCP 27730 é independente. Ele só funciona quando o serviço de callback estiver configurado. Seu resultado não é inferido a partir do Firewall, UPnP ou IP WAN.
 
 ## Relay experimental
 
-O relay de aplicação usa um NavBR.Server remoto configurado pelo usuário/operador. Ele não abre host local nem depende de UPnP.
-
-O relay continua experimental e não existe endpoint público embutido no app.
+O relay usa NavBR.Server remoto configurado. Não existe endpoint público embutido e o recurso permanece experimental.
 
 ## Salas privadas
 
 - senha não vai no convite;
-- senha não é persistida no perfil;
-- o servidor valida a senha antes de autorizar a entrada;
+- senha não é persistida;
+- servidor valida antes da entrada;
 - salas privadas não aparecem no navegador público.
 
 ## Segurança
 
-- payloads e tamanhos são validados;
-- o servidor associa dados à conexão autenticada da sala;
-- escrita física no OMSI continua local, opt-in e separada da camada de rede.
+- payloads/tamanhos validados;
+- servidor associa dados à conexão autenticada;
+- escrita física no OMSI permanece local, opt-in e separada da rede.

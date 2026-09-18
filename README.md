@@ -17,14 +17,14 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 
 ## Destaques da Alpha.14
 
-- shell Figma consolidado e funções restauradas;
-- Home com **Executar OMSI**, Navegação, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil e ferramentas;
+- **React + TypeScript + Vite em WebView2 como interface principal**, com host .NET/WPF x86 e fallback WPF seguro;
+- Home com **Executar OMSI**, Navegação/GPS, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil, Hardware Cockpit, Instalações OMSI, Diagnóstico e ferramentas;
 - **Mover HUD** visível no topo, Sistema e ações rápidas;
 - selects/ComboBox com tema escuro consistente;
 - Central Multiplayer sem o wizard legado sobreposto;
 - abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
 - salas públicas/privadas, senha, convite, peer-host TCP 27730, UPnP e relay experimental;
-- Firewall do Windows configurável para TCP 27730 em todos os perfis de rede;
+- tela **Rede** com verificação real do Firewall TCP 27730, listener local, NAT/CGNAT, UPnP e teste externo quando configurado;
 - Plugin Bridge **v3** + interop RP v3;
 - modo Personagem/RP disponível também sem multiplayer;
 - ônibus remoto físico experimental;
@@ -81,7 +81,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 ## Requisitos principais
 
 - OMSI alvo inicial: **2.3.004**;
-- cliente: **.NET 10 / C# / WPF x86**;
+- cliente: **.NET 10 / C# / WPF x86 host + WebView2 + React/TypeScript/Vite**;
 - servidor: **ASP.NET Core + SignalR**;
 - host da sala: o próprio PC de quem cria a sala;
 - porta padrão: **TCP 27730**;
@@ -113,14 +113,23 @@ O GitHub Pages concentra downloads, releases, documentação e estado dos testes
 
 Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+## Interface principal React/WebView2
 
-## Nova interface web (migração incremental)
+A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, voz, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI e HUD/RP nativos.
 
-A Alpha.14 iniciou a migração da interface principal para **React + TypeScript + Vite em WebView2**, preservando o backend .NET/C#, plugin OMSI x86, telemetria, multiplayer, HUD e serviços nativos.
+O shell WPF anterior permanece como fallback técnico. Ele só é ocultado depois que o WebView2 confirma o carregamento da interface; se o WebView2 falhar, o WPF continua disponível. O ícone da bandeja também reabre a interface React principal.
 
-A primeira Home web já possui ponte C# ↔ JavaScript e recebe o mesmo estado real de OMSI/telemetria usado pela interface WPF. Durante a migração, a interface WPF continua disponível como fallback e nenhuma tela de produção deve inventar telemetria quando o estado real não estiver disponível.
+Superfícies já migradas para React:
+
+- Home operacional e Executar OMSI;
+- Navegação/GPS com geometria real da rota, paradas, manobras e ETA;
+- Central Multiplayer, salas públicas/privadas, jogadores, chat, voz e RP;
+- CCO, ocorrências, Empresa/Frota e Perfil;
+- Hardware Cockpit com uma única conexão serial compartilhada;
+- Instalações OMSI e perfis de lançamento;
+- Diagnóstico e privacidade;
+- Rede com Firewall TCP 27730 verificado, NAT/CGNAT, UPnP e teste externo quando configurado.
+
+Nenhuma tela de produção inventa telemetria quando o estado real não está disponível.
 
 Detalhes técnicos: [docs/WEB_UI_ARCHITECTURE.md](docs/WEB_UI_ARCHITECTURE.md).
-
-
-A Central Multiplayer web já compartilha o controlador C# existente e suporta sala local, entrada em servidor, salas privadas, diretório público, jogadores, chat, RP e atalhos de HUD sem criar um segundo cliente SignalR.

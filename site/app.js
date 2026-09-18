@@ -7,7 +7,7 @@ const fallbackRelease = {
   prerelease: true,
   published_at: null,
   html_url: `https://github.com/${repo}/releases/tag/${currentTag}`,
-  body: 'Alpha.14 pública consolida Central Multiplayer, HUD, Plugin/RP v3, rede, simulador e ônibus remoto físico experimental.',
+  body: 'Alpha.14 pública usa React/WebView2 como shell principal e integra GPS real, Central Multiplayer, CCO, Hardware Cockpit, rede verificável, Plugin/RP v3 e simulador.',
   download_count: 0,
   assets: [
     {

@@ -1,97 +1,60 @@
 # Alpha.14 Test 3 — release notes
 
-A **Alpha.14 Test 3** é focada na remodelação completa da Central Multiplayer e na correção do primeiro ciclo funcional de Personagem/RP.
+A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personagem/RP e da nova interface desktop React/WebView2.
 
-## Central Multiplayer
+## React/WebView2
 
-A Central deixou de usar a experiência genérica anterior e passa a seguir o shell Figma do NavBR.
-
-- **Visão geral** com mapa da sessão como elemento dominante;
-- métricas de sala, mapa, jogadores, latência e host;
-- painel de jogadores próximos;
-- atalhos operacionais;
-- **Sala** separada em Criar sala e Entrar em sala;
-- **Jogadores** em lista visual com estado, ônibus, linha, velocidade, ping, voz e estado físico;
-- **Chat & Voz** separado de configurações técnicas;
-- **Personagem / RP** como aba própria;
-- **Avançado** reservado para ônibus físico, bridge, firewall, UPnP/NAT e diagnóstico.
-
-A antiga página Multiplayer paralela do shell foi removida. O menu abre diretamente a Central real e não exibe salas fictícias.
-
-## Personagem / RP
-
-- HUD, Central e fluxo automático usam o mesmo `RoleplayCharacterController`;
-- removida a antiga janela RP duplicada;
-- seleção continua usando os personagens reais de `Map.Drivers`;
-- plugin NavBR atualizado para **bridge protocol v3**;
-- interop nativo atualizado para **state ABI v3**;
-- capacidades RP do plugin são atualizadas após o OMSI terminar de inicializar;
-- identificação do motorista usa personagem selecionado + vínculo com o ônibus real do jogador;
-- ao ativar RP, o motorista é destacado e colocado ao lado do ônibus;
-- ao voltar, NavBR restaura pose, vínculo com o ônibus e estado de IA capturados antes do RP;
-- W/S, A/D, Shift e Esc continuam usando o mesmo controlador global.
+- React + TypeScript + Vite hospedado no cliente .NET/WPF x86;
+- React passa a ser o shell principal após carregamento confirmado;
+- fallback WPF seguro quando WebView2 falha ou quando o usuário solicita;
+- Home e Executar OMSI;
+- Navegação/GPS com rota, paradas, manobras e ETA reais;
+- Central Multiplayer completa;
+- CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;
+- Hardware Cockpit com conexão serial compartilhada;
+- Instalações OMSI e perfis de lançamento;
+- Diagnóstico/privacidade;
+- Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
+- tray abre/oculta o shell React;
+- Mapa 3D, HUD e RP continuam nativos.
 
 ## Multiplayer
 
-- latência medida pelo próprio hub e publicada como presença real;
-- estado de voz habilitado passa a integrar a presença real;
-- estados RP remotos continuam separados da telemetria do ônibus;
-- mapa da Central continua sem inventar jogadores/posições quando não há dados.
+- controlador C# existente compartilhado com o React, sem segundo SignalR;
+- criação/entrada/saída de salas;
+- sala local TCP 27730;
+- salas privadas com senha efêmera;
+- diretório público, busca e favoritos;
+- avaliação nativa de compatibilidade;
+- jogadores, latência, voz, chat e RP reais;
+- mapa da sessão somente com posições recentes e compatíveis.
 
-## Simulador de jogadores
+## Personagem / RP
 
-Foi adicionado `NavBR.MultiplayerSimulator`, ferramenta exclusiva de desenvolvimento/teste.
+- único \`RoleplayCharacterController\`;
+- personagens reais de \`Map.Drivers\`;
+- bridge protocol v3 / interop v3;
+- vínculo real com ônibus;
+- restauração de pose/vínculo/IA ao retornar;
+- W/S, A/D, Shift e Esc no controlador global.
 
-Ela pode:
+## Hardware e rede
 
-- conectar múltiplos clientes SignalR reais;
-- simular ônibus em movimento;
-- simular personagens RP com estados Parado / A pé / Correndo;
-- testar spawn/update/despawn lógico da sessão;
-- verificar automaticamente se o movimento atravessou o servidor;
-- fornecer Grid/Tile opcionais para validar marcadores no HUD/minimapa.
-
-O simulador **não é usado pelo app de produção**.
+- serial centralizada em \`HardwareCockpitBridgeController\`;
+- streaming \`NAVBR_HW_V1\` no tick de telemetria a 5 Hz;
+- auto-reconnect somente à COM escolhida;
+- Firewall aplicado com UAC e verificação;
+- NAT/UPnP separados de alcance externo.
 
 ## CI
 
-A validação Alpha.14 agora inclui:
+A validação Alpha.14 compila o frontend React antes do cliente e valida Shared/Server, simulador, interop x86, Native AOT, bundle/protocolo v3, cliente Windows x86 e smoke test do Plugin Bridge.
 
-- XAML/site;
-- Shared;
-- servidor;
-- simulador multiplayer;
-- teste de jogadores em movimento pelo SignalR;
-- interop nativo x86;
-- plugin Native AOT x86;
-- recriação do bundle de plugin embutido;
-- verificação bridge v3 / interop v3;
-- cliente WPF x86;
-- smoke test do plugin bridge.
+## Ainda experimental
 
-## Ainda em desenvolvimento
-
-- câmera dedicada seguindo o personagem;
-- ajuste automático de altura em terreno inclinado;
-- animações e gestos;
-- interação com objetos/ônibus;
+- câmera dedicada de RP;
+- terreno inclinado;
+- animações/gestos;
+- interação física adicional;
 - personagem remoto físico completo;
-- validação prática do ciclo RP em diferentes ônibus/mapas do OMSI.
-
-
-## Nova interface React/WebView2
-
-A Test 3 inicia a migração incremental da interface desktop para React + TypeScript + Vite hospedado em WebView2, mantendo o backend .NET/C# como autoridade.
-
-Nesta etapa:
-- Home operacional web com telemetria real do OMSI;
-- atalho Executar OMSI ligado ao launcher C# existente;
-- Central Multiplayer React com Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
-- criação/entrada/saída de salas usando o controlador SignalR C# existente;
-- salas privadas com senha efêmera;
-- navegador de salas públicas, busca e favoritos;
-- avaliação nativa de compatibilidade antes da entrada direta;
-- jogadores, latência, voz, chat e RP vindos do estado real da sessão;
-- Mover HUD e Configurar HUD ligados às rotinas nativas existentes;
-- fallback WPF preservado durante a migração;
-- pipeline compila o frontend React antes do cliente e empacota o `dist` no app.
+- ônibus remoto físico entre diferentes mapas/modelos.
