@@ -1676,13 +1676,13 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               <span><small>{pick("DIMENSÃO", "DIMENSIONS", "DIMENSIÓN", "ABMESSUNGEN", "DIMENSIONS")}</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
               <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
               <span><small>{pick("TEMPO", "TIME", "TIEMPO", "ZEIT", "TEMPS")}</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
-              {result.tileImagesUsed != null && <span><small>TILES USADOS</small><strong>{result.tileImagesUsed}</strong></span>}
-              {result.missingTileImages != null && <span><small>VAZIOS</small><strong>{result.missingTileImages}</strong></span>}
-              {result.tileFilesRead != null && <span><small>TILES LIDOS</small><strong>{result.tileFilesRead}</strong></span>}
+              {result.tileImagesUsed != null && <span><small>{pick("TILES USADOS", "TILES USED", "TILES USADOS", "VERWENDETE TILES", "TILES UTILISÉS")}</small><strong>{result.tileImagesUsed}</strong></span>}
+              {result.missingTileImages != null && <span><small>{pick("VAZIOS", "MISSING", "VACÍOS", "FEHLEND", "MANQUANTS")}</small><strong>{result.missingTileImages}</strong></span>}
+              {result.tileFilesRead != null && <span><small>{pick("TILES LIDOS", "TILES READ", "TILES LEÍDOS", "GELESENE TILES", "TILES LUS")}</small><strong>{result.tileFilesRead}</strong></span>}
               {result.splinesDrawn != null && <span><small>SPLINES</small><strong>{result.splinesDrawn}</strong></span>}
             </div>
             <code className="roadmap-output-path">{result.outputPath}</code>
-            {result.backupPath && <p className="roadmap-backup">Backup: <code>{result.backupPath}</code></p>}
+            {result.backupPath && <p className="roadmap-backup">{pick("Backup", "Backup", "Copia de seguridad", "Sicherung", "Sauvegarde")}: <code>{result.backupPath}</code></p>}
           </>
         )}
       </article>
