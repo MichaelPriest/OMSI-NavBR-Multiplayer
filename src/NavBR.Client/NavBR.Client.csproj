@@ -30,8 +30,14 @@
     <None Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="WebUI\bootstrap\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\ui\navbr-web\dist\**\*" Link="WebUI\dist\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\ui\navbr-web\dist')" />
+    <Content Include="WebUI\bootstrap\**\*"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\ui\navbr-web\dist\**\*"
+             Link="WebUI\dist\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\..\ui\navbr-web\dist')" />
   </ItemGroup>
 
   <Target Name="ValidateNavBRXamlColors" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
