@@ -70,6 +70,7 @@ public partial class MultiplayerWindow
                 isSystem = message.IsSystem
             })
             .ToArray();
+        var networkQuality = SessionNetworkQualityFeed.Snapshot();
 
         return new
         {
@@ -102,6 +103,24 @@ public partial class MultiplayerWindow
             relayServerUrl = _settings.RelayServerUrl,
             physicalVehiclesEnabled = _settings.ExperimentalPhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
+            networkQuality = new
+            {
+                level = networkQuality.Level.ToString(),
+                roundTripMs = networkQuality.RoundTripMs,
+                jitterMs = networkQuality.JitterMs,
+                lossPercent = networkQuality.LossPercent,
+                samples = networkQuality.Samples,
+                updatedAtUtc = networkQuality.UpdatedAtUtc
+            },
+            sessionAuthority = new
+            {
+                roomOwnerPlayerId = _client.RoomOwnerPlayerId,
+                roomOwnerDisplayName = ResolveAuthorityDisplayName(_client.RoomOwnerPlayerId),
+                trafficAuthorityPlayerId = _client.TrafficAuthorityPlayerId,
+                trafficAuthorityDisplayName = ResolveAuthorityDisplayName(_client.TrafficAuthorityPlayerId),
+                isRoomOwner = _client.IsRoomOwner,
+                isTrafficAuthority = _client.IsTrafficAuthority
+            },
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
