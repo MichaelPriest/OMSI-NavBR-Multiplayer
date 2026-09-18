@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/alpha14-roleplay
+  pull_request:
 
 permissions:
   contents: read
