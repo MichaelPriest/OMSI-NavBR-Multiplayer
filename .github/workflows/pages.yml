@@ -122,7 +122,8 @@ jobs:
           npm run build
           popd
 
-          cp -R site/assets site/dist/assets
+          mkdir -p site/dist/assets
+          cp -R site/assets/. site/dist/assets/
           cp site/releases.json site/dist/releases.json
           cp site/monetization.json site/dist/monetization.json
           cp site/diagnostics.json site/dist/diagnostics.json
