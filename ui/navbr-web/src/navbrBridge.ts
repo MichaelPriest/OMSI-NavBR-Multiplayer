@@ -587,6 +587,11 @@ export interface NavBrState {
     screen: string;
   } | null;
   appVersion?: string | null;
+  cultureName?: string | null;
+  supportedLanguages: {
+    cultureName: string;
+    displayName: string;
+  }[];
   omsi: {
     running: boolean;
     processId?: number | null;
@@ -624,6 +629,7 @@ export interface NavBrState {
 export type NavBrCommand =
   | "launchOmsi"
   | "refreshState"
+  | "setLanguage"
   | "openMultiplayerCentral"
   | "ensureMultiplayerController"
   | "openRoleplay"
