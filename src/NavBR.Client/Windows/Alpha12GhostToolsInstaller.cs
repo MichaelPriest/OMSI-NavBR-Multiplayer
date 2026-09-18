@@ -18,7 +18,9 @@ internal static class Alpha12GhostToolsInstaller
             return;
         }
 
-        if (tools.Children.OfType<Button>().Any(button => Equals(button.Tag, ButtonTag)))
+        if (tools.Children.OfType<Button>().Any(button =>
+                Equals(button.Tag, ButtonTag) ||
+                string.Equals(button.Name, "GhostToolsButton", StringComparison.Ordinal)))
         {
             return;
         }
