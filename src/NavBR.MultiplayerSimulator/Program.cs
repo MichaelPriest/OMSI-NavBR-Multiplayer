@@ -40,6 +40,7 @@ if (!localServer.Ready)
 if (localServer.StartedServer)
 {
     Console.WriteLine($"Local NavBR.Server started automatically at {localServer.ServerUrl}.");
+    Console.WriteLine($"No app: Central Multiplayer > Sala > Entrar em sala > servidor {localServer.ServerUrl} > sala {options.RoomId}.");
 }
 
 var bots = Enumerable.Range(1, options.PlayerCount)
