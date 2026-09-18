@@ -342,6 +342,7 @@ export type NavBrCommand =
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
+  | "showLegacyShell"
   | "sendChat";
 
 declare global {
