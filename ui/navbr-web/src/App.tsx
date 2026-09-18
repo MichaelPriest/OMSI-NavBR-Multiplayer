@@ -1357,6 +1357,7 @@ function roleplayStatusLabel(status: string | null | undefined) {
     case "roleplay-map-or-character-changed": return "Mapa/personagem alterado";
     case "roleplay-control-lost": return "Controle do personagem perdido";
     case "roleplay-disabled": return "Recurso RP desativado";
+    case "roleplay-enabled": return "Recurso RP ativado";
     default: return status || "Pronto";
   }
 }
@@ -1410,6 +1411,18 @@ function RoleplayPanel({
               {roleplay.runtimeAvailable ? "Bridge RP disponível" : "Bridge RP indisponível"}
             </span>
           </div>
+
+          <label className="rp-enable-toggle">
+            <input
+              type="checkbox"
+              checked={roleplay.enabled}
+              onChange={event => sendCommand("setRoleplayEnabled", { enabled: event.target.checked })}
+            />
+            <span>
+              <strong>Ativar Personagem / RP</strong>
+              <small>Habilita o modo experimental sem depender da janela Multiplayer WPF.</small>
+            </span>
+          </label>
 
           <div className="details-grid rp-status-grid">
             <div><small>MAPA</small><strong>{state?.telemetry?.mapName || "—"}</strong></div>
