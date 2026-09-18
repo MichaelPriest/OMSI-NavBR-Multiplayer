@@ -434,6 +434,7 @@ export interface NavBrSystemState {
     updatedAtUtc: string;
   };
   legacyPreferences: {
+    firstRunCompleted: boolean;
     advancedModeEnabled: boolean;
     showDrivingTips: boolean;
   };
@@ -806,6 +807,7 @@ export type NavBrCommand =
   | "openFeedback"
   | "exportSessionHealth"
   | "saveLegacyPreferences"
+  | "completeFirstRun"
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
