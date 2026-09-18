@@ -1,23 +1,27 @@
 # Alpha.14 — escopo mestre
 
-Versão pública: **v0.3.0-alpha.14**.
+Versão de validação pública: **v0.3.0-alpha.14-test.3**.
 
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
 ## 1. Interface
 
 - React + TypeScript + Vite em WebView2 como shell principal;
-- host .NET/WPF x86 preservado;
-- fallback WPF seguro;
+- host .NET/WPF x86 preservado apenas como camada técnica/fallback;
+- `MainWindow` antigo não é exibido;
+- controlador multiplayer nativo inicializa sem `Show()/Hide()`;
 - Home e Executar OMSI;
-- Navegação/GPS com rota real;
+- Navegação/GPS com rota real e visão 3D;
 - Central Multiplayer;
-- CCO, Empresa/Frota, Perfil;
+- CCO, Empresa/Frota, Perfil e histórico;
 - Hardware Cockpit;
 - Instalações OMSI;
 - Diagnóstico e Rede;
-- Mapa 3D, HUD e RP continuam nativos;
-- interface pt-BR, English, Español, Deutsch e Français.
+- Ghost / Replay;
+- HUD configurável no React, com overlay OMSI nativo;
+- onboarding/primeiro acesso React;
+- interface pt-BR, English, Español, Deutsch e Français;
+- site público também deve usar React, compartilhando o mesmo princípio de componentes e estado real de releases.
 
 ## 2. Multiplayer
 
@@ -25,11 +29,13 @@ A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimenta
 - servidor dedicado opcional;
 - salas públicas/privadas;
 - chat e voz;
+- dispositivos de áudio e mixer por jogador;
 - UPnP opcional;
 - relay experimental;
 - Firewall verificável em todos os perfis;
 - diagnóstico separado de listener, NAT/CGNAT, UPnP e probe externo;
-- presença, telemetria, mapa e estado operacional via SignalR.
+- presença, telemetria, mapa e estado operacional via SignalR;
+- sem mapa/marcadores paralelos no layout WPF retirado.
 
 ## 3. Simulador
 
@@ -40,7 +46,7 @@ Somente desenvolvimento/teste:
 - aguarda telemetria real;
 - bots próximos ao host;
 - herda linha, rota, destino e próxima parada;
-- \`--verify\` exige movimento e mapa consistente.
+- `--verify` exige movimento e mapa consistente.
 
 ## 4. Personagem / RP
 
@@ -50,6 +56,14 @@ Somente desenvolvimento/teste:
 - entrada/saída e restauração de vínculo/IA;
 - W/S, A/D, Shift e Esc;
 - estado RP separado da telemetria do ônibus.
+
+### Próximas funções
+
+- câmera dedicada seguindo o personagem;
+- ajuste de altura/terreno inclinado;
+- animações e gestos;
+- interação com ônibus/objetos;
+- personagem remoto físico completo.
 
 ## 5. Multiplayer físico
 
@@ -61,19 +75,27 @@ Somente desenvolvimento/teste:
 
 ## 6. Hardware Cockpit
 
-- protocolo NAVBR_HW_V1;
+- protocolo `NAVBR_HW_V1`;
 - uma conexão serial compartilhada;
 - streaming nativo a 5 Hz;
 - COM/baud persistidos;
 - reconexão somente à mesma COM.
 
-## 7. Critério da Alpha pública
+## 7. Release e validação
+
+- `test/alpha14-test3`: build privada em GitHub Actions, sem alterar release;
+- `publish/alpha14-test3`: publicação explicitamente aprovada da prerelease;
+- toda publicação recompila/valida React, servidor, plugin, cliente e simulador;
+- publicação final da Alpha.14 depende da validação prática OMSI.
+
+## 8. Critério da Alpha pública
 
 1. React, cliente, servidor, plugin e bridge compilando;
 2. shell React abre com fallback seguro;
-3. funções principais acessíveis;
+3. funções principais acessíveis sem ressurgimento de layout WPF;
 4. peer-host/servidor funcionando;
 5. simulador no mesmo mapa/operação;
 6. regressões zero em HUD/telemetria;
 7. RP e ônibus físico fail-safe;
-8. Firewall/NAT/UPnP apresentados sem falsa equivalência com alcance externo.
+8. Firewall/NAT/UPnP apresentados sem falsa equivalência com alcance externo;
+9. site público servido pelo build React.
