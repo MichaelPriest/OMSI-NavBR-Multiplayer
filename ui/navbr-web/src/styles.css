@@ -328,3 +328,87 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .upcoming-stops { grid-template-columns:1fr 1fr; }
   .navigation-map { min-height:390px; }
 }
+
+
+.operations-header { align-items:center; }
+.cco-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; padding:6px; border-radius:14px; border:1px solid #1b3445; background:#081722; }
+.cco-tabs { margin-top:16px; }
+.cco-overview-grid { display:grid; grid-template-columns:minmax(0,1.8fr) minmax(280px,.7fr); gap:14px; }
+.cco-map-card, .cco-panel, .company-card, .fleet-card { padding:20px; }
+.cco-side-stack { display:grid; align-content:start; gap:12px; }
+.cco-live-values { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+.cco-live-values span { padding:10px; border-radius:9px; border:1px solid #183244; background:#081721; display:grid; gap:2px; }
+.cco-live-values strong { font-size:16px; }
+.cco-live-values small { color:#6f8798; font-size:9px; text-transform:uppercase; font-weight:800; letter-spacing:.08em; }
+.drivers-table { display:grid; border:1px solid #1b3140; border-radius:12px; overflow:hidden; }
+.driver-row { display:grid; grid-template-columns:auto minmax(180px,1.2fr) minmax(120px,.8fr) minmax(100px,.55fr) auto; align-items:center; gap:12px; padding:13px 14px; background:#091620; border-bottom:1px solid #172a38; }
+.driver-row:last-child { border-bottom:0; }
+.driver-row.stale { opacity:.62; }
+.driver-avatar { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:#12314a; color:#8bd5ff; font-weight:800; }
+.driver-primary, .driver-service, .driver-live { min-width:0; display:grid; gap:3px; }
+.driver-primary strong, .driver-service strong, .driver-live strong { font-size:12px; }
+.driver-primary small, .driver-service small, .driver-live small { color:#72899a; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.driver-live small.late { color:#f1bc68; font-weight:800; }
+.driver-status { justify-self:end; }
+.report-chip { display:inline-flex; width:max-content; align-items:center; border:1px solid #34434e; background:#111b22; color:#91a2ad; border-radius:999px; padding:5px 8px; font-size:9px; font-weight:800; }
+.report-chip.info, .report-chip.ok { border-color:#285743; background:#0d241a; color:#83dfad; }
+.report-chip.attention { border-color:#5c4a28; background:#251e10; color:#f2ca79; }
+.report-chip.critical { border-color:#64373b; background:#2a1619; color:#f09aa0; }
+.report-chip.stale { border-color:#3c4650; color:#8795a0; }
+.authority-pill { border:1px solid #3b4650; border-radius:999px; padding:7px 10px; color:#8b9ba6; font-size:9px; font-weight:800; }
+.authority-pill.enabled { border-color:#285743; background:#0d241a; color:#83dfad; }
+.reports-list { display:grid; gap:10px; }
+.report-card { padding:14px; border:1px solid #223946; border-radius:11px; background:#091620; }
+.report-card.attention { border-color:#584724; }
+.report-card.critical { border-color:#60343a; }
+.report-card.resolved { opacity:.62; }
+.report-card-top { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.report-card-top > div { display:flex; align-items:center; gap:8px; }
+.report-card-top strong { font-size:12px; }
+.report-status { color:#758b9a; font-size:10px; font-weight:700; }
+.report-card h4 { margin:11px 0 5px; font-size:14px; }
+.report-card p { margin:0 0 8px; color:#9fb1bd; font-size:12px; line-height:1.45; }
+.report-card > small { color:#607988; font-size:9px; }
+.report-actions { display:flex; gap:8px; margin-top:12px; }
+.company-layout { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.fleet-card { grid-column:1 / -1; }
+.company-form { display:grid; grid-template-columns:1.4fr .6fr; gap:10px; margin:8px 0 14px; }
+.company-form label { display:grid; gap:6px; }
+.company-form label.wide { grid-column:1 / -1; }
+.company-form span, .register-vehicle small { color:#7891a2; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.company-form input, .register-vehicle input { min-width:0; border:1px solid #263b4a; background:#08151f; color:#e8f2f8; border-radius:10px; padding:11px 13px; outline:none; }
+.company-form input:focus, .register-vehicle input:focus { border-color:#4a8bb5; }
+.profile-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin:4px 0 14px; }
+.profile-stats span { display:grid; gap:4px; padding:10px; border:1px solid #1c3343; border-radius:9px; background:#081721; }
+.profile-stats small { color:#678398; font-size:8px; font-weight:800; }
+.profile-stats strong { font-size:12px; }
+.register-vehicle { display:grid; grid-template-columns:minmax(180px,1.2fr) .55fr .8fr auto; gap:9px; align-items:end; margin-bottom:13px; }
+.register-vehicle > div { display:grid; gap:4px; }
+.register-vehicle > div strong { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fleet-list { display:grid; border:1px solid #1b3140; border-radius:11px; overflow:hidden; }
+.fleet-row { display:grid; grid-template-columns:100px minmax(160px,1fr) minmax(150px,.6fr) auto; gap:12px; align-items:center; padding:12px 13px; background:#091620; border-bottom:1px solid #172a38; }
+.fleet-row:last-child { border-bottom:0; }
+.fleet-number { border-radius:8px; padding:7px 8px; background:#102b3e; color:#8bd5ff; text-align:center; font-size:11px; font-weight:900; }
+.fleet-row > div { min-width:0; display:grid; gap:3px; }
+.fleet-row > div strong { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fleet-row small { color:#718696; font-size:10px; }
+@media (max-width:1180px) {
+  .cco-metrics { grid-template-columns:repeat(3,1fr); }
+  .cco-overview-grid { grid-template-columns:1fr; }
+  .cco-side-stack { grid-template-columns:repeat(3,1fr); }
+  .driver-row { grid-template-columns:auto 1.2fr .8fr .6fr; }
+  .driver-status { grid-column:2 / -1; justify-self:start; }
+  .register-vehicle { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:850px) {
+  .cco-metrics { grid-template-columns:1fr 1fr; }
+  .cco-side-stack, .company-layout { grid-template-columns:1fr; }
+  .fleet-card { grid-column:auto; }
+  .driver-row { grid-template-columns:auto 1fr; }
+  .driver-service, .driver-live, .driver-status { grid-column:2; justify-self:start; }
+  .profile-stats { grid-template-columns:1fr 1fr; }
+  .register-vehicle, .company-form { grid-template-columns:1fr; }
+  .company-form label.wide { grid-column:auto; }
+  .fleet-row { grid-template-columns:85px 1fr; }
+  .fleet-row > small, .fleet-row > button { grid-column:2; justify-self:start; }
+}
