@@ -65,6 +65,45 @@ namespace
         float w;
     };
 
+    bool TryQuaternionHeadingDegrees(const Quaternion& rotation, float& headingDegrees)
+    {
+        if (!std::isfinite(rotation.x) ||
+            !std::isfinite(rotation.y) ||
+            !std::isfinite(rotation.z) ||
+            !std::isfinite(rotation.w))
+        {
+            return false;
+        }
+
+        const float length = std::sqrt(
+            rotation.x * rotation.x +
+            rotation.y * rotation.y +
+            rotation.z * rotation.z +
+            rotation.w * rotation.w);
+        if (!std::isfinite(length) || length < 0.0001f)
+        {
+            return false;
+        }
+
+        const float inverse = 1.0f / length;
+        const float x = rotation.x * inverse;
+        const float y = rotation.y * inverse;
+        const float z = rotation.z * inverse;
+        const float w = rotation.w * inverse;
+        const float sinYaw = 2.0f * (w * z + x * y);
+        const float cosYaw = 1.0f - 2.0f * (y * y + z * z);
+        constexpr float RadToDeg = 57.295779513082320876f;
+        float value = std::atan2(sinYaw, cosYaw) * RadToDeg;
+        value = std::fmod(value, 360.0f);
+        if (value < 0.0f)
+        {
+            value += 360.0f;
+        }
+
+        headingDegrees = value;
+        return std::isfinite(value);
+    }
+
     std::uintptr_t ImageBase()
     {
         return reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
@@ -356,20 +395,21 @@ namespace
 
         const auto base = static_cast<std::uintptr_t>(humanPointer);
         if (!IsReadableRange(base + PositionOffset, sizeof(Vec3)) ||
-            !IsReadableRange(base + HumanActHeadingOffset, sizeof(float)) ||
+            !IsReadableRange(base + RotationOffset, sizeof(Quaternion)) ||
             !IsReadableRange(base + HumanActSpeedOffset, sizeof(float)))
         {
             return false;
         }
 
         const auto position = *reinterpret_cast<const Vec3*>(base + PositionOffset);
-        const float currentHeading = *reinterpret_cast<const float*>(base + HumanActHeadingOffset);
+        const auto rotation = *reinterpret_cast<const Quaternion*>(base + RotationOffset);
         const float currentSpeed = *reinterpret_cast<const float*>(base + HumanActSpeedOffset);
+        float currentHeading = 0.0f;
         if (!std::isfinite(position.x) ||
             !std::isfinite(position.y) ||
             !std::isfinite(position.z) ||
-            !std::isfinite(currentHeading) ||
-            !std::isfinite(currentSpeed))
+            !std::isfinite(currentSpeed) ||
+            !TryQuaternionHeadingDegrees(rotation, currentHeading))
         {
             return false;
         }
@@ -672,8 +712,6 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
            WriteValue(humanPointer, RotationOffset, rotation) &&
            WriteValue(humanPointer, LastPositionOffset, position) &&
            WriteValue(humanPointer, LastRotationOffset, rotation) &&
-           WriteValue(humanPointer, HumanSollHeadingOffset, headingDegrees) &&
-           WriteValue(humanPointer, HumanActHeadingOffset, headingDegrees) &&
            WriteValue(humanPointer, HumanSollSpeedOffset, speedMps) &&
            WriteValue(humanPointer, HumanActSpeedOffset, speedMps) &&
            WriteByte(humanPointer, HumanAiModeOffset, aiStop) &&
