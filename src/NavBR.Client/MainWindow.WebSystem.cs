@@ -5,6 +5,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 using NavBR.Client.Omsi;
+using NavBR.Client.Windows;
 using NavBR.Client.Operations;
 
 namespace NavBR.Client;
@@ -19,6 +20,7 @@ public partial class MainWindow
         var profiles = OmsiInstallationProfileStore.Load();
         var currentInstall = _currentOmsi?.InstallDirectory;
         var hudSettings = MultiplayerSettingsStore.Load();
+        var alpha12Preferences = Alpha12PreferencesStore.Load();
 
         FileInfo? logInfo = null;
         try
@@ -120,7 +122,12 @@ public partial class MainWindow
                 logUpdatedAtUtc = logInfo?.LastWriteTimeUtc
             },
             sessionHealthNotice = _webSessionHealthNotice,
-            sessionHealth = BuildWebSessionHealthState()
+            sessionHealth = BuildWebSessionHealthState(),
+            legacyPreferences = new
+            {
+                advancedModeEnabled = alpha12Preferences.AdvancedModeEnabled,
+                showDrivingTips = alpha12Preferences.ShowDrivingTips
+            }
         };
     }
 
@@ -417,6 +424,17 @@ public partial class MainWindow
             dialog.FileName,
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         _webSessionHealthNotice = "Relatório sanitizado de saúde da sessão exportado com sucesso.";
+    }
+
+    private static void SaveLegacyPreferencesFromWeb(bool advancedModeEnabled, bool showDrivingTips)
+    {
+        var current = Alpha12PreferencesStore.Load();
+        Alpha12PreferencesStore.Save(current with
+        {
+            FirstRunCompleted = true,
+            AdvancedModeEnabled = advancedModeEnabled,
+            ShowDrivingTips = showDrivingTips
+        });
     }
 
     private static void OpenFeedbackFromWeb(string? kind)
