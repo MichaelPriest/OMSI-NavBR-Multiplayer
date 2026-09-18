@@ -13,7 +13,8 @@ internal static class RoleplayCharacterCommandProcessor
     public static bool IsCharacterCommandType(string type) =>
         string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.UpdateRoleplayCharacter, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal);
+        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.TriggerRoleplayVehicle, StringComparison.Ordinal);
 
     public static bool TryRejectBeforeOmsiThread(
         PluginBridgeMessage command,
@@ -57,6 +58,20 @@ internal static class RoleplayCharacterCommandProcessor
             command.CharacterInstanceId.Length > 128)
         {
             return Result(command, false, "invalid-character-id", "CharacterInstanceId is required.");
+        }
+
+        if (string.Equals(
+                command.Type,
+                PluginBridgeProtocol.TriggerRoleplayVehicle,
+                StringComparison.Ordinal) &&
+            (!TryNormalizeTriggerName(command.TriggerName, out _) ||
+             command.TriggerActive is not bool))
+        {
+            return Result(
+                command,
+                false,
+                "invalid-roleplay-trigger",
+                "Roleplay vehicle interaction requires a bounded trigger name and boolean state.");
         }
 
         if (!IsRuntimeSupported)
@@ -109,6 +124,8 @@ internal static class RoleplayCharacterCommandProcessor
             CharacterInstanceId: command.CharacterInstanceId,
             CharacterHumanIndex: humanIndex,
             CharacterActivity: command.CharacterActivity,
+            TriggerName: command.TriggerName,
+            TriggerActive: command.TriggerActive,
             CharacterActive: success &&
                              !string.Equals(
                                  command.Type,
@@ -133,10 +150,15 @@ internal static class RoleplayCharacterBackend
     private const double MaxAcquireDistanceMeters = 45d;
     private const double MaxAcquireHeightDifferenceMeters = 4d;
     private const float MaxCharacterSpeedMps = 6f;
+    private const double MaxInteractionDistanceMeters = 8d;
+    private const double MaxInteractionHeightDifferenceMeters = 4d;
+    private const int MaxRetainedTriggerStrings = 256;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, int> RetainedTriggerStrings =
+        new(StringComparer.Ordinal);
 
     public static PluginBridgeMessage Execute(PluginBridgeMessage command)
     {
@@ -153,6 +175,11 @@ internal static class RoleplayCharacterBackend
         if (string.Equals(command.Type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal))
         {
             return Release(command);
+        }
+
+        if (string.Equals(command.Type, PluginBridgeProtocol.TriggerRoleplayVehicle, StringComparison.Ordinal))
+        {
+            return TriggerVehicle(command);
         }
 
         return RoleplayCharacterCommandProcessor.Result(
@@ -453,6 +480,131 @@ internal static class RoleplayCharacterBackend
         }
     }
 
+    private static PluginBridgeMessage TriggerVehicle(
+        PluginBridgeMessage command)
+    {
+        if (!TryGetCharacterId(command, out var instanceId) ||
+            !TryNormalizeTriggerName(command.TriggerName, out var triggerName) ||
+            command.TriggerActive is not bool triggerActive)
+        {
+            return Fail(
+                command,
+                "invalid-roleplay-trigger",
+                "A valid owned character, trigger name and boolean state are required.");
+        }
+
+        lock (Sync)
+        {
+            if (!Owned.TryGetValue(instanceId, out var instance))
+            {
+                return Fail(
+                    command,
+                    "character-not-owned",
+                    "The requested roleplay character is not owned by NavBR.");
+            }
+
+            var playerVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
+            if (playerVehicle == 0 ||
+                playerVehicle != instance.OriginalBusPointer ||
+                OmsiNativeInterop.IsRoadVehiclePointer(playerVehicle) != 1)
+            {
+                return Fail(
+                    command,
+                    "roleplay-bus-changed",
+                    "The original roleplay bus is no longer the current player vehicle.");
+            }
+
+            if (OmsiNativeInterop.ReadHumanPose(
+                    instance.HumanPointer,
+                    out var humanX,
+                    out var humanY,
+                    out var humanZ,
+                    out _,
+                    out _) != 1 ||
+                OmsiNativeInterop.ReadRoadVehiclePosition(
+                    playerVehicle,
+                    out var busX,
+                    out var busY,
+                    out var busZ) != 1)
+            {
+                return Fail(
+                    command,
+                    "roleplay-interaction-position-unavailable",
+                    "Could not validate the character and bus positions for interaction.");
+            }
+
+            var dx = humanX - busX;
+            var dy = humanY - busY;
+            var dz = humanZ - busZ;
+            var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (!double.IsFinite(distance) ||
+                distance > MaxInteractionDistanceMeters ||
+                Math.Abs(dz) > MaxInteractionHeightDifferenceMeters)
+            {
+                return Fail(
+                    command,
+                    "roleplay-interaction-too-far",
+                    "The roleplay character is too far from the bus to use this interaction.");
+            }
+
+            if (!TryGetRetainedTriggerString(triggerName, out var triggerPointer))
+            {
+                return Fail(
+                    command,
+                    "roleplay-trigger-allocation-failed",
+                    "Could not allocate or retain the OMSI trigger name safely.");
+            }
+
+            if (OmsiNativeInterop.TriggerRoadVehicle(
+                    playerVehicle,
+                    triggerPointer,
+                    triggerActive ? 1 : 0) != 1)
+            {
+                return Fail(
+                    command,
+                    "roleplay-trigger-failed",
+                    "OMSI rejected the guarded roleplay vehicle trigger.");
+            }
+
+            return RoleplayCharacterCommandProcessor.Result(
+                command,
+                true,
+                humanIndex: instance.HumanIndex,
+                x: humanX,
+                y: humanY,
+                z: humanZ);
+        }
+    }
+
+    private static bool TryGetRetainedTriggerString(
+        string triggerName,
+        out int triggerPointer)
+    {
+        if (RetainedTriggerStrings.TryGetValue(triggerName, out triggerPointer))
+        {
+            return triggerPointer > 0;
+        }
+
+        if (RetainedTriggerStrings.Count >= MaxRetainedTriggerStrings)
+        {
+            triggerPointer = 0;
+            return false;
+        }
+
+        triggerPointer = OmsiNativeInterop.AllocateAnsiString(triggerName);
+        if (triggerPointer <= 0)
+        {
+            triggerPointer = 0;
+            return false;
+        }
+
+        // RVTriggerXML's Delphi string lifetime is not publicly documented.
+        // Retain a bounded, deduplicated set for Omsi.exe's lifetime instead
+        // of risking a use-after-free after the native call.
+        RetainedTriggerStrings.Add(triggerName, triggerPointer);
+        return true;
+    }
+
     public static void ReleaseAllBestEffort()
     {
         lock (Sync)
@@ -570,6 +722,27 @@ internal static class RoleplayCharacterBackend
 
         heading = NormalizeHeading((float)headingValue);
         speed = (float)speedValue;
+        return true;
+    }
+
+    private static bool TryNormalizeTriggerName(
+        string? value,
+        out string triggerName)
+    {
+        triggerName = value?.Trim() ?? string.Empty;
+        if (triggerName.Length is <= 0 or > 128)
+        {
+            return false;
+        }
+
+        foreach (var character in triggerName)
+        {
+            if (char.IsControl(character))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

@@ -31,6 +31,7 @@ internal static class ExperimentalVehicleCommandProcessor
         {
             capabilities.Add(PluginBridgeProtocol.CapabilityCharacterPossession);
             capabilities.Add(PluginBridgeProtocol.CapabilityCharacterTransform);
+            capabilities.Add(PluginBridgeProtocol.CapabilityCharacterInteraction);
         }
 
         return capabilities.ToArray();
