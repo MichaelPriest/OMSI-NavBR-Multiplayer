@@ -411,6 +411,10 @@ export interface NavBrCompanyNetworkState {
 
 export interface NavBrState {
   generatedAtUtc?: string;
+  navigationRequest?: {
+    id: number;
+    screen: string;
+  } | null;
   appVersion?: string | null;
   omsi: {
     running: boolean;
