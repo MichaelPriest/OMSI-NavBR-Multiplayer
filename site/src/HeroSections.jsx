@@ -12,7 +12,7 @@ export function Hero({ current, standalone }) {
       <div className="hero-copy">
         <div className="hero-kicker">
           <span className="live-dot" />
-          {current ? "Alpha.14 Test 3 • prerelease pública • React/WebView2" : "Alpha.14 • em validação • React/WebView2"}
+          {current ? "Alpha.14 • release pública atual • React/WebView2" : "Alpha.14 • catálogo atualizando • React/WebView2"}
         </div>
         <h1>NavBR Alpha.14. <span>Interface React, multiplayer público e integração OMSI v3.</span></h1>
         <p className="hero-lead">
@@ -21,7 +21,7 @@ export function Hero({ current, standalone }) {
         </p>
         <div className="actions">
           <a className="button primary" href={standalone?.browser_download_url || RELEASES_PAGE} target="_blank" rel="noreferrer">
-            {standalone ? "Baixar Alpha.14 Test 3 — EXE standalone" : "Ver releases"}
+            {standalone ? "Baixar Alpha.14 — EXE standalone" : "Ver releases"}
           </a>
           <a className="button secondary" href="#multiplayer">Como testar em 2 PCs</a>
         </div>
@@ -40,7 +40,7 @@ export function Hero({ current, standalone }) {
           <figcaption>Sem dados fake em produção: quando o backend não tem valor real, a interface informa indisponibilidade.</figcaption>
         </figure>
         <div className="project-console" aria-label="Estado atual do projeto">
-          <div className="console-head"><span>NAVBR • ALPHA.14</span><span className="console-live"><i /> {current ? "TEST 3 PÚBLICA" : "EM VALIDAÇÃO"}</span></div>
+          <div className="console-head"><span>NAVBR • ALPHA.14</span><span className="console-live"><i /> {current ? "RELEASE PÚBLICA" : "ATUALIZANDO"}</span></div>
           <div className="console-body">
             <div className="console-row ok"><span>Shell React/WebView2</span><strong>ATIVO</strong></div>
             <div className="console-row ok"><span>Plugin Bridge</span><strong>V3</strong></div>
@@ -57,7 +57,7 @@ export function TrustStrip({ current, alphaDownloads, totalDownloads }) {
   return (
     <section className="trust-strip">
       <div className="shell trust-grid">
-        <div><b>{CURRENT_TAG}</b><span>{current ? "prerelease pública atual" : "aguardando catálogo"}</span></div>
+        <div><b>{CURRENT_TAG}</b><span>{current ? "release pública atual" : "aguardando catálogo"}</span></div>
         <div><b>{formatNumber(alphaDownloads)}</b><span>downloads da {alphaLabel(CURRENT_TAG)}</span></div>
         <div><b>{formatNumber(totalDownloads)}</b><span>downloads acumulados</span></div>
         <div><b>win-x86</b><span>cliente OMSI compatível</span></div>
@@ -79,7 +79,7 @@ export function StatusSection({ current }) {
         <article className="status-card"><span>INTERFACE</span><strong>React/WebView2</strong><small>WPF antigo fora da navegação normal</small></article>
         <article className="status-card"><span>MULTIPLAYER</span><strong>SignalR real</strong><small>salas, presença, chat, voz e telemetria</small></article>
         <article className="status-card"><span>PLUGIN</span><strong>Native AOT x86</strong><small>Bridge v3 + interop v3</small></article>
-        <article className="status-card"><span>RELEASE</span><strong>{current ? "Test 3 pública" : "Validação"}</strong><small>recompilada antes da publicação</small></article>
+        <article className="status-card"><span>RELEASE</span><strong>{current ? "Alpha.14 pública" : "Atualizando"}</strong><small>recompilada antes da publicação</small></article>
       </div>
     </section>
   );
