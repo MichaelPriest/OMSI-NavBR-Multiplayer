@@ -1,6 +1,9 @@
 name: alpha14 validation
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - feature/alpha13-online-vehicles
