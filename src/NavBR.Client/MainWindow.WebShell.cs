@@ -180,6 +180,7 @@ public partial class MainWindow
             navigation = BuildWebNavigationState(),
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(),
+            roadmapStudio = BuildWebRoadmapState(),
             hardware = BuildWebHardwareState(),
             network = BuildWebNetworkState(),
             companyNetwork = BuildWebCompanyNetworkState(),
@@ -312,6 +313,26 @@ public partial class MainWindow
 
             case "resetHudSettings":
                 ResetHudSettingsFromWeb();
+                break;
+
+            case "analyzeRoadmap":
+                AnalyzeRoadmapFromWeb(
+                    GetWebPayloadString(payload, "folderName"));
+                break;
+
+            case "buildRoadmapTiles":
+                await BuildRoadmapTilesFromWebAsync(
+                    GetWebPayloadString(payload, "folderName"));
+                break;
+
+            case "buildRoadmapVector":
+                await BuildRoadmapVectorFromWebAsync(
+                    GetWebPayloadString(payload, "folderName"));
+                break;
+
+            case "openRoadmapFolder":
+                OpenRoadmapFolderFromWeb(
+                    GetWebPayloadString(payload, "folderName"));
                 break;
 
             case "connectRoom":
