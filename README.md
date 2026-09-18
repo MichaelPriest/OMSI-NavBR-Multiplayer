@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A próxima publicação pública é **v0.3.0-alpha.14**.
+A versão pública atual é **v0.3.0-alpha.14-test.4**.
 
 - cliente principal: **EXE standalone Windows x86**;
 - ZIP do cliente;
@@ -13,7 +13,7 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> A Alpha.14 continua sendo uma **prerelease pública**. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
+> A Alpha.14 Test 4 é a **release pública atual**. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
 
 ## Destaques da Alpha.14
 
