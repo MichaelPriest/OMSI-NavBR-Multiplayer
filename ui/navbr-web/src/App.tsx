@@ -5,6 +5,7 @@ import {
   type NavBrMultiplayerState,
   type NavBrNavigationState,
   type NavBrOmsiInstallation,
+  type NavBrRoadmapStudioState,
   type NavBrSessionPoint,
   type NavBrState,
   sendCommand,
@@ -1040,7 +1041,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "installations" | "hud" | "diagnostics" | "network" | "advanced";
+type SettingsTab = "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const [name, setName] = useState(profile.name);
@@ -1311,6 +1312,182 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   );
 }
 
+
+function formatFileSize(bytes: number | null | undefined) {
+  if (bytes == null || !Number.isFinite(bytes)) return "—";
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function roadmapStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "analysis-ready": return "Análise pronta";
+    case "analysis-no-tile-images": return "Sem imagens de tile";
+    case "analysis-failed": return "Falha na análise";
+    case "building-tiles": return "Montando roadmap por tiles";
+    case "building-vector": return "Gerando roadmap vetorial";
+    case "tiles-built": return "Roadmap por tiles concluído";
+    case "vector-built": return "Roadmap vetorial concluído";
+    case "tiles-build-failed": return "Falha na geração por tiles";
+    case "vector-build-failed": return "Falha na geração vetorial";
+    default: return status || "Pronto";
+  }
+}
+
+function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
+  const [selectedFolder, setSelectedFolder] = useState("");
+
+  useEffect(() => {
+    setSelectedFolder(current => {
+      if (current && roadmap.maps.some(map => map.folderName === current)) {
+        return current;
+      }
+      if (roadmap.selectedFolder && roadmap.maps.some(map => map.folderName === roadmap.selectedFolder)) {
+        return roadmap.selectedFolder;
+      }
+      return roadmap.maps[0]?.folderName || "";
+    });
+  }, [roadmap.maps, roadmap.selectedFolder]);
+
+  const selectedMap = roadmap.maps.find(map => map.folderName === selectedFolder) || null;
+  const analysis = roadmap.analysis;
+  const result = roadmap.result;
+  const progress = Math.max(0, Math.min(100, (roadmap.progress ?? 0) * 100));
+
+  return (
+    <section className="roadmap-studio-layout">
+      <article className="card roadmap-control-card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">ROADMAP STUDIO</span>
+            <h3>Gerar whole.roadmap.bmp</h3>
+          </div>
+          <span className={`hardware-state-pill ${roadmap.busy ? "connected" : ""}`}>
+            {roadmap.busy ? "Processando" : roadmapStatusLabel(roadmap.status)}
+          </span>
+        </div>
+
+        {roadmap.maps.length === 0 ? (
+          <div className="empty-state">Nenhum mapa OMSI foi catalogado. Detecte/inicie uma instalação do OMSI e atualize o estado.</div>
+        ) : (
+          <>
+            <label className="voice-field roadmap-map-select">
+              <span>Mapa OMSI</span>
+              <select
+                value={selectedFolder}
+                disabled={roadmap.busy}
+                onChange={event => setSelectedFolder(event.target.value)}
+              >
+                {roadmap.maps.map(map => (
+                  <option key={map.folderName} value={map.folderName}>{map.displayName}</option>
+                ))}
+              </select>
+            </label>
+
+            {selectedMap && (
+              <div className="roadmap-map-facts">
+                <span><small>PASTA</small><strong>{selectedMap.folderName}</strong></span>
+                <span><small>TILES DO MAPA</small><strong>{selectedMap.tileCount}</strong></span>
+                <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? "Existe" : "Ausente"}</strong></span>
+              </div>
+            )}
+
+            <div className="roadmap-actions">
+              <button
+                className="button ghost"
+                disabled={!selectedFolder || roadmap.busy}
+                onClick={() => sendCommand("analyzeRoadmap", { folderName: selectedFolder })}
+              >
+                Analisar tiles
+              </button>
+              <button
+                className="button primary"
+                disabled={!selectedFolder || roadmap.busy || !analysis?.canBuildFromTiles}
+                onClick={() => sendCommand("buildRoadmapTiles", { folderName: selectedFolder })}
+              >
+                Montar pelas imagens
+              </button>
+              <button
+                className="button ghost"
+                disabled={!selectedFolder || roadmap.busy}
+                onClick={() => sendCommand("buildRoadmapVector", { folderName: selectedFolder })}
+              >
+                Gerar vetorial pelas splines
+              </button>
+              <button
+                className="button ghost"
+                disabled={!selectedFolder || roadmap.busy}
+                onClick={() => sendCommand("openRoadmapFolder", { folderName: selectedFolder })}
+              >
+                Abrir pasta
+              </button>
+            </div>
+
+            {roadmap.busy && (
+              <div className="roadmap-progress">
+                <div><span>{roadmapStatusLabel(roadmap.status)}</span><strong>{Math.round(progress)}%</strong></div>
+                <div className="roadmap-progress-track"><i style={{ width: `${progress}%` }} /></div>
+              </div>
+            )}
+          </>
+        )}
+
+        {roadmap.error && <div className="directory-error">{roadmap.error}</div>}
+      </article>
+
+      <article className="card roadmap-analysis-card">
+        <div className="section-heading">
+          <div><span className="eyebrow">ANÁLISE</span><h3>Tiles e saída</h3></div>
+        </div>
+
+        {!analysis ? (
+          <div className="empty-state">Selecione um mapa e use “Analisar tiles”. O modo vetorial continua disponível mesmo sem imagens roadmap por tile.</div>
+        ) : (
+          <>
+            <div className="roadmap-analysis-grid">
+              <span><small>IMAGENS DE TILE</small><strong>{analysis.tileImageCount}</strong></span>
+              <span><small>POSIÇÕES SEM IMAGEM</small><strong>{analysis.missingTileImages}</strong></span>
+              <span><small>GRADE X</small><strong>{analysis.minGridX} … {analysis.maxGridX}</strong></span>
+              <span><small>GRADE Y</small><strong>{analysis.minGridY} … {analysis.maxGridY}</strong></span>
+              <span><small>TILE</small><strong>{analysis.tilePixelWidth > 0 ? `${analysis.tilePixelWidth}×${analysis.tilePixelHeight}` : "—"}</strong></span>
+              <span><small>SAÍDA</small><strong>{analysis.outputPixelWidth > 0 ? `${analysis.outputPixelWidth}×${analysis.outputPixelHeight}` : "—"}</strong></span>
+              <span><small>ESTIMATIVA</small><strong>{formatFileSize(analysis.estimatedBytes)}</strong></span>
+              <span><small>BACKUP NECESSÁRIO</small><strong>{analysis.existingWholeRoadmap ? "Sim" : "Não"}</strong></span>
+            </div>
+            <code className="roadmap-output-path">{analysis.outputPath}</code>
+          </>
+        )}
+      </article>
+
+      <article className="card roadmap-result-card">
+        <div className="section-heading">
+          <div><span className="eyebrow">ÚLTIMA GERAÇÃO</span><h3>Resultado real</h3></div>
+        </div>
+        {!result ? (
+          <div className="empty-state">Nenhum roadmap foi gerado nesta sessão.</div>
+        ) : (
+          <>
+            <div className="roadmap-analysis-grid">
+              <span><small>MODO</small><strong>{result.mode === "tiles" ? "Imagens de tile" : "Vetorial / splines"}</strong></span>
+              <span><small>DIMENSÃO</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
+              <span><small>TAMANHO</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
+              <span><small>TEMPO</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
+              {result.tileImagesUsed != null && <span><small>TILES USADOS</small><strong>{result.tileImagesUsed}</strong></span>}
+              {result.missingTileImages != null && <span><small>VAZIOS</small><strong>{result.missingTileImages}</strong></span>}
+              {result.tileFilesRead != null && <span><small>TILES LIDOS</small><strong>{result.tileFilesRead}</strong></span>}
+              {result.splinesDrawn != null && <span><small>SPLINES</small><strong>{result.splinesDrawn}</strong></span>}
+            </div>
+            <code className="roadmap-output-path">{result.outputPath}</code>
+            {result.backupPath && <p className="roadmap-backup">Backup: <code>{result.backupPath}</code></p>}
+          </>
+        )}
+      </article>
+    </section>
+  );
+}
+
 function Settings({
   state,
   error,
@@ -1368,6 +1545,7 @@ function Settings({
         {([
           ["installations", "Instalações OMSI"],
           ["hud", "HUD"],
+          ["roadmap", "Roadmap"],
           ["diagnostics", "Diagnóstico"],
           ["network", "Rede"],
           ["advanced", "Avançado"]
@@ -1407,6 +1585,8 @@ function Settings({
       )}
 
       {tab === "hud" && <HudSettingsPanel hud={system.hud} />}
+
+      {tab === "roadmap" && <RoadmapStudioPanel roadmap={state!.roadmapStudio} />}
 
       {tab === "diagnostics" && (
         <section className="diagnostics-layout">
@@ -1562,6 +1742,12 @@ function Settings({
               <button className="button ghost" onClick={() => setTab("hud")}>Abrir HUD</button>
               <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
             </div>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">ROADMAP</span>
+            <h3>Roadmap Studio</h3>
+            <p>Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.</p>
+            <button className="button ghost" onClick={() => setTab("roadmap")}>Abrir Roadmap Studio</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">FALLBACK</span>
