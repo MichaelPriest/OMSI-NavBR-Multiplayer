@@ -1,4 +1,4 @@
-name: alpha14 test3 roleplay prerelease
+name: alpha14 layout preview prerelease
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.head_ref == 'test/alpha14-test3'
     runs-on: windows-latest
     env:
-      TEST_TAG: v0.3.0-alpha.14-test.3
+      TEST_TAG: v0.3.0-alpha.14-layout-preview.1
       RELEASE_TARGET: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
@@ -56,8 +56,8 @@ jobs:
             gh release create $env:TEST_TAG `
               --repo "${{ github.repository }}" `
               --target "$env:RELEASE_TARGET" `
-              --title "OMSI NavBR Multiplayer $env:TEST_TAG — build validation" `
-              --notes "Draft reservado enquanto a Alpha.14 Test 3 passa pela validação automática." `
+              --title "OMSI NavBR Multiplayer $env:TEST_TAG — layout preview" `
+              --notes "Draft privado para validação visual do layout React/WebView2 da Alpha.14." `
               --prerelease --draft
             if ($LASTEXITCODE -ne 0) { throw "Could not reserve Alpha.14 Test 3 draft." }
           }
@@ -457,7 +457,7 @@ jobs:
           gh release edit $env:TEST_TAG `
             --repo "${{ github.repository }}" `
             --target "$env:RELEASE_TARGET" `
-            --title "OMSI NavBR Multiplayer $env:TEST_TAG — Central Multiplayer + RP v3" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — preview de layout React/WebView2" `
             --notes-file "artifacts/release-notes.md" `
             --prerelease --draft=true
           if ($LASTEXITCODE -ne 0) { throw "Failed to finalize draft $env:TEST_TAG." }
