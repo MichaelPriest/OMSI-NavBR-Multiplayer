@@ -1,5 +1,13 @@
 # Rede multiplayer
 
+## Servidor online
+
+O mesmo `NavBR.Server` pode ser hospedado publicamente, inclusive em um Web Service gratuito do Render. Nesse modo o cliente usa HTTPS/WSS e não precisa abrir TCP 27730, configurar UPnP ou depender de IP público no PC do jogador.
+
+A interface chama esse transporte de **Servidor Online**. O estado interno ainda reutiliza a infraestrutura de servidor remoto/relay da Alpha.14 para manter compatibilidade com o protocolo atual.
+
+Veja [RENDER_HOSTING.md](RENDER_HOSTING.md).
+
 ## Peer-host
 
 O PC que cria a sala pode hospedar a própria sessão em **TCP 27730**. Presença, telemetria, chat, voz e estado operacional passam pelo SignalR.
@@ -50,9 +58,9 @@ A Central Multiplayer também expõe o estado de alcance do host separadamente:
 - UPnP mapeado sem confirmação externa;
 - endereço de Internet disponível via UPnP.
 
-## Relay experimental
+## Servidor remoto / compatibilidade de relay
 
-O relay usa NavBR.Server remoto configurado. Não existe endpoint público embutido e o recurso permanece experimental.
+A infraestrutura antes apresentada como relay é usada para conectar o cliente a um `NavBR.Server` remoto. Na interface principal ela aparece como **Servidor Online**. O endpoint público não é codificado no cliente: a URL gerada pelo provedor deve ser configurada na tela da sala.
 
 ## Salas privadas
 
