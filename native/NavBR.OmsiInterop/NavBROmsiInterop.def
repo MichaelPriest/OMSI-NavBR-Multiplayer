@@ -22,6 +22,7 @@ EXPORTS
     NavBR_RestoreHumanDriverState
     NavBR_ReadHumanAiState
     NavBR_ReadHumanAnimationState
+    NavBR_ReadHumanActivityState
     NavBR_SetHumanTransform
     NavBR_RestoreHumanAiState
     NavBR_GetMem
