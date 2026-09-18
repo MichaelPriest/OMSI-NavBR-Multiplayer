@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <VersionPrefix>0.3.0</VersionPrefix>
-    <VersionSuffix>alpha.14-test.3</VersionSuffix>
+    <VersionSuffix>alpha.14-test.3.1</VersionSuffix>
     <Product>OMSI NavBR Multiplayer</Product>
     <Company>NavBR</Company>
     <Authors>MichaelPriest</Authors>
