@@ -714,6 +714,32 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAiState(
     return std::isfinite(*sollSpeed) && std::isfinite(*actSpeed) ? 1 : 0;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadHumanAnimationState(
+    int humanPointer,
+    float* lastMovedDist,
+    float* state)
+{
+    if (!IsHumanPointer(humanPointer) ||
+        lastMovedDist == nullptr ||
+        state == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(humanPointer);
+    if (!IsReadableRange(base + HumanLastMovedDistOffset, sizeof(float)) ||
+        !IsReadableRange(base + HumanStateOffset, sizeof(float)))
+    {
+        return 0;
+    }
+
+    *lastMovedDist =
+        *reinterpret_cast<const float*>(base + HumanLastMovedDistOffset);
+    *state =
+        *reinterpret_cast<const float*>(base + HumanStateOffset);
+    return std::isfinite(*lastMovedDist) && std::isfinite(*state) ? 1 : 0;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
     int humanPointer,
     float x,
