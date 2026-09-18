@@ -72,25 +72,21 @@ public partial class MainWindow
     private void MultiplayerButton_Click(object sender, RoutedEventArgs e) =>
         OpenMultiplayerCentralForShell();
 
-    internal void OpenMultiplayerCentralForShell() =>
-        OpenMultiplayerCentralForShell(showWindow: true);
+    internal void OpenMultiplayerCentralForShell()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        NavigatePrimaryWebShell("multiplayer");
+    }
 
     internal void OpenMultiplayerCentralForShell(bool showWindow)
     {
         if (_multiplayerWindow is not null)
         {
-            if (!showWindow)
+            if (showWindow)
             {
-                return;
+                NavigatePrimaryWebShell("multiplayer");
             }
 
-            if (_multiplayerWindow.WindowState == WindowState.Minimized)
-            {
-                _multiplayerWindow.WindowState = WindowState.Normal;
-            }
-
-            _multiplayerWindow.Show();
-            _multiplayerWindow.Activate();
             return;
         }
 
@@ -98,12 +94,6 @@ public partial class MainWindow
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
             _telemetryProvider.ReadRoleplayCharacterOptions);
-
-        var webOwner = GetPrimaryWebDialogOwner();
-        if (webOwner is not null)
-        {
-            window.Owner = webOwner;
-        }
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);
@@ -168,17 +158,29 @@ public partial class MainWindow
 
         _multiplayerWindow = window;
         UpdateHudLocalState();
+
+        // MultiplayerWindow still owns native controller/services that are
+        // being detached incrementally from WPF. Trigger Loaded so those
+        // services initialize, but never expose the retired visual surface.
+        window.ShowInTaskbar = false;
+        window.ShowActivated = false;
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = -32000d;
+        window.Top = -32000d;
+        window.Opacity = 0d;
         window.Show();
-        if (!showWindow)
+        window.Hide();
+
+        if (showWindow)
         {
-            window.Hide();
+            NavigatePrimaryWebShell("multiplayer");
         }
     }
 
     internal void OpenMultiplayerRoleplayTabForShell()
     {
-        OpenMultiplayerCentralForShell();
-        _multiplayerWindow?.ShowRoleplayTab();
+        OpenMultiplayerCentralForShell(showWindow: false);
+        NavigatePrimaryWebShell("roleplay");
     }
 
     internal void ToggleHudLayoutForShell()
