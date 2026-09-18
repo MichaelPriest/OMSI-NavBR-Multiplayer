@@ -19,6 +19,11 @@ public partial class MultiplayerWindow
 
     private void PublicRoomsButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!IsVisible || !ShowInTaskbar)
+        {
+            return;
+        }
+
         var serverUrl = ServerTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(serverUrl))
         {
