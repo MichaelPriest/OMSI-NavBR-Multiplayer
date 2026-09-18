@@ -420,6 +420,32 @@ internal static class Alpha12FigmaShellInstaller
 
         var profile = DriverProfileStore.Load();
         var user = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var moveHudTopButton = new Button
+        {
+            Content = L("↔  Mover HUD", "↔  Move HUD", "↔  Mover HUD", "↔  HUD verschieben", "↔  Déplacer HUD"),
+            Height = 34d,
+            MinWidth = 104d,
+            Margin = new Thickness(0d, 0d, 16d, 0d),
+            Padding = new Thickness(12d, 5d, 12d, 5d),
+            Background = ElevatedBrush(),
+            Foreground = White(),
+            BorderBrush = BorderBrush(),
+            BorderThickness = new Thickness(1d),
+            FontSize = 10.5d,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = L(
+                "Mover e redimensionar o HUD na tela",
+                "Move and resize the HUD on screen",
+                "Mover y redimensionar el HUD en pantalla",
+                "HUD auf dem Bildschirm verschieben und skalieren",
+                "Déplacer et redimensionner le HUD à l’écran"),
+            Tag = "alpha14-topbar-hud-move"
+        };
+        moveHudTopButton.Click += (_, _) => window.ToggleHudLayoutForShell();
+        user.Children.Add(moveHudTopButton);
+
         user.Children.Add(Text(profile.DisplayName, 13d, White(), FontWeights.SemiBold, new Thickness(0d, 0d, 14d, 0d)));
         var avatar = new Border
         {
