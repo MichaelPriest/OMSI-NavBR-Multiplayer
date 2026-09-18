@@ -2265,6 +2265,7 @@ function roleplayStatusLabel(
     case "roleplay-bus-position-unavailable": return pick("Posição do ônibus indisponível", "Bus position unavailable", "Posición del autobús no disponible", "Busposition nicht verfügbar", "Position du bus indisponible");
     case "roleplay-entered-bus": return pick("Retornou ao ônibus", "Returned to the bus", "Volvió al autobús", "Zum Bus zurückgekehrt", "Retour au bus");
     case "roleplay-emergency-return": return pick("RP encerrado pelo retorno de emergência", "RP ended by emergency return", "RP finalizado por retorno de emergencia", "RP durch Notfall-Rückkehr beendet", "RP terminé par retour d’urgence");
+    case "roleplay-release-failed": return pick("O RP foi encerrado, mas o plugin não confirmou a restauração do motorista", "RP ended, but the plugin did not confirm driver restoration", "El RP terminó, pero el plugin no confirmó la restauración del conductor", "RP wurde beendet, aber das Plugin bestätigte die Fahrerwiederherstellung nicht", "Le RP est terminé, mais le plugin n’a pas confirmé la restauration du conducteur");
     case "roleplay-disabled": return pick("Recurso RP desativado", "RP feature disabled", "Función RP desactivada", "RP-Funktion deaktiviert", "Fonction RP désactivée");
     case "roleplay-enabled": return pick("Recurso RP ativado", "RP feature enabled", "Función RP activada", "RP-Funktion aktiviert", "Fonction RP activée");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
