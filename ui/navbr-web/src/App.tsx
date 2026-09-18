@@ -293,8 +293,156 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
   );
 }
 
+
+function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
+  const [camera, setCamera] = useState<"follow" | "aerial">("follow");
+  const [zoom, setZoom] = useState(1);
+
+  const scene = useMemo(() => {
+    if (!state.bounds || !state.roadmapAvailable || !state.roadmapUrl) {
+      return null;
+    }
+
+    const width = Math.max(1, state.bounds.maxX - state.bounds.minX);
+    const height = Math.max(1, state.bounds.maxY - state.bounds.minY);
+    const sceneWidth = 1000;
+    const sceneHeight = Math.max(280, 1000 * height / width);
+
+    const project = (x: number, y: number) => ({
+      x: (x - state.bounds!.minX) / width * sceneWidth,
+      y: sceneHeight - ((y - state.bounds!.minY) / height * sceneHeight)
+    });
+
+    const route = state.routePoints.map(point => project(point.x, point.y));
+    const local = state.localVehicle
+      ? { ...state.localVehicle, ...project(state.localVehicle.x, state.localVehicle.y) }
+      : null;
+    const remotes = state.remoteVehicles.map(vehicle => ({
+      ...vehicle,
+      ...project(vehicle.x, vehicle.y)
+    }));
+
+    let viewBox = `0 0 ${sceneWidth} ${sceneHeight}`;
+    if (camera === "follow" && local) {
+      const spanX = Math.max(150, 430 / zoom);
+      const spanY = Math.max(110, 290 / zoom);
+      const minX = Math.max(0, Math.min(sceneWidth - spanX, local.x - spanX / 2));
+      const minY = Math.max(0, Math.min(sceneHeight - spanY, local.y - spanY * 0.58));
+      viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
+    }
+
+    return { sceneWidth, sceneHeight, route, local, remotes, viewBox };
+  }, [state, camera, zoom]);
+
+  if (!state.roadmapAvailable) {
+    return (
+      <div className="map-center-message navigation-empty nav3d-empty">
+        <strong>Roadmap 3D indisponível</strong>
+        <span>Gere o whole.roadmap.bmp em Configurações → Roadmap Studio para usar a visão 3D real.</span>
+      </div>
+    );
+  }
+
+  if (!scene || !state.available) {
+    return (
+      <div className="map-center-message navigation-empty nav3d-empty">
+        <strong>Aguardando posição do ônibus</strong>
+        <span>O mapa real está disponível, mas a telemetria de posição do OMSI ainda não está pronta.</span>
+      </div>
+    );
+  }
+
+  const routePoints = scene.route.map(point => `${point.x},${point.y}`).join(" ");
+
+  return (
+    <div className="navigation-3d">
+      <div className="navigation-map-toolbar nav3d-toolbar">
+        <button className={camera === "follow" ? "active" : ""} onClick={() => setCamera("follow")}>Seguir ônibus</button>
+        <button className={camera === "aerial" ? "active" : ""} onClick={() => setCamera("aerial")}>Visão aérea</button>
+        <label>
+          <span>Zoom</span>
+          <input
+            type="range"
+            min="0.65"
+            max="2.3"
+            step="0.05"
+            value={zoom}
+            disabled={camera === "aerial"}
+            onChange={event => setZoom(Number(event.target.value))}
+          />
+        </label>
+      </div>
+
+      <div className={`nav3d-stage ${camera}`}>
+        <div className="nav3d-perspective">
+          <svg
+            viewBox={scene.viewBox}
+            preserveAspectRatio="xMidYMid meet"
+            aria-label="Mapa 3D do OMSI"
+          >
+            <image
+              href={state.roadmapUrl || undefined}
+              x="0"
+              y="0"
+              width={scene.sceneWidth}
+              height={scene.sceneHeight}
+              preserveAspectRatio="none"
+              className="nav3d-roadmap"
+            />
+
+            {scene.route.length >= 2 && (
+              <>
+                <polyline className="nav3d-route-shadow" points={routePoints} />
+                <polyline className="nav3d-route-line" points={routePoints} />
+              </>
+            )}
+
+            {scene.remotes.map(remote => (
+              <g
+                className="nav3d-remote-bus"
+                key={remote.playerId}
+                transform={`translate(${remote.x} ${remote.y}) rotate(${remote.headingDegrees})`}
+              >
+                <circle r="17" className="nav3d-remote-halo" />
+                <rect x="-8" y="-15" width="16" height="30" rx="5" />
+                <path d="M 0 -24 L -6 -14 L 6 -14 Z" />
+                <text
+                  x="20"
+                  y="-18"
+                  transform={`rotate(${-remote.headingDegrees} 20 -18)`}
+                >
+                  {remote.displayName}
+                </text>
+              </g>
+            ))}
+
+            {scene.local && (
+              <g
+                className="nav3d-local-bus"
+                transform={`translate(${scene.local.x} ${scene.local.y}) rotate(${scene.local.headingDegrees})`}
+              >
+                <circle r="22" className="nav3d-local-halo" />
+                <rect x="-10" y="-18" width="20" height="36" rx="6" />
+                <path d="M 0 -29 L -8 -17 L 8 -17 Z" />
+              </g>
+            )}
+          </svg>
+        </div>
+      </div>
+
+      <div className="nav3d-footer">
+        <span><strong>{state.mapName || "Mapa OMSI"}</strong></span>
+        <span>{state.routeAvailable ? "Rota real carregada" : "Rota não resolvida"}</span>
+        <span>{state.remoteCount} ônibus remoto(s) compatível(is)</span>
+      </div>
+    </div>
+  );
+}
+
 function Navigation({ state }: { state: NavBrState | null }) {
   const navigation = state?.navigation;
+  const navigation3D = state?.navigation3D;
+  const [mapView, setMapView] = useState<"2d" | "3d">("2d");
   const telemetry = state?.telemetry;
   const maneuver = maneuverLabel(navigation?.maneuver || "None");
   const routeActive = Boolean(navigation?.available);
@@ -315,7 +463,9 @@ function Navigation({ state }: { state: NavBrState | null }) {
           <span className={`connection-pill ${routeActive ? "connected" : ""}`}>
             <i /> {routeActive ? navigation.isOnRoute ? "Na rota" : "Fora da rota" : "Sem rota"}
           </span>
-          <button className="button ghost" onClick={() => sendCommand("openNavigation3D")}>Mapa 3D</button>
+          <button className="button ghost" onClick={() => setMapView(current => current === "2d" ? "3d" : "2d")}>
+            {mapView === "2d" ? "Mapa 3D" : "Mapa 2D"}
+          </button>
         </div>
       </header>
 
@@ -336,7 +486,9 @@ function Navigation({ state }: { state: NavBrState | null }) {
             </div>
             <span className="route-source-pill">GEOMETRIA OMSI</span>
           </div>
-          <NavigationMap navigation={navigation} />
+          {mapView === "3d" && navigation3D
+            ? <Navigation3DMap state={navigation3D} />
+            : <NavigationMap navigation={navigation} />}
         </article>
 
         <aside className="navigation-side">
