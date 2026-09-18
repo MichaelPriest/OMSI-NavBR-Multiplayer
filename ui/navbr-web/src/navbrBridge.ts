@@ -46,6 +46,17 @@ export interface NavBrMultiplayerState {
   voiceChannel: string;
   voiceProximityMeters: number;
   voiceDeafened: boolean;
+  voiceInputDeviceNumber: number;
+  voiceOutputDeviceNumber: number;
+  voiceInputDevices: { deviceNumber: number; displayName: string }[];
+  voiceOutputDevices: { deviceNumber: number; displayName: string }[];
+  voiceMixers: {
+    playerId: string;
+    displayName: string;
+    muted: boolean;
+    gain: number;
+    speaking: boolean;
+  }[];
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
@@ -452,6 +463,8 @@ export type NavBrCommand =
   | "toggleRoomFavorite"
   | "setVoiceEnabled"
   | "configureVoice"
+  | "configureVoiceDevices"
+  | "configureRemoteVoice"
   | "acknowledgeOperationalReport"
   | "resolveOperationalReport"
   | "saveCompany"
