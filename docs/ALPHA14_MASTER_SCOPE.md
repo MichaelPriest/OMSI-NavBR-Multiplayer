@@ -1,6 +1,6 @@
 # Alpha.14 — escopo mestre
 
-Versão de validação pública: **v0.3.0-alpha.14-test.4**.
+Versão pública atual: **v0.3.0-alpha.14-test.4**.
 
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
@@ -109,10 +109,10 @@ Somente desenvolvimento/teste:
 
 ## 7. Release e validação
 
-- `test/alpha14-test3`: build privada em GitHub Actions, sem alterar release;
-- `publish/alpha14-test3`: publicação explicitamente aprovada da prerelease;
+- **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;
+- a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;
 - toda publicação recompila/valida React, servidor, plugin, cliente e simulador;
-- publicação final da Alpha.14 depende da validação prática OMSI.
+- recursos físicos/RP continuam experimentais, opt-in e fail-safe.
 
 ## 8. Critério da Alpha pública
 
