@@ -70,7 +70,14 @@ Require-Text "src/NavBR.Client/App.xaml" @(
     '<ControlTemplate TargetType="{x:Type ComboBox}">'
 )
 
+Reject-Text "src/NavBR.Client/App.xaml" @(
+    'StartupUri="MainWindow.xaml"'
+)
+
 Require-Text "src/NavBR.Client/App.xaml.cs" @(
+    "var nativeHost = new MainWindow();",
+    "MainWindow = nativeHost;",
+    "nativeHost.Show();",
     "mainWindow.InitializeRoleplayForShell();",
     "TrayIcon.Attach(mainWindow);",
     "mainWindow.OpenPrimaryWebShell();",

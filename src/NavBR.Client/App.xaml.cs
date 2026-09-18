@@ -44,7 +44,15 @@ public partial class App : Application
             typeof(HardwareCockpitView),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(HardwareCockpitView_Loaded));
+
         base.OnStartup(e);
+
+        // The historical WPF MainWindow is no longer a startup surface. It is
+        // instantiated explicitly as an invisible native-service host; its
+        // Loaded path opens the React/WebView2 shell immediately.
+        var nativeHost = new MainWindow();
+        MainWindow = nativeHost;
+        nativeHost.Show();
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -135,7 +143,10 @@ public partial class App : Application
         }
 
         WindowsThemeService.ApplyDarkTitleBar(window);
-        Alpha12FigmaOperationalWindowStyler.Apply(window);
+        if (window is not MainWindow)
+        {
+            Alpha12FigmaOperationalWindowStyler.Apply(window);
+        }
 
         if (window is DriverProfileWindow driverProfileWindow)
         {
