@@ -2462,6 +2462,7 @@ function ghostStatusLabel(status: string | null | undefined) {
     case "recording-save-failed": return "Falha ao salvar Ghost";
     case "recording-cancelled": return "Gravação cancelada";
     case "ghost-loaded": return "Ghost carregado";
+    case "ghost-imported": return "Ghost importado";
     case "ghost-load-failed": return "Falha ao abrir Ghost";
     case "playback-starting": return "Iniciando Ghost 3D";
     case "playback-stopping": return "Parando Ghost 3D";
@@ -2470,6 +2471,68 @@ function ghostStatusLabel(status: string | null | undefined) {
     case "playback-failed": return "Ghost 3D indisponível";
     default: return status || "Pronto";
   }
+}
+
+
+function formatReplayDuration(seconds: number | undefined | null) {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+  const rounded = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const secs = rounded % 60;
+  return hours > 0
+    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function GhostRoutePreview({
+  points
+}: {
+  points: { x: number; z: number; offsetMilliseconds: number }[];
+}) {
+  const plot = useMemo(() => {
+    if (points.length < 2) return null;
+    const minX = Math.min(...points.map(point => point.x));
+    const maxX = Math.max(...points.map(point => point.x));
+    const minZ = Math.min(...points.map(point => point.z));
+    const maxZ = Math.max(...points.map(point => point.z));
+    const spanX = Math.max(1, maxX - minX);
+    const spanZ = Math.max(1, maxZ - minZ);
+    const padding = 7;
+    const width = 100 - padding * 2;
+    const height = 100 - padding * 2;
+    const scale = Math.min(width / spanX, height / spanZ);
+    const renderedWidth = spanX * scale;
+    const renderedHeight = spanZ * scale;
+    const offsetX = (100 - renderedWidth) / 2;
+    const offsetY = (100 - renderedHeight) / 2;
+    return points.map(point => ({
+      ...point,
+      px: offsetX + (point.x - minX) * scale,
+      py: 100 - (offsetY + (point.z - minZ) * scale)
+    }));
+  }, [points]);
+
+  if (!plot || plot.length < 2) {
+    return <div className="empty-state">Replay sem coordenadas suficientes para pré-visualização.</div>;
+  }
+
+  return (
+    <div className="ghost-route-preview">
+      <svg viewBox="0 0 100 100" role="img" aria-label="Trajeto real gravado no Ghost">
+        <polyline
+          className="ghost-route-shadow"
+          points={plot.map(point => `${point.px},${point.py}`).join(" ")}
+        />
+        <polyline
+          className="ghost-route-line"
+          points={plot.map(point => `${point.px},${point.py}`).join(" ")}
+        />
+        <circle className="ghost-route-start" cx={plot[0].px} cy={plot[0].py} r="1.8" />
+        <circle className="ghost-route-end" cx={plot[plot.length - 1].px} cy={plot[plot.length - 1].py} r="2.2" />
+      </svg>
+    </div>
+  );
 }
 
 function GhostReplay({
@@ -2483,6 +2546,10 @@ function GhostReplay({
   const [recordName, setRecordName] = useState("");
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [loop, setLoop] = useState(false);
+
+  useEffect(() => {
+    sendCommand("refreshGhostLibrary");
+  }, []);
 
   if (!ghost) {
     return <div className="card empty-state">Aguardando estado do Ghost / Replay…</div>;
@@ -2585,8 +2652,9 @@ function GhostReplay({
               <span><small>MAPA</small><strong>{selected.mapName || "—"}</strong></span>
               <span><small>VEÍCULO</small><strong>{selected.vehicleName || "—"}</strong></span>
               <span><small>HOF</small><strong>{selected.hofName || "—"}</strong></span>
-              <span><small>DURAÇÃO</small><strong>{formatEta(selected.durationSeconds)}</strong></span>
+              <span><small>DURAÇÃO</small><strong>{formatReplayDuration(selected.durationSeconds)}</strong></span>
               <span><small>FRAMES</small><strong>{selected.frameCount.toLocaleString()}</strong></span>
+              <span><small>LINHA</small><strong>{selected.line || "—"}</strong></span>
               <span><small>GRAVADO</small><strong>{new Date(selected.recordedAtUtc).toLocaleString()}</strong></span>
             </div>
           )}
@@ -2663,6 +2731,70 @@ function GhostReplay({
             </div>
           )}
         </article>
+
+      <section className="ghost-layout ghost-secondary">
+        <article className="card ghost-library-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">BIBLIOTECA</span><h3>Replays locais</h3></div>
+            <div className="ghost-library-actions">
+              <button
+                className="button ghost compact"
+                disabled={ghost.recording || ghost.playing}
+                onClick={() => sendCommand("importGhostReplay")}
+              >
+                Importar
+              </button>
+              <button
+                className="button ghost compact"
+                onClick={() => sendCommand("refreshGhostLibrary")}
+              >
+                Atualizar
+              </button>
+            </div>
+          </div>
+
+          {ghost.library.length === 0 ? (
+            <div className="empty-state">
+              {ghost.libraryInvalidCount > 0
+                ? `Nenhum replay válido. ${ghost.libraryInvalidCount} arquivo(s) incompatível(is) ignorado(s).`
+                : "Nenhum replay gravado na biblioteca local."}
+            </div>
+          ) : (
+            <div className="ghost-library-list">
+              {ghost.library.map(item => (
+                <button
+                  key={item.fileName}
+                  className={`ghost-library-row ${item.selected ? "selected" : ""}`}
+                  disabled={ghost.recording || ghost.playing}
+                  onClick={() => sendCommand("selectGhostLibraryItem", { fileName: item.fileName })}
+                >
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>{item.mapName || "Mapa —"} · {item.vehicleName || "Veículo —"}</small>
+                  </span>
+                  <span>
+                    <strong>{formatReplayDuration(item.durationSeconds)}</strong>
+                    <small>{item.estimatedDistanceKm.toFixed(2)} km · {item.frameCount.toLocaleString()} frames</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {ghost.libraryInvalidCount > 0 && ghost.library.length > 0 && (
+            <p className="migration-note">{ghost.libraryInvalidCount} arquivo(s) incompatível(is) foram ignorados.</p>
+          )}
+        </article>
+
+        <article className="card ghost-route-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">PRÉVIA LOCAL</span><h3>Trajeto gravado</h3></div>
+            <span className="route-source-pill">READ-ONLY</span>
+          </div>
+          <GhostRoutePreview points={selected?.routePoints || []} />
+          <p className="migration-note">A prévia usa coordenadas X/Z dos frames reais e não envia comandos para o OMSI.</p>
+        </article>
+      </section>
       </section>
     </>
   );
