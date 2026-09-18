@@ -470,64 +470,107 @@
             </TabItem>
 
             <TabItem x:Name="RoomTab" Header="Sala">
-                <ScrollViewer Margin="0,14,0,0"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="14" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                <Grid Margin="0,14,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0"
+                            Background="#081722"
+                            BorderBrush="#1B3445"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="14,11">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0"
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock Text="Identificador"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="9.5" />
+                            </StackPanel>
+
+                            <TextBox x:Name="RoomTextBox"
+                                     Grid.Column="1"
+                                     MaxLength="64"
+                                     VerticalContentAlignment="Center" />
+
+                            <StackPanel Grid.Column="3"
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="PERFIL" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                <TextBlock Text="Motorista"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MpMuted}"
+                                           FontSize="9.5" />
+                            </StackPanel>
+
+                            <TextBox x:Name="NicknameTextBox"
+                                     Grid.Column="4"
+                                     MaxLength="32"
+                                     VerticalContentAlignment="Center" />
+
+                            <StackPanel Grid.Column="6"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Border Background="#102333"
+                                        CornerRadius="8"
+                                        Padding="9,5"
+                                        Margin="0,0,8,0">
+                                    <TextBlock x:Name="RoomUpnpStateText"
+                                               Text="UPnP: —"
+                                               Foreground="{StaticResource MpMuted}"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                                <Border Background="#0C2A20"
+                                        BorderBrush="#1F5B45"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="9,5">
+                                    <TextBlock Text="TCP 27730"
+                                               Foreground="#75D9A0"
+                                               FontSize="9.5"
+                                               FontWeight="Bold" />
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock x:Name="RoomLabelText"
+                                       Grid.Column="1"
+                                       Visibility="Collapsed"
+                                       Text="Sala" />
+                            <TextBlock x:Name="NicknameLabelText"
+                                       Grid.Column="4"
+                                       Visibility="Collapsed"
+                                       Text="Motorista" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1*" />
                             <ColumnDefinition Width="16" />
                             <ColumnDefinition Width="1*" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource NavMultiplayerCard}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="1.15*" />
-                                    <ColumnDefinition Width="22" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="1*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <TextBlock Text="IDENTIDADE" Style="{StaticResource NavMultiplayerSectionLabel}" />
-                                    <TextBlock Text="Sala e motorista"
-                                               Margin="0,4,0,0"
-                                               Foreground="{StaticResource MpText}"
-                                               FontSize="13"
-                                               FontWeight="SemiBold" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock x:Name="RoomLabelText" Text="Sala" Style="{StaticResource NavInputLabel}" />
-                                    <TextBox x:Name="RoomTextBox" MaxLength="64" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="3" Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <TextBlock Text="PERFIL" Style="{StaticResource NavMultiplayerSectionLabel}" />
-                                    <TextBlock Text="Nome visível"
-                                               Margin="0,4,0,0"
-                                               Foreground="{StaticResource MpText}"
-                                               FontSize="13"
-                                               FontWeight="SemiBold" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock x:Name="NicknameLabelText" Text="Motorista" Style="{StaticResource NavInputLabel}" />
-                                    <TextBox x:Name="NicknameTextBox" MaxLength="32" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
+                        <Border Grid.Column="0" Style="{StaticResource NavMultiplayerHeroCard}">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
@@ -536,12 +579,12 @@
 
                                 <StackPanel>
                                     <TextBlock Text="CRIAR SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
-                                    <TextBlock Text="Hospede a sessão neste computador"
+                                    <TextBlock Text="Hospedar uma nova sessão"
                                                Margin="0,5,0,0"
                                                Foreground="{StaticResource MpText}"
-                                               FontSize="16"
+                                               FontSize="17"
                                                FontWeight="SemiBold" />
-                                    <TextBlock Text="O NavBR inicia o host local em TCP 27730. UPnP é usado somente quando habilitado e suportado pela rede."
+                                    <TextBlock Text="Este computador será o host da sala. As opções técnicas ficam na aba Avançado."
                                                Margin="0,5,0,0"
                                                Foreground="{StaticResource MpMuted}"
                                                FontSize="10.5"
@@ -549,79 +592,85 @@
                                 </StackPanel>
 
                                 <Border Grid.Row="1"
-                                        Margin="0,15,0,0"
-                                        Padding="11"
+                                        Margin="0,16,0,0"
+                                        Padding="12"
                                         Background="#0D1A24"
                                         BorderBrush="#1C2A33"
                                         BorderThickness="1"
-                                        CornerRadius="9">
+                                        CornerRadius="10">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="PRIVACIDADE" Style="{StaticResource NavMultiplayerSectionLabel}" />
+                                            <TextBlock Text="PRIVACIDADE" Style="{StaticResource NavMetricLabel}" />
                                             <CheckBox x:Name="PrivateRoomCheckBox"
-                                                      Margin="0,8,0,0"
+                                                      Margin="0,7,0,0"
                                                       FontWeight="SemiBold"
                                                       Loaded="PrivateRoomCheckBox_Loaded"
                                                       Checked="PrivateRoomCheckBox_Changed"
                                                       Unchecked="PrivateRoomCheckBox_Changed" />
                                         </StackPanel>
-                                        <Border Grid.Column="1"
-                                                Background="#102333"
-                                                CornerRadius="8"
-                                                Padding="9,5"
-                                                VerticalAlignment="Center">
-                                            <TextBlock x:Name="RoomUpnpStateText"
-                                                       Text="UPnP: —"
-                                                       Foreground="#97ABB9"
-                                                       FontSize="9.5"
-                                                       FontWeight="SemiBold" />
-                                        </Border>
+                                        <TextBlock x:Name="RoomPrivacyStateText"
+                                                   Grid.Column="1"
+                                                   Margin="12,0,0,0"
+                                                   Foreground="{StaticResource MpInteraction}"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   MaxWidth="180" />
                                     </Grid>
                                 </Border>
 
-                                <StackPanel Grid.Row="2" Margin="0,13,0,0">
-                                    <TextBlock x:Name="RoomPasswordLabelText" Text="Senha" Style="{StaticResource NavInputLabel}" />
+                                <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                                    <TextBlock x:Name="RoomPasswordLabelText"
+                                               Text="Senha da sala"
+                                               Style="{StaticResource NavInputLabel}" />
                                     <PasswordBox x:Name="RoomPasswordBox"
                                                  MaxLength="128"
-                                                 Padding="9,7"
+                                                 Padding="10,8"
                                                  PasswordChanged="RoomPasswordBox_PasswordChanged" />
                                     <TextBlock x:Name="RoomPasswordHintText"
                                                Margin="0,5,0,0"
                                                Foreground="#718A9B"
-                                               FontSize="10"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock x:Name="RoomPrivacyDescriptionText"
-                                               Margin="0,10,0,0"
-                                               Foreground="#718A9B"
-                                               FontSize="10.5"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock x:Name="RoomPrivacyStateText"
-                                               Margin="0,5,0,0"
-                                               Foreground="{StaticResource MpInteraction}"
-                                               FontSize="10.5"
-                                               FontWeight="SemiBold"
+                                               FontSize="9.5"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
 
-                                <Grid Grid.Row="3" Margin="0,16,0,0">
+                                <Border Grid.Row="3"
+                                        Margin="0,14,0,0"
+                                        Padding="12"
+                                        Background="#081722"
+                                        BorderBrush="#172B38"
+                                        BorderThickness="1"
+                                        CornerRadius="9">
+                                    <StackPanel>
+                                        <TextBlock Text="COMO FUNCIONA" Style="{StaticResource NavMetricLabel}" />
+                                        <TextBlock x:Name="RoomPrivacyDescriptionText"
+                                                   Margin="0,6,0,0"
+                                                   Foreground="{StaticResource MpMuted}"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="4" Margin="0,16,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Button x:Name="CreateRoomButton"
-                                            Grid.Column="0"
+                                            MinHeight="42"
                                             Style="{StaticResource NavPrimaryButton}"
-                                            MinHeight="40"
                                             PreviewMouseLeftButtonDown="CreateRoomButton_PrivacyPreviewMouseLeftButtonDown"
                                             PreviewKeyDown="CreateRoomButton_PrivacyPreviewKeyDown"
                                             Click="CreateRoomButton_Click" />
                                     <Button x:Name="CopyInviteButton"
                                             Grid.Column="1"
-                                            Margin="9,0,0,0"
+                                            Margin="10,0,0,0"
+                                            MinWidth="116"
                                             Style="{StaticResource NavSecondaryButton}"
                                             IsEnabled="False"
                                             Loaded="CopyInviteButton_Loaded"
@@ -630,9 +679,10 @@
                             </Grid>
                         </Border>
 
-                        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource NavMultiplayerCard}">
+                        <Border Grid.Column="2" Style="{StaticResource NavMultiplayerCard}">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
@@ -640,12 +690,12 @@
 
                                 <StackPanel>
                                     <TextBlock Text="ENTRAR EM SALA" Style="{StaticResource NavMultiplayerSectionLabel}" />
-                                    <TextBlock Text="Conecte-se a um host NavBR"
+                                    <TextBlock Text="Conectar a uma sessão existente"
                                                Margin="0,5,0,0"
                                                Foreground="{StaticResource MpText}"
-                                               FontSize="16"
+                                               FontSize="17"
                                                FontWeight="SemiBold" />
-                                    <TextBlock Text="Use o endereço recebido no convite. Em sala privada, informe a senha antes de conectar."
+                                    <TextBlock Text="Use o endereço do host ou cole um convite. A sala e o motorista ficam na faixa superior."
                                                Margin="0,5,0,0"
                                                Foreground="{StaticResource MpMuted}"
                                                FontSize="10.5"
@@ -653,49 +703,69 @@
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Margin="0,16,0,0">
-                                    <TextBlock x:Name="ServerLabelText" Text="Endereço do host" Style="{StaticResource NavInputLabel}" />
-                                    <TextBox x:Name="ServerTextBox" />
-
-                                    <Border Margin="0,13,0,0"
-                                            Padding="11"
-                                            Background="#081722"
-                                            BorderBrush="#172B38"
-                                            BorderThickness="1"
-                                            CornerRadius="9">
-                                        <StackPanel>
-                                            <TextBlock Text="CONVITE" Style="{StaticResource NavMultiplayerSectionLabel}" />
-                                            <TextBlock Text="Cole um convite para preencher o endereço e a sala sem misturar isso com as opções técnicas."
-                                                       Margin="0,5,0,0"
-                                                       Foreground="{StaticResource MpMuted}"
-                                                       FontSize="10"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
+                                    <TextBlock x:Name="ServerLabelText"
+                                               Text="Endereço do host"
+                                               Style="{StaticResource NavInputLabel}" />
+                                    <TextBox x:Name="ServerTextBox"
+                                             MinHeight="38"
+                                             VerticalContentAlignment="Center" />
                                 </StackPanel>
 
-                                <Grid Grid.Row="2" Margin="0,16,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <Button x:Name="ConnectButton"
-                                            Grid.Column="0"
-                                            Style="{StaticResource NavPrimaryButton}"
-                                            MinHeight="40"
-                                            PreviewMouseLeftButtonDown="ConnectButton_PrivacyPreviewMouseLeftButtonDown"
-                                            PreviewKeyDown="ConnectButton_PrivacyPreviewKeyDown"
-                                            Click="ConnectButton_Click" />
-                                    <Button x:Name="PasteInviteButton"
-                                            Grid.Column="1"
-                                            Margin="9,0,0,0"
-                                            Style="{StaticResource NavSecondaryButton}"
-                                            Loaded="PasteInviteButton_Loaded"
-                                            Click="PasteInviteButton_Click" />
-                                </Grid>
+                                <Border Grid.Row="2"
+                                        Margin="0,14,0,0"
+                                        Padding="13"
+                                        Background="#081722"
+                                        BorderBrush="#172B38"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="CONVITE" Style="{StaticResource NavMetricLabel}" />
+                                                <TextBlock Text="Cole um convite NavBR para preencher os dados da sessão."
+                                                           Margin="0,5,12,0"
+                                                           Foreground="{StaticResource MpMuted}"
+                                                           FontSize="10"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button x:Name="PasteInviteButton"
+                                                    Grid.Column="1"
+                                                    MinWidth="120"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource NavSecondaryButton}"
+                                                    Loaded="PasteInviteButton_Loaded"
+                                                    Click="PasteInviteButton_Click" />
+                                        </Grid>
+
+                                        <Separator Margin="0,13,0,13"
+                                                   Background="#1C2A33" />
+
+                                        <TextBlock Text="ENDEREÇO ATUAL" Style="{StaticResource NavMetricLabel}" />
+                                        <TextBlock x:Name="InviteAddressText"
+                                                   Margin="0,5,0,0"
+                                                   Foreground="#A5B8C5"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button x:Name="ConnectButton"
+                                        Grid.Row="3"
+                                        Margin="0,16,0,0"
+                                        MinHeight="42"
+                                        HorizontalAlignment="Stretch"
+                                        Style="{StaticResource NavPrimaryButton}"
+                                        PreviewMouseLeftButtonDown="ConnectButton_PrivacyPreviewMouseLeftButtonDown"
+                                        PreviewKeyDown="ConnectButton_PrivacyPreviewKeyDown"
+                                        Click="ConnectButton_Click" />
                             </Grid>
                         </Border>
                     </Grid>
-                </ScrollViewer>
+                </Grid>
             </TabItem>
 
             <TabItem x:Name="PlayersTab" Header="Jogadores">
