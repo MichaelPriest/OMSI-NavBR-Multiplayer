@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   type NavBrCompanyMember,
+  type NavBrGhostState,
   type NavBrHudState,
   type NavBrMultiplayerState,
   type NavBrNavigationState,
@@ -12,7 +13,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "roleplay" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
+type Screen = "home" | "navigation" | "roleplay" | "ghost" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -73,6 +74,9 @@ function Sidebar({
         </button>
         <button className={`nav-item ${screen === "roleplay" ? "active" : ""}`} onClick={() => setScreen("roleplay")}>
           <b>♙</b><span>Personagem / RP</span>
+        </button>
+        <button className={`nav-item ${screen === "ghost" ? "active" : ""}`} onClick={() => setScreen("ghost")}>
+          <b>◈</b><span>Ghost / Replay</span>
         </button>
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
           <b>▣</b><span>CCO</span>
@@ -2450,6 +2454,220 @@ function Multiplayer({
   );
 }
 
+
+function ghostStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "recording": return "Gravando viagem";
+    case "recording-saved": return "Ghost salvo";
+    case "recording-save-failed": return "Falha ao salvar Ghost";
+    case "recording-cancelled": return "Gravação cancelada";
+    case "ghost-loaded": return "Ghost carregado";
+    case "ghost-load-failed": return "Falha ao abrir Ghost";
+    case "playback-starting": return "Iniciando Ghost 3D";
+    case "playback-stopping": return "Parando Ghost 3D";
+    case "playback-stopped": return "Ghost 3D interrompido";
+    case "playback-completed": return "Ghost 3D concluído";
+    case "playback-failed": return "Ghost 3D indisponível";
+    default: return status || "Pronto";
+  }
+}
+
+function GhostReplay({
+  state,
+  error
+}: {
+  state: NavBrState | null;
+  error: string | null;
+}) {
+  const ghost: NavBrGhostState | undefined = state?.ghost;
+  const [recordName, setRecordName] = useState("");
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [loop, setLoop] = useState(false);
+
+  if (!ghost) {
+    return <div className="card empty-state">Aguardando estado do Ghost / Replay…</div>;
+  }
+
+  const selected = ghost.selected;
+  const analytics = selected?.analytics;
+  const canRecord = Boolean(state?.telemetry?.inGame) && !ghost.recording && !ghost.playing;
+  const canPlay = Boolean(ghost.selectedPath) && !ghost.recording && !ghost.playing;
+
+  return (
+    <>
+      <header className="topbar ghost-header">
+        <div>
+          <span className="eyebrow">GHOST / REPLAY</span>
+          <h1>Grave uma viagem real e reproduza em 3D.</h1>
+          <p>A gravação usa somente a telemetria local. O replay físico só escreve quando o Plugin Bridge aceita spawn/transform.</p>
+        </div>
+        <div className="top-actions">
+          <span className={`connection-pill ${ghost.recording || ghost.playing ? "connected" : ""}`}>
+            <i /> {ghost.recording ? `Gravando · ${ghost.frameCount} frames` : ghost.playing ? "Ghost 3D ativo" : ghostStatusLabel(ghost.status)}
+          </span>
+        </div>
+      </header>
+
+      {(error || ghost.error) && <div className="command-error">{error || ghost.error}</div>}
+
+      <section className="ghost-layout">
+        <article className="card ghost-record-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">GRAVAÇÃO</span><h3>Telemetria real do OMSI</h3></div>
+            <span className={`hardware-state-pill ${state?.telemetry?.inGame ? "connected" : ""}`}>
+              {state?.telemetry?.inGame ? "OMSI pronto" : "Aguardando mapa/ônibus"}
+            </span>
+          </div>
+
+          <label className="voice-field">
+            <span>Nome da gravação</span>
+            <input
+              value={recordName}
+              disabled={ghost.recording || ghost.playing}
+              onChange={event => setRecordName(event.target.value)}
+              placeholder="Opcional — ex.: Linha 675N manhã"
+            />
+          </label>
+
+          <div className="ghost-actions">
+            <button
+              className="button primary"
+              disabled={!canRecord}
+              onClick={() => sendCommand("startGhostRecording", { name: recordName })}
+            >
+              ● Gravar viagem
+            </button>
+            <button
+              className="button ghost"
+              disabled={!ghost.recording}
+              onClick={() => sendCommand("stopGhostRecording")}
+            >
+              ■ Parar e salvar
+            </button>
+            <button
+              className="button ghost danger"
+              disabled={!ghost.recording}
+              onClick={() => sendCommand("cancelGhostRecording")}
+            >
+              Cancelar gravação
+            </button>
+          </div>
+
+          <div className="ghost-record-stats">
+            <span><small>FRAMES</small><strong>{ghost.frameCount.toLocaleString()}</strong></span>
+            <span><small>CADÊNCIA</small><strong>100 ms</strong></span>
+            <span><small>MODO</small><strong>Somente leitura</strong></span>
+          </div>
+        </article>
+
+        <article className="card ghost-file-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">ARQUIVO GHOST</span><h3>{selected?.name || "Nenhum Ghost carregado"}</h3></div>
+          </div>
+
+          <div className="ghost-actions">
+            <button
+              className="button ghost"
+              disabled={ghost.recording || ghost.playing}
+              onClick={() => sendCommand("selectGhostFile")}
+            >
+              Abrir Ghost
+            </button>
+            <button className="button ghost" onClick={() => sendCommand("openGhostFolder")}>
+              Abrir pasta de Ghosts
+            </button>
+          </div>
+
+          <code className="ghost-path">{ghost.selectedPath || ghost.ghostDirectory}</code>
+
+          {selected && (
+            <div className="ghost-metadata-grid">
+              <span><small>MAPA</small><strong>{selected.mapName || "—"}</strong></span>
+              <span><small>VEÍCULO</small><strong>{selected.vehicleName || "—"}</strong></span>
+              <span><small>HOF</small><strong>{selected.hofName || "—"}</strong></span>
+              <span><small>DURAÇÃO</small><strong>{formatEta(selected.durationSeconds)}</strong></span>
+              <span><small>FRAMES</small><strong>{selected.frameCount.toLocaleString()}</strong></span>
+              <span><small>GRAVADO</small><strong>{new Date(selected.recordedAtUtc).toLocaleString()}</strong></span>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="ghost-layout ghost-secondary">
+        <article className="card ghost-playback-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">GHOST 3D</span><h3>Reprodução física experimental</h3></div>
+            <span className={`hardware-state-pill ${ghost.playing ? "connected" : ""}`}>
+              {ghost.playing ? "Reproduzindo" : "Parado"}
+            </span>
+          </div>
+
+          <label className="voice-field">
+            <span>Velocidade: {playbackSpeed.toFixed(1)}×</span>
+            <input
+              type="range"
+              min="0.1"
+              max="4"
+              step="0.1"
+              disabled={ghost.playing}
+              value={playbackSpeed}
+              onChange={event => setPlaybackSpeed(Number(event.target.value))}
+            />
+          </label>
+
+          <label className="diagnostics-toggle compact-toggle">
+            <input
+              type="checkbox"
+              checked={loop}
+              disabled={ghost.playing}
+              onChange={event => setLoop(event.target.checked)}
+            />
+            <span>Repetir continuamente</span>
+          </label>
+
+          <div className="ghost-actions">
+            <button
+              className="button primary"
+              disabled={!canPlay}
+              onClick={() => sendCommand("playGhost", { playbackSpeed, loop })}
+            >
+              ▶ Reproduzir Ghost 3D
+            </button>
+            <button
+              className="button ghost"
+              disabled={!ghost.playing}
+              onClick={() => sendCommand("stopGhostPlayback")}
+            >
+              ■ Parar reprodução
+            </button>
+          </div>
+
+          <p className="migration-note">
+            O NavBR falha de forma segura se o Plugin Bridge não aceitar spawn ou transforms do Ghost.
+          </p>
+        </article>
+
+        <article className="card ghost-analytics-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">ANALYTICS</span><h3>Métricas do replay</h3></div>
+          </div>
+
+          {!analytics ? (
+            <div className="empty-state">Abra ou grave um Ghost para calcular as métricas reais do arquivo.</div>
+          ) : (
+            <div className="ghost-analytics-grid">
+              <span><small>DISTÂNCIA ESTIMADA</small><strong>{analytics.estimatedDistanceKm.toFixed(2)} km</strong></span>
+              <span><small>VELOCIDADE MÉDIA</small><strong>{analytics.averageSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>VELOCIDADE MÁXIMA</small><strong>{analytics.maximumSpeedKph.toFixed(1)} km/h</strong></span>
+              <span><small>AMOSTRAS VÁLIDAS</small><strong>{analytics.validSpeedSamples.toLocaleString()}</strong></span>
+            </div>
+          )}
+        </article>
+      </section>
+    </>
+  );
+}
+
 export default function App() {
   const [state, setState] = useState<NavBrState | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
@@ -2471,6 +2689,7 @@ export default function App() {
         "home",
         "navigation",
         "roleplay",
+        "ghost",
         "operations",
         "companyNetwork",
         "hardware",
@@ -2493,6 +2712,8 @@ export default function App() {
             ? <Navigation state={state} />
             : screen === "roleplay"
               ? <Roleplay state={state} error={commandError} />
+              : screen === "ghost"
+                ? <GhostReplay state={state} error={commandError} />
               : screen === "operations"
                 ? <Operations state={state} error={commandError} onNavigate={setScreen} />
               : screen === "companyNetwork"
