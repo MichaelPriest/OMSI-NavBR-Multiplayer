@@ -26,11 +26,11 @@ export default function ConceptGallery() {
     <section id="como-fica-no-jogo" className="section shell concept-section">
       <div className="concept-heading">
         <div>
-          <span className="eyebrow">Como pode ficar no jogo</span>
-          <h2>Conceitos visuais da experiência NavBR dentro do OMSI.</h2>
+          <span className="eyebrow">Conceitos visuais gerados por IA</span>
+          <h2>Uma visão conceitual de como o NavBR pode aparecer dentro do OMSI.</h2>
         </div>
         <p className="section-lead">
-          Estas imagens são conceituais. O app continua usando dados reais do C# e do OMSI; elas servem para mostrar a direção visual da Alpha.14.
+          Estas imagens são conceituais e foram criadas por inteligência artificial exclusivamente para ilustrar a direção visual do projeto. Elas não são capturas reais do OMSI nem do NavBR atual. O app continua usando dados reais do C# e do OMSI.
         </p>
       </div>
 
@@ -39,7 +39,7 @@ export default function ConceptGallery() {
           <article className="concept-card" key={concept.title}>
             <div className="concept-image-wrap">
               <img src={concept.image} alt={concept.title} loading="lazy" />
-              <span>{concept.eyebrow}</span>
+              <span>{concept.eyebrow} • CONCEITO IA</span>
             </div>
             <div className="concept-copy">
               <h3>{concept.title}</h3>
@@ -48,6 +48,10 @@ export default function ConceptGallery() {
           </article>
         ))}
       </div>
+
+      <p className="concept-disclaimer">
+        Imagens geradas por IA para ilustração conceitual. A interface, os ônibus, cenários, HUDs e personagens mostrados podem diferir da implementação real no OMSI/NavBR.
+      </p>
     </section>
   );
 }

@@ -31,6 +31,18 @@ body{overflow-x:hidden}
 .hero-visual,.project-console{transition:transform .35s ease,border-color .35s ease,box-shadow .35s ease}
 .hero-visual:hover,.project-console:hover{border-color:#6f4b2b;box-shadow:0 30px 95px rgba(0,0,0,.52),0 0 0 1px rgba(244,122,24,.07) inset}
 
+.alpha-download-section{padding:42px 0 18px}
+.alpha-download-head h2{margin:.35rem 0 .65rem;font-size:clamp(1.8rem,3vw,2.8rem);letter-spacing:-.035em}
+.alpha-download-head p{margin:0;color:#97abb9;max-width:760px}
+.alpha-download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:20px}
+.alpha-download-card{border:1px solid #263744;border-radius:16px;padding:16px;background:linear-gradient(180deg,rgba(13,26,36,.96),rgba(7,18,27,.96));box-shadow:0 12px 34px rgba(0,0,0,.18)}
+.alpha-download-card.current{border-color:#3d89c4;box-shadow:0 12px 34px rgba(0,0,0,.18),0 0 0 1px rgba(61,137,196,.16) inset}
+.alpha-download-card span,.alpha-download-card small{display:block;color:#97abb9}
+.alpha-download-card span{font-size:.72rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.alpha-download-card strong{display:block;margin:4px 0 1px;font-size:1.7rem;color:#dae6ee}
+.alpha-download-card small{font-size:.72rem}
+.alpha-download-empty{grid-column:1/-1;color:#97abb9;margin:0}
+
 .alpha11-lab{position:relative;overflow:hidden;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(244,122,24,.035),rgba(255,255,255,.015))}
 .alpha11-lab:before{content:"";position:absolute;width:650px;height:650px;left:50%;top:-390px;transform:translateX(-50%);background:radial-gradient(circle,rgba(244,122,24,.14),transparent 68%);pointer-events:none}
 .alpha11-head{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:32px;align-items:end}
@@ -77,6 +89,8 @@ body{overflow-x:hidden}
   .navbr-support-enabled .topbar{top:48px}
   .navbr-ad-slot{margin-top:24px;margin-bottom:24px}
   .navbr-ad-content{min-height:90px;padding:8px}
+  .alpha-download-section{padding-top:30px}
+  .alpha-download-grid{grid-template-columns:1fr 1fr}
   .alpha11-grid,.alpha11-pipeline{grid-template-columns:1fr}
 }
 

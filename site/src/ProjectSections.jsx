@@ -70,7 +70,7 @@ export function SupportSection() {
   };
 
   return (
-    <section id="contribua" className="section shell support-wrap">
+    <section id="contribua" className="section shell support-wrap support-top">
       <div className="support-card">
         <div>
           <span className="eyebrow">Apoie o projeto</span>
