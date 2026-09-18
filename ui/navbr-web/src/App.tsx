@@ -41,6 +41,19 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   voiceInputDevices: [],
   voiceOutputDevices: [],
   voiceMixers: [],
+  voicePushToTalkActive: false,
+  voiceQuality: {
+    activeStreams: 0,
+    receivedPackets: 0,
+    playedPackets: 0,
+    fecRecoveredPackets: 0,
+    estimatedLostPackets: 0,
+    latePackets: 0,
+    duplicatePackets: 0,
+    averageJitterMilliseconds: 0,
+    targetBufferMilliseconds: 40,
+    estimatedLossPercent: 0
+  },
   chatHotkey: "F9",
   voiceHotkey: "F10",
   hotkeyOptions: [],
@@ -73,6 +86,7 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
     partial: 0,
     affectedAreas: []
   },
+  sessionOperationalState: null,
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -2455,6 +2469,26 @@ function Multiplayer({
             </article>
 
             <article className="card compact-card">
+              <span className="eyebrow">{pick("SINCRONIZAÇÃO DA SESSÃO", "SESSION SYNC", "SINCRONIZACIÓN DE SESIÓN", "SITZUNGSSYNC", "SYNCHRONISATION DE SESSION")}</span>
+              <h3>
+                {!multiplayer.sessionOperationalState
+                  ? pick("Aguardando", "Waiting", "Esperando", "Wartet", "En attente")
+                  : multiplayer.sessionAuthority.isTrafficAuthority
+                    ? pick("Publicando", "Publishing", "Publicando", "Sendet", "Publication")
+                    : pick("Sincronizado", "Synced", "Sincronizado", "Synchron", "Synchronisé")}
+              </h3>
+              {multiplayer.sessionOperationalState ? (
+                <>
+                  <p>{multiplayer.sessionOperationalState.mapName || "—"} · {multiplayer.sessionOperationalState.line || "—"} / {multiplayer.sessionOperationalState.route || "—"}</p>
+                  <p>{multiplayer.sessionOperationalState.destinationName || "—"} → {multiplayer.sessionOperationalState.nextStopName || "—"}</p>
+                  <small>seq {multiplayer.sessionOperationalState.sequence} · {new Date(multiplayer.sessionOperationalState.serverTimestampUtc).toLocaleTimeString()}</small>
+                </>
+              ) : (
+                <p>{pick("O estado operacional aparecerá quando a sala publicar um snapshot real.", "Operational state appears when the room publishes a real snapshot.", "El estado operacional aparecerá cuando la sala publique un snapshot real.", "Der Betriebsstatus erscheint, sobald der Raum einen echten Snapshot veröffentlicht.", "L’état opérationnel apparaît lorsque la salle publie un snapshot réel.")}</p>
+              )}
+            </article>
+
+            <article className="card compact-card">
               <span className="eyebrow">{pick("APOIO CCO", "DISPATCH SUPPORT", "APOYO CCO", "LEITSTELLENHILFE", "ASSISTANCE CCO")}</span>
               <h3>{pick("Ocorrência do motorista", "Driver report", "Incidencia del conductor", "Fahrermeldung", "Signalement conducteur")}</h3>
               <p>{pick("Envia apoio/incidente real para o CCO da sessão ou marca seus chamados como normalizados.", "Sends a real support/incident report to session dispatch or marks your reports resolved.", "Envía apoyo/incidente real al CCO de la sesión o marca tus avisos como normalizados.", "Sendet eine echte Hilfe-/Vorfallmeldung an die Leitstelle oder markiert eigene Meldungen als erledigt.", "Envoie une demande/incidence réelle au CCO ou clôture vos propres signalements.")}</p>
@@ -2725,7 +2759,16 @@ function Multiplayer({
           </article>
           <aside className="card voice-card">
             <span className="eyebrow">VOZ</span>
-            <h3>{multiplayer.voiceEnabled ? pick("Voz habilitada", "Voice enabled", "Voz habilitada", "Sprache aktiviert", "Voix activée") : pick("Voz desativada", "Voice disabled", "Voz desactivada", "Sprache deaktiviert", "Voix désactivée")}</h3>
+            <h3>{multiplayer.voicePushToTalkActive ? pick("Transmitindo", "Transmitting", "Transmitiendo", "Sendet", "Transmission") : multiplayer.voiceEnabled ? pick("Voz habilitada", "Voice enabled", "Voz habilitada", "Sprache aktiviert", "Voix activée") : pick("Voz desativada", "Voice disabled", "Voz desactivada", "Sprache deaktiviert", "Voix désactivée")}</h3>
+
+            <div className="details-grid">
+              <div><small>PTT</small><strong>{multiplayer.voicePushToTalkActive ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Inativo", "Inactive", "Inactivo", "Inaktiv", "Inactif")}</strong></div>
+              <div><small>{pick("STREAMS", "STREAMS", "STREAMS", "STREAMS", "FLUX")}</small><strong>{multiplayer.voiceQuality.activeStreams}</strong></div>
+              <div><small>{pick("JITTER", "JITTER", "JITTER", "JITTER", "JITTER")}</small><strong>{format(multiplayer.voiceQuality.averageJitterMilliseconds, 0)} ms</strong></div>
+              <div><small>{pick("PERDA EST.", "EST. LOSS", "PÉRDIDA EST.", "GESCH. VERLUST", "PERTE EST.")}</small><strong>{format(multiplayer.voiceQuality.estimatedLossPercent, 1)}%</strong></div>
+              <div><small>FEC</small><strong>{multiplayer.voiceQuality.fecRecoveredPackets}</strong></div>
+              <div><small>{pick("BUFFER", "BUFFER", "BÚFER", "PUFFER", "TAMPON")}</small><strong>{multiplayer.voiceQuality.targetBufferMilliseconds} ms</strong></div>
+            </div>
 
             <label className="voice-toggle">
               <input
