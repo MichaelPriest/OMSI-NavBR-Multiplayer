@@ -58,7 +58,12 @@ public partial class MainWindow
                     actSpeedMps = nativeAnimation.ActSpeedMps,
                     lastMovedDistanceMeters =
                         nativeAnimation.LastMovedDistanceMeters,
-                    animationState = nativeAnimation.AnimationState
+                    animationState = nativeAnimation.AnimationState,
+                    activityLegRaw = nativeAnimation.ActivityLegRaw,
+                    activityArmUmbrellaRaw =
+                        nativeAnimation.ActivityArmUmbrellaRaw,
+                    activityArmKiRaw = nativeAnimation.ActivityArmKiRaw,
+                    activityHeadKiRaw = nativeAnimation.ActivityHeadKiRaw
                 },
             busDistanceMeters,
             enterBusRangeMeters = controller.EnterBusRangeMeters,
