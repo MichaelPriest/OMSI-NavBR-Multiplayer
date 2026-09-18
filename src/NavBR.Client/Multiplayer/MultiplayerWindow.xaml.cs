@@ -143,6 +143,8 @@ public partial class MultiplayerWindow : Window
             InitializePersistentLifetime();
             InitializeRoleplayCharacterSelector();
             InitializeRelayUi();
+            InitializePublicRoomBrowser();
+            InitializeVoiceChannels();
             RefreshSessionSummary();
         };
 
