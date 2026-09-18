@@ -72,7 +72,10 @@ public partial class MainWindow
     private void MultiplayerButton_Click(object sender, RoutedEventArgs e) =>
         OpenMultiplayerCentralForShell();
 
-    internal void OpenMultiplayerCentralForShell(bool showWindow = true)
+    internal void OpenMultiplayerCentralForShell() =>
+        OpenMultiplayerCentralForShell(showWindow: true);
+
+    internal void OpenMultiplayerCentralForShell(bool showWindow)
     {
         if (_multiplayerWindow is not null)
         {
