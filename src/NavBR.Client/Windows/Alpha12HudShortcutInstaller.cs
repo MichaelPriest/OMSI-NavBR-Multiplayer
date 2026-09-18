@@ -22,6 +22,13 @@ internal static class Alpha12HudShortcutInstaller
             return;
         }
 
+        if (systemPanel.Children
+            .OfType<Button>()
+            .Any(candidate => string.Equals(candidate.Tag as string, "alpha14-hud-editor", StringComparison.Ordinal)))
+        {
+            return;
+        }
+
         var button = new Button
         {
             Content = "HUD",
