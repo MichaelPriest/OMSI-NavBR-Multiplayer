@@ -18,6 +18,24 @@ function Require-Text {
     }
 }
 
+function Reject-Text {
+    param(
+        [string]$Path,
+        [string[]]$Patterns
+    )
+
+    if (-not (Test-Path $Path)) {
+        throw "Required UI source not found: $Path"
+    }
+
+    $content = Get-Content $Path -Raw
+    foreach ($pattern in $Patterns) {
+        if ($content.Contains($pattern)) {
+            throw "Retired legacy user surface '$pattern' must not return in $Path"
+        }
+    }
+}
+
 Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
     "window.OpenNavigation3D",
     "window.LaunchOmsiForShell",
@@ -65,6 +83,33 @@ Require-Text "src/NavBR.Client/App.xaml" @(
 
 Require-Text "src/NavBR.Client/App.xaml.cs" @(
     "NavBRControlThemeInstaller.Attach(window);"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.xaml" @(
+    'ShowInTaskbar="False"',
+    'Opacity="0"',
+    'Left="-32000"',
+    'Top="-32000"'
+)
+
+Require-Text "src/NavBR.Client/MainWindow.OmsiLaunch.cs" @(
+    'NavigatePrimaryWebShell("settings-installations")'
+)
+
+Reject-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
+    '"showLegacyShell"',
+    '"openOmsiProfiles"',
+    "ShowLegacyShellForWeb"
+)
+
+Reject-Text "ui/navbr-web/src/App.tsx" @(
+    'sendCommand("showLegacyShell")',
+    "Interface WPF"
+)
+
+Reject-Text "ui/navbr-web/src/navbrBridge.ts" @(
+    '"showLegacyShell"',
+    '"openOmsiProfiles"'
 )
 
 Require-Text "src/NavBR.Client/Multiplayer/WindowsFirewallService.cs" @(

@@ -319,6 +319,7 @@ export interface NavBrHudState {
 }
 
 export interface NavBrSystemState {
+  installationsNotice?: string | null;
   installations: NavBrOmsiInstallation[];
   hud: NavBrHudState;
   diagnostics: {
@@ -682,11 +683,9 @@ export type NavBrCommand =
   | "setDiagnosticsEnabled"
   | "flushDiagnostics"
   | "purgeDiagnostics"
-  | "openOmsiProfiles"
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
-  | "showLegacyShell"
   | "refreshNetworkDiagnostics"
   | "applyFirewallRule"
   | "setAutomaticUpnp"

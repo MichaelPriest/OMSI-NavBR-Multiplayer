@@ -1759,6 +1759,9 @@ function Settings({
 
       {tab === "installations" && (
         <section className="settings-installations">
+          {system.installationsNotice && (
+            <div className="network-message installations-notice">{system.installationsNotice}</div>
+          )}
           <article className="card discovery-card">
             <div className="section-heading">
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
@@ -1951,12 +1954,6 @@ function Settings({
             <h3>Roadmap Studio</h3>
             <p>{pick("Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.", "Analysis, tile assembly and vector generation from splines already use native services through the React interface.", "El análisis, montaje por tiles y generación vectorial por splines ya usan los servicios nativos desde la interfaz React.", "Analyse, Tile-Zusammenbau und Vektorerzeugung aus Splines verwenden bereits native Dienste über die React-Oberfläche.", "L’analyse, l’assemblage des tiles et la génération vectorielle par splines utilisent déjà les services natifs via l’interface React.")}</p>
             <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">FALLBACK</span>
-            <h3>{pick("Interface WPF", "WPF interface", "Interfaz WPF", "WPF-Oberfläche", "Interface WPF")}</h3>
-            <p>{pick("Abre o shell técnico anterior caso seja necessário comparar comportamento ou acessar uma área ainda não migrada.", "Opens the previous technical shell when behavior must be compared or an area has not yet been migrated.", "Abre el shell técnico anterior cuando sea necesario comparar el comportamiento o acceder a un área aún no migrada.", "Öffnet die vorherige technische Oberfläche, wenn Verhalten verglichen oder ein noch nicht migrierter Bereich aufgerufen werden muss.", "Ouvre l’ancien shell technique pour comparer le comportement ou accéder à une zone pas encore migrée.")}</p>
-            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>{pick("Abrir interface WPF", "Open WPF interface", "Abrir interfaz WPF", "WPF-Oberfläche öffnen", "Ouvrir l’interface WPF")}</button>
           </article>
         </section>
       )}
@@ -3018,7 +3015,10 @@ export default function App() {
       setCommandError(null);
 
       const requested = next.navigationRequest?.screen;
-      if (requested && [
+      if (requested === "settings-installations") {
+        setSettingsTabRequest("installations");
+        setScreen("settings");
+      } else if (requested && [
         "home",
         "navigation",
         "roleplay",
