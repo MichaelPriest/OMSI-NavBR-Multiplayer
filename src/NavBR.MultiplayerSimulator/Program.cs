@@ -313,6 +313,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             TileX: _options.TileX is double baseTileX ? baseTileX + (x - _options.CenterX) : null,
             TileY: _options.TileY is double baseTileY ? baseTileY + (y - _options.CenterY) : null,
             MapCompatibilityId: _options.MapCompatibilityId,
+            NextStopName: _options.ActiveNextStop,
+            DestinationName: _options.ActiveDestination,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
             LocalX: x,
