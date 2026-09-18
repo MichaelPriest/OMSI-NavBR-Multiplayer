@@ -80,6 +80,7 @@ public partial class HudOverlayWindow
         RefreshOmsiHotkeyConflicts();
         RefreshHudChrome();
         RefreshHudVisibility();
+        RefreshRoleplayButtonInteraction();
         RenderEnhancedMiniMap();
     }
 
