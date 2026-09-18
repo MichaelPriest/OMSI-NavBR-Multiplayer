@@ -306,6 +306,14 @@ public partial class MainWindow
                 OpenHudEditorForShell();
                 break;
 
+            case "saveHudSettings":
+                SaveHudSettingsFromWeb(payload);
+                break;
+
+            case "resetHudSettings":
+                ResetHudSettingsFromWeb();
+                break;
+
             case "connectRoom":
                 OpenMultiplayerCentralForShell(showWindow: false);
                 if (_multiplayerWindow is not null)
