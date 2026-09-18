@@ -282,7 +282,11 @@ jobs:
 
       - name: Publish multiplayer simulator dev tool
         shell: pwsh
-        run: dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release -r win-x64 --self-contained true -o artifacts/simulator
+        run: |
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:Platform=AnyCPU -p:PlatformTarget=x64 `
+            -o artifacts/simulator
 
       - name: Prepare Alpha.14 Test 3 assets and notes
         shell: pwsh
