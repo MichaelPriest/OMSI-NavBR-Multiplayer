@@ -122,8 +122,8 @@ jobs:
         shell: pwsh
         run: |
           dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
-          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
-          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore
+          dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore -p:Platform=AnyCPU -p:PlatformTarget=AnyCPU
+          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore -p:Platform=AnyCPU -p:PlatformTarget=AnyCPU
       - name: Verify simulated players moving through the room
         shell: pwsh
         run: |
@@ -166,8 +166,24 @@ jobs:
               if (Test-Path $serverErr) { Get-Content $serverErr }
               throw "NavBR test server did not become ready on port 27831."
             }
+            $simulatorDll = Get-ChildItem "src/NavBR.MultiplayerSimulator/bin" -Recurse -Filter "NavBR.MultiplayerSimulator.dll" |
+              Where-Object { $_.FullName -match '[\\/]Release[\\/]net10\.0[\\/]' } |
+              Select-Object -First 1
+            if (-not $simulatorDll) {
+              throw "Compiled NavBR.MultiplayerSimulator.dll was not found."
+            }
 
-            dotnet run --project src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj               -c Release --no-build --               --server http://127.0.0.1:27831               --room alpha14-test3-ci               --players 8               --mode mixed               --map "Alpha14 Test 3 CI"               --x 120 --y 80 --z 0               --radius 70               --interval 200               --duration 9               --verify
+            & dotnet $simulatorDll.FullName `
+              --server http://127.0.0.1:27831 `
+              --room alpha14-test3-ci `
+              --players 8 `
+              --mode mixed `
+              --map "Alpha14 Test 3 CI" `
+              --x 120 --y 80 --z 0 `
+              --radius 70 `
+              --interval 200 `
+              --duration 9 `
+              --verify
 
             if ($LASTEXITCODE -ne 0) {
               throw "Multiplayer map movement simulation failed."
