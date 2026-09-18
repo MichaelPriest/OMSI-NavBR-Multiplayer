@@ -732,13 +732,20 @@
                                                            FontSize="10"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <Button x:Name="PasteInviteButton"
-                                                    Grid.Column="1"
-                                                    MinWidth="120"
-                                                    VerticalAlignment="Center"
-                                                    Style="{StaticResource NavSecondaryButton}"
-                                                    Loaded="PasteInviteButton_Loaded"
-                                                    Click="PasteInviteButton_Click" />
+                                            <StackPanel Grid.Column="1"
+                                                        Margin="10,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                <Button x:Name="PasteInviteButton"
+                                                        MinWidth="132"
+                                                        Style="{StaticResource NavSecondaryButton}"
+                                                        Loaded="PasteInviteButton_Loaded"
+                                                        Click="PasteInviteButton_Click" />
+                                                <Button x:Name="PublicRoomsButton"
+                                                        Margin="0,8,0,0"
+                                                        MinWidth="132"
+                                                        Style="{StaticResource NavSecondaryButton}"
+                                                        Click="PublicRoomsButton_Click" />
+                                            </StackPanel>
                                         </Grid>
 
                                         <Separator Margin="0,13,0,13"
