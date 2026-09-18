@@ -212,7 +212,7 @@ internal static class Alpha12FigmaShellInstaller
             L("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP"),
             window.OpenRoleplayCentralForShell));
         actions.Children.Add(ActionButton("Mover HUD", window.ToggleHudLayoutForShell));
-        actions.Children.Add(ActionButton("Configurar HUD", window.OpenHudEditorForShell));
+        actions.Children.Add(ActionButton("Configurar HUD", () => window.NavigatePrimaryWebShell("settings-hud")));
         actions.Children.Add(ActionButton("Empresa / Frota", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
         actions.Children.Add(ActionButton("CCO", () => RaiseTaggedButton(window, "alpha12-dispatcher")));
         actions.Children.Add(ActionButton("Perfil", () => RaiseTaggedButton(window, "alpha12-driver-profile")));
@@ -357,7 +357,7 @@ internal static class Alpha12FigmaShellInstaller
 
         var editHudButton = NavigationButton(
             L("▦  Configurar HUD", "▦  Configure HUD", "▦  Configurar HUD", "▦  HUD konfigurieren", "▦  Configurer HUD"),
-            window.OpenHudEditorForShell);
+            () => window.NavigatePrimaryWebShell("settings-hud"));
         editHudButton.Tag = "alpha14-hud-editor";
         system.Children.Add(editHudButton);
 
