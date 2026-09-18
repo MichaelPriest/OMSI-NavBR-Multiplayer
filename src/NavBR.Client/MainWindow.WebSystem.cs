@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Microsoft.Win32;
 using NavBR.Client.Diagnostics;
 using NavBR.Client.Omsi;
 
@@ -58,6 +60,62 @@ public partial class MainWindow
     {
         OmsiInstallationProfileStore.DiscoverAndMerge(
             string.IsNullOrWhiteSpace(preferredPath) ? _currentOmsi?.InstallDirectory : preferredPath.Trim());
+    }
+
+    private void SelectOmsiFolderFromWeb()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Selecione a pasta que contém Omsi.exe",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var executable = Path.Combine(dialog.FolderName, "Omsi.exe");
+        if (!File.Exists(executable))
+        {
+            throw new InvalidOperationException(
+                "Omsi.exe não foi encontrado na pasta selecionada.");
+        }
+
+        OmsiInstallationProfileStore.DiscoverAndMerge(dialog.FolderName);
+    }
+
+    private static void OpenOmsiProfileFolderFromWeb(string? profileId)
+    {
+        if (string.IsNullOrWhiteSpace(profileId))
+        {
+            return;
+        }
+
+        var profile = OmsiInstallationProfileStore.Load()
+            .FirstOrDefault(item =>
+                string.Equals(
+                    item.Id,
+                    profileId.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+        if (profile is null)
+        {
+            throw new InvalidOperationException(
+                "O perfil OMSI selecionado não existe mais.");
+        }
+
+        if (!Directory.Exists(profile.InstallDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"A pasta da instalação não existe mais: {profile.InstallDirectory}");
+        }
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{profile.InstallDirectory}\"",
+            UseShellExecute = true
+        });
     }
 
     private void LaunchOmsiProfileFromWeb(string? profileId)
