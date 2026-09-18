@@ -17,6 +17,19 @@ export interface NavBrChatMessage {
   isSystem: boolean;
 }
 
+export interface NavBrSessionPoint {
+  playerId: string;
+  displayName: string;
+  kind: "bus" | "roleplay";
+  x: number;
+  y: number;
+  headingDegrees: number;
+  speedKph: number;
+  line?: string | null;
+  isLocal: boolean;
+  activity?: string | null;
+}
+
 export interface NavBrMultiplayerState {
   available: boolean;
   connected: boolean;
@@ -38,6 +51,7 @@ export interface NavBrMultiplayerState {
   selectedRoleplayCharacter?: string | null;
   playerCount: number;
   players: NavBrPlayer[];
+  sessionPoints: NavBrSessionPoint[];
   chat: NavBrChatMessage[];
 }
 
