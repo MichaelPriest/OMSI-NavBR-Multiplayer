@@ -356,6 +356,21 @@ public partial class MainWindow
                     GetWebPayloadBool(payload, "deafened"));
                 break;
 
+            case "configureVoiceDevices":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.ConfigureVoiceDevicesFromWeb(
+                    GetWebPayloadInt(payload, "inputDeviceNumber"),
+                    GetWebPayloadInt(payload, "outputDeviceNumber"));
+                break;
+
+            case "configureRemoteVoice":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                _multiplayerWindow?.ConfigureRemoteVoiceFromWeb(
+                    GetWebPayloadString(payload, "playerId"),
+                    GetWebPayloadBool(payload, "muted"),
+                    GetWebPayloadDouble(payload, "gain"));
+                break;
+
             case "acknowledgeOperationalReport":
                 await HandleWebOperationalReportAsync(
                     GetWebPayloadString(payload, "reportId") ?? string.Empty,
