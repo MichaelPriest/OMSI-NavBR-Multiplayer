@@ -499,7 +499,8 @@ public partial class MainWindow
                             GetWebPayloadString(payload, "roomId"),
                             GetWebPayloadString(payload, "displayName"),
                             GetWebPayloadBool(payload, "isPrivate"),
-                            GetWebPayloadString(payload, "roomPassword"));
+                            GetWebPayloadString(payload, "roomPassword"),
+                            GetWebPayloadBool(payload, "exposeInternet", defaultValue: true));
                     }
                 }
                 break;
