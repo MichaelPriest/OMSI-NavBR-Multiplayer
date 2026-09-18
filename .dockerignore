@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/node_modules/
+**/dist/
+artifacts/
+.git/
+.github/
+site/
+ui/
+docs/
+*.user
+*.suo
+*.log
