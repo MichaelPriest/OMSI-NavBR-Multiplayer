@@ -66,6 +66,7 @@ public partial class MultiplayerWindow
                         _client.IsRemotePhysicalVehicleSpawned(player.PlayerId),
                     physicalVehicleState = physicalVehicleStatus?.State,
                     physicalVehicleErrorCode = physicalVehicleStatus?.ErrorCode,
+                    physicalVehiclePartCount = physicalVehicleStatus?.PartCount,
                     physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
                     speaking,
                     isLocal,
