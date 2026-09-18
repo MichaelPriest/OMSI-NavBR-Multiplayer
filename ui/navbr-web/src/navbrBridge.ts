@@ -451,6 +451,7 @@ export type NavBrCommand =
   | "launchOmsi"
   | "refreshState"
   | "openMultiplayerCentral"
+  | "ensureMultiplayerController"
   | "openRoleplay"
   | "setRoleplayEnabled"
   | "selectRoleplayCharacter"
