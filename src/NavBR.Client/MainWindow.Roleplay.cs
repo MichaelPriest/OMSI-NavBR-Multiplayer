@@ -116,6 +116,7 @@ public partial class MainWindow
 
         controller.StatusChanged += status =>
         {
+            _webRoleplayStatus = status;
             _multiplayerWindow?.SetRoleplayRuntimeStatus(status);
         };
 
