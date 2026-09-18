@@ -193,8 +193,11 @@ internal static class Alpha12FigmaShellInstaller
             L("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP"),
             window.OpenRoleplayCentralForShell));
         actions.Children.Add(ActionButton("Abrir HUD", () => RaiseTaggedButton(window, "alpha12-hud-shortcut")));
-        actions.Children.Add(ActionButton("Empresa", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
+        actions.Children.Add(ActionButton("Empresa / Frota", () => RaiseTaggedButton(window, "alpha12-company-fleet")));
         actions.Children.Add(ActionButton("CCO", () => RaiseTaggedButton(window, "alpha12-dispatcher")));
+        actions.Children.Add(ActionButton("Perfil", () => RaiseTaggedButton(window, "alpha12-driver-profile")));
+        actions.Children.Add(ActionButton("Rede da empresa", () => RaiseTaggedButton(window, "alpha12-company-network")));
+        actions.Children.Add(ActionButton("Equipe", () => RaiseTaggedButton(window, "alpha12-company-members")));
         quickStack.Children.Add(actions);
         stack.Children.Add(quick);
 
@@ -320,6 +323,7 @@ internal static class Alpha12FigmaShellInstaller
         var system = new StackPanel();
         window.RegisterName(Alpha12ProfessionalShellInstaller.SystemPanelName, system);
         AddPageButton(system, "▣  Hardware", pages.Hardware, pages, pageButtons);
+        AddPageButton(system, "◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons);
         body.Children.Add(system);
 
         body.Children.Add(Separator());
@@ -334,13 +338,15 @@ internal static class Alpha12FigmaShellInstaller
 
         var advanced = new Expander
         {
-            Header = Text("⋯  Diagnóstico e modo avançado", 11.5d, Muted(), FontWeights.SemiBold),
+            Header = Text("⋯  Controles técnicos", 11.5d, Muted(), FontWeights.SemiBold),
             IsExpanded = false,
-            Visibility = Visibility.Visible,
+            Visibility = Visibility.Collapsed,
             Margin = new Thickness(0d, 8d, 0d, 0d)
         };
         var advancedBody = new StackPanel { Margin = new Thickness(0d, 8d, 0d, 0d) };
-        advancedBody.Children.Add(AddStandalonePageButton("◫  Diagnóstico técnico", pages.Diagnostics, pages, pageButtons));
+        var advancedTools = new StackPanel();
+        window.RegisterName("Alpha12AdvancedToolsPanel", advancedTools);
+        advancedBody.Children.Add(advancedTools);
         advanced.Content = advancedBody;
         body.Children.Add(advanced);
         footer.Tag = advanced;
@@ -419,6 +425,7 @@ internal static class Alpha12FigmaShellInstaller
         {
             if (stack.Tag is Expander expander)
             {
+                expander.Visibility = Visibility.Visible;
                 expander.IsExpanded = true;
             }
         };
@@ -427,6 +434,7 @@ internal static class Alpha12FigmaShellInstaller
             if (stack.Tag is Expander expander)
             {
                 expander.IsExpanded = false;
+                expander.Visibility = Visibility.Collapsed;
             }
         };
         stack.Children.Add(advancedToggle);
