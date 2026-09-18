@@ -191,8 +191,6 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             NavBRVersion: "alpha.14-simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
-            NextStopName: _options.ActiveNextStop,
-            DestinationName: _options.ActiveDestination,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
             HofName: null,
