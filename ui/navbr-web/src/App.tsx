@@ -3478,21 +3478,29 @@ function GhostReplay({
           ) : (
             <div className="ghost-library-list">
               {ghost.library.map(item => (
-                <button
-                  key={item.fileName}
-                  className={`ghost-library-row ${item.selected ? "selected" : ""}`}
-                  disabled={ghost.recording || ghost.playing}
-                  onClick={() => sendCommand("selectGhostLibraryItem", { fileName: item.fileName })}
-                >
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.mapName || "Mapa —"} · {item.vehicleName || "Veículo —"}</small>
-                  </span>
-                  <span>
-                    <strong>{formatReplayDuration(item.durationSeconds)}</strong>
-                    <small>{item.estimatedDistanceKm.toFixed(2)} km · {item.frameCount.toLocaleString()} frames</small>
-                  </span>
-                </button>
+                <div key={item.fileName} className={`ghost-library-row ${item.selected ? "selected" : ""}`}>
+                  <button
+                    className="ghost-library-main"
+                    disabled={ghost.recording || ghost.playing}
+                    onClick={() => sendCommand("selectGhostLibraryItem", { fileName: item.fileName })}
+                  >
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>{item.mapName || "Mapa —"} · {item.vehicleName || "Veículo —"}</small>
+                    </span>
+                    <span>
+                      <strong>{formatReplayDuration(item.durationSeconds)}</strong>
+                      <small>{item.estimatedDistanceKm.toFixed(2)} km · {item.frameCount.toLocaleString()} frames</small>
+                    </span>
+                  </button>
+                  <button
+                    className={`button ghost compact ${compareFiles.includes(item.fileName) ? "active" : ""}`}
+                    disabled={ghost.recording || ghost.playing}
+                    onClick={() => toggleCompare(item.fileName)}
+                  >
+                    {compareFiles.includes(item.fileName) ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné") : pick("Comparar", "Compare", "Comparar", "Vergleichen", "Comparer")}
+                  </button>
+                </div>
               ))}
             </div>
           )}
