@@ -8,6 +8,15 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
+internal sealed record RoleplayNativeAnimationDiagnostics(
+    int AiMode,
+    int AiModeEx,
+    int AiSubMode,
+    double SollSpeedMps,
+    double ActSpeedMps,
+    double LastMovedDistanceMeters,
+    double AnimationState);
+
 internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
     private const int VkEscape = 0x1B;
@@ -40,6 +49,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     private RoleplayKeyboardHook? _keyboardHook;
     private RoleplayCharacterState? _state;
+    private RoleplayNativeAnimationDiagnostics? _nativeAnimationDiagnostics;
     private string? _instanceId;
     private DateTimeOffset _lastTickUtc;
     private DateTimeOffset _lastNetworkStateUtc;
@@ -80,6 +90,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public double EnterBusRangeMeters => EnterBusDistanceMeters;
     public double InteractionRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
+    public RoleplayNativeAnimationDiagnostics? CurrentNativeAnimationDiagnostics =>
+        _nativeAnimationDiagnostics;
 
     public double? GetBusDistanceMeters()
     {
@@ -406,6 +418,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             CharacterName: selected.DisplayName,
             HumanIndex: result.CharacterHumanIndex);
 
+        UpdateNativeAnimationDiagnostics(result);
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
         _lastTickUtc = DateTimeOffset.UtcNow;
@@ -438,6 +451,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
             _instanceId = null;
             _state = null;
+            _nativeAnimationDiagnostics = null;
             _consecutiveFailures = 0;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
@@ -621,6 +635,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             }
 
             _consecutiveFailures = 0;
+            UpdateNativeAnimationDiagnostics(result);
             _state = updated with
             {
                 LocalX = result.LocalX ?? updated.LocalX,
@@ -637,6 +652,37 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         {
             Interlocked.Exchange(ref _updateInFlight, 0);
         }
+    }
+
+    private void UpdateNativeAnimationDiagnostics(PluginBridgeMessage? result)
+    {
+        if (result?.CharacterAiMode is not int aiMode ||
+            result.CharacterAiModeEx is not int aiModeEx ||
+            result.CharacterAiSubMode is not int aiSubMode ||
+            result.CharacterSollSpeedMps is not double sollSpeed ||
+            result.CharacterActSpeedMps is not double actSpeed ||
+            result.CharacterLastMovedDistanceMeters is not double lastMovedDistance ||
+            result.CharacterAnimationState is not double animationState ||
+            aiMode is < 0 or > byte.MaxValue ||
+            aiModeEx is < 0 or > byte.MaxValue ||
+            aiSubMode is < 0 or > byte.MaxValue ||
+            !double.IsFinite(sollSpeed) ||
+            !double.IsFinite(actSpeed) ||
+            !double.IsFinite(lastMovedDistance) ||
+            !double.IsFinite(animationState))
+        {
+            _nativeAnimationDiagnostics = null;
+            return;
+        }
+
+        _nativeAnimationDiagnostics = new RoleplayNativeAnimationDiagnostics(
+            aiMode,
+            aiModeEx,
+            aiSubMode,
+            sollSpeed,
+            actSpeed,
+            lastMovedDistance,
+            animationState);
     }
 
     private bool TryFollowGround(
