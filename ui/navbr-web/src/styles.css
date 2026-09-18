@@ -497,3 +497,36 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .hardware-controls, .hardware-live-grid { grid-template-columns:1fr; }
   .hardware-auto { grid-column:auto; }
 }
+
+
+.network-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr); gap:14px; }
+.network-overview-card { grid-row:span 2; padding:20px; }
+.network-upnp-card, .network-probe-card { padding:20px; }
+.network-message { margin:0 0 10px; padding:10px 12px; border:1px solid #285743; border-radius:9px; background:#0d241a; color:#83dfad; font-size:11px; }
+.network-status-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.network-status-grid > div { min-width:0; display:grid; gap:4px; padding:12px; border:1px solid #1b3342; border-radius:10px; background:#081721; }
+.network-status-grid small, .network-addresses > small { color:#678398; font-size:8px; font-weight:800; letter-spacing:.08em; }
+.network-status-grid strong { font-size:13px; }
+.network-status-grid strong.ok { color:#83dfad; }
+.network-status-grid strong.warn { color:#f2ca79; }
+.network-status-grid span { color:#718899; font-size:10px; line-height:1.4; }
+.network-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0; }
+.network-actions > span { color:#728a9a; font-size:10px; }
+.network-addresses { margin-top:12px; }
+.network-addresses > div { display:flex; gap:7px; flex-wrap:wrap; margin-top:7px; }
+.network-addresses code { padding:6px 8px; border:1px solid #1a3140; border-radius:8px; background:#07131d; color:#91cdec; font-size:10px; }
+.network-note { color:#788f9f; font-size:11px; line-height:1.5; margin:12px 0 0; }
+.network-upnp-card h3, .network-probe-card h3 { margin:7px 0 10px; }
+.network-probe-card > p { color:#8095a4; font-size:11px; line-height:1.5; }
+.external-probe-result { display:grid; gap:4px; margin-top:12px; padding:12px; border-radius:10px; border:1px solid #543b3d; background:#241517; }
+.external-probe-result.reachable { border-color:#285743; background:#0d241a; }
+.external-probe-result strong { color:#f0a0a5; font-size:12px; }
+.external-probe-result.reachable strong { color:#83dfad; }
+.external-probe-result span, .external-probe-result small { color:#8298a7; font-size:10px; }
+@media (max-width:1000px) {
+  .network-layout { grid-template-columns:1fr; }
+  .network-overview-card { grid-row:auto; }
+}
+@media (max-width:700px) {
+  .network-status-grid { grid-template-columns:1fr; }
+}
