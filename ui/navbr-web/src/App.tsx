@@ -1893,6 +1893,30 @@ function Settings({
           </article>
 
           <article className="card diagnostics-log-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("SAÚDE DA SESSÃO", "SESSION HEALTH", "SALUD DE LA SESIÓN", "SITZUNGSSTATUS", "SANTÉ DE SESSION")}</span>
+                <h3>{pick("OMSI, multiplayer, rede e plugin", "OMSI, multiplayer, network and plugin", "OMSI, multijugador, red y plugin", "OMSI, Multiplayer, Netzwerk und Plugin", "OMSI, multijoueur, réseau et plugin")}</h3>
+              </div>
+              <button className="button ghost" onClick={() => sendCommand("exportSessionHealth")}>
+                {pick("Exportar relatório sanitizado", "Export sanitized report", "Exportar informe sanitizado", "Bereinigten Bericht exportieren", "Exporter le rapport assaini")}
+              </button>
+            </div>
+            {system.sessionHealthNotice && <div className="network-message">{system.sessionHealthNotice}</div>}
+            <div className="diagnostic-facts">
+              <span><small>OMSI</small><strong>{system.sessionHealth.omsiActive ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Aguardando", "Waiting", "Esperando", "Wartet", "En attente")}</strong></span>
+              <span><small>MULTIPLAYER</small><strong>{system.sessionHealth.multiplayerConnected ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté") : pick("Desconectado", "Disconnected", "Desconectado", "Getrennt", "Déconnecté")}</strong></span>
+              <span><small>BRIDGE / PLUGIN</small><strong>{system.sessionHealth.pluginConnected ? `${pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")}${system.sessionHealth.pluginVersion ? ` · ${system.sessionHealth.pluginVersion}` : ""}` : pick("Offline opcional", "Optional offline", "Offline opcional", "Optional offline", "Hors ligne optionnel")}</strong></span>
+              <span><small>{pick("MOTORISTAS REMOTOS", "REMOTE DRIVERS", "CONDUCTORES REMOTOS", "REMOTE-FAHRER", "CONDUCTEURS DISTANTS")}</small><strong>{system.sessionHealth.multiplayerConnected ? system.sessionHealth.remoteDrivers : "—"}</strong></span>
+              <span><small>{pick("TELEMETRIA REMOTA", "REMOTE TELEMETRY", "TELEMETRÍA REMOTA", "REMOTE-TELEMETRIE", "TÉLÉMÉTRIE DISTANTE")}</small><strong>{system.sessionHealth.remoteTelemetryAgeSeconds == null ? "—" : system.sessionHealth.remoteTelemetryAgeSeconds < 1 ? pick("Agora", "Now", "Ahora", "Jetzt", "Maintenant") : `${format(system.sessionHealth.remoteTelemetryAgeSeconds, 0)} s`}</strong></span>
+              <span><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{system.sessionHealth.latencyMs == null ? "—" : `${format(system.sessionHealth.latencyMs, 0)} ms`}</strong></span>
+              <span><small>JITTER</small><strong>{system.sessionHealth.jitterMs == null ? "—" : `${format(system.sessionHealth.jitterMs, 0)} ms`}</strong></span>
+              <span><small>{pick("PERDA EST.", "EST. LOSS", "PÉRDIDA EST.", "GESCH. VERLUST", "PERTE EST.")}</small><strong>{system.sessionHealth.lossPercent == null ? "—" : `${format(system.sessionHealth.lossPercent, 1)}%`}</strong></span>
+              <span><small>{pick("TAXA DE TELEMETRIA", "TELEMETRY RATE", "TASA DE TELEMETRÍA", "TELEMETRIE-RATE", "TAUX TÉLÉMÉTRIE")}</small><strong>{system.sessionHealth.telemetryRateHz == null ? "—" : `~${format(system.sessionHealth.telemetryRateHz, 1)} Hz`}</strong></span>
+            </div>
+            <p>{pick("Os valores de rede vêm de sondas reais ao mesmo peer-host NavBR. A frequência de telemetria se adapta automaticamente à qualidade da conexão.", "Network values come from real probes to the same NavBR peer-host. Telemetry frequency adapts automatically to connection quality.", "Los valores de red vienen de sondas reales al mismo peer-host NavBR. La frecuencia de telemetría se adapta automáticamente.", "Netzwerkwerte stammen aus echten Messungen zum selben NavBR-Peer-Host. Die Telemetrierate passt sich automatisch an.", "Les valeurs réseau viennent de sondes réelles vers le même peer-host NavBR. La fréquence de télémétrie s’adapte automatiquement.")}</p>
+          </article>
+          <article className="card diagnostics-log-card">
             <span className="eyebrow">{pick("LOG LOCAL", "LOCAL LOG", "LOG LOCAL", "LOKALES LOG", "JOURNAL LOCAL")}</span>
             <h3>navbr.log</h3>
             <div className="diagnostic-facts">
