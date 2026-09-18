@@ -778,6 +778,11 @@ function Operations({
     ? operations.company.fleet.find(vehicle =>
         vehicle.vehicleModel.localeCompare(local.vehicleName || "", undefined, { sensitivity: "accent" }) === 0)
     : undefined;
+  const tripHistory = operations.tripHistory || [];
+  const historyDistanceKm = tripHistory.reduce((sum, trip) => sum + trip.distanceKm, 0);
+  const historyDrivingSeconds = tripHistory.reduce((sum, trip) => sum + trip.drivingSeconds, 0);
+  const historyLines = new Set(tripHistory.map(trip => trip.line).filter(Boolean)).size;
+  const historyMaps = new Set(tripHistory.map(trip => trip.mapName).filter(Boolean)).size;
 
   return (
     <>
