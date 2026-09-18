@@ -199,21 +199,24 @@ const formatEta = (seconds: number | undefined | null) => {
   return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
 };
 
-const maneuverLabel = (maneuver: string) => {
+const maneuverLabel = (
+  maneuver: string,
+  pick: (pt: string, en: string, es: string, de: string, fr: string) => string
+) => {
   switch (maneuver) {
-    case "SlightLeft": return { arrow: "↖", title: "Mantenha à esquerda" };
-    case "Left": return { arrow: "←", title: "Vire à esquerda" };
-    case "SharpLeft": return { arrow: "↙", title: "Curva forte à esquerda" };
-    case "SlightRight": return { arrow: "↗", title: "Mantenha à direita" };
-    case "Right": return { arrow: "→", title: "Vire à direita" };
-    case "SharpRight": return { arrow: "↘", title: "Curva forte à direita" };
-    case "RejoinRoute": return { arrow: "↺", title: "Retorne para a rota" };
-    default: return { arrow: "↑", title: "Siga em frente" };
+    case "SlightLeft": return { arrow: "↖", title: pick("Mantenha à esquerda", "Keep left", "Mantente a la izquierda", "Links halten", "Restez à gauche") };
+    case "Left": return { arrow: "←", title: pick("Vire à esquerda", "Turn left", "Gira a la izquierda", "Links abbiegen", "Tournez à gauche") };
+    case "SharpLeft": return { arrow: "↙", title: pick("Curva forte à esquerda", "Sharp left", "Giro cerrado a la izquierda", "Scharf links", "Virage serré à gauche") };
+    case "SlightRight": return { arrow: "↗", title: pick("Mantenha à direita", "Keep right", "Mantente a la derecha", "Rechts halten", "Restez à droite") };
+    case "Right": return { arrow: "→", title: pick("Vire à direita", "Turn right", "Gira a la derecha", "Rechts abbiegen", "Tournez à droite") };
+    case "SharpRight": return { arrow: "↘", title: pick("Curva forte à direita", "Sharp right", "Giro cerrado a la derecha", "Scharf rechts", "Virage serré à droite") };
+    case "RejoinRoute": return { arrow: "↺", title: pick("Retorne para a rota", "Rejoin the route", "Vuelve a la ruta", "Zur Route zurückkehren", "Rejoignez l’itinéraire") };
+    default: return { arrow: "↑", title: pick("Siga em frente", "Continue straight", "Sigue recto", "Geradeaus weiter", "Continuez tout droit") };
   }
 };
 
 function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
 
   const geometry = useMemo(() => {
@@ -299,17 +302,17 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       )}
 
       <div className="navigation-map-legend">
-        <span><i className="route" /> Rota OMSI</span>
-        <span><i className="stop" /> Paradas</span>
-        <span><i className="bus" /> Seu ônibus</span>
+        <span><i className="route" /> {pick("Rota OMSI", "OMSI route", "Ruta OMSI", "OMSI-Route", "Itinéraire OMSI")}</span>
+        <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
+        <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
       </div>
     </div>
-    </I18nProvider>
   );
 }
 
 
 function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
+  const { t, pick } = useI18n();
   const [camera, setCamera] = useState<"follow" | "aerial">("follow");
   const [zoom, setZoom] = useState(1);
 
@@ -352,8 +355,8 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   if (!state.roadmapAvailable) {
     return (
       <div className="map-center-message navigation-empty nav3d-empty">
-        <strong>Roadmap 3D indisponível</strong>
-        <span>Gere o whole.roadmap.bmp em Configurações → Roadmap Studio para usar a visão 3D real.</span>
+        <strong>{pick("Roadmap 3D indisponível", "3D roadmap unavailable", "Roadmap 3D no disponible", "3D-Roadmap nicht verfügbar", "Roadmap 3D indisponible")}</strong>
+        <span>{pick("Gere o whole.roadmap.bmp em Configurações → Roadmap Studio para usar a visão 3D real.", "Generate whole.roadmap.bmp in Settings → Roadmap Studio to use the real 3D view.", "Genera whole.roadmap.bmp en Configuración → Roadmap Studio para usar la vista 3D real.", "Erzeuge whole.roadmap.bmp unter Einstellungen → Roadmap Studio für die echte 3D-Ansicht.", "Générez whole.roadmap.bmp dans Paramètres → Roadmap Studio pour utiliser la vue 3D réelle.")}</span>
       </div>
     );
   }
@@ -361,8 +364,8 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   if (!scene || !state.available) {
     return (
       <div className="map-center-message navigation-empty nav3d-empty">
-        <strong>Aguardando posição do ônibus</strong>
-        <span>O mapa real está disponível, mas a telemetria de posição do OMSI ainda não está pronta.</span>
+        <strong>{pick("Aguardando posição do ônibus", "Waiting for bus position", "Esperando posición del autobús", "Warte auf Busposition", "En attente de la position du bus")}</strong>
+        <span>{pick("O mapa real está disponível, mas a telemetria de posição do OMSI ainda não está pronta.", "The real map is available, but OMSI position telemetry is not ready yet.", "El mapa real está disponible, pero la telemetría de posición de OMSI aún no está lista.", "Die echte Karte ist verfügbar, aber die OMSI-Positionstelemetrie ist noch nicht bereit.", "La carte réelle est disponible, mais la télémétrie de position OMSI n’est pas encore prête.")}</span>
       </div>
     );
   }
@@ -372,8 +375,8 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   return (
     <div className="navigation-3d">
       <div className="navigation-map-toolbar nav3d-toolbar">
-        <button className={camera === "follow" ? "active" : ""} onClick={() => setCamera("follow")}>Seguir ônibus</button>
-        <button className={camera === "aerial" ? "active" : ""} onClick={() => setCamera("aerial")}>Visão aérea</button>
+        <button className={camera === "follow" ? "active" : ""} onClick={() => setCamera("follow")}>{t("nav.followBus")}</button>
+        <button className={camera === "aerial" ? "active" : ""} onClick={() => setCamera("aerial")}>{pick("Visão aérea", "Aerial view", "Vista aérea", "Luftansicht", "Vue aérienne")}</button>
         <label>
           <span>Zoom</span>
           <input
@@ -393,7 +396,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
           <svg
             viewBox={scene.viewBox}
             preserveAspectRatio="xMidYMid meet"
-            aria-label="Mapa 3D do OMSI"
+            aria-label={pick("Mapa 3D do OMSI", "OMSI 3D map", "Mapa 3D de OMSI", "OMSI-3D-Karte", "Carte 3D OMSI")}
           >
             <image
               href={state.roadmapUrl || undefined}
@@ -446,24 +449,25 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       </div>
 
       <div className="nav3d-footer">
-        <span><strong>{state.mapName || "Mapa OMSI"}</strong></span>
-        <span>{state.routeAvailable ? "Rota real carregada" : "Rota não resolvida"}</span>
-        <span>{state.remoteCount} ônibus remoto(s) compatível(is)</span>
+        <span><strong>{state.mapName || pick("Mapa OMSI", "OMSI map", "Mapa OMSI", "OMSI-Karte", "Carte OMSI")}</strong></span>
+        <span>{state.routeAvailable ? pick("Rota real carregada", "Real route loaded", "Ruta real cargada", "Echte Route geladen", "Itinéraire réel chargé") : pick("Rota não resolvida", "Route not resolved", "Ruta no resuelta", "Route nicht aufgelöst", "Itinéraire non résolu")}</span>
+        <span>{state.remoteCount} {pick("ônibus remoto(s) compatível(is)", "compatible remote bus(es)", "autobús(es) remoto(s) compatible(s)", "kompatible Remote-Busse", "bus distant(s) compatible(s)")}</span>
       </div>
     </div>
   );
 }
 
 function Navigation({ state }: { state: NavBrState | null }) {
+  const { t, pick } = useI18n();
   const navigation = state?.navigation;
   const navigation3D = state?.navigation3D;
   const [mapView, setMapView] = useState<"2d" | "3d">("2d");
   const telemetry = state?.telemetry;
-  const maneuver = maneuverLabel(navigation?.maneuver || "None");
+  const maneuver = maneuverLabel(navigation?.maneuver || "None", pick);
   const routeActive = Boolean(navigation?.available);
 
   if (!navigation) {
-    return <div className="card empty-state">Aguardando estado de navegação…</div>;
+    return <div className="card empty-state">{pick("Aguardando estado de navegação…", "Waiting for navigation state…", "Esperando el estado de navegación…", "Warte auf Navigationsstatus…", "En attente de l’état de navigation…")}</div>;
   }
 
   return (
@@ -471,33 +475,33 @@ function Navigation({ state }: { state: NavBrState | null }) {
       <header className="topbar navigation-header">
         <div>
           <span className="eyebrow">GPS / ROADMAP</span>
-          <h1>Navegação</h1>
-          <p>Rota, paradas e orientação calculadas a partir do mapa e da viagem reais do OMSI.</p>
+          <h1>{t("nav.navigation")}</h1>
+          <p>{pick("Rota, paradas e orientação calculadas a partir do mapa e da viagem reais do OMSI.", "Route, stops and guidance calculated from the real OMSI map and trip.", "Ruta, paradas y orientación calculadas desde el mapa y el viaje reales de OMSI.", "Route, Haltestellen und Führung aus echter OMSI-Karte und Fahrt berechnet.", "Itinéraire, arrêts et guidage calculés à partir de la carte et du trajet réels d’OMSI.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${routeActive ? "connected" : ""}`}>
-            <i /> {routeActive ? navigation.isOnRoute ? "Na rota" : "Fora da rota" : "Sem rota"}
+            <i /> {routeActive ? navigation.isOnRoute ? pick("Na rota", "On route", "En ruta", "Auf Route", "Sur l’itinéraire") : pick("Fora da rota", "Off route", "Fuera de ruta", "Abseits der Route", "Hors itinéraire") : pick("Sem rota", "No route", "Sin ruta", "Keine Route", "Aucun itinéraire")}
           </span>
           <button className="button ghost" onClick={() => setMapView(current => current === "2d" ? "3d" : "2d")}>
-            {mapView === "2d" ? "Mapa 3D" : "Mapa 2D"}
+            {mapView === "2d" ? pick("Mapa 3D", "3D Map", "Mapa 3D", "3D-Karte", "Carte 3D") : pick("Mapa 2D", "2D Map", "Mapa 2D", "2D-Karte", "Carte 2D")}
           </button>
         </div>
       </header>
 
       <section className="navigation-metrics">
-        <div className="metric"><small>LINHA</small><strong>{navigation.line || telemetry?.line || "—"}</strong></div>
-        <div className="metric"><small>ROTA</small><strong>{navigation.route || telemetry?.route || "—"}</strong></div>
-        <div className="metric"><small>DESTINO</small><strong>{navigation.destinationName || "—"}</strong></div>
-        <div className="metric"><small>PROGRESSO</small><strong>{routeActive ? `${format(navigation.routeProgressPercent, 0)}%` : "—"}</strong></div>
-        <div className="metric"><small>RESTANTE</small><strong>{routeActive ? formatDistance(navigation.distanceRemainingMeters) : "—"}</strong></div>
+        <div className="metric"><small>{t("home.line")}</small><strong>{navigation.line || telemetry?.line || "—"}</strong></div>
+        <div className="metric"><small>{t("home.route")}</small><strong>{navigation.route || telemetry?.route || "—"}</strong></div>
+        <div className="metric"><small>{t("home.destination")}</small><strong>{navigation.destinationName || "—"}</strong></div>
+        <div className="metric"><small>{pick("PROGRESSO", "PROGRESS", "PROGRESO", "FORTSCHRITT", "PROGRESSION")}</small><strong>{routeActive ? `${format(navigation.routeProgressPercent, 0)}%` : "—"}</strong></div>
+        <div className="metric"><small>{pick("RESTANTE", "REMAINING", "RESTANTE", "VERBLEIBEND", "RESTANT")}</small><strong>{routeActive ? formatDistance(navigation.distanceRemainingMeters) : "—"}</strong></div>
       </section>
 
       <section className="navigation-layout">
         <article className="card navigation-map-card">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">MAPA DA ROTA</span>
-              <h3>{navigation.mapName || telemetry?.mapName || "Mapa OMSI"}</h3>
+              <span className="eyebrow">{pick("MAPA DA ROTA", "ROUTE MAP", "MAPA DE RUTA", "ROUTENKARTE", "CARTE DE L’ITINÉRAIRE")}</span>
+              <h3>{navigation.mapName || telemetry?.mapName || pick("Mapa OMSI", "OMSI map", "Mapa OMSI", "OMSI-Karte", "Carte OMSI")}</h3>
             </div>
             <span className="route-source-pill">GEOMETRIA OMSI</span>
           </div>
@@ -508,7 +512,7 @@ function Navigation({ state }: { state: NavBrState | null }) {
 
         <aside className="navigation-side">
           <article className={`card maneuver-card ${navigation.maneuver === "RejoinRoute" ? "warning" : ""}`}>
-            <span className="eyebrow">{navigation.maneuver === "RejoinRoute" ? "CORREÇÃO DE ROTA" : "PRÓXIMA MANOBRA"}</span>
+            <span className="eyebrow">{navigation.maneuver === "RejoinRoute" ? pick("CORREÇÃO DE ROTA", "ROUTE CORRECTION", "CORRECCIÓN DE RUTA", "ROUTENKORREKTUR", "CORRECTION D’ITINÉRAIRE") : pick("PRÓXIMA MANOBRA", "NEXT MANEUVER", "PRÓXIMA MANIOBRA", "NÄCHSTES MANÖVER", "PROCHAINE MANŒUVRE")}</span>
             <div className="maneuver-main">
               <strong>{maneuver.arrow}</strong>
               <div>
@@ -518,49 +522,49 @@ function Navigation({ state }: { state: NavBrState | null }) {
                     ? formatDistance(navigation.offRouteDistanceMeters)
                     : navigation.distanceToManeuverMeters != null
                       ? `em ${formatDistance(navigation.distanceToManeuverMeters)}`
-                      : navigation.currentStreetName || "Continue pela rota"}
+                      : navigation.currentStreetName || pick("Continue pela rota", "Continue on the route", "Continúa por la ruta", "Der Route weiter folgen", "Continuez sur l’itinéraire")}
                 </p>
               </div>
             </div>
           </article>
 
           <article className="card next-stop-card">
-            <span className="eyebrow">PRÓXIMA PARADA</span>
+            <span className="eyebrow">{t("home.nextStop")}</span>
             <h3>{navigation.nextStopName || "—"}</h3>
             <div className="next-stop-stats">
-              <span><small>DISTÂNCIA</small><strong>{formatDistance(navigation.distanceToNextStopMeters)}</strong></span>
+              <span><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{formatDistance(navigation.distanceToNextStopMeters)}</strong></span>
               <span><small>ETA</small><strong>{formatEta(navigation.etaToNextStopSeconds)}</strong></span>
             </div>
           </article>
 
           <article className="card route-progress-card">
             <div className="section-heading compact">
-              <div><span className="eyebrow">VIAGEM</span><h3>{navigation.destinationName || "Destino não informado"}</h3></div>
+              <div><span className="eyebrow">{pick("VIAGEM", "TRIP", "VIAJE", "FAHRT", "TRAJET")}</span><h3>{navigation.destinationName || pick("Destino não informado", "Destination not provided", "Destino no informado", "Ziel nicht angegeben", "Destination non renseignée")}</h3></div>
             </div>
             <div className="route-progress-track"><i style={{ width: `${Math.max(0, Math.min(100, navigation.routeProgressPercent))}%` }} /></div>
             <div className="route-progress-meta">
-              <span>{formatDistance(navigation.distanceRemainingMeters)} restantes</span>
+              <span>{formatDistance(navigation.distanceRemainingMeters)} {pick("restantes", "remaining", "restantes", "verbleibend", "restants")}</span>
               <span>{formatEta(navigation.etaToRouteEndSeconds)}</span>
             </div>
-            {navigation.currentStreetName && <p className="current-street">Agora: {navigation.currentStreetName}</p>}
+            {navigation.currentStreetName && <p className="current-street">{pick("Agora", "Now", "Ahora", "Jetzt", "Maintenant")}: {navigation.currentStreetName}</p>}
           </article>
         </aside>
       </section>
 
       <section className="card upcoming-stops-card">
         <div className="section-heading">
-          <div><span className="eyebrow">ITINERÁRIO</span><h3>Próximas paradas</h3></div>
-          <span className="stop-count">{navigation.stopSequence.totalStops || 0} paradas na rota</span>
+          <div><span className="eyebrow">{pick("ITINERÁRIO", "ITINERARY", "ITINERARIO", "FAHRPLAN", "ITINÉRAIRE")}</span><h3>{pick("Próximas paradas", "Upcoming stops", "Próximas paradas", "Nächste Haltestellen", "Prochains arrêts")}</h3></div>
+          <span className="stop-count">{navigation.stopSequence.totalStops || 0} {pick("paradas na rota", "stops on route", "paradas en la ruta", "Haltestellen auf der Route", "arrêts sur l’itinéraire")}</span>
         </div>
         {navigation.stopSequence.upcomingStops.length === 0 ? (
-          <div className="empty-state compact-empty">Sequência de paradas ainda não resolvida para esta viagem.</div>
+          <div className="empty-state compact-empty">{pick("Sequência de paradas ainda não resolvida para esta viagem.", "Stop sequence has not been resolved for this trip yet.", "La secuencia de paradas aún no está resuelta para este viaje.", "Die Haltestellenfolge ist für diese Fahrt noch nicht aufgelöst.", "La séquence des arrêts n’est pas encore résolue pour ce trajet.")}</div>
         ) : (
           <div className="upcoming-stops">
             {navigation.stopSequence.upcomingStops.map((stop, index) => (
               <div className={index === 0 ? "next" : ""} key={`${stop}-${index}`}>
                 <span>{navigation.stopSequence.nextStopIndex != null ? navigation.stopSequence.nextStopIndex + index + 1 : index + 1}</span>
                 <strong>{stop}</strong>
-                {index === 0 && <small>PRÓXIMA</small>}
+                {index === 0 && <small>{pick("PRÓXIMA", "NEXT", "PRÓXIMA", "NÄCHSTE", "PROCHAIN")}</small>}
               </div>
             ))}
           </div>
