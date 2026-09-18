@@ -175,7 +175,7 @@ jobs:
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
-      - name: Smoke-test bridge v2
+      - name: Smoke-test bridge v3
         shell: pwsh
         run: |
           dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
