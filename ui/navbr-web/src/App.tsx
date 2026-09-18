@@ -730,6 +730,10 @@ function Operations({
   const criticalReports = activeReports.filter(report => report.severity === "Critical");
   const staleDrivers = operations.drivers.filter(driver => driver.stale);
   const delayedDrivers = operations.drivers.filter(driver => (driver.delaySeconds ?? 0) > 120);
+  const localFleet = local?.vehicleName
+    ? operations.company.fleet.find(vehicle =>
+        vehicle.vehicleModel.localeCompare(local.vehicleName || "", undefined, { sensitivity: "accent" }) === 0)
+    : undefined;
 
   return (
     <>
@@ -803,6 +807,25 @@ function Operations({
               <h3>{operations.company.name || pick("Empresa não configurada", "Company not configured", "Empresa no configurada", "Unternehmen nicht konfiguriert", "Entreprise non configurée")}</h3>
               <p>{operations.company.fleet.length} {pick("veículo(s) cadastrados", "registered vehicle(s)", "vehículo(s) registrados", "registrierte Fahrzeuge", "véhicule(s) enregistrés")}</p>
               <button className="text-action" onClick={() => setTab("company")}>{pick("Abrir Empresa / Frota", "Open Company / Fleet", "Abrir Empresa / Flota", "Unternehmen / Flotte öffnen", "Ouvrir Entreprise / Flotte")} →</button>
+            </article>
+            <article className="card compact-card">
+              <span className="eyebrow">{pick("IDENTIDADE", "IDENTITY", "IDENTIDAD", "IDENTITÄT", "IDENTITÉ")}</span>
+              <div className="details-grid">
+                <div><small>{pick("MOTORISTA", "DRIVER", "CONDUCTOR", "FAHRER", "CONDUCTEUR")}</small><strong>{operations.profile.displayName || "—"}</strong></div>
+                <div><small>{pick("EMPRESA", "COMPANY", "EMPRESA", "UNTERNEHMEN", "ENTREPRISE")}</small><strong>{operations.company.name || operations.profile.companyName || "—"}</strong></div>
+                <div><small>{pick("VEÍCULO", "VEHICLE", "VEHÍCULO", "FAHRZEUG", "VÉHICULE")}</small><strong>{local?.vehicleName || "—"}</strong></div>
+                <div><small>{pick("PREFIXO", "FLEET NO.", "PREFIJO", "WAGENTR.", "N° PARC")}</small><strong>{localFleet?.fleetNumber || "—"}</strong></div>
+              </div>
+            </article>
+
+            <article className="card compact-card">
+              <span className="eyebrow">{pick("TELEMETRIA", "TELEMETRY", "TELEMETRÍA", "TELEMETRIE", "TÉLÉMÉTRIE")}</span>
+              <div className="details-grid">
+                <div><small>{pick("RUA", "STREET", "CALLE", "STRASSE", "RUE")}</small><strong>{local?.currentStreet || "—"}</strong></div>
+                <div><small>{pick("PRÓXIMA PARADA", "NEXT STOP", "PRÓXIMA PARADA", "NÄCHSTER HALT", "PROCHAIN ARRÊT")}</small><strong>{local?.nextStop || "—"}</strong></div>
+                <div><small>{pick("PORTAS", "DOORS", "PUERTAS", "TÜREN", "PORTES")}</small><strong>{local?.doors || "—"}</strong></div>
+                <div><small>{pick("PARADA SOLICITADA", "STOP REQUEST", "PARADA SOLICITADA", "HALTEWUNSCH", "ARRÊT DEMANDÉ")}</small><strong>{local ? (local.stopRequested ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")) : "—"}</strong></div>
+              </div>
             </article>
           </aside>
         </section>
