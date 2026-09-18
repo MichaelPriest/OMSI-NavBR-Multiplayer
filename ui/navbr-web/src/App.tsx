@@ -3376,6 +3376,150 @@ function GhostReplay({
   );
 }
 
+function Help({ state }: { state: NavBrState | null }) {
+  const { pick } = useI18n();
+  const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
+  const sections = [
+    {
+      title: pick("1. Comece aqui", "1. Start here", "1. Primeros pasos", "1. Erste Schritte", "1. Bien démarrer"),
+      body: pick(
+        "Abra o NavBR e o OMSI 2, aguarde a detecção/telemetria, carregue mapa e ônibus e inicie a viagem. Durante o gameplay o HUD/minimapa acompanha os dados reais do OMSI e pode se ocultar quando necessário.",
+        "Open NavBR and OMSI 2, wait for detection/telemetry, load a map and bus, and start the trip. During gameplay the HUD/minimap follows real OMSI data and may hide when needed.",
+        "Abre NavBR y OMSI 2, espera la detección/telemetría, carga mapa y autobús e inicia el viaje. Durante el juego el HUD/minimapa sigue datos reales de OMSI.",
+        "Starte NavBR und OMSI 2, warte auf Erkennung/Telemetrie, lade Karte und Bus und beginne die Fahrt. HUD/Minikarte nutzen echte OMSI-Daten.",
+        "Ouvrez NavBR et OMSI 2, attendez la détection/télémétrie, chargez carte et bus puis démarrez le trajet. Le HUD/minicarte suit les données réelles d’OMSI."
+      )
+    },
+    {
+      title: pick("2. HUD, GPS e velocidade", "2. HUD, GPS and speed", "2. HUD, GPS y velocidad", "2. HUD, GPS und Geschwindigkeit", "2. HUD, GPS et vitesse"),
+      body: pick(
+        "Velocidade, linha, rota, destino, próxima parada e navegação vêm do estado real do OMSI. Configure preset, tema, escala, opacidade e módulos em Configurações > HUD; Mover HUD continua usando o overlay nativo.",
+        "Speed, line, route, destination, next stop and navigation come from real OMSI state. Configure preset, theme, scale, opacity and modules under Settings > HUD; Move HUD still uses the native overlay.",
+        "Velocidad, línea, ruta, destino, próxima parada y navegación vienen del estado real de OMSI. Configura el HUD en Configuración > HUD.",
+        "Geschwindigkeit, Linie, Route, Ziel, nächste Haltestelle und Navigation stammen aus dem echten OMSI-Status. HUD-Einstellungen liegen unter Einstellungen > HUD.",
+        "Vitesse, ligne, itinéraire, destination, prochain arrêt et navigation proviennent de l’état réel d’OMSI. Configurez le HUD dans Paramètres > HUD."
+      )
+    },
+    {
+      title: pick("3. Multiplayer", "3. Multiplayer", "3. Multijugador", "3. Multiplayer", "3. Multijoueur"),
+      body: pick(
+        "Crie uma sala local em TCP 27730 ou use relay experimental; também é possível entrar em uma sala existente ou pública. Salas privadas usam senha. Firewall, NAT/CGNAT, UPnP e teste externo ficam em Configurações > Rede.",
+        "Create a local room on TCP 27730 or use the experimental relay; you can also join an existing or public room. Private rooms use a password. Firewall, NAT/CGNAT, UPnP and external testing are under Settings > Network.",
+        "Crea una sala local en TCP 27730 o usa relay experimental; también puedes entrar en una sala existente o pública. Firewall, NAT/CGNAT y UPnP están en Configuración > Red.",
+        "Erstelle einen lokalen Raum über TCP 27730 oder nutze das experimentelle Relay. Firewall, NAT/CGNAT, UPnP und externe Tests befinden sich unter Einstellungen > Netzwerk.",
+        "Créez une salle locale sur TCP 27730 ou utilisez le relais expérimental. Pare-feu, NAT/CGNAT, UPnP et test externe sont dans Paramètres > Réseau."
+      )
+    },
+    {
+      title: pick("4. Chat e voz", "4. Chat and voice", "4. Chat y voz", "4. Chat und Sprache", "4. Chat et voix"),
+      body: pick(
+        `O atalho atual do chat é ${multiplayer.chatHotkey || "F9"} e o PTT é ${multiplayer.voiceHotkey || "F10"}. Em Multiplayer > Chat & Voz você configura canal, proximidade, microfone, saída, mute/volume por jogador e acompanha jitter/perda/FEC.`,
+        `The current chat hotkey is ${multiplayer.chatHotkey || "F9"} and PTT is ${multiplayer.voiceHotkey || "F10"}. In Multiplayer > Chat & Voice you can configure channel, proximity, microphone, output, per-player mute/volume and monitor jitter/loss/FEC.`,
+        `El atajo actual del chat es ${multiplayer.chatHotkey || "F9"} y PTT es ${multiplayer.voiceHotkey || "F10"}. En Multiplayer > Chat y Voz configuras canal, proximidad, dispositivos y mixer.`,
+        `Der aktuelle Chat-Hotkey ist ${multiplayer.chatHotkey || "F9"}, PTT ist ${multiplayer.voiceHotkey || "F10"}. Unter Multiplayer > Chat & Sprache werden Kanal, Nähe, Geräte und Mixer eingestellt.`,
+        `Le raccourci chat actuel est ${multiplayer.chatHotkey || "F9"} et le PTT ${multiplayer.voiceHotkey || "F10"}. Dans Multijoueur > Chat & Voix, configurez canal, proximité, périphériques et mixage.`
+      )
+    },
+    {
+      title: pick("5. Ônibus remoto físico — EXPERIMENTAL", "5. Physical remote bus — EXPERIMENTAL", "5. Autobús remoto físico — EXPERIMENTAL", "5. Physischer Remote-Bus — EXPERIMENTELL", "5. Bus distant physique — EXPÉRIMENTAL"),
+      body: pick(
+        "O teste físico vem desligado por padrão. Ambos os PCs precisam de mapa/ônibus compatíveis e do Plugin Bridge suportado. O NavBR não transfere conteúdo pago ou proprietário. A tela mostra a disponibilidade real do plugin antes de criar ônibus remotos.",
+        "The physical test is off by default. Both PCs need compatible map/bus content and a supported Plugin Bridge. NavBR does not transfer paid or proprietary content. The UI reports the plugin’s real capability before spawning remote buses.",
+        "La prueba física está desactivada por defecto. Ambos PCs necesitan mapa/autobús compatibles y Plugin Bridge compatible. NavBR no transfiere contenido de pago o propietario.",
+        "Der physische Test ist standardmäßig aus. Beide PCs benötigen kompatible Karte/Bus und eine unterstützte Plugin Bridge. NavBR überträgt keine kostenpflichtigen/proprietären Inhalte.",
+        "Le test physique est désactivé par défaut. Les deux PC doivent avoir carte/bus compatibles et un Plugin Bridge pris en charge. NavBR ne transfère aucun contenu payant/propriétaire."
+      )
+    },
+    {
+      title: pick("6. Diagnósticos automáticos", "6. Automatic diagnostics", "6. Diagnósticos automáticos", "6. Automatische Diagnose", "6. Diagnostics automatiques"),
+      body: pick(
+        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Ele registra dados técnicos permitidos para investigar falhas; não deve incluir chat, áudio, senhas, tokens ou arquivos pessoais. A fila local pode ser apagada.",
+        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. They record permitted technical data for troubleshooting; they should not include chat, audio, passwords, tokens or personal files. The local queue can be purged.",
+        "Los diagnósticos son opcionales y se controlan en Configuración > Diagnóstico. No deben incluir chat, audio, contraseñas, tokens ni archivos personales.",
+        "Diagnosen sind optional und unter Einstellungen > Diagnose steuerbar. Chat, Audio, Passwörter, Tokens oder persönliche Dateien sollen nicht enthalten sein.",
+        "Les diagnostics sont facultatifs et se règlent dans Paramètres > Diagnostic. Ils ne doivent pas contenir chat, audio, mots de passe, jetons ou fichiers personnels."
+      )
+    },
+    {
+      title: pick("7. Se algo não funcionar", "7. Troubleshooting", "7. Si algo no funciona", "7. Wenn etwas nicht funktioniert", "7. Si quelque chose ne fonctionne pas"),
+      body: pick(
+        "OMSI não detectado: confira a instalação e se Omsi.exe está aberto. HUD sem dados: entre no gameplay. Mapa/rota ausente: confira roadmap e viagem ativa. Multiplayer sem conexão: confira servidor/sala/senha, TCP 27730 e Rede. Ônibus físico ausente: valide mapa, modelo e plugin.",
+        "OMSI not detected: check the installation and that Omsi.exe is running. HUD without data: enter gameplay. Missing map/route: check roadmap and active trip. Multiplayer connection: verify server/room/password, TCP 27730 and Network. Missing physical bus: validate map, model and plugin.",
+        "OMSI no detectado: revisa instalación y Omsi.exe. Sin datos HUD: entra al juego. Sin mapa/ruta: revisa roadmap y viaje. Multiplayer: servidor/sala/contraseña, TCP 27730 y Red.",
+        "OMSI nicht erkannt: Installation und Omsi.exe prüfen. HUD ohne Daten: Gameplay starten. Karte/Route fehlt: Roadmap/Fahrt prüfen. Multiplayer: Server/Raum/Passwort, TCP 27730 und Netzwerk prüfen.",
+        "OMSI non détecté : vérifiez l’installation et Omsi.exe. HUD sans données : entrez en jeu. Carte/route absente : vérifiez roadmap/trajet. Multijoueur : serveur/salle/mot de passe, TCP 27730 et Réseau."
+      )
+    },
+    {
+      title: pick("8. Teste da comunidade", "8. Community testing", "8. Prueba comunitaria", "8. Community-Test", "8. Test communautaire"),
+      body: pick(
+        "Ao relatar um erro, informe o que estava fazendo, mapa, ônibus, sala, se RP/ônibus físico estavam ativos e, quando possível, anexe prints e logs. Isso ajuda a reproduzir a falha sem usar dados simulados.",
+        "When reporting a problem, include what you were doing, map, bus, room, whether RP/physical buses were active, and screenshots/logs when possible. This helps reproduce the issue without simulated data.",
+        "Al reportar un problema, indica qué hacías, mapa, autobús, sala, si RP/autobús físico estaban activos y adjunta capturas/logs cuando sea posible.",
+        "Bei Fehlerberichten bitte Aktion, Karte, Bus, Raum, RP/physische Busse sowie möglichst Screenshots/Logs angeben.",
+        "Pour signaler un problème, indiquez l’action, la carte, le bus, la salle, l’état RP/bus physique et joignez si possible captures/logs."
+      )
+    }
+  ];
+
+  return (
+    <>
+      <header className="topbar">
+        <div>
+          <span className="eyebrow">{pick("AJUDA", "HELP", "AYUDA", "HILFE", "AIDE")}</span>
+          <h1>{pick("Manual do NavBR", "NavBR manual", "Manual de NavBR", "NavBR-Handbuch", "Manuel NavBR")}</h1>
+          <p>{pick("Guia de uso e canais de feedback, agora dentro da interface React.", "Usage guide and feedback channels, now inside the React interface.", "Guía de uso y canales de feedback dentro de la interfaz React.", "Benutzerhilfe und Feedback jetzt direkt in der React-Oberfläche.", "Guide d’utilisation et retours directement dans l’interface React.")}</p>
+        </div>
+      </header>
+
+      <section className="company-layout">
+        {sections.map(section => (
+          <article className="card company-card" key={section.title}>
+            <div className="section-heading"><div><h3>{section.title}</h3></div></div>
+            <p>{section.body}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="card cco-panel">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">FEEDBACK</span>
+            <h3>{pick("Ajude a melhorar o NavBR", "Help improve NavBR", "Ayuda a mejorar NavBR", "Hilf mit, NavBR zu verbessern", "Aidez à améliorer NavBR")}</h3>
+          </div>
+        </div>
+        <p>{pick("Os formulários são Issues públicas do GitHub. Não envie senhas, tokens ou dados privados; prints e logs técnicos ajudam em bugs.", "Forms are public GitHub Issues. Do not send passwords, tokens or private data; screenshots and technical logs help with bugs.", "Los formularios son Issues públicas de GitHub. No envíes contraseñas, tokens ni datos privados.", "Die Formulare sind öffentliche GitHub-Issues. Keine Passwörter, Tokens oder privaten Daten senden.", "Les formulaires sont des Issues GitHub publiques. N’envoyez pas de mots de passe, jetons ou données privées.")}</p>
+        <div className="advanced-grid">
+          <article className="card compact-card">
+            <span className="eyebrow">BUG</span>
+            <h3>{pick("Relatar um bug", "Report a bug", "Reportar un error", "Fehler melden", "Signaler un bug")}</h3>
+            <p>{pick("HUD, mapa, rota, chat, voz, multiplayer, instalação ou interface.", "HUD, map, route, chat, voice, multiplayer, installation or interface.", "HUD, mapa, ruta, chat, voz, multijugador, instalación o interfaz.", "HUD, Karte, Route, Chat, Sprache, Multiplayer, Installation oder Oberfläche.", "HUD, carte, itinéraire, chat, voix, multijoueur, installation ou interface.")}</p>
+            <button className="button primary" onClick={() => sendCommand("openFeedback", { kind: "bug" })}>{pick("Relatar problema", "Report problem", "Reportar problema", "Problem melden", "Signaler le problème")}</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">{pick("SUGESTÃO", "SUGGESTION", "SUGERENCIA", "VORSCHLAG", "SUGGESTION")}</span>
+            <h3>{pick("Sugerir uma melhoria", "Suggest an improvement", "Sugerir una mejora", "Verbesserung vorschlagen", "Suggérer une amélioration")}</h3>
+            <p>{pick("Ideias para qualquer área do NavBR.", "Ideas for any part of NavBR.", "Ideas para cualquier área de NavBR.", "Ideen für jeden Bereich von NavBR.", "Idées pour toute partie de NavBR.")}</p>
+            <button className="button ghost" onClick={() => sendCommand("openFeedback", { kind: "suggestion" })}>{pick("Enviar sugestão", "Send suggestion", "Enviar sugerencia", "Vorschlag senden", "Envoyer une suggestion")}</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">{pick("GERAL", "GENERAL", "GENERAL", "ALLGEMEIN", "GÉNÉRAL")}</span>
+            <h3>{pick("Feedback geral", "General feedback", "Feedback general", "Allgemeines Feedback", "Retour général")}</h3>
+            <p>{pick("Conte o que funciona bem e o que deveria receber prioridade.", "Tell us what works well and what should be prioritized.", "Cuéntanos qué funciona bien y qué debería tener prioridad.", "Sag uns, was gut funktioniert und was Priorität haben sollte.", "Dites-nous ce qui fonctionne bien et ce qui devrait être prioritaire.")}</p>
+            <button className="button ghost" onClick={() => sendCommand("openFeedback", { kind: "general" })}>{pick("Avaliar o projeto", "Review the project", "Evaluar el proyecto", "Projekt bewerten", "Évaluer le projet")}</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">GITHUB</span>
+            <h3>{pick("Feedback público", "Public feedback", "Feedback público", "Öffentliches Feedback", "Retour public")}</h3>
+            <p>{pick("Veja relatos existentes e acompanhe o andamento.", "View existing reports and follow progress.", "Consulta reportes existentes y su progreso.", "Vorhandene Meldungen und Fortschritt ansehen.", "Consultez les signalements existants et leur suivi.")}</p>
+            <button className="button ghost" onClick={() => sendCommand("openFeedback", { kind: "issues" })}>{pick("Ver feedback", "View feedback", "Ver feedback", "Feedback ansehen", "Voir les retours")}</button>
+          </article>
+        </div>
+      </section>
+    </>
+  );
+}
+
 export default function App() {
   const [state, setState] = useState<NavBrState | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
