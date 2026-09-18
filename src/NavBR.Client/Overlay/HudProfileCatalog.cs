@@ -64,15 +64,15 @@ public static class HudProfileCatalog
         new(
             "compact",
             "Compacto",
-            "navbr-modern",
+            "current",
             "NavBR",
             "Versão pequena para manter apenas alertas essenciais.",
             330d, 0.76d, 0.84d,
             false, false, false, false, false, true, false),
         new(
             "normal",
-            "Normal",
-            "navbr-modern",
+            "Normal (HUD atual)",
+            "current",
             "NavBR",
             "Equilíbrio entre direção, navegação e informações do veículo.",
             470d, 0.82d, 0.82d,
@@ -80,7 +80,7 @@ public static class HudProfileCatalog
         new(
             "full",
             "Completo",
-            "navbr-modern",
+            "current",
             "NavBR",
             "Ativa o conjunto completo de módulos disponíveis.",
             620d, 0.92d, 0.90d,
@@ -88,7 +88,7 @@ public static class HudProfileCatalog
         new(
             "digital-cluster",
             "Cluster Digital",
-            "racing-clean",
+            "current",
             "Digital cockpit",
             "Cluster escuro de alta legibilidade focado em velocidade e indicadores.",
             540d, 0.88d, 0.94d,
@@ -96,7 +96,7 @@ public static class HudProfileCatalog
         new(
             "lcd-amber",
             "LCD / Âmbar",
-            "amber-classic",
+            "current",
             "Classic bus display",
             "Visual âmbar inspirado em painéis eletrônicos de ônibus.",
             470d, 0.86d, 0.96d,
@@ -104,7 +104,7 @@ public static class HudProfileCatalog
         new(
             "transparent",
             "Transparente Integrado",
-            "urban-glass",
+            "current",
             "Glass HUD",
             "Camadas translúcidas para integrar o HUD ao cenário sem esconder a cabine.",
             530d, 0.84d, 0.72d,
@@ -113,6 +113,7 @@ public static class HudProfileCatalog
 
     public static IReadOnlyList<HudThemeDefinition> Themes { get; } =
     [
+        new("current", "Atual / NavBR Clássico"),
         new("urban-glass", "Urban Glass"),
         new("route-night", "Route Night"),
         new("racing-clean", "Racing Clean"),
