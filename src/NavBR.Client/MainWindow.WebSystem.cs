@@ -340,4 +340,21 @@ public partial class MainWindow
 
     private static void PurgeDiagnosticsFromWeb() =>
         RemoteDiagnosticsService.PurgeQueuedEvents();
+
+    private static void OpenFeedbackFromWeb(string? kind)
+    {
+        const string issues = "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/issues";
+        var url = (kind ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "bug" => issues + "/new?template=bug.yml",
+            "suggestion" => issues + "/new?template=suggestion.yml",
+            "general" => issues + "/new?template=feedback.yml",
+            _ => issues
+        };
+
+        Process.Start(new ProcessStartInfo(url)
+        {
+            UseShellExecute = true
+        });
+    }
 }
