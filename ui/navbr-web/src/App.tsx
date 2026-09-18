@@ -3735,8 +3735,11 @@ export default function App() {
       setCommandError(null);
 
       const requested = next.navigationRequest?.screen;
-      if (requested === "settings-installations") {
-        setSettingsTabRequest("installations");
+      const requestedSettingsTab = requested?.startsWith("settings-")
+        ? requested.slice("settings-".length) as SettingsTab
+        : null;
+      if (requestedSettingsTab && ["installations", "hud", "roadmap", "diagnostics", "network", "advanced"].includes(requestedSettingsTab)) {
+        setSettingsTabRequest(requestedSettingsTab);
         setScreen("settings");
       } else if (requested && [
         "home",
