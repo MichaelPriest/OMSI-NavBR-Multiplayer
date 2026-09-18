@@ -111,11 +111,63 @@ public partial class MainWindow
             {
                 _ = _multiplayerWindow.ReleaseLocalRoleplayCharacterAsync();
             }
+
+            UpdateHudRoleplayStateForShell();
         };
 
         _roleplayCharacterController = controller;
         HookRoleplayLifetime();
         return controller;
+    }
+
+    internal void UpdateHudRoleplayStateForShell()
+    {
+        if (_hudOverlay is null)
+        {
+            return;
+        }
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+        var controller = _roleplayCharacterController;
+
+        _hudOverlay.SetRoleplayState(
+            featureEnabled: ExperimentalFeatureFlags.RoleplayCharacterEnabled,
+            mapReady: IsRoleplayMapReadyForShell(),
+            hasSelection: selected is not null,
+            active: controller?.IsActive == true,
+            characterName: selected?.DisplayName);
+    }
+
+    internal async void HandleHudRoleplayButtonRequestedForShell()
+    {
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+
+        if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled ||
+            !IsRoleplayMapReadyForShell() ||
+            selected is null)
+        {
+            OpenRoleplayCharacterWindowForShell();
+            UpdateHudRoleplayStateForShell();
+            return;
+        }
+
+        var controller = GetRoleplayControllerForShell();
+        if (controller.IsActive)
+        {
+            await controller.StopAsync("roleplay-returned-to-bus");
+            UpdateHudRoleplayStateForShell();
+            return;
+        }
+
+        var started = await controller.StartAsync();
+        UpdateHudRoleplayStateForShell();
+
+        if (!started)
+        {
+            OpenRoleplayCharacterWindowForShell();
+        }
     }
 
     internal void OpenRoleplayCharacterWindowForShell()
