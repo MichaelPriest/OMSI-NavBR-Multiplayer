@@ -146,6 +146,9 @@ public partial class MultiplayerWindow
     private void RoleplayCharacterSelectButton_Click(object sender, RoutedEventArgs e) =>
         OpenRoleplayCharacterSelector();
 
+    private void RoleplayActionButton_Click(object sender, RoutedEventArgs e) =>
+        RoleplayActionRequested?.Invoke();
+
     private void RefreshRoleplayCharacterSelector(bool openWhenReady)
     {
         if (_roleplayCharacterSelectButton is null ||
@@ -178,6 +181,7 @@ public partial class MultiplayerWindow
         var mapReady = enabled &&
                        telemetry?.IsInGame == true &&
                        !string.IsNullOrWhiteSpace(mapKey);
+        RefreshRoleplayActionState(enabled, mapReady);
         if (!mapReady)
         {
             _roleplayCharacterSelectButton.IsEnabled = false;
@@ -227,6 +231,89 @@ public partial class MultiplayerWindow
             _roleplayPromptedMapKey = mapKey;
             OpenRoleplayCharacterSelector();
         }
+    }
+
+    private void RefreshRoleplayActionState(bool enabled, bool mapReady)
+    {
+        var selected = RoleplayCharacterSelectionStore.Get(_roleplayMapKey);
+        var active = _localRoleplayCharacter?.IsActive == true;
+
+        if (active)
+        {
+            RoleplayStateText.Text = string.Format(
+                RpT(
+                    "A pé • {0}",
+                    "On foot • {0}",
+                    "A pie • {0}",
+                    "Zu Fuß • {0}",
+                    "À pied • {0}"),
+                _localRoleplayCharacter?.CharacterName ??
+                selected?.DisplayName ??
+                RpT("personagem", "character", "personaje", "Charakter", "personnage"));
+            RoleplayActionButton.Content = RpT(
+                "Voltar ao ônibus",
+                "Return to bus",
+                "Volver al autobús",
+                "Zurück zum Bus",
+                "Retour au bus");
+            RoleplayActionButton.IsEnabled = true;
+            return;
+        }
+
+        if (!enabled)
+        {
+            RoleplayStateText.Text = RoleplayDisabledText();
+            RoleplayActionButton.Content = RpT(
+                "Configurar personagem",
+                "Configure character",
+                "Configurar personaje",
+                "Charakter konfigurieren",
+                "Configurer le personnage");
+            RoleplayActionButton.IsEnabled = true;
+            return;
+        }
+
+        if (!mapReady)
+        {
+            RoleplayStateText.Text = RoleplayWaitingForMapText();
+            RoleplayActionButton.Content = RpT(
+                "Aguardando mapa",
+                "Waiting for map",
+                "Esperando mapa",
+                "Warte auf Karte",
+                "En attente de la carte");
+            RoleplayActionButton.IsEnabled = false;
+            return;
+        }
+
+        if (selected is null)
+        {
+            RoleplayStateText.Text = RpT(
+                "Mapa pronto • selecione o motorista",
+                "Map ready • select the driver",
+                "Mapa listo • selecciona el conductor",
+                "Karte bereit • Fahrer auswählen",
+                "Carte prête • sélectionnez le conducteur");
+            RoleplayActionButton.Content = RoleplaySelectButtonText();
+            RoleplayActionButton.IsEnabled = true;
+            return;
+        }
+
+        RoleplayStateText.Text = string.Format(
+            RpT(
+                "No ônibus • {0}",
+                "In bus • {0}",
+                "En autobús • {0}",
+                "Im Bus • {0}",
+                "Dans le bus • {0}"),
+            selected.DisplayName);
+        RoleplayActionButton.Content = RpT(
+            "Ativar personagem",
+            "Activate character",
+            "Activar personaje",
+            "Charakter aktivieren",
+            "Activer personnage");
+        RoleplayActionButton.IsEnabled = true;
     }
 
     private IReadOnlyList<RoleplayCharacterOption> SafeReadRoleplayOptions()
