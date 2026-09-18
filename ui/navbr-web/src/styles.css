@@ -569,3 +569,39 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .company-member-role, .company-member-actions, .company-member-locked { grid-column:2; }
   .company-member-actions { grid-template-columns:1fr; width:100%; }
 }
+
+
+.roleplay-header { align-items:center; }
+.rp-web-grid { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr); gap:14px; }
+.rp-web-grid.embedded { grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr); }
+.rp-status-card, .rp-character-card, .rp-controls-card { padding:20px; }
+.rp-status-grid { margin-top:12px; }
+.rp-current-state { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:12px; }
+.rp-current-state span { display:grid; gap:4px; padding:11px; border:1px solid #1b3342; border-radius:10px; background:#081721; }
+.rp-current-state small { color:#678398; font-size:8px; font-weight:800; letter-spacing:.07em; }
+.rp-current-state strong { font-size:12px; }
+.rp-actions { margin-top:14px; }
+.rp-character-list { display:grid; gap:8px; max-height:470px; overflow:auto; padding-right:3px; }
+.rp-character-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:11px; align-items:center; width:100%; text-align:left; border:1px solid #1b3342; border-radius:11px; background:#081721; color:#dceaf3; padding:11px 12px; cursor:pointer; }
+.rp-character-row:hover { border-color:#31536a; background:#0b1c28; }
+.rp-character-row.selected { border-color:#316d51; background:#0d241a; }
+.rp-character-row:disabled { cursor:default; opacity:.65; }
+.rp-character-avatar { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#102838; color:#79cdfd; font-size:17px; }
+.rp-character-row > span:nth-child(2) { display:grid; gap:3px; min-width:0; }
+.rp-character-row strong { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rp-character-row small { color:#708a9b; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rp-character-row em { color:#79a1b9; font-size:9px; font-style:normal; font-weight:800; text-transform:uppercase; }
+.rp-character-row.selected em { color:#83dfad; }
+.rp-controls-card { margin-top:14px; }
+.rp-key-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.rp-key-grid span { display:grid; gap:7px; padding:12px; border:1px solid #1b3342; border-radius:10px; background:#081721; }
+.rp-key-grid kbd { width:max-content; border:1px solid #38566a; border-bottom-width:2px; border-radius:6px; padding:4px 7px; background:#0d2230; color:#cdeeff; font:700 10px/1 Consolas,monospace; }
+.rp-key-grid strong { font-size:10px; }
+.rp-controls-card > p { margin:12px 0 0; color:#728c9d; font-size:10px; line-height:1.5; }
+@media (max-width:1100px) {
+  .rp-web-grid, .rp-web-grid.embedded { grid-template-columns:1fr; }
+}
+@media (max-width:820px) {
+  .rp-current-state { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .rp-key-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
