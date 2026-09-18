@@ -55,9 +55,8 @@ public partial class MultiplayerWindow
 
     private void MultiplayerWindow_StateChanged(object? sender, EventArgs e)
     {
-        if (WindowState == WindowState.Normal || WindowState == WindowState.Maximized)
-        {
-            ShowInTaskbar = true;
-        }
+        // The MultiplayerWindow is now a hidden native controller. State
+        // transitions must never resurrect the retired WPF visual surface.
+        ShowInTaskbar = false;
     }
 }
