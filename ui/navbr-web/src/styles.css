@@ -202,3 +202,28 @@ h3 { margin:6px 0 16px; font-size:19px; }
 @media (max-width:900px) {
   .room-form-grid { grid-template-columns:1fr; }
 }
+
+.room-privacy-row { display:grid; grid-template-columns:auto minmax(260px,1fr); gap:16px; align-items:end; margin-top:12px; }
+.privacy-toggle { display:flex; gap:9px; align-items:center; min-height:42px; color:#b9cbd6; font-size:12px; font-weight:700; }
+.privacy-toggle input { accent-color:#69c8ff; }
+.password-field { display:grid; gap:6px; }
+.password-field > span { color:#7891a2; font-size:10px; font-weight:800; letter-spacing:.08em; }
+.password-field input, .room-search { width:100%; min-width:0; border:1px solid #263b4a; background:#08151f; color:#e8f2f8; border-radius:10px; padding:11px 13px; outline:none; }
+.password-field input:focus, .room-search:focus { border-color:#4a8bb5; }
+.public-room-browser { margin-top:22px; padding-top:20px; border-top:1px solid #1a2d3a; }
+.room-search { margin:0 0 10px; }
+.directory-error { margin:8px 0 10px; padding:10px 12px; border-radius:9px; border:1px solid #63363b; background:#2b171a; color:#ffadb3; font-size:12px; }
+.public-room-list { display:grid; gap:7px; max-height:380px; overflow:auto; }
+.public-room-row { display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center; padding:10px; border:1px solid #1a3141; border-radius:11px; background:#081721; }
+.favorite-button { width:32px; height:32px; border-radius:9px; border:1px solid #2a3d4a; background:#0c1a24; color:#7590a2; cursor:pointer; }
+.favorite-button.active { color:#ffd36f; border-color:#5d4e2c; background:#241f12; }
+.public-room-main { min-width:0; border:0; background:transparent; color:#e7f1f7; text-align:left; cursor:pointer; display:grid; gap:3px; padding:0; }
+.public-room-main strong { font-size:13px; }
+.public-room-main span { color:#98acb9; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.public-room-main small { color:#667f90; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.button.compact { padding:8px 11px; font-size:11px; }
+@media (max-width:900px) {
+  .room-privacy-row { grid-template-columns:1fr; align-items:stretch; }
+  .public-room-row { grid-template-columns:auto 1fr; }
+  .public-room-row > .button { grid-column:1 / -1; }
+}
