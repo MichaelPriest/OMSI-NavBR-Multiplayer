@@ -186,7 +186,8 @@ Require-Text "src/NavBR.Client/Windows/Alpha12ExperienceInstaller.cs" @(
 Reject-Text "src/NavBR.Client/Windows/Alpha12ExperienceInstaller.cs" @(
     "new Alpha12SettingsWindow(",
     "new Alpha12FirstRunWindow(",
-    ".ShowDialog()"
+    ".ShowDialog()",
+    "FirstRunCompleted = true"
 )
 
 Reject-Text "src/NavBR.Client/WebUI/bootstrap/app.js" @(
