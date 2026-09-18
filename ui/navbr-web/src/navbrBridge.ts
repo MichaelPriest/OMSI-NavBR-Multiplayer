@@ -62,6 +62,8 @@ export interface NavBrMultiplayerState {
   hotkeyOptions: string[];
   relayEnabled: boolean;
   relayServerUrl: string;
+  physicalVehiclesEnabled: boolean;
+  physicalVehiclesAvailable: boolean;
   roleplayEnabled: boolean;
   localRoleplayActive: boolean;
   selectedRoleplayCharacter?: string | null;
@@ -672,6 +674,7 @@ export type NavBrCommand =
   | "configureRemoteVoice"
   | "configureMultiplayerHotkeys"
   | "configureRelay"
+  | "setPhysicalVehiclesEnabled"
   | "submitOperationalReport"
   | "resolveMyOperationalReports"
   | "acknowledgeOperationalReport"
