@@ -71,6 +71,8 @@ public partial class MultiplayerWindow
             })
             .ToArray();
         var networkQuality = SessionNetworkQualityFeed.Snapshot();
+        var voiceQuality = _voiceChat.GetQualitySnapshot();
+        var sessionOperationalState = _client.CurrentSessionOperationalState;
         var roomCompatibility = BuildWebRoomCompatibility();
         var transportMode = !_client.IsConnected
             ? "none"
@@ -103,6 +105,20 @@ public partial class MultiplayerWindow
             voiceInputDevices = inputDevices,
             voiceOutputDevices = outputDevices,
             voiceMixers,
+            voicePushToTalkActive = _voiceChat.IsPushToTalkActive,
+            voiceQuality = new
+            {
+                activeStreams = voiceQuality.ActiveStreams,
+                receivedPackets = voiceQuality.ReceivedPackets,
+                playedPackets = voiceQuality.PlayedPackets,
+                fecRecoveredPackets = voiceQuality.FecRecoveredPackets,
+                estimatedLostPackets = voiceQuality.EstimatedLostPackets,
+                latePackets = voiceQuality.LatePackets,
+                duplicatePackets = voiceQuality.DuplicatePackets,
+                averageJitterMilliseconds = voiceQuality.AverageJitterMilliseconds,
+                targetBufferMilliseconds = voiceQuality.TargetBufferMilliseconds,
+                estimatedLossPercent = voiceQuality.EstimatedLossPercent
+            },
             chatHotkey = _settings.ChatHotkey,
             voiceHotkey = _settings.VoiceHotkey,
             hotkeyOptions = NavBR.Client.Overlay.NavBRHotkeyCatalog.Options
@@ -132,6 +148,20 @@ public partial class MultiplayerWindow
             },
             transportMode,
             roomCompatibility,
+            sessionOperationalState = sessionOperationalState is null
+                ? null
+                : new
+                {
+                    authorityPlayerId = sessionOperationalState.AuthorityPlayerId,
+                    sequence = sessionOperationalState.Sequence,
+                    serverTimestampUtc = sessionOperationalState.ServerTimestampUtc,
+                    mapName = sessionOperationalState.MapName,
+                    mapCompatibilityId = sessionOperationalState.MapCompatibilityId,
+                    line = sessionOperationalState.Line,
+                    route = sessionOperationalState.Route,
+                    destinationName = sessionOperationalState.DestinationName,
+                    nextStopName = sessionOperationalState.NextStopName
+                },
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
