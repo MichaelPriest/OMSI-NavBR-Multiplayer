@@ -100,6 +100,8 @@ public partial class MultiplayerWindow
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
             relayServerUrl = _settings.RelayServerUrl,
+            physicalVehiclesEnabled = _settings.ExperimentalPhysicalVehiclesEnabled,
+            physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
