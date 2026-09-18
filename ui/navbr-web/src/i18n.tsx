@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { sendCommand } from "./navbrBridge";
 
 type SupportedLanguage = {
@@ -793,7 +793,7 @@ export function I18nProvider({
         let text = dictionary[key] ?? fallback[key] ?? key;
         if (values) {
           for (const [name, value] of Object.entries(values)) {
-            text = text.replaceAll(`{${name}}`, String(value));
+            text = text.split(`{${name}}`).join(String(value));
           }
         }
         return text;
