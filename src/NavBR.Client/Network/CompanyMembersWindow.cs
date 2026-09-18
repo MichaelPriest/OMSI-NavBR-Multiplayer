@@ -23,7 +23,7 @@ internal static class CompanyMembersInstaller
         var button = new Button { Tag = ButtonTag };
         StyleButton(button);
         ApplyLocalization(button);
-        button.Click += (_, _) => window.NavigatePrimaryWebShell("companyNetwork");
+        button.Click += (_, _) => window.NavigatePrimaryWebShell("companyNetwork-team");
         panel.Children.Add(button);
 
         SelectionChangedEventHandler languageChanged = (_, _) => ApplyLocalization(button);
