@@ -12,12 +12,14 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;
 - CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;
 - Hardware Cockpit com conexão serial compartilhada;
-- Instalações OMSI e perfis de lançamento;
+- Instalações OMSI e perfis de lançamento completos no React, com seletor nativo de pasta e Explorer;
+- HUD configurável no React e aplicado ao vivo pelo store nativo;
+- Roadmap Studio no React com análise por tiles e geração vetorial por splines;
 - Diagnóstico/privacidade;
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;
 - tray abre/oculta o shell React;
 - Personagem/RP possui tela React própria e também integra a aba Multiplayer;
-- Mapa 3D e HUD continuam nativos; posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
+- Mapa 3D e o modo de mover o HUD continuam nativos; a configuração do HUD já está no React. Posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.
 
 ## Multiplayer
 
@@ -62,3 +64,15 @@ A validação Alpha.14 compila o frontend React antes do cliente e valida Shared
 - interação física adicional;
 - personagem remoto físico completo;
 - ônibus remoto físico entre diferentes mapas/modelos.
+
+
+## HUD e Roadmap Studio
+
+- presets, temas e ancoragem do HUD usam o catálogo nativo existente;
+- escala, largura, altura, opacidade, módulos e escala individual dos widgets são salvos pelo `MultiplayerSettingsStore`;
+- o overlay recebe `SettingsSaved` e aplica as mudanças em tempo real;
+- o modo Mover HUD continua nativo por depender da interação direta com o overlay do OMSI;
+- Roadmap Studio usa a lista real de mapas instalados;
+- análise de tiles e montagem de `whole.roadmap.bmp` usam `OmsiRoadmapGeneratorService`;
+- geração vetorial usa `OmsiRoadmapVectorGeneratorService` e as splines reais do mapa;
+- progresso e resultado são exibidos no React, sem duplicar o algoritmo no frontend.

@@ -18,8 +18,8 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 ## Destaques da Alpha.14
 
 - **React + TypeScript + Vite em WebView2 como interface principal**, com host .NET/WPF x86 e fallback WPF seguro;
-- Home com **Executar OMSI**, Navegação/GPS, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil, Hardware Cockpit, Instalações OMSI, Diagnóstico e ferramentas;
-- **Mover HUD** visível no topo, Sistema e ações rápidas;
+- Home com **Executar OMSI**, Navegação/GPS, Mapa 3D, Multiplayer, CCO, Empresa/Frota, Perfil, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
+- **HUD configurável no React** com preset, tema, ancoragem, escala, opacidade e módulos; **Mover HUD** continua sobre o overlay nativo;
 - selects/ComboBox com tema escuro consistente;
 - Central Multiplayer sem o wizard legado sobreposto;
 - abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado, com dispositivos de áudio e mixer por jogador no próprio React;
@@ -33,7 +33,7 @@ A próxima publicação pública é **v0.3.0-alpha.14**.
 
 ## Executar OMSI pelo NavBR
 
-Na Home há um atalho **Executar OMSI**. O NavBR usa a instalação real detectada/cadastrada em **Instalações OMSI** e prioriza o perfil preferido.
+Na Home há um atalho **Executar OMSI**. O NavBR usa a instalação real detectada/cadastrada em **Instalações OMSI** e prioriza o perfil preferido. A própria tela React também permite selecionar uma pasta real pelo Windows, abrir a instalação no Explorer, editar o perfil, definir o preferido e iniciar o OMSI.
 
 Se nenhuma instalação válida for encontrada, o app abre a seleção de instalações em vez de usar um caminho fixo ou depender da Steam.
 
@@ -115,7 +115,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, HUD nativo e runtime físico do RP.
+A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, geração de roadmaps e runtime físico do RP.
 
 O shell WPF anterior permanece como fallback técnico. Ele só é ocultado depois que o WebView2 confirma o carregamento da interface; se o WebView2 falhar, o WPF continua disponível. O ícone da bandeja também reabre a interface React principal.
 
@@ -127,7 +127,9 @@ Superfícies já migradas para React:
 - CCO, ocorrências, Empresa/Frota e Perfil;
 - Personagem/RP com personagens reais de `Map.Drivers`, estado do Plugin Bridge e comandos Sair/Retornar ao ônibus;
 - Hardware Cockpit com uma única conexão serial compartilhada;
-- Instalações OMSI e perfis de lançamento;
+- Instalações OMSI e perfis de lançamento, incluindo seletor nativo de pasta e abertura no Explorer;
+- HUD com presets/tema/ancoragem, escala, dimensões, opacidade, módulos e escalas individuais, aplicados ao vivo pelo store nativo;
+- Roadmap Studio com análise de tiles, geração por imagens e geração vetorial pelas splines usando os serviços C# existentes;
 - Diagnóstico e privacidade;
 - Rede com Firewall TCP 27730 verificado, NAT/CGNAT, UPnP e teste externo quando configurado.
 

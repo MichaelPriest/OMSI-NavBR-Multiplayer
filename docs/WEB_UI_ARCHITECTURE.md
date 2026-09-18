@@ -20,7 +20,7 @@ React + TypeScript UI
 
 ## Native authority
 
-C# remains authoritative for OMSI detection/launch, telemetry, native interop, Plugin Bridge, SignalR multiplayer, peer-host TCP 27730, Firewall/NAT/UPnP, voice, OMSI files/installations, Hardware Cockpit transport and native HUD/RP overlays.
+C# remains authoritative for OMSI detection/launch, telemetry, native interop, Plugin Bridge, SignalR multiplayer, peer-host TCP 27730, Firewall/NAT/UPnP, voice, OMSI files/installations, Hardware Cockpit transport, HUD rendering/interaction, roadmap generation and the physical RP runtime.
 
 React owns visual composition and sends only explicit feature commands through the bridge. Production screens do not synthesize telemetry: missing native state is rendered as empty/waiting.
 
@@ -45,13 +45,15 @@ The React shell now provides real-data surfaces for:
 - Multiplayer Central backed by the existing \`MultiplayerWindow\` controller;
 - CCO, remote drivers and operational reports;
 - Company/Fleet and Driver Profile stores;
-- OMSI installation profiles and launch arguments;
+- OMSI installation profiles, launch arguments, native folder selection and Explorer handoff;
+- HUD customization backed by `MultiplayerSettingsStore` and `HudProfileCatalog`;
+- Roadmap Studio backed by `OmsiRoadmapGeneratorService` and `OmsiRoadmapVectorGeneratorService`;
 - diagnostics consent and log status;
 - Personagem/RP selection and controls backed by the single native `RoleplayCharacterController` and real `Map.Drivers` catalog;
 - Hardware Cockpit serial configuration and native packet preview;
 - verified networking diagnostics for Firewall TCP 27730, listener state, NAT/CGNAT, UPnP and optional external probe.
 
-The HUD remains native because focus, click-through and OMSI window behavior are native responsibilities. The RP control surface is React, while physical character possession, keyboard capture, transforms and Plugin Bridge interaction remain native C# responsibilities.
+HUD rendering, focus, click-through and drag/move interaction remain native because they depend on OMSI window behavior. HUD configuration is React and writes through the existing native settings store, whose `SettingsSaved` event reapplies changes live. The RP control surface is React, while physical character possession, keyboard capture, transforms and Plugin Bridge interaction remain native C# responsibilities.
 
 ## Multiplayer bridge
 
@@ -94,3 +96,21 @@ The React Network page presents these checks separately so a valid firewall rule
 ## Bridge safety
 
 Commands are enumerated feature actions rather than arbitrary native execution. Malformed messages are ignored or returned as command errors. The native process remains the source of truth.
+
+
+## OMSI installations bridge
+
+The React installation page uses the existing `OmsiInstallationProfileStore`, `OmsiInstallationLocator` and `OmsiLauncherService`. Folder selection is still a native Windows dialog invoked from C#, and opening an installation delegates to Explorer. React does not invent or cache a second installation registry.
+
+## HUD customization bridge
+
+HUD customization is exposed by `BuildWebSystemState()` from the real `MultiplayerSettingsStore` and `HudProfileCatalog`. Presets, themes, anchors, dimensions, opacity, module visibility and per-widget scale are validated with the same native limits used by the WPF editor. Saving raises `SettingsSaved`, so the native HUD applies changes immediately. Only drag/move interaction remains native.
+
+## Roadmap Studio bridge
+
+Roadmap Studio uses the real `_installedMaps` catalog and delegates all work to the existing native services:
+
+- `OmsiRoadmapGeneratorService` for tile-image analysis and composition;
+- `OmsiRoadmapVectorGeneratorService` for spline-based generation.
+
+The WebView receives analysis, progress and build results while the C# services own file I/O, backup creation and safety limits. No roadmap geometry or output file is synthesized in JavaScript.
