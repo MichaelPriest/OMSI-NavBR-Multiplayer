@@ -10,7 +10,7 @@ import {
   subscribeToNavBrState
 } from "./navbrBridge";
 
-type Screen = "home" | "navigation" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
+type Screen = "home" | "navigation" | "roleplay" | "operations" | "companyNetwork" | "hardware" | "settings" | "multiplayer";
 type MultiplayerTab = "overview" | "room" | "players" | "chat" | "roleplay" | "advanced";
 
 const format = (value: number | undefined | null, digits = 1) =>
@@ -64,7 +64,7 @@ function Sidebar({
         <button className={`nav-item ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
           <b>◉</b><span>Multiplayer</span>
         </button>
-        <button className="nav-item" onClick={() => { setScreen("multiplayer"); sendCommand("openRoleplay"); }}>
+        <button className={`nav-item ${screen === "roleplay" ? "active" : ""}`} onClick={() => setScreen("roleplay")}>
           <b>♙</b><span>Personagem / RP</span>
         </button>
         <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
@@ -1345,6 +1345,156 @@ function Settings({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
+
+function roleplayStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "roleplay-active": return "Personagem ativo";
+    case "roleplay-returned-to-bus": return "Motorista retornou ao ônibus";
+    case "roleplay-character-selected": return "Personagem selecionado";
+    case "roleplay-plugin-unavailable": return "Plugin Bridge sem suporte RP";
+    case "roleplay-character-required": return "Selecione um personagem";
+    case "roleplay-waiting-telemetry": return "Aguardando telemetria do OMSI";
+    case "roleplay-map-or-character-changed": return "Mapa/personagem alterado";
+    case "roleplay-control-lost": return "Controle do personagem perdido";
+    case "roleplay-disabled": return "Recurso RP desativado";
+    default: return status || "Pronto";
+  }
+}
+
+function RoleplayPanel({
+  state,
+  error,
+  embedded = false
+}: {
+  state: NavBrState | null;
+  error: string | null;
+  embedded?: boolean;
+}) {
+  const roleplay = state?.roleplay;
+  const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
+
+  if (!roleplay) {
+    return <div className="card empty-state">Aguardando estado do Personagem / RP…</div>;
+  }
+
+  const canStart = roleplay.enabled && roleplay.mapReady && roleplay.runtimeAvailable && Boolean(roleplay.selected) && !roleplay.active;
+  const current = roleplay.current;
+
+  return (
+    <>
+      {!embedded && (
+        <header className="topbar roleplay-header">
+          <div>
+            <span className="eyebrow">PERSONAGEM / RP</span>
+            <h1>Motorista fora do ônibus</h1>
+            <p>Seleção e controle do personagem usando o estado real do OMSI e do Plugin Bridge v3.</p>
+          </div>
+          <div className="top-actions">
+            <span className={`connection-pill ${roleplay.active ? "connected" : ""}`}>
+              <i /> {roleplay.active ? "Fora do ônibus" : "No ônibus"}
+            </span>
+          </div>
+        </header>
+      )}
+
+      {error && <div className="command-error">{error}</div>}
+
+      <section className={embedded ? "rp-web-grid embedded" : "rp-web-grid"}>
+        <article className="card rp-status-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">ESTADO</span>
+              <h3>{roleplay.active ? current?.characterName || roleplay.selected?.displayName || "Personagem ativo" : roleplay.selected?.displayName || "Nenhum personagem selecionado"}</h3>
+            </div>
+            <span className={`hardware-state-pill ${roleplay.runtimeAvailable ? "connected" : ""}`}>
+              {roleplay.runtimeAvailable ? "Bridge RP disponível" : "Bridge RP indisponível"}
+            </span>
+          </div>
+
+          <div className="details-grid rp-status-grid">
+            <div><small>MAPA</small><strong>{state?.telemetry?.mapName || "—"}</strong></div>
+            <div><small>STATUS</small><strong>{roleplayStatusLabel(roleplay.status)}</strong></div>
+            <div><small>MAPA PRONTO</small><strong>{roleplay.mapReady ? "Sim" : "Não"}</strong></div>
+            <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : "Não conectado"}</strong></div>
+          </div>
+
+          {current && (
+            <div className="rp-current-state">
+              <span><small>ATIVIDADE</small><strong>{current.activity}</strong></span>
+              <span><small>VELOCIDADE</small><strong>{format(current.speedMps * 3.6, 1)} km/h</strong></span>
+              <span><small>DIREÇÃO</small><strong>{format(current.headingDegrees, 0)}°</strong></span>
+              <span><small>HUMAN INDEX</small><strong>{current.humanIndex ?? "—"}</strong></span>
+            </div>
+          )}
+
+          <div className="action-row rp-actions">
+            {roleplay.active ? (
+              <button className="button primary" onClick={() => sendCommand("stopRoleplay")}>Retornar ao ônibus</button>
+            ) : (
+              <button className="button primary" disabled={!canStart} onClick={() => sendCommand("startRoleplay")}>Sair do ônibus</button>
+            )}
+            <button className="button ghost" onClick={() => sendCommand("refreshState")}>Atualizar catálogo</button>
+          </div>
+
+          {!roleplay.enabled && <p className="migration-note">O modo Personagem / RP está desativado nas configurações experimentais.</p>}
+          {roleplay.enabled && !roleplay.mapReady && <p className="migration-note">Entre em um mapa do OMSI para carregar os personagens reais de Map.Drivers.</p>}
+          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.</p>}
+        </article>
+
+        <article className="card rp-character-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">MAP.DRIVERS</span><h3>Personagens disponíveis</h3></div>
+            <span className="stop-count">{roleplay.characters.length}</span>
+          </div>
+
+          {roleplay.characters.length === 0 ? (
+            <div className="empty-state">Nenhum personagem disponível para o mapa atual.</div>
+          ) : (
+            <div className="rp-character-list">
+              {roleplay.characters.map(character => (
+                <button
+                  key={character.id}
+                  className={`rp-character-row ${character.selected ? "selected" : ""}`}
+                  disabled={roleplay.active}
+                  onClick={() => sendCommand("selectRoleplayCharacter", { characterId: character.id })}
+                >
+                  <span className="rp-character-avatar">♙</span>
+                  <span>
+                    <strong>{character.displayName}</strong>
+                    <small>{character.isActiveDriver ? "Motorista ativo do mapa" : character.sourceValue}</small>
+                  </span>
+                  <em>{character.selected ? "Selecionado" : "Usar"}</em>
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="hardware-note">A seleção é válida somente para a sessão/mapa atual. O DefinitionPointer nativo não é persistido.</p>
+        </article>
+      </section>
+
+      {!embedded && (
+        <section className="card rp-controls-card">
+          <div className="section-heading">
+            <div><span className="eyebrow">CONTROLES</span><h3>Durante o RP</h3></div>
+          </div>
+          <div className="rp-key-grid">
+            <span><kbd>W</kbd><strong>Andar para frente</strong></span>
+            <span><kbd>S</kbd><strong>Andar para trás</strong></span>
+            <span><kbd>A / D</kbd><strong>Virar</strong></span>
+            <span><kbd>Shift</kbd><strong>Correr</strong></span>
+            <span><kbd>Esc</kbd><strong>Retornar ao ônibus</strong></span>
+          </div>
+          <p>Os atalhos só são capturados quando o OMSI está em primeiro plano. O personagem permanece limitado à área segura ao redor do ônibus.</p>
+        </section>
+      )}
+    </>
+  );
+}
+
+function Roleplay({ state, error }: { state: NavBrState | null; error: string | null }) {
+  return <RoleplayPanel state={state} error={error} />;
+}
+
 function Multiplayer({
   state,
   error
@@ -1475,7 +1625,7 @@ function Multiplayer({
             <article className="card compact-card">
               <span className="eyebrow">PERSONAGEM</span>
               <h3>{multiplayer.localRoleplayActive ? "Fora do ônibus" : "No ônibus"}</h3>
-              <button className="text-action" onClick={() => sendCommand("openRoleplay")}>Abrir Personagem / RP →</button>
+              <button className="text-action" onClick={() => setTab("roleplay")}>Abrir Personagem / RP →</button>
             </article>
           </aside>
         </section>
@@ -1756,20 +1906,7 @@ function Multiplayer({
         </section>
       )}
 
-      {tab === "roleplay" && (
-        <section className="card mp-panel rp-panel">
-          <span className="eyebrow">PERSONAGEM / RP</span>
-          <h3>{multiplayer.localRoleplayActive ? "Personagem ativo fora do ônibus" : "Motorista vinculado ao ônibus"}</h3>
-          <p>
-            {multiplayer.selectedRoleplayCharacter
-              ? `Personagem selecionado: ${multiplayer.selectedRoleplayCharacter}.`
-              : "Nenhum personagem selecionado para o mapa atual."}
-          </p>
-          <div className="action-row">
-            <button className="button primary" onClick={() => sendCommand("openRoleplay")}>Abrir controles de Personagem / RP</button>
-          </div>
-        </section>
-      )}
+      {tab === "roleplay" && <RoleplayPanel state={state} error={error} embedded />}
 
       {tab === "advanced" && (
         <section className="advanced-grid">
@@ -1818,8 +1955,10 @@ export default function App() {
           ? <Home state={state} />
           : screen === "navigation"
             ? <Navigation state={state} />
-            : screen === "operations"
-              ? <Operations state={state} error={commandError} />
+            : screen === "roleplay"
+              ? <Roleplay state={state} error={commandError} />
+              : screen === "operations"
+                ? <Operations state={state} error={commandError} />
               : screen === "companyNetwork"
                 ? <CompanyNetwork state={state} error={commandError} />
                 : screen === "hardware"
