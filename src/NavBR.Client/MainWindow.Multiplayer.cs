@@ -156,9 +156,14 @@ public partial class MainWindow
         window.Show();
     }
 
-    internal void OpenMultiplayerRoleplayTabForShell()
+    internal void OpenMultiplayerCentralForShell()
     {
         MultiplayerButton_Click(this, new RoutedEventArgs());
+    }
+
+    internal void OpenMultiplayerRoleplayTabForShell()
+    {
+        OpenMultiplayerCentralForShell();
         _multiplayerWindow?.ShowRoleplayTab();
     }
 
