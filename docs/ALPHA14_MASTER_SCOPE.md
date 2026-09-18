@@ -6,6 +6,21 @@ Versão inicial:
 
 `0.3.0-alpha.14-test.1`
 
+## Test 2
+
+A **Alpha.14 Test 2** congela o primeiro passe de usabilidade do RP:
+
+- Central Multiplayer com abas reais;
+- aba própria **Personagem / RP**;
+- aba **Jogadores** mostrando No ônibus / RP a pé / RP correndo / RP parado;
+- mapa da sessão com marcador distinto para personagem RP;
+- botão **Personagem** diretamente no HUD;
+- estados do botão: configurar, ativar e voltar ao ônibus;
+- interação do botão preservando o overlay click-through;
+- portal da Test 2 sem comunicação de cobrança, licença comercial futura, Steam/chaves ou assinatura.
+
+Os commits posteriores ao corte da Test 2 continuam na branch Alpha.14 e entram na próxima Test.
+
 ## 1. Personagem / RP
 
 A Alpha.14 Test 1 introduz o primeiro fluxo real de personagem controlável no OMSI:
