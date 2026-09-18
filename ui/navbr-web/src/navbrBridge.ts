@@ -396,6 +396,22 @@ export interface NavBrSystemState {
     logSizeBytes: number;
     logUpdatedAtUtc?: string | null;
   };
+  sessionHealthNotice?: string | null;
+  sessionHealth: {
+    omsiActive: boolean;
+    multiplayerConnected: boolean;
+    pluginConnected: boolean;
+    pluginVersion?: string | null;
+    remoteDrivers: number;
+    remoteTelemetryAgeSeconds?: number | null;
+    latencyMs?: number | null;
+    jitterMs?: number | null;
+    lossPercent?: number | null;
+    telemetryRateHz?: number | null;
+    networkLevel: string;
+    samples: number;
+    updatedAtUtc: string;
+  };
 }
 
 export interface NavBrRoadmapStudioState {
@@ -754,6 +770,7 @@ export type NavBrCommand =
   | "flushDiagnostics"
   | "purgeDiagnostics"
   | "openFeedback"
+  | "exportSessionHealth"
   | "connectHardware"
   | "disconnectHardware"
   | "saveHardwareSelection"
