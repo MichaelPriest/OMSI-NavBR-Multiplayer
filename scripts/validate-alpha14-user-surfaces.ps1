@@ -231,6 +231,8 @@ Require-Text "ui/navbr-web/src/App.tsx" @(
     "Modo avançado",
     "Dicas de direção",
     "Comparar replays",
+    "PRIMEIRO ACESSO",
+    'sendCommand("completeFirstRun")',
     'requested?.startsWith("settings-")',
     'requested === "navigation-3d"',
     'requested === "operations-company"',
@@ -258,7 +260,8 @@ Require-Text "ui/navbr-web/src/navbrBridge.ts" @(
     '"cancelDriverProfileImport"',
     '"refreshOmsiDetection"',
     '"setShellTopmost"',
-    "networkQuality:",
+    '"completeFirstRun"',
+    "networkQuality:"
     "sessionAuthority:",
     "roomCompatibility:",
     "voiceQuality:",
@@ -291,13 +294,18 @@ Require-Text "src/NavBR.Client/MainWindow.WebShell.cs" @(
     '"cancelDriverProfileImport"',
     '"refreshOmsiDetection"',
     '"setShellTopmost"',
+    '"completeFirstRun"',
+    'Alpha12PreferencesStore.Load()',
+    '"help"',
     "sessionPoints = Array.Empty<object>()"
 )
 
 Require-Text "src/NavBR.Client/MainWindow.WebSystem.cs" @(
     "BuildWebSessionHealthState",
     "ExportSessionHealthFromWeb",
-    "OpenFeedbackFromWeb"
+    "OpenFeedbackFromWeb",
+    "CompleteFirstRunFromWeb",
+    "firstRunCompleted"
 )
 
 Require-Text "src/NavBR.Client/MainWindow.WebOperations.cs" @(
