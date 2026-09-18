@@ -61,12 +61,13 @@ Somente desenvolvimento/teste:
 
 - câmera dedicada seguindo o personagem na visão 3D React;
 - projeção do personagem no mesmo espaço mundial do roadmap;
-- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada.
+- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada;
+- diagnóstico read-only da animação nativa do humano: `AIMode`, `AIModeEx`, `AISubMode`, velocidades Soll/Act, `LastMovedDist` e `State` são lidos do OMSI e exibidos no React sem forçar novos gestos.
 
 ### Próximas funções
 
-- animações e gestos;
-- interação com ônibus/objetos;
+- animações/gestos adicionais somente após os estados necessários serem documentados e validados em runtime;
+- interação com objetos externos ao ônibus;
 - personagem remoto físico completo.
 
 ## 5. Multiplayer físico
