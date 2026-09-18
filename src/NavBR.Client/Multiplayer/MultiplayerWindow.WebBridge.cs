@@ -605,7 +605,8 @@ public partial class MultiplayerWindow
         string? roomId,
         string? displayName,
         bool createPrivateRoom,
-        string? roomPassword)
+        string? roomPassword,
+        bool exposeInternet = true)
     {
         if (_host.IsRunning)
         {
@@ -632,7 +633,9 @@ public partial class MultiplayerWindow
 
         try
         {
-            await _host.StartAsync(DefaultHostPort);
+            await _host.StartAsync(
+                DefaultHostPort,
+                enableAutomaticUpnp: exposeInternet);
             ServerTextBox.Text = _host.LocalServerUrl;
             RenderInviteAddresses();
             UpdateButtons();
