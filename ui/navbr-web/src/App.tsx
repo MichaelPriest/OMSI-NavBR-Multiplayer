@@ -175,7 +175,7 @@ function Home({ state }: { state: NavBrState | null }) {
           <p>{t("home.subtitle")}</p>
         </div>
         <div className="top-actions">
-          <button className="button ghost" onClick={() => sendCommand("refreshState")}>{t("common.refresh")}</button>
+          <button className="button ghost" onClick={() => sendCommand("refreshOmsiDetection")}>{t("common.refresh")}</button>
           <button className="button primary" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
             {omsi?.running ? t("home.open") : t("home.launch")}
           </button>
@@ -267,6 +267,7 @@ const maneuverLabel = (
 function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
   const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
+  const [zoom, setZoom] = useState(1);
 
   const geometry = useMemo(() => {
     const route = navigation.routePoints;
@@ -301,21 +302,28 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxY += pad;
     }
 
-    const width = Math.max(120, maxX - minX);
-    const height = Math.max(120, maxY - minY);
+    const baseWidth = Math.max(120, maxX - minX);
+    const baseHeight = Math.max(120, maxY - minY);
+    const width = baseWidth / zoom;
+    const height = baseHeight / zoom;
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
     const routePoints = route.map(point => `${point.x},${-point.y}`).join(" ");
 
     return {
-      viewBox: `${minX} ${minY} ${width} ${height}`,
+      viewBox: `${centerX - width / 2} ${centerY - height / 2} ${width} ${height}`,
       routePoints
     };
-  }, [navigation.routePoints, navigation.vehicle, mode]);
+  }, [navigation.routePoints, navigation.vehicle, mode, zoom]);
 
   return (
     <div className="navigation-map">
       <div className="navigation-map-toolbar">
         <button className={mode === "follow" ? "active" : ""} onClick={() => setMode("follow")}>{t("nav.followBus")}</button>
         <button className={mode === "full" ? "active" : ""} onClick={() => setMode("full")}>{t("nav.fullRoute")}</button>
+        <button onClick={() => setZoom(value => Math.max(0.5, value * 0.8))} title={pick("Diminuir zoom", "Zoom out", "Alejar", "Herauszoomen", "Dézoomer")}>−</button>
+        <button onClick={() => setZoom(value => Math.min(4, value * 1.25))} title={pick("Aumentar zoom", "Zoom in", "Acercar", "Hineinzoomen", "Zoomer")}>+</button>
+        <button onClick={() => { setMode("full"); setZoom(1); }}>{pick("Ajustar", "Fit", "Ajustar", "Einpassen", "Ajuster")}</button>
       </div>
 
       {!geometry ? (
@@ -533,6 +541,14 @@ function Navigation({ state }: { state: NavBrState | null }) {
           </span>
           <button className="button ghost" onClick={() => setMapView(current => current === "2d" ? "3d" : "2d")}>
             {mapView === "2d" ? pick("Mapa 3D", "3D Map", "Mapa 3D", "3D-Karte", "Carte 3D") : pick("Mapa 2D", "2D Map", "Mapa 2D", "2D-Karte", "Carte 2D")}
+          </button>
+          <button
+            className={`button ghost ${state?.shell.topmost ? "active" : ""}`}
+            onClick={() => sendCommand("setShellTopmost", { enabled: !state?.shell.topmost })}
+          >
+            {state?.shell.topmost
+              ? pick("Sempre no topo ✓", "Always on top ✓", "Siempre arriba ✓", "Immer im Vordergrund ✓", "Toujours au premier plan ✓")
+              : pick("Sempre no topo", "Always on top", "Siempre arriba", "Immer im Vordergrund", "Toujours au premier plan")}
           </button>
         </div>
       </header>
