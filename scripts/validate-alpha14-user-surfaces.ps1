@@ -82,7 +82,7 @@ Require-Text "src/NavBR.Client/App.xaml.cs" @(
     "TrayIcon.Attach(nativeHost);",
     "nativeHost.StartNativeRuntimeForReact();",
     "nativeHost.OpenPrimaryWebShell();",
-    "if (window is not MainWindow)"
+    "if (window is not NavBR.Client.MainWindow)"
 )
 
 Reject-Text "src/NavBR.Client/App.xaml.cs" @(
