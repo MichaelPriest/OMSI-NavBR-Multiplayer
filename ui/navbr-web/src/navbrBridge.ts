@@ -245,8 +245,50 @@ export interface NavBrOmsiInstallation {
   isRunning: boolean;
 }
 
+export interface NavBrHudPreset {
+  id: string;
+  displayName: string;
+  width: number;
+  scale: number;
+  opacity: number;
+  showFuel: boolean;
+  showPedals: boolean;
+  showStatus: boolean;
+  showMinimap: boolean;
+  showMultiplayer: boolean;
+  showAlerts: boolean;
+  showSideIndicators: boolean;
+}
+
+export interface NavBrHudState {
+  enabled: boolean;
+  preset: string;
+  theme: string;
+  anchor: string;
+  scale: number;
+  width: number;
+  height: number;
+  opacity: number;
+  autoScale: boolean;
+  showFuel: boolean;
+  showPedals: boolean;
+  showStatus: boolean;
+  showMinimap: boolean;
+  showMultiplayer: boolean;
+  showAlerts: boolean;
+  showSideIndicators: boolean;
+  minimapScale: number;
+  multiplayerScale: number;
+  alertsScale: number;
+  sideIndicatorsScale: number;
+  presets: NavBrHudPreset[];
+  themes: { id: string; displayName: string }[];
+  anchors: { id: string; displayName: string }[];
+}
+
 export interface NavBrSystemState {
   installations: NavBrOmsiInstallation[];
+  hud: NavBrHudState;
   diagnostics: {
     enabled: boolean;
     logPath: string;
@@ -460,6 +502,8 @@ export type NavBrCommand =
   | "openNavigation3D"
   | "toggleHudLayout"
   | "openHudEditor"
+  | "saveHudSettings"
+  | "resetHudSettings"
   | "connectRoom"
   | "createLocalRoom"
   | "disconnectRoom"
