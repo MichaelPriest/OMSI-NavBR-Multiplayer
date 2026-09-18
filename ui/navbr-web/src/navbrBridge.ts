@@ -477,6 +477,8 @@ export type NavBrCommand =
   | "removeFleetVehicle"
   | "saveDriverProfile"
   | "discoverOmsiProfiles"
+  | "selectOmsiFolder"
+  | "openOmsiProfileFolder"
   | "launchOmsiProfile"
   | "setPreferredOmsiProfile"
   | "updateOmsiProfile"
