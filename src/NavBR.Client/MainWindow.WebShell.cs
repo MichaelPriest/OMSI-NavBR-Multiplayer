@@ -8,31 +8,115 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private WebShellWindow? _webShellWindow;
+    private bool _webShellPrimaryMode;
     private IReadOnlyList<PublicRoomSummary> _webPublicRooms = Array.Empty<PublicRoomSummary>();
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
 
-    private void WebShellButton_Click(object sender, RoutedEventArgs e)
+    private void WebShellButton_Click(object sender, RoutedEventArgs e) =>
+        OpenWebShell(primary: false);
+
+    internal void OpenPrimaryWebShell() =>
+        OpenWebShell(primary: true);
+
+    internal bool IsPrimaryInterfaceVisibleForShell() =>
+        _webShellWindow?.IsVisible == true || IsVisible;
+
+    internal void ShowPrimaryInterfaceForShell() =>
+        OpenWebShell(primary: true);
+
+    internal void HidePrimaryInterfaceForShell()
     {
-        if (_webShellWindow is { IsLoaded: true })
+        _webShellWindow?.Hide();
+        ShowInTaskbar = false;
+        Hide();
+    }
+
+    private void ShowLegacyShellForWeb()
+    {
+        _webShellPrimaryMode = false;
+        _webShellWindow?.Hide();
+        ShowInTaskbar = true;
+        Show();
+        if (WindowState == WindowState.Minimized)
         {
-            _webShellWindow.Activate();
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+    }
+
+    private void OpenWebShell(bool primary)
+    {
+        if (primary)
+        {
+            _webShellPrimaryMode = true;
+        }
+
+        if (_webShellWindow is { IsLoaded: true } existing)
+        {
+            existing.Show();
+            if (primary && existing.IsReady)
+            {
+                ActivateWebShellAsPrimary(existing);
+            }
+            existing.Activate();
             return;
         }
 
-        _webShellWindow = new WebShellWindow(
+        var window = new WebShellWindow(
             BuildWebShellState,
             () =>
             {
                 LaunchOmsiForShell();
                 _ = RefreshOmsiStatusAsync();
             },
-            HandleWebShellCommandAsync)
+            HandleWebShellCommandAsync);
+
+        if (!primary)
         {
-            Owner = this
+            window.Owner = this;
+        }
+
+        _webShellWindow = window;
+        window.ShellReady += (_, _) =>
+        {
+            if (_webShellPrimaryMode && ReferenceEquals(_webShellWindow, window))
+            {
+                ActivateWebShellAsPrimary(window);
+            }
         };
-        _webShellWindow.Closed += (_, _) => _webShellWindow = null;
-        _webShellWindow.Show();
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_webShellWindow, window))
+            {
+                _webShellWindow = null;
+            }
+
+            if (_webShellPrimaryMode &&
+                Application.Current?.Dispatcher.HasShutdownStarted != true)
+            {
+                _webShellPrimaryMode = false;
+                ShowInTaskbar = true;
+                Show();
+                Activate();
+            }
+        };
+        window.Show();
+    }
+
+    private void ActivateWebShellAsPrimary(WebShellWindow window)
+    {
+        ShowInTaskbar = false;
+        Hide();
+        window.ShowInTaskbar = true;
+        window.Show();
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Activate();
     }
 
     private object BuildWebShellState()
@@ -324,6 +408,10 @@ public partial class MainWindow
 
             case "openOmsiProfiles":
                 OpenOmsiProfilesForShell();
+                break;
+
+            case "showLegacyShell":
+                ShowLegacyShellForWeb();
                 break;
 
             case "connectHardware":
