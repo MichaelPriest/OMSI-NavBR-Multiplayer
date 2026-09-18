@@ -74,4 +74,79 @@ public partial class MultiplayerWindow
 
         await _client.SendChatMessageAsync(normalized);
     }
+
+    internal async Task ConnectFromWebAsync(
+        string? serverUrl,
+        string? roomId,
+        string? displayName)
+    {
+        if (_client.IsConnected)
+        {
+            return;
+        }
+
+        ServerTextBox.Text = MultiplayerWebInput.Normalize(serverUrl, _settings.ServerUrl);
+        RoomTextBox.Text = MultiplayerWebInput.Normalize(roomId, _settings.RoomId);
+        NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
+        await ConnectToConfiguredServerAsync();
+    }
+
+    internal Task DisconnectFromWebAsync() => DisconnectAsync();
+
+    internal async Task StartLocalHostFromWebAsync(
+        string? roomId,
+        string? displayName)
+    {
+        if (_host.IsRunning)
+        {
+            return;
+        }
+
+        RoomTextBox.Text = MultiplayerWebInput.Normalize(
+            roomId,
+            $"navbr-{Random.Shared.Next(1000, 9999)}");
+        NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
+
+        try
+        {
+            await _host.StartAsync(DefaultHostPort);
+            ServerTextBox.Text = _host.LocalServerUrl;
+            RenderInviteAddresses();
+            UpdateButtons();
+            RefreshSessionSummary();
+            await ConnectToConfiguredServerAsync();
+        }
+        catch
+        {
+            await _host.StopAsync();
+            UpdateButtons();
+            RefreshSessionSummary();
+            throw;
+        }
+    }
+
+    internal async Task StopLocalHostFromWebAsync()
+    {
+        if (_client.IsConnected)
+        {
+            await DisconnectAsync();
+        }
+
+        if (_host.IsRunning)
+        {
+            await _host.StopAsync();
+        }
+
+        InviteAddressText.Text = string.Empty;
+        RoomInviteAddressText.Text = string.Empty;
+        SetInputsEnabled(true);
+        UpdateButtons();
+        RefreshSessionSummary();
+    }
+}
+
+internal static class MultiplayerWebInput
+{
+    public static string Normalize(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }
