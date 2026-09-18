@@ -46,6 +46,8 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   hotkeyOptions: [],
   relayEnabled: false,
   relayServerUrl: "",
+  physicalVehiclesEnabled: false,
+  physicalVehiclesAvailable: false,
   roleplayEnabled: false,
   localRoleplayActive: false,
   selectedRoleplayCharacter: null,
@@ -2810,6 +2812,26 @@ function Multiplayer({
             <p>{multiplayer.hostRunning ? `${pick("Escutando na porta TCP", "Listening on TCP port", "Escuchando en el puerto TCP", "Lauscht auf TCP-Port", "Écoute sur le port TCP")} ${multiplayer.hostPort ?? 27730}.` : pick("Host local não está ativo.", "Local host is not active.", "El host local no está activo.", "Lokaler Host ist nicht aktiv.", "L’hôte local n’est pas actif.")}</p>
             <button className="button ghost" onClick={onOpenNetwork}>{pick("Abrir Configurações", "Open Settings", "Abrir Configuración", "Einstellungen öffnen", "Ouvrir les paramètres")} &gt; {pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button>
           </article>
+          <article className="card compact-card">
+            <span className="eyebrow">{pick("ÔNIBUS FÍSICOS", "PHYSICAL BUSES", "AUTOBUSES FÍSICOS", "PHYSISCHE BUSSE", "BUS PHYSIQUES")}</span>
+            <h3>{pick("Jogadores dentro do OMSI", "Players inside OMSI", "Jugadores dentro de OMSI", "Spieler in OMSI", "Joueurs dans OMSI")}</h3>
+            <p>
+              {multiplayer.physicalVehiclesEnabled
+                ? multiplayer.physicalVehiclesAvailable
+                  ? pick("Ativo e com plugin disponível.", "Enabled and plugin available.", "Activo y con plugin disponible.", "Aktiv und Plugin verfügbar.", "Activé et plugin disponible.")
+                  : pick("Ativado; aguardando capacidade real do plugin OMSI.", "Enabled; waiting for real OMSI plugin capability.", "Activado; esperando capacidad real del plugin OMSI.", "Aktiviert; wartet auf echte OMSI-Plugin-Fähigkeit.", "Activé ; en attente de la capacité réelle du plugin OMSI.")
+                : pick("Desativado. Nenhum ônibus remoto físico será criado no OMSI.", "Disabled. No physical remote bus will be created in OMSI.", "Desactivado. No se creará ningún autobús remoto físico en OMSI.", "Deaktiviert. Kein physischer Remote-Bus wird in OMSI erzeugt.", "Désactivé. Aucun bus distant physique ne sera créé dans OMSI.")}
+            </p>
+            <label className="privacy-toggle">
+              <input
+                type="checkbox"
+                checked={multiplayer.physicalVehiclesEnabled}
+                onChange={event => sendCommand("setPhysicalVehiclesEnabled", { enabled: event.target.checked })}
+              />
+              <span>{pick("Ativar teste físico de ônibus remotos", "Enable physical remote-bus test", "Activar prueba física de autobuses remotos", "Physischen Remote-Bus-Test aktivieren", "Activer le test physique des bus distants")}</span>
+            </label>
+          </article>
+
           <article className="card compact-card">
             <span className="eyebrow">{pick("ATALHOS", "HOTKEYS", "ATAJOS", "HOTKEYS", "RACCOURCIS")}</span>
             <h3>{pick("Chat e Push-to-Talk", "Chat and Push-to-Talk", "Chat y Push-to-Talk", "Chat und Push-to-Talk", "Chat et Push-to-Talk")}</h3>
