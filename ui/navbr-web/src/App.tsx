@@ -2385,6 +2385,53 @@ function roleplayStatusLabel(
   }
 }
 
+function humanAiModeLabel(value: number) {
+  const names = [
+    "THAM_Stop",
+    "THAM_WalkToTarget",
+    "THAM_WaitBeforeTarget",
+    "THAM_AtTarget",
+    "THAM_TooFar",
+    "THAM_WalkToPathTarget",
+    "THAM_WaitOnPath",
+    "THAM_AtPathTarget",
+    "THAM_WalkStreet",
+    "THAM_Stand"
+  ];
+  return names[value] ? `${names[value]} (${value})` : `Unknown (${value})`;
+}
+
+function humanAiModeExLabel(value: number) {
+  const names = [
+    "THAME_DoNothing",
+    "THAME_WaitingForBus",
+    "THAME_WalkingToBusPre",
+    "THAME_WalkingToBus",
+    "THAME_WalkingInBusToPlace",
+    "THAME_WalkingInBusToExit",
+    "THAME_WalkingToBusstop",
+    "THAME_SittingInBus",
+    "THAME_WalkStreet",
+    "THAME_DrivingBus"
+  ];
+  return names[value] ? `${names[value]} (${value})` : `Unknown (${value})`;
+}
+
+function humanAiSubModeLabel(value: number) {
+  const names = [
+    "None",
+    "WaitForStamper",
+    "Stamp",
+    "WaitForTicketBuy",
+    "WaitForGeldabwurf",
+    "WaitForTicketAndChange",
+    "WaitForTakingTicket",
+    "WaitForChange",
+    "FinishedBuyingTicket"
+  ];
+  return names[value] ? `${names[value]} (${value})` : `Unknown (${value})`;
+}
+
 function RoleplayPanel({
   state,
   error,
@@ -2471,6 +2518,35 @@ function RoleplayPanel({
               <span><small>{pick("DIREÇÃO", "HEADING", "DIRECCIÓN", "RICHTUNG", "DIRECTION")}</small><strong>{format(current.headingDegrees, 0)}°</strong></span>
               <span><small>HUMAN INDEX</small><strong>{current.humanIndex ?? "—"}</strong></span>
             </div>
+          )}
+
+          {roleplay.active && roleplay.nativeAnimation && (
+            <>
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">{pick("ANIMAÇÃO NATIVA", "NATIVE ANIMATION", "ANIMACIÓN NATIVA", "NATIVE ANIMATION", "ANIMATION NATIVE")}</span>
+                  <h3>{pick("Estado real lido do humano OMSI", "Real state read from OMSI human", "Estado real leído del humano OMSI", "Echter gelesener OMSI-Human-Status", "État réel lu du personnage OMSI")}</h3>
+                </div>
+                <span className="hardware-state-pill connected">{pick("Somente leitura", "Read-only", "Solo lectura", "Nur Lesen", "Lecture seule")}</span>
+              </div>
+              <div className="details-grid rp-status-grid">
+                <div><small>AI MODE</small><strong>{humanAiModeLabel(roleplay.nativeAnimation.aiMode)}</strong></div>
+                <div><small>AI MODE EX</small><strong>{humanAiModeExLabel(roleplay.nativeAnimation.aiModeEx)}</strong></div>
+                <div><small>AI SUBMODE</small><strong>{humanAiSubModeLabel(roleplay.nativeAnimation.aiSubMode)}</strong></div>
+                <div><small>LAST MOVED DIST</small><strong>{format(roleplay.nativeAnimation.lastMovedDistanceMeters, 3)} m</strong></div>
+                <div><small>STATE RAW</small><strong>{format(roleplay.nativeAnimation.animationState, 3)}</strong></div>
+                <div><small>SOLL / ACT SPEED</small><strong>{format(roleplay.nativeAnimation.sollSpeedMps, 2)} / {format(roleplay.nativeAnimation.actSpeedMps, 2)} m/s</strong></div>
+              </div>
+              <p className="migration-note">
+                {pick(
+                  "Diagnóstico somente leitura. Esses valores vêm diretamente do humano controlado pelo OMSI; o NavBR não usa este painel para forçar gestos.",
+                  "Read-only diagnostics. These values come directly from the OMSI-controlled human; NavBR does not use this panel to force gestures.",
+                  "Diagnóstico de solo lectura. Estos valores provienen directamente del humano controlado por OMSI; NavBR no usa este panel para forzar gestos.",
+                  "Nur-Lese-Diagnose. Diese Werte stammen direkt vom von OMSI gesteuerten Human; NavBR erzwingt über dieses Panel keine Gesten.",
+                  "Diagnostic en lecture seule. Ces valeurs proviennent directement du personnage contrôlé par OMSI ; NavBR n’utilise pas ce panneau pour forcer des gestes."
+                )}
+              </p>
+            </>
           )}
 
           <div className="action-row rp-actions">
