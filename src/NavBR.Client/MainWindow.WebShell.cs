@@ -251,6 +251,20 @@ public partial class MainWindow
             voiceInputDevices = Array.Empty<object>(),
             voiceOutputDevices = Array.Empty<object>(),
             voiceMixers = Array.Empty<object>(),
+            voicePushToTalkActive = false,
+            voiceQuality = new
+            {
+                activeStreams = 0,
+                receivedPackets = 0L,
+                playedPackets = 0L,
+                fecRecoveredPackets = 0L,
+                estimatedLostPackets = 0L,
+                latePackets = 0L,
+                duplicatePackets = 0L,
+                averageJitterMilliseconds = 0d,
+                targetBufferMilliseconds = 40,
+                estimatedLossPercent = 0d
+            },
             chatHotkey = settings.ChatHotkey,
             voiceHotkey = settings.VoiceHotkey,
             hotkeyOptions = NavBR.Client.Overlay.NavBRHotkeyCatalog.Options
@@ -288,6 +302,7 @@ public partial class MainWindow
                 partial = 0,
                 affectedAreas = Array.Empty<string>()
             },
+            sessionOperationalState = null as object,
             roleplayEnabled = settings.ExperimentalRoleplayCharacterEnabled,
             localRoleplayActive = false,
             selectedRoleplayCharacter = null as string,
