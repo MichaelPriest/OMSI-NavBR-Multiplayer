@@ -64,7 +64,7 @@ internal static class DriverTripHistoryInstaller
             if (window.Owner is MainWindow owner)
             {
                 window.Close();
-                owner.NavigatePrimaryWebShell("operations");
+                owner.NavigatePrimaryWebShell("operations-company");
             }
         };
         actions.Children.Insert(0, historyButton);
