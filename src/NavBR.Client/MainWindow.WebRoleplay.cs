@@ -24,6 +24,7 @@ public partial class MainWindow
             mapKey,
             runtimeAvailable = controller.IsRuntimeAvailable,
             active = controller.IsActive,
+            terrainFollowing = controller.IsGroundFollowing,
             status = _webRoleplayStatus,
             selected = selected is null
                 ? null
