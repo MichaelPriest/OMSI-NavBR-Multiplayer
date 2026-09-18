@@ -30,7 +30,7 @@ export default function ConceptGallery() {
           <h2>Uma visão conceitual de como o NavBR pode aparecer dentro do OMSI.</h2>
         </div>
         <p className="section-lead">
-          As imagens desta seção foram criadas por inteligência artificial exclusivamente como conceitos visuais. Elas não são capturas reais do OMSI nem do NavBR atual. O app continua usando dados reais do C# e do OMSI.
+          Estas imagens são conceituais e foram criadas por inteligência artificial exclusivamente para ilustrar a direção visual do projeto. Elas não são capturas reais do OMSI nem do NavBR atual. O app continua usando dados reais do C# e do OMSI.
         </p>
       </div>
 
