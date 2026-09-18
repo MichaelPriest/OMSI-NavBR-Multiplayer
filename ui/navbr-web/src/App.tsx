@@ -2107,6 +2107,34 @@ function Settings({
       {tab === "advanced" && (
         <section className="advanced-grid settings-advanced">
           <article className="card compact-card">
+            <span className="eyebrow">{pick("PREFERÊNCIAS", "PREFERENCES", "PREFERENCIAS", "EINSTELLUNGEN", "PRÉFÉRENCES")}</span>
+            <h3>{pick("Comportamento geral", "General behavior", "Comportamiento general", "Allgemeines Verhalten", "Comportement général")}</h3>
+            <label className="diagnostics-toggle">
+              <input
+                type="checkbox"
+                checked={system.legacyPreferences.advancedModeEnabled}
+                onChange={event => sendCommand("saveLegacyPreferences", {
+                  advancedModeEnabled: event.target.checked,
+                  showDrivingTips: system.legacyPreferences.showDrivingTips
+                })}
+              />
+              <span>{pick("Modo avançado", "Advanced mode", "Modo avanzado", "Erweiterter Modus", "Mode avancé")}</span>
+            </label>
+            <label className="diagnostics-toggle">
+              <input
+                type="checkbox"
+                checked={system.legacyPreferences.showDrivingTips}
+                onChange={event => sendCommand("saveLegacyPreferences", {
+                  advancedModeEnabled: system.legacyPreferences.advancedModeEnabled,
+                  showDrivingTips: event.target.checked
+                })}
+              />
+              <span>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</span>
+            </label>
+            <p>{pick("Estas opções usam o mesmo arquivo de preferências da interface Alpha.12, preservando o comportamento existente durante a migração.", "These options use the same Alpha.12 preference file, preserving existing behavior during migration.", "Estas opciones usan el mismo archivo de preferencias de Alpha.12 y preservan el comportamiento existente.", "Diese Optionen verwenden dieselbe Alpha.12-Einstellungsdatei und erhalten das bestehende Verhalten.", "Ces options utilisent le même fichier de préférences Alpha.12 et préservent le comportement existant.")}</p>
+          </article>
+
+          <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
             <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
             <p>{pick("Firewall, NAT e UPnP já estão disponíveis na aba Rede. Relay e ônibus físico continuam no controlador nativo.", "Firewall, NAT and UPnP are available in the Network tab. Relay and physical bus remain in the native controller.", "Firewall, NAT y UPnP están disponibles en la pestaña Red. Relay y autobús físico permanecen en el controlador nativo.", "Firewall, NAT und UPnP sind im Netzwerktab verfügbar. Relay und physischer Bus bleiben im nativen Controller.", "Pare-feu, NAT et UPnP sont disponibles dans l’onglet Réseau. Relay et bus physique restent dans le contrôleur natif.")}</p>
