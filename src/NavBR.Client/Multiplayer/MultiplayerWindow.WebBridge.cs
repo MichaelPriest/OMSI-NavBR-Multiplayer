@@ -1,3 +1,5 @@
+using NavBR.Shared.Multiplayer;
+
 namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow
