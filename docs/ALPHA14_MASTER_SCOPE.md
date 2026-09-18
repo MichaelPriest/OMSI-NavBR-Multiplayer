@@ -57,10 +57,14 @@ Somente desenvolvimento/teste:
 - W/S, A/D, Shift e Esc;
 - estado RP separado da telemetria do ônibus.
 
+### Funções RP já em validação
+
+- câmera dedicada seguindo o personagem na visão 3D React;
+- projeção do personagem no mesmo espaço mundial do roadmap;
+- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada.
+
 ### Próximas funções
 
-- câmera dedicada seguindo o personagem;
-- ajuste de altura/terreno inclinado;
 - animações e gestos;
 - interação com ônibus/objetos;
 - personagem remoto físico completo.
