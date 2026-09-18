@@ -77,3 +77,21 @@ A validação Alpha.14 agora inclui:
 - interação com objetos/ônibus;
 - personagem remoto físico completo;
 - validação prática do ciclo RP em diferentes ônibus/mapas do OMSI.
+
+
+## Nova interface React/WebView2
+
+A Test 3 inicia a migração incremental da interface desktop para React + TypeScript + Vite hospedado em WebView2, mantendo o backend .NET/C# como autoridade.
+
+Nesta etapa:
+- Home operacional web com telemetria real do OMSI;
+- atalho Executar OMSI ligado ao launcher C# existente;
+- Central Multiplayer React com Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado;
+- criação/entrada/saída de salas usando o controlador SignalR C# existente;
+- salas privadas com senha efêmera;
+- navegador de salas públicas, busca e favoritos;
+- avaliação nativa de compatibilidade antes da entrada direta;
+- jogadores, latência, voz, chat e RP vindos do estado real da sessão;
+- Mover HUD e Configurar HUD ligados às rotinas nativas existentes;
+- fallback WPF preservado durante a migração;
+- pipeline compila o frontend React antes do cliente e empacota o `dist` no app.
