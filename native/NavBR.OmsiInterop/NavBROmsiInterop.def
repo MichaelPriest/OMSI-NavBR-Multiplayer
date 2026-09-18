@@ -21,6 +21,7 @@ EXPORTS
     NavBR_DetachHumanForRoleplay
     NavBR_RestoreHumanDriverState
     NavBR_ReadHumanAiState
+    NavBR_ReadHumanAnimationState
     NavBR_SetHumanTransform
     NavBR_RestoreHumanAiState
     NavBR_GetMem
