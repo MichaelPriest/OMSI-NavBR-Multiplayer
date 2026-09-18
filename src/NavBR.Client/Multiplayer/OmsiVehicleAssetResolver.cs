@@ -13,6 +13,8 @@ internal sealed class OmsiVehicleAssetResolver
     private const int MaxVehicleDefinitionsToScan = 10_000;
     private static readonly TimeSpan MissingFingerprintRetryDelay =
         TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan VehicleIndexRefreshInterval =
+        TimeSpan.FromMinutes(1);
 
     private readonly Func<string?> _omsiInstallDirectorySource;
     private readonly SemaphoreSlim _scanGate = new(1, 1);
@@ -22,6 +24,8 @@ internal sealed class OmsiVehicleAssetResolver
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _missingUntil =
         new(StringComparer.OrdinalIgnoreCase);
+    private string? _indexedRoot;
+    private DateTimeOffset _lastIndexBuildUtc;
 
     public OmsiVehicleAssetResolver(Func<string?> omsiInstallDirectorySource)
     {
@@ -75,7 +79,8 @@ internal sealed class OmsiVehicleAssetResolver
                     root,
                     reportedPath,
                     normalizedCompatibilityId,
-                    missKey),
+                    missKey,
+                    cancellationToken),
                 cancellationToken);
         }
         finally
@@ -88,7 +93,8 @@ internal sealed class OmsiVehicleAssetResolver
         string root,
         string? reportedPath,
         string compatibilityId,
-        string missKey)
+        string missKey,
+        CancellationToken cancellationToken)
     {
         if (TryResolveExactPath(root, reportedPath, out var candidate) &&
             TryBuildSafeFullPath(root, candidate, out var candidateFullPath) &&
@@ -126,11 +132,46 @@ internal sealed class OmsiVehicleAssetResolver
 
         _pathByCompatibilityId.TryRemove(compatibilityId, out _);
 
+        var now = DateTimeOffset.UtcNow;
+        var sameIndexedRoot = string.Equals(
+            _indexedRoot,
+            root,
+            StringComparison.OrdinalIgnoreCase);
+        if (!sameIndexedRoot)
+        {
+            _pathByCompatibilityId.Clear();
+            _missingUntil.Clear();
+            _indexedRoot = root;
+            _lastIndexBuildUtc = DateTimeOffset.MinValue;
+        }
+
+        if (now - _lastIndexBuildUtc >= VehicleIndexRefreshInterval)
+        {
+            BuildVehicleIndex(root, cancellationToken);
+        }
+
+        if (_pathByCompatibilityId.TryGetValue(
+                compatibilityId,
+                out var indexedPath) &&
+            TryResolveExactPath(root, indexedPath, out indexedPath))
+        {
+            _missingUntil.TryRemove(missKey, out _);
+            return indexedPath;
+        }
+
+        CacheMiss(missKey);
+        return null;
+    }
+
+    private void BuildVehicleIndex(
+        string root,
+        CancellationToken cancellationToken)
+    {
         var vehiclesRoot = Path.Combine(root, "Vehicles");
+        _lastIndexBuildUtc = DateTimeOffset.UtcNow;
         if (!Directory.Exists(vehiclesRoot))
         {
-            CacheMiss(missKey);
-            return null;
+            return;
         }
 
         var options = new EnumerationOptions
@@ -149,6 +190,8 @@ internal sealed class OmsiVehicleAssetResolver
                          "*.*",
                          options))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (!(fullPath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
                       fullPath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
                 {
@@ -160,11 +203,7 @@ internal sealed class OmsiVehicleAssetResolver
                     break;
                 }
 
-                if (!TryFingerprintVehicle(fullPath, out var localId) ||
-                    !string.Equals(
-                        localId,
-                        compatibilityId,
-                        StringComparison.OrdinalIgnoreCase))
+                if (!TryFingerprintVehicle(fullPath, out var localId))
                 {
                     continue;
                 }
@@ -176,9 +215,7 @@ internal sealed class OmsiVehicleAssetResolver
                     continue;
                 }
 
-                _pathByCompatibilityId[compatibilityId] = relativePath;
-                _missingUntil.TryRemove(missKey, out _);
-                return relativePath;
+                _pathByCompatibilityId.TryAdd(localId, relativePath);
             }
         }
         catch (IOException)
@@ -187,9 +224,6 @@ internal sealed class OmsiVehicleAssetResolver
         catch (UnauthorizedAccessException)
         {
         }
-
-        CacheMiss(missKey);
-        return null;
     }
 
     private void CacheMiss(string missKey) =>
