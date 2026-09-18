@@ -2335,6 +2335,7 @@ function RoleplayPanel({
             <div><small>STATUS</small><strong>{roleplayStatusLabel(roleplay.status, pick)}</strong></div>
             <div><small>{pick("MAPA PRONTO", "MAP READY", "MAPA LISTO", "KARTE BEREIT", "CARTE PRÊTE")}</small><strong>{roleplay.mapReady ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></div>
             <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : pick("Não conectado", "Not connected", "No conectado", "Nicht verbunden", "Non connecté")}</strong></div>
+            <div><small>{pick("TERRENO", "TERRAIN", "TERRENO", "GELÄNDE", "TERRAIN")}</small><strong>{roleplay.active ? roleplay.terrainFollowing ? pick("Seguindo spline", "Following spline", "Siguiendo spline", "Spline-Folge aktiv", "Suivi de spline") : pick("Altura preservada", "Height preserved", "Altura conservada", "Höhe beibehalten", "Hauteur conservée") : "—"}</strong></div>
           </div>
 
           {current && (
