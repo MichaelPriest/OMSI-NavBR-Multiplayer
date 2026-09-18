@@ -697,6 +697,9 @@ export interface NavBrState {
     cultureName: string;
     displayName: string;
   }[];
+  shell: {
+    topmost: boolean;
+  };
   omsi: {
     running: boolean;
     processId?: number | null;
@@ -735,6 +738,8 @@ export type NavBrCommand =
   | "launchOmsi"
   | "refreshState"
   | "setLanguage"
+  | "refreshOmsiDetection"
+  | "setShellTopmost"
   | "ensureMultiplayerController"
   | "openRoleplay"
   | "setRoleplayEnabled"
