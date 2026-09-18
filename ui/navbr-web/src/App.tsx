@@ -78,7 +78,7 @@ function Sidebar({
       </nav>
       <div className="sidebar-footer">
         <i />
-        <div><strong>Alpha.14</strong><small>React UI preview</small></div>
+        <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
       </div>
     </aside>
   );
@@ -1123,6 +1123,12 @@ function Settings({ state, error }: { state: NavBrState | null; error: string | 
             <h3>Perfis avançados</h3>
             <p>Mapas/veículos habilitados por perfil e edições detalhadas permanecem disponíveis no editor WPF durante a migração.</p>
             <button className="button ghost" onClick={() => sendCommand("openOmsiProfiles")}>Abrir editor de perfis</button>
+          </article>
+          <article className="card compact-card">
+            <span className="eyebrow">FALLBACK</span>
+            <h3>Interface WPF</h3>
+            <p>Abre o shell técnico anterior caso seja necessário comparar comportamento ou acessar uma área ainda não migrada.</p>
+            <button className="button ghost" onClick={() => sendCommand("showLegacyShell")}>Abrir interface WPF</button>
           </article>
         </section>
       )}
