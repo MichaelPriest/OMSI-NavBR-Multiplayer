@@ -12,7 +12,7 @@ namespace NavBR.Client.Maps;
 internal static class OmsiSplineGroundHeightResolver
 {
     private const double MaxSnapDistanceMeters = 12d;
-    private const double MaxPreferredHeightDeltaMeters = 1.5d;
+    private const double MaxPreferredHeightDeltaMeters = 3.5d;
     private static readonly object CacheLock = new();
     private static readonly Dictionary<string, MapCache> MapCaches =
         new(StringComparer.OrdinalIgnoreCase);
@@ -354,6 +354,12 @@ internal static class OmsiSplineGroundHeightResolver
         var minAngle = Math.Min(0d, totalAngle);
         var maxAngle = Math.Max(0d, totalAngle);
         var twoPi = Math.PI * 2d;
+        if (Math.Abs(totalAngle) > twoPi + 1e-6d)
+        {
+            // A multi-turn spline overlaps its own 2D projection, so the same
+            // XY point can represent different heights. Refuse that ambiguity.
+            return false;
+        }
         var middle = (minAngle + maxAngle) * 0.5d;
         var baseTurn = (int)Math.Round((middle - rawAngle) / twoPi);
 

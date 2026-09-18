@@ -176,7 +176,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                                         telemetry,
                                         x,
                                         y,
-                                        preferredGroundZ: null,
+                                        preferredGroundZ: z,
                                         out initialGroundZ);
         var initialGroundOffset = initialGroundResolved
             ? z - initialGroundZ
@@ -445,7 +445,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 telemetry,
                 x,
                 y,
-                _lastGroundHeight,
+                _lastGroundHeight ?? currentZ,
                 out var groundZ))
         {
             _groundFollowing = false;
