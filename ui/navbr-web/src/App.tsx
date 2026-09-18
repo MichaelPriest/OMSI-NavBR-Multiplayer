@@ -404,6 +404,10 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       ...vehicle,
       ...project(vehicle.x, vehicle.y)
     }));
+    const remoteRoleplay = state.remoteRoleplayCharacters.map(character => ({
+      ...character,
+      ...project(character.x, character.y)
+    }));
     const roleplay = state.localRoleplayCharacter
       ? {
           ...state.localRoleplayCharacter,
@@ -421,7 +425,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
     }
 
-    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, viewBox };
+    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, remoteRoleplay, viewBox };
   }, [state, camera, zoom]);
 
   if (!state.roadmapAvailable) {
@@ -513,6 +517,26 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
               </g>
             ))}
 
+            {scene.remoteRoleplay.map(remote => (
+              <g
+                className="nav3d-roleplay-character nav3d-remote-roleplay-character"
+                key={remote.playerId}
+                transform={`translate(${remote.x} ${remote.y}) rotate(${remote.headingDegrees})`}
+              >
+                <circle r="16" className="nav3d-roleplay-halo" />
+                <circle cy="-3" r="5" className="nav3d-roleplay-head" />
+                <path className="nav3d-roleplay-body" d="M 0 3 L 0 16 M -7 8 L 7 8 M 0 16 L -6 26 M 0 16 L 6 26" />
+                <path className="nav3d-roleplay-heading" d="M 0 -26 L -5 -17 L 5 -17 Z" />
+                <text
+                  x="19"
+                  y="-18"
+                  transform={`rotate(${-remote.headingDegrees} 19 -18)`}
+                >
+                  {remote.displayName}
+                </text>
+              </g>
+            ))}
+
             {scene.local && (
               <g
                 className="nav3d-local-bus"
@@ -550,6 +574,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
         <span><strong>{state.mapName || pick("Mapa OMSI", "OMSI map", "Mapa OMSI", "OMSI-Karte", "Carte OMSI")}</strong></span>
         <span>{state.routeAvailable ? pick("Rota real carregada", "Real route loaded", "Ruta real cargada", "Echte Route geladen", "Itinéraire réel chargé") : pick("Rota não resolvida", "Route not resolved", "Ruta no resuelta", "Route nicht aufgelöst", "Itinéraire non résolu")}</span>
         <span>{state.remoteCount} {pick("ônibus remoto(s) compatível(is)", "compatible remote bus(es)", "autobús(es) remoto(s) compatible(s)", "kompatible Remote-Busse", "bus distant(s) compatible(s)")}</span>
+        <span>{state.remoteRoleplayCount} {pick("personagem(ns) RP remoto(s)", "remote RP character(s)", "personaje(s) RP remoto(s)", "Remote-RP-Charakter(e)", "personnage(s) RP distant(s)")}</span>
         <span>
           {scene.roleplay
             ? pick(

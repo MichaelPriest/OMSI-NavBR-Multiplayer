@@ -233,6 +233,11 @@ export interface NavBrNavigation3DRoleplayCharacter {
   characterName?: string | null;
 }
 
+export interface NavBrNavigation3DRemoteRoleplayCharacter extends NavBrNavigation3DRoleplayCharacter {
+  playerId: string;
+  displayName: string;
+}
+
 export interface NavBrNavigation3DState {
   available: boolean;
   mapName?: string | null;
@@ -249,8 +254,10 @@ export interface NavBrNavigation3DState {
   localVehicle?: NavBrNavigation3DVehicle | null;
   localRoleplayCharacter?: NavBrNavigation3DRoleplayCharacter | null;
   remoteVehicles: NavBrNavigation3DRemoteVehicle[];
+  remoteRoleplayCharacters: NavBrNavigation3DRemoteRoleplayCharacter[];
   routeAvailable: boolean;
   remoteCount: number;
+  remoteRoleplayCount: number;
 }
 
 export interface NavBrOperationalReport {

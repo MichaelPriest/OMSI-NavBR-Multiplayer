@@ -1235,6 +1235,27 @@ h3 { margin:6px 0 16px; font-size:19px; }
   stroke-width:2;
   vector-effect:non-scaling-stroke;
 }
+.nav3d-remote-roleplay-character .nav3d-roleplay-head {
+  fill:#7bc7ff;
+  stroke:#eef8ff;
+}
+.nav3d-remote-roleplay-character .nav3d-roleplay-body,
+.nav3d-remote-roleplay-character .nav3d-roleplay-heading {
+  stroke:#7bc7ff;
+  filter:drop-shadow(0 0 5px rgba(123,199,255,.65));
+}
+.nav3d-remote-roleplay-character .nav3d-roleplay-heading {
+  fill:#7bc7ff;
+  stroke:#eef8ff;
+}
+.nav3d-remote-roleplay-character .nav3d-roleplay-halo {
+  fill:rgba(123,199,255,.1);
+  stroke:rgba(123,199,255,.85);
+}
+.nav3d-remote-roleplay-character text {
+  fill:#dff3ff;
+}
+
 .nav3d-roleplay-character text {
   fill:#dffff0;
   font-size:13px;
