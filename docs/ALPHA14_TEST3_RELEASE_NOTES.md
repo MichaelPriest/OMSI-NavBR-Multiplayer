@@ -7,7 +7,8 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - React + TypeScript + Vite hospedado no cliente .NET/WPF x86;
 - idioma do shell React sincronizado com o `LocalizationService` nativo, com pt-BR, en-US, es-ES, de-DE e fr-FR usando a mesma preferência persistida do app;
 - React passa a ser o shell principal após carregamento confirmado;
-- fallback WPF seguro quando WebView2 falha ou quando o usuário solicita;
+- fallback WPF seguro quando WebView2 falha ou quando o usuário solicita explicitamente para comparação/áreas ainda não migradas;
+- Instalações OMSI, HUD e Roadmap Studio não abrem o editor WPF no fluxo normal;
 - Home e Executar OMSI;
 - Navegação/GPS com rota, paradas, manobras e ETA reais, mais visão 3D integrada ao React usando o roadmap real do mapa;
 - Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;
@@ -15,7 +16,8 @@ A Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personag
 - Hardware Cockpit com conexão serial compartilhada;
 - Instalações OMSI e perfis de lançamento completos no React, com seletor nativo de pasta e Explorer;
 - HUD configurável no React e aplicado ao vivo pelo store nativo;
-- Roadmap Studio no React com análise por tiles e geração vetorial por splines;
+- Roadmap Studio no React com análise por tiles e geração vetorial por splines, usando diretamente `OmsiRoadmapGeneratorService` e `OmsiRoadmapVectorGeneratorService`;
+- ao trocar o mapa selecionado, a análise anterior deixa de ser exibida para evitar resultado obsoleto;
 - Ghost / Replay no React com gravação, biblioteca/importação, analytics, prévia read-only e replay 3D;
 - Diagnóstico/privacidade;
 - Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;

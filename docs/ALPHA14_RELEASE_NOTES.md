@@ -13,7 +13,8 @@ A Alpha.14 consolida as builds Test 1–3.x e passa a ser a prerelease pública 
 - o ícone da bandeja abre/oculta a interface React;
 - Home com Executar OMSI e dados reais da operação;
 - Navegação/GPS, Central Multiplayer, CCO, Empresa/Frota, Perfil, Personagem/RP, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e Rede migrados para React;
-- Mapa 3D e a interação de mover o HUD continuam nativos; renderização do HUD, geração de roadmap e runtime físico do RP continuam no C#.
+- Instalações OMSI permitem selecionar uma pasta real pelo Windows, validar `Omsi.exe`, abrir a instalação no Explorer, editar nome/argumentos, definir perfil preferido, remover e iniciar o simulador sem voltar ao editor WPF;
+- o Mapa 3D faz parte da Navegação React e usa o roadmap real; somente a interação **Mover HUD** continua nativa. Renderização/interação do overlay, geração de roadmap e runtime físico do RP continuam sob autoridade do C#.
 
 ## Navegação
 
@@ -102,7 +103,7 @@ A Alpha.14 continua prerelease. Escrita física no OMSI e Personagem/RP permanec
 - configuração do HUD no React com presets, temas, ancoragem, tamanho, opacidade e módulos;
 - alterações reaplicadas ao vivo pelo overlay nativo através de `MultiplayerSettingsStore.SettingsSaved`;
 - Mover HUD permanece sobre o overlay nativo;
-- Roadmap Studio no React usa os geradores C# existentes;
+- Roadmap Studio no React usa diretamente `OmsiRoadmapGeneratorService` e `OmsiRoadmapVectorGeneratorService`, sem duplicar o algoritmo no frontend;
 - modo por tiles preserva as imagens `.roadmap.bmp` existentes e cria backup quando necessário;
 - modo vetorial gera `whole.roadmap.bmp` diretamente de `global.cfg` + splines dos tiles;
 - progresso, dimensões, quantidade de tiles/splines, tamanho e backup são mostrados pela interface.

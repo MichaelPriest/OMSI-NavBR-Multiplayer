@@ -6,7 +6,7 @@ The NavBR desktop client uses **React + TypeScript + Vite hosted by Microsoft We
 
 Next.js is intentionally not used for the desktop shell. NavBR does not need server-side rendering for local screens, and static Vite assets avoid shipping a Node server.
 
-\`\`\`text
+```text
 OMSI 2 / Native plugin x86
         ↓
 NavBR .NET/C# services
@@ -16,7 +16,7 @@ typed desktop bridge
 WebView2
         ↓
 React + TypeScript UI
-\`\`\`
+```
 
 ## Native authority
 
@@ -34,21 +34,23 @@ New React surfaces use the shared translation provider and fall back to English 
 
 React/WebView2 is the primary visible desktop shell in Alpha.14.
 
-1. \`MainWindow\` starts first and initializes native services.
-2. \`OpenPrimaryWebShell()\` opens WebView2.
-3. WPF is hidden only after \`WebShellWindow.ShellReady\` confirms successful navigation.
+1. `MainWindow` starts first and initializes native services.
+2. `OpenPrimaryWebShell()` opens WebView2.
+3. WPF is hidden only after `WebShellWindow.ShellReady` confirms successful navigation.
 4. If WebView2 cannot load, WPF remains visible automatically.
 5. The tray icon opens/hides the React primary shell.
 6. Settings contains an explicit **Abrir interface WPF** fallback.
-7. \`ui/navbr-web/dist\` is copied into build and publish output; the packaged static bootstrap remains a fallback when the React dist is unavailable.
+7. `ui/navbr-web/dist` is copied into build and publish output; the packaged static bootstrap remains a fallback when the React dist is unavailable.
+
+Normal user flows for OMSI installations, HUD configuration and Roadmap Studio stay inside React. WPF is opened only as an explicit technical fallback/comparison surface or for areas not yet migrated. **Move HUD** remains native because it requires direct mouse interaction with the OMSI overlay.
 
 ## Migrated desktop surfaces
 
 The React shell now provides real-data surfaces for:
 
 - Home and native OMSI launcher;
-- Navigation/GPS using \`NavBRNavigationEngine\`, route traces, ordered stops and ETA, with an embedded React 3D scene backed by the real OMSI roadmap;
-- Multiplayer Central backed by the existing \`MultiplayerWindow\` controller;
+- Navigation/GPS using `NavBRNavigationEngine`, route traces, ordered stops and ETA, with an embedded React 3D scene backed by the real OMSI roadmap;
+- Multiplayer Central backed by the existing `MultiplayerWindow` controller;
 - CCO, remote drivers and operational reports;
 - Company/Fleet and Driver Profile stores;
 - OMSI installation profiles, launch arguments, native folder selection and Explorer handoff;
@@ -64,37 +66,37 @@ HUD rendering, focus, click-through and drag/move interaction remain native beca
 
 ## Multiplayer bridge
 
-React does not create a second SignalR client. The existing C# \`MultiplayerWindow\` can run hidden as the live session controller. The bridge exposes room lifecycle, public/private rooms, compatibility, players, chat, voice, audio devices, per-player mute/gain, RP state and real session positions. React never creates a second audio pipeline: device changes and mixer controls call the existing `VoiceChatService`.
+React does not create a second SignalR client. The existing C# `MultiplayerWindow` can run hidden as the live session controller. The bridge exposes room lifecycle, public/private rooms, compatibility, players, chat, voice, audio devices, per-player mute/gain, RP state and real session positions. React never creates a second audio pipeline: device changes and mixer controls call the existing `VoiceChatService`.
 
 Passwords remain ephemeral and are not persisted.
 
 ## Navigation bridge
 
-\`MainWindow.WebNavigation.cs\` caches map and route resources and reuses the native navigation engine. It exposes real route geometry, ordered stops, vehicle position, progress, remaining distance, next stop, maneuvers, off-route state and ETA. If route/stop files cannot be resolved safely, the web map fails closed instead of drawing generic map data as an active route.
+`MainWindow.WebNavigation.cs` caches map and route resources and reuses the native navigation engine. It exposes real route geometry, ordered stops, vehicle position, progress, remaining distance, next stop, maneuvers, off-route state and ETA. If route/stop files cannot be resolved safely, the web map fails closed instead of drawing generic map data as an active route.
 
 ## CCO / company bridge
 
 The CCO React surface reuses:
 
-- \`DispatcherSessionFeed\`;
-- \`DispatcherOperationalFeed\`;
-- \`VirtualCompanyStore\`;
-- \`DriverProfileStore\`.
+- `DispatcherSessionFeed`;
+- `DispatcherOperationalFeed`;
+- `VirtualCompanyStore`;
+- `DriverProfileStore`.
 
 Recognize/resolve actions go back through the native operational feed. Fleet registration uses the current real OMSI vehicle.
 
 ## Hardware Cockpit bridge
 
-React and WPF share one \`HardwareCockpitBridgeController\`. It owns the only serial connection, persisted COM/baud settings and exact-port auto-reconnect behavior.
+React and WPF share one `HardwareCockpitBridgeController`. It owns the only serial connection, persisted COM/baud settings and exact-port auto-reconnect behavior.
 
-The authoritative 200 ms MainWindow telemetry tick publishes \`NAVBR_HW_V1\` frames at approximately 5 Hz, so serial streaming does not depend on a UI page being open. React only configures the controller and renders the exact native frame preview.
+The authoritative 200 ms MainWindow telemetry tick publishes `NAVBR_HW_V1` frames at approximately 5 Hz, so serial streaming does not depend on a UI page being open. React only configures the controller and renders the exact native frame preview.
 
 ## Network diagnostics bridge
 
 Firewall/NAT/UPnP remain native:
 
-- \`WindowsFirewallService\` applies the TCP 27730 inbound rule for all Windows profiles, requests UAC and verifies the rule afterwards;
-- \`NatDiagnosticsService\` reports local listener, IPv4 addresses, UPnP gateway and WAN classification;
+- `WindowsFirewallService` applies the TCP 27730 inbound rule for all Windows profiles, requests UAC and verifies the rule afterwards;
+- `NatDiagnosticsService` reports local listener, IPv4 addresses, UPnP gateway and WAN classification;
 - automatic UPnP cannot be changed while a local host is running;
 - the external TCP probe is independent and only runs when its callback service is configured.
 
