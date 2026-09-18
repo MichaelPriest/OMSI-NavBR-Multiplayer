@@ -56,6 +56,11 @@ export interface NavBrMultiplayerState {
   displayName: string;
   hostRunning: boolean;
   hostPort?: number | null;
+  hostReachability: "inactive" | "checking" | "lan-only" | "upnp-mapped-unverified" | "internet-address-available";
+  internetInviteAddress?: string | null;
+  upnpMapped: boolean;
+  upnpMessage?: string | null;
+  externalProbeConfigured: boolean;
   roomIsPrivate: boolean;
   inviteAddresses: string[];
   latencyMs?: number | null;
@@ -675,6 +680,8 @@ export interface NavBrNetworkState {
   hostRunning: boolean;
   runningAsAdministrator: boolean;
   automaticUpnpEnabled: boolean;
+  externalProbeConfigured: boolean;
+  externalProbeServiceOrigin?: string | null;
   message?: string | null;
   error?: string | null;
   diagnostics?: {
