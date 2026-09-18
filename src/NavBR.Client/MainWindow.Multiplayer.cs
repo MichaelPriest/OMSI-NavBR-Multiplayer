@@ -56,6 +56,13 @@ public partial class MainWindow
             StopRemoteMotionTimer();
             DispatcherSessionFeed.SetConnected(false);
 
+            if (_multiplayerWindow is not null)
+            {
+                var controller = _multiplayerWindow;
+                controller.AllowApplicationShutdown();
+                controller.Close();
+            }
+
             if (_hudOverlay is not null)
             {
                 _hudOverlay.Close();
@@ -80,6 +87,8 @@ public partial class MainWindow
 
     internal void OpenMultiplayerCentralForShell(bool showWindow)
     {
+        HookHudLifetimeToMainWindow();
+
         if (_multiplayerWindow is not null)
         {
             if (showWindow)
@@ -160,16 +169,11 @@ public partial class MainWindow
         UpdateHudLocalState();
 
         // MultiplayerWindow still owns native controller/services that are
-        // being detached incrementally from WPF. Trigger Loaded so those
-        // services initialize, but never expose the retired visual surface.
+        // being detached incrementally from WPF. Initialize those services
+        // explicitly without ever creating or showing the retired WPF surface.
         window.ShowInTaskbar = false;
         window.ShowActivated = false;
-        window.WindowStartupLocation = WindowStartupLocation.Manual;
-        window.Left = -32000d;
-        window.Top = -32000d;
-        window.Opacity = 0d;
-        window.Show();
-        window.Hide();
+        window.InitializeControllerForWebShell();
 
         if (showWindow)
         {
