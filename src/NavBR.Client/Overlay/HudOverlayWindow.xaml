@@ -164,6 +164,20 @@
                         <Border Background="#28FFFFFF" CornerRadius="7" Padding="8,4">
                             <TextBlock Text="🎙 PTT" FontFamily="Segoe UI Emoji" Foreground="#EFFFFFFF" FontSize="10" />
                         </Border>
+                        <Button x:Name="RoleplayHudButton"
+                                Margin="6,0,0,0"
+                                MinWidth="92"
+                                Padding="8,4"
+                                Content="♙ Personagem"
+                                Foreground="White"
+                                Background="#CC153B57"
+                                BorderBrush="#AA71C6FF"
+                                BorderThickness="1"
+                                FontSize="10"
+                                FontWeight="SemiBold"
+                                Focusable="False"
+                                ToolTip="Personagem / RP"
+                                Click="RoleplayHudButton_Click" />
                     </StackPanel>
 
                     <Border x:Name="VoicePanel"
