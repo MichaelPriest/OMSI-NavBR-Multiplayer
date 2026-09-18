@@ -158,34 +158,11 @@ public partial class App : Application
 
         if (window is MainWindow mainWindow)
         {
-            Alpha12FigmaShellInstaller.Install(mainWindow);
-            Alpha11VisualTuning.Apply(mainWindow);
-            OmsiProfilesUiInstaller.Install(mainWindow);
-            Alpha12TechnicalControlsOrganizer.Attach(mainWindow);
-            Alpha12GhostToolsInstaller.Install(mainWindow);
-            Alpha12ExperienceInstaller.Install(mainWindow);
-            Alpha12HudShortcutInstaller.Install(mainWindow);
-            Alpha12MultiplayerStatusInstaller.Install(mainWindow);
-
-            // Figma OPERAÇÃO order: CCO → Empresa → Rede → Equipe → Perfil.
-            DispatcherInstaller.Install(mainWindow);
-            VirtualCompanyInstaller.Install(mainWindow);
-            CompanyNetworkInstaller.Install(mainWindow);
-            CompanyMembersInstaller.Install(mainWindow);
-            DriverProfileInstaller.Install(mainWindow);
-
-            SessionHealthInstaller.Install(mainWindow);
-            Alpha12NavigationPolishInstaller.Install(mainWindow);
-            Alpha12FigmaNavigationModeInstaller.Install(mainWindow);
-            Alpha12FigmaLiveDataInstaller.Install(mainWindow);
-            Alpha12NavigationEtaInstaller.Install(mainWindow);
-            Alpha12FigmaMultiplayerFidelityInstaller.Install(mainWindow);
-            Alpha12FigmaOrderedStopsInstaller.Install(mainWindow);
-            Alpha12FigmaHomeCompanyInstaller.Install(mainWindow);
-            Alpha12FigmaHomeMultiplayerInstaller.Install(mainWindow);
-            Alpha12VisualAccentInstaller.Install(mainWindow);
-            Alpha12FigmaResponsiveShellInstaller.Install(mainWindow);
-            Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow);
+            // MainWindow is now a hidden native host only. Do not build or
+            // install the retired WPF shell, navigation pages, profile buttons,
+            // company/CCO panels or other visual Alpha.11/12 surfaces here.
+            // Native/background services required by React are initialized
+            // directly by their owning controllers instead.
             mainWindow.InitializeRoleplayForShell();
             TrayIcon.Attach(mainWindow);
             mainWindow.OpenPrimaryWebShell();
@@ -196,8 +173,12 @@ public partial class App : Application
             Alpha12HudThemeService.Attach(hudOverlay);
         }
 
-        // Run last: Figma/installers may create or move ComboBox controls during Loaded.
-        NavBRControlThemeInstaller.Attach(window);
+        // Auxiliary native windows still use the shared dark control theme.
+        // The hidden MainWindow host has no user-facing controls anymore.
+        if (window is not MainWindow)
+        {
+            NavBRControlThemeInstaller.Attach(window);
+        }
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

@@ -50,17 +50,6 @@ Require-Text "src/NavBR.Client/Windows/Alpha12FigmaShellInstaller.cs" @(
     "Alpha12ProfessionalShellInstaller.ToolsPanelName"
 )
 
-Require-Text "src/NavBR.Client/App.xaml.cs" @(
-    "OmsiProfilesUiInstaller.Install(mainWindow)",
-    "Alpha12ExperienceInstaller.Install(mainWindow)",
-    "DispatcherInstaller.Install(mainWindow)",
-    "VirtualCompanyInstaller.Install(mainWindow)",
-    "CompanyNetworkInstaller.Install(mainWindow)",
-    "CompanyMembersInstaller.Install(mainWindow)",
-    "DriverProfileInstaller.Install(mainWindow)",
-    "SessionHealthInstaller.Install(mainWindow)"
-)
-
 Require-Text "src/NavBR.Client/Multiplayer/MultiplayerWindow.xaml" @(
     'x:Name="PublicRoomsButton"',
     'x:Name="RelayEnabledCheckBox"',
@@ -82,7 +71,33 @@ Require-Text "src/NavBR.Client/App.xaml" @(
 )
 
 Require-Text "src/NavBR.Client/App.xaml.cs" @(
-    "NavBRControlThemeInstaller.Attach(window);"
+    "mainWindow.InitializeRoleplayForShell();",
+    "TrayIcon.Attach(mainWindow);",
+    "mainWindow.OpenPrimaryWebShell();",
+    "if (window is not MainWindow)"
+)
+
+Require-Text "src/NavBR.Client/MainWindow.xaml.cs" @(
+    "DriverStatisticsService",
+    "_driverStatisticsService.Start();",
+    "_driverStatisticsService.Dispose();"
+)
+
+Reject-Text "src/NavBR.Client/App.xaml.cs" @(
+    "Alpha12FigmaShellInstaller.Install(mainWindow)",
+    "Alpha11VisualTuning.Apply(mainWindow)",
+    "OmsiProfilesUiInstaller.Install(mainWindow)",
+    "Alpha12ExperienceInstaller.Install(mainWindow)",
+    "DispatcherInstaller.Install(mainWindow)",
+    "VirtualCompanyInstaller.Install(mainWindow)",
+    "CompanyNetworkInstaller.Install(mainWindow)",
+    "CompanyMembersInstaller.Install(mainWindow)",
+    "DriverProfileInstaller.Install(mainWindow)",
+    "SessionHealthInstaller.Install(mainWindow)",
+    "Alpha12FigmaNavigationModeInstaller.Install(mainWindow)",
+    "Alpha12FigmaLiveDataInstaller.Install(mainWindow)",
+    "Alpha12FigmaResponsiveShellInstaller.Install(mainWindow)",
+    "Alpha12FigmaSystemSurfaceInstaller.Install(mainWindow)"
 )
 
 Require-Text "src/NavBR.Client/MainWindow.xaml" @(

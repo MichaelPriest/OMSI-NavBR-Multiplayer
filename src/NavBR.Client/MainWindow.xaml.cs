@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Maps;
+using NavBR.Client.Driver;
 using NavBR.Client.Omsi;
 using NavBR.Client.Hardware;
 using NavBR.Client.Telemetry;
@@ -21,6 +22,7 @@ public partial class MainWindow : Window
     private readonly Omsi23004TelemetryProvider _telemetryProvider = new();
     private readonly OmsiMapCatalog _mapCatalog = new();
     private readonly DispatcherTimer _telemetryTimer;
+    private readonly DriverStatisticsService _driverStatisticsService;
 
     private bool _languageSelectorReady;
     private OmsiProcessInfo? _currentOmsi;
@@ -50,6 +52,12 @@ public partial class MainWindow : Window
         };
         _telemetryTimer.Tick += (_, _) => PollTelemetry();
 
+        // Driver statistics are a native background service, not a WPF-screen
+        // concern. Start them directly so the retired profile installer no
+        // longer needs to run on the hidden MainWindow host.
+        _driverStatisticsService = new DriverStatisticsService(() => _lastTelemetry);
+        _driverStatisticsService.Start();
+
         ConfigureLanguageSelector();
         ApplyLocalization();
         RenderCurrentState();
@@ -57,6 +65,7 @@ public partial class MainWindow : Window
         Loaded += async (_, _) => await RefreshOmsiStatusAsync();
         Closed += (_, _) =>
         {
+            _driverStatisticsService.Dispose();
             HardwareCockpitBridgeController.Shared.Dispose();
             _telemetryProvider.Dispose();
         };
