@@ -733,3 +733,112 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .hud-select-grid, .hud-module-grid { grid-template-columns:1fr; }
   .hud-preview-line { flex-direction:column; }
 }
+
+
+.roadmap-studio-layout {
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(330px,.92fr);
+  gap:14px;
+}
+.roadmap-control-card,
+.roadmap-analysis-card,
+.roadmap-result-card {
+  padding:20px;
+}
+.roadmap-result-card {
+  grid-column:1 / -1;
+}
+.roadmap-map-select {
+  margin-top:12px;
+}
+.roadmap-map-facts,
+.roadmap-analysis-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.roadmap-map-facts span,
+.roadmap-analysis-grid span {
+  display:grid;
+  gap:4px;
+  min-width:0;
+  padding:10px 11px;
+  border:1px solid #1b3342;
+  border-radius:9px;
+  background:#081721;
+}
+.roadmap-map-facts small,
+.roadmap-analysis-grid small {
+  color:#6f899a;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.roadmap-map-facts strong,
+.roadmap-analysis-grid strong {
+  overflow:hidden;
+  color:#dceaf3;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.roadmap-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+.roadmap-progress {
+  display:grid;
+  gap:7px;
+  margin-top:14px;
+}
+.roadmap-progress > div:first-child {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color:#8fa7b7;
+  font-size:9px;
+}
+.roadmap-progress-track {
+  height:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#102431;
+}
+.roadmap-progress-track i {
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#4ca7dc,#75d8ff);
+}
+.roadmap-output-path {
+  display:block;
+  margin-top:12px;
+  padding:10px 11px;
+  overflow:auto;
+  border:1px solid #1b3342;
+  border-radius:9px;
+  background:#06131c;
+  color:#93b7cd;
+  font-size:9px;
+  white-space:nowrap;
+}
+.roadmap-backup {
+  margin:10px 0 0;
+  color:#718b9d;
+  font-size:9px;
+  line-height:1.5;
+}
+.roadmap-backup code {
+  color:#9fc3d9;
+}
+@media (max-width:1050px) {
+  .roadmap-studio-layout { grid-template-columns:1fr; }
+  .roadmap-result-card { grid-column:auto; }
+}
+@media (max-width:720px) {
+  .roadmap-map-facts,
+  .roadmap-analysis-grid { grid-template-columns:1fr 1fr; }
+}
