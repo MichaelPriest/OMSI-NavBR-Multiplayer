@@ -298,6 +298,53 @@ export interface NavBrSystemState {
   };
 }
 
+export interface NavBrRoadmapStudioState {
+  maps: {
+    folderName: string;
+    displayName: string;
+    directoryPath: string;
+    tileCount: number;
+    compatibilityId?: string | null;
+    roadmapPath?: string | null;
+    roadmapExists: boolean;
+  }[];
+  selectedFolder?: string | null;
+  busy: boolean;
+  progress?: number | null;
+  status?: string | null;
+  error?: string | null;
+  analysis?: {
+    mapDirectory: string;
+    outputPath: string;
+    tileImageCount: number;
+    minGridX: number;
+    minGridY: number;
+    maxGridX: number;
+    maxGridY: number;
+    tilePixelWidth: number;
+    tilePixelHeight: number;
+    outputPixelWidth: number;
+    outputPixelHeight: number;
+    missingTileImages: number;
+    existingWholeRoadmap: boolean;
+    estimatedBytes: number;
+    canBuildFromTiles: boolean;
+  } | null;
+  result?: {
+    mode: "tiles" | "vector";
+    outputPath: string;
+    backupPath?: string | null;
+    pixelWidth: number;
+    pixelHeight: number;
+    elapsedSeconds: number;
+    fileSizeBytes?: number | null;
+    tileImagesUsed?: number | null;
+    missingTileImages?: number | null;
+    tileFilesRead?: number | null;
+    splinesDrawn?: number | null;
+  } | null;
+}
+
 export interface NavBrHardwareState {
   protocol: string;
   connected: boolean;
@@ -481,6 +528,7 @@ export interface NavBrState {
   navigation: NavBrNavigationState;
   operations: NavBrOperationsState;
   system: NavBrSystemState;
+  roadmapStudio: NavBrRoadmapStudioState;
   hardware: NavBrHardwareState;
   network: NavBrNetworkState;
   companyNetwork: NavBrCompanyNetworkState;
@@ -504,6 +552,10 @@ export type NavBrCommand =
   | "openHudEditor"
   | "saveHudSettings"
   | "resetHudSettings"
+  | "analyzeRoadmap"
+  | "buildRoadmapTiles"
+  | "buildRoadmapVector"
+  | "openRoadmapFolder"
   | "connectRoom"
   | "createLocalRoom"
   | "disconnectRoom"
