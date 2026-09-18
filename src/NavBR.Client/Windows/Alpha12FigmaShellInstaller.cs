@@ -54,7 +54,7 @@ internal static class Alpha12FigmaShellInstaller
         pages.Diagnostics.Content = BuildDiagnostics(diagnosticsCard);
 
         var root = new Grid { Background = Brush(6, 16, 26) };
-        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(252d) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(236d) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
 
         var sidebar = BuildSidebar(window, pages);
@@ -62,7 +62,7 @@ internal static class Alpha12FigmaShellInstaller
         root.Children.Add(sidebar);
 
         var workspace = new Grid { Background = Brush(6, 16, 26) };
-        workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64d) });
+        workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68d) });
         workspace.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
         workspace.Children.Add(BuildTopbar(window));
 
@@ -277,7 +277,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static Border BuildSidebar(MainWindow window, ShellPages pages)
     {
-        var dock = new DockPanel { Margin = new Thickness(16d, 18d, 14d, 14d) };
+        var dock = new DockPanel { Margin = new Thickness(14d, 18d, 12d, 14d) };
         var body = new StackPanel();
         var pageButtons = new List<Button>();
 
@@ -354,7 +354,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static Border BuildTopbar(MainWindow window)
     {
-        var grid = new Grid { Margin = new Thickness(28d, 0d, 28d, 0d) };
+        var grid = new Grid { Margin = new Thickness(30d, 0d, 30d, 0d) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -393,7 +393,7 @@ internal static class Alpha12FigmaShellInstaller
 
         return new Border
         {
-            Height = 64d,
+            Height = 68d,
             Background = Brush(6, 16, 26),
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(0d, 0d, 0d, 1d),
@@ -562,11 +562,11 @@ internal static class Alpha12FigmaShellInstaller
         stack.Children.Add(Text(title, 13d, White(), FontWeights.SemiBold));
         return new Border
         {
-            Padding = new Thickness(18d),
+            Padding = new Thickness(16d),
             Background = CardBrush(),
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(1d),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             Child = stack
         };
     }
@@ -605,7 +605,7 @@ internal static class Alpha12FigmaShellInstaller
             BorderBrush = border,
             BorderThickness = new Thickness(1d),
             Background = ElevatedBrush(),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             VerticalAlignment = VerticalAlignment.Center,
             Child = Text(text, 10d, White(), FontWeights.SemiBold)
         };
@@ -622,7 +622,7 @@ internal static class Alpha12FigmaShellInstaller
             BorderBrush = BorderBrush(),
             BorderThickness = new Thickness(1d),
             Background = ElevatedBrush(),
-            CornerRadius = new CornerRadius(14d),
+            CornerRadius = new CornerRadius(12d),
             VerticalAlignment = VerticalAlignment.Center,
             Child = stack
         };
@@ -717,16 +717,16 @@ internal static class Alpha12FigmaShellInstaller
 
     private static void StyleNavigationButton(Button button, bool selected)
     {
-        button.Height = 40d;
-        button.Margin = new Thickness(0d, 0d, 0d, 6d);
-        button.Padding = new Thickness(16d, 9d, 12d, 9d);
+        button.Height = 42d;
+        button.Margin = new Thickness(0d, 0d, 0d, 5d);
+        button.Padding = new Thickness(14d, 10d, 12d, 10d);
         button.HorizontalAlignment = HorizontalAlignment.Stretch;
         button.HorizontalContentAlignment = HorizontalAlignment.Left;
         button.Background = selected ? Brush(16, 38, 56) : Brushes.Transparent;
         button.Foreground = selected ? White() : Muted();
-        button.BorderBrush = selected ? Accent() : Brushes.Transparent;
+        button.BorderBrush = selected ? NavBlue() : Brushes.Transparent;
         button.BorderThickness = selected ? new Thickness(3d, 0d, 0d, 0d) : new Thickness(0d);
-        button.FontSize = 12.5d;
+        button.FontSize = 12d;
         button.Cursor = System.Windows.Input.Cursors.Hand;
     }
 
@@ -752,7 +752,7 @@ internal static class Alpha12FigmaShellInstaller
 
     private static UIElement BuildBrand()
     {
-        var stack = new StackPanel { Margin = new Thickness(12d, 2d, 4d, 28d) };
+        var stack = new StackPanel { Margin = new Thickness(10d, 2d, 4d, 26d) };
         stack.Children.Add(Text("NAVBR", 22d, White(), FontWeights.Bold));
         stack.Children.Add(Text("OMSI MULTIPLAYER", 9d, Accent(), FontWeights.Bold, new Thickness(0d, 2d, 0d, 0d)));
         return stack;
@@ -767,7 +767,7 @@ internal static class Alpha12FigmaShellInstaller
         Background = BorderBrush()
     };
 
-    private static StackPanel PageStack() => new() { Margin = new Thickness(40d, 32d, 40d, 40d) };
+    private static StackPanel PageStack() => new() { Margin = new Thickness(32d, 28d, 32d, 36d) };
 
     private static ScrollViewer NewPage() => new()
     {
@@ -864,6 +864,7 @@ internal static class Alpha12FigmaShellInstaller
     private static SolidColorBrush CardBrush() => Brush(10, 19, 26);
     private static SolidColorBrush ElevatedBrush() => Brush(13, 26, 36);
     private static SolidColorBrush BorderBrush() => Brush(28, 42, 51);
+    private static SolidColorBrush NavBlue() => Brush(61, 137, 196);
     private static SolidColorBrush Accent() => Brush(113, 198, 255);
     private static SolidColorBrush White() => Brush(218, 230, 238);
     private static SolidColorBrush Muted() => Brush(151, 171, 185);
