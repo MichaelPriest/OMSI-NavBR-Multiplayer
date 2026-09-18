@@ -67,3 +67,8 @@ if (window.chrome?.webview) {
   });
   send("refreshState");
 }
+
+const nativeMultiplayerButton = $("nativeMultiplayerButton");
+if (nativeMultiplayerButton) {
+  nativeMultiplayerButton.addEventListener("click", () => send("openMultiplayerCentral"));
+}
