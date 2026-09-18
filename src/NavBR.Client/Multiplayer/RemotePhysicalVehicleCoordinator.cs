@@ -108,12 +108,22 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        // A missing local manifest means the client is disconnecting,
+        // reconnecting or has not published a valid OMSI state yet. Never let
+        // a late remote frame create a physical vehicle in that window.
+        var localManifest = _localManifest;
+        if (localManifest is null)
+        {
+            await DespawnOwnedAsync(frame.Player.PlayerId, cancellationToken);
+            return;
+        }
+
         // Physical rendering only requires the same map/protocol. Players do
         // not need to be driving the same bus: the desktop client resolves the
         // remote asset by its content fingerprint before the guarded plugin
         // receives the local Vehicles path.
         var report = OmsiCompatibilityEvaluator.Compare(
-            _localManifest,
+            localManifest,
             remoteManifest,
             requireVehicleForPhysicalMultiplayer: false);
         if (!report.IsCompatible)
