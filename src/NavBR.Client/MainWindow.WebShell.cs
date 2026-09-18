@@ -178,6 +178,7 @@ public partial class MainWindow
                     speedKph = telemetry.SpeedKph
                 },
             navigation = BuildWebNavigationState(),
+            navigation3D = BuildWebNavigation3DState(),
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(),
             roadmapStudio = BuildWebRoadmapState(),
@@ -297,7 +298,7 @@ public partial class MainWindow
                 break;
 
             case "openNavigation3D":
-                OpenNavigation3D();
+                NavigatePrimaryWebShell("navigation");
                 break;
 
             case "toggleHudLayout":
