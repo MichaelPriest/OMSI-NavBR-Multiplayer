@@ -556,14 +556,18 @@ internal static class PhysicalVehicleBackend
                          "*.*",
                          options))
             {
+                if (!(fullPath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+                      fullPath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
                 if (++inspected > MaxVehicleDefinitionsToScan)
                 {
                     break;
                 }
 
-                if (!(fullPath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-                      fullPath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)) ||
-                    !TryFingerprintVehicle(
+                if (!TryFingerprintVehicle(
                         fullPath,
                         out var localCompatibilityId) ||
                     !string.Equals(
