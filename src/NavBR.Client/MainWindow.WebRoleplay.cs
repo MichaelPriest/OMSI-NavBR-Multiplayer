@@ -10,7 +10,7 @@ public partial class MainWindow
     {
         var mapKey = GetRoleplayMapKeyForShell();
         var selected = RoleplayCharacterSelectionStore.Get(mapKey);
-        var options = IsRoleplayMapReadyForShell()
+        IReadOnlyList<RoleplayCharacterOption> options = IsRoleplayMapReadyForShell()
             ? GetRoleplayCharacterOptionsForShell()
             : Array.Empty<RoleplayCharacterOption>();
         var controller = GetRoleplayControllerForShell();
@@ -50,19 +50,19 @@ public partial class MainWindow
                 ? null
                 : new
                 {
-                    current.CharacterId,
-                    current.CharacterName,
-                    current.MapName,
-                    current.MapCompatibilityId,
-                    current.LocalX,
-                    current.LocalY,
-                    current.LocalZ,
-                    current.HeadingDegrees,
-                    current.SpeedMps,
+                    characterId = current.CharacterId,
+                    characterName = current.CharacterName,
+                    mapName = current.MapName,
+                    mapCompatibilityId = current.MapCompatibilityId,
+                    localX = current.LocalX,
+                    localY = current.LocalY,
+                    localZ = current.LocalZ,
+                    headingDegrees = current.HeadingDegrees,
+                    speedMps = current.SpeedMps,
                     activity = current.Activity.ToString(),
-                    current.IsActive,
-                    current.HumanIndex,
-                    current.Timestamp
+                    isActive = current.IsActive,
+                    humanIndex = current.HumanIndex,
+                    timestamp = current.Timestamp
                 }
         };
     }
