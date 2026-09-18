@@ -1093,6 +1093,9 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
             Tornar preferido
           </button>
         )}
+        <button className="button ghost compact" onClick={() => sendCommand("openOmsiProfileFolder", { profileId: profile.id })}>
+          Abrir pasta
+        </button>
         <button className="button ghost compact danger" onClick={() => sendCommand("removeOmsiProfile", { profileId: profile.id })}>
           Remover
         </button>
@@ -1174,7 +1177,7 @@ function Settings({
           <article className="card discovery-card">
             <div className="section-heading">
               <div><span className="eyebrow">DESCOBERTA</span><h3>Encontrar OMSI 2</h3></div>
-              <button className="button ghost" onClick={() => sendCommand("openOmsiProfiles")}>Editor nativo</button>
+              <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>Selecionar pasta</button>
             </div>
             <p>O NavBR pode localizar instalações registradas, bibliotecas Steam e também validar uma pasta informada manualmente.</p>
             <div className="discovery-actions">
@@ -1353,12 +1356,6 @@ function Settings({
               <button className="button ghost" onClick={() => sendCommand("openHudEditor")}>Configurar HUD</button>
               <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>Mover HUD</button>
             </div>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">OMSI</span>
-            <h3>Perfis avançados</h3>
-            <p>Mapas/veículos habilitados por perfil e edições detalhadas permanecem disponíveis no editor WPF durante a migração.</p>
-            <button className="button ghost" onClick={() => sendCommand("openOmsiProfiles")}>Abrir editor de perfis</button>
           </article>
           <article className="card compact-card">
             <span className="eyebrow">FALLBACK</span>
