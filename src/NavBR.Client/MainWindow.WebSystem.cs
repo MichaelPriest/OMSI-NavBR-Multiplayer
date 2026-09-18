@@ -125,6 +125,7 @@ public partial class MainWindow
             sessionHealth = BuildWebSessionHealthState(),
             legacyPreferences = new
             {
+                firstRunCompleted = alpha12Preferences.FirstRunCompleted,
                 advancedModeEnabled = alpha12Preferences.AdvancedModeEnabled,
                 showDrivingTips = alpha12Preferences.ShowDrivingTips
             }
@@ -431,10 +432,18 @@ public partial class MainWindow
         var current = Alpha12PreferencesStore.Load();
         Alpha12PreferencesStore.Save(current with
         {
-            FirstRunCompleted = true,
             AdvancedModeEnabled = advancedModeEnabled,
             ShowDrivingTips = showDrivingTips
         });
+    }
+
+    private static void CompleteFirstRunFromWeb()
+    {
+        var current = Alpha12PreferencesStore.Load();
+        if (!current.FirstRunCompleted)
+        {
+            Alpha12PreferencesStore.Save(current with { FirstRunCompleted = true });
+        }
     }
 
     private static void OpenFeedbackFromWeb(string? kind)
