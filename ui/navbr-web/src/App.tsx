@@ -433,9 +433,9 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
               className="nav-vehicle"
               transform={`translate(${navigation.vehicle.x} ${-navigation.vehicle.y}) rotate(${navigation.vehicle.headingDegrees})`}
             >
-              <circle r="23" className="nav-vehicle-halo" />
-              <path d="M -12 -20 L 12 -20 L 14 13 L 0 23 L -14 13 Z" />
-              <path className="nav-vehicle-heading" d="M 0 -32 L -7 -20 L 7 -20 Z" />
+              <circle r="19" className="nav-vehicle-hud-outer" />
+              <circle r="14" className="nav-vehicle-hud-inner" />
+              <polygon className="nav-vehicle-hud-arrow" points="0,-15 8,10 0,4 -8,10" />
             </g>
           )}
         </svg>
@@ -1156,12 +1156,14 @@ function Operations({
           <article className="card cco-map-card">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">{pick("SESSÃO OPERACIONAL", "OPERATION SESSION", "SESIÓN OPERACIONAL", "BETRIEBSSITZUNG", "SESSION OPÉRATIONNELLE")}</span>
+                <span className="eyebrow">{pick("MAPA E RETORNO À ROTA", "MAP AND ROUTE REJOIN", "MAPA Y RETORNO A LA RUTA", "KARTE UND ROUTENRÜCKKEHR", "CARTE ET RETOUR À L’ITINÉRAIRE")}</span>
                 <h3>{local?.mapName || state?.telemetry?.mapName || pick("Sem mapa ativo", "No active map", "Sin mapa activo", "Keine aktive Karte", "Aucune carte active")}</h3>
               </div>
               <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation
+              ? <NavigationMap navigation={state.navigation} />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="cco-side-stack">

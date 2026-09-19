@@ -309,6 +309,29 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeOmsi23004Addresses()
     return 1;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ProbePhysicalVehicleBackend()
+{
+    const auto imageBase = ImageBase();
+    if (imageBase == 0 || sizeof(void*) != 4)
+    {
+        return 0;
+    }
+
+    return IsExecutableAddress(Resolve(RvaGetMem)) &&
+           IsExecutableAddress(Resolve(RvaFreeMem)) &&
+           IsExecutableAddress(Resolve(RvaSetCriticalSectionLock)) &&
+           IsExecutableAddress(Resolve(RvaReleaseCriticalSectionLock)) &&
+           IsExecutableAddress(Resolve(RvaMakeVehicle)) &&
+           IsExecutableAddress(Resolve(RvaTempRvListCreate)) &&
+           IsExecutableAddress(Resolve(RvaCopyTempListIntoMainList)) &&
+           IsReadableAddress(Resolve(RvaTempRvListClass)) &&
+           IsReadableAddress(Resolve(RvaRoadVehiclesPointer)) &&
+           IsReadableAddress(Resolve(RvaRoadVehicleTypesPointer)) &&
+           IsReadableAddress(Resolve(RvaProgramManagerPointer))
+        ? 1
+        : 0;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetProgramManager()
 {
     return ReadPointerAtRva(RvaProgramManagerPointer);

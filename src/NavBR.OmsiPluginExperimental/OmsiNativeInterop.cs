@@ -67,7 +67,7 @@ internal static class OmsiNativeInterop
             {
                 return GetAbiVersion() == ExpectedAbiVersion &&
                        GetStateInteropVersion() == ExpectedStateInteropVersion &&
-                       ProbeOmsi23004Addresses() == 1;
+                       ProbePhysicalVehicleBackend() == 1;
             }
             catch (DllNotFoundException)
             {
@@ -295,6 +295,9 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeRoleplayHumanControl")]
     private static extern int ProbeRoleplayHumanControl();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbePhysicalVehicleBackend")]
+    private static extern int ProbePhysicalVehicleBackend();
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetImageBase")]
     internal static extern uint GetImageBase();

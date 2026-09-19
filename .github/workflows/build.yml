@@ -99,6 +99,7 @@ jobs:
             'NavBR_GetAbiVersion',
             'NavBR_GetStateInteropVersion',
             'NavBR_ProbeRoleplayHumanControl',
+            'NavBR_ProbePhysicalVehicleBackend',
             'NavBR_GetRoadVehicleCount',
             'NavBR_GetRoadVehicleAt',
             'NavBR_IsRoadVehiclePointer',

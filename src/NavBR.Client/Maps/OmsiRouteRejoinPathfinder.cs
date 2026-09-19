@@ -21,7 +21,7 @@ internal sealed class OmsiRouteRejoinPathfinder
     private const int MaxSamplesPerSpline = 128;
     private const double EndpointJoinMeters = 8d;
     private const double EndpointJoinVerticalMeters = 3d;
-    private const double MaxSnapToRoadMeters = 18d;
+    private const double MaxSnapToRoadMeters = 40d;
     private const double MaxRejoinSearchMeters = 2200d;
     private const int MaxTilesPerSearch = 100;
     private const int MaxOutputPoints = 260;
@@ -144,7 +144,7 @@ internal sealed class OmsiRouteRejoinPathfinder
         }
 
         var nodePath = FindShortestPath(graph, startNode.Id, targetNode.Id);
-        if (nodePath.Count < 2)
+        if (nodePath.Count == 0)
         {
             return null;
         }
@@ -304,6 +304,26 @@ internal sealed class OmsiRouteRejoinPathfinder
             if (points.Count >= 2)
             {
                 result.Add(new RoadSegment(points));
+            }
+        }
+
+        var mapDirectory = Path.GetDirectoryName(tilePath);
+        if (!string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            foreach (var sceneryPath in OmsiRouteSceneryPathGeometryReader.ReadAllRoadPaths(
+                         mapDirectory,
+                         tilePath))
+            {
+                var points = sceneryPath
+                    .Select(point => new RoadPoint3(
+                        gridX * tileSize + point.TileX,
+                        gridY * tileSize + point.TileY,
+                        point.Z))
+                    .ToArray();
+                if (points.Length >= 2)
+                {
+                    result.Add(new RoadSegment(points));
+                }
             }
         }
 

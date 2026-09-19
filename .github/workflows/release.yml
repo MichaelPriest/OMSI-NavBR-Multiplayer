@@ -134,6 +134,7 @@ jobs:
           foreach ($expected in @(
             "NavBR_GetStateInteropVersion",
             "NavBR_ProbeRoleplayHumanControl",
+            "NavBR_ProbePhysicalVehicleBackend",
             "NavBR_ResolveMapTileIndex",
             "NavBR_MakeVehicle",
             "NavBR_SetVehicleTransform",

@@ -5,6 +5,7 @@ EXPORTS
     NavBR_ProbeRoleplayHumanControl
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
+    NavBR_ProbePhysicalVehicleBackend
     NavBR_GetProgramManager
     NavBR_GetRoadVehicleTypes
     NavBR_GetRoadVehicleCount
