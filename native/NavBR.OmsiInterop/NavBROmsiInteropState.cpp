@@ -12,6 +12,7 @@ namespace
 {
     constexpr std::uintptr_t PreferredImageBase = 0x00400000u;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
+    constexpr std::uintptr_t RvaMapPointer = 0x00861588u - PreferredImageBase;
     constexpr std::uintptr_t RvaHumansPointer = 0x0086172Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaPlayerVehicleIndex = 0x00861740u - PreferredImageBase;
 
@@ -20,9 +21,11 @@ namespace
     constexpr int ObjectListItemsPointerOffset = 0x04;
     constexpr int MaxReasonableRoadVehicles = 4096;
     constexpr int MaxReasonableHumans = 8192;
+    constexpr int MaxReasonableMapTiles = 200000;
 
     constexpr int PositionOffset = 0x004;
     constexpr int RotationOffset = 0x050;
+    constexpr int KachelOffset = 0x074;
     constexpr int MarkedForKillingOffset = 0x25C;
     constexpr int LastPositionOffset = 0x26E;
     constexpr int LastRotationOffset = 0x27A;
@@ -34,6 +37,9 @@ namespace
     constexpr int AiBlinkerLeftOffset = 0x63C;
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
+
+    constexpr int MapKachelnOffset = 0x118;
+    constexpr int MapLoadedOffset = 0x120;
 
     // OmsiHumanBeingInst offsets documented by public OMSI reverse-engineering
     // references. These are guarded by membership in the global Humans array.
@@ -225,6 +231,97 @@ namespace
         count = currentCount;
         itemArray = items;
         return true;
+    }
+
+    bool TryGetMapTileItems(int& count, int& itemArray)
+    {
+        count = 0;
+        itemArray = 0;
+
+        const auto globalAddress = Resolve(RvaMapPointer);
+        if (!IsReadableRange(globalAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int mapPointer = *reinterpret_cast<const int*>(globalAddress);
+        if (mapPointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapLoadedOffset,
+                sizeof(unsigned char)) ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapKachelnOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const auto loaded = *reinterpret_cast<const unsigned char*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapLoadedOffset);
+        if (loaded == 0)
+        {
+            return false;
+        }
+
+        const int items = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapKachelnOffset);
+        if (items == 0)
+        {
+            return false;
+        }
+
+        const auto lengthAddress =
+            static_cast<std::uintptr_t>(items) - sizeof(int);
+        if (!IsReadableRange(lengthAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int currentCount =
+            *reinterpret_cast<const int*>(lengthAddress);
+        if (currentCount <= 0 ||
+            currentCount > MaxReasonableMapTiles ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(items),
+                static_cast<std::size_t>(currentCount) * sizeof(int)))
+        {
+            return false;
+        }
+
+        count = currentCount;
+        itemArray = items;
+        return true;
+    }
+
+    bool IsMapTileIndexValid(int mapTileIndex)
+    {
+        if (mapTileIndex < 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        int items = 0;
+        if (!TryGetMapTileItems(count, items) ||
+            mapTileIndex >= count)
+        {
+            return false;
+        }
+
+        const auto itemAddress =
+            static_cast<std::uintptr_t>(items) +
+            static_cast<std::uintptr_t>(mapTileIndex) * sizeof(int);
+        if (!IsReadableRange(itemAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int tilePointer =
+            *reinterpret_cast<const int*>(itemAddress);
+        return tilePointer != 0 &&
+               IsReadableRange(
+                   static_cast<std::uintptr_t>(tilePointer),
+                   sizeof(int));
     }
 
 
@@ -487,7 +584,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 4;
+    return 5;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
@@ -889,13 +986,24 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     float rotationY,
     float rotationZ,
     float rotationW,
-    float groundSpeedMps)
+    float groundSpeedMps,
+    int mapTileIndex)
 {
     if (!IsRoadVehiclePointer(vehiclePointer) ||
         !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
         !std::isfinite(rotationZ) || !std::isfinite(rotationW) ||
-        !std::isfinite(groundSpeedMps))
+        !std::isfinite(groundSpeedMps) ||
+        mapTileIndex < -1)
+    {
+        return 0;
+    }
+
+    if (mapTileIndex >= 0 &&
+        (!IsMapTileIndexValid(mapTileIndex) ||
+         !IsWritableRange(
+             static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
+             sizeof(int))))
     {
         return 0;
     }
@@ -933,7 +1041,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
            WriteValue(vehiclePointer, TachoOffset, speed) &&
            WriteValue(vehiclePointer, GroundspeedOffset, speed) &&
-           WriteByte(vehiclePointer, PaiOffset, disabled)
+           WriteByte(vehiclePointer, PaiOffset, disabled) &&
+           (mapTileIndex < 0 ||
+            WriteValue(vehiclePointer, KachelOffset, mapTileIndex))
         ? 1
         : 0;
 }
