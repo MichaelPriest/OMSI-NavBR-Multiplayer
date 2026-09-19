@@ -234,6 +234,20 @@ public partial class MainWindow
     {
         ResetWebRoleplayInteractionFeedback();
 
+        // Clicking "Sair do ônibus" is an explicit local request to enter RP.
+        // Arm the experimental write flag here as well so the button cannot be
+        // a no-op merely because the separate toggle was still off.
+        if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled)
+        {
+            var settings = MultiplayerSettingsStore.Load();
+            MultiplayerSettingsStore.Save(settings with
+            {
+                ExperimentalRoleplayCharacterEnabled = true
+            });
+            ExperimentalFeatureFlags.SetRoleplayCharacterEnabled(true);
+            _webRoleplayStatus = "roleplay-enabled";
+        }
+
         var mapKey = GetRoleplayMapKeyForShell();
         var options = IsRoleplayMapReadyForShell()
             ? GetRoleplayCharacterOptionsForShell()
