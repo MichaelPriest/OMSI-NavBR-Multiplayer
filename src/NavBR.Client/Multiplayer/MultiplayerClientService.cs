@@ -277,6 +277,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _joinRequest = null;
         ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
+        _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
