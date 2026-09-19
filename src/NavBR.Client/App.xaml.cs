@@ -31,14 +31,25 @@ public partial class App : Application
         RemoteDiagnosticsService.Initialize();
         RemoteDiagnosticsService.Record("session", "info", "client-start");
 
-        var pluginBootstrap = OmsiPluginInstallationService.EnsureInstalledAtStartup();
-        NavBRAppLog.Info(
-            $"plugin-bootstrap status={pluginBootstrap.Status} changed={pluginBootstrap.Changed} " +
-            $"root={pluginBootstrap.OmsiRoot ?? "-"} message={pluginBootstrap.Message ?? "-"}");
-        RemoteDiagnosticsService.Record(
-            "plugin-bootstrap",
-            pluginBootstrap.Status is "failed" or "conflict" ? "warning" : "info",
-            $"status={pluginBootstrap.Status} changed={pluginBootstrap.Changed}");
+        try
+        {
+            var pluginBootstrap = OmsiPluginInstallationService.EnsureInstalledAtStartup();
+            NavBRAppLog.Info(
+                $"plugin-bootstrap status={pluginBootstrap.Status} changed={pluginBootstrap.Changed} " +
+                $"root={pluginBootstrap.OmsiRoot ?? "-"} message={pluginBootstrap.Message ?? "-"}");
+            RemoteDiagnosticsService.Record(
+                "plugin-bootstrap",
+                pluginBootstrap.Status is "failed" or "conflict" ? "warning" : "info",
+                $"status={pluginBootstrap.Status} changed={pluginBootstrap.Changed}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("plugin-bootstrap-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-bootstrap",
+                "warning",
+                $"status=failed type={ex.GetType().Name}");
+        }
 
         PluginBridge.ConnectionStateChanged += PluginBridge_ConnectionStateChanged;
         PluginBridge.CommandResultReceived += PluginBridge_CommandResultReceived;
