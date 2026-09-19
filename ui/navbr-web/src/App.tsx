@@ -269,7 +269,15 @@ const maneuverLabel = (
   }
 };
 
-function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
+function NavigationMap({
+  navigation,
+  remoteVehicles = [],
+  remoteRoleplayCharacters = []
+}: {
+  navigation: NavBrNavigationState;
+  remoteVehicles?: NavBrState["navigation3D"]["remoteVehicles"];
+  remoteRoleplayCharacters?: NavBrState["navigation3D"]["remoteRoleplayCharacters"];
+}) {
   const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
   const [zoom, setZoom] = useState(1);
@@ -285,8 +293,15 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const route = navigation.routePoints;
     const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
+    const remotePoints = [
+      ...remoteVehicles.map(item => ({ x: item.x, y: item.y })),
+      ...remoteRoleplayCharacters.map(item => ({ x: item.x, y: item.y }))
+    ];
 
-    if (route.length < 2 && !navigation.roadmapAvailable && !vehicle) {
+    if (route.length < 2 &&
+        !navigation.roadmapAvailable &&
+        !vehicle &&
+        remotePoints.length === 0) {
       return null;
     }
 
@@ -301,9 +316,10 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX = vehicle.x + radius;
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
-    } else if (route.length > 0 || rejoin.length > 0) {
-      const xs = [...route, ...rejoin].map(point => point.x);
-      const ys = [...route, ...rejoin].map(point => -point.y);
+    } else if (route.length > 0 || rejoin.length > 0 || remotePoints.length > 0) {
+      const allPoints = [...route, ...rejoin, ...remotePoints];
+      const xs = allPoints.map(point => point.x);
+      const ys = allPoints.map(point => -point.y);
       minX = Math.min(...xs);
       maxX = Math.max(...xs);
       minY = Math.min(...ys);
@@ -342,7 +358,17 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       routePoints,
       rejoinPoints
     };
-  }, [navigation.routePoints, navigation.rejoinPoints, navigation.roadmapAvailable, navigation.bounds, navigation.vehicle, mode, zoom]);
+  }, [
+    navigation.routePoints,
+    navigation.rejoinPoints,
+    navigation.roadmapAvailable,
+    navigation.bounds,
+    navigation.vehicle,
+    remoteVehicles,
+    remoteRoleplayCharacters,
+    mode,
+    zoom
+  ]);
 
   return (
     <div className="navigation-map">
@@ -428,6 +454,46 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
             </g>
           ))}
 
+          {remoteVehicles.map(remote => (
+            <g
+              className="nav-remote-bus"
+              key={`bus-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="18" className="nav-remote-bus-outer" />
+              <circle r="13" className="nav-remote-bus-inner" />
+              <polygon className="nav-remote-bus-arrow" points="0,-14 7,9 0,4 -7,9" />
+              <text
+                className="nav-remote-label"
+                x="22"
+                y="-18"
+                transform={`rotate(${-remote.headingDegrees} 22 -18)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
+          {remoteRoleplayCharacters.map(remote => (
+            <g
+              className="nav-remote-roleplay"
+              key={`rp-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="16" className="nav-remote-roleplay-outer" />
+              <circle cy="-3" r="5" className="nav-remote-roleplay-head" />
+              <path className="nav-remote-roleplay-body" d="M 0 3 L 0 15 M -6 8 L 6 8 M 0 15 L -5 24 M 0 15 L 5 24" />
+              <text
+                className="nav-remote-label roleplay"
+                x="20"
+                y="-17"
+                transform={`rotate(${-remote.headingDegrees} 20 -17)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
           {navigation.vehicle && (
             <g
               className="nav-vehicle"
@@ -446,6 +512,12 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         {navigation.rejoinAvailable && <span><i className="rejoin" /> {pick("Retorno à rota", "Route rejoin", "Retorno a la ruta", "Routenrückkehr", "Retour à l’itinéraire")}</span>}
         <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
         <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
+        {remoteVehicles.length > 0 && (
+          <span><i className="remote-bus" /> {remoteVehicles.length} {pick("ônibus online", "online bus(es)", "autobús(es) online", "Online-Bus(se)", "bus en ligne")}</span>
+        )}
+        {remoteRoleplayCharacters.length > 0 && (
+          <span><i className="remote-rp" /> {remoteRoleplayCharacters.length} RP</span>
+        )}
       </div>
     </div>
   );
@@ -769,7 +841,11 @@ function Navigation({
           </div>
           {mapView === "3d" && navigation3D
             ? <Navigation3DMap state={navigation3D} />
-            : <NavigationMap navigation={navigation} />}
+            : <NavigationMap
+                navigation={navigation}
+                remoteVehicles={navigation3D?.remoteVehicles}
+                remoteRoleplayCharacters={navigation3D?.remoteRoleplayCharacters}
+              />}
         </article>
 
         <aside className="navigation-side">
@@ -1162,7 +1238,11 @@ function Operations({
               <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
             </div>
             {state?.navigation
-              ? <NavigationMap navigation={state.navigation} />
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
               : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 

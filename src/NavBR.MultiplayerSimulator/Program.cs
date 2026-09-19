@@ -271,7 +271,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
         var manifest = new OmsiCompatibilityManifest(
             OmsiVersion: "simulator",
-            NavBRVersion: "alpha.14-simulator",
+            NavBRVersion: "alpha.15-simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
             VehiclePath: _options.VehiclePath,
@@ -447,7 +447,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             RotationY: 0d,
             RotationZ: Math.Sin(half),
             RotationW: Math.Cos(half),
-            MapTileIndex: _options.MapTileIndex);
+            MapTileIndex: _options.MapTileIndex,
+            PhysicalGridX: _options.GridX,
+            PhysicalGridY: _options.GridY);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
