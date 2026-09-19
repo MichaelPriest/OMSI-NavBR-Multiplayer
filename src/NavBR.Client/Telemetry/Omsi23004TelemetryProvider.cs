@@ -429,6 +429,20 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tileY = ty;
             }
 
+            // KachelInfos is indexed by the vehicle's real Kachel and carries
+            // the exact grid coordinate for that tile. Prefer it over
+            // Map.CenterKachel, which follows the local map/camera context.
+            if (mapTileIndex is int exactTileIndex &&
+                TryReadMapTileGrid(
+                    memory,
+                    exactTileIndex,
+                    out var vehicleGridX,
+                    out var vehicleGridY))
+            {
+                gridX = vehicleGridX;
+                gridY = vehicleGridY;
+            }
+
             string? line = null;
             string? route = null;
             string? nextStopName = null;
@@ -487,6 +501,80 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         {
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
+        }
+    }
+
+    private static bool TryReadMapTileGrid(
+        ReadOnlyProcessMemory memory,
+        int mapTileIndex,
+        out int gridX,
+        out int gridY)
+    {
+        gridX = 0;
+        gridY = 0;
+
+        if (mapTileIndex < 0 || mapTileIndex > 200_000)
+        {
+            return false;
+        }
+
+        try
+        {
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            if (memory.ReadByte(nint.Add(
+                    mapPointer,
+                    Omsi23004MemoryProfile.MapLoadedOffset)) == 0)
+            {
+                return false;
+            }
+
+            var infosAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapKachelInfosOffset));
+            if (infosAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var infosPointer = ReadOnlyProcessMemory.PointerFromUInt32(infosAddress);
+            var count = memory.ReadInt32(nint.Subtract(infosPointer, sizeof(int)));
+            if (count <= 0 ||
+                count > 200_000 ||
+                mapTileIndex >= count)
+            {
+                return false;
+            }
+
+            var infoPointer = nint.Add(
+                infosPointer,
+                mapTileIndex * Omsi23004MemoryProfile.MapKachelInfoSize);
+            var x = memory.ReadInt32(nint.Add(
+                infoPointer,
+                Omsi23004MemoryProfile.MapKachelInfoGridXOffset));
+            var y = memory.ReadInt32(nint.Add(
+                infoPointer,
+                Omsi23004MemoryProfile.MapKachelInfoGridYOffset));
+
+            if (Math.Abs((long)x) > 100_000L ||
+                Math.Abs((long)y) > 100_000L)
+            {
+                return false;
+            }
+
+            gridX = x;
+            gridY = y;
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
