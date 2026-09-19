@@ -1582,3 +1582,14 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .room-privacy-row { display:grid; }
   .room-help-grid span { grid-template-columns:1fr; gap:2px; }
 }
+
+
+.navigation-map-diagnostic {
+  margin-left: auto;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
