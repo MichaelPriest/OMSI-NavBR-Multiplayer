@@ -260,6 +260,8 @@ internal static class PhysicalVehicleBackend
 
         var locked = false;
         var handedToOmsi = false;
+        var makeVehicleResult = 0;
+        var copyTempListResult = 0;
         var createdVehiclePointers = Array.Empty<int>();
         try
         {
@@ -281,7 +283,7 @@ internal static class PhysicalVehicleBackend
             }
 
             handedToOmsi = true;
-            _ = OmsiNativeInterop.MakeVehicle(
+            makeVehicleResult = OmsiNativeInterop.MakeVehicle(
                 programManager,
                 tempList,
                 roadVehicleTypes,
@@ -308,7 +310,8 @@ internal static class PhysicalVehicleBackend
                 randomPaintScheme: 0,
                 filenameAnsiString: filename);
 
-            _ = OmsiNativeInterop.CopyTempRoadVehicleListIntoMain(tempList);
+            copyTempListResult =
+                OmsiNativeInterop.CopyTempRoadVehicleListIntoMain(tempList);
 
             var completeDiff = OmsiNativeInterop.TryFindNewRoadVehicles(
                 before,
@@ -323,7 +326,7 @@ internal static class PhysicalVehicleBackend
                 return Fail(
                     command,
                     "spawn-pointer-unresolved",
-                    "OMSI spawn did not produce a fully identifiable RoadVehicle set.");
+                    $"OMSI spawn did not produce a fully identifiable RoadVehicle set. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, detected={createdVehiclePointers.Length}.");
             }
 
             if (createdVehiclePointers.Length != 1)
@@ -336,7 +339,7 @@ internal static class PhysicalVehicleBackend
                 return Fail(
                     command,
                     "multi-vehicle-consist-unsupported",
-                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet.",
+                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}.",
                     remoteVehicleCount: createdVehiclePointers.Length);
             }
         }
