@@ -96,6 +96,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             settings.EphemeralRoomPassword,
             settings.EphemeralCreatePrivateRoom);
         _physicalVehicles.SetLocalManifest(compatibility);
+        _physicalVehicles.SetLocalTelemetry(null);
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
@@ -137,6 +138,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _joinRequest = null;
             ResetRoomMetadata();
             _physicalVehicles.SetLocalManifest(null);
+            _physicalVehicles.SetLocalTelemetry(null);
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
@@ -174,6 +176,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         // identity is available, and may change vehicles without reconnecting.
         _physicalVehicles.SetLocalManifest(
             OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+        _physicalVehicles.SetLocalTelemetry(outgoing);
 
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
