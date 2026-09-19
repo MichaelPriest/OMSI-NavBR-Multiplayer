@@ -299,8 +299,11 @@ namespace
         return true;
     }
 
-    bool IsMapTileIndexValid(int mapTileIndex)
+    bool TryGetMapTilePointerByIndex(
+        int mapTileIndex,
+        int& tilePointer)
     {
+        tilePointer = 0;
         if (mapTileIndex < 0)
         {
             return false;
@@ -322,19 +325,63 @@ namespace
             return false;
         }
 
-        const int tilePointer =
+        const int candidate =
             *reinterpret_cast<const int*>(itemAddress);
-        if (tilePointer == 0 ||
+        if (candidate == 0 ||
             !IsReadableRange(
-                static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset,
-                sizeof(unsigned char)))
+                static_cast<std::uintptr_t>(candidate) + MapKachelLoadedOffset,
+                sizeof(unsigned char)) ||
+            *reinterpret_cast<const unsigned char*>(
+                static_cast<std::uintptr_t>(candidate) + MapKachelLoadedOffset) == 0)
         {
             return false;
         }
 
-        const auto tileLoaded = *reinterpret_cast<const unsigned char*>(
-            static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset);
-        return tileLoaded != 0;
+        tilePointer = candidate;
+        return true;
+    }
+
+    bool TryGetMapTileIndexByPointer(
+        int tilePointer,
+        int& mapTileIndex)
+    {
+        mapTileIndex = -1;
+        if (tilePointer <= 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        int items = 0;
+        if (!TryGetMapTileItems(count, items))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < count; ++index)
+        {
+            const auto itemAddress =
+                static_cast<std::uintptr_t>(items) +
+                static_cast<std::uintptr_t>(index) * sizeof(int);
+            if (!IsReadableRange(itemAddress, sizeof(int)))
+            {
+                return false;
+            }
+
+            if (*reinterpret_cast<const int*>(itemAddress) == tilePointer)
+            {
+                mapTileIndex = index;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsMapTileIndexValid(int mapTileIndex)
+    {
+        int tilePointer = 0;
+        return TryGetMapTilePointerByIndex(mapTileIndex, tilePointer);
     }
 
     bool TryResolveMapTileIndexByGrid(
@@ -725,7 +772,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 5;
+    return 6;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
@@ -783,6 +830,29 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleTileIndex(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return -1;
+    }
+
+    const auto tileAddress =
+        static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset;
+    if (!IsReadableRange(tileAddress, sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int tilePointer =
+        *reinterpret_cast<const int*>(tileAddress);
+    int tileIndex = -1;
+    return TryGetMapTileIndexByPointer(tilePointer, tileIndex)
+        ? tileIndex
+        : -1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePosition(
@@ -1155,8 +1225,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return 0;
     }
 
+    int mapTilePointer = 0;
     if (mapTileIndex >= 0 &&
-        (!IsMapTileIndexValid(mapTileIndex) ||
+        (!TryGetMapTilePointerByIndex(mapTileIndex, mapTilePointer) ||
          !IsWritableRange(
              static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
              sizeof(int))))
@@ -1199,7 +1270,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
            WriteValue(vehiclePointer, GroundspeedOffset, speed) &&
            WriteByte(vehiclePointer, PaiOffset, disabled) &&
            (mapTileIndex < 0 ||
-            WriteValue(vehiclePointer, KachelOffset, mapTileIndex))
+            WriteValue(vehiclePointer, KachelOffset, mapTilePointer))
         ? 1
         : 0;
 }
