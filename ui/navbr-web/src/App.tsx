@@ -273,6 +273,11 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
   const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
   const [zoom, setZoom] = useState(1);
+  const [roadmapSrc, setRoadmapSrc] = useState<string | null>(navigation.roadmapUrl || navigation.roadmapFallbackUrl || null);
+
+  useEffect(() => {
+    setRoadmapSrc(navigation.roadmapUrl || navigation.roadmapFallbackUrl || null);
+  }, [navigation.roadmapUrl, navigation.roadmapFallbackUrl]);
 
   const geometry = useMemo(() => {
     const route = navigation.routePoints;
@@ -354,10 +359,17 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         </div>
       ) : (
         <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
-          {navigation.roadmapAvailable && navigation.roadmapUrl && navigation.bounds && (
+          {navigation.roadmapAvailable && roadmapSrc && navigation.bounds && (
             <image
               className="nav-roadmap-image"
-              href={navigation.roadmapUrl}
+              href={roadmapSrc}
+              onError={() => {
+                if (navigation.roadmapFallbackUrl && roadmapSrc !== navigation.roadmapFallbackUrl) {
+                  setRoadmapSrc(navigation.roadmapFallbackUrl);
+                } else {
+                  setRoadmapSrc(null);
+                }
+              }}
               x={navigation.bounds.minX}
               y={-navigation.bounds.maxY}
               width={navigation.bounds.maxX - navigation.bounds.minX}
@@ -422,6 +434,11 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   const { t, pick } = useI18n();
   const [camera, setCamera] = useState<"follow" | "roleplay" | "aerial">("follow");
   const [zoom, setZoom] = useState(1);
+  const [roadmapSrc, setRoadmapSrc] = useState<string | null>(state.roadmapUrl || state.roadmapFallbackUrl || null);
+
+  useEffect(() => {
+    setRoadmapSrc(state.roadmapUrl || state.roadmapFallbackUrl || null);
+  }, [state.roadmapUrl, state.roadmapFallbackUrl]);
 
   useEffect(() => {
     if (state.localRoleplayCharacter) {
@@ -432,7 +449,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   }, [Boolean(state.localRoleplayCharacter)]);
 
   const scene = useMemo(() => {
-    if (!state.bounds || !state.roadmapAvailable || !state.roadmapUrl) {
+    if (!state.bounds || !state.roadmapAvailable || !roadmapSrc) {
       return null;
     }
 
@@ -476,7 +493,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     }
 
     return { sceneWidth, sceneHeight, route, local, roleplay, remotes, remoteRoleplay, viewBox };
-  }, [state, camera, zoom]);
+  }, [state, camera, zoom, roadmapSrc]);
 
   if (!state.roadmapAvailable) {
     return (
@@ -532,7 +549,14 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
             aria-label={pick("Mapa 3D do OMSI", "OMSI 3D map", "Mapa 3D de OMSI", "OMSI-3D-Karte", "Carte 3D OMSI")}
           >
             <image
-              href={state.roadmapUrl || undefined}
+              href={roadmapSrc || undefined}
+              onError={() => {
+                if (state.roadmapFallbackUrl && roadmapSrc !== state.roadmapFallbackUrl) {
+                  setRoadmapSrc(state.roadmapFallbackUrl);
+                } else {
+                  setRoadmapSrc(null);
+                }
+              }}
               x="0"
               y="0"
               width={scene.sceneWidth}
