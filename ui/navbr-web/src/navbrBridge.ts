@@ -211,6 +211,10 @@ export interface NavBrNavigationState {
   usesWorldCoordinates: boolean;
   tileSize?: number | null;
   routePoints: NavBrNavigationPoint[];
+  rejoinAvailable: boolean;
+  rejoinDistanceMeters?: number | null;
+  rejoinPoints: NavBrNavigationPoint[];
+  rejoinPoint?: NavBrNavigationPoint | null;
   stopPoints: NavBrNavigationStop[];
   vehicle?: NavBrNavigationVehicle | null;
   stopSequence: {
