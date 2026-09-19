@@ -246,21 +246,29 @@ public partial class MainWindow
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
     {
         _webOmsiLaunchNotice = null;
-        var requested = string.IsNullOrWhiteSpace(preferredPath)
-            ? _currentOmsi?.InstallDirectory
-            : preferredPath.Trim();
-        var profiles = OmsiInstallationProfileStore.DiscoverAndMerge(requested);
 
         if (!string.IsNullOrWhiteSpace(preferredPath))
         {
             var requestedResolved =
                 OmsiInstallationLocator.TryResolveInstallDirectory(
                     preferredPath.Trim());
-            _webOmsiLaunchNotice = requestedResolved is not null
-                ? $"Instalação OMSI reconhecida em {requestedResolved}."
-                : "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk/.url válido.";
+            if (requestedResolved is null)
+            {
+                _webOmsiLaunchNotice =
+                    "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk/.url válido.";
+                return;
+            }
+
+            OmsiInstallationProfileStore.DiscoverAndMerge(requestedResolved);
+            SetPreferredOmsiInstallDirectory(requestedResolved);
+            _webOmsiLaunchNotice =
+                $"Instalação OMSI reconhecida e selecionada em {requestedResolved}.";
+            return;
         }
-        else if (profiles.Count == 0)
+
+        var profiles = OmsiInstallationProfileStore.DiscoverAndMerge(
+            _currentOmsi?.InstallDirectory);
+        if (profiles.Count == 0)
         {
             _webOmsiLaunchNotice =
                 "Nenhuma instalação válida do OMSI 2 foi localizada automaticamente.";
@@ -292,8 +300,9 @@ public partial class MainWindow
         }
 
         OmsiInstallationProfileStore.DiscoverAndMerge(installation);
+        SetPreferredOmsiInstallDirectory(installation);
         _webOmsiLaunchNotice =
-            $"Instalação OMSI reconhecida em {installation}.";
+            $"Instalação OMSI reconhecida e selecionada em {installation}.";
     }
 
     private void SelectOmsiFolderFromWeb()
@@ -318,7 +327,47 @@ public partial class MainWindow
         }
 
         OmsiInstallationProfileStore.DiscoverAndMerge(dialog.FolderName);
-        _webOmsiLaunchNotice = null;
+        SetPreferredOmsiInstallDirectory(dialog.FolderName);
+        _webOmsiLaunchNotice =
+            $"Instalação OMSI reconhecida e selecionada em {dialog.FolderName}.";
+    }
+
+    private static void SetPreferredOmsiInstallDirectory(
+        string installDirectory)
+    {
+        string normalized;
+        try
+        {
+            normalized = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(installDirectory));
+        }
+        catch
+        {
+            return;
+        }
+
+        var profile = OmsiInstallationProfileStore.Load()
+            .FirstOrDefault(item =>
+            {
+                try
+                {
+                    return string.Equals(
+                        Path.TrimEndingDirectorySeparator(
+                            Path.GetFullPath(item.InstallDirectory)),
+                        normalized,
+                        StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
+            });
+
+        if (profile is not null)
+        {
+            OmsiInstallationProfileStore.Upsert(
+                profile with { IsPreferred = true });
+        }
     }
 
     private static void OpenOmsiProfileFolderFromWeb(string? profileId)
