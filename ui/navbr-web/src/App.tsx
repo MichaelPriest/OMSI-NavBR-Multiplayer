@@ -799,6 +799,7 @@ function physicalVehicleStatusLabel(
     case "local-state-unavailable": return pick("Aguardando estado local", "Waiting for local state", "Esperando estado local", "Warte auf lokalen Status", "En attente de l’état local");
     case "remote-not-in-game": return pick("Jogador fora do gameplay", "Player not in gameplay", "Jugador fuera del juego", "Spieler nicht im Gameplay", "Joueur hors gameplay");
     case "limit-reached": return pick("Limite físico atingido", "Physical limit reached", "Límite físico alcanzado", "Physisches Limit erreicht", "Limite physique atteinte");
+    case "out-of-range": return pick("Fora do raio físico 3D", "Outside physical 3D range", "Fuera del radio físico 3D", "Außerhalb des physischen 3D-Radius", "Hors de la portée physique 3D");
     case "switching-vehicle": return pick("Trocando modelo físico", "Switching physical model", "Cambiando modelo físico", "Physisches Modell wird gewechselt", "Changement de modèle physique");
     case "session-changed": return pick("Sessão mudou durante a resolução", "Session changed during resolution", "La sesión cambió durante la resolución", "Sitzung änderte sich während der Auflösung", "La session a changé pendant la résolution");
     case "path-state-missing": return pick("Estado do asset local foi perdido", "Local asset state was lost", "Se perdió el estado del asset local", "Lokaler Asset-Status ging verloren", "L’état de l’asset local a été perdu");
