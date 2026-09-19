@@ -896,7 +896,22 @@ function physicalVehicleStatusLabel(
             "Articulé/convoi détecté — prise en charge physique encore bloquée"
           );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
-    case "tile-unavailable": return pick("Aguardando tile do ônibus carregar no OMSI", "Waiting for the bus tile to load in OMSI", "Esperando que cargue el tile del autobús en OMSI", "Warte auf das Laden der Bus-Kachel in OMSI", "En attente du chargement de la tuile du bus dans OMSI");
+    case "tile-unavailable":
+      return errorCode === "remote-tile-index-missing"
+        ? pick(
+            "Aguardando Kachel real do jogador remoto",
+            "Waiting for the remote player's real OMSI tile",
+            "Esperando la Kachel real del jugador remoto",
+            "Warte auf die echte OMSI-Kachel des Remote-Spielers",
+            "En attente de la vraie tuile OMSI du joueur distant"
+          )
+        : pick(
+            "Kachel recebida, aguardando a tile carregar no OMSI local",
+            "Tile received; waiting for it to load in the local OMSI",
+            "Kachel recibida; esperando que cargue en el OMSI local",
+            "Kachel empfangen; warte auf das Laden im lokalen OMSI",
+            "Tuile reçue ; en attente de son chargement dans l’OMSI local"
+          );
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
       ? pick(`Incompatível: ${errorCode}`, `Incompatible: ${errorCode}`, `Incompatible: ${errorCode}`, `Inkompatibel: ${errorCode}`, `Incompatible : ${errorCode}`)
