@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 9;
+    private const int ExpectedStateInteropVersion = 10;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
@@ -199,6 +199,58 @@ internal static class OmsiNativeInterop
             for (var index = 0; index < count; index++)
             {
                 var pointer = GetRoadVehicleAt(index);
+                if (pointer == 0)
+                {
+                    return false;
+                }
+
+                pointers[index] = pointer;
+            }
+
+            vehiclePointers = pointers;
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool TrySnapshotTempRoadVehicles(
+        int tempList,
+        out int[] vehiclePointers)
+    {
+        vehiclePointers = [];
+        if (!IsShimReady || tempList == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var count = GetTempRoadVehicleCount(tempList);
+            if (count < 0 || count > 32)
+            {
+                return false;
+            }
+
+            if (count == 0)
+            {
+                return true;
+            }
+
+            var pointers = new int[count];
+            for (var index = 0; index < count; index++)
+            {
+                var pointer = GetTempRoadVehicleAt(tempList, index);
                 if (pointer == 0)
                 {
                     return false;
@@ -446,6 +498,15 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleAt")]
     private static extern int GetRoadVehicleAt(int index);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetTempRoadVehicleCount")]
+    private static extern int GetTempRoadVehicleCount(int tempList);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetTempRoadVehicleAt")]
+    private static extern int GetTempRoadVehicleAt(int tempList, int index);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleMaterializationFlags")]
+    internal static extern int GetRoadVehicleMaterializationFlags(int vehiclePointer);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
     internal static extern int IsRoadVehiclePointer(int vehiclePointer);

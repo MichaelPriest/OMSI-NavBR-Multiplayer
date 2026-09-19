@@ -276,6 +276,8 @@ internal static class PhysicalVehicleBackend
         var makeVehicleResult = 0;
         var copyTempListResult = 0;
         var createdVehiclePointers = Array.Empty<int>();
+        var tempVehiclePointers = Array.Empty<int>();
+        var tempListSnapshotAvailable = false;
         try
         {
             locked = OmsiNativeInterop.LockMakeVehicle(programManager) == 1;
@@ -323,25 +325,49 @@ internal static class PhysicalVehicleBackend
                 randomPaintScheme: 0,
                 filenameAnsiString: filename);
 
+            // The temporary RoadVehicle list belongs only to this
+            // MakeVehicle call. Capture its exact pointers before copying it
+            // into the global list so unrelated OMSI AI traffic can never be
+            // claimed by a NavBR player.
+            tempListSnapshotAvailable =
+                OmsiNativeInterop.TrySnapshotTempRoadVehicles(
+                    tempList,
+                    out tempVehiclePointers);
+
             copyTempListResult =
                 OmsiNativeInterop.CopyTempRoadVehicleListIntoMain(tempList);
 
-            var completeDiff = OmsiNativeInterop.TryFindNewRoadVehicles(
-                before,
-                out createdVehiclePointers);
-
-            // OmsiHook-compatible wrappers expose MakeVehicle's return value as
-            // the spawned vehicle ID. On a busy map the global before/after
-            // list diff can be empty or contain unrelated concurrent AI
-            // changes. Prefer the exact return value when it can be validated
-            // against the live RoadVehicles list and was absent before.
-            if (OmsiNativeInterop.TryResolveMakeVehicleResult(
-                    makeVehicleResult,
-                    before,
-                    out var exactCreatedVehiclePointer))
+            var completeDiff = false;
+            if (tempListSnapshotAvailable &&
+                tempVehiclePointers.Length > 0)
             {
-                createdVehiclePointers = [exactCreatedVehiclePointer];
-                completeDiff = true;
+                var distinctTempPointers =
+                    tempVehiclePointers.Distinct().ToArray();
+                createdVehiclePointers = distinctTempPointers
+                    .Where(
+                        pointer =>
+                            OmsiNativeInterop.IsRoadVehiclePointer(pointer) == 1)
+                    .ToArray();
+                completeDiff =
+                    createdVehiclePointers.Length ==
+                    distinctTempPointers.Length;
+            }
+            else
+            {
+                // Compatibility fallback only. Normal OMSI 2.3.004 spawns
+                // must resolve through the dedicated temp list above.
+                completeDiff = OmsiNativeInterop.TryFindNewRoadVehicles(
+                    before,
+                    out createdVehiclePointers);
+
+                if (OmsiNativeInterop.TryResolveMakeVehicleResult(
+                        makeVehicleResult,
+                        before,
+                        out var exactCreatedVehiclePointer))
+                {
+                    createdVehiclePointers = [exactCreatedVehiclePointer];
+                    completeDiff = true;
+                }
             }
 
             if (!completeDiff || createdVehiclePointers.Length == 0)
@@ -349,7 +375,7 @@ internal static class PhysicalVehicleBackend
                 return Fail(
                     command,
                     "spawn-pointer-unresolved",
-                    $"OMSI spawn did not produce a fully identifiable RoadVehicle. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, detected={createdVehiclePointers.Length}.");
+                    $"OMSI spawn did not produce a fully identifiable RoadVehicle. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, tempSnapshot={tempListSnapshotAvailable}, tempCount={tempVehiclePointers.Length}, detected={createdVehiclePointers.Length}.");
             }
 
             if (createdVehiclePointers.Length != 1)
@@ -382,6 +408,33 @@ internal static class PhysicalVehicleBackend
         }
 
         var vehiclePointer = createdVehiclePointers[0];
+
+        // Do not call a pointer "physical" until OMSI has attached the
+        // RoadVehicle definition, complex-object runtime instance and model.
+        // A partially created pointer can accept position writes yet remain
+        // completely invisible in the renderer.
+        const int requiredMaterializationFlags =
+            (1 << 0) |
+            (1 << 1) |
+            (1 << 2) |
+            (1 << 3) |
+            (1 << 5);
+        var materializationFlags =
+            OmsiNativeInterop.GetRoadVehicleMaterializationFlags(
+                vehiclePointer);
+        if ((materializationFlags & requiredMaterializationFlags) !=
+            requiredMaterializationFlags)
+        {
+            if (OmsiNativeInterop.IsRoadVehiclePointer(vehiclePointer) == 1)
+            {
+                _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+            }
+
+            return Fail(
+                command,
+                "spawn-model-unconfirmed",
+                $"OMSI exposed RoadVehicle 0x{vehiclePointer:X8}, but its visual model is not fully materialized (flags=0x{materializationFlags:X2}, required=0x{requiredMaterializationFlags:X2}, tempCount={tempVehiclePointers.Length}).");
+        }
 
         var instance = new PhysicalVehicleInstance(
             instanceId,

@@ -177,6 +177,72 @@ namespace
         return true;
     }
 
+    bool TryGetTempRoadVehicleItems(
+        int tempList,
+        int& count,
+        int& itemArray)
+    {
+        count = 0;
+        itemArray = 0;
+
+        if (tempList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(tempList) +
+                    RoadVehicleListItemsOffset,
+                sizeof(int)) ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(tempList) +
+                    RoadVehicleListCountOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int currentCount =
+            *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(tempList) +
+                RoadVehicleListCountOffset);
+        const int objectList =
+            *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(tempList) +
+                RoadVehicleListItemsOffset);
+
+        if (currentCount < 0 || currentCount > 32)
+        {
+            return false;
+        }
+
+        if (currentCount == 0)
+        {
+            return true;
+        }
+
+        if (objectList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(objectList) +
+                    ObjectListItemsPointerOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int items =
+            *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(objectList) +
+                ObjectListItemsPointerOffset);
+        if (items == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(items),
+                static_cast<std::size_t>(currentCount) * sizeof(int)))
+        {
+            return false;
+        }
+
+        count = currentCount;
+        itemArray = items;
+        return true;
+    }
+
     bool IsRoadVehiclePointerInMainList(int vehiclePointer)
     {
         if (vehiclePointer <= 0)
@@ -354,6 +420,34 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleAt(int index)
     int count = 0;
     int items = 0;
     if (!TryGetRoadVehicleItems(count, items) || index < 0 || index >= count)
+    {
+        return 0;
+    }
+
+    return *reinterpret_cast<const int*>(
+        static_cast<std::uintptr_t>(items) +
+        static_cast<std::uintptr_t>(index) * sizeof(int));
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetTempRoadVehicleCount(
+    int tempList)
+{
+    int count = 0;
+    int items = 0;
+    return TryGetTempRoadVehicleItems(tempList, count, items)
+        ? count
+        : -1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetTempRoadVehicleAt(
+    int tempList,
+    int index)
+{
+    int count = 0;
+    int items = 0;
+    if (!TryGetTempRoadVehicleItems(tempList, count, items) ||
+        index < 0 ||
+        index >= count)
     {
         return 0;
     }

@@ -47,6 +47,11 @@ namespace
     constexpr int AiBlinkerLeftOffset = 0x63C;
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
+    constexpr int ComplMapObjMyFileObjectOffset = 0x1E8;
+    constexpr int ComplMapObjDefinitionOffset = 0x210;
+    constexpr int ComplObjInstanceOffset = 0x214;
+    constexpr int ComplMapObjModelStringOffset = 0x1A4;
+    constexpr int RoadVehicleDefinitionOffset = 0x710;
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
     constexpr int RoadVehicleWasCalculatedOffset = 0x715;
     constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
@@ -1057,7 +1062,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 9;
+    return 10;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
@@ -1081,6 +1086,90 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
 {
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleMaterializationFlags(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    constexpr int FlagMainList = 1 << 0;
+    constexpr int FlagRoadVehicleDefinition = 1 << 1;
+    constexpr int FlagComplMapObjDefinition = 1 << 2;
+    constexpr int FlagComplObjInstance = 1 << 3;
+    constexpr int FlagMyFileObject = 1 << 4;
+    constexpr int FlagModelString = 1 << 5;
+
+    int flags = FlagMainList;
+    const auto base =
+        static_cast<std::uintptr_t>(vehiclePointer);
+
+    auto readPointer = [](std::uintptr_t address) -> int
+    {
+        if (!IsReadableRange(address, sizeof(int)))
+        {
+            return 0;
+        }
+
+        return *reinterpret_cast<const int*>(address);
+    };
+
+    const int roadVehicleDefinition =
+        readPointer(base + RoadVehicleDefinitionOffset);
+    if (roadVehicleDefinition != 0 &&
+        IsReadableRange(
+            static_cast<std::uintptr_t>(roadVehicleDefinition),
+            sizeof(int)))
+    {
+        flags |= FlagRoadVehicleDefinition;
+    }
+
+    const int complMapObjDefinition =
+        readPointer(base + ComplMapObjDefinitionOffset);
+    if (complMapObjDefinition != 0 &&
+        IsReadableRange(
+            static_cast<std::uintptr_t>(complMapObjDefinition),
+            sizeof(int)))
+    {
+        flags |= FlagComplMapObjDefinition;
+
+        const int modelString =
+            readPointer(
+                static_cast<std::uintptr_t>(complMapObjDefinition) +
+                ComplMapObjModelStringOffset);
+        if (modelString != 0 &&
+            IsReadableRange(
+                static_cast<std::uintptr_t>(modelString),
+                1))
+        {
+            flags |= FlagModelString;
+        }
+    }
+
+    const int complObjInstance =
+        readPointer(base + ComplObjInstanceOffset);
+    if (complObjInstance != 0 &&
+        IsReadableRange(
+            static_cast<std::uintptr_t>(complObjInstance),
+            sizeof(int)))
+    {
+        flags |= FlagComplObjInstance;
+    }
+
+    const int myFileObject =
+        readPointer(base + ComplMapObjMyFileObjectOffset);
+    if (myFileObject != 0 &&
+        IsReadableRange(
+            static_cast<std::uintptr_t>(myFileObject),
+            sizeof(int)))
+    {
+        flags |= FlagMyFileObject;
+    }
+
+    return flags;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)
