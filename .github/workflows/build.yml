@@ -72,6 +72,7 @@ jobs:
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
@@ -81,6 +82,7 @@ jobs:
         run: |
           dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
           dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore
 
       - name: Build OMSI native interop x86
         shell: pwsh
