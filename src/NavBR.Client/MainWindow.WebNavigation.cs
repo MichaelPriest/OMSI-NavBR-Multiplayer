@@ -6,6 +6,7 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private readonly NavBRNavigationEtaEstimator _webNavigationEta = new();
+    private readonly OmsiRouteRejoinPathfinder _webNavigationRejoinPathfinder = new();
     private string? _webNavigationMapKey;
     private string? _webNavigationRouteKey;
     private OmsiMapLayout? _webNavigationLayout;
@@ -33,6 +34,29 @@ public partial class MainWindow
             _webNavigationBusStops);
         var eta = _webNavigationEta.Observe(navigation, DateTimeOffset.UtcNow);
         var tileSize = _webNavigationLayout?.TileSize;
+
+        OmsiRouteRejoinPath? rejoinPath = null;
+        if (!navigation.IsOnRoute &&
+            navigation.RouteAvailable &&
+            _webNavigationLayout is not null &&
+            _webNavigationRoute.Count >= 2)
+        {
+            rejoinPath = _webNavigationRejoinPathfinder.TryFind(
+                map,
+                _webNavigationLayout,
+                telemetry,
+                _webNavigationRoute);
+        }
+
+        IReadOnlyList<object> rejoinPoints = rejoinPath is null
+            ? Array.Empty<object>()
+            : rejoinPath.Points
+                .Select(point => (object)new
+                {
+                    x = point.X,
+                    y = point.Y
+                })
+                .ToArray();
 
         IReadOnlyList<object> routePoints = tileSize is double resolvedTileSize
             ? DecimateRoute(_webNavigationRoute, 1200)
@@ -121,6 +145,16 @@ public partial class MainWindow
             usesWorldCoordinates = _webNavigationLayout?.UsesWorldCoordinates ?? false,
             tileSize = _webNavigationLayout?.TileSize,
             routePoints,
+            rejoinAvailable = rejoinPath is not null,
+            rejoinDistanceMeters = rejoinPath?.DistanceMeters,
+            rejoinPoints,
+            rejoinPoint = rejoinPath is null
+                ? null
+                : new
+                {
+                    x = rejoinPath.RejoinPoint.X,
+                    y = rejoinPath.RejoinPoint.Y
+                },
             stopPoints,
             vehicle,
             stopSequence = new
@@ -157,6 +191,10 @@ public partial class MainWindow
         usesWorldCoordinates = false,
         tileSize = null as double?,
         routePoints = Array.Empty<object>(),
+        rejoinAvailable = false,
+        rejoinDistanceMeters = null as double?,
+        rejoinPoints = Array.Empty<object>(),
+        rejoinPoint = null as object,
         stopPoints = Array.Empty<object>(),
         vehicle = null as object,
         stopSequence = new
