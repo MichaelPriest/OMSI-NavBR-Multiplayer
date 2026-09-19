@@ -252,13 +252,13 @@ public partial class MainWindow
         var options = IsRoleplayMapReadyForShell()
             ? GetRoleplayCharacterOptionsForShell()
             : Array.Empty<RoleplayCharacterOption>();
-        var activeDriver = options.FirstOrDefault(option => option.IsActiveDriver);
-        if (activeDriver is null)
-        {
-            _webRoleplayStatus = "roleplay-active-driver-not-detected";
-            UpdateHudRoleplayStateForShell();
-            return;
-        }
+        var activeDriver = options.FirstOrDefault(option => option.IsActiveDriver)
+            ?? new RoleplayCharacterOption(
+                "active-driver:auto",
+                "Motorista atual",
+                "OMSI live driver",
+                DefinitionPointer: 0,
+                IsActiveDriver: true);
 
         if (!string.IsNullOrWhiteSpace(mapKey))
         {
