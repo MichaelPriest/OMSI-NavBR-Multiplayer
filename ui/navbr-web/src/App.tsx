@@ -2241,10 +2241,21 @@ function Settings({
               <div><small>OMSI</small><strong>{system.pluginInstallation.omsiRunning ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
             </div>
             {system.pluginInstallation.state !== "installed" && (
-              <div className="discovery-actions">
-                <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
-                  {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
-                </button>
+              <div className="plugin-update-actions">
+                <div className="discovery-actions">
+                  <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
+                    {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
+                  </button>
+                </div>
+                {!system.pluginInstallation.installAvailable && system.pluginInstallation.installBlockReason && (
+                  <small className="plugin-update-hint">
+                    {system.pluginInstallation.installBlockReason === "omsi-running"
+                      ? pick("Feche o OMSI para liberar a atualização do plugin.", "Close OMSI to enable the plugin update.", "Cierra OMSI para habilitar la actualización del plugin.", "OMSI schließen, um das Plugin-Update freizugeben.", "Fermez OMSI pour autoriser la mise à jour du plugin.")
+                      : system.pluginInstallation.installBlockReason === "omsi-not-found"
+                        ? pick("Cadastre a pasta do OMSI, o Omsi.exe ou um atalho .lnk válido.", "Register the OMSI folder, Omsi.exe, or a valid .lnk shortcut.", "Registra la carpeta de OMSI, Omsi.exe o un acceso directo .lnk válido.", "OMSI-Ordner, Omsi.exe oder eine gültige .lnk-Verknüpfung hinterlegen.", "Enregistrez le dossier OMSI, Omsi.exe ou un raccourci .lnk valide.")
+                        : pick("Esta build não contém o pacote embutido do plugin.", "This build does not contain the embedded plugin package.", "Esta build no contiene el paquete integrado del plugin.", "Dieser Build enthält das eingebettete Plugin-Paket nicht.", "Cette build ne contient pas le paquet intégré du plugin.")}
+                  </small>
+                )}
               </div>
             )}
           </article>
@@ -2254,12 +2265,12 @@ function Settings({
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
               <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
             </div>
-            <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também validar uma pasta informada manualmente.", "NavBR can locate registered installations, Steam libraries and validate a manually supplied folder.", "NavBR puede localizar instalaciones registradas, bibliotecas Steam y validar una carpeta indicada manualmente.", "NavBR kann registrierte Installationen, Steam-Bibliotheken und einen manuell angegebenen Ordner prüfen.", "NavBR peut localiser les installations enregistrées, les bibliothèques Steam et valider un dossier indiqué manuellement.")}</p>
+            <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também aceitar uma pasta, o próprio Omsi.exe ou um atalho .lnk válido.", "NavBR can locate registered installations and Steam libraries, and can also accept a folder, Omsi.exe itself, or a valid .lnk shortcut.", "NavBR puede localizar instalaciones registradas y bibliotecas Steam, y también aceptar una carpeta, el propio Omsi.exe o un acceso directo .lnk válido.", "NavBR kann registrierte Installationen und Steam-Bibliotheken finden und auch einen Ordner, Omsi.exe selbst oder eine gültige .lnk-Verknüpfung akzeptieren.", "NavBR peut localiser les installations enregistrées et les bibliothèques Steam, et accepter aussi un dossier, Omsi.exe lui-même ou un raccourci .lnk valide.")}</p>
             <div className="discovery-actions">
               <input
                 value={manualPath}
                 onChange={event => setManualPath(event.target.value)}
-                placeholder="Ex.: G:\Games\OMSI 2 Steam Edition"
+                placeholder="Ex.: G:\Games\OMSI 2 ou C:\Users\...\OMSI 2.lnk"
               />
               <button className="button primary" onClick={() => sendCommand("discoverOmsiProfiles", { path: manualPath })}>
                 {manualPath.trim() ? pick("Adicionar / descobrir", "Add / discover", "Añadir / descubrir", "Hinzufügen / erkennen", "Ajouter / détecter") : pick("Descobrir automaticamente", "Discover automatically", "Descubrir automáticamente", "Automatisch erkennen", "Détecter automatiquement")}
