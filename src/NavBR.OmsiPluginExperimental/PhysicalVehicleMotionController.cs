@@ -47,7 +47,7 @@ internal static class PhysicalVehicleMotionController
             return false;
         }
 
-        if (!TryApplyTransform(instance, snapshot))
+        if (!TryApplyTransform(instance, snapshot, writeTileIndex: true))
         {
             errorCode = "transform-write-failed";
             errorMessage = "OMSI rejected the guarded vehicle transform write.";
@@ -106,6 +106,16 @@ internal static class PhysicalVehicleMotionController
             return false;
         }
 
+        if (target.MapTileIndex is null &&
+            state.Target.MapTileIndex is int previousTileIndex)
+        {
+            target = target with { MapTileIndex = previousTileIndex };
+        }
+
+        var tileChanged =
+            target.MapTileIndex is int targetTileIndex &&
+            state.Target.MapTileIndex != targetTileIndex;
+
         var now = Environment.TickCount64;
         var gapMs = Math.Max(0L, now - state.LastTargetTickMs);
         var sourceGapMs =
@@ -119,11 +129,17 @@ internal static class PhysicalVehicleMotionController
             : gapMs;
         var distance = Distance(state.Current, target);
 
-        if (gapMs >= TeleportGapMs || distance >= TeleportDistanceMeters)
+        if (tileChanged ||
+            gapMs >= TeleportGapMs ||
+            distance >= TeleportDistanceMeters)
         {
-            // Map teleports/repositions should snap instead of dragging the bus
-            // through unrelated scenery.
-            if (!TryApplyTransform(instance, target))
+            // Tile transitions and map teleports/repositions should snap.
+            // Interpolating Position across two Kachel coordinate frames would
+            // drag the bus through an invalid local reference.
+            if (!TryApplyTransform(
+                    instance,
+                    target,
+                    writeTileIndex: tileChanged))
             {
                 errorCode = "transform-write-failed";
                 errorMessage = "OMSI rejected the guarded vehicle transform write.";
@@ -199,7 +215,7 @@ internal static class PhysicalVehicleMotionController
             var amount = Math.Clamp((now - state.StartTickMs) / duration, 0d, 1d);
             var next = Interpolate(state.Start, state.Target, amount);
 
-            if (!TryApplyTransform(instance, next))
+            if (!TryApplyTransform(instance, next, writeTileIndex: false))
             {
                 States.Remove(instanceId);
                 continue;
@@ -225,7 +241,8 @@ internal static class PhysicalVehicleMotionController
 
     private static bool TryApplyTransform(
         PhysicalVehicleInstance instance,
-        MotionSnapshot snapshot) =>
+        MotionSnapshot snapshot,
+        bool writeTileIndex) =>
         OmsiNativeInterop.SetVehicleTransform(
             instance.VehiclePointer,
             snapshot.X,
@@ -235,7 +252,10 @@ internal static class PhysicalVehicleMotionController
             snapshot.RotationY,
             snapshot.RotationZ,
             snapshot.RotationW,
-            snapshot.SpeedMps) == 1;
+            snapshot.SpeedMps,
+            writeTileIndex && snapshot.MapTileIndex is int mapTileIndex
+                ? mapTileIndex
+                : -1) == 1;
 
     private static bool TryApplyVisualState(
         PhysicalVehicleInstance instance,
@@ -291,6 +311,11 @@ internal static class PhysicalVehicleMotionController
             ? (float)Math.Clamp(Math.Abs(speedKph) / 3.6d, 0d, 150d)
             : 0f;
 
+        int? mapTileIndex = command.MapTileIndex is int rawTileIndex &&
+                            rawTileIndex is >= 0 and <= 200_000
+            ? rawTileIndex
+            : null;
+
         snapshot = new MotionSnapshot(
             (float)x,
             (float)y,
@@ -299,7 +324,8 @@ internal static class PhysicalVehicleMotionController
             (float)(rotationY * inverse),
             (float)(rotationZ * inverse),
             (float)(rotationW * inverse),
-            speedMps);
+            speedMps,
+            mapTileIndex);
         return true;
     }
 
@@ -346,7 +372,8 @@ internal static class PhysicalVehicleMotionController
             qy,
             qz,
             qw,
-            Lerp(from.SpeedMps, to.SpeedMps, t));
+            Lerp(from.SpeedMps, to.SpeedMps, t),
+            to.MapTileIndex ?? from.MapTileIndex);
     }
 
     private static float Lerp(float from, float to, float amount) =>
@@ -379,5 +406,6 @@ internal static class PhysicalVehicleMotionController
         float RotationY,
         float RotationZ,
         float RotationW,
-        float SpeedMps);
+        float SpeedMps,
+        int? MapTileIndex);
 }
