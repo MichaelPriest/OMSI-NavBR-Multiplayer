@@ -333,6 +333,21 @@
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
                                       Visibility="Collapsed" />
+                            <Polyline x:Name="RejoinRouteShadow"
+                                      Stroke="#D9000000"
+                                      StrokeThickness="7"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed" />
+                            <Polyline x:Name="RejoinRoutePolyline"
+                                      Stroke="#FF71D8FF"
+                                      StrokeThickness="3.8"
+                                      StrokeDashArray="3,2"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed" />
                         </Canvas>
                     </Border>
 

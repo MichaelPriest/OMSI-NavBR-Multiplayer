@@ -50,6 +50,8 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
+    public int GetActiveConnectionCount() => _connections.Count;
+
     public IReadOnlyList<string> GetActiveRoomIds()
     {
         return _connections.Values
@@ -196,6 +198,44 @@ public sealed class MultiplayerRoomRegistry
             {
                 VoiceEnabled = voiceEnabled,
                 LatencyMs = normalizedLatency
+            };
+
+            if (_connections.TryUpdate(connectionId, updated, current))
+            {
+                return updated;
+            }
+        }
+
+        return null;
+    }
+
+    public PlayerPresence? UpdatePhysicalVehicleStatus(
+        string connectionId,
+        IReadOnlyList<string> physicalVehiclePlayerIds)
+    {
+        var normalizedIds = physicalVehiclePlayerIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(32)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        while (_connections.TryGetValue(connectionId, out var current))
+        {
+            var currentIds = current.PhysicalVehiclePlayerIds ?? Array.Empty<string>();
+            if (current.PhysicalVehicleCount == normalizedIds.Length &&
+                currentIds.SequenceEqual(
+                    normalizedIds,
+                    StringComparer.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var updated = current with
+            {
+                PhysicalVehicleCount = normalizedIds.Length,
+                PhysicalVehiclePlayerIds = normalizedIds
             };
 
             if (_connections.TryUpdate(connectionId, updated, current))

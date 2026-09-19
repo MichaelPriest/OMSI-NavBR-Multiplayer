@@ -11,6 +11,7 @@ using NavBR.Client.Omsi;
 using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
+using NavBR.Client.PluginInstaller;
 using NavBR.Client.Windows;
 using NavBR.Shared.PluginBridge;
 
@@ -29,6 +30,32 @@ public partial class App : Application
 
         RemoteDiagnosticsService.Initialize();
         RemoteDiagnosticsService.Record("session", "info", "client-start");
+
+        try
+        {
+            var omsiProfiles = OmsiInstallationProfileStore.Load();
+            var preferredOmsiRoot = omsiProfiles
+                .FirstOrDefault(profile => profile.IsPreferred)?
+                .InstallDirectory
+                ?? omsiProfiles.FirstOrDefault()?.InstallDirectory;
+            var pluginBootstrap =
+                OmsiPluginInstallationService.EnsureInstalledAtStartup(preferredOmsiRoot);
+            NavBRAppLog.Info(
+                $"plugin-bootstrap status={pluginBootstrap.Status} changed={pluginBootstrap.Changed} " +
+                $"root={pluginBootstrap.OmsiRoot ?? "-"} message={pluginBootstrap.Message ?? "-"}");
+            RemoteDiagnosticsService.Record(
+                "plugin-bootstrap",
+                pluginBootstrap.Status is "failed" or "conflict" ? "warning" : "info",
+                $"status={pluginBootstrap.Status} changed={pluginBootstrap.Changed}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("plugin-bootstrap-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-bootstrap",
+                "warning",
+                $"status=failed type={ex.GetType().Name}");
+        }
 
         PluginBridge.ConnectionStateChanged += PluginBridge_ConnectionStateChanged;
         PluginBridge.CommandResultReceived += PluginBridge_CommandResultReceived;

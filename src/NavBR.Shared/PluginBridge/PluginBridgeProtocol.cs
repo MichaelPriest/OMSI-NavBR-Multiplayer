@@ -39,6 +39,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleSpawn = "vehicle-spawn";
     public const string CapabilityVehicleTransform = "vehicle-transform";
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
+    public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
+    public const string CapabilityVehicleTileSync = "vehicle-tile-sync";
     public const string CapabilityTimetableState = "timetable-state";
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";
@@ -130,4 +132,5 @@ public sealed record PluginBridgeMessage(
     bool? TriggerActive = null,
     string? AuthorityPlayerId = null,
     long? Sequence = null,
-    TrafficVehicleState[]? TrafficVehicles = null);
+    TrafficVehicleState[]? TrafficVehicles = null,
+    int? MapTileIndex = null);

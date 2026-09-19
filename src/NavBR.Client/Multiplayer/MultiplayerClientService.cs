@@ -18,6 +18,8 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
             omsiInstallDirectorySource);
+        _physicalVehicles.PhysicalVehicleSetChanged += playerIds =>
+            _ = PublishPhysicalVehicleSetAsync(playerIds);
     }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
@@ -96,6 +98,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             settings.EphemeralRoomPassword,
             settings.EphemeralCreatePrivateRoom);
         _physicalVehicles.SetLocalManifest(compatibility);
+        _physicalVehicles.SetLocalTelemetry(null);
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
@@ -137,6 +140,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _joinRequest = null;
             ResetRoomMetadata();
             _physicalVehicles.SetLocalManifest(null);
+            _physicalVehicles.SetLocalTelemetry(null);
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
@@ -174,6 +178,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         // identity is available, and may change vehicles without reconnecting.
         _physicalVehicles.SetLocalManifest(
             OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+        _physicalVehicles.SetLocalTelemetry(outgoing);
 
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
@@ -248,6 +253,34 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             cancellationToken);
     }
 
+    private async Task PublishPhysicalVehicleSetAsync(
+        IReadOnlyList<string> playerIds,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _connection;
+        if (connection is null ||
+            connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.SendAsync(
+                "UpdatePhysicalVehicleStatus",
+                playerIds
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(32)
+                    .ToArray(),
+                cancellationToken);
+        }
+        catch
+        {
+            // Diagnostic/status publishing must never break multiplayer.
+        }
+    }
+
     public async Task PublishVoiceFrameAsync(
         long sequence,
         byte[] opusPayload,
@@ -274,6 +307,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _joinRequest = null;
         ResetRoomMetadata();
         _physicalVehicles.SetLocalManifest(null);
+        _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();

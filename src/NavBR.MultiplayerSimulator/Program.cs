@@ -60,6 +60,45 @@ if (!synchronized.Success || synchronized.Options is null)
 }
 
 options = synchronized.Options;
+
+if (options.Mode != SimulatorMode.Roleplay)
+{
+    var physicalSetup = SimulatorPhysicalTestSupport.Resolve(options);
+    options = physicalSetup.Options;
+    Console.WriteLine(physicalSetup.Message);
+}
+
+if (options.VerifyPhysical)
+{
+    if (!synchronized.InheritedFromRoom ||
+        string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
+        string.IsNullOrWhiteSpace(options.VehiclePath) ||
+        string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
+        options.MapTileIndex is null)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine(
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, Kachel válida e um ônibus rígido resolvido.");
+        Environment.ExitCode = 6;
+        return;
+    }
+
+    if (options.Mode == SimulatorMode.Roleplay)
+    {
+        Console.Error.WriteLine(
+            "NavBR Simulator: --verify-physical requer mode vehicles ou mixed.");
+        Environment.ExitCode = 6;
+        return;
+    }
+
+    // Running --verify-physical is itself an explicit local opt-in to OMSI
+    // writes for this development test. The already-running NavBR client reads
+    // the same flag file on every physical-frame eligibility check.
+    ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(true);
+    Console.WriteLine(
+        "Physical test: ônibus remotos físicos ativados localmente para esta validação.");
+}
+
 Console.WriteLine(
     synchronized.InheritedFromRoom
         ? $"Map    : {options.MapName} (sincronizado com a sala)"
@@ -78,11 +117,14 @@ if (!string.IsNullOrWhiteSpace(options.ActiveLine) ||
 }
 
 Console.WriteLine(
-    $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1} • raio {options.RadiusMeters:F0} m" +
+    $"Seed   : abs=({options.CenterX:F1},{options.CenterY:F1},{options.CenterZ:F1}) • local=({options.LocalCenterX:F1},{options.LocalCenterY:F1},{options.LocalCenterZ:F1}) • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
         ? $" • grid {gx},{gy}" +
           (options.TileX is double tx && options.TileY is double ty
               ? $" • tile {tx:F1},{ty:F1}"
+              : string.Empty) +
+          (options.MapTileIndex is int tileIndex
+              ? $" • Kachel #{tileIndex}"
               : string.Empty)
         : string.Empty));
 
@@ -90,6 +132,10 @@ var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
     .ToArray();
 var probe = options.Verify ? new SimulationProbe(options) : null;
+var expectedPhysicalBots = bots
+    .Where(bot => bot.IsVehicleBot)
+    .Select(bot => bot.PlayerId)
+    .ToArray();
 var connected = false;
 
 try
@@ -104,12 +150,29 @@ try
     Console.WriteLine($"Connected {bots.Length} simulated players.");
 
     var started = DateTimeOffset.UtcNow;
+    var effectiveDurationSeconds = options.DurationSeconds > 0
+        ? options.DurationSeconds
+        : options.VerifyPhysical
+            ? 30
+            : 0;
+
     while (!shutdown.IsCancellationRequested &&
-           (options.DurationSeconds <= 0 ||
-            (DateTimeOffset.UtcNow - started).TotalSeconds < options.DurationSeconds))
+           (effectiveDurationSeconds <= 0 ||
+            (DateTimeOffset.UtcNow - started).TotalSeconds < effectiveDurationSeconds))
     {
         var elapsed = (DateTimeOffset.UtcNow - started).TotalSeconds;
         await Task.WhenAll(bots.Select(bot => bot.PublishFrameAsync(elapsed, shutdown.Token)));
+
+        if (options.VerifyPhysical &&
+            probe is not null &&
+            elapsed >= 3d &&
+            probe.HasConfirmedPhysicalBots(expectedPhysicalBots))
+        {
+            Console.WriteLine(
+                $"Physical verification observed {expectedPhysicalBots.Length} simulator bus(es) materialized in the host OMSI.");
+            break;
+        }
+
         await Task.Delay(options.IntervalMilliseconds, shutdown.Token);
     }
 }
@@ -126,24 +189,26 @@ catch (HttpRequestException ex)
 }
 finally
 {
+    if (probe is not null && connected)
+    {
+        var result = probe.Verify(
+            bots.Select(bot => bot.PlayerId).ToArray(),
+            expectedPhysicalBots);
+        if (!result.Success)
+        {
+            Console.Error.WriteLine($"Simulator verification failed: {result.Message}");
+            Environment.ExitCode = 2;
+        }
+        else
+        {
+            Console.WriteLine($"Simulator verification passed: {result.Message}");
+        }
+    }
+
     await Task.WhenAll(bots.Select(bot => bot.DisposeAsync().AsTask()));
 
     if (probe is not null)
     {
-        if (connected)
-        {
-            var result = probe.Verify(bots.Select(bot => bot.PlayerId).ToArray());
-            if (!result.Success)
-            {
-                Console.Error.WriteLine($"Movement verification failed: {result.Message}");
-                Environment.ExitCode = 2;
-            }
-            else
-            {
-                Console.WriteLine($"Movement verification passed: {result.Message}");
-            }
-        }
-
         await probe.DisposeAsync();
     }
 }
@@ -156,6 +221,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     private readonly string _displayName;
     private readonly HubConnection _connection;
     private readonly double _phase;
+    private readonly string? _line;
+    private readonly string? _route;
+    private readonly string? _destination;
+    private readonly string? _nextStop;
     private bool _roleplayActive;
     private double _roleplayX;
     private double _roleplayY;
@@ -164,6 +233,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
     public string PlayerId => _playerId;
 
+    public bool IsVehicleBot =>
+        _options.Mode == SimulatorMode.Vehicles ||
+        (_options.Mode == SimulatorMode.Mixed && _index % 2 != 0);
+
     public SimulatedPlayer(int index, SimulatorOptions options)
     {
         _index = index;
@@ -171,9 +244,18 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         _playerId = $"sim-{index:00}-{Guid.NewGuid():N}"[..24];
         _displayName = $"{options.NamePrefix} {index:00}";
         _phase = index * Math.PI * 2d / Math.Max(1, options.PlayerCount);
+
+        var hofRoute = IsVehicleBot && options.HofRoutes.Count > 0
+            ? options.HofRoutes[(index - 1) % options.HofRoutes.Count]
+            : null;
+        _line = hofRoute?.Line ?? options.ActiveLine;
+        _route = hofRoute?.Route ?? options.ActiveRoute;
+        _destination = hofRoute?.Description ?? options.ActiveDestination;
+        _nextStop = hofRoute is null ? options.ActiveNextStop : null;
+
         var initialRadius = Math.Max(4d, options.RadiusMeters * 0.45d);
-        _roleplayX = options.CenterX + Math.Cos(_phase) * initialRadius;
-        _roleplayY = options.CenterY + Math.Sin(_phase) * initialRadius;
+        _roleplayX = options.LocalCenterX + Math.Cos(_phase) * initialRadius;
+        _roleplayY = options.LocalCenterY + Math.Sin(_phase) * initialRadius;
         _roleplayHeading = (_phase * 180d / Math.PI + 90d) % 360d;
 
         _connection = new HubConnectionBuilder()
@@ -227,9 +309,15 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             _options.RadiusMeters * (0.55d + (_index % 4) * 0.12d));
         var angularSpeed = 0.035d + (_index % 3) * 0.008d;
         var angle = _phase + elapsedSeconds * angularSpeed;
-        var x = _options.CenterX + Math.Cos(angle) * radius;
-        var y = _options.CenterY + Math.Sin(angle) * radius;
+        var offsetX = Math.Cos(angle) * radius;
+        var offsetY = Math.Sin(angle) * radius;
+
+        var x = _options.CenterX + offsetX;
+        var y = _options.CenterY + offsetY;
         var z = _options.CenterZ;
+        var localX = _options.LocalCenterX + offsetX;
+        var localY = _options.LocalCenterY + offsetY;
+        var localZ = _options.LocalCenterZ;
         var heading = (angle * 180d / Math.PI + 90d) % 360d;
 
         var roleplayThisFrame =
@@ -270,7 +358,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
                 _options.MapCompatibilityId,
                 _roleplayX,
                 _roleplayY,
-                z,
+                localZ,
                 _roleplayHeading,
                 speed,
                 activity,
@@ -295,13 +383,42 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         var radians = heading * Math.PI / 180d;
         var half = radians / 2d;
 
+        // Exercise the real multiplayer visual/control telemetry path instead
+        // of publishing permanent defaults. The sequence is deterministic so
+        // CI can verify it without mocks.
+        var visualPhase = ((int)Math.Floor(elapsedSeconds * 2d) + _index) % 4;
+        var brakePercent = visualPhase == 2 ? 65d : 0d;
+        var throttlePercent = brakePercent > 0d
+            ? 0d
+            : 35d + (_index % 4) * 10d;
+        var turnSignal = visualPhase switch
+        {
+            0 => TurnSignalState.Left,
+            2 => TurnSignalState.Right,
+            3 => TurnSignalState.Hazard,
+            _ => TurnSignalState.Off
+        };
+        var lights = VehicleLightFlags.Position;
+        if (_index % 2 == 0)
+        {
+            lights |= VehicleLightFlags.Interior;
+        }
+        if (brakePercent > 0d)
+        {
+            lights |= VehicleLightFlags.Brake;
+        }
+        if (turnSignal == TurnSignalState.Hazard)
+        {
+            lights |= VehicleLightFlags.Hazard;
+        }
+
         var telemetry = new VehicleTelemetry(
             PlayerId: _playerId,
             Timestamp: DateTimeOffset.UtcNow,
             MapName: _options.MapName,
             VehicleName: $"SIM Bus {_index:00}",
-            Line: _options.ActiveLine,
-            Route: _options.ActiveRoute,
+            Line: _line,
+            Route: _route,
             X: x,
             Y: y,
             Z: z,
@@ -310,22 +427,46 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             IsInGame: true,
             GridX: _options.GridX,
             GridY: _options.GridY,
-            TileX: _options.TileX is double baseTileX ? baseTileX + (x - _options.CenterX) : null,
-            TileY: _options.TileY is double baseTileY ? baseTileY + (y - _options.CenterY) : null,
+            TileX: OffsetTileCoordinate(_options.TileX, offsetX),
+            TileY: OffsetTileCoordinate(_options.TileY, offsetY),
             MapCompatibilityId: _options.MapCompatibilityId,
-            NextStopName: _options.ActiveNextStop,
-            DestinationName: _options.ActiveDestination,
+            NextStopName: _nextStop,
+            DestinationName: _destination,
             VehiclePath: _options.VehiclePath,
+            FuelPercent: Math.Clamp(88d - _index * 2d, 10d, 100d),
+            ThrottlePercent: throttlePercent,
+            BrakePercent: brakePercent,
+            Lights: lights,
+            TurnSignal: turnSignal,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
-            LocalX: x,
-            LocalY: y,
-            LocalZ: z,
+            LocalX: localX,
+            LocalY: localY,
+            LocalZ: localZ,
             RotationX: 0d,
             RotationY: 0d,
             RotationZ: Math.Sin(half),
-            RotationW: Math.Cos(half));
+            RotationW: Math.Cos(half),
+            MapTileIndex: _options.MapTileIndex);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
+    }
+
+    private static double? OffsetTileCoordinate(double? value, double offset)
+    {
+        if (value is not double baseValue ||
+            !double.IsFinite(baseValue) ||
+            !double.IsFinite(offset))
+        {
+            return value;
+        }
+
+        var candidate = baseValue + offset;
+        // Physical placement uses LocalX/LocalY + Kachel. Keep navigation
+        // coordinates inside the inherited tile instead of fabricating a tile
+        // transition the simulator cannot authoritatively resolve.
+        return candidate is > 0.5d and < 299.5d
+            ? candidate
+            : baseValue;
     }
 
     public async ValueTask DisposeAsync()
@@ -364,6 +505,8 @@ internal sealed class SimulationProbe : IAsyncDisposable
     private readonly HubConnection _connection;
     private readonly Dictionary<string, MovementSample> _samples =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<string>> _physicalSetsByPlayer =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
     private readonly string _playerId = $"sim-probe-{Guid.NewGuid():N}"[..28];
 
@@ -382,7 +525,15 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Telemetry.HeadingDegrees,
                 frame.Telemetry.MapName,
                 MovementKind.Vehicle,
-                null));
+                null,
+                frame.Telemetry.ThrottlePercent,
+                frame.Telemetry.BrakePercent,
+                frame.Telemetry.FuelPercent,
+                frame.Telemetry.Lights,
+                frame.Telemetry.TurnSignal));
+        _connection.On<PlayerPresence>("playerPresenceChanged", RecordPresence);
+        _connection.On<PlayerPresence>("playerJoined", RecordPresence);
+
         _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
             Record(
                 frame.Player.PlayerId,
@@ -391,13 +542,18 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Character.HeadingDegrees,
                 frame.Character.MapName,
                 MovementKind.Roleplay,
-                frame.Character.Activity));
+                frame.Character.Activity,
+                null,
+                null,
+                null,
+                VehicleLightFlags.None,
+                TurnSignalState.Off));
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         await _connection.StartAsync(cancellationToken);
-        await _connection.InvokeAsync<RoomSnapshot>(
+        var snapshot = await _connection.InvokeAsync<RoomSnapshot>(
             "JoinRoom",
             new JoinRoomRequest(
                 _options.RoomId,
@@ -408,9 +564,37 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 Compatibility: null,
                 RoomPassword: _options.RoomPassword),
             cancellationToken);
+
+        foreach (var player in snapshot.Players)
+        {
+            RecordPresence(player);
+        }
     }
 
-    public VerificationResult Verify(IReadOnlyList<string> expectedPlayerIds)
+    public bool HasConfirmedPhysicalBots(IReadOnlyList<string> expectedPhysicalPlayerIds)
+    {
+        if (expectedPhysicalPlayerIds.Count == 0)
+        {
+            return true;
+        }
+
+        lock (_sync)
+        {
+            if (string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+                !_physicalSetsByPlayer.TryGetValue(
+                    _options.ReferencePlayerId,
+                    out var physicalIds))
+            {
+                return false;
+            }
+
+            return expectedPhysicalPlayerIds.All(physicalIds.Contains);
+        }
+    }
+
+    public VerificationResult Verify(
+        IReadOnlyList<string> expectedPlayerIds,
+        IReadOnlyList<string> expectedPhysicalPlayerIds)
     {
         lock (_sync)
         {
@@ -455,6 +639,47 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     "Mixed simulation did not deliver both vehicle and RP frames.");
             }
 
+            var vehicleSamples = samples
+                .Where(sample => sample.Kind == MovementKind.Vehicle)
+                .ToArray();
+            if (vehicleSamples.Length > 0)
+            {
+                if (!vehicleSamples.Any(sample => sample.SawThrottleTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawBrakeTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawFuelTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawLights) ||
+                    !vehicleSamples.Any(sample => sample.SawTurnSignal))
+                {
+                    return new VerificationResult(
+                        false,
+                        "Vehicle movement arrived, but advanced control/visual telemetry did not traverse the multiplayer pipeline.");
+                }
+            }
+
+            if (_options.VerifyPhysical)
+            {
+                if (expectedPhysicalPlayerIds.Count == 0)
+                {
+                    return new VerificationResult(
+                        false,
+                        "Physical verification requested, but no simulated vehicle bots were active.");
+                }
+
+                if (!HasConfirmedPhysicalBots(expectedPhysicalPlayerIds))
+                {
+                    var observed = string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+                                   !_physicalSetsByPlayer.TryGetValue(
+                                       _options.ReferencePlayerId,
+                                       out var physicalIds)
+                        ? Array.Empty<string>()
+                        : physicalIds.ToArray();
+
+                    return new VerificationResult(
+                        false,
+                        $"Host OMSI did not confirm all simulator buses through MakeVehicle. Confirmed {observed.Length}/{expectedPhysicalPlayerIds.Count}.");
+                }
+            }
+
             var minimum = samples.Min(sample => sample.DistanceMeters);
             var rpStates = samples
                 .Where(sample => sample.Kind == MovementKind.Roleplay)
@@ -465,9 +690,28 @@ internal sealed class SimulationProbe : IAsyncDisposable
             var rpSummary = rpStates.Length == 0
                 ? "no RP states"
                 : $"RP states: {string.Join(", ", rpStates)}";
+            var physicalSummary = _options.VerifyPhysical
+                ? $"; {expectedPhysicalPlayerIds.Count} physical bus(es) confirmed in OMSI"
+                : string.Empty;
             return new VerificationResult(
                 true,
-                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}.");
+                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}{physicalSummary}.");
+        }
+    }
+
+    private void RecordPresence(PlayerPresence player)
+    {
+        var ids = player.PhysicalVehiclePlayerIds;
+        if (ids is null)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            _physicalSetsByPlayer[player.PlayerId] = ids
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -478,7 +722,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
         double heading,
         string? mapName,
         MovementKind kind,
-        RoleplayCharacterActivity? activity)
+        RoleplayCharacterActivity? activity,
+        double? throttlePercent,
+        double? brakePercent,
+        double? fuelPercent,
+        VehicleLightFlags lights,
+        TurnSignalState turnSignal)
     {
         if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(heading))
         {
@@ -499,7 +748,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     mapName,
                     1,
                     kind,
-                    activity is null ? [] : [activity.Value]);
+                    activity is null ? [] : [activity.Value],
+                    SawThrottleTelemetry: throttlePercent is double throttle && throttle > 0d,
+                    SawBrakeTelemetry: brakePercent is double brake && brake > 0d,
+                    SawFuelTelemetry: fuelPercent is double fuel && fuel >= 0d,
+                    SawLights: lights != VehicleLightFlags.None,
+                    SawTurnSignal: turnSignal != TurnSignalState.Off);
                 return;
             }
 
@@ -517,7 +771,22 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 Count = sample.Count + 1,
                 MapName = mapName ?? sample.MapName,
                 Kind = kind,
-                Activities = activities
+                Activities = activities,
+                SawThrottleTelemetry =
+                    sample.SawThrottleTelemetry ||
+                    (throttlePercent is double currentThrottle && currentThrottle > 0d),
+                SawBrakeTelemetry =
+                    sample.SawBrakeTelemetry ||
+                    (brakePercent is double currentBrake && currentBrake > 0d),
+                SawFuelTelemetry =
+                    sample.SawFuelTelemetry ||
+                    (fuelPercent is double currentFuel && currentFuel >= 0d),
+                SawLights =
+                    sample.SawLights ||
+                    lights != VehicleLightFlags.None,
+                SawTurnSignal =
+                    sample.SawTurnSignal ||
+                    turnSignal != TurnSignalState.Off
             };
         }
     }
@@ -556,7 +825,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
         string? MapName,
         int Count,
         MovementKind Kind,
-        IReadOnlyList<RoleplayCharacterActivity> Activities)
+        IReadOnlyList<RoleplayCharacterActivity> Activities,
+        bool SawThrottleTelemetry,
+        bool SawBrakeTelemetry,
+        bool SawFuelTelemetry,
+        bool SawLights,
+        bool SawTurnSignal)
     {
         public double DistanceMeters =>
             Math.Sqrt(
@@ -675,20 +949,6 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     telemetry?.NextStopName ??
                     options.ActiveNextStop;
 
-                if (string.IsNullOrWhiteSpace(activeLine) &&
-                    string.IsNullOrWhiteSpace(activeRoute))
-                {
-                    if (!announcedWaiting)
-                    {
-                        Console.WriteLine(
-                            "Mapa e posição encontrados. Aguardando linha/rota ativa da autoridade da sala...");
-                        announcedWaiting = true;
-                    }
-
-                    await Task.Delay(750, cancellationToken);
-                    continue;
-                }
-
                 var resolved = options with
                 {
                     MapName = reference.MapName,
@@ -698,13 +958,22 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         telemetry?.MapCompatibilityId,
                     CenterX = options.PositionExplicit
                         ? options.CenterX
-                        : telemetry?.LocalX ?? telemetry?.X ?? options.CenterX,
+                        : telemetry?.X ?? options.CenterX,
                     CenterY = options.PositionExplicit
                         ? options.CenterY
-                        : telemetry?.LocalY ?? telemetry?.Y ?? options.CenterY,
+                        : telemetry?.Y ?? options.CenterY,
                     CenterZ = options.PositionExplicit
                         ? options.CenterZ
-                        : telemetry?.LocalZ ?? telemetry?.Z ?? options.CenterZ,
+                        : telemetry?.Z ?? options.CenterZ,
+                    LocalCenterX = options.PositionExplicit
+                        ? options.LocalCenterX
+                        : telemetry?.LocalX ?? telemetry?.X ?? options.LocalCenterX,
+                    LocalCenterY = options.PositionExplicit
+                        ? options.LocalCenterY
+                        : telemetry?.LocalY ?? telemetry?.Y ?? options.LocalCenterY,
+                    LocalCenterZ = options.PositionExplicit
+                        ? options.LocalCenterZ
+                        : telemetry?.LocalZ ?? telemetry?.Z ?? options.LocalCenterZ,
                     GridX = options.NavigationSeedExplicit
                         ? options.GridX
                         : telemetry?.GridX ?? options.GridX,
@@ -717,6 +986,10 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     TileY = options.NavigationSeedExplicit
                         ? options.TileY
                         : telemetry?.TileY ?? options.TileY,
+                    MapTileIndex = options.NavigationSeedExplicit
+                        ? options.MapTileIndex
+                        : telemetry?.MapTileIndex ?? options.MapTileIndex,
+                    ReferencePlayerId = reference.PlayerId,
                     VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
@@ -1123,6 +1396,10 @@ internal sealed record SimulatorOptions(
     string? MapCompatibilityId,
     string? VehiclePath,
     string? VehicleCompatibilityId,
+    string? OmsiRoot,
+    bool VehicleExplicit,
+    IReadOnlyList<SimulatorHofRoute> HofRoutes,
+    string? ReferencePlayerId,
     string? ActiveLine,
     string? ActiveRoute,
     string? ActiveDestination,
@@ -1134,12 +1411,17 @@ internal sealed record SimulatorOptions(
     double CenterX,
     double CenterY,
     double CenterZ,
+    double LocalCenterX,
+    double LocalCenterY,
+    double LocalCenterZ,
+    int? MapTileIndex,
     double RadiusMeters,
     int IntervalMilliseconds,
     int DurationSeconds,
     string NamePrefix,
     SimulatorMode Mode,
     bool Verify,
+    bool VerifyPhysical,
     bool AutoStartLocalServer,
     bool PositionExplicit,
     bool NavigationSeedExplicit,
@@ -1186,6 +1468,12 @@ internal sealed record SimulatorOptions(
             MapCompatibilityId: NullIfEmpty(values.GetValueOrDefault("map-id")),
             VehiclePath: NullIfEmpty(values.GetValueOrDefault("vehicle-path")),
             VehicleCompatibilityId: NullIfEmpty(values.GetValueOrDefault("vehicle-id")),
+            OmsiRoot: NullIfEmpty(values.GetValueOrDefault("omsi-root")),
+            VehicleExplicit:
+                values.ContainsKey("vehicle-path") ||
+                values.ContainsKey("vehicle-id"),
+            HofRoutes: Array.Empty<SimulatorHofRoute>(),
+            ReferencePlayerId: null,
             ActiveLine: NullIfEmpty(values.GetValueOrDefault("line")),
             ActiveRoute: NullIfEmpty(values.GetValueOrDefault("route")),
             ActiveDestination: NullIfEmpty(values.GetValueOrDefault("destination")),
@@ -1197,22 +1485,31 @@ internal sealed record SimulatorOptions(
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),
             CenterY: ParseDouble(values.GetValueOrDefault("y"), 0d),
             CenterZ: ParseDouble(values.GetValueOrDefault("z"), 0d),
+            LocalCenterX: ParseDouble(values.GetValueOrDefault("local-x"), ParseDouble(values.GetValueOrDefault("x"), 0d)),
+            LocalCenterY: ParseDouble(values.GetValueOrDefault("local-y"), ParseDouble(values.GetValueOrDefault("y"), 0d)),
+            LocalCenterZ: ParseDouble(values.GetValueOrDefault("local-z"), ParseDouble(values.GetValueOrDefault("z"), 0d)),
+            MapTileIndex: ParseNullableInt(values.GetValueOrDefault("map-tile-index")),
             RadiusMeters: Math.Clamp(ParseDouble(values.GetValueOrDefault("radius"), 18d), 6d, 2000d),
             IntervalMilliseconds: ClampInt(values.GetValueOrDefault("interval"), 250, 100, 5000),
             DurationSeconds: Math.Max(0, ClampInt(values.GetValueOrDefault("duration"), 0, 0, 86400)),
             NamePrefix: NullIfEmpty(values.GetValueOrDefault("prefix")) ?? "SIM",
             Mode: mode,
-            Verify: values.ContainsKey("verify"),
+            Verify: values.ContainsKey("verify") || values.ContainsKey("verify-physical"),
+            VerifyPhysical: values.ContainsKey("verify-physical"),
             AutoStartLocalServer: !values.ContainsKey("no-auto-server"),
             PositionExplicit:
                 values.ContainsKey("x") ||
                 values.ContainsKey("y") ||
-                values.ContainsKey("z"),
+                values.ContainsKey("z") ||
+                values.ContainsKey("local-x") ||
+                values.ContainsKey("local-y") ||
+                values.ContainsKey("local-z"),
             NavigationSeedExplicit:
                 values.ContainsKey("grid-x") ||
                 values.ContainsKey("grid-y") ||
                 values.ContainsKey("tile-x") ||
-                values.ContainsKey("tile-y"),
+                values.ContainsKey("tile-y") ||
+                values.ContainsKey("map-tile-index"),
             RadiusExplicit: values.ContainsKey("radius"),
             ShowHelp: values.ContainsKey("help"));
     }
@@ -1241,6 +1538,11 @@ Options:
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
   --verify             Verify that frames cross SignalR and positions move.
+  --verify-physical    Require a real OMSI client to confirm the simulator bots were materialized with MakeVehicle.
+  --omsi-root PATH     Optional OMSI root used to resolve the standard physical test bus.
+  --local-x N --local-y N --local-z N
+                       Optional local OMSI transform override for isolated physical tests.
+  --map-tile-index N   Optional OMSI Kachel index override.
   --no-auto-server     Do not auto-start a bundled/local NavBR.Server on loopback.
   --prefix TEXT        Display-name prefix (default SIM)
   --vehicle-path PATH  Optional real .bus path for physical-vehicle testing.

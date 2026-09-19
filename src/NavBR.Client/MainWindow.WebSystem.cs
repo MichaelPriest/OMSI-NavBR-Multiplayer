@@ -52,7 +52,8 @@ public partial class MainWindow
                 omsiRoot = pluginOmsiRoot,
                 embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
                 installAvailable = OmsiPluginInstallationService.HasEmbeddedPackage &&
-                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot),
+                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot) &&
+                                   _currentOmsi is null,
                 omsiRunning = _currentOmsi is not null
             },
             installations = profiles
@@ -246,7 +247,15 @@ public partial class MainWindow
             throw new InvalidOperationException("O perfil OMSI selecionado não existe mais.");
         }
 
-        _webOmsiLaunchNotice = null;
+        if (!EnsurePluginBeforeOmsiLaunch(
+                profile.InstallDirectory,
+                out var pluginNotice))
+        {
+            _webOmsiLaunchNotice = pluginNotice;
+            return;
+        }
+
+        _webOmsiLaunchNotice = pluginNotice;
         _ = OmsiLauncherService.Launch(profile);
         _ = RefreshOmsiStatusAsync();
     }

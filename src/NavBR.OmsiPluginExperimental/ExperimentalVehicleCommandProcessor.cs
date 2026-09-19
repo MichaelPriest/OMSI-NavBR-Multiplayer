@@ -25,6 +25,8 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleSpawn);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleVisualState);
+            capabilities.Add(PluginBridgeProtocol.CapabilityVehicleInterpolation);
+            capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTileSync);
         }
 
         if (RoleplayCharacterCommandProcessor.IsRuntimeSupported)
@@ -184,6 +186,7 @@ internal static class PhysicalVehicleBackend
             }
         }
 
+        PhysicalVehicleMotionController.Clear();
         PhysicalVehicleInstanceRegistry.Clear();
     }
 
@@ -196,7 +199,20 @@ internal static class PhysicalVehicleBackend
 
         if (PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var existing))
         {
-            return ApplyState(command, existing);
+            return IsRemoteCommand(command.Type)
+                ? ApplyRemoteTarget(command, existing)
+                : ApplyState(command, existing);
+        }
+
+        if (command.MapTileIndex is int mapTileIndex &&
+            (mapTileIndex < 0 ||
+             mapTileIndex > 200_000 ||
+             OmsiNativeInterop.IsMapTileIndexValid(mapTileIndex) != 1))
+        {
+            return Fail(
+                command,
+                "tile-unavailable",
+                "The remote OMSI map tile is not currently available in the local map.");
         }
 
         if (!TryResolveVehiclePath(command.VehiclePath, out var vehiclePath))
@@ -347,9 +363,12 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "instance-registry-full", "Could not register the newly created NavBR vehicle safely.");
         }
 
-        var applied = ApplyState(command, instance);
+        var applied = IsRemoteCommand(command.Type)
+            ? InitializeRemoteMotion(command, instance)
+            : ApplyState(command, instance);
         if (applied.Success != true)
         {
+            PhysicalVehicleMotionController.Remove(instanceId);
             PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
             _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
         }
@@ -365,7 +384,9 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "vehicle-not-owned", "The requested physical vehicle is not owned by NavBR.");
         }
 
-        return ApplyState(command, instance);
+        return IsRemoteCommand(command.Type)
+            ? ApplyRemoteTarget(command, instance)
+            : ApplyState(command, instance);
     }
 
     private static PluginBridgeMessage Despawn(PluginBridgeMessage command)
@@ -377,11 +398,13 @@ internal static class PhysicalVehicleBackend
 
         if (!PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out var instance))
         {
+            PhysicalVehicleMotionController.Remove(instanceId);
             return ExperimentalVehicleCommandProcessor.Result(command, true);
         }
 
         if (OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
         {
+            PhysicalVehicleMotionController.Remove(instanceId);
             return ExperimentalVehicleCommandProcessor.Result(command, true);
         }
 
@@ -391,7 +414,54 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "despawn-mark-failed", "Could not mark the NavBR-owned OMSI vehicle for removal.");
         }
 
+        PhysicalVehicleMotionController.Remove(instanceId);
         return ExperimentalVehicleCommandProcessor.Result(command, true);
+    }
+
+    private static PluginBridgeMessage InitializeRemoteMotion(
+        PluginBridgeMessage command,
+        PhysicalVehicleInstance instance)
+    {
+        if (OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+        {
+            PhysicalVehicleInstanceRegistry.TryRemove(instance.InstanceId, out _);
+            PhysicalVehicleMotionController.Remove(instance.InstanceId);
+            return Fail(command, "vehicle-pointer-stale", "The OMSI vehicle instance is no longer present in RoadVehicles.");
+        }
+
+        return PhysicalVehicleMotionController.TryInitialize(
+                instance,
+                command,
+                out var errorCode,
+                out var errorMessage)
+            ? ExperimentalVehicleCommandProcessor.Result(command, true)
+            : Fail(
+                command,
+                errorCode ?? "motion-initialize-failed",
+                errorMessage ?? "Could not initialize remote physical vehicle smoothing.");
+    }
+
+    private static PluginBridgeMessage ApplyRemoteTarget(
+        PluginBridgeMessage command,
+        PhysicalVehicleInstance instance)
+    {
+        if (OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+        {
+            PhysicalVehicleInstanceRegistry.TryRemove(instance.InstanceId, out _);
+            PhysicalVehicleMotionController.Remove(instance.InstanceId);
+            return Fail(command, "vehicle-pointer-stale", "The OMSI vehicle instance is no longer present in RoadVehicles.");
+        }
+
+        return PhysicalVehicleMotionController.TrySetTarget(
+                instance,
+                command,
+                out var errorCode,
+                out var errorMessage)
+            ? ExperimentalVehicleCommandProcessor.Result(command, true)
+            : Fail(
+                command,
+                errorCode ?? "motion-target-failed",
+                errorMessage ?? "Could not update the remote physical vehicle smoothing target.");
     }
 
     private static PluginBridgeMessage ApplyState(
@@ -422,7 +492,11 @@ internal static class PhysicalVehicleBackend
                 pose.RotationY,
                 pose.RotationZ,
                 pose.RotationW,
-                speedMps) != 1)
+                speedMps,
+                command.MapTileIndex is int mapTileIndex &&
+                mapTileIndex >= 0
+                    ? mapTileIndex
+                    : -1) != 1)
         {
             return Fail(command, "transform-write-failed", "OMSI rejected the guarded vehicle transform write.");
         }
@@ -531,6 +605,10 @@ internal static class PhysicalVehicleBackend
         instanceId = command.VehicleInstanceId?.Trim() ?? string.Empty;
         return instanceId.Length is > 0 and <= 128;
     }
+
+    private static bool IsRemoteCommand(string type) =>
+        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.UpdateRemoteVehicle, StringComparison.Ordinal);
 
     private static bool IsSpawn(string type) =>
         string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||

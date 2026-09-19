@@ -294,7 +294,8 @@ public static class OmsiPluginBridgeRelay
             RotationX: telemetry.RotationX,
             RotationY: telemetry.RotationY,
             RotationZ: telemetry.RotationZ,
-            RotationW: telemetry.RotationW);
+            RotationW: telemetry.RotationW,
+            MapTileIndex: telemetry.MapTileIndex);
     }
 
     private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(

@@ -115,7 +115,7 @@ export interface NavBrMultiplayerState {
     isRoomOwner: boolean;
     isTrafficAuthority: boolean;
   };
-  transportMode: "none" | "direct-host" | "remote-host" | "relay";
+  transportMode: "none" | "direct-host" | "remote-host" | "relay" | "dedicated-server";
   roomCompatibility: {
     level: "none" | "waiting" | "compatible" | "partial" | "warning" | "blocked";
     remoteCount: number;
@@ -210,7 +210,19 @@ export interface NavBrNavigationState {
   paceMetersPerSecond?: number | null;
   usesWorldCoordinates: boolean;
   tileSize?: number | null;
+  roadmapAvailable: boolean;
+  roadmapUrl?: string | null;
+  bounds?: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  } | null;
   routePoints: NavBrNavigationPoint[];
+  rejoinAvailable: boolean;
+  rejoinDistanceMeters?: number | null;
+  rejoinPoints: NavBrNavigationPoint[];
+  rejoinPoint?: NavBrNavigationPoint | null;
   stopPoints: NavBrNavigationStop[];
   vehicle?: NavBrNavigationVehicle | null;
   stopSequence: {
@@ -852,6 +864,7 @@ export type NavBrCommand =
   | "stopGhostPlayback"
   | "openGhostFolder"
   | "connectRoom"
+  | "createOnlineRoom"
   | "createLocalRoom"
   | "disconnectRoom"
   | "stopLocalHost"

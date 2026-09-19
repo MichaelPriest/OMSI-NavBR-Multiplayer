@@ -69,7 +69,10 @@ A telemetria atual pode fornecer, conforme o perfil/runtime disponível:
 - estado de mapa carregado;
 - linha/track ativa;
 - destino;
-- próxima parada quando a estrutura/timetable permite.
+- próxima parada quando a estrutura/timetable permite;
+- acelerador e pedal de freio, quando os campos do perfil retornam valores válidos;
+- combustível, quando disponível;
+- estado visual read-only: iluminação externa genérica, luz interna, luz de freio e setas/pisca-alerta.
 
 Linha, destino e próxima parada são consumidos também pelas camadas de timetable/navegação. O objetivo é manter offsets e estruturas de memória isolados da UI e do protocolo multiplayer.
 

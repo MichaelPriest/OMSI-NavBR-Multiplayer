@@ -14,3 +14,5 @@ services:
         value: Production
       - key: NAVBR_ENABLE_EXTERNAL_PORT_PROBE
         value: "false"
+      - key: NAVBR_HOSTING_MODE
+        value: "render-free"

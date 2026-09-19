@@ -276,9 +276,10 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
 
   const geometry = useMemo(() => {
     const route = navigation.routePoints;
+    const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
 
-    if (route.length < 2) {
+    if (route.length < 2 && !navigation.roadmapAvailable && !vehicle) {
       return null;
     }
 
@@ -293,9 +294,9 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX = vehicle.x + radius;
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
-    } else {
-      const xs = route.map(point => point.x);
-      const ys = route.map(point => -point.y);
+    } else if (route.length > 0 || rejoin.length > 0) {
+      const xs = [...route, ...rejoin].map(point => point.x);
+      const ys = [...route, ...rejoin].map(point => -point.y);
       minX = Math.min(...xs);
       maxX = Math.max(...xs);
       minY = Math.min(...ys);
@@ -305,6 +306,19 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX += pad;
       minY -= pad;
       maxY += pad;
+    } else if (navigation.bounds) {
+      minX = navigation.bounds.minX;
+      maxX = navigation.bounds.maxX;
+      minY = -navigation.bounds.maxY;
+      maxY = -navigation.bounds.minY;
+    } else if (vehicle) {
+      const radius = 650;
+      minX = vehicle.x - radius;
+      maxX = vehicle.x + radius;
+      minY = -vehicle.y - radius;
+      maxY = -vehicle.y + radius;
+    } else {
+      return null;
     }
 
     const baseWidth = Math.max(120, maxX - minX);
@@ -314,12 +328,14 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     const routePoints = route.map(point => `${point.x},${-point.y}`).join(" ");
+    const rejoinPoints = rejoin.map(point => `${point.x},${-point.y}`).join(" ");
 
     return {
       viewBox: `${centerX - width / 2} ${centerY - height / 2} ${width} ${height}`,
-      routePoints
+      routePoints,
+      rejoinPoints
     };
-  }, [navigation.routePoints, navigation.vehicle, mode, zoom]);
+  }, [navigation.routePoints, navigation.rejoinPoints, navigation.roadmapAvailable, navigation.bounds, navigation.vehicle, mode, zoom]);
 
   return (
     <div className="navigation-map">
@@ -338,8 +354,36 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         </div>
       ) : (
         <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
-          <polyline className="nav-route-shadow" points={geometry.routePoints} />
-          <polyline className="nav-route-line" points={geometry.routePoints} />
+          {navigation.roadmapAvailable && navigation.roadmapUrl && navigation.bounds && (
+            <image
+              className="nav-roadmap-image"
+              href={navigation.roadmapUrl}
+              x={navigation.bounds.minX}
+              y={-navigation.bounds.maxY}
+              width={navigation.bounds.maxX - navigation.bounds.minX}
+              height={navigation.bounds.maxY - navigation.bounds.minY}
+              preserveAspectRatio="none"
+            />
+          )}
+
+          {geometry.routePoints && (
+            <>
+              <polyline className="nav-route-shadow" points={geometry.routePoints} />
+              <polyline className="nav-route-line" points={geometry.routePoints} />
+            </>
+          )}
+
+          {navigation.rejoinAvailable && geometry.rejoinPoints && (
+            <>
+              <polyline className="nav-rejoin-shadow" points={geometry.rejoinPoints} />
+              <polyline className="nav-rejoin-line" points={geometry.rejoinPoints} />
+              {navigation.rejoinPoint && (
+                <g transform={`translate(${navigation.rejoinPoint.x} ${-navigation.rejoinPoint.y})`}>
+                  <circle className="nav-rejoin-target" r="13" />
+                </g>
+              )}
+            </>
+          )}
 
           {navigation.stopPoints.map((stop, index) => (
             <g key={`${stop.name}-${index}`} transform={`translate(${stop.x} ${-stop.y})`}>
@@ -365,6 +409,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
 
       <div className="navigation-map-legend">
         <span><i className="route" /> {pick("Rota OMSI", "OMSI route", "Ruta OMSI", "OMSI-Route", "Itinéraire OMSI")}</span>
+        {navigation.rejoinAvailable && <span><i className="rejoin" /> {pick("Retorno à rota", "Route rejoin", "Retorno a la ruta", "Routenrückkehr", "Retour à l’itinéraire")}</span>}
         <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
         <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
       </div>
@@ -678,7 +723,9 @@ function Navigation({
                 <h3>{maneuver.title}</h3>
                 <p>
                   {navigation.maneuver === "RejoinRoute"
-                    ? formatDistance(navigation.offRouteDistanceMeters)
+                    ? navigation.rejoinAvailable
+                      ? `${formatDistance(navigation.rejoinDistanceMeters)} ${pick("pela via de retorno", "via rejoin path", "por la vía de retorno", "über den Rückkehrweg", "par le chemin de retour")}`
+                      : formatDistance(navigation.offRouteDistanceMeters)
                     : navigation.distanceToManeuverMeters != null
                       ? `em ${formatDistance(navigation.distanceToManeuverMeters)}`
                       : navigation.currentStreetName || pick("Continue pela rota", "Continue on the route", "Continúa por la ruta", "Der Route weiter folgen", "Continuez sur l’itinéraire")}
@@ -741,7 +788,7 @@ function physicalVehicleStatusLabel(
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
-    case "active": return pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif");
+    case "active": return pick("OMSI 3D ativo · movimento suavizado", "OMSI 3D active · smoothed motion", "OMSI 3D activo · movimiento suavizado", "OMSI 3D aktiv · geglättete Bewegung", "OMSI 3D actif · mouvement lissé");
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
     case "consist-unsupported":
@@ -791,6 +838,7 @@ function physicalVehicleStatusLabel(
             "Articulé/convoi détecté — prise en charge physique encore bloquée"
           );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
+    case "tile-unavailable": return pick("Aguardando tile do ônibus carregar no OMSI", "Waiting for the bus tile to load in OMSI", "Esperando que cargue el tile del autobús en OMSI", "Warte auf das Laden der Bus-Kachel in OMSI", "En attente du chargement de la tuile du bus dans OMSI");
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
       ? pick(`Incompatível: ${errorCode}`, `Incompatible: ${errorCode}`, `Incompatible: ${errorCode}`, `Inkompatibel: ${errorCode}`, `Incompatible : ${errorCode}`)
@@ -799,10 +847,14 @@ function physicalVehicleStatusLabel(
     case "local-state-unavailable": return pick("Aguardando estado local", "Waiting for local state", "Esperando estado local", "Warte auf lokalen Status", "En attente de l’état local");
     case "remote-not-in-game": return pick("Jogador fora do gameplay", "Player not in gameplay", "Jugador fuera del juego", "Spieler nicht im Gameplay", "Joueur hors gameplay");
     case "limit-reached": return pick("Limite físico atingido", "Physical limit reached", "Límite físico alcanzado", "Physisches Limit erreicht", "Limite physique atteinte");
+    case "waiting-nearer-slot": return pick("Aguardando vaga física por proximidade", "Waiting for a nearer physical slot", "Esperando una plaza física por proximidad", "Warte auf näheren physischen Slot", "En attente d’une place physique de proximité");
+    case "capacity-evicted": return pick("Mantido online · vaga 3D priorizada para ônibus mais próximo", "Still online · 3D slot prioritized for a nearer bus", "Sigue online · plaza 3D priorizada para un bus más cercano", "Weiter online · 3D-Slot für näheren Bus priorisiert", "Toujours en ligne · place 3D priorisée pour un bus plus proche");
+    case "out-of-range": return pick("Fora do raio físico 3D", "Outside physical 3D range", "Fuera del radio físico 3D", "Außerhalb des physischen 3D-Radius", "Hors de la portée physique 3D");
     case "switching-vehicle": return pick("Trocando modelo físico", "Switching physical model", "Cambiando modelo físico", "Physisches Modell wird gewechselt", "Changement de modèle physique");
     case "session-changed": return pick("Sessão mudou durante a resolução", "Session changed during resolution", "La sesión cambió durante la resolución", "Sitzung änderte sich während der Auflösung", "La session a changé pendant la résolution");
     case "path-state-missing": return pick("Estado do asset local foi perdido", "Local asset state was lost", "Se perdió el estado del asset local", "Lokaler Asset-Status ging verloren", "L’état de l’asset local a été perdu");
     case "spawn-failed": return pick("Falha ao criar ônibus físico", "Physical bus spawn failed", "Falló la creación del autobús físico", "Physischer Bus konnte nicht erstellt werden", "Échec de création du bus physique");
+    case "update-retrying": return pick("Recuperando atualização 3D", "Recovering 3D update", "Recuperando actualización 3D", "3D-Aktualisierung wird wiederhergestellt", "Récupération de la mise à jour 3D");
     case "update-failed": return pick("Falha ao atualizar ônibus físico", "Physical bus update failed", "Falló la actualización del autobús físico", "Physischer Bus konnte nicht aktualisiert werden", "Échec de mise à jour du bus physique");
     case "despawn-failed": return pick("Falha ao remover ônibus físico", "Physical bus removal failed", "Falló la eliminación del autobús físico", "Physischer Bus konnte nicht entfernt werden", "Échec de suppression du bus physique");
     case "disabled": return pick("Ônibus físico desativado", "Physical bus disabled", "Autobús físico desactivado", "Physischer Bus deaktiviert", "Bus physique désactivé");
@@ -2130,6 +2182,29 @@ function Settings({
           )}
           <article className="card discovery-card">
             <div className="section-heading">
+              <div><span className="eyebrow">{pick("PLUGIN NAVBR", "NAVBR PLUGIN", "PLUGIN NAVBR", "NAVBR-PLUGIN", "PLUGIN NAVBR")}</span><h3>{pick("Verificação automática na abertura", "Automatic startup check", "Verificación automática al iniciar", "Automatische Prüfung beim Start", "Vérification automatique au démarrage")}</h3></div>
+              <span className={`compatibility-badge ${system.pluginInstallation.state === "installed" ? "compatible" : system.pluginInstallation.state === "untracked" ? "warning" : "blocked"}`}>
+                {system.pluginInstallation.state.toUpperCase()}
+              </span>
+            </div>
+            <p>{pick("Ao abrir o NavBR, o app localiza o OMSI e verifica os 3 arquivos necessários. Se estiverem ausentes ou desatualizados e for seguro substituir, o pacote oficial embutido é instalado automaticamente.", "When NavBR starts, it locates OMSI and checks the 3 required files. If they are missing or outdated and replacement is safe, the embedded official package is installed automatically.", "Al iniciar NavBR, la app localiza OMSI y verifica los 3 archivos necesarios. Si faltan o están desactualizados y es seguro reemplazarlos, instala automáticamente el paquete oficial integrado.", "Beim Start sucht NavBR OMSI und prüft die 3 erforderlichen Dateien. Fehlen sie oder sind sie veraltet und ein Austausch ist sicher, wird das eingebettete offizielle Paket automatisch installiert.", "Au démarrage, NavBR localise OMSI et vérifie les 3 fichiers requis. S'ils manquent ou sont obsolètes et que le remplacement est sûr, le paquet officiel intégré est installé automatiquement.")}</p>
+            <div className="details-grid">
+              <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.pluginInstallation.requiredFilesFound}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("MANIFESTO", "MANIFEST", "MANIFIESTO", "MANIFEST", "MANIFESTE")}</small><strong>{system.pluginInstallation.manifestPresent ? "OK" : "—"}</strong></div>
+              <div><small>{pick("PACOTE EMBUTIDO", "EMBEDDED PACKAGE", "PAQUETE INTEGRADO", "EINGEBETTETES PAKET", "PAQUET INTÉGRÉ")}</small><strong>{system.pluginInstallation.embeddedPackageAvailable ? "OK" : "—"}</strong></div>
+              <div><small>OMSI</small><strong>{system.pluginInstallation.omsiRunning ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
+            </div>
+            {system.pluginInstallation.state !== "installed" && (
+              <div className="discovery-actions">
+                <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
+                  {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
+                </button>
+              </div>
+            )}
+          </article>
+
+          <article className="card discovery-card">
+            <div className="section-heading">
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
               <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
             </div>
@@ -2398,6 +2473,8 @@ function roleplayStatusLabel(
     case "roleplay-active": return pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif");
     case "roleplay-returned-to-bus": return pick("Motorista retornou ao ônibus", "Driver returned to the bus", "El conductor volvió al autobús", "Fahrer ist zum Bus zurückgekehrt", "Le conducteur est retourné au bus");
     case "roleplay-character-selected": return pick("Personagem selecionado", "Character selected", "Personaje seleccionado", "Charakter ausgewählt", "Personnage sélectionné");
+    case "roleplay-active-driver-auto-selected": return pick("Motorista ativo detectado automaticamente", "Active driver detected automatically", "Conductor activo detectado automáticamente", "Aktiver Fahrer automatisch erkannt", "Conducteur actif détecté automatiquement");
+    case "roleplay-active-driver-not-detected": return pick("Aguardando o motorista ativo do ônibus", "Waiting for the active bus driver", "Esperando al conductor activo del autobús", "Warte auf den aktiven Busfahrer", "En attente du conducteur actif du bus");
     case "roleplay-plugin-unavailable": return pick("Plugin Bridge sem suporte RP", "Plugin Bridge has no RP support", "Plugin Bridge sin soporte RP", "Plugin Bridge ohne RP-Unterstützung", "Plugin Bridge sans prise en charge RP");
     case "roleplay-character-required": return pick("Selecione um personagem", "Select a character", "Selecciona un personaje", "Charakter auswählen", "Sélectionnez un personnage");
     case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
@@ -2490,7 +2567,10 @@ function RoleplayPanel({
     return <div className="card empty-state">{pick("Aguardando estado do Personagem / RP…", "Waiting for Character / RP state…", "Esperando el estado del Personaje / RP…", "Warte auf Charakter-/RP-Status…", "En attente de l’état Personnage / RP…")}</div>;
   }
 
-  const canStart = roleplay.enabled && roleplay.mapReady && roleplay.runtimeAvailable && Boolean(roleplay.selected) && !roleplay.active;
+  // "Sair do ônibus" is itself the explicit RP opt-in. Do not require the
+  // write flag/runtimeAvailable before the first click, otherwise the UI can
+  // deadlock with the button disabled before C# has a chance to enable RP.
+  const canStart = roleplay.mapReady && !roleplay.active;
   const current = roleplay.current;
   const normalizedInteractionFilter = interactionFilter.trim().toLowerCase();
   const filteredInteractions = normalizedInteractionFilter
@@ -2647,7 +2727,7 @@ function RoleplayPanel({
                 <button
                   key={character.id}
                   className={`rp-character-row ${character.selected ? "selected" : ""}`}
-                  disabled={roleplay.active}
+                  disabled={roleplay.active || !character.isActiveDriver}
                   onClick={() => sendCommand("selectRoleplayCharacter", { characterId: character.id })}
                 >
                   <span className="rp-character-avatar">♙</span>
@@ -2655,7 +2735,11 @@ function RoleplayPanel({
                     <strong>{character.displayName}</strong>
                     <small>{character.isActiveDriver ? pick("Motorista ativo do mapa", "Active map driver", "Conductor activo del mapa", "Aktiver Kartenfahrer", "Conducteur actif de la carte") : character.sourceValue}</small>
                   </span>
-                  <em>{character.selected ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné") : pick("Usar", "Use", "Usar", "Verwenden", "Utiliser")}</em>
+                  <em>{character.selected
+                    ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné")
+                    : character.isActiveDriver
+                      ? pick("Usar", "Use", "Usar", "Verwenden", "Utiliser")
+                      : pick("Catálogo", "Catalog", "Catálogo", "Katalog", "Catalogue")}</em>
                 </button>
               ))}
             </div>
@@ -2809,6 +2893,7 @@ function Multiplayer({
   const [chatHotkey, setChatHotkey] = useState("F9");
   const [voiceHotkey, setVoiceHotkey] = useState("F10");
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const defaultOnlineServer = "https://omsi-navbr-multiplayer-server.onrender.com";
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || "");
@@ -2890,8 +2975,8 @@ function Multiplayer({
   const buildInviteText = () => {
     if (!multiplayer.connected || !multiplayer.roomId) return null;
 
-    const useRelay = multiplayer.relayEnabled && !multiplayer.hostRunning;
-    const activeServer = useRelay
+    const useOnlineServer = multiplayer.relayEnabled && !multiplayer.hostRunning;
+    const activeServer = useOnlineServer
       ? (multiplayer.serverUrl || multiplayer.relayServerUrl || serverUrl)
       : (multiplayer.internetInviteAddress || multiplayer.inviteAddresses[0] || multiplayer.serverUrl || serverUrl);
 
@@ -2902,10 +2987,10 @@ function Multiplayer({
       `server=${activeServer}`,
       `room=${multiplayer.roomId}`
     ];
-    if (!useRelay) {
+    if (!useOnlineServer) {
       lines.push(`port=${multiplayer.hostPort ?? 27730}`);
     }
-    lines.push(`mode=${useRelay ? "relay" : "peer-host"}`);
+    lines.push(`mode=${multiplayer.transportMode === "dedicated-server" ? "dedicated-server" : useOnlineServer ? "relay" : "peer-host"}`);
     return lines.join("\n");
   };
 
@@ -2949,7 +3034,7 @@ function Multiplayer({
       setServerUrl(importedServer);
       setRoomId(importedRoom);
       setRoomPassword("");
-      if (mode === "relay") {
+      if (mode === "relay" || mode === "dedicated-server") {
         setRelayEnabled(true);
         setRelayServerUrl(importedServer);
         sendCommand("configureRelay", { enabled: true, relayServerUrl: importedServer });
@@ -2993,12 +3078,20 @@ function Multiplayer({
         <div className="metric"><small>{pick("MAPA LOCAL", "LOCAL MAP", "MAPA LOCAL", "LOKALE KARTE", "CARTE LOCALE")}</small><strong>{telemetry?.mapName || "—"}</strong></div>
         <div className="metric"><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.playerCount}</strong></div>
         <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
-        <div className="metric"><small>HOST</small><strong>{multiplayer.hostRunning ? `TCP ${multiplayer.hostPort ?? 27730}` : pick("Local inativo", "Local inactive", "Local inactivo", "Lokal inaktiv", "Local inactif")}</strong></div>
+        <div className="metric"><small>{multiplayer.transportMode === "dedicated-server" ? pick("SERVIDOR", "SERVER", "SERVIDOR", "SERVER", "SERVEUR") : "HOST"}</small><strong>{
+          multiplayer.transportMode === "dedicated-server"
+            ? pick("NavBR no Render", "NavBR on Render", "NavBR en Render", "NavBR auf Render", "NavBR sur Render")
+            : multiplayer.hostRunning
+              ? `TCP ${multiplayer.hostPort ?? 27730}`
+              : pick("Não sou o host", "Not the host", "No soy el host", "Nicht der Host", "Pas l’hôte")
+        }</strong></div>
         <div className="metric"><small>{pick("TRANSPORTE", "TRANSPORT", "TRANSPORTE", "TRANSPORT", "TRANSPORT")}</small><strong>{
           multiplayer.transportMode === "direct-host"
             ? pick("Host direto", "Direct host", "Host directo", "Direkter Host", "Hôte direct")
-            : multiplayer.transportMode === "relay"
-              ? pick("Servidor online", "Online server", "Servidor online", "Online-Server", "Serveur en ligne")
+            : multiplayer.transportMode === "dedicated-server"
+              ? pick("Servidor dedicado online", "Online dedicated server", "Servidor dedicado online", "Dedizierter Online-Server", "Serveur dédié en ligne")
+              : multiplayer.transportMode === "relay"
+                ? pick("Servidor online", "Online server", "Servidor online", "Online-Server", "Serveur en ligne")
               : multiplayer.transportMode === "remote-host"
                 ? pick("Conectado ao host", "Connected to host", "Conectado al host", "Mit Host verbunden", "Connecté à l’hôte")
                 : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")
@@ -3116,7 +3209,7 @@ function Multiplayer({
           <div className="room-form-grid">
             <label>
               <span>{pick("Servidor", "Server", "Servidor", "Server", "Serveur")}</span>
-              <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder="http://127.0.0.1:27730" />
+              <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder={defaultOnlineServer} />
             </label>
             <label>
               <span>{pick("Sala", "Room", "Sala", "Raum", "Salle")}</span>
@@ -3176,32 +3269,58 @@ function Multiplayer({
             </label>
           </div>
 
+          {!multiplayer.connected && (
+            <div className="migration-note">
+              <strong>{pick("Escolha um dos 3 modos de multiplayer", "Choose one of the 3 multiplayer modes", "Elige uno de los 3 modos multijugador", "Wähle einen der 3 Multiplayer-Modi", "Choisissez l’un des 3 modes multijoueur")}</strong><br />
+              {pick("1. Servidor NavBR: servidor dedicado oficial, sem abrir portas. 2. LAN: seu PC hospeda apenas na rede local. 3. Online pelo Host: seu PC hospeda pela Internet e pode exigir UPnP/Firewall/porta TCP 27730.", "1. NavBR Server: official dedicated server, no port forwarding. 2. LAN: your PC hosts only on the local network. 3. Online via Host: your PC hosts over the Internet and may require UPnP/firewall/TCP 27730.", "1. Servidor NavBR: servidor dedicado oficial, sin abrir puertos. 2. LAN: tu PC aloja solo en la red local. 3. Online por Host: tu PC aloja por Internet y puede requerir UPnP/firewall/TCP 27730.", "1. NavBR-Server: offizieller dedizierter Server ohne Portfreigabe. 2. LAN: dein PC hostet nur im lokalen Netz. 3. Online über Host: dein PC hostet über das Internet und kann UPnP/Firewall/TCP 27730 benötigen.", "1. Serveur NavBR : serveur dédié officiel, sans ouverture de ports. 2. LAN : votre PC héberge uniquement sur le réseau local. 3. En ligne via l’hôte : votre PC héberge sur Internet et peut nécessiter UPnP/pare-feu/TCP 27730.")}
+            </div>
+          )}
+
+          {!multiplayer.connected && (
+            <div className="migration-note">
+              <strong>{pick("Servidor NavBR oficial — gratuito e limitado nesta fase", "Official NavBR Server — free and limited at this stage", "Servidor NavBR oficial — gratuito y limitado en esta fase", "Offizieller NavBR-Server — derzeit kostenlos und begrenzt", "Serveur NavBR officiel — gratuit et limité à ce stade")}</strong><br />
+              {pick("A infraestrutura atual usa Render Free: 0,1 CPU, 512 MB de RAM, 750 horas gratuitas por mês, uma única instância e possível hibernação após 15 minutos sem tráfego. É adequada para Alpha/testes e pode atingir limites com muitas salas ou jogadores. No futuro poderemos oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há plano, preço ou data definidos.", "The current infrastructure uses Render Free: 0.1 CPU, 512 MB RAM, 750 free hours per month, a single instance, and possible sleep after 15 minutes without traffic. It is suitable for Alpha/testing and may hit limits with many rooms or players. In the future we may offer an official subscription with greater capacity and stability; no plan, price, or date is defined yet.", "La infraestructura actual usa Render Free: 0,1 CPU, 512 MB de RAM, 750 horas gratuitas al mes, una sola instancia y posible suspensión tras 15 minutos sin tráfico. Es adecuada para Alpha/pruebas y puede alcanzar límites con muchas salas o jugadores. En el futuro podremos ofrecer una suscripción oficial con mayor capacidad y estabilidad; todavía no hay plan, precio ni fecha definidos.", "Die aktuelle Infrastruktur nutzt Render Free: 0,1 CPU, 512 MB RAM, 750 kostenlose Stunden pro Monat, eine Instanz und mögliches Einschlafen nach 15 Minuten ohne Datenverkehr. Sie eignet sich für Alpha/Tests und kann bei vielen Räumen oder Spielern an Grenzen stoßen. Künftig könnten wir ein offizielles Abo mit mehr Kapazität und Stabilität anbieten; Plan, Preis und Termin stehen noch nicht fest.", "L’infrastructure actuelle utilise Render Free : 0,1 CPU, 512 Mo de RAM, 750 heures gratuites par mois, une seule instance et une possible mise en veille après 15 minutes sans trafic. Elle convient à l’Alpha/aux tests et peut atteindre ses limites avec de nombreuses salles ou joueurs. À l’avenir, nous pourrons proposer un abonnement officiel offrant davantage de capacité et de stabilité ; aucun plan, prix ni date n’est encore défini.")}
+            </div>
+          )}
+
           <div className="room-actions">
             {!multiplayer.connected ? (
               <>
-                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
+                <button className="button ghost" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar em uma sala", "Join a room", "Entrar en una sala", "Einem Raum beitreten", "Rejoindre une salle")}</button>
                 <button
-                  className="button ghost"
-                  onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true })}
+                  className="button primary"
+                  onClick={() => {
+                    const onlineUrl = relayServerUrl || defaultOnlineServer;
+                    setRelayEnabled(true);
+                    setRelayServerUrl(onlineUrl);
+                    setServerUrl(onlineUrl);
+                    sendCommand("createOnlineRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, serverUrl: onlineUrl });
+                  }}
                 >
-                  {pick("Hospedar no meu PC (LAN + Internet)", "Host on my PC (LAN + Internet)", "Alojar en mi PC (LAN + Internet)", "Auf meinem PC hosten (LAN + Internet)", "Héberger sur mon PC (LAN + Internet)")}
+                  {pick("1 · Servidor NavBR (gratuito/limitado)", "1 · NavBR Server (free/limited)", "1 · Servidor NavBR (gratuito/limitado)", "1 · NavBR-Server (kostenlos/begrenzt)", "1 · Serveur NavBR (gratuit/limité)")}
                 </button>
                 <button
                   className="button ghost"
                   onClick={() => {
-                    const onlineUrl = relayServerUrl || "https://omsi-navbr-multiplayer-server.onrender.com";
-                    setRelayEnabled(true);
-                    setRelayServerUrl(onlineUrl);
-                    sendCommand("configureRelay", { enabled: true, relayServerUrl: onlineUrl });
-                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: true, relayServerUrl: onlineUrl });
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false });
                   }}
                 >
-                  {pick("Criar no servidor online NavBR", "Create on NavBR online server", "Crear en el servidor online NavBR", "Auf NavBR-Online-Server erstellen", "Créer sur le serveur en ligne NavBR")}
+                  {pick("2 · LAN — hospedar neste PC", "2 · LAN — host on this PC", "2 · LAN — alojar en este PC", "2 · LAN — auf diesem PC hosten", "2 · LAN — héberger sur ce PC")}
+                </button>
+                <button
+                  className="button ghost"
+                  onClick={() => {
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true });
+                  }}
+                >
+                  {pick("3 · Online pelo Host — este PC", "3 · Online via Host — this PC", "3 · Online por Host — este PC", "3 · Online über Host — dieser PC", "3 · En ligne via l’hôte — ce PC")}
                 </button>
               </>
             ) : (
               <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
-                {multiplayer.hostRunning ? pick("Encerrar sala local", "Stop local room", "Cerrar sala local", "Lokalen Raum beenden", "Fermer la salle locale") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
+                {multiplayer.hostRunning ? pick("Encerrar servidor deste PC", "Stop this PC server", "Detener servidor de este PC", "Server dieses PCs stoppen", "Arrêter le serveur de ce PC") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
               </button>
             )}
           </div>
@@ -3211,15 +3330,28 @@ function Multiplayer({
             <div><small>{pick("ID DA SALA", "ROOM ID", "ID DE SALA", "RAUM-ID", "ID DE SALLE")}</small><strong>{multiplayer.roomId || "—"}</strong></div>
             <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
-            <div><small>{pick("ALCANCE DO HOST", "HOST REACHABILITY", "ALCANCE DEL HOST", "HOST-ERREICHBARKEIT", "ACCESSIBILITÉ DE L’HÔTE")}</small><strong>{hostReachabilityLabel}</strong></div>
-            <div><small>{pick("ENDEREÇO INTERNET", "INTERNET ADDRESS", "DIRECCIÓN INTERNET", "INTERNET-ADRESSE", "ADRESSE INTERNET")}</small><strong>{multiplayer.internetInviteAddress || "—"}</strong></div>
+            <div><small>{pick("TIPO DE SERVIDOR", "SERVER TYPE", "TIPO DE SERVIDOR", "SERVERTYP", "TYPE DE SERVEUR")}</small><strong>{
+              multiplayer.transportMode === "dedicated-server"
+                ? pick("Render · servidor dedicado", "Render · dedicated server", "Render · servidor dedicado", "Render · dedizierter Server", "Render · serveur dédié")
+                : hostReachabilityLabel
+            }</strong></div>
+            <div><small>{pick("ENDEREÇO INTERNET", "INTERNET ADDRESS", "DIRECCIÓN INTERNET", "INTERNET-ADRESSE", "ADRESSE INTERNET")}</small><strong>{
+              multiplayer.transportMode === "dedicated-server"
+                ? (multiplayer.serverUrl || multiplayer.relayServerUrl || defaultOnlineServer)
+                : (multiplayer.internetInviteAddress || "—")
+            }</strong></div>
           </div>
-          {multiplayer.hostRunning && hostReachabilityDetail && (
+          {multiplayer.transportMode === "dedicated-server" ? (
+            <div className="migration-note">
+              <strong>{pick("Sala hospedada no servidor dedicado NavBR.", "Room hosted on the NavBR dedicated server.", "Sala alojada en el servidor dedicado NavBR.", "Raum auf dem dedizierten NavBR-Server gehostet.", "Salle hébergée sur le serveur dédié NavBR.")}</strong><br />
+              {pick("O Render executa o servidor da sessão. Seu PC é apenas um cliente; quem cria a sala recebe a propriedade administrativa da sala.", "Render runs the session server. Your PC is only a client; the room creator receives administrative ownership of the room.", "Render ejecuta el servidor de la sesión. Tu PC es solo un cliente; quien crea la sala recibe la propiedad administrativa de la sala.", "Render führt den Sitzungsserver aus. Dein PC ist nur ein Client; der Raumersteller erhält die administrative Eigentümerschaft.", "Render exécute le serveur de session. Votre PC est seulement un client ; le créateur reçoit la propriété administrative de la salle.")}
+            </div>
+          ) : multiplayer.hostRunning && hostReachabilityDetail ? (
             <div className="migration-note">
               <strong>{hostReachabilityLabel}</strong><br />
               {hostReachabilityDetail}
             </div>
-          )}
+          ) : null}
 
           <div className="room-actions">
             <button className="button ghost" disabled={!multiplayer.connected} onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>

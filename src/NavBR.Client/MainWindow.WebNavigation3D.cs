@@ -23,8 +23,8 @@ public partial class MainWindow
             return BuildUnavailableWebNavigation3D(map, telemetry);
         }
 
-        var roadmapPath = ResolveWebNavigation3DRoadmapPath(map);
-        var roadmapAvailable = File.Exists(roadmapPath);
+        var roadmapUrl = ResolveWebNavigationRoadmapUrl(map);
+        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
         var minWorldX = layout.MinGridX * tileSize;
         var minWorldY = layout.MinGridY * tileSize;
         var maxWorldX = minWorldX + worldWidth;
@@ -188,9 +188,7 @@ public partial class MainWindow
             mapName = map.DisplayName,
             mapFolder = map.FolderName,
             roadmapAvailable,
-            roadmapUrl = roadmapAvailable
-                ? "https://navbr-map.local/texture/map/whole.roadmap.bmp"
-                : null,
+            roadmapUrl,
             bounds = new
             {
                 minX = minWorldX,
@@ -215,9 +213,11 @@ public partial class MainWindow
     {
         var roadmapPath = map is null
             ? null
-            : ResolveWebNavigation3DRoadmapPath(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapPath) &&
-                               File.Exists(roadmapPath);
+            : ResolveWebNavigationRoadmapPath(map);
+        var roadmapUrl = map is null
+            ? null
+            : ResolveWebNavigationRoadmapUrl(map);
+        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
 
         return new
         {
@@ -225,9 +225,7 @@ public partial class MainWindow
             mapName = map?.DisplayName ?? telemetry?.MapName,
             mapFolder = map?.FolderName,
             roadmapAvailable,
-            roadmapUrl = roadmapAvailable
-                ? "https://navbr-map.local/texture/map/whole.roadmap.bmp"
-                : null,
+            roadmapUrl,
             bounds = null as object,
             routePoints = Array.Empty<object>(),
             localVehicle = null as object,
@@ -248,12 +246,36 @@ public partial class MainWindow
             : null;
     }
 
-    private static string ResolveWebNavigation3DRoadmapPath(OmsiMapInfo map) =>
-        Path.Combine(
-            map.DirectoryPath,
-            "texture",
-            "map",
-            "whole.roadmap.bmp");
+    private static string? ResolveWebNavigationRoadmapPath(OmsiMapInfo map)
+    {
+        if (!string.IsNullOrWhiteSpace(map.RoadmapPath) &&
+            File.Exists(map.RoadmapPath))
+        {
+            return map.RoadmapPath;
+        }
+
+        foreach (var candidate in new[]
+        {
+            Path.Combine(map.DirectoryPath, "texture", "map", "whole.roadmap.bmp"),
+            Path.Combine(map.DirectoryPath, "texture", "map", "roadmap.bmp"),
+            Path.Combine(map.DirectoryPath, "whole.roadmap.bmp"),
+            Path.Combine(map.DirectoryPath, "roadmap.bmp")
+        })
+        {
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveWebNavigationRoadmapUrl(OmsiMapInfo map)
+    {
+        var path = ResolveWebNavigationRoadmapPath(map);
+        return WebRoadmapCache.TryGetPngUrl(path);
+    }
 
     private static bool TryGetWebNavigation3DPosition(
         VehicleTelemetry telemetry,

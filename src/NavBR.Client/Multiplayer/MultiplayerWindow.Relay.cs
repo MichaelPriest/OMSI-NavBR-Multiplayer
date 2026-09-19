@@ -29,25 +29,25 @@ public partial class MultiplayerWindow
     private void ApplyRelayLocalization()
     {
         RelayEnabledCheckBox.Content = RelayText(
-            "Usar relay de aplicação quando a conexão direta não for possível (experimental)",
-            "Use application relay when direct connection is not possible (experimental)",
-            "Usar relay de aplicación cuando la conexión directa no sea posible (experimental)",
-            "Anwendungs-Relay verwenden, wenn keine direkte Verbindung möglich ist (experimentell)",
-            "Utiliser le relais applicatif lorsque la connexion directe est impossible (expérimental)");
+            "Servidor NavBR oficial (gratuito/limitado)",
+            "Official NavBR Server (free/limited)",
+            "Servidor NavBR oficial (gratuito/limitado)",
+            "Offizieller NavBR-Server (kostenlos/begrenzt)",
+            "Serveur NavBR officiel (gratuit/limité)");
 
         RelayServerLabelText.Text = RelayText(
-            "Servidor relay",
-            "Relay server",
-            "Servidor relay",
-            "Relay-Server",
-            "Serveur relais");
+            "Servidor online",
+            "Online server",
+            "Servidor online",
+            "Online-Server",
+            "Serveur en ligne");
 
         RelayDescriptionText.Text = RelayText(
-            "No modo relay não é necessário abrir a TCP 27730 nem usar UPnP. A sala continua pertencendo a quem a criou; telemetria, chat e voz passam pelo servidor NavBR configurado.",
-            "Relay mode does not require opening TCP 27730 or using UPnP. The room still belongs to its creator; telemetry, chat and voice pass through the configured NavBR server.",
-            "El modo relay no requiere abrir TCP 27730 ni UPnP. La sala sigue perteneciendo a quien la creó; telemetría, chat y voz pasan por el servidor NavBR configurado.",
-            "Im Relay-Modus müssen TCP 27730 und UPnP nicht geöffnet werden. Der Raum bleibt beim Ersteller; Telemetrie, Chat und Sprache laufen über den konfigurierten NavBR-Server.",
-            "Le mode relais ne nécessite pas l’ouverture de TCP 27730 ni UPnP. La salle reste au créateur ; télémétrie, chat et voix transitent par le serveur NavBR configuré.");
+            "Modo 1 de 3. O NavBR.Server roda no servidor oficial; o PC do jogador é cliente e não abre a TCP 27730. A infraestrutura atual usa Render Free e é limitada para Alpha/testes. Futuramente poderá existir assinatura oficial com maior capacidade.",
+            "Mode 1 of 3. NavBR.Server runs on the official server; the player's PC is a client and does not expose TCP 27730. The current infrastructure uses Render Free and is limited for Alpha/testing. An official higher-capacity subscription may be offered in the future.",
+            "Modo 1 de 3. NavBR.Server se ejecuta en el servidor oficial; el PC del jugador es cliente y no abre TCP 27730. La infraestructura actual usa Render Free y es limitada para Alpha/pruebas. En el futuro podrá existir una suscripción oficial con mayor capacidad.",
+            "Modus 1 von 3. NavBR.Server läuft auf dem offiziellen Server; der Spieler-PC ist Client und gibt TCP 27730 nicht frei. Die aktuelle Infrastruktur nutzt Render Free und ist für Alpha/Tests begrenzt. Künftig könnte ein offizielles Abo mit mehr Kapazität angeboten werden.",
+            "Mode 1 sur 3. NavBR.Server s’exécute sur le serveur officiel ; le PC du joueur est client et n’ouvre pas TCP 27730. L’infrastructure actuelle utilise Render Free et reste limitée pour l’Alpha/les tests. Un abonnement officiel offrant plus de capacité pourra être proposé à l’avenir.");
     }
 
     private void RelayEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -124,11 +124,11 @@ public partial class MultiplayerWindow
         if (!TryNormalizeRelayUrl(relayUrl, out var normalizedRelayUrl))
         {
             StatusDetailText.Text = RelayText(
-                "Informe um endereço HTTP/HTTPS válido para o servidor relay.",
-                "Enter a valid HTTP/HTTPS address for the relay server.",
-                "Introduce una dirección HTTP/HTTPS válida para el servidor relay.",
-                "Geben Sie eine gültige HTTP/HTTPS-Adresse für den Relay-Server ein.",
-                "Saisissez une adresse HTTP/HTTPS valide pour le serveur relais.");
+                "Informe um endereço HTTP/HTTPS válido para o servidor online.",
+                "Enter a valid HTTP/HTTPS address for the online server.",
+                "Introduce una dirección HTTP/HTTPS válida para el servidor online.",
+                "Geben Sie eine gültige HTTP/HTTPS-Adresse für den Online-Server ein.",
+                "Saisissez une adresse HTTP/HTTPS valide pour le serveur en ligne.");
             RelayServerTextBox.Focus();
             return;
         }
@@ -173,20 +173,20 @@ public partial class MultiplayerWindow
 
             var roomId = RoomTextBox.Text.Trim();
             var inviteText = RelayText(
-                $"Relay: {normalizedRelayUrl} • sala {roomId}",
-                $"Relay: {normalizedRelayUrl} • room {roomId}",
-                $"Relay: {normalizedRelayUrl} • sala {roomId}",
-                $"Relay: {normalizedRelayUrl} • Raum {roomId}",
-                $"Relais : {normalizedRelayUrl} • salle {roomId}");
+                $"Servidor: {normalizedRelayUrl} • sala {roomId}",
+                $"Server: {normalizedRelayUrl} • room {roomId}",
+                $"Servidor: {normalizedRelayUrl} • sala {roomId}",
+                $"Server: {normalizedRelayUrl} • Raum {roomId}",
+                $"Serveur : {normalizedRelayUrl} • salle {roomId}");
             InviteAddressText.Text = inviteText;
             RoomInviteAddressText.Text = inviteText;
 
             StatusDetailText.Text = RelayText(
-                "Conectando a sala pelo relay NavBR…",
-                "Connecting the room through the NavBR relay…",
-                "Conectando la sala mediante el relay NavBR…",
-                "Raum wird über das NavBR-Relay verbunden…",
-                "Connexion de la salle via le relais NavBR…");
+                "Conectando ao servidor online NavBR…",
+                "Connecting to the NavBR online server…",
+                "Conectando al servidor online NavBR…",
+                "Verbindung zum NavBR-Online-Server wird hergestellt…",
+                "Connexion au serveur en ligne NavBR…");
             UpdateButtons();
             await ConnectToConfiguredServerAsync();
         }

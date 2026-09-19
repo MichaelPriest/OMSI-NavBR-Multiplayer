@@ -2,6 +2,8 @@
 
 Versão pública atual: **v0.3.0-alpha.14-test.4**.
 
+Build de validação atual da PR #30: **v0.3.0-alpha.14-test.5**.
+
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
 ## 1. Interface
@@ -46,7 +48,10 @@ Somente desenvolvimento/teste:
 - herda mapa/compatibilidade;
 - aguarda telemetria real;
 - bots próximos ao host;
-- herda linha, rota, destino e próxima parada;
+- usa mapa/posição/Kachel reais da autoridade da sala;
+- bots de veículo podem usar rotas independentes do HOF;
+- prefere o MAN EN92 rígido padrão do OMSI para teste físico quando instalado;
+- `--verify-physical` exige confirmação dos IDs exatos materializados por `MakeVehicle` no OMSI;
 - `--verify` exige movimento e mapa consistente.
 
 ## 4. Personagem / RP
@@ -77,6 +82,15 @@ Somente desenvolvimento/teste:
 
 - spawn/update/despawn experimental;
 - pose/quaternion nativos;
+- interpolação adaptativa de posição/quaternion/velocidade no thread do OMSI, com alvo de até ~60 Hz;
+- proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;
+- tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;
+- culling físico por distância com histerese (spawn até 750 m, despawn acima de 1 km), mantendo jogadores distantes na sessão sem criar objetos físicos desnecessários;
+- remoção automática de ônibus físico órfão após 5 s sem novos alvos, preservando ownership quando o OMSI rejeitar a limpeza;
+- throughput seguro da fila física: 1 comando arbitrário/pesado + até 4 updates leves adicionais por frame do OMSI;
+- prioridade dinâmica de capacidade pelos ônibus mais próximos, com margem de 75 m, uma troca por vez e cooldown de 2 s;
+- telemetria read-only adicional para acelerador, freio, combustível e estados visuais já validados no perfil;
+- smoothing ajustado pela cadência dos timestamps remotos para reduzir pausa entre alvos;
 - velocidade/luzes/setas quando suportadas;
 - compatibilidade antes da escrita;
 - resolução de asset remoto por fingerprint SHA-256;
@@ -111,6 +125,7 @@ Somente desenvolvimento/teste:
 ## 7. Release e validação
 
 - **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;
+- **v0.3.0-alpha.14-test.5** é a build candidata atual da PR #30 para validação privada;
 - hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;
 - a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;
 - toda publicação recompila/valida React, servidor, plugin, cliente e simulador;

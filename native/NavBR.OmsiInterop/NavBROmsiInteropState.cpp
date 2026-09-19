@@ -12,6 +12,7 @@ namespace
 {
     constexpr std::uintptr_t PreferredImageBase = 0x00400000u;
     constexpr std::uintptr_t RvaRoadVehiclesPointer = 0x00861508u - PreferredImageBase;
+    constexpr std::uintptr_t RvaMapPointer = 0x00861588u - PreferredImageBase;
     constexpr std::uintptr_t RvaHumansPointer = 0x0086172Cu - PreferredImageBase;
     constexpr std::uintptr_t RvaPlayerVehicleIndex = 0x00861740u - PreferredImageBase;
 
@@ -20,9 +21,11 @@ namespace
     constexpr int ObjectListItemsPointerOffset = 0x04;
     constexpr int MaxReasonableRoadVehicles = 4096;
     constexpr int MaxReasonableHumans = 8192;
+    constexpr int MaxReasonableMapTiles = 200000;
 
     constexpr int PositionOffset = 0x004;
     constexpr int RotationOffset = 0x050;
+    constexpr int KachelOffset = 0x074;
     constexpr int MarkedForKillingOffset = 0x25C;
     constexpr int LastPositionOffset = 0x26E;
     constexpr int LastRotationOffset = 0x27A;
@@ -34,6 +37,15 @@ namespace
     constexpr int AiBlinkerLeftOffset = 0x63C;
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
+
+    constexpr int MapKachelLoadedOffset = 0x038;
+    constexpr int MapKachelnOffset = 0x118;
+    constexpr int MapKachelInfosOffset = 0x11C;
+    constexpr int MapKachelInfoSize = 0x10;
+    constexpr int MapKachelInfoGridXOffset = 0x00;
+    constexpr int MapKachelInfoGridYOffset = 0x04;
+    constexpr int MapKachelInfoTilePointerOffset = 0x0C;
+    constexpr int MapLoadedOffset = 0x120;
 
     // OmsiHumanBeingInst offsets documented by public OMSI reverse-engineering
     // references. These are guarded by membership in the global Humans array.
@@ -227,6 +239,219 @@ namespace
         return true;
     }
 
+    bool TryGetMapTileItems(int& count, int& itemArray)
+    {
+        count = 0;
+        itemArray = 0;
+
+        const auto globalAddress = Resolve(RvaMapPointer);
+        if (!IsReadableRange(globalAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int mapPointer = *reinterpret_cast<const int*>(globalAddress);
+        if (mapPointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapLoadedOffset,
+                sizeof(unsigned char)) ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapKachelnOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const auto loaded = *reinterpret_cast<const unsigned char*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapLoadedOffset);
+        if (loaded == 0)
+        {
+            return false;
+        }
+
+        const int items = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapKachelnOffset);
+        if (items == 0)
+        {
+            return false;
+        }
+
+        const auto lengthAddress =
+            static_cast<std::uintptr_t>(items) - sizeof(int);
+        if (!IsReadableRange(lengthAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int currentCount =
+            *reinterpret_cast<const int*>(lengthAddress);
+        if (currentCount <= 0 ||
+            currentCount > MaxReasonableMapTiles ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(items),
+                static_cast<std::size_t>(currentCount) * sizeof(int)))
+        {
+            return false;
+        }
+
+        count = currentCount;
+        itemArray = items;
+        return true;
+    }
+
+    bool IsMapTileIndexValid(int mapTileIndex)
+    {
+        if (mapTileIndex < 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        int items = 0;
+        if (!TryGetMapTileItems(count, items) ||
+            mapTileIndex >= count)
+        {
+            return false;
+        }
+
+        const auto itemAddress =
+            static_cast<std::uintptr_t>(items) +
+            static_cast<std::uintptr_t>(mapTileIndex) * sizeof(int);
+        if (!IsReadableRange(itemAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int tilePointer =
+            *reinterpret_cast<const int*>(itemAddress);
+        if (tilePointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset,
+                sizeof(unsigned char)))
+        {
+            return false;
+        }
+
+        const auto tileLoaded = *reinterpret_cast<const unsigned char*>(
+            static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset);
+        return tileLoaded != 0;
+    }
+
+    bool TryResolveMapTileIndexByGrid(
+        int gridX,
+        int gridY,
+        int& mapTileIndex)
+    {
+        mapTileIndex = -1;
+        if (std::abs(static_cast<long long>(gridX)) > 100000LL ||
+            std::abs(static_cast<long long>(gridY)) > 100000LL)
+        {
+            return false;
+        }
+
+        int tileCount = 0;
+        int tileItems = 0;
+        if (!TryGetMapTileItems(tileCount, tileItems))
+        {
+            return false;
+        }
+
+        const auto globalAddress = Resolve(RvaMapPointer);
+        if (!IsReadableRange(globalAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int mapPointer = *reinterpret_cast<const int*>(globalAddress);
+        if (mapPointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infos = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset);
+        if (infos == 0)
+        {
+            return false;
+        }
+
+        const auto infoLengthAddress =
+            static_cast<std::uintptr_t>(infos) - sizeof(int);
+        if (!IsReadableRange(infoLengthAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infoCount =
+            *reinterpret_cast<const int*>(infoLengthAddress);
+        if (infoCount <= 0 ||
+            infoCount > MaxReasonableMapTiles ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(infos),
+                static_cast<std::size_t>(infoCount) *
+                    static_cast<std::size_t>(MapKachelInfoSize)))
+        {
+            return false;
+        }
+
+        for (int infoIndex = 0; infoIndex < infoCount; ++infoIndex)
+        {
+            const auto infoAddress =
+                static_cast<std::uintptr_t>(infos) +
+                static_cast<std::uintptr_t>(infoIndex) *
+                    static_cast<std::uintptr_t>(MapKachelInfoSize);
+
+            const int x = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridXOffset);
+            const int y = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridYOffset);
+            if (x != gridX || y != gridY)
+            {
+                continue;
+            }
+
+            const int tilePointer = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoTilePointerOffset);
+            if (tilePointer == 0 ||
+                !IsReadableRange(
+                    static_cast<std::uintptr_t>(tilePointer) +
+                        MapKachelLoadedOffset,
+                    sizeof(unsigned char)) ||
+                *reinterpret_cast<const unsigned char*>(
+                    static_cast<std::uintptr_t>(tilePointer) +
+                        MapKachelLoadedOffset) == 0)
+            {
+                return false;
+            }
+
+            for (int tileIndex = 0; tileIndex < tileCount; ++tileIndex)
+            {
+                const auto itemAddress =
+                    static_cast<std::uintptr_t>(tileItems) +
+                    static_cast<std::uintptr_t>(tileIndex) * sizeof(int);
+                if (!IsReadableRange(itemAddress, sizeof(int)))
+                {
+                    return false;
+                }
+
+                const int candidate =
+                    *reinterpret_cast<const int*>(itemAddress);
+                if (candidate == tilePointer)
+                {
+                    mapTileIndex = tileIndex;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
 
     bool TryGetHumanItems(int& count, int& itemArray)
     {
@@ -326,7 +551,7 @@ namespace
 
     bool IsPlayerBusDriverHuman(int humanPointer, int definitionPointer)
     {
-        if (!IsHumanPointer(humanPointer) || definitionPointer <= 0)
+        if (!IsHumanPointer(humanPointer) || definitionPointer < 0)
         {
             return false;
         }
@@ -348,13 +573,26 @@ namespace
 
         const int humanDefinition = *reinterpret_cast<const int*>(base + HumanDefinitionOffset);
         const int myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
+        if (myBus != playerVehicle)
+        {
+            return false;
+        }
 
-        // The selected Drivers definition plus the exact player-bus pointer is
-        // the stable identity check. AI mode / FixDriver flags can legitimately
-        // transition while the player takes control, so they must not prevent
-        // Character/RP from acquiring the real seated driver.
-        return humanDefinition == definitionPointer &&
-               myBus == playerVehicle;
+        if (definitionPointer > 0)
+        {
+            // Explicit catalog selection keeps exact-definition matching.
+            return humanDefinition == definitionPointer;
+        }
+
+        // definitionPointer == 0 means "resolve the live driver". OMSI's
+        // AIModeEx value 9 is THAME_DrivingBus; FixDriver is the additional
+        // seated-driver marker. Requiring either prevents passengers on the
+        // same bus from being acquired as the RP character.
+        const auto aiModeEx = *reinterpret_cast<const unsigned char*>(
+            base + HumanAiModeExOffset);
+        const auto fixDriver = *reinterpret_cast<const unsigned char*>(
+            base + HumanFixDriverOffset);
+        return aiModeEx == 9 || fixDriver != 0;
     }
 
     bool IsHumanControllable(int humanPointer)
@@ -487,12 +725,27 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 4;
+    return 5;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
 {
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)
+{
+    return IsMapTileIndexValid(mapTileIndex) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ResolveMapTileIndex(
+    int gridX,
+    int gridY)
+{
+    int mapTileIndex = -1;
+    return TryResolveMapTileIndexByGrid(gridX, gridY, mapTileIndex)
+        ? mapTileIndex
+        : -1;
 }
 
 
@@ -889,13 +1142,24 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     float rotationY,
     float rotationZ,
     float rotationW,
-    float groundSpeedMps)
+    float groundSpeedMps,
+    int mapTileIndex)
 {
     if (!IsRoadVehiclePointer(vehiclePointer) ||
         !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
         !std::isfinite(rotationZ) || !std::isfinite(rotationW) ||
-        !std::isfinite(groundSpeedMps))
+        !std::isfinite(groundSpeedMps) ||
+        mapTileIndex < -1)
+    {
+        return 0;
+    }
+
+    if (mapTileIndex >= 0 &&
+        (!IsMapTileIndexValid(mapTileIndex) ||
+         !IsWritableRange(
+             static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
+             sizeof(int))))
     {
         return 0;
     }
@@ -933,7 +1197,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
            WriteValue(vehiclePointer, TachoOffset, speed) &&
            WriteValue(vehiclePointer, GroundspeedOffset, speed) &&
-           WriteByte(vehiclePointer, PaiOffset, disabled)
+           WriteByte(vehiclePointer, PaiOffset, disabled) &&
+           (mapTileIndex < 0 ||
+            WriteValue(vehiclePointer, KachelOffset, mapTileIndex))
         ? 1
         : 0;
 }

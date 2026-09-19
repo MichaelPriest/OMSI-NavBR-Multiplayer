@@ -12,4 +12,12 @@ public sealed record PlayerPresence(
     public bool? VoiceEnabled { get; init; }
 
     public int? LatencyMs { get; init; }
+
+    /// <summary>
+    /// Number of remote buses that this client has successfully materialized
+    /// through OMSI MakeVehicle. Null means the client has not reported it.
+    /// </summary>
+    public int? PhysicalVehicleCount { get; init; }
+
+    public IReadOnlyList<string>? PhysicalVehiclePlayerIds { get; init; }
 }

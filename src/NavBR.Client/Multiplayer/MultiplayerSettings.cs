@@ -48,6 +48,7 @@ public sealed record MultiplayerSettings(
     double DashboardAlertsScale = 1d,
     double DashboardSideIndicatorsScale = 1d,
     bool ExperimentalRoleplayCharacterEnabled = false,
+    int NetworkSettingsVersion = 0,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
@@ -56,7 +57,7 @@ public sealed record MultiplayerSettings(
 
     public static MultiplayerSettings CreateDefault() => new(
         Guid.NewGuid().ToString("N"),
-        "http://127.0.0.1:27730",
+        DefaultOnlineServerUrl,
         $"navbr-{Random.Shared.Next(1000, 9999)}",
         "Driver",
         "F9",
@@ -77,5 +78,8 @@ public sealed record MultiplayerSettings(
         "omsi",
         null,
         false,
-        false);
+        false,
+        EnableApplicationRelay: true,
+        RelayServerUrl: DefaultOnlineServerUrl,
+        NetworkSettingsVersion: 2);
 }

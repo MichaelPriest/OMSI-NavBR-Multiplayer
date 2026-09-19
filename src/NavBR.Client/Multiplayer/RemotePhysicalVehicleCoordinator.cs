@@ -4,6 +4,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -17,6 +18,15 @@ internal sealed record RemotePhysicalVehicleStatus(
 internal sealed class RemotePhysicalVehicleCoordinator
 {
     private const int MaxPhysicalRemotePlayers = 32;
+    private const double PhysicalSpawnRadiusMeters = 750d;
+    private const double PhysicalDespawnRadiusMeters = 1_000d;
+    private const double CapacityReplacementMarginMeters = 75d;
+    private static readonly TimeSpan CapacityEvictionCooldown =
+        TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan TileUnavailableRetryDelay =
+        TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan LocalTelemetryFreshness =
+        TimeSpan.FromSeconds(3);
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
@@ -26,8 +36,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, int> _consecutiveUpdateFailuresByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, double> _distanceByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _capacityEvictionsInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _capacitySuppressedUntilByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _spawnRetryAfterByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
+    private VehicleTelemetry? _localTelemetry;
+    private string _lastPublishedPhysicalSetSignature = string.Empty;
+
+    public event Action<IReadOnlyList<string>>? PhysicalVehicleSetChanged;
 
     public RemotePhysicalVehicleCoordinator(
         Func<string?>? omsiInstallDirectorySource = null)
@@ -55,6 +74,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public void SetLocalManifest(OmsiCompatibilityManifest? manifest)
     {
         _localManifest = manifest;
+    }
+
+    public void SetLocalTelemetry(VehicleTelemetry? telemetry)
+    {
+        _localTelemetry = telemetry;
     }
 
     public bool IsSpawned(string playerId) =>
@@ -163,7 +187,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // reconnecting or has not published a valid OMSI state yet. Never let
         // a late remote frame create a physical vehicle in that window.
         var localManifest = _localManifest;
-        if (localManifest is null)
+        var localTelemetry = _localTelemetry;
+        if (localManifest is null ||
+            localTelemetry is null ||
+            !localTelemetry.IsInGame ||
+            DateTimeOffset.UtcNow - localTelemetry.Timestamp > LocalTelemetryFreshness)
         {
             SetStatus(playerId, "local-state-unavailable");
             await DespawnOwnedAsync(playerId, cancellationToken);
@@ -186,6 +214,41 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 report.Issues.FirstOrDefault()?.Code);
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
+        }
+
+        double? currentDistanceMeters = null;
+        if (TryGetLocalDistanceMeters(frame.Telemetry, out var distanceMeters))
+        {
+            currentDistanceMeters = distanceMeters;
+            _distanceByPlayer[playerId] = distanceMeters;
+
+            var distanceLimit = _spawned.ContainsKey(playerId)
+                ? PhysicalDespawnRadiusMeters
+                : PhysicalSpawnRadiusMeters;
+            if (distanceMeters > distanceLimit)
+            {
+                SetStatus(playerId, "out-of-range");
+                if (_spawned.ContainsKey(playerId))
+                {
+                    await DespawnOwnedAsync(playerId, cancellationToken);
+                    SetStatus(playerId, "out-of-range");
+                }
+                return;
+            }
+        }
+
+        if (!_spawned.ContainsKey(playerId) &&
+            _capacitySuppressedUntilByPlayer.TryGetValue(
+                playerId,
+                out var suppressedUntil))
+        {
+            if (suppressedUntil > DateTimeOffset.UtcNow)
+            {
+                SetStatus(playerId, "capacity-evicted");
+                return;
+            }
+
+            _capacitySuppressedUntilByPlayer.TryRemove(playerId, out _);
         }
 
         var remoteVehicleCompatibilityId =
@@ -214,6 +277,15 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (!_spawned.ContainsKey(playerId) &&
             _spawned.Count >= MaxPhysicalRemotePlayers)
         {
+            if (currentDistanceMeters is double candidateDistance &&
+                TryScheduleFartherVehicleEviction(
+                    playerId,
+                    candidateDistance))
+            {
+                SetStatus(playerId, "waiting-nearer-slot");
+                return;
+            }
+
             SetStatus(playerId, "limit-reached");
             ReportFailureOnce(playerId, "limit", "physical-vehicle-limit-reached");
             return;
@@ -221,6 +293,19 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         if (!_spawned.ContainsKey(playerId))
         {
+            if (_spawnRetryAfterByPlayer.TryGetValue(
+                    playerId,
+                    out var retryAfter))
+            {
+                if (retryAfter > DateTimeOffset.UtcNow)
+                {
+                    SetStatus(playerId, "tile-unavailable", "tile-unavailable");
+                    return;
+                }
+
+                _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
+            }
+
             SetStatus(playerId, "resolving-asset");
             var resolvedVehiclePath = await _vehicleAssetResolver.ResolveAsync(
                 remoteManifest.VehiclePath,
@@ -281,6 +366,15 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 if (spawn?.Success != true)
                 {
                     _spawned.TryRemove(playerId, out _);
+                    if (string.Equals(
+                            spawn?.ErrorCode,
+                            "tile-unavailable",
+                            StringComparison.Ordinal))
+                    {
+                        _spawnRetryAfterByPlayer[playerId] =
+                            DateTimeOffset.UtcNow + TileUnavailableRetryDelay;
+                    }
+
                     ReportCommandFailureOnce(
                         playerId,
                         "spawn",
@@ -289,12 +383,16 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     return;
                 }
 
+                _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
+
                 _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
                     remoteVehicleCompatibilityId;
                 _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
                     resolvedVehiclePath;
+                _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                 _lastFailureByPlayer.TryRemove(playerId, out _);
                 SetStatus(playerId, "active");
+                PublishPhysicalVehicleSetIfChanged();
                 RemoteDiagnosticsService.Record(
                     "physical-vehicle",
                     "info",
@@ -322,13 +420,29 @@ internal sealed class RemotePhysicalVehicleCoordinator
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
             physicalFrame,
             cancellationToken);
-        if (update is { Success: false })
+        if (update?.Success != true)
         {
-            await DespawnOwnedAsync(playerId, cancellationToken);
-            ReportCommandFailureOnce(playerId, "update", update);
+            var errorCode = update?.ErrorCode ?? "no-result";
+            var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
+                playerId,
+                1,
+                static (_, previous) => Math.Min(previous + 1, 10));
+
+            if (IsFatalUpdateFailure(errorCode) || failureCount >= 3)
+            {
+                await DespawnOwnedAsync(playerId, cancellationToken);
+                ReportCommandFailureOnce(playerId, "update", update);
+                return;
+            }
+
+            SetStatus(
+                playerId,
+                "update-retrying",
+                errorCode);
             return;
         }
 
+        _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _lastFailureByPlayer.TryRemove(playerId, out _);
         SetStatus(playerId, "active");
     }
@@ -367,6 +481,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _spawnedCompatibilityByPlayer.TryRemove(
             playerId,
             out var previousCompatibilityId);
@@ -396,6 +511,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         _lastFailureByPlayer.TryRemove(playerId, out _);
+        PublishPhysicalVehicleSetIfChanged();
         RemoteDiagnosticsService.Record(
             "physical-vehicle",
             "info",
@@ -416,8 +532,113 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         _spawnedCompatibilityByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
+        _consecutiveUpdateFailuresByPlayer.Clear();
+        _distanceByPlayer.Clear();
+        _capacityEvictionsInFlight.Clear();
+        _capacitySuppressedUntilByPlayer.Clear();
+        _spawnRetryAfterByPlayer.Clear();
         _statusByPlayer.Clear();
+        PublishPhysicalVehicleSetIfChanged(force: true);
     }
+
+    private void PublishPhysicalVehicleSetIfChanged(bool force = false)
+    {
+        var playerIds = _spawned.Keys
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var signature = string.Join("\n", playerIds);
+
+        if (!force &&
+            string.Equals(
+                signature,
+                _lastPublishedPhysicalSetSignature,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastPublishedPhysicalSetSignature = signature;
+        PhysicalVehicleSetChanged?.Invoke(playerIds);
+    }
+
+    private bool TryScheduleFartherVehicleEviction(
+        string candidatePlayerId,
+        double candidateDistanceMeters)
+    {
+        // Only one capacity replacement may run at a time. Otherwise several
+        // simultaneous near players could evict several far buses before the
+        // first newly freed slot is consumed.
+        if (!_capacityEvictionsInFlight.IsEmpty)
+        {
+            return true;
+        }
+
+        var farthest = _spawned.Keys
+            .Where(id =>
+                !string.Equals(
+                    id,
+                    candidatePlayerId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                _distanceByPlayer.ContainsKey(id))
+            .Select(id => new
+            {
+                PlayerId = id,
+                Distance = _distanceByPlayer.TryGetValue(id, out var value)
+                    ? value
+                    : double.NaN
+            })
+            .Where(item => double.IsFinite(item.Distance))
+            .OrderByDescending(item => item.Distance)
+            .FirstOrDefault();
+
+        if (farthest is null ||
+            farthest.Distance - candidateDistanceMeters <
+                CapacityReplacementMarginMeters ||
+            !_capacityEvictionsInFlight.TryAdd(farthest.PlayerId, 0))
+        {
+            return false;
+        }
+
+        _ = EvictForCloserVehicleAsync(farthest.PlayerId);
+        return true;
+    }
+
+    private async Task EvictForCloserVehicleAsync(string playerId)
+    {
+        try
+        {
+            await DespawnAsync(playerId);
+            if (!IsSpawned(playerId))
+            {
+                _capacitySuppressedUntilByPlayer[playerId] =
+                    DateTimeOffset.UtcNow + CapacityEvictionCooldown;
+                SetStatus(playerId, "capacity-evicted");
+                RemoteDiagnosticsService.Record(
+                    "physical-vehicle",
+                    "info",
+                    "capacity-evicted-for-nearer-player");
+            }
+        }
+        catch (Exception ex)
+        {
+            RemoteDiagnosticsService.Record(
+                "physical-vehicle",
+                "error",
+                $"capacity-eviction-failed type={ex.GetType().Name}");
+        }
+        finally
+        {
+            _capacityEvictionsInFlight.TryRemove(playerId, out _);
+        }
+    }
+
+    private static bool IsFatalUpdateFailure(string? errorCode) =>
+        string.Equals(errorCode, "vehicle-not-owned", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "vehicle-pointer-stale", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "invalid-pose", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal);
 
     private void ReportCommandFailureOnce(
         string playerId,
@@ -432,7 +653,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 "multi-vehicle-consist-unsupported",
                 StringComparison.Ordinal)
             ? "consist-unsupported"
-            : $"{operation}-failed";
+            : string.Equals(
+                errorCode,
+                "tile-unavailable",
+                StringComparison.Ordinal)
+                ? "tile-unavailable"
+                : $"{operation}-failed";
         SetStatus(
             playerId,
             state,
@@ -492,6 +718,42 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
             }
         };
+
+    private bool TryGetLocalDistanceMeters(
+        VehicleTelemetry remoteTelemetry,
+        out double distanceMeters)
+    {
+        distanceMeters = 0d;
+        var local = _localTelemetry;
+        if (local is null ||
+            !local.IsInGame ||
+            !remoteTelemetry.IsInGame ||
+            !double.IsFinite(local.X) ||
+            !double.IsFinite(local.Y) ||
+            !double.IsFinite(local.Z) ||
+            !double.IsFinite(remoteTelemetry.X) ||
+            !double.IsFinite(remoteTelemetry.Y) ||
+            !double.IsFinite(remoteTelemetry.Z))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(local.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(remoteTelemetry.MapCompatibilityId) &&
+            !string.Equals(
+                local.MapCompatibilityId,
+                remoteTelemetry.MapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var dx = remoteTelemetry.X - local.X;
+        var dy = remoteTelemetry.Y - local.Y;
+        var dz = remoteTelemetry.Z - local.Z;
+        distanceMeters = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        return double.IsFinite(distanceMeters);
+    }
 
     private static OmsiCompatibilityManifest BuildLiveRemoteManifest(PlayerTelemetryFrame frame)
     {

@@ -9,6 +9,7 @@ EXPORTS
     NavBR_GetRoadVehicleCount
     NavBR_GetRoadVehicleAt
     NavBR_IsRoadVehiclePointer
+    NavBR_IsMapTileIndexValid
     NavBR_GetHumanCount
     NavBR_GetHumanAt
     NavBR_IsHumanPointer

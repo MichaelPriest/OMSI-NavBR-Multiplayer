@@ -76,12 +76,16 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return Array.Empty<RoleplayCharacterOption>();
             }
 
+            var activeDriverDefinitionPointer =
+                TryReadActiveRoleplayDriverDefinitionPointer(memory);
+
             var listAddress = memory.ReadUInt32(nint.Add(
                 mapPointer,
                 Omsi23004MemoryProfile.MapDriversListOffset));
             if (listAddress <= 0x10000u)
             {
-                return Array.Empty<RoleplayCharacterOption>();
+                return BuildActiveRoleplayDriverFallback(
+                    activeDriverDefinitionPointer);
             }
 
             var listPointer = ReadOnlyProcessMemory.PointerFromUInt32(listAddress);
@@ -94,14 +98,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             if (count is <= 0 or > 512 || itemsAddress <= 0x10000u)
             {
-                return Array.Empty<RoleplayCharacterOption>();
+                return BuildActiveRoleplayDriverFallback(
+                    activeDriverDefinitionPointer);
             }
 
             var itemsPointer = ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
-            var result = new List<RoleplayCharacterOption>(Math.Min(count, 128));
+            var result = new List<RoleplayCharacterOption>(Math.Min(count + 1, 129));
             var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var activeDriverDefinitionPointer =
-                TryReadActiveRoleplayDriverDefinitionPointer(memory);
 
             for (var index = 0; index < count && result.Count < 128; index++)
             {
@@ -142,12 +145,42 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                         activeDriverDefinitionPointer == unchecked((int)definitionPointer)));
             }
 
+            if (activeDriverDefinitionPointer is int activePointer &&
+                activePointer > 0 &&
+                !result.Any(option => option.IsActiveDriver))
+            {
+                var fallback = BuildActiveRoleplayDriverFallback(activePointer);
+                if (fallback.Count > 0)
+                {
+                    result.Insert(0, fallback[0]);
+                }
+            }
+
             return result;
         }
         catch
         {
             return Array.Empty<RoleplayCharacterOption>();
         }
+    }
+
+    private static IReadOnlyList<RoleplayCharacterOption> BuildActiveRoleplayDriverFallback(
+        int? definitionPointer)
+    {
+        if (definitionPointer is not int pointer || pointer <= 0)
+        {
+            return Array.Empty<RoleplayCharacterOption>();
+        }
+
+        return
+        [
+            new RoleplayCharacterOption(
+                $"active-driver:{unchecked((uint)pointer):x8}",
+                "Motorista atual",
+                "OMSI active driver",
+                pointer,
+                IsActiveDriver: true)
+        ];
     }
 
     private static int? TryReadActiveRoleplayDriverDefinitionPointer(
@@ -183,6 +216,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
 
             var vehiclePointer = unchecked((uint)vehicleAddress.ToInt64());
+            int? fallbackDefinition = null;
+
             for (var index = 0; index < count; index++)
             {
                 var humanAddress = memory.ReadUInt32(nint.Add(
@@ -205,16 +240,36 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 var definition = memory.ReadUInt32(nint.Add(
                     humanPointer,
                     Omsi23004MemoryProfile.HumanDefinitionOffset));
-                return definition > 0x10000u
-                    ? unchecked((int)definition)
-                    : null;
+                if (definition <= 0x10000u)
+                {
+                    continue;
+                }
+
+                fallbackDefinition ??= unchecked((int)definition);
+
+                // OMSI public reverse-engineering references define
+                // AIModeEx value 9 as THAME_DrivingBus. Prefer that live state
+                // so passengers attached to the same vehicle are not mistaken
+                // for the RP driver.
+                var aiModeEx = memory.ReadByte(nint.Add(
+                    humanPointer,
+                    0x6C5));
+                var fixDriver = memory.ReadByte(nint.Add(
+                    humanPointer,
+                    0x662));
+
+                if (aiModeEx == 9 || fixDriver != 0)
+                {
+                    return unchecked((int)definition);
+                }
             }
+
+            return fallbackDefinition;
         }
         catch
         {
+            return null;
         }
-
-        return null;
     }
 
     private static string BuildRoleplayCharacterDisplayName(string source)
@@ -401,16 +456,64 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var heading = QuaternionToHeadingDegrees(rotation);
             var vehicleIdentity = OmsiVehicleIdentityReader.Read(memory, _processInfo, vehicleAddress);
 
+            // These fields already exist in the supported OMSI profile but were
+            // previously left at VehicleTelemetry defaults. Read them best-effort
+            // so remote physical buses receive real control/visual state instead
+            // of permanent zeros.
+            var throttlePercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleThrottleOffset));
+            var brakePercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleBrakePedalOffset));
+            var fuelPercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
+            var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
+            var mapTileIndex = TryReadMapTileIndex(memory, vehicleAddress);
+
             int? gridX = null;
             int? gridY = null;
             double? tileX = null;
             double? tileY = null;
-            if (TryReadNavigationPosition(memory, out var gx, out var gy, out var tx, out var ty))
+
+            // NavigationVehicle + Map.CurrentGrid forms one coherent fallback
+            // coordinate pair. Never combine its TileX/TileY with another
+            // grid source: doing that can shift the vehicle by whole Kacheln
+            // and produces false multi-kilometre off-route readings.
+            if (TryReadNavigationPosition(
+                    memory,
+                    out var navigationGridX,
+                    out var navigationGridY,
+                    out var navigationTileX,
+                    out var navigationTileY))
             {
-                gridX = gx;
-                gridY = gy;
-                tileX = tx;
-                tileY = ty;
+                gridX = navigationGridX;
+                gridY = navigationGridY;
+                tileX = navigationTileX;
+                tileY = navigationTileY;
+            }
+
+            // The player's RoadVehicle owns both Kachel and Position. When the
+            // real Kachel resolves to a valid grid, use Position.X/Y from that
+            // same object as the local coordinates. This keeps the four values
+            // in the same reference frame and is also the frame used by the
+            // physical vehicle backend.
+            if (mapTileIndex is int exactTileIndex &&
+                TryReadMapTileGrid(
+                    memory,
+                    exactTileIndex,
+                    out var vehicleGridX,
+                    out var vehicleGridY) &&
+                float.IsFinite(localPosition.X) &&
+                float.IsFinite(localPosition.Y) &&
+                Math.Abs(localPosition.X) <= 1_200f &&
+                Math.Abs(localPosition.Y) <= 1_200f)
+            {
+                gridX = vehicleGridX;
+                gridY = vehicleGridY;
+                tileX = localPosition.X;
+                tileY = localPosition.Y;
             }
 
             string? line = null;
@@ -446,6 +549,11 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 NextStopName: nextStopName,
                 DestinationName: destinationName,
                 VehiclePath: vehicleIdentity.RelativePath,
+                FuelPercent: fuelPercent,
+                ThrottlePercent: throttlePercent,
+                BrakePercent: brakePercent,
+                Lights: visualState.Lights,
+                TurnSignal: visualState.TurnSignal,
                 VehicleCompatibilityId: vehicleIdentity.CompatibilityId,
                 LocalX: localPosition.X,
                 LocalY: localPosition.Y,
@@ -453,7 +561,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 RotationX: rotation.X,
                 RotationY: rotation.Y,
                 RotationZ: rotation.Z,
-                RotationW: rotation.W);
+                RotationW: rotation.W,
+                MapTileIndex: mapTileIndex);
         }
         catch (ArgumentException)
         {
@@ -466,6 +575,207 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
         }
+    }
+
+    private static bool TryReadMapTileGrid(
+        ReadOnlyProcessMemory memory,
+        int mapTileIndex,
+        out int gridX,
+        out int gridY)
+    {
+        gridX = 0;
+        gridY = 0;
+
+        if (mapTileIndex < 0 || mapTileIndex > 200_000)
+        {
+            return false;
+        }
+
+        try
+        {
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            if (memory.ReadByte(nint.Add(
+                    mapPointer,
+                    Omsi23004MemoryProfile.MapLoadedOffset)) == 0)
+            {
+                return false;
+            }
+
+            var infosAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapKachelInfosOffset));
+            if (infosAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var infosPointer = ReadOnlyProcessMemory.PointerFromUInt32(infosAddress);
+            var count = memory.ReadInt32(nint.Subtract(infosPointer, sizeof(int)));
+            if (count <= 0 ||
+                count > 200_000 ||
+                mapTileIndex >= count)
+            {
+                return false;
+            }
+
+            var infoPointer = nint.Add(
+                infosPointer,
+                mapTileIndex * Omsi23004MemoryProfile.MapKachelInfoSize);
+            var x = memory.ReadInt32(nint.Add(
+                infoPointer,
+                Omsi23004MemoryProfile.MapKachelInfoGridXOffset));
+            var y = memory.ReadInt32(nint.Add(
+                infoPointer,
+                Omsi23004MemoryProfile.MapKachelInfoGridYOffset));
+
+            if (Math.Abs((long)x) > 100_000L ||
+                Math.Abs((long)y) > 100_000L)
+            {
+                return false;
+            }
+
+            gridX = x;
+            gridY = y;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int? TryReadMapTileIndex(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress)
+    {
+        try
+        {
+            var value = memory.ReadInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleKachelOffset));
+            return value is >= 0 and <= 200_000
+                ? value
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double? TryReadPercent(
+        ReadOnlyProcessMemory memory,
+        nint address)
+    {
+        try
+        {
+            var value = (double)memory.ReadSingle(address);
+            if (!double.IsFinite(value) || value < -0.05d)
+            {
+                return null;
+            }
+
+            // OMSI control/runtime fields are commonly normalized to 0..1,
+            // while a few add-ons expose an already-percent-like value. Accept
+            // both shapes without letting malformed memory enter telemetry.
+            if (value <= 1.05d)
+            {
+                return Math.Clamp(value, 0d, 1d) * 100d;
+            }
+
+            if (value <= 100d)
+            {
+                return Math.Clamp(value, 0d, 100d);
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static VehicleVisualTelemetry TryReadVehicleVisualState(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress)
+    {
+        try
+        {
+            var external = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiLightOffset));
+            var interior = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiInteriorLightOffset));
+            var left = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset));
+            var right = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset));
+            var brake = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBrakeLightOffset));
+
+            var lights = VehicleLightFlags.None;
+            if (external)
+            {
+                // The validated AI field represents external road lighting as a
+                // single state. Keep it generic instead of guessing low/high beam.
+                lights |= VehicleLightFlags.Position;
+            }
+
+            if (interior)
+            {
+                lights |= VehicleLightFlags.Interior;
+            }
+
+            if (brake)
+            {
+                lights |= VehicleLightFlags.Brake;
+            }
+
+            TurnSignalState turnSignal;
+            if (left && right)
+            {
+                lights |= VehicleLightFlags.Hazard;
+                turnSignal = TurnSignalState.Hazard;
+            }
+            else if (left)
+            {
+                turnSignal = TurnSignalState.Left;
+            }
+            else if (right)
+            {
+                turnSignal = TurnSignalState.Right;
+            }
+            else
+            {
+                turnSignal = TurnSignalState.Off;
+            }
+
+            return new VehicleVisualTelemetry(lights, turnSignal);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private static bool ReadVisualFlag(
+        ReadOnlyProcessMemory memory,
+        nint address)
+    {
+        var value = memory.ReadSingle(address);
+        return float.IsFinite(value) && value > 0.5f;
     }
 
     private static double ResolveVehicleSpeedKph(
@@ -744,6 +1054,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             return null;
         }
     }
+
+    private readonly record struct VehicleVisualTelemetry(
+        VehicleLightFlags Lights,
+        TurnSignalState TurnSignal);
 
     private static double QuaternionToHeadingDegrees(MemoryQuaternion q)
     {

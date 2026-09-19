@@ -147,7 +147,7 @@ public partial class MultiplayerWindow
                 ? "direct-host"
                 : _settings.EnableApplicationRelay &&
                   !IsLoopbackServerUrl(ServerTextBox.Text.Trim())
-                    ? "relay"
+                    ? "dedicated-server"
                     : "remote-host";
 
         return new
@@ -198,7 +198,7 @@ public partial class MultiplayerWindow
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
             relayServerUrl = _settings.RelayServerUrl,
-            physicalVehiclesEnabled = _settings.ExperimentalPhysicalVehiclesEnabled,
+            physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             networkQuality = new
             {
@@ -234,7 +234,7 @@ public partial class MultiplayerWindow
                     destinationName = sessionOperationalState.DestinationName,
                     nextStopName = sessionOperationalState.NextStopName
                 },
-            roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
+            roleplayEnabled = ExperimentalFeatureFlags.RoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
             playerCount = players.Length,
@@ -506,6 +506,21 @@ public partial class MultiplayerWindow
         }
     }
 
+    internal Task StartOnlineServerRoomFromWebAsync(
+        string? roomId,
+        string? displayName,
+        bool createPrivateRoom,
+        string? roomPassword,
+        string? serverUrl = null) =>
+        StartRelayRoomFromWebAsync(
+            roomId,
+            displayName,
+            createPrivateRoom,
+            roomPassword,
+            string.IsNullOrWhiteSpace(serverUrl)
+                ? MultiplayerSettings.DefaultOnlineServerUrl
+                : serverUrl);
+
     internal async Task StartRelayRoomFromWebAsync(
         string? roomId,
         string? displayName,
@@ -525,13 +540,19 @@ public partial class MultiplayerWindow
         NicknameTextBox.Text = MultiplayerWebInput.Normalize(displayName, _settings.DisplayName);
         PrivateRoomCheckBox.IsChecked = createPrivateRoom;
         RoomPasswordBox.Password = password ?? string.Empty;
-        RelayServerTextBox.Text = (relayServerUrl ?? _settings.RelayServerUrl ?? string.Empty).Trim();
+        var onlineUrl = (relayServerUrl ?? _settings.RelayServerUrl ?? MultiplayerSettings.DefaultOnlineServerUrl).Trim();
+        RelayServerTextBox.Text = onlineUrl;
         RelayEnabledCheckBox.IsChecked = true;
+        UpnpEnabledCheckBox.IsChecked = false;
         _settings = _settings with
         {
             EphemeralRoomPassword = password,
-            EphemeralCreatePrivateRoom = createPrivateRoom
+            EphemeralCreatePrivateRoom = createPrivateRoom,
+            EnableApplicationRelay = true,
+            RelayServerUrl = onlineUrl,
+            EnableAutomaticUpnp = false
         };
+        MultiplayerSettingsStore.Save(_settings);
 
         await StartRelayRoomAsync();
     }
@@ -628,8 +649,14 @@ public partial class MultiplayerWindow
         _settings = _settings with
         {
             EphemeralRoomPassword = password,
-            EphemeralCreatePrivateRoom = createPrivateRoom
+            EphemeralCreatePrivateRoom = createPrivateRoom,
+            EnableApplicationRelay = false,
+            EnableAutomaticUpnp = exposeInternet
         };
+        MultiplayerSettingsStore.Save(_settings);
+
+        RelayEnabledCheckBox.IsChecked = false;
+        UpnpEnabledCheckBox.IsChecked = exposeInternet;
 
         try
         {

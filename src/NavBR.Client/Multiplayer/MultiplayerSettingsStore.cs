@@ -116,6 +116,23 @@ public static class MultiplayerSettingsStore
         var relayServerUrl = string.IsNullOrWhiteSpace(settings.RelayServerUrl)
             ? MultiplayerSettings.DefaultOnlineServerUrl
             : settings.RelayServerUrl.Trim();
+
+        // Network settings version 2 makes the shared Render service the
+        // out-of-box multiplayer transport. Only migrate the historical
+        // loopback default; preserve any custom server the player selected.
+        var legacyLoopbackDefault =
+            settings.NetworkSettingsVersion < 2 &&
+            string.Equals(
+                settings.ServerUrl?.Trim(),
+                "http://127.0.0.1:27730",
+                StringComparison.OrdinalIgnoreCase);
+        var serverUrl = string.IsNullOrWhiteSpace(settings.ServerUrl)
+            ? MultiplayerSettings.DefaultOnlineServerUrl
+            : legacyLoopbackDefault
+                ? MultiplayerSettings.DefaultOnlineServerUrl
+                : settings.ServerUrl.Trim();
+        var enableApplicationRelay = legacyLoopbackDefault ||
+                                     settings.EnableApplicationRelay;
         if (stopIconStyle == "custom" && customIconPath is null)
         {
             stopIconStyle = "omsi";
@@ -185,6 +202,9 @@ public static class MultiplayerSettingsStore
                 2d),
             StopIconStyle = stopIconStyle,
             StopCustomIconPath = customIconPath,
+            NetworkSettingsVersion = 2,
+            ServerUrl = serverUrl,
+            EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
         };
     }

@@ -297,6 +297,9 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .navigation-empty { position:absolute; inset:0; display:grid; place-content:center; margin:auto; z-index:2; }
 .nav-route-shadow { fill:none; stroke:rgba(0,0,0,.72); stroke-width:18; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
 .nav-route-line { fill:none; stroke:#ff9d24; stroke-width:9; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 5px rgba(255,157,36,.28)); }
+.nav-rejoin-shadow { fill:none; stroke:rgba(0,0,0,.72); stroke-width:16; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.nav-rejoin-line { fill:none; stroke:#71d8ff; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16 10; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 6px rgba(113,216,255,.34)); }
+.nav-rejoin-target { fill:#071b27; stroke:#9ce7ff; stroke-width:5; vector-effect:non-scaling-stroke; }
 .nav-stop { fill:#0a1620; stroke:#d8e6ee; stroke-width:4; vector-effect:non-scaling-stroke; }
 .nav-stop.next { fill:#ffd05e; stroke:#fff2bd; stroke-width:5; }
 .nav-stop-label { fill:#f3f7fa; font-size:28px; font-weight:800; paint-order:stroke; stroke:#06101a; stroke-width:7px; stroke-linejoin:round; }
@@ -307,6 +310,7 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .navigation-map-legend span { display:flex; align-items:center; gap:6px; color:#879dab; font-size:9px; font-weight:700; }
 .navigation-map-legend i { width:10px; height:7px; border-radius:3px; display:inline-block; }
 .navigation-map-legend .route { background:#ff9d24; }
+.navigation-map-legend .rejoin { background:#71d8ff; }
 .navigation-map-legend .stop { width:8px; height:8px; border-radius:50%; background:#0a1620; border:2px solid #d8e6ee; }
 .navigation-map-legend .bus { background:#61d39a; }
 .maneuver-card, .next-stop-card, .route-progress-card { padding:18px; }

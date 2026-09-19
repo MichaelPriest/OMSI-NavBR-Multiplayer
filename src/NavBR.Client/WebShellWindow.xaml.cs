@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using NavBR.Client.Maps;
 
 namespace NavBR.Client;
 
@@ -85,6 +86,12 @@ public partial class WebShellWindow : Window
             WebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "navbr.local",
                 root,
+                CoreWebView2HostResourceAccessKind.Allow);
+
+            Directory.CreateDirectory(WebRoadmapCache.CacheRoot);
+            WebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "navbr-cache.local",
+                WebRoadmapCache.CacheRoot,
                 CoreWebView2HostResourceAccessKind.Allow);
 
             WebView.CoreWebView2.Navigate("https://navbr.local/index.html");
