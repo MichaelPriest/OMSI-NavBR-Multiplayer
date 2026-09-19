@@ -39,7 +39,10 @@ A PR #30 passa a tratar os frames recebidos como alvos de movimento em vez de te
 - até duas falhas transitórias de update são toleradas antes de respawn; erros fatais de ownership/ponteiro continuam fail-safe;
 - ônibus remotos só são materializados fisicamente quando estão próximos: spawn até 750 m e despawn acima de 1 km, com histerese para evitar churn na borda; jogadores fora desse raio continuam presentes normalmente no multiplayer;
 - se app/pipe/rede desaparecer sem um despawn limpo, um alvo físico sem atualização por 5 s entra em limpeza automática; se o OMSI rejeitar a remoção, o ownership é preservado para nova tentativa;
-- a fila do callback processa no máximo 1 comando arbitrário/pesado por frame e até 4 updates leves adicionais, elevando a fluidez com vários ônibus sem liberar bursts de spawn no mesmo frame.
+- a fila do callback processa no máximo 1 comando arbitrário/pesado por frame e até 4 updates leves adicionais, elevando a fluidez com vários ônibus sem liberar bursts de spawn no mesmo frame;
+- quando os 32 slots físicos estão ocupados, um jogador pelo menos 75 m mais próximo pode liberar assíncronamente o slot do ônibus físico mais distante; somente uma substituição ocorre por vez e o ônibus removido recebe cooldown de 2 s para não tomar a vaga imediatamente;
+- acelerador, freio, combustível, luz externa, luz interna, luz de freio e setas agora são preenchidos pela telemetria read-only quando os offsets do perfil retornam valores válidos;
+- a duração da interpolação acompanha a cadência real dos timestamps remotos, reduzindo pequenas pausas entre frames.
 
 ## Personagem / RP
 
