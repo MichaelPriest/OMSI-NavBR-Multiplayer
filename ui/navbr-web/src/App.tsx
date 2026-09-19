@@ -63,7 +63,7 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   voiceHotkey: "F10",
   hotkeyOptions: [],
   relayEnabled: false,
-  relayServerUrl: "",
+  relayServerUrl: "https://omsi-navbr-multiplayer-server.onrender.com",
   physicalVehiclesEnabled: false,
   physicalVehiclesAvailable: false,
   networkQuality: {
@@ -3180,8 +3180,23 @@ function Multiplayer({
             {!multiplayer.connected ? (
               <>
                 <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
-                <button className="button ghost" onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: relayEnabled, relayServerUrl })}>
-                  {relayEnabled ? pick("Criar sala online", "Create online room", "Crear sala online", "Online-Raum erstellen", "Créer une salle en ligne") : pick("Criar sala local", "Create local room", "Crear sala local", "Lokalen Raum erstellen", "Créer une salle locale")}
+                <button
+                  className="button ghost"
+                  onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true })}
+                >
+                  {pick("Hospedar no meu PC (LAN + Internet)", "Host on my PC (LAN + Internet)", "Alojar en mi PC (LAN + Internet)", "Auf meinem PC hosten (LAN + Internet)", "Héberger sur mon PC (LAN + Internet)")}
+                </button>
+                <button
+                  className="button ghost"
+                  onClick={() => {
+                    const onlineUrl = relayServerUrl || "https://omsi-navbr-multiplayer-server.onrender.com";
+                    setRelayEnabled(true);
+                    setRelayServerUrl(onlineUrl);
+                    sendCommand("configureRelay", { enabled: true, relayServerUrl: onlineUrl });
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: true, relayServerUrl: onlineUrl });
+                  }}
+                >
+                  {pick("Criar no servidor online NavBR", "Create on NavBR online server", "Crear en el servidor online NavBR", "Auf NavBR-Online-Server erstellen", "Créer sur le serveur en ligne NavBR")}
                 </button>
               </>
             ) : (
@@ -4225,6 +4240,66 @@ function Help({ state }: { state: NavBrState | null }) {
   );
 }
 
+function PluginStartupPrompt({
+  state,
+  dismissed,
+  onDismiss,
+  onOpenInstallations
+}: {
+  state: NavBrState | null;
+  dismissed: boolean;
+  onDismiss: () => void;
+  onOpenInstallations: () => void;
+}) {
+  const { pick } = useI18n();
+  const plugin = state?.system.pluginInstallation;
+  if (!plugin || dismissed || plugin.state === "installed" || plugin.state === "untracked") {
+    return null;
+  }
+
+  const missing = plugin.state === "missing" || plugin.state === "partial";
+  const canInstall = plugin.installAvailable && !plugin.omsiRunning;
+
+  return (
+    <section className="card cco-panel plugin-startup-prompt">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">{pick("PLUGIN OMSI", "OMSI PLUGIN", "PLUGIN OMSI", "OMSI-PLUGIN", "PLUGIN OMSI")}</span>
+          <h3>{missing
+            ? pick("Plugin NavBR não está instalado corretamente", "NavBR plugin is not installed correctly", "El plugin NavBR no está instalado correctamente", "NavBR-Plugin ist nicht korrekt installiert", "Le plugin NavBR n’est pas correctement installé")
+            : pick("Verifique o plugin NavBR", "Check the NavBR plugin", "Verifica el plugin NavBR", "NavBR-Plugin prüfen", "Vérifiez le plugin NavBR")}</h3>
+        </div>
+      </div>
+      <p>
+        {pick("Encontrados ", "Found ", "Encontrados ", "Gefunden: ", "Trouvés : ")}
+        <strong>{plugin.requiredFilesFound}/{plugin.requiredFilesTotal}</strong>
+        {pick(" arquivos necessários. O plugin é necessário para integração física/RP com o OMSI.", " required files. The plugin is required for physical/RP integration with OMSI.", " archivos necesarios. El plugin es necesario para la integración física/RP con OMSI.", " benötigte Dateien. Das Plugin wird für die physische/RP-Integration mit OMSI benötigt.", " fichiers requis. Le plugin est requis pour l’intégration physique/RP avec OMSI.")}
+      </p>
+      {plugin.omsiRunning && (
+        <p className="migration-note">
+          {pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
+        </p>
+      )}
+      {!plugin.installAvailable && !plugin.omsiRunning && (
+        <p className="migration-note">
+          {pick("Cadastre uma instalação válida do OMSI 2 em Configurações para habilitar a instalação automática.", "Register a valid OMSI 2 installation in Settings to enable automatic installation.", "Registra una instalación válida de OMSI 2 en Configuración para habilitar la instalación automática.", "Eine gültige OMSI-2-Installation in den Einstellungen registrieren.", "Enregistrez une installation OMSI 2 valide dans Paramètres pour activer l’installation automatique.")}
+        </p>
+      )}
+      <div className="room-actions">
+        <button className="button primary" disabled={!canInstall} onClick={() => sendCommand("installOmsiPlugin")}>
+          {pick("Instalar / atualizar plugin", "Install / update plugin", "Instalar / actualizar plugin", "Plugin installieren / aktualisieren", "Installer / mettre à jour le plugin")}
+        </button>
+        <button className="button ghost" onClick={onOpenInstallations}>
+          {pick("Ver instalações OMSI", "View OMSI installations", "Ver instalaciones OMSI", "OMSI-Installationen anzeigen", "Voir les installations OMSI")}
+        </button>
+        <button className="button ghost" onClick={onDismiss}>
+          {pick("Agora não", "Not now", "Ahora no", "Jetzt nicht", "Pas maintenant")}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [state, setState] = useState<NavBrState | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
@@ -4233,6 +4308,7 @@ export default function App() {
   const [navigationViewRequest, setNavigationViewRequest] = useState<{ id: number; view: "2d" | "3d" } | null>(null);
   const [operationsTabRequest, setOperationsTabRequest] = useState<{ id: number; tab: OperationsTab } | null>(null);
   const [companyNetworkTabRequest, setCompanyNetworkTabRequest] = useState<{ id: number; tab: CompanyNetworkTab } | null>(null);
+  const [pluginPromptDismissed, setPluginPromptDismissed] = useState(false);
   const lastNavigationRequestId = useRef<number | null>(null);
 
   const openSettingsTab = (tab: SettingsTab) => {
@@ -4288,6 +4364,12 @@ export default function App() {
     <div className="app-shell">
       <Sidebar screen={screen} setScreen={setScreen} />
       <main>
+        <PluginStartupPrompt
+          state={state}
+          dismissed={pluginPromptDismissed}
+          onDismiss={() => setPluginPromptDismissed(true)}
+          onOpenInstallations={() => openSettingsTab("installations")}
+        />
         {screen === "home"
           ? <Home state={state} />
           : screen === "navigation"
