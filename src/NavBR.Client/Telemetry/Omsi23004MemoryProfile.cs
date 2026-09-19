@@ -123,6 +123,12 @@ internal static class Omsi23004MemoryProfile
     public const int CameraProjectionMatrixOffset = 0x07C;
 
     // OmsiMap fields.
+    public const int MapKachelnOffset = 0x118;
+    public const int MapKachelInfosOffset = 0x11C;
+    public const int MapKachelInfoSize = 0x10;
+    public const int MapKachelInfoGridXOffset = 0x00;
+    public const int MapKachelInfoGridYOffset = 0x04;
+    public const int MapKachelInfoTilePointerOffset = 0x0C;
     public const int MapLoadedOffset = 0x120;
     public const int CurrentGridXOffset = 0x144;
     public const int CurrentGridYOffset = 0x148;
