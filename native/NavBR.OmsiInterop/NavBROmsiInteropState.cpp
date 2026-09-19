@@ -24,16 +24,23 @@ namespace
     constexpr int MaxReasonableMapTiles = 200000;
 
     constexpr int PositionOffset = 0x004;
+    constexpr int PositionMatrixOffset = 0x010;
     constexpr int RotationOffset = 0x050;
     constexpr int KachelOffset = 0x074;
+    constexpr int AbsolutePositionOffset = 0x078;
+    constexpr int AbsolutePositionThreadFreeOffset = 0x0F8;
     constexpr int MarkedForKillingOffset = 0x25C;
     constexpr int LastPositionOffset = 0x26E;
     constexpr int LastRotationOffset = 0x27A;
+    constexpr int RelativeMatrixVarOffset = 0x28A;
+    constexpr int MyKachelPointOffset = 0x2CC;
     constexpr int CalcTimerOffset = 0x2D8;
     constexpr int VisibleLogicalOffset = 0x2DC;
     constexpr int VisibleLogicalRenderThreadOffset = 0x2DD;
     constexpr int TachoOffset = 0x424;
     constexpr int GroundspeedOffset = 0x428;
+    constexpr int OutsideMatrixOffset = 0x44C;
+    constexpr int OutsideMatrixThreadFreeOffset = 0x48C;
     constexpr int PaiOffset = 0x624;
     constexpr int AiLightOffset = 0x634;
     constexpr int AiInteriorLightOffset = 0x638;
@@ -42,6 +49,7 @@ namespace
     constexpr int AiBrakeLightOffset = 0x644;
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
     constexpr int RoadVehicleWasCalculatedOffset = 0x715;
+    constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
 
     constexpr int MapKachelLoadedOffset = 0x038;
     constexpr int MapKachelnOffset = 0x118;
@@ -90,6 +98,57 @@ namespace
         float z;
         float w;
     };
+
+    struct Matrix4
+    {
+        float m00, m01, m02, m03;
+        float m10, m11, m12, m13;
+        float m20, m21, m22, m23;
+        float m30, m31, m32, m33;
+    };
+
+    struct Point2
+    {
+        int x;
+        int y;
+    };
+
+    Matrix4 BuildTransformMatrix(
+        const Quaternion& rotation,
+        const Vec3& translation)
+    {
+        const float xx = rotation.x * rotation.x;
+        const float yy = rotation.y * rotation.y;
+        const float zz = rotation.z * rotation.z;
+        const float xy = rotation.x * rotation.y;
+        const float xz = rotation.x * rotation.z;
+        const float yz = rotation.y * rotation.z;
+        const float wx = rotation.w * rotation.x;
+        const float wy = rotation.w * rotation.y;
+        const float wz = rotation.w * rotation.z;
+
+        return Matrix4{
+            1.0f - 2.0f * (yy + zz),
+            2.0f * (xy + wz),
+            2.0f * (xz - wy),
+            0.0f,
+
+            2.0f * (xy - wz),
+            1.0f - 2.0f * (xx + zz),
+            2.0f * (yz + wx),
+            0.0f,
+
+            2.0f * (xz + wy),
+            2.0f * (yz - wx),
+            1.0f - 2.0f * (xx + yy),
+            0.0f,
+
+            translation.x,
+            translation.y,
+            translation.z,
+            1.0f
+        };
+    }
 
     bool TryQuaternionHeadingDegrees(const Quaternion& rotation, float& headingDegrees)
     {
@@ -806,6 +865,141 @@ namespace
         return true;
     }
 
+    template <typename T>
+    bool WriteValue(int vehiclePointer, int offset, const T& value);
+
+    bool TryReadMatrix(int objectPointer, int offset, Matrix4& matrix)
+    {
+        const auto address =
+            static_cast<std::uintptr_t>(objectPointer) +
+            static_cast<std::uintptr_t>(offset);
+        if (!IsReadableRange(address, sizeof(Matrix4)))
+        {
+            return false;
+        }
+
+        matrix = *reinterpret_cast<const Matrix4*>(address);
+        return
+            std::isfinite(matrix.m30) &&
+            std::isfinite(matrix.m31) &&
+            std::isfinite(matrix.m32);
+    }
+
+    bool TryResolveWorldTranslation(
+        int objectPointer,
+        int targetTilePointer,
+        const Vec3& targetPosition,
+        Vec3& worldPosition)
+    {
+        worldPosition = targetPosition;
+
+        // Prefer the player's bus as the render-space origin when it is on the
+        // same Kachel. This preserves OMSI's current tile/center offset without
+        // guessing the map's absolute coordinate convention.
+        const int playerVehicle = GetPlayerVehiclePointer();
+        if (IsRoadVehiclePointer(playerVehicle))
+        {
+            const auto playerBase =
+                static_cast<std::uintptr_t>(playerVehicle);
+            if (IsReadableRange(playerBase + KachelOffset, sizeof(int)) &&
+                *reinterpret_cast<const int*>(playerBase + KachelOffset) ==
+                    targetTilePointer &&
+                IsReadableRange(playerBase + PositionOffset, sizeof(Vec3)))
+            {
+                const auto playerPosition =
+                    *reinterpret_cast<const Vec3*>(
+                        playerBase + PositionOffset);
+                Matrix4 playerAbsolute{};
+                if (TryReadMatrix(
+                        playerVehicle,
+                        AbsolutePositionOffset,
+                        playerAbsolute))
+                {
+                    worldPosition.x =
+                        targetPosition.x +
+                        (playerAbsolute.m30 - playerPosition.x);
+                    worldPosition.y =
+                        targetPosition.y +
+                        (playerAbsolute.m31 - playerPosition.y);
+                    worldPosition.z =
+                        targetPosition.z +
+                        (playerAbsolute.m32 - playerPosition.z);
+                    return true;
+                }
+            }
+        }
+
+        // Once an owned object is already on the target Kachel, retain its
+        // existing OMSI render-space origin and only change the local delta.
+        const auto base =
+            static_cast<std::uintptr_t>(objectPointer);
+        if (IsReadableRange(base + KachelOffset, sizeof(int)) &&
+            *reinterpret_cast<const int*>(base + KachelOffset) ==
+                targetTilePointer &&
+            IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+        {
+            const auto previousPosition =
+                *reinterpret_cast<const Vec3*>(base + PositionOffset);
+            Matrix4 previousAbsolute{};
+            if (TryReadMatrix(
+                    objectPointer,
+                    AbsolutePositionOffset,
+                    previousAbsolute))
+            {
+                worldPosition.x =
+                    targetPosition.x +
+                    (previousAbsolute.m30 - previousPosition.x);
+                worldPosition.y =
+                    targetPosition.y +
+                    (previousAbsolute.m31 - previousPosition.y);
+                worldPosition.z =
+                    targetPosition.z +
+                    (previousAbsolute.m32 - previousPosition.z);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool WriteRenderMatrices(
+        int objectPointer,
+        const Vec3& localPosition,
+        const Vec3& worldPosition,
+        const Quaternion& rotation)
+    {
+        const Matrix4 localMatrix =
+            BuildTransformMatrix(rotation, localPosition);
+        const Matrix4 worldMatrix =
+            BuildTransformMatrix(rotation, worldPosition);
+
+        return
+            WriteValue(
+                objectPointer,
+                PositionMatrixOffset,
+                localMatrix) &&
+            WriteValue(
+                objectPointer,
+                AbsolutePositionOffset,
+                worldMatrix) &&
+            WriteValue(
+                objectPointer,
+                AbsolutePositionThreadFreeOffset,
+                worldMatrix) &&
+            WriteValue(
+                objectPointer,
+                RelativeMatrixVarOffset,
+                localMatrix) &&
+            WriteValue(
+                objectPointer,
+                OutsideMatrixOffset,
+                worldMatrix) &&
+            WriteValue(
+                objectPointer,
+                OutsideMatrixThreadFreeOffset,
+                worldMatrix);
+    }
+
     bool IsRoadVehiclePointer(int vehiclePointer)
     {
         if (vehiclePointer <= 0)
@@ -862,7 +1056,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 8;
+    return 9;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
@@ -1123,6 +1317,42 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_DetachHumanForRoleplay(int hu
     const unsigned char zero = 0;
     const unsigned char one = 1;
 
+    int roleplayTilePointer = 0;
+    Point2 roleplayTilePoint{};
+    const int playerVehicle = GetPlayerVehiclePointer();
+    if (IsRoadVehiclePointer(playerVehicle))
+    {
+        const auto playerBase =
+            static_cast<std::uintptr_t>(playerVehicle);
+        if (IsReadableRange(playerBase + KachelOffset, sizeof(int)))
+        {
+            roleplayTilePointer =
+                *reinterpret_cast<const int*>(
+                    playerBase + KachelOffset);
+            int roleplayGridX = 0;
+            int roleplayGridY = 0;
+            if (roleplayTilePointer != 0 &&
+                TryGetMapTileGridByPointer(
+                    roleplayTilePointer,
+                    roleplayGridX,
+                    roleplayGridY))
+            {
+                roleplayTilePoint =
+                    Point2{ roleplayGridX, roleplayGridY };
+            }
+        }
+    }
+
+    Vec3 humanWorldPosition = position;
+    if (roleplayTilePointer != 0)
+    {
+        _ = TryResolveWorldTranslation(
+            humanPointer,
+            roleplayTilePointer,
+            position,
+            humanWorldPosition);
+    }
+
     return WriteValue(humanPointer, HumanMyBusOffset, zeroBus) &&
            WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
            WriteByte(humanPointer, HumanRenderMeOffset, one) &&
@@ -1328,10 +1558,19 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
            WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
            WriteByte(humanPointer, HumanRenderMeOffset, one) &&
            WriteByte(humanPointer, HumanInWorldOffset, one) &&
+           (roleplayTilePointer == 0 ||
+            WriteValue(humanPointer, KachelOffset, roleplayTilePointer)) &&
+           (roleplayTilePointer == 0 ||
+            WriteValue(humanPointer, MyKachelPointOffset, roleplayTilePoint)) &&
            WriteValue(humanPointer, PositionOffset, position) &&
            WriteValue(humanPointer, RotationOffset, rotation) &&
            WriteValue(humanPointer, LastPositionOffset, position) &&
            WriteValue(humanPointer, LastRotationOffset, rotation) &&
+           WriteRenderMatrices(
+               humanPointer,
+               position,
+               humanWorldPosition,
+               rotation) &&
            WriteValue(humanPointer, CalcTimerOffset, zeroTimer) &&
            WriteByte(humanPointer, VisibleLogicalOffset, one) &&
            WriteByte(humanPointer, VisibleLogicalRenderThreadOffset, one) &&
@@ -1402,6 +1641,34 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return 0;
     }
 
+    int effectiveTilePointer = mapTilePointer;
+    if (effectiveTilePointer == 0)
+    {
+        const auto vehicleBase =
+            static_cast<std::uintptr_t>(vehiclePointer);
+        if (IsReadableRange(vehicleBase + KachelOffset, sizeof(int)))
+        {
+            effectiveTilePointer =
+                *reinterpret_cast<const int*>(
+                    vehicleBase + KachelOffset);
+        }
+    }
+
+    Point2 effectiveTilePoint{};
+    int effectiveGridX = 0;
+    int effectiveGridY = 0;
+    const bool hasEffectiveTileGrid =
+        effectiveTilePointer != 0 &&
+        TryGetMapTileGridByPointer(
+            effectiveTilePointer,
+            effectiveGridX,
+            effectiveGridY);
+    if (hasEffectiveTileGrid)
+    {
+        effectiveTilePoint =
+            Point2{ effectiveGridX, effectiveGridY };
+    }
+
     const float quaternionLength = std::sqrt(
         rotationX * rotationX +
         rotationY * rotationY +
@@ -1435,11 +1702,36 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
 
+    Vec3 worldPosition = position;
+    if (effectiveTilePointer != 0)
+    {
+        _ = TryResolveWorldTranslation(
+            vehiclePointer,
+            effectiveTilePointer,
+            position,
+            worldPosition);
+    }
+
     return WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) &&
            WriteValue(vehiclePointer, PositionOffset, position) &&
            WriteValue(vehiclePointer, RotationOffset, rotation) &&
            WriteValue(vehiclePointer, LastPositionOffset, position) &&
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
+           WriteRenderMatrices(
+               vehiclePointer,
+               position,
+               worldPosition,
+               rotation) &&
+           (effectiveTilePointer == 0 ||
+            WriteValue(
+                vehiclePointer,
+                KachelOffset,
+                effectiveTilePointer)) &&
+           (!hasEffectiveTileGrid ||
+            WriteValue(
+                vehiclePointer,
+                MyKachelPointOffset,
+                effectiveTilePoint)) &&
            WriteValue(vehiclePointer, CalcTimerOffset, zeroTimer) &&
            WriteByte(vehiclePointer, VisibleLogicalOffset, enabled) &&
            WriteByte(vehiclePointer, VisibleLogicalRenderThreadOffset, enabled) &&
@@ -1449,7 +1741,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
            (mapTileIndex < 0 ||
             (WriteValue(vehiclePointer, KachelOffset, mapTilePointer) &&
              WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled) &&
-             WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled)))
+             WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled) &&
+             WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, enabled)))
         ? 1
         : 0;
 }
