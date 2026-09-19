@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública e atual é **v0.3.0-alpha.14-test.6**.
+A versão pública e atual é **v0.3.0-alpha.15**.
 
 - cliente principal: **EXE standalone Windows x86**;
 - ZIP do cliente;
@@ -13,9 +13,9 @@ A versão pública e atual é **v0.3.0-alpha.14-test.6**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> A Alpha.14 Test 4 é a **release pública atual**. A build pública foi atualizada com o hotfix do modo **Online através do Host** (SHA `29f30b2`), removendo o bloqueio da interface durante a tentativa de UPnP. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
+> A Alpha.15 consolida as correções de integração e runtime da série Alpha.14. Ônibus físico remoto e Personagem/RP continuam experimentais e opt-in até validação ampla em instalações reais do OMSI.
 
-## Destaques da Alpha.14
+## Destaques da Alpha.15
 
 - **React + TypeScript + Vite em WebView2 como única interface desktop acessível ao usuário**, com .NET/WPF x86 preservado apenas como host técnico invisível dos serviços nativos;
 - Home com **Executar OMSI**, Navegação/GPS 2D/3D, Multiplayer, CCO, Empresa/Frota, Perfil, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
@@ -25,14 +25,14 @@ A versão pública e atual é **v0.3.0-alpha.14-test.6**.
 - abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado, com dispositivos de áudio e mixer por jogador no próprio React;
 - salas públicas/privadas, senha e convite com três modos: Servidor NavBR oficial, LAN e Online através do Host;
 - tela **Rede** com verificação real do Firewall TCP 27730, listener local, NAT/CGNAT, UPnP e teste externo quando configurado;
-- Plugin Bridge **v3** + interop RP v3;
+- Plugin Bridge **v3** + **state interop ABI v7**, com resolução local de Kachel por `GridX/GridY`;
 - modo Personagem/RP disponível também sem multiplayer, com catálogo real de `Map.Drivers`, ativação, seleção e retorno ao ônibus pelo React;
 - **Ghost / Replay no React** com gravação real a 10 Hz, biblioteca/importação, analytics, prévia read-only da rota e replay 3D experimental pelo Plugin Bridge;
-- ônibus remoto físico experimental com interpolação, Kachel/tile validado, culling por proximidade e confirmação dos jogadores realmente materializados no OMSI;
+- ônibus remoto físico experimental com interpolação, culling por proximidade, diagnóstico detalhado e **resolução da Kachel local por GridX/GridY**, sem reutilizar índices de tile de outro processo OMSI;
 - simulador multiplayer com bots no **mesmo mapa**, **próximos do host**, ônibus rígido padrão EN92 quando disponível e rotas independentes do HOF para teste físico;
 - modo `--verify-physical` só aprova quando o host confirma que os IDs exatos dos bots foram materializados por `MakeVehicle` no OMSI;
 - Navegação 2D/3D usa o roadmap real catalogado e calcula caminho de retorno à rota pelas splines quando o veículo está fora da rota;
-- RP prioriza e auto-seleciona o motorista humano ativo real do ônibus;
+- RP prioriza o motorista humano ativo real do ônibus e só encerra a posse após confirmar a restauração do motorista ao veículo;
 - interface pt-BR, English, Español, Deutsch e Français.
 
 ## Executar OMSI pelo NavBR
@@ -116,7 +116,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 
 ## Ghost / Replay
 
-A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
+A Alpha.15 mantém o fluxo principal de Ghost na interface React.
 
 - grava telemetria local real a cada 100 ms;
 - salva arquivos `.navbrghost` usando o `GhostRecorder` existente;
@@ -138,15 +138,17 @@ A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
 
 ## Documentação
 
-- [docs/ALPHA14_RELEASE_NOTES.md](docs/ALPHA14_RELEASE_NOTES.md) — notas da Alpha.14 pública;
-- [docs/ALPHA14_COMMUNITY.md](docs/ALPHA14_COMMUNITY.md) — roteiro de teste;
-- [docs/ALPHA14_MASTER_SCOPE.md](docs/ALPHA14_MASTER_SCOPE.md) — escopo consolidado;
+- [docs/ALPHA15_RELEASE_NOTES.md](docs/ALPHA15_RELEASE_NOTES.md) — notas da Alpha.15;
+- [docs/ALPHA15_COMMUNITY.md](docs/ALPHA15_COMMUNITY.md) — roteiro de validação da Alpha.15;
+- [docs/ALPHA15_MASTER_SCOPE.md](docs/ALPHA15_MASTER_SCOPE.md) — escopo consolidado da Alpha.15;
+- [docs/ALPHA14_RELEASE_NOTES.md](docs/ALPHA14_RELEASE_NOTES.md) — histórico da Alpha.14;
 - [docs/MULTIPLAYER_SIMULATOR.md](docs/MULTIPLAYER_SIMULATOR.md) — simulador;
 - [docs/NETWORKING.md](docs/NETWORKING.md) — rede/Firewall/UPnP/servidor online;
 - [docs/PEER_HOST.md](docs/PEER_HOST.md) — host local;
 - [docs/RENDER_HOSTING.md](docs/RENDER_HOSTING.md) — servidor online gratuito no Render;
 - [docs/OMSI_PLUGIN_EXPERIMENTAL.md](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin v3;
 - [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md) — Hardware Cockpit;
+- [docs/MOBILE_COMPANION.md](docs/MOBILE_COMPANION.md) — roadmap futuro do Companion para smartphone (fora do escopo atual);
 - [docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md) — manual.
 
 ## Segurança
@@ -165,7 +167,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.14 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.15 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico em memória** enquanto serviços nativos ainda são desacoplados de sua classe. O app não usa mais `StartupUri="MainWindow.xaml"` e não chama mais `Show()` no host; telemetria, estatísticas, RP e tray são inicializados explicitamente e os antigos installers/renderizadores visuais da Alpha.11/12 não são executados. Fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 

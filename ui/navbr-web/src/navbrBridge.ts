@@ -9,6 +9,7 @@ export interface NavBrPlayer {
   physicalVehicleSpawned: boolean;
   physicalVehicleState?: string | null;
   physicalVehicleErrorCode?: string | null;
+  physicalVehicleErrorMessage?: string | null;
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
@@ -212,6 +213,7 @@ export interface NavBrNavigationState {
   tileSize?: number | null;
   roadmapAvailable: boolean;
   roadmapUrl?: string | null;
+  roadmapFallbackUrl?: string | null;
   bounds?: {
     minX: number;
     minY: number;
@@ -219,6 +221,14 @@ export interface NavBrNavigationState {
     maxY: number;
   } | null;
   routePoints: NavBrNavigationPoint[];
+  routeDiagnostic?: {
+    mode: string;
+    trackName?: string | null;
+    line?: string | null;
+    lookupValue?: string | null;
+    entryCount: number;
+    pointCount: number;
+  } | null;
   rejoinAvailable: boolean;
   rejoinDistanceMeters?: number | null;
   rejoinPoints: NavBrNavigationPoint[];
@@ -267,6 +277,7 @@ export interface NavBrNavigation3DState {
   mapFolder?: string | null;
   roadmapAvailable: boolean;
   roadmapUrl?: string | null;
+  roadmapFallbackUrl?: string | null;
   bounds?: {
     minX: number;
     minY: number;
@@ -461,6 +472,7 @@ export interface NavBrSystemState {
     omsiRoot?: string | null;
     embeddedPackageAvailable: boolean;
     installAvailable: boolean;
+    installBlockReason?: "package-missing" | "omsi-not-found" | "omsi-running" | null;
     omsiRunning: boolean;
   };
   installations: NavBrOmsiInstallation[];
@@ -674,6 +686,8 @@ export interface NavBrRoleplayState {
     status?: string | null;
   } | null;
   status?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   selected?: {
     id: string;
     displayName: string;
@@ -892,6 +906,7 @@ export type NavBrCommand =
   | "installOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
+  | "selectOmsiExecutable"
   | "openOmsiProfileFolder"
   | "launchOmsiProfile"
   | "setPreferredOmsiProfile"

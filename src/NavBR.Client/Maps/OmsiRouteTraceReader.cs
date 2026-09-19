@@ -5,6 +5,15 @@ namespace NavBR.Client.Maps;
 
 public sealed record OmsiRouteTracePoint(int GridX, int GridY, double TileX, double TileY);
 
+public sealed record OmsiRouteTraceDiagnostics(
+    string MapFolder,
+    string Mode,
+    string? TrackName,
+    string? ActiveLine,
+    string? LookupValue,
+    int EntryCount,
+    int PointCount);
+
 /// <summary>
 /// Reads the active OMSI timetable track (.ttr). Whenever possible NavBR now
 /// resolves track entries against the real spline placement stored in the tile
@@ -16,6 +25,18 @@ public static class OmsiRouteTraceReader
     private const double MaxDetailedGapMeters = 120d;
     private static readonly object DiagnosticLock = new();
     private static string? _lastDiagnosticSignature;
+    private static OmsiRouteTraceDiagnostics? _lastDiagnostics;
+
+    public static OmsiRouteTraceDiagnostics? LastDiagnostics
+    {
+        get
+        {
+            lock (DiagnosticLock)
+            {
+                return _lastDiagnostics;
+            }
+        }
+    }
 
     public static IReadOnlyList<OmsiRouteTracePoint> TryRead(
         OmsiMapInfo map,
@@ -479,6 +500,15 @@ public static class OmsiRouteTraceReader
 
         lock (DiagnosticLock)
         {
+            _lastDiagnostics = new OmsiRouteTraceDiagnostics(
+                map.FolderName,
+                mode,
+                trackPath is null ? null : Path.GetFileName(trackPath),
+                activeLine,
+                activeTrackOrTarget,
+                entryCount,
+                pointCount);
+
             if (string.Equals(_lastDiagnosticSignature, signature, StringComparison.Ordinal))
             {
                 return;

@@ -697,6 +697,10 @@ public partial class MainWindow
                 SelectOmsiFolderFromWeb();
                 break;
 
+            case "selectOmsiExecutable":
+                SelectOmsiExecutableFromWeb();
+                break;
+
             case "openOmsiProfileFolder":
                 OpenOmsiProfileFolderFromWeb(
                     GetWebPayloadString(payload, "profileId"));

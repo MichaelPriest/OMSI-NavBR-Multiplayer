@@ -400,6 +400,79 @@ internal static class RoleplayCharacterBackend
                     "OMSI rejected the selected driver roleplay state.");
             }
 
+            // Do not report RP as active only because the guarded writes
+            // returned success. Read the human back from OMSI and confirm that
+            // the driver is detached, visible/in-world and actually positioned
+            // at the requested exit point.
+            var stateConfirmed =
+                OmsiNativeInterop.ReadHumanDriverState(
+                    driverPointer,
+                    out var detachedBus,
+                    out var detachedFixDriver,
+                    out var detachedRenderMe,
+                    out var detachedInWorld) == 1 &&
+                detachedBus == 0 &&
+                detachedFixDriver == 0 &&
+                detachedRenderMe != 0 &&
+                detachedInWorld != 0;
+
+            var poseConfirmed =
+                OmsiNativeInterop.ReadHumanPose(
+                    driverPointer,
+                    out var confirmedX,
+                    out var confirmedY,
+                    out var confirmedZ,
+                    out var confirmedHeading,
+                    out var confirmedSpeed) == 1;
+            if (poseConfirmed)
+            {
+                var confirmDx = confirmedX - spawnX;
+                var confirmDy = confirmedY - spawnY;
+                var confirmDz = confirmedZ - spawnZ;
+                var confirmDistance = Math.Sqrt(
+                    confirmDx * confirmDx +
+                    confirmDy * confirmDy +
+                    confirmDz * confirmDz);
+                poseConfirmed =
+                    double.IsFinite(confirmDistance) &&
+                    confirmDistance <= 1.0d;
+            }
+
+            if (!stateConfirmed || !poseConfirmed)
+            {
+                // SetHumanTransform requires a detached/controllable human, so
+                // restore the original pose before reattaching the driver.
+                _ = OmsiNativeInterop.SetHumanTransform(
+                    driverPointer,
+                    driverX,
+                    driverY,
+                    driverZ,
+                    NormalizeHeading(driverHeading),
+                    Math.Clamp(Math.Abs(driverSpeed), 0f, MaxCharacterSpeedMps));
+                _ = OmsiNativeInterop.RestoreHumanDriverState(
+                    driverPointer,
+                    originalBus,
+                    fixDriver,
+                    renderMe,
+                    inWorld);
+                _ = OmsiNativeInterop.RestoreHumanAiState(
+                    driverPointer,
+                    aiMode,
+                    aiModeEx,
+                    aiSubMode,
+                    sollSpeed,
+                    actSpeed);
+
+                return Fail(
+                    command,
+                    !stateConfirmed
+                        ? "driver-detach-unconfirmed"
+                        : "driver-transform-unconfirmed",
+                    !stateConfirmed
+                        ? "OMSI did not confirm the active driver as detached and visible in the world."
+                        : "OMSI did not confirm the roleplay character at the requested exit position.");
+            }
+
             var instance = new RoleplayCharacterInstance(
                 instanceId,
                 driverPointer,
@@ -490,7 +563,7 @@ internal static class RoleplayCharacterBackend
 
         lock (Sync)
         {
-            if (!Owned.Remove(instanceId, out var instance))
+            if (!Owned.TryGetValue(instanceId, out var instance))
             {
                 ActiveTriggersByInstance.Remove(instanceId);
                 return RoleplayCharacterCommandProcessor.Result(command, true);
@@ -498,30 +571,70 @@ internal static class RoleplayCharacterBackend
 
             ReleaseActiveTriggersBestEffort(instanceId, instance.OriginalBusPointer);
 
-            if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) == 1)
+            if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
             {
-                _ = OmsiNativeInterop.SetHumanTransform(
+                Owned.Remove(instanceId);
+                ActiveTriggersByInstance.Remove(instanceId);
+                return Fail(
+                    command,
+                    "driver-pointer-stale",
+                    "The owned OMSI driver pointer is no longer valid and could not be restored.");
+            }
+
+            var poseRestored =
+                OmsiNativeInterop.SetHumanTransform(
                     instance.HumanPointer,
                     instance.OriginalX,
                     instance.OriginalY,
                     instance.OriginalZ,
                     instance.OriginalHeading,
-                    Math.Clamp(Math.Abs(instance.OriginalSpeed), 0f, MaxCharacterSpeedMps));
-                _ = OmsiNativeInterop.RestoreHumanDriverState(
+                    Math.Clamp(Math.Abs(instance.OriginalSpeed), 0f, MaxCharacterSpeedMps)) == 1;
+            var driverStateRestored =
+                OmsiNativeInterop.RestoreHumanDriverState(
                     instance.HumanPointer,
                     instance.OriginalBusPointer,
                     instance.FixDriver,
                     instance.RenderMe,
-                    instance.InWorld);
-                _ = OmsiNativeInterop.RestoreHumanAiState(
+                    instance.InWorld) == 1;
+            var aiStateRestored =
+                OmsiNativeInterop.RestoreHumanAiState(
                     instance.HumanPointer,
                     instance.AiMode,
                     instance.AiModeEx,
                     instance.AiSubMode,
                     instance.SollSpeed,
-                    instance.ActSpeed);
+                    instance.ActSpeed) == 1;
+
+            if (!poseRestored || !driverStateRestored || !aiStateRestored)
+            {
+                return Fail(
+                    command,
+                    "driver-restore-failed",
+                    "OMSI rejected one or more writes while restoring the roleplay driver to the bus.");
             }
 
+            var stateConfirmed =
+                OmsiNativeInterop.ReadHumanDriverState(
+                    instance.HumanPointer,
+                    out var restoredBus,
+                    out var restoredFixDriver,
+                    out var restoredRenderMe,
+                    out var restoredInWorld) == 1 &&
+                restoredBus == instance.OriginalBusPointer &&
+                restoredFixDriver == instance.FixDriver &&
+                restoredRenderMe == instance.RenderMe &&
+                restoredInWorld == instance.InWorld;
+
+            if (!stateConfirmed)
+            {
+                return Fail(
+                    command,
+                    "driver-restore-unconfirmed",
+                    "OMSI did not confirm the restored driver state after leaving roleplay mode.");
+            }
+
+            Owned.Remove(instanceId);
+            ActiveTriggersByInstance.Remove(instanceId);
             return RoleplayCharacterCommandProcessor.Result(command, true);
         }
     }

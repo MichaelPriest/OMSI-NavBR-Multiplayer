@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -65,6 +67,52 @@ internal static class OmsiInstallationLocator
         return result.Values
             .OrderBy(item => item.InstallDirectory, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    internal static string? TryResolveInstallDirectory(string? path)
+    {
+        var root = NormalizeDirectory(path);
+        if (root is not null && File.Exists(Path.Combine(root, "Omsi.exe")))
+        {
+            return root;
+        }
+
+        if (!string.IsNullOrWhiteSpace(path) &&
+            File.Exists(path) &&
+            string.Equals(
+                Path.GetExtension(path),
+                ".url",
+                StringComparison.OrdinalIgnoreCase) &&
+            IsOmsiSteamShortcut(path))
+        {
+            foreach (var steamRoot in DiscoverSteamRoots())
+            {
+                var steamApps = Path.Combine(steamRoot, "steamapps");
+                var manifestPath = Path.Combine(
+                    steamApps,
+                    $"appmanifest_{SteamAppId}.acf");
+                if (!File.Exists(manifestPath))
+                {
+                    continue;
+                }
+
+                var installDir = TryReadSteamInstallDir(manifestPath);
+                if (string.IsNullOrWhiteSpace(installDir))
+                {
+                    continue;
+                }
+
+                var candidate = NormalizeDirectory(
+                    Path.Combine(steamApps, "common", installDir));
+                if (candidate is not null &&
+                    File.Exists(Path.Combine(candidate, "Omsi.exe")))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     public static OmsiInstallationInfo? FromRunningProcess(OmsiProcessInfo? process)
@@ -248,16 +296,197 @@ internal static class OmsiInstallationLocator
             File.Exists(steamManifestPath) ? steamManifestPath : null);
     }
 
-    private static string? NormalizeDirectory(string? path)
+    private static string? NormalizeDirectory(string? path) =>
+        NormalizeDirectory(path, depth: 0);
+
+    private static string? NormalizeDirectory(string? path, int depth)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path) || depth > 2)
         {
             return null;
         }
 
         try
         {
-            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path.Trim()));
+            var candidate = Environment.ExpandEnvironmentVariables(
+                path.Trim().Trim('"'));
+
+            if (File.Exists(candidate))
+            {
+                if (string.Equals(
+                        Path.GetFileName(candidate),
+                        "Omsi.exe",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    var directory = Path.GetDirectoryName(Path.GetFullPath(candidate));
+                    return string.IsNullOrWhiteSpace(directory)
+                        ? null
+                        : Path.TrimEndingDirectorySeparator(directory);
+                }
+
+                var extension = Path.GetExtension(candidate);
+                if (string.Equals(extension, ".lnk", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = TryResolveWindowsShortcut(candidate);
+                    return NormalizeDirectory(target, depth + 1);
+                }
+
+                if (string.Equals(extension, ".url", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = TryResolveInternetShortcut(candidate);
+                    return NormalizeDirectory(target, depth + 1);
+                }
+
+                return null;
+            }
+
+            return Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(candidate));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryResolveWindowsShortcut(string shortcutPath)
+    {
+        object? shell = null;
+        object? shortcut = null;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType is null)
+            {
+                return null;
+            }
+
+            shell = Activator.CreateInstance(shellType);
+            if (shell is null)
+            {
+                return null;
+            }
+
+            shortcut = shellType.InvokeMember(
+                "CreateShortcut",
+                BindingFlags.InvokeMethod,
+                binder: null,
+                target: shell,
+                args: [Path.GetFullPath(shortcutPath)]);
+            if (shortcut is null)
+            {
+                return null;
+            }
+
+            return shortcut.GetType().InvokeMember(
+                "TargetPath",
+                BindingFlags.GetProperty,
+                binder: null,
+                target: shortcut,
+                args: null) as string;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (shortcut is not null && Marshal.IsComObject(shortcut))
+            {
+                try
+                {
+                    Marshal.FinalReleaseComObject(shortcut);
+                }
+                catch
+                {
+                }
+            }
+
+            if (shell is not null && Marshal.IsComObject(shell))
+            {
+                try
+                {
+                    Marshal.FinalReleaseComObject(shell);
+                }
+                catch
+                {
+                }
+            }
+        }
+    }
+
+    private static bool IsOmsiSteamShortcut(string shortcutPath)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(shortcutPath))
+            {
+                if (!line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = line[4..].Trim();
+                return string.Equals(
+                           value,
+                           $"steam://rungameid/{SteamAppId}",
+                           StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(
+                           value,
+                           $"steam://run/{SteamAppId}",
+                           StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
+    private static string? TryResolveInternetShortcut(string shortcutPath)
+    {
+        try
+        {
+            string? url = null;
+            string? iconFile = null;
+
+            foreach (var line in File.ReadLines(shortcutPath))
+            {
+                if (line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                {
+                    url = line[4..].Trim();
+                    continue;
+                }
+
+                if (line.StartsWith("IconFile=", StringComparison.OrdinalIgnoreCase))
+                {
+                    iconFile = line[9..].Trim().Trim('"');
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(iconFile) &&
+                File.Exists(iconFile) &&
+                string.Equals(
+                    Path.GetFileName(iconFile),
+                    "Omsi.exe",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return iconFile;
+            }
+
+            if (!string.IsNullOrWhiteSpace(url) &&
+                Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                uri.IsFile)
+            {
+                return uri.LocalPath;
+            }
+
+            // Steam desktop shortcuts normally use steam://rungameid/252530.
+            // The URL itself has no install directory, but the caller will
+            // continue through Steam manifest discovery after this returns null.
+            return null;
         }
         catch
         {

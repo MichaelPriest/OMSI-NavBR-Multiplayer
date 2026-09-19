@@ -22,7 +22,7 @@ public partial class MainWindow
             if (profile is null)
             {
                 _webOmsiLaunchNotice =
-                    "Nenhuma instalação válida do OMSI foi encontrada. Selecione ou adicione a pasta que contém Omsi.exe.";
+                    "Nenhuma instalação válida do OMSI foi encontrada. Selecione a pasta, Omsi.exe ou um atalho válido do OMSI 2.";
                 NavigatePrimaryWebShell("settings-installations");
                 return;
             }
@@ -61,7 +61,7 @@ public partial class MainWindow
             return true;
         }
 
-        if (result.Status is "ready" or "untracked")
+        if (result.Status is "ready")
         {
             return true;
         }
@@ -73,8 +73,19 @@ public partial class MainWindow
 
         if (!nativeIntegrationRequested)
         {
+            // Basic telemetry/UI may continue with an untracked/conflicting
+            // plugin because no write-side feature will depend on it. Preserve
+            // the warning so the user can repair it later.
             notice = result.Message;
             return true;
+        }
+
+        if (result.Status is "untracked")
+        {
+            notice =
+                "Há arquivos do plugin NavBR sem manifesto confiável. " +
+                "Atualize/reinstale o plugin com o OMSI fechado antes de usar ônibus físicos ou RP.";
+            return false;
         }
 
         notice =

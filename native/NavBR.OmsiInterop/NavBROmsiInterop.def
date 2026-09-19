@@ -10,12 +10,14 @@ EXPORTS
     NavBR_GetRoadVehicleAt
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
+    NavBR_ResolveMapTileIndex
     NavBR_GetHumanCount
     NavBR_GetHumanAt
     NavBR_IsHumanPointer
     NavBR_IsHumanControllable
     NavBR_GetPlayerVehiclePointer
     NavBR_ReadRoadVehiclePosition
+    NavBR_ReadRoadVehicleTileIndex
     NavBR_IsPlayerBusDriverHuman
     NavBR_ReadHumanPose
     NavBR_ReadHumanDriverState

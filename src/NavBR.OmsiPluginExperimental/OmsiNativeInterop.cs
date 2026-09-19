@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 5;
+    private const int ExpectedStateInteropVersion = 7;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
@@ -284,6 +284,9 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsMapTileIndexValid")]
     internal static extern int IsMapTileIndexValid(int mapTileIndex);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ResolveMapTileIndex")]
+    internal static extern int ResolveMapTileIndex(int gridX, int gridY);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetHumanCount")]
     private static extern int GetHumanCount();
 
@@ -305,6 +308,9 @@ internal static class OmsiNativeInterop
         out float x,
         out float y,
         out float z);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleTileIndex")]
+    internal static extern int ReadRoadVehicleTileIndex(int vehiclePointer);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsPlayerBusDriverHuman")]
     internal static extern int IsPlayerBusDriverHuman(

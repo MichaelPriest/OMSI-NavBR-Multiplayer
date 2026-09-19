@@ -112,6 +112,8 @@ public partial class MainWindow
                 .ToArray(),
             lastInteraction,
             status = _webRoleplayStatus,
+            errorCode = controller.LastErrorCode,
+            errorMessage = controller.LastErrorMessage,
             selected = selected is null
                 ? null
                 : new

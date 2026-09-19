@@ -299,8 +299,11 @@ namespace
         return true;
     }
 
-    bool IsMapTileIndexValid(int mapTileIndex)
+    bool TryGetMapTilePointerByIndex(
+        int mapTileIndex,
+        int& tilePointer)
     {
+        tilePointer = 0;
         if (mapTileIndex < 0)
         {
             return false;
@@ -322,19 +325,63 @@ namespace
             return false;
         }
 
-        const int tilePointer =
+        const int candidate =
             *reinterpret_cast<const int*>(itemAddress);
-        if (tilePointer == 0 ||
+        if (candidate == 0 ||
             !IsReadableRange(
-                static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset,
-                sizeof(unsigned char)))
+                static_cast<std::uintptr_t>(candidate) + MapKachelLoadedOffset,
+                sizeof(unsigned char)) ||
+            *reinterpret_cast<const unsigned char*>(
+                static_cast<std::uintptr_t>(candidate) + MapKachelLoadedOffset) == 0)
         {
             return false;
         }
 
-        const auto tileLoaded = *reinterpret_cast<const unsigned char*>(
-            static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset);
-        return tileLoaded != 0;
+        tilePointer = candidate;
+        return true;
+    }
+
+    bool TryGetMapTileIndexByPointer(
+        int tilePointer,
+        int& mapTileIndex)
+    {
+        mapTileIndex = -1;
+        if (tilePointer <= 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        int items = 0;
+        if (!TryGetMapTileItems(count, items))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < count; ++index)
+        {
+            const auto itemAddress =
+                static_cast<std::uintptr_t>(items) +
+                static_cast<std::uintptr_t>(index) * sizeof(int);
+            if (!IsReadableRange(itemAddress, sizeof(int)))
+            {
+                return false;
+            }
+
+            if (*reinterpret_cast<const int*>(itemAddress) == tilePointer)
+            {
+                mapTileIndex = index;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsMapTileIndexValid(int mapTileIndex)
+    {
+        int tilePointer = 0;
+        return TryGetMapTilePointerByIndex(mapTileIndex, tilePointer);
     }
 
     bool TryResolveMapTileIndexByGrid(
@@ -578,21 +625,22 @@ namespace
             return false;
         }
 
-        if (definitionPointer > 0)
-        {
-            // Explicit catalog selection keeps exact-definition matching.
-            return humanDefinition == definitionPointer;
-        }
-
-        // definitionPointer == 0 means "resolve the live driver". OMSI's
-        // AIModeEx value 9 is THAME_DrivingBus; FixDriver is the additional
-        // seated-driver marker. Requiring either prevents passengers on the
-        // same bus from being acquired as the RP character.
+        // Always require the live seated-driver state. Matching only the
+        // definition pointer is not sufficient because passengers can reuse
+        // the same human definition as the driver on some maps/add-ons.
         const auto aiModeEx = *reinterpret_cast<const unsigned char*>(
             base + HumanAiModeExOffset);
         const auto fixDriver = *reinterpret_cast<const unsigned char*>(
             base + HumanFixDriverOffset);
-        return aiModeEx == 9 || fixDriver != 0;
+        if (aiModeEx != 9 && fixDriver == 0)
+        {
+            return false;
+        }
+
+        // An explicit catalog selection additionally keeps exact-definition
+        // matching. definitionPointer == 0 means "resolve the live driver".
+        return definitionPointer <= 0 ||
+               humanDefinition == definitionPointer;
     }
 
     bool IsHumanControllable(int humanPointer)
@@ -725,7 +773,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 5;
+    return 7;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
@@ -783,6 +831,29 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleTileIndex(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return -1;
+    }
+
+    const auto tileAddress =
+        static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset;
+    if (!IsReadableRange(tileAddress, sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int tilePointer =
+        *reinterpret_cast<const int*>(tileAddress);
+    int tileIndex = -1;
+    return TryGetMapTileIndexByPointer(tilePointer, tileIndex)
+        ? tileIndex
+        : -1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePosition(
@@ -1155,8 +1226,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return 0;
     }
 
+    int mapTilePointer = 0;
     if (mapTileIndex >= 0 &&
-        (!IsMapTileIndexValid(mapTileIndex) ||
+        (!TryGetMapTilePointerByIndex(mapTileIndex, mapTilePointer) ||
          !IsWritableRange(
              static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
              sizeof(int))))
@@ -1183,23 +1255,27 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         rotationW * inverseLength
     };
 
-    float speed = std::fabs(groundSpeedMps);
-    if (speed > 150.0f)
+    float speedMps = std::fabs(groundSpeedMps);
+    if (speedMps > 150.0f)
     {
-        speed = 150.0f;
+        speedMps = 150.0f;
     }
 
+    // OMSI's Tacho/script-facing speed is km/h, while Groundspeed is m/s.
+    // Keep both fields in their native units so scripts and physical motion
+    // observe the same real vehicle speed.
+    const float tachoKph = speedMps * 3.6f;
     const unsigned char disabled = 0;
 
     return WriteValue(vehiclePointer, PositionOffset, position) &&
            WriteValue(vehiclePointer, RotationOffset, rotation) &&
            WriteValue(vehiclePointer, LastPositionOffset, position) &&
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
-           WriteValue(vehiclePointer, TachoOffset, speed) &&
-           WriteValue(vehiclePointer, GroundspeedOffset, speed) &&
+           WriteValue(vehiclePointer, TachoOffset, tachoKph) &&
+           WriteValue(vehiclePointer, GroundspeedOffset, speedMps) &&
            WriteByte(vehiclePointer, PaiOffset, disabled) &&
            (mapTileIndex < 0 ||
-            WriteValue(vehiclePointer, KachelOffset, mapTileIndex))
+            WriteValue(vehiclePointer, KachelOffset, mapTilePointer))
         ? 1
         : 0;
 }

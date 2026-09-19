@@ -74,11 +74,12 @@ if (options.VerifyPhysical)
         string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
         string.IsNullOrWhiteSpace(options.VehiclePath) ||
         string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
-        options.MapTileIndex is null)
+        options.GridX is null ||
+        options.GridY is null)
     {
         Console.Error.WriteLine();
         Console.Error.WriteLine(
-            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, Kachel válida e um ônibus rígido resolvido.");
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, GridX/GridY válidos e um ônibus rígido resolvido.");
         Environment.ExitCode = 6;
         return;
     }

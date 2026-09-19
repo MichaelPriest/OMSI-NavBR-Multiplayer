@@ -3,55 +3,48 @@ import React from "react";
 const concepts = [
   {
     image: "./assets/concept-hud.svg",
-    eyebrow: "HUD NO JOGO",
-    title: "Navegação e operação sem esconder o OMSI",
-    text: "Conceito visual do HUD com próxima parada, rota, velocidade e estado multiplayer sobre a condução."
+    eyebrow: "HUD / NAVEGAÇÃO",
+    title: "Informação operacional sem tirar o foco da condução",
+    text: "Conceito de HUD para próxima parada, rota, velocidade e estado multiplayer."
   },
   {
     image: "./assets/concept-multiplayer.svg",
     eyebrow: "MULTIPLAYER",
-    title: "Ônibus remotos e sala em tempo real",
-    text: "Conceito da experiência com outros motoristas, presença, voz e posições sincronizadas no mapa."
+    title: "Motoristas compartilhando a mesma operação",
+    text: "Conceito da experiência com presença, voz, sala e posições sincronizadas."
   },
   {
     image: "./assets/concept-roleplay.svg",
     eyebrow: "PERSONAGEM / RP",
-    title: "Saia do ônibus e continue no mesmo mapa",
-    text: "Conceito do modo RP com personagem ativo, marcador e câmera de acompanhamento no mapa 3D."
+    title: "Continue a experiência fora do ônibus",
+    text: "Conceito visual do modo RP com personagem e acompanhamento no mapa."
   }
 ];
 
 export default function ConceptGallery() {
   return (
-    <section id="como-fica-no-jogo" className="section shell concept-section">
-      <div className="concept-heading">
-        <div>
-          <span className="eyebrow">Conceitos visuais gerados por IA</span>
-          <h2>Uma visão conceitual de como o NavBR pode aparecer dentro do OMSI.</h2>
-        </div>
-        <p className="section-lead">
-          Estas imagens são conceituais e foram criadas por inteligência artificial exclusivamente para ilustrar a direção visual do projeto. Elas não são capturas reais do OMSI nem do NavBR atual. O app continua usando dados reais do C# e do OMSI.
-        </p>
+    <section id="produto-visual" className="section shell v2-concepts">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Direção visual</span><h2>Uma interface pensada para acompanhar o simulador.</h2></div>
+        <p>As imagens abaixo são conceitos gerados por IA e não representam capturas da implementação atual.</p>
       </div>
 
-      <div className="concept-grid">
-        {concepts.map(concept => (
-          <article className="concept-card" key={concept.title}>
-            <div className="concept-image-wrap">
+      <div className="v2-concept-grid">
+        {concepts.map((concept, index) => (
+          <article className={index === 0 ? "featured" : ""} key={concept.title}>
+            <div className="v2-concept-image">
               <img src={concept.image} alt={concept.title} loading="lazy" />
-              <span>{concept.eyebrow} • CONCEITO IA</span>
+              <span>CONCEITO IA</span>
             </div>
-            <div className="concept-copy">
+            <div className="v2-concept-copy">
+              <small>{concept.eyebrow}</small>
               <h3>{concept.title}</h3>
               <p>{concept.text}</p>
             </div>
           </article>
         ))}
       </div>
-
-      <p className="concept-disclaimer">
-        Imagens geradas por IA para ilustração conceitual. A interface, os ônibus, cenários, HUDs e personagens mostrados podem diferir da implementação real no OMSI/NavBR.
-      </p>
+      <p className="v2-concept-note">Conceitos visuais gerados por IA. A interface real pode diferir conforme a implementação e os dados disponíveis no OMSI.</p>
     </section>
   );
 }

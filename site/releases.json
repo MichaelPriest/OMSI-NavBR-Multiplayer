@@ -1,13 +1,499 @@
 {
-  "total_downloads": 21,
+  "generated_at": "2026-09-19",
+  "source": "GitHub Releases (public, drafts excluded)",
+  "total_downloads": 205,
+  "alpha_downloads": {
+    "alpha.14": 50,
+    "alpha.13": 5,
+    "alpha.12": 31,
+    "alpha.11": 45,
+    "alpha.9": 19,
+    "alpha.8": 8,
+    "alpha.7": 2,
+    "alpha.10": 29,
+    "alpha.6": 1,
+    "alpha.5": 3,
+    "alpha.4": 0,
+    "alpha.3": 3,
+    "alpha.2": 8,
+    "alpha.1": 1
+  },
   "releases": [
+    {
+      "tag_name": "v0.3.0-alpha.14-test.6",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.6 — Live physical bus + Navigation/RP fixes",
+      "prerelease": true,
+      "published_at": "2026-09-19T04:03:06Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.6",
+      "body": "# Alpha.14 — escopo mestre\r\n\r\nVersão pública atual: **v0.3.0-alpha.14-test.4**.\r\n\r\nBuild de validação atual da PR #30: **v0.3.0-alpha.14-test.5**.\r\n\r\nA Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.\r\n\r\n## 1. Interface\r\n\r\n- React + TypeScript + Vite em WebView2 como shell principal;\r\n- host .NET/WPF x86 preservado apenas como camada técnica/fallback;\r\n- `MainWindow` antigo não é exibido;\r\n- controlador multiplayer nativo inicializa sem `Show()/Hide()`;\r\n- Home e Executar OMSI;\r\n- Navegação/GPS com rota real e visão 3D;\r\n- Central Multiplayer;\r\n- CCO, Empresa/Frota, Perfil e histórico;\r\n- Hardware Cockpit;\r\n- Instalações OMSI;\r\n- Diagnóstico e Rede;\r\n- Ghost / Replay;\r\n- HUD configurável no React, com overlay OMSI nativo;\r\n- onboarding/primeiro acesso React;\r\n- interface pt-BR, English, Español, Deutsch e Français;\r\n- site público também deve usar React, compartilhando o mesmo princípio de componentes e estado real de releases.\r\n\r\n## 2. Multiplayer\r\n\r\n- três modos explícitos: **Servidor NavBR oficial**, **LAN** e **Online através do Host**;\r\n- TCP 27730 nos modos hospedados pelo PC;\r\n- servidor NavBR dedicado no Render para o modo oficial;\r\n- salas públicas/privadas;\r\n- chat e voz;\r\n- dispositivos de áudio e mixer por jogador;\r\n- UPnP opcional e não bloqueante no Online através do Host;\r\n- timeout de 8 segundos para descoberta/mapeamento UPnP;\r\n- Firewall verificável em todos os perfis;\r\n- diagnóstico separado de listener, NAT/CGNAT, UPnP e probe externo;\r\n- presença, telemetria, mapa e estado operacional via SignalR;\r\n- sem mapa/marcadores paralelos no layout WPF retirado.\r\n\r\n## 3. Simulador\r\n\r\nSomente desenvolvimento/teste:\r\n- reutiliza host ou inicia servidor empacotado;\r\n- senha privada;\r\n- herda mapa/compatibilidade;\r\n- aguarda telemetria real;\r\n- bots próximos ao host;\r\n- usa mapa/posição/Kachel reais da autoridade da sala;\r\n- bots de veículo podem usar rotas independentes do HOF;\r\n- prefere o MAN EN92 rígido padrão do OMSI para teste físico quando instalado;\r\n- `--verify-physical` exige confirmação dos IDs exatos materializados por `MakeVehicle` no OMSI;\r\n- `--verify` exige movimento e mapa consistente.\r\n\r\n## 4. Personagem / RP\r\n\r\n- personagens reais;\r\n- funciona sem multiplayer;\r\n- bridge/plugin v3;\r\n- entrada/saída e restauração de vínculo/IA;\r\n- W/S, A/D, Shift e Esc;\r\n- estado RP separado da telemetria do ônibus.\r\n\r\n### Funções RP já em validação\r\n\r\n- câmera dedicada seguindo o personagem na visão 3D React;\r\n- projeção do personagem no mesmo espaço mundial do roadmap;\r\n- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada;\r\n- telemetria de animação com proveniência explícita: `AIMode`, `AIModeEx`, `AISubMode`, Soll/Act speed, `LastMovedDist` e `State` são relidos após o controle RP, mas são valores dirigidos pelo próprio NavBR e **não contam como validação independente**;\r\n- `Activity_Leg`, `Activity_Arm_Umbrella`, `Activity_Arm_KI` e `Activity_Head_KI` são observados sem escrita do NavBR e permanecem **raw**;\r\n- o cliente conta amostras e transições de `Activity_*`, inclusive quantas ocorreram enquanto havia movimento comandado, sem atribuir significado de gesto antes da validação prática.\r\n\r\n### Próximas funções\r\n\r\n- animações/gestos adicionais somente após os estados necessários serem documentados e validados em runtime;\r\n- interação com objetos externos ao ônibus;\r\n- personagem remoto físico completo.\r\n\r\n## 5. Multiplayer físico\r\n\r\n- spawn/update/despawn experimental;\r\n- pose/quaternion nativos;\r\n- interpolação adaptativa de posição/quaternion/velocidade no thread do OMSI, com alvo de até ~60 Hz;\r\n- proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;\r\n- tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;\r\n- culling físico por distância com histerese (spawn até 750 m, despawn acima de 1 km), mantendo jogadores distantes na sessão sem criar objetos físicos desnecessários;\r\n- remoção automática de ônibus físico órfão após 5 s sem novos alvos, preservando ownership quando o OMSI rejeitar a limpeza;\r\n- throughput seguro da fila física: 1 comando arbitrário/pesado + até 4 updates leves adicionais por frame do OMSI;\r\n- prioridade dinâmica de capacidade pelos ônibus mais próximos, com margem de 75 m, uma troca por vez e cooldown de 2 s;\r\n- telemetria read-only adicional para acelerador, freio, combustível e estados visuais já validados no perfil;\r\n- smoothing ajustado pela cadência dos timestamps remotos para reduzir pausa entre alvos;\r\n- velocidade/luzes/setas quando suportadas;\r\n- compatibilidade antes da escrita;\r\n- resolução de asset remoto por fingerprint SHA-256;\r\n- lifecycle/erro físico exposto por jogador no React;\r\n- topologia declarada do consist é inspecionada no processo desktop a partir de `[couple_front]` / `[couple_back]` reais do `.bus/.ovh`, seguindo apenas arquivos locais contidos em `Vehicles` e com limites de tamanho/profundidade;\r\n- quando o addon declara mais de uma parte, o spawn físico é bloqueado **antes** de chamar o plugin e o React mostra a quantidade esperada;\r\n- como segunda proteção, consist/multi-veículo também é detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; se a inspeção do arquivo não antecipar o caso, todas as partes criadas são removidas fail-safe e a quantidade observada é exposta no diagnóstico;\r\n- **articulados ainda não são considerados suportados**: ownership, ordem e transforms das partes precisam ser verificáveis antes de qualquer controle físico;\r\n- opt-in obrigatório.\r\n\r\n## 6. Hardware Cockpit\r\n\r\n- protocolo `NAVBR_HW_V1`;\r\n- uma conexão serial compartilhada;\r\n- streaming nativo a 5 Hz;\r\n- COM/baud persistidos;\r\n- reconexão somente à mesma COM.\r\n\r\n## HUD in-game — estilos adicionais\r\n\r\n- o HUD atual foi preservado como **Normal (HUD atual)** / tema **Atual / NavBR Clássico**;\r\n- os presets antigos continuam disponíveis e retornam à aparência legada do HUD;\r\n- novos estilos são opt-in e usam somente telemetria real já disponível no cliente:\r\n  - **RP Urbano** — cards compactos e vidro escuro, inspirado em padrões de HUD de jogos RP/open-world;\r\n  - **Route Advisor** — foco em linha, destino, próxima parada e navegação, inspirado em simuladores rodoviários;\r\n  - **Corrida Minimal** — velocidade em destaque e baixa obstrução, inspirado em padrões de telemetria de jogos de corrida;\r\n  - **Transit Pro** — foco operacional de ônibus, atraso, parada solicitada e estados do veículo;\r\n- nomes, paletas, componentes e composição são originais do NavBR; não são copiados logos, assets ou layouts proprietários de outros jogos;\r\n- o React atua como configurador; a exibição in-game continua no HUD nativo/overlay;\r\n- presets podem definir escala, largura, opacidade e módulos, mas continuam consumindo estado real do OMSI/NavBR.\r\n\r\n## 7. Release e validação\r\n\r\n- **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;\r\n- **v0.3.0-alpha.14-test.5** é a build candidata atual da PR #30 para validação privada;\r\n- hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;\r\n- a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;\r\n- toda publicação recompila/valida React, servidor, plugin, cliente e simulador;\r\n- recursos físicos/RP continuam experimentais, opt-in e fail-safe.\r\n\r\n## 8. Critério da Alpha pública\r\n\r\n1. React, cliente, servidor, plugin e bridge compilando;\r\n2. shell React abre com fallback seguro;\r\n3. funções principais acessíveis sem ressurgimento de layout WPF;\r\n4. peer-host/servidor funcionando;\r\n5. simulador no mesmo mapa/operação;\r\n6. regressões zero em HUD/telemetria;\r\n7. RP e ônibus físico fail-safe;\r\n8. Firewall/NAT/UPnP apresentados sem falsa equivalência com alcance externo;\r\n9. site público servido pelo build React.\r\n",
+      "download_count": 6,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.6-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.6/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.6-win-x64-dev.zip",
+          "size": 87605297,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.exe",
+          "size": 85638046,
+          "download_count": 4
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.zip",
+          "size": 86646022,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.6-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.6/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.6-win-x86.zip",
+          "size": 5395225,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.6-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.6/OMSI-NavBR-Server-v0.3.0-alpha.14-test.6-win-x64.zip",
+          "size": 50171734,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.5",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.5 — Physical bus + Navigation/RP validation",
+      "prerelease": true,
+      "published_at": "2026-09-19T04:23:06Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.5",
+      "body": "# Alpha.14 — escopo mestre\r\n\r\nVersão pública atual: **v0.3.0-alpha.14-test.4**.\r\n\r\nBuild de validação atual da PR #30: **v0.3.0-alpha.14-test.5**.\r\n\r\nA Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.\r\n\r\n## 1. Interface\r\n\r\n- React + TypeScript + Vite em WebView2 como shell principal;\r\n- host .NET/WPF x86 preservado apenas como camada técnica/fallback;\r\n- `MainWindow` antigo não é exibido;\r\n- controlador multiplayer nativo inicializa sem `Show()/Hide()`;\r\n- Home e Executar OMSI;\r\n- Navegação/GPS com rota real e visão 3D;\r\n- Central Multiplayer;\r\n- CCO, Empresa/Frota, Perfil e histórico;\r\n- Hardware Cockpit;\r\n- Instalações OMSI;\r\n- Diagnóstico e Rede;\r\n- Ghost / Replay;\r\n- HUD configurável no React, com overlay OMSI nativo;\r\n- onboarding/primeiro acesso React;\r\n- interface pt-BR, English, Español, Deutsch e Français;\r\n- site público também deve usar React, compartilhando o mesmo princípio de componentes e estado real de releases.\r\n\r\n## 2. Multiplayer\r\n\r\n- três modos explícitos: **Servidor NavBR oficial**, **LAN** e **Online através do Host**;\r\n- TCP 27730 nos modos hospedados pelo PC;\r\n- servidor NavBR dedicado no Render para o modo oficial;\r\n- salas públicas/privadas;\r\n- chat e voz;\r\n- dispositivos de áudio e mixer por jogador;\r\n- UPnP opcional e não bloqueante no Online através do Host;\r\n- timeout de 8 segundos para descoberta/mapeamento UPnP;\r\n- Firewall verificável em todos os perfis;\r\n- diagnóstico separado de listener, NAT/CGNAT, UPnP e probe externo;\r\n- presença, telemetria, mapa e estado operacional via SignalR;\r\n- sem mapa/marcadores paralelos no layout WPF retirado.\r\n\r\n## 3. Simulador\r\n\r\nSomente desenvolvimento/teste:\r\n- reutiliza host ou inicia servidor empacotado;\r\n- senha privada;\r\n- herda mapa/compatibilidade;\r\n- aguarda telemetria real;\r\n- bots próximos ao host;\r\n- usa mapa/posição/Kachel reais da autoridade da sala;\r\n- bots de veículo podem usar rotas independentes do HOF;\r\n- prefere o MAN EN92 rígido padrão do OMSI para teste físico quando instalado;\r\n- `--verify-physical` exige confirmação dos IDs exatos materializados por `MakeVehicle` no OMSI;\r\n- `--verify` exige movimento e mapa consistente.\r\n\r\n## 4. Personagem / RP\r\n\r\n- personagens reais;\r\n- funciona sem multiplayer;\r\n- bridge/plugin v3;\r\n- entrada/saída e restauração de vínculo/IA;\r\n- W/S, A/D, Shift e Esc;\r\n- estado RP separado da telemetria do ônibus.\r\n\r\n### Funções RP já em validação\r\n\r\n- câmera dedicada seguindo o personagem na visão 3D React;\r\n- projeção do personagem no mesmo espaço mundial do roadmap;\r\n- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada;\r\n- telemetria de animação com proveniência explícita: `AIMode`, `AIModeEx`, `AISubMode`, Soll/Act speed, `LastMovedDist` e `State` são relidos após o controle RP, mas são valores dirigidos pelo próprio NavBR e **não contam como validação independente**;\r\n- `Activity_Leg`, `Activity_Arm_Umbrella`, `Activity_Arm_KI` e `Activity_Head_KI` são observados sem escrita do NavBR e permanecem **raw**;\r\n- o cliente conta amostras e transições de `Activity_*`, inclusive quantas ocorreram enquanto havia movimento comandado, sem atribuir significado de gesto antes da validação prática.\r\n\r\n### Próximas funções\r\n\r\n- animações/gestos adicionais somente após os estados necessários serem documentados e validados em runtime;\r\n- interação com objetos externos ao ônibus;\r\n- personagem remoto físico completo.\r\n\r\n## 5. Multiplayer físico\r\n\r\n- spawn/update/despawn experimental;\r\n- pose/quaternion nativos;\r\n- interpolação adaptativa de posição/quaternion/velocidade no thread do OMSI, com alvo de até ~60 Hz;\r\n- proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;\r\n- tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;\r\n- culling físico por distância com histerese (spawn até 750 m, despawn acima de 1 km), mantendo jogadores distantes na sessão sem criar objetos físicos desnecessários;\r\n- remoção automática de ônibus físico órfão após 5 s sem novos alvos, preservando ownership quando o OMSI rejeitar a limpeza;\r\n- throughput seguro da fila física: 1 comando arbitrário/pesado + até 4 updates leves adicionais por frame do OMSI;\r\n- prioridade dinâmica de capacidade pelos ônibus mais próximos, com margem de 75 m, uma troca por vez e cooldown de 2 s;\r\n- telemetria read-only adicional para acelerador, freio, combustível e estados visuais já validados no perfil;\r\n- smoothing ajustado pela cadência dos timestamps remotos para reduzir pausa entre alvos;\r\n- velocidade/luzes/setas quando suportadas;\r\n- compatibilidade antes da escrita;\r\n- resolução de asset remoto por fingerprint SHA-256;\r\n- lifecycle/erro físico exposto por jogador no React;\r\n- topologia declarada do consist é inspecionada no processo desktop a partir de `[couple_front]` / `[couple_back]` reais do `.bus/.ovh`, seguindo apenas arquivos locais contidos em `Vehicles` e com limites de tamanho/profundidade;\r\n- quando o addon declara mais de uma parte, o spawn físico é bloqueado **antes** de chamar o plugin e o React mostra a quantidade esperada;\r\n- como segunda proteção, consist/multi-veículo também é detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; se a inspeção do arquivo não antecipar o caso, todas as partes criadas são removidas fail-safe e a quantidade observada é exposta no diagnóstico;\r\n- **articulados ainda não são considerados suportados**: ownership, ordem e transforms das partes precisam ser verificáveis antes de qualquer controle físico;\r\n- opt-in obrigatório.\r\n\r\n## 6. Hardware Cockpit\r\n\r\n- protocolo `NAVBR_HW_V1`;\r\n- uma conexão serial compartilhada;\r\n- streaming nativo a 5 Hz;\r\n- COM/baud persistidos;\r\n- reconexão somente à mesma COM.\r\n\r\n## HUD in-game — estilos adicionais\r\n\r\n- o HUD atual foi preservado como **Normal (HUD atual)** / tema **Atual / NavBR Clássico**;\r\n- os presets antigos continuam disponíveis e retornam à aparência legada do HUD;\r\n- novos estilos são opt-in e usam somente telemetria real já disponível no cliente:\r\n  - **RP Urbano** — cards compactos e vidro escuro, inspirado em padrões de HUD de jogos RP/open-world;\r\n  - **Route Advisor** — foco em linha, destino, próxima parada e navegação, inspirado em simuladores rodoviários;\r\n  - **Corrida Minimal** — velocidade em destaque e baixa obstrução, inspirado em padrões de telemetria de jogos de corrida;\r\n  - **Transit Pro** — foco operacional de ônibus, atraso, parada solicitada e estados do veículo;\r\n- nomes, paletas, componentes e composição são originais do NavBR; não são copiados logos, assets ou layouts proprietários de outros jogos;\r\n- o React atua como configurador; a exibição in-game continua no HUD nativo/overlay;\r\n- presets podem definir escala, largura, opacidade e módulos, mas continuam consumindo estado real do OMSI/NavBR.\r\n\r\n## 7. Release e validação\r\n\r\n- **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;\r\n- **v0.3.0-alpha.14-test.5** é a build candidata atual da PR #30 para validação privada;\r\n- hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;\r\n- a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;\r\n- toda publicação recompila/valida React, servidor, plugin, cliente e simulador;\r\n- recursos físicos/RP continuam experimentais, opt-in e fail-safe.\r\n\r\n## 8. Critério da Alpha pública\r\n\r\n1. React, cliente, servidor, plugin e bridge compilando;\r\n2. shell React abre com fallback seguro;\r\n3. funções principais acessíveis sem ressurgimento de layout WPF;\r\n4. peer-host/servidor funcionando;\r\n5. simulador no mesmo mapa/operação;\r\n6. regressões zero em HUD/telemetria;\r\n7. RP e ônibus físico fail-safe;\r\n8. Firewall/NAT/UPnP apresentados sem falsa equivalência com alcance externo;\r\n9. site público servido pelo build React.\r\n",
+      "download_count": 0,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.5-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.5/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.5-win-x64-dev.zip",
+          "size": 87605110,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.5-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.5-win-x86.exe",
+          "size": 85636951,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.5-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.5-win-x86.zip",
+          "size": 86644464,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.5-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.5/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.5-win-x86.zip",
+          "size": 5424539,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.5-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.5/OMSI-NavBR-Server-v0.3.0-alpha.14-test.5-win-x64.zip",
+          "size": 50171759,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.4",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.4 — HUD preview + RP v3",
+      "prerelease": true,
+      "published_at": "2026-09-19T01:31:03Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.4",
+      "body": "# Alpha.14 — escopo mestre\r\n\r\nVersão pública atual: **v0.3.0-alpha.14-test.4**.\r\n\r\nA Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.\r\n\r\n## 1. Interface\r\n\r\n- React + TypeScript + Vite em WebView2 como shell principal;\r\n- host .NET/WPF x86 preservado apenas como camada técnica/fallback;\r\n- `MainWindow` antigo não é exibido;\r\n- controlador multiplayer nativo inicializa sem `Show()/Hide()`;\r\n- Home e Executar OMSI;\r\n- Navegação/GPS com rota real e visão 3D;\r\n- Central Multiplayer;\r\n- CCO, Empresa/Frota, Perfil e histórico;\r\n- Hardware Cockpit;\r\n- Instalações OMSI;\r\n- Diagnóstico e Rede;\r\n- Ghost / Replay;\r\n- HUD configurável no React, com overlay OMSI nativo;\r\n- onboarding/primeiro acesso React;\r\n- interface pt-BR, English, Español, Deutsch e Français;\r\n- site público também deve usar React, compartilhando o mesmo princípio de componentes e estado real de releases.\r\n\r\n## 2. Multiplayer\r\n\r\n- três modos explícitos: **Servidor NavBR oficial**, **LAN** e **Online através do Host**;\r\n- TCP 27730 nos modos hospedados pelo PC;\r\n- servidor NavBR dedicado no Render para o modo oficial;\r\n- salas públicas/privadas;\r\n- chat e voz;\r\n- dispositivos de áudio e mixer por jogador;\r\n- UPnP opcional e não bloqueante no Online através do Host;\r\n- timeout de 8 segundos para descoberta/mapeamento UPnP;\r\n- Firewall verificável em todos os perfis;\r\n- diagnóstico separado de listener, NAT/CGNAT, UPnP e probe externo;\r\n- presença, telemetria, mapa e estado operacional via SignalR;\r\n- sem mapa/marcadores paralelos no layout WPF retirado.\r\n\r\n## 3. Simulador\r\n\r\nSomente desenvolvimento/teste:\r\n- reutiliza host ou inicia servidor empacotado;\r\n- senha privada;\r\n- herda mapa/compatibilidade;\r\n- aguarda telemetria real;\r\n- bots próximos ao host;\r\n- herda linha, rota, destino e próxima parada;\r\n- `--verify` exige movimento e mapa consistente.\r\n\r\n## 4. Personagem / RP\r\n\r\n- personagens reais;\r\n- funciona sem multiplayer;\r\n- bridge/plugin v3;\r\n- entrada/saída e restauração de vínculo/IA;\r\n- W/S, A/D, Shift e Esc;\r\n- estado RP separado da telemetria do ônibus.\r\n\r\n### Funções RP já em validação\r\n\r\n- câmera dedicada seguindo o personagem na visão 3D React;\r\n- projeção do personagem no mesmo espaço mundial do roadmap;\r\n- ajuste experimental de altura em terreno inclinado usando Z, gradiente e `delta_h` reais das splines OMSI; quando não há geometria confiável próxima, a altura atual é preservada;\r\n- telemetria de animação com proveniência explícita: `AIMode`, `AIModeEx`, `AISubMode`, Soll/Act speed, `LastMovedDist` e `State` são relidos após o controle RP, mas são valores dirigidos pelo próprio NavBR e **não contam como validação independente**;\r\n- `Activity_Leg`, `Activity_Arm_Umbrella`, `Activity_Arm_KI` e `Activity_Head_KI` são observados sem escrita do NavBR e permanecem **raw**;\r\n- o cliente conta amostras e transições de `Activity_*`, inclusive quantas ocorreram enquanto havia movimento comandado, sem atribuir significado de gesto antes da validação prática.\r\n\r\n### Próximas funções\r\n\r\n- animações/gestos adicionais somente após os estados necessários serem documentados e validados em runtime;\r\n- interação com objetos externos ao ônibus;\r\n- personagem remoto físico completo.\r\n\r\n## 5. Multiplayer físico\r\n\r\n- spawn/update/despawn experimental;\r\n- pose/quaternion nativos;\r\n- velocidade/luzes/setas quando suportadas;\r\n- compatibilidade antes da escrita;\r\n- resolução de asset remoto por fingerprint SHA-256;\r\n- lifecycle/erro físico exposto por jogador no React;\r\n- topologia declarada do consist é inspecionada no processo desktop a partir de `[couple_front]` / `[couple_back]` reais do `.bus/.ovh`, seguindo apenas arquivos locais contidos em `Vehicles` e com limites de tamanho/profundidade;\r\n- quando o addon declara mais de uma parte, o spawn físico é bloqueado **antes** de chamar o plugin e o React mostra a quantidade esperada;\r\n- como segunda proteção, consist/multi-veículo também é detectado pelo conjunto real de `RoadVehicle` criado pelo OMSI; se a inspeção do arquivo não antecipar o caso, todas as partes criadas são removidas fail-safe e a quantidade observada é exposta no diagnóstico;\r\n- **articulados ainda não são considerados suportados**: ownership, ordem e transforms das partes precisam ser verificáveis antes de qualquer controle físico;\r\n- opt-in obrigatório.\r\n\r\n## 6. Hardware Cockpit\r\n\r\n- protocolo `NAVBR_HW_V1`;\r\n- uma conexão serial compartilhada;\r\n- streaming nativo a 5 Hz;\r\n- COM/baud persistidos;\r\n- reconexão somente à mesma COM.\r\n\r\n## HUD in-game — estilos adicionais\r\n\r\n- o HUD atual foi preservado como **Normal (HUD atual)** / tema **Atual / NavBR Clássico**;\r\n- os presets antigos continuam disponíveis e retornam à aparência legada do HUD;\r\n- novos estilos são opt-in e usam somente telemetria real já disponível no cliente:\r\n  - **RP Urbano** — cards compactos e vidro escuro, inspirado em padrões de HUD de jogos RP/open-world;\r\n  - **Route Advisor** — foco em linha, destino, próxima parada e navegação, inspirado em simuladores rodoviários;\r\n  - **Corrida Minimal** — velocidade em destaque e baixa obstrução, inspirado em padrões de telemetria de jogos de corrida;\r\n  - **Transit Pro** — foco operacional de ônibus, atraso, parada solicitada e estados do veículo;\r\n- nomes, paletas, componentes e composição são originais do NavBR; não são copiados logos, assets ou layouts proprietários de outros jogos;\r\n- o React atua como configurador; a exibição in-game continua no HUD nativo/overlay;\r\n- presets podem definir escala, largura, opacidade e módulos, mas continuam consumindo estado real do OMSI/NavBR.\r\n\r\n## 7. Release e validação\r\n\r\n- **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;\r\n- hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;\r\n- a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;\r\n- toda publicação recompila/valida React, servidor, plugin, cliente e simulador;\r\n- recursos físicos/RP continuam experimentais, opt-in e fail-safe.\r\n\r\n## 8. Critério da Alpha pública\r\n\r\n1. React, cliente, servidor, plugin e bridge compilando;\r\n2. shell React abre com fallback seguro;\r\n3. funções principais acessíveis sem ressurgimento de layout WPF;\r\n4. peer-host/servidor funcionando;\r\n5. simulador no mesmo mapa/operação;\r\n6. regressões zero em HUD/telemetria;\r\n7. RP e ônibus físico fail-safe;\r\n8. Firewall/NAT/UPnP apresentados sem falsa equivalência com alcance externo;\r\n9. site público servido pelo build React.\r\n",
+      "download_count": 9,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.4-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.4/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.4-win-x64-dev.zip",
+          "size": 87591278,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.4-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.4-win-x86.exe",
+          "size": 85609215,
+          "download_count": 8
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.4-win-x86.zip",
+          "size": 86611059,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.4/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.4-win-x86.zip",
+          "size": 5364237,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.4-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.4/OMSI-NavBR-Server-v0.3.0-alpha.14-test.4-win-x64.zip",
+          "size": 50170407,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.3.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.3.3 — Test 3.3 • HUD + selects + firewall + launcher OMSI",
+      "prerelease": true,
+      "published_at": "2026-09-18T03:19:12Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.3.3",
+      "body": "# OMSI NavBR Multiplayer — Alpha.14 Test 3.3\r\n\r\nEsta revisão corrige os problemas encontrados na Test 3.2 e adiciona um atalho direto para iniciar o OMSI pela Home.\r\n\r\n## Correções de interface\r\n\r\n- **Selects / ComboBox**:\r\n  - template escuro nomeado e explícito;\r\n  - dropdown, itens, hover e seleção permanecem no tema NavBR;\r\n  - aplicação do estilo também em runtime para ComboBoxes criados ou movidos por código;\r\n  - evita retorno ao fundo branco padrão do Windows.\r\n\r\n- **Mover HUD**:\r\n  - continua em **Sistema**;\r\n  - continua em **Ações rápidas** da Home;\r\n  - agora também fica fixo no **topo do app**, sempre visível;\r\n  - abre o HUD e alterna o modo de mover/redimensionar.\r\n\r\n## Executar OMSI\r\n\r\n- Novo atalho **Executar OMSI** na Home.\r\n- Também fica destacado no topo da Home ao lado de **Abrir navegação**.\r\n- Usa a instalação/perfil real cadastrado no NavBR.\r\n- Se houver perfil preferido, ele tem prioridade.\r\n- Se o OMSI já estiver aberto nessa instalação, não abre uma segunda cópia.\r\n- Se nenhuma instalação válida existir, abre **Instalações OMSI** para selecionar a pasta que contém `Omsi.exe`.\r\n- O lançamento é direto pelo executável detectado/configurado e não depende de iniciar pela Steam.\r\n\r\n## Firewall TCP 27730\r\n\r\n- Regra de entrada recriada para **todos os perfis de rede do Windows**: Privado, Público e Domínio.\r\n- A regra é baseada na porta TCP 27730, não somente no executável atual.\r\n- Isso cobre tanto a sala hospedada pelo cliente quanto o servidor dedicado.\r\n- Solicita elevação UAC.\r\n- Verifica a regra depois da criação.\r\n- Se o UAC for cancelado ou o Windows recusar a alteração, o app mostra o resultado em vez de indicar sucesso incorretamente.\r\n\r\n## Mantido\r\n\r\n- Central Multiplayer sem wizard antigo sobreposto.\r\n- Salas públicas.\r\n- Voz/canais.\r\n- Personagem/RP.\r\n- Mapa 3D.\r\n- CCO, Empresa/Frota, Rede, Equipe e Perfil.\r\n- Roadmap Studio, Instalações OMSI, Ghost e diagnóstico.\r\n- Simulador com servidor local automático.\r\n- plugin/bridge v3 e x86.\r\n",
+      "download_count": 11,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.3-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.3/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.3-win-x64-dev.zip",
+          "size": 87579039,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.3-win-x86.exe",
+          "size": 84822143,
+          "download_count": 9
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.3-win-x86.zip",
+          "size": 85787627,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.3/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.3-win-x86.zip",
+          "size": 5364582,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.3/OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.3-win-x64.zip",
+          "size": 50168347,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.3.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.3.2 — Test 3.2 • remove sobreposição do wizard legado",
+      "prerelease": true,
+      "published_at": "2026-09-18T02:38:50Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.3.2",
+      "body": "# OMSI NavBR Multiplayer — Alpha.14 Test 3.2\r\n\r\nEsta revisão corrige a sobreposição visual da Central Multiplayer e restaura os acessos que haviam ficado escondidos pelo redesign Figma.\r\n\r\n## Central Multiplayer\r\n\r\n- Removido o assistente legado **1 Sala / 2 Privacidade / 3 Rede** que era injetado por `ModuleInitializer`.\r\n- A aba **Sala** usa somente o layout novo em XAML.\r\n- **Criar sala** e **Entrar em sala** ficam lado a lado, sem segunda camada por cima.\r\n- **Salas públicas** voltou como botão fixo no card de entrada.\r\n- Opções/canais de voz voltaram a ser inicializados no fluxo atual da Central.\r\n- Relay experimental foi preservado em **Avançado > Rede / NAT**.\r\n\r\n## Funções restauradas no app\r\n\r\nA sidebar Figma volta a oferecer acesso visível às funções reais existentes:\r\n\r\n- Navegação e **Mapa 3D**.\r\n- Multiplayer e **Personagem / RP**.\r\n- CCO.\r\n- Empresa / Frota.\r\n- Rede da empresa.\r\n- Equipe da empresa.\r\n- Perfil do motorista e histórico de viagens.\r\n- Hardware.\r\n- **Mover HUD**.\r\n- **Configurar HUD / Editor do HUD**.\r\n- Configurações.\r\n- Saúde da sessão.\r\n- Diagnóstico técnico.\r\n- Roadmap Studio.\r\n- Instalações OMSI.\r\n- Ghost 3D / replay.\r\n- Conectividade Multiplayer.\r\n- Diagnóstico NAT / UPnP.\r\n- Teste externo TCP 27730.\r\n- Manual.\r\n- Feedback.\r\n\r\nSomente controles internos/experimentais continuam atrás de **Mostrar modo avançado**.\r\n\r\n## Correções visuais\r\n\r\n- `ComboBox` / selects agora usam template NavBR escuro completo.\r\n- Dropdown, itens, hover, seleção e item desabilitado não usam mais o fundo branco padrão do Windows.\r\n- Sidebar compacta identifica também as funções restauradas com ícones/tooltip.\r\n- Entradas legadas duplicadas de HUD e Ghost deixam de ser adicionadas quando a superfície Figma já existe.\r\n\r\n## Simulador Multiplayer\r\n\r\n- Conexão recusada em `127.0.0.1:27730` não gera mais stack trace bruto.\r\n- O simulador verifica `/health` antes de conectar.\r\n- Se localhost estiver vazio, tenta iniciar automaticamente o **NavBR.Server** empacotado.\r\n- O ZIP do simulador inclui a pasta `server` e um launcher PowerShell funcional fora do repositório.\r\n- Se o app já estiver hospedando a sala na porta 27730, o simulador reutiliza esse host e não inicia outro servidor.\r\n- O console informa como entrar na sala `navbr-sim` pelo app quando o servidor for iniciado automaticamente.\r\n\r\n## Mantido nesta build\r\n\r\n- bridge/plugin protocol v3;\r\n- interop state ABI v3;\r\n- RP / Personagem;\r\n- simulador de múltiplos players;\r\n- teste automatizado de movimento via SignalR;\r\n- cliente WPF x86, plugin OMSI x86 e servidor dedicado x64.\r\n",
+      "download_count": 0,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.2-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.2/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.2-win-x64-dev.zip",
+          "size": 87579038,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.2-win-x86.exe",
+          "size": 84816840,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.2-win-x86.zip",
+          "size": 85782434,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.2/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.2-win-x86.zip",
+          "size": 5347102,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.2/OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.2-win-x64.zip",
+          "size": 50168353,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.3.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.3.1 — Test 3 corrigida • layout Figma + funções restauradas",
+      "prerelease": true,
+      "published_at": "2026-09-18T02:24:37Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.3.1",
+      "body": "# OMSI NavBR Multiplayer — Alpha.14 Test 3.1 Corrigida\r\n\r\nEsta revisão corrige a Test 3 publicada anteriormente sem sobrescrever os artefatos antigos.\r\n\r\n## Correções de interface\r\n\r\n- Paleta global WPF alinhada ao layout Figma aprovado.\r\n- Sidebar, topbar, espaçamentos e cards harmonizados com a Central Multiplayer.\r\n- Aba **Sala** reorganizada: identidade compacta no topo, **Criar sala** e **Entrar em sala** em áreas independentes.\r\n- O bloco de criação de sala não cobre nem empurra as demais funções.\r\n\r\n## Funções restauradas no app\r\n\r\nAs funções continuam usando os módulos reais existentes; nenhuma tela mock foi reintroduzida.\r\n\r\n- CCO.\r\n- Empresa / Frota.\r\n- Perfil do motorista.\r\n- Rede da empresa.\r\n- Equipe da empresa.\r\n- Hardware.\r\n- HUD.\r\n- Configurações.\r\n- Diagnóstico técnico.\r\n- Roadmap Studio.\r\n- Instalações OMSI.\r\n- Ghost 3D / replay.\r\n- Personagem / RP.\r\n- Central Multiplayer.\r\n\r\nFunções de uso normal voltaram a ficar visíveis. Apenas controles técnicos/experimentais permanecem no modo avançado.\r\n\r\n## Multiplayer e RP\r\n\r\nMantém as correções da Test 3:\r\n\r\n- bridge protocol v3;\r\n- interop state ABI v3;\r\n- capabilities atualizadas em runtime;\r\n- motorista RP destacado ao lado do ônibus;\r\n- restauração de pose/vínculo/IA ao retornar;\r\n- simulador de múltiplos jogadores;\r\n- validação automática de movimento no mapa via SignalR.\r\n\r\n## Artefatos\r\n\r\n- EXE standalone Windows x86;\r\n- ZIP cliente Windows x86;\r\n- ZIP servidor Windows x64;\r\n- ZIP plugin OMSI x86;\r\n- simulador multiplayer dev x64;\r\n- SHA256SUMS e documentação.\r\n",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.1-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.1/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3.1-win-x64-dev.zip",
+          "size": 37402255,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.1-win-x86.exe",
+          "size": 84823819,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3.1-win-x86.zip",
+          "size": 85787941,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.1/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3.1-win-x86.zip",
+          "size": 5343767,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3.1/OMSI-NavBR-Server-v0.3.0-alpha.14-test.3.1-win-x64.zip",
+          "size": 50168369,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.3 — Central Multiplayer + RP v3",
+      "prerelease": true,
+      "published_at": "2026-09-18T18:24:12Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.3",
+      "body": "# Alpha.14 Test 3 — release notes\r\n\r\nA Alpha.14 Test 3 concentra a consolidação da Central Multiplayer, do Personagem/RP e da nova interface desktop React/WebView2.\r\n\r\n## React/WebView2\r\n\r\n- React + TypeScript + Vite hospedado no cliente .NET/WPF x86;\r\n- idioma do shell React sincronizado com o `LocalizationService` nativo, com pt-BR, en-US, es-ES, de-DE e fr-FR usando a mesma preferência persistida do app;\r\n- React passa a ser o shell principal após carregamento confirmado;\r\n- o layout WPF anterior deixa de ser uma superfície acessível: `MainWindow` permanece apenas como host técnico em memória, sem `Show()`, enquanto serviços nativos são desacoplados;\r\n- falhas do WebView2 usam o painel de erro da própria janela nova e o tray sempre reabre React;\r\n- Instalações OMSI, HUD e Roadmap Studio não abrem o editor WPF; **Executar OMSI** direciona para Instalações React quando nenhum perfil válido existe;\r\n- Home e Executar OMSI;\r\n- Navegação/GPS com rota, paradas, manobras e ETA reais, mais visão 3D integrada ao React usando o roadmap real do mapa;\r\n- Central Multiplayer completa, incluindo seleção de microfone/saída e mixer por jogador;\r\n- CCO, motoristas remotos, ocorrências, Empresa/Frota e Perfil;\r\n- Hardware Cockpit com conexão serial compartilhada;\r\n- Instalações OMSI e perfis de lançamento completos no React, com seletor nativo de pasta e Explorer;\r\n- HUD configurável no React e aplicado ao vivo pelo store nativo;\r\n- Roadmap Studio no React com análise por tiles e geração vetorial por splines, usando diretamente `OmsiRoadmapGeneratorService` e `OmsiRoadmapVectorGeneratorService`;\r\n- ao trocar o mapa selecionado, a análise anterior deixa de ser exibida para evitar resultado obsoleto;\r\n- Ghost / Replay no React com gravação, biblioteca/importação, analytics, prévia read-only e replay 3D;\r\n- Diagnóstico/privacidade;\r\n- Rede com Firewall TCP 27730 verificado, listener, NAT/CGNAT, UPnP e teste externo;\r\n- tray abre/oculta o shell React;\r\n- Personagem/RP possui tela React própria e também integra a aba Multiplayer;\r\n- Mapa 3D agora está integrado à Navegação React; apenas o modo de mover o HUD continua como interação nativa. Posse/movimento físico do personagem continuam no controlador C#/Plugin Bridge.\r\n\r\n## Multiplayer\r\n\r\n- controlador C# existente compartilhado com o React, sem segundo SignalR;\r\n- criação/entrada/saída de salas;\r\n- sala local TCP 27730;\r\n- salas privadas com senha efêmera;\r\n- diretório público, busca e favoritos;\r\n- avaliação nativa de compatibilidade;\r\n- jogadores, latência, voz, chat e RP reais;\r\n- dispositivos de entrada/saída de áudio e mute/ganho por jogador usam o `VoiceChatService` existente, sem segundo pipeline de áudio;\r\n- mapa da sessão somente com posições recentes e compatíveis.\r\n\r\n## Personagem / RP\r\n\r\n- único \\`RoleplayCharacterController\\`;\r\n- personagens reais de \\`Map.Drivers\\`;\r\n- bridge protocol v3 / interop v3;\r\n- vínculo real com ônibus;\r\n- restauração de pose/vínculo/IA ao retornar;\r\n- ativação experimental, catálogo real de `Map.Drivers`, seleção, Sair do ônibus e Retornar ao ônibus diretamente no React;\r\n- HUD e auto-prompt abrem a tela RP React;\r\n- W/S, A/D, Shift e Esc continuam no controlador global nativo.\r\n\r\n## Hardware e rede\r\n\r\n- serial centralizada em \\`HardwareCockpitBridgeController\\`;\r\n- streaming \\`NAVBR_HW_V1\\` no tick de telemetria a 5 Hz;\r\n- auto-reconnect somente à COM escolhida;\r\n- Firewall aplicado com UAC e verificação;\r\n- NAT/UPnP separados de alcance externo.\r\n\r\n## Release safety\r\n\r\n- o workflow da Test 3 mantém a release em **draft** após build/upload/validação dos artefatos;\r\n- publicação da prerelease exige execução manual com `publish=true`;\r\n- GitHub Pages só é atualizado automaticamente depois dessa aprovação explícita.\r\n\r\n## CI\r\n\r\nA validação Alpha.14 compila o frontend React antes do cliente e valida Shared/Server, simulador, interop x86, Native AOT, bundle/protocolo v3, cliente Windows x86 e smoke test do Plugin Bridge.\r\n\r\n## Ainda experimental\r\n\r\n- câmera dedicada de RP;\r\n- terreno inclinado;\r\n- animações/gestos;\r\n- interação física adicional;\r\n- personagem remoto físico completo;\r\n- ônibus remoto físico entre diferentes mapas/modelos.\r\n\r\n\r\n## HUD e Roadmap Studio\r\n\r\n- presets, temas e ancoragem do HUD usam o catálogo nativo existente;\r\n- escala, largura, altura, opacidade, módulos e escala individual dos widgets são salvos pelo `MultiplayerSettingsStore`;\r\n- o overlay recebe `SettingsSaved` e aplica as mudanças em tempo real;\r\n- o modo Mover HUD continua nativo por depender da interação direta com o overlay do OMSI;\r\n- Roadmap Studio usa a lista real de mapas instalados;\r\n- análise de tiles e montagem de `whole.roadmap.bmp` usam `OmsiRoadmapGeneratorService`;\r\n- geração vetorial usa `OmsiRoadmapVectorGeneratorService` e as splines reais do mapa;\r\n- progresso e resultado são exibidos no React, sem duplicar o algoritmo no frontend.\r\n\r\n\r\n## Ghost / Replay\r\n\r\n- gravação de telemetria local real em cadência de 100 ms usando o `GhostRecorder` existente;\r\n- parada/salvamento produz `.navbrghost` e recarrega os metadados reais;\r\n- biblioteca local mostra somente replays válidos e contabiliza incompatíveis ignorados;\r\n- importação valida o arquivo antes de copiá-lo para a biblioteca;\r\n- analytics reutilizam `GhostReplayAnalyticsCalculator`;\r\n- prévia React usa coordenadas X/Z reais dos frames e não envia comandos ao OMSI;\r\n- playback físico usa `GhostReplayPlayer` e o Plugin Bridge existente, com velocidade de 0,1× a 4× e loop opcional;\r\n- gravação e playback possuem proteções nativas contra concorrência.\r\n",
+      "download_count": 10,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.3-win-x64-dev.zip",
+          "size": 87587707,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3-win-x86.exe",
+          "size": 85533264,
+          "download_count": 7
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.3-win-x86.zip",
+          "size": 86526677,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.3-win-x86.zip",
+          "size": 5356772,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.3/OMSI-NavBR-Server-v0.3.0-alpha.14-test.3-win-x64.zip",
+          "size": 50168320,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.2 — roleplay HUD and multiplayer tabs test",
+      "prerelease": true,
+      "published_at": "2026-09-18T00:21:47Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.2",
+      "body": "# Alpha.14 Test 2 — release notes\r\n\r\nA **Alpha.14 Test 2** atualiza o primeiro ciclo de Personagem/RP e corrige a experiência da Central Multiplayer.\r\n\r\n## Destaques\r\n\r\n- Central Multiplayer voltou a usar **abas reais**, em vez de uma tela genérica única:\r\n  - Visão geral;\r\n  - Sala;\r\n  - Jogadores;\r\n  - Chat & Voz;\r\n  - Personagem / RP;\r\n  - Avançado.\r\n- Personagem/RP ganhou aba própria.\r\n- Ônibus físico e diagnóstico permanecem separados em Avançado.\r\n- botão **Personagem** adicionado diretamente ao HUD;\r\n- o botão do HUD muda conforme o estado:\r\n  - **Personagem** quando falta configurar/selecionar;\r\n  - **Ativar personagem** quando o RP está pronto;\r\n  - **Voltar ao ônibus** quando o personagem está ativo;\r\n- botão do HUD preserva o comportamento click-through do overlay e só libera interação na área da ação;\r\n- lista da sessão diferencia jogador **No ônibus**, **RP a pé**, **RP correndo** e **RP parado**;\r\n- mapa da sessão diferencia ônibus e personagem RP sem inventar posição;\r\n- seletor continua usando somente personagens reais da lista `Drivers` do mapa;\r\n- modo normal e multiplayer continuam compartilhando o mesmo personagem selecionado.\r\n\r\n## Personagem / RP\r\n\r\nPermanece experimental e opt-in.\r\n\r\nFluxo esperado:\r\n\r\n1. carregar mapa e ônibus no OMSI;\r\n2. selecionar um personagem real;\r\n3. usar o botão do HUD ou a janela Personagem/RP;\r\n4. controlar o motorista com W/S, A/D e Shift;\r\n5. usar Esc ou **Voltar ao ônibus** para restaurar o motorista.\r\n\r\n## Multiplayer físico\r\n\r\nA Test 2 preserva o teste de ônibus remoto físico da Test 1:\r\n\r\n- spawn/update/despawn;\r\n- posição e rotação nativas;\r\n- velocidade;\r\n- luzes e setas já suportadas;\r\n- nome dos jogadores;\r\n- projeção 3D fail-safe do nome sobre ônibus remotos;\r\n- manifesto físico atualizado com a telemetria atual.\r\n\r\n## Ainda em desenvolvimento\r\n\r\n- câmera dedicada acompanhando o personagem;\r\n- terreno inclinado;\r\n- animações/gestos;\r\n- personagem remoto físico completo;\r\n- interação com ônibus/objetos;\r\n- portas, matriz e articulação no multiplayer físico.\r\n\r\n## Validação automática\r\n\r\nA Alpha.14 Test 2 exige build bem-sucedido de:\r\n\r\n- Shared;\r\n- servidor;\r\n- interop OMSI nativo x86;\r\n- plugin Native AOT x86;\r\n- cliente WPF x86;\r\n- smoke test da ponte;\r\n- pacote standalone e ZIPs.\r\n\r\nConsulte `ALPHA14_TEST2_COMMUNITY.md` para o roteiro de teste.\r\n",
+      "download_count": 2,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.2-win-x86.exe",
+          "size": 84815521,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.2-win-x86.zip",
+          "size": 85838518,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.2/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.2-win-x86.zip",
+          "size": 5342448,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.2/OMSI-NavBR-Server-v0.3.0-alpha.14-test.2-win-x64.zip",
+          "size": 50240972,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14 — Public Alpha • Multiplayer + RP + HUD",
+      "prerelease": true,
+      "published_at": "2026-09-18T03:52:18Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14",
+      "body": "# Alpha.14 — notas da versão pública\r\n\r\nVersão: v0.3.0-alpha.14\r\n\r\nA Alpha.14 consolida o trabalho das builds Test 1–3.x e passa a ser a prerelease pública principal do OMSI NavBR Multiplayer.\r\n\r\n## Interface\r\n\r\n- shell Figma consolidado;\r\n- funções de uso normal novamente visíveis;\r\n- **Mover HUD** no topo, Sistema e Home;\r\n- **Executar OMSI** diretamente pela Home;\r\n- ComboBox/selects com tema escuro completo;\r\n- Mapa 3D, CCO, Empresa/Frota, Rede da empresa, Equipe, Perfil, Saúde da sessão, Roadmap Studio, Instalações OMSI, Ghost, diagnóstico, NAT e teste de porta acessíveis.\r\n\r\n## Central Multiplayer\r\n\r\n- removido definitivamente o wizard legado que sobrepunha a aba Sala;\r\n- Criar sala e Entrar em sala em superfícies independentes;\r\n- salas públicas;\r\n- salas privadas com senha;\r\n- chat e voz;\r\n- Personagem/RP;\r\n- opções avançadas de rede;\r\n- relay experimental preservado.\r\n\r\n## Rede\r\n\r\n- peer-host padrão em TCP 27730;\r\n- servidor dedicado opcional;\r\n- UPnP opcional;\r\n- regra do Windows Firewall criada para TCP 27730 em **todos os perfis de rede**;\r\n- elevação UAC e verificação posterior;\r\n- mensagens claras quando UAC é cancelado ou a regra não é confirmada.\r\n\r\n## Plugin / RP\r\n\r\n- Named Pipe OMSI.NavBR.Multiplayer.Plugin.v3;\r\n- ABI/state v3;\r\n- capabilities atualizadas em runtime;\r\n- motorista RP usa personagem real do mapa;\r\n- restauração de pose/vínculo/IA ao retornar;\r\n- ônibus remoto físico continua experimental.\r\n\r\n## Simulador\r\n\r\n- pode iniciar automaticamente o servidor local empacotado;\r\n- reutiliza o host existente se o app já estiver hospedando TCP 27730;\r\n- suporta sala privada via senha;\r\n- herda o **mesmo mapa** da sala real;\r\n- usa a **posição real do host** como centro;\r\n- bots ficam próximos, por padrão em raio de 18 m;\r\n- herda **linha, rota, destino e próxima parada** da operação ativa;\r\n- o modo --verify valida movimento e consistência de mapa.\r\n\r\n## Observação\r\n\r\nA Alpha.14 é pública, mas continua sendo uma prerelease. Escrita física no OMSI e Personagem/RP permanecem experimentais e devem ser testados com cautela.\r\n",
+      "download_count": 8,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-win-x64-dev.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14/OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-win-x64-dev.zip",
+          "size": 87587501,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-win-x86.exe",
+          "size": 84821987,
+          "download_count": 8
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-win-x86.zip",
+          "size": 85787452,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14/OMSI-NavBR-Plugin-v0.3.0-alpha.14-win-x86.zip",
+          "size": 5333641,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14/OMSI-NavBR-Server-v0.3.0-alpha.14-win-x64.zip",
+          "size": 50168251,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.14-test.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.14-test.1 — character roleplay test",
+      "prerelease": true,
+      "published_at": "2026-09-17T23:37:28Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.1",
+      "body": "# Alpha.14 Test 1 — release notes\r\n\r\n## Novo marco: Personagem / RP\r\n\r\nA **Alpha.14 Test 1** introduz o primeiro sistema experimental de personagem do NavBR.\r\n\r\nO recurso funciona também no **modo normal**, sem exigir sala multiplayer. Quando o mapa termina de carregar, o NavBR pode ler os personagens reais da lista `Drivers` do OMSI, permitir a seleção do motorista e preparar o controle a pé do motorista humano do próprio ônibus.\r\n\r\n## Incluído\r\n\r\n- menu **DIRIGIR → Personagem / RP**;\r\n- ação rápida de Personagem/RP na Home;\r\n- leitura do catálogo real `Drivers` do mapa;\r\n- seletor de personagem após o mapa carregar;\r\n- seleção compartilhada entre modo normal e multiplayer;\r\n- vínculo ao motorista humano real do ônibus do jogador;\r\n- posse/desvinculação experimental do motorista;\r\n- restauração do vínculo e IA ao voltar ao ônibus;\r\n- controles iniciais W/S, A/D, Shift e Esc;\r\n- canal multiplayer próprio para estado RP;\r\n- publicação RP limitada a 10 Hz;\r\n- opt-in independente do teste de ônibus físico;\r\n- validação nativa fail-closed para humanos/driver.\r\n\r\n## Multiplayer físico preservado\r\n\r\nA Alpha.14 mantém as melhorias da Alpha.13:\r\n\r\n- ônibus remoto físico experimental;\r\n- coordenador físico único;\r\n- manifesto vivo por telemetria;\r\n- marcadores uniformes e nomes dos jogadores;\r\n- nome 3D fail-safe sobre ônibus remotos spawnados;\r\n- luzes e setas básicas;\r\n- limpeza em saída, reconexão e encerramento.\r\n\r\n## Interface\r\n\r\nTambém estão incluídos os passes recentes de interface:\r\n\r\n- Home responsiva;\r\n- Navegação e Central Multiplayer refinadas;\r\n- CCO com mapa dominante;\r\n- Configurações, Hardware e Saúde da Sessão refinados;\r\n- Empresa, Rede e Perfil refinados;\r\n- estados dinâmicos nos 5 idiomas.\r\n\r\n## Limitações do Personagem/RP nesta Test 1\r\n\r\nAinda não são considerados concluídos:\r\n\r\n- câmera dedicada seguindo o personagem;\r\n- terreno inclinado;\r\n- animações e gestos;\r\n- interações com objetos;\r\n- entrar/sentar em veículos;\r\n- personagem remoto físico completo;\r\n- criação de personagem quando não houver motorista compatível.\r\n\r\n## Teste recomendado\r\n\r\nPrimeiro teste em modo normal:\r\n\r\n1. carregue mapa e ônibus;\r\n2. abra **Personagem / RP**;\r\n3. selecione o motorista;\r\n4. saia do ônibus;\r\n5. teste W/S, A/D, Shift e Esc;\r\n6. confirme que o retorno restaura o motorista.\r\n\r\nDepois repita em dois PCs na mesma sala para validar a sincronização RP.\r\n\r\nConsulte `ALPHA14_TEST1_COMMUNITY.md` para o checklist detalhado.\r\n",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.1-win-x86.exe",
+          "size": 84809039,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.1-win-x86.zip",
+          "size": 85830233,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.1/OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.1-win-x86.zip",
+          "size": 5341083,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.14-test.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.14-test.1/OMSI-NavBR-Server-v0.3.0-alpha.14-test.1-win-x64.zip",
+          "size": 50240983,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.13-test.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.13-test.1 — physical multiplayer test",
+      "prerelease": true,
+      "published_at": "2026-09-17T21:23:34Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.13-test.1",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.13-test.1\r\n\r\n**PRÉ-RELEASE PÚBLICA — ALPHA.13 TEST 1**\r\n\r\nA Alpha.13 começa pelo teste mais importante do multiplayer físico: **ver o ônibus do outro jogador dentro do OMSI**.\r\n\r\n## Foco da Test 1\r\n- spawn/update/despawn do ônibus remoto pelo fluxo online real;\r\n- posição, rotação e velocidade usando pose nativa do OMSI 2.3.004;\r\n- luzes e setas básicas quando suportadas pelo backend atual;\r\n- coordenador físico único para evitar comandos duplicados;\r\n- limpeza segura em saída/desconexão/reconexão;\r\n- sessão continua ativa ao fechar a Central Multiplayer.\r\n\r\n## Ainda não nesta build\r\n- portas;\r\n- matriz/linha/destino física;\r\n- articulação;\r\n- animações específicas por modelo;\r\n- tráfego IA físico completo.\r\n\r\n## Teste recomendado\r\nUse dois PCs inicialmente na mesma LAN, mesmo mapa compatível e com o ônibus remoto instalado localmente. Nos dois NavBRs, ative **Ônibus dos jogadores no OMSI (TESTE ALPHA)**.\r\n\r\nO objetivo é confirmar os dois sentidos: PC A vê B e PC B vê A.\r\n\r\nConsulte ALPHA13_TEST1_COMMUNITY.md para o roteiro completo e OMSI_PLUGIN_EXPERIMENTAL.md para a arquitetura técnica.\r\n",
+      "download_count": 5,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.13-test.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.13-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.13-test.1-win-x86.exe",
+          "size": 84761104,
+          "download_count": 4
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.13-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.13-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.13-test.1-win-x86.zip",
+          "size": 85771610,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.13-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.13-test.1/OMSI-NavBR-Plugin-v0.3.0-alpha.13-test.1-win-x86.zip",
+          "size": 5317982,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.13-test.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.13-test.1/OMSI-NavBR-Server-v0.3.0-alpha.13-test.1-win-x64.zip",
+          "size": 50236363,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.12-test.4",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.12-test.4 — multiplayer/CCO community test",
+      "prerelease": true,
+      "published_at": "2026-09-17T02:42:40Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.4",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.12-test.4\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.12 Test 4**\r\n\r\nEsta build congela o estado atual da Alpha.12 antes do início da NavBR Network distribuída.\r\n\r\n## HUDs e personalização\r\n- seis presets: Compacto, Normal, Completo, Cluster Digital, LCD/Âmbar e Transparente Integrado;\r\n- cinco temas;\r\n- editor visual;\r\n- escala, largura, altura, opacidade e ancoragem;\r\n- minimapa, multiplayer, alertas e indicadores com tamanho independente;\r\n- autoescala conforme resolução.\r\n\r\n## Central Multiplayer\r\n- assistente Sala → Privacidade → Rede;\r\n- peer-host TCP 27730 continua padrão;\r\n- relay experimental opt-in para CGNAT/double NAT;\r\n- cards reais de jogadores;\r\n- voz rápida e acesso às salas públicas;\r\n- mapa da sessão apenas com telemetria real;\r\n- compatibilidade de mapa/protocolo/ônibus/HOF;\r\n- indicador HOST DIRETO / RELAY EXPERIMENTAL / CONECTADO AO HOST;\r\n- dono da sala e autoridade de tráfego com migração em tempo real.\r\n\r\n## Session Sync\r\n- preview somente leitura de linha, rota, destino, próxima parada e mapa;\r\n- somente a autoridade publica o estado operacional;\r\n- não altera hora, data ou clima do OMSI nesta build.\r\n\r\n## CCO / Operação\r\n- pedido de apoio e incidente pelo motorista;\r\n- fila de ocorrências;\r\n- reconhecer/resolver por autoridade;\r\n- estados NORMAL, ATRASADO, SEM TELEMETRIA, SOLICITA APOIO e INCIDENTE.\r\n\r\n## Compatibilidade de mapa\r\nA Central já mostra a compatibilidade do mapa carregado entre jogadores. Na próxima etapa da NavBR Network, o navegador de salas públicas passará a anunciar explicitamente o **mapa obrigatório para entrar**, além de ônibus/HOF quando disponíveis.\r\n\r\n## Plugin\r\n- NavBR.OmsiPlugin.dll, NavBR.OmsiInterop.dll e NavBR.OmsiPlugin.opl são verificados dentro do bundle;\r\n- o pipeline falha se qualquer componente obrigatório estiver ausente.\r\n\r\nConsulte ALPHA12_TEST4_COMMUNITY.md para o checklist desta build.\r\n",
+      "download_count": 9,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.4-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.4-win-x86.exe",
+          "size": 84613888,
+          "download_count": 6
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.4-win-x86.zip",
+          "size": 85584699,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.4/OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.4-win-x86.zip",
+          "size": 5284660,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.12-test.4-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.4/OMSI-NavBR-Server-v0.3.0-alpha.12-test.4-win-x64.zip",
+          "size": 50226269,
+          "download_count": 1
+        }
+      ]
+    },
     {
       "tag_name": "v0.3.0-alpha.12-test.3",
       "name": "OMSI NavBR Multiplayer v0.3.0-alpha.12-test.3 — HUD community test",
       "prerelease": true,
       "published_at": "2026-09-17T00:04:33Z",
       "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.3",
-      "body": "Alpha.12 Test 3 comunitária com HUD modular, shell/CCO, salas públicas/privadas, voz avançada e integração OMSI/Hardware experimental.",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.12-test.3\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.12 Test 3**\r\n\r\nEsta build é dedicada à validação do novo sistema de HUDs modulares e redimensionáveis da Alpha.12. Ela preserva a correção do pacote interno do plugin introduzida na Test 2.\r\n\r\n## Novos HUDs\r\n- Compacto;\r\n- Normal;\r\n- Completo;\r\n- Cluster Digital;\r\n- LCD / Âmbar;\r\n- Transparente Integrado.\r\n\r\n## Temas\r\n- NavBR Modern;\r\n- Painel de ônibus;\r\n- LCD;\r\n- Âmbar clássico;\r\n- Claro.\r\n\r\n## Personalização\r\n- editor visual Editar HUD;\r\n- escala geral de 60% a 180%;\r\n- largura de 280 a 960 px;\r\n- altura manual ou automática;\r\n- opacidade e ancoragem;\r\n- escala automática conforme resolução;\r\n- tamanhos Pequeno, Médio, Grande e XL;\r\n- módulos podem ser ativados/desativados e redimensionados individualmente.\r\n\r\n## Módulos ao vivo\r\n- minimapa integrado reaproveitando o roadmap/rota real;\r\n- multiplayer com motorista, linha, velocidade e distância quando disponível;\r\n- alertas de combustível, portas, parada solicitada e atraso/adiantamento;\r\n- indicadores de portas, freio de estacionamento, setas, luzes e limpadores.\r\n\r\n## Edição rápida\r\n- roda do mouse = escala;\r\n- Shift + roda = largura;\r\n- Ctrl + roda = opacidade.\r\n\r\n## Plugin\r\n- NavBR.OmsiPlugin.dll, NavBR.OmsiInterop.dll e NavBR.OmsiPlugin.opl continuam validados dentro do bundle embutido;\r\n- o pipeline falha caso qualquer peça obrigatória esteja ausente.\r\n\r\n## Importante\r\nEsta continua sendo uma pré-release Alpha. Teste os HUDs no OMSI real e consulte ALPHA12_TEST3_COMMUNITY.md para o checklist de resoluções, presets, temas e regressões.\r\n",
       "download_count": 3,
       "assets": [
         {
@@ -37,19 +523,281 @@
       ]
     },
     {
+      "tag_name": "v0.3.0-alpha.12-test.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.12-test.2 — community test",
+      "prerelease": true,
+      "published_at": "2026-09-16T23:12:58Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.2",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.12-test.2\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.12 Test 2**\r\n\r\nEsta build corrige o pacote interno do plugin da Test 1 e inclui a primeira grande rodada da nova interface operacional da Alpha.12.\r\n\r\n## Correção importante\r\n- NavBR.OmsiInterop.dll agora é incluída e validada dentro do bundle embutido do plugin;\r\n- o botão **Instalar / atualizar plugin** não deve mais exibir Pacote interno do plugin incompleto: NavBR.OmsiInterop.dll;\r\n- o pipeline falha se qualquer uma das três peças obrigatórias do plugin estiver ausente.\r\n\r\n## Interface Alpha.12\r\n- Home operacional com telemetria real do OMSI;\r\n- Navegação com painel lateral de serviço;\r\n- Central Multiplayer remodelada;\r\n- CCO / Operação remodelado;\r\n- Perfil do motorista e Empresa/Frota em formato de dashboard;\r\n- Configurações por categorias;\r\n- ferramentas técnicas mantidas em modo avançado;\r\n- barra lateral com rolagem preservada.\r\n\r\n## Rede e multiplayer\r\n- peer-host TCP 27730;\r\n- salas públicas/privadas, chat e voz preservados;\r\n- qualidade de rede e diagnóstico NAT preservados;\r\n- probe externo experimental preservado.\r\n\r\n## Importante\r\nEsta continua sendo uma pré-release Alpha. Recursos experimentais e funcionalidades ainda em desenvolvimento podem mudar.\r\n\r\nConsulte ALPHA12_TEST2_COMMUNITY.md antes do teste, especialmente a seção de instalação/atualização do plugin.\r\n",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.exe",
+          "size": 84535986,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.2-win-x86.zip",
+          "size": 85487145,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.2/OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.2-win-x86.zip",
+          "size": 5274632,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.12-test.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.2/OMSI-NavBR-Server-v0.3.0-alpha.12-test.2-win-x64.zip",
+          "size": 50216520,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.12-test.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.12-test.1 — community test",
+      "prerelease": true,
+      "published_at": "2026-09-16T19:06:31Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.12-test.1",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.12-test.1\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.12 Test 1**\r\n\r\nPrimeira build pública da Alpha.12. Esta versão permite validar a nova base enquanto recursos adicionais continuam marcados como **Em desenvolvimento** ou **Experimental**.\r\n\r\n## Destaques\r\n- novo shell e HUD Alpha.12;\r\n- perfil, estatísticas, empresa/frota e CCO básico;\r\n- peer-host TCP 27730 com diagnóstico de rede e UPnP opt-in;\r\n- salas privadas com senha efêmera e navegador de salas públicas do servidor;\r\n- voz Geral, Empresa/Equipe, CCO e Proximidade;\r\n- mute, deafen, ganho individual e seleção de dispositivos de áudio;\r\n- plugin/bridge experimental preservado;\r\n- Hardware Cockpit Serial preservado.\r\n\r\n## Importante\r\nEsta não é a Alpha.12 final. Multiplayer 3D completo, tráfego IA, Hardware Wi-Fi, Replay/Ghost, mapa web, permissões, SDK, Workshop e outros módulos continuam em desenvolvimento.\r\n\r\nConsulte ALPHA12_TEST1_COMMUNITY.md para o checklist de testes.\r\n",
+      "download_count": 16,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.exe",
+          "size": 85048515,
+          "download_count": 10
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.12-test.1-win-x86.zip",
+          "size": 85380173,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.1/OMSI-NavBR-Plugin-v0.3.0-alpha.12-test.1-win-x86.zip",
+          "size": 5283624,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.12-test.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.12-test.1/OMSI-NavBR-Server-v0.3.0-alpha.12-test.1-win-x64.zip",
+          "size": 50211697,
+          "download_count": 2
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.11-test.4",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.11-test.4 — community test",
+      "prerelease": true,
+      "published_at": "2026-09-16T13:39:20Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.4",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.11-test.4\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.11 Test 4**\r\n\r\nEsta revisão amplia a Alpha.11 com uma janela principal modernizada, correção da velocidade e a primeira integração funcional com Arduino/ESP32 por USB/Serial.\r\n\r\n## Principais mudanças\r\n\r\n- velocidade do NavBR passa a preferir o Tacho do OMSI em km/h, mantendo Groundspeed/vetor físico como fallback;\r\n- nova estrutura visual com páginas de Visão geral, Navegação, Multiplayer, Hardware cockpit e ferramentas avançadas;\r\n- Hardware Cockpit Serial funcional: COM, baud rate, conectar/desconectar e NAVBR_HW_V1 JSON Lines a ~5 Hz;\r\n- pacote físico inclui linha, rota, destino, próxima parada, velocidade, atraso, portas, luzes, comandos do veículo e outros estados;\r\n- plugin passa a observar Velocity e haltewunsch sem escrever no OMSI;\r\n- stopRequested chega ao Hardware Cockpit com atualização rápida e expiração segura quando o ônibus não fornece a variável;\r\n- suporte a currentStreet por perfis NavBR.streets.json e map matching de posição/tile;\r\n- exemplo Arduino/ESP32 incluído para acender LED_BUILTIN em solicitação de parada;\r\n- pipeline Alpha.11 evita builds redundantes da mesma branch.\r\n\r\n## Atenção ao testar\r\n\r\nAtualize o plugin pelo próprio NavBR e reinicie o OMSI. Compare a velocidade mostrada pelo NavBR com o velocímetro do ônibus e informe o modelo do ônibus em qualquer divergência.\r\n\r\nhaltewunsch é o primeiro alias de parada suportado; alguns ônibus podem usar variáveis próprias e precisarão de perfil adicional.\r\n\r\nConsulte ALPHA11_TEST4_COMMUNITY.md e HARDWARE_COCKPIT.md anexados para o checklist completo.\r\n",
+      "download_count": 17,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.exe",
+          "size": 84703093,
+          "download_count": 16
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.4-win-x86.zip",
+          "size": 85234065,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.4/OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.4-win-x86.zip",
+          "size": 5313048,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.11-test.4-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.4/OMSI-NavBR-Server-v0.3.0-alpha.11-test.4-win-x64.zip",
+          "size": 50197100,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.11-test.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.11-test.3 — community test",
+      "prerelease": true,
+      "published_at": "2026-09-16T12:45:04Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.3",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.11-test.3\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.11 Test 3**\r\n\r\nEsta revisão parte da Test 2 e corrige o menu lateral da janela principal.\r\n\r\n## Correção principal\r\n\r\n- menu lateral com rolagem vertical automática quando os itens ultrapassam a altura disponível;\r\n- roda do mouse e barra de rolagem acessam todos os itens de Navegação e Ferramentas Alpha.11;\r\n- idioma e botão Minimizar para bandeja permanecem fixos no rodapé;\r\n- nenhuma alteração intencional no HUD, GPS, bridge ou sincronização multiplayer em relação à Test 2.\r\n\r\n## Mantido da Alpha.11\r\n\r\n- HUD/minimapa compacto e transparente;\r\n- velocidade via Groundspeed com fallback;\r\n- paradas da rota ativa;\r\n- multiplayer peer-host TCP 27730, chat e voz;\r\n- sincronização de tráfego/bridge v2;\r\n- plugin Native AOT x86 + interop nativo para OMSI 2.3.004;\r\n- Ônibus remoto físico 3D (EXPERIMENTAL), disponível por opt-in.\r\n\r\nConsulte ALPHA11_TEST3_COMMUNITY.md anexado para o checklist completo, incluindo teste da barra lateral em diferentes resoluções e escalas do Windows.\r\n",
+      "download_count": 10,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.3-win-x86.exe",
+          "size": 84623896,
+          "download_count": 5
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.3-win-x86.zip",
+          "size": 85173086,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.3/OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.3-win-x86.zip",
+          "size": 5290423,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.11-test.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.3/OMSI-NavBR-Server-v0.3.0-alpha.11-test.3-win-x64.zip",
+          "size": 50196767,
+          "download_count": 2
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.11-test.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.11-test.2 — community test",
+      "prerelease": true,
+      "published_at": "2026-09-16T02:53:00Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.2",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.11-test.2\r\n\r\n**PRÉ-RELEASE PÚBLICA DE TESTE — Alpha.11 Test 2**\r\n\r\nEsta versão é destinada à comunidade para validar a Alpha.11 em OMSI real.\r\n\r\n## Destaques\r\n\r\n- correção da velocidade do HUD: Groundspeed com fallback para a velocidade linear real do OMSI;\r\n- HUD/minimapa mais compacto e transparente;\r\n- melhorias de paradas, rota e telemetria;\r\n- multiplayer peer-host TCP 27730, chat e voz;\r\n- sincronização de tráfego/bridge v2;\r\n- plugin Native AOT x86 + interop nativo para OMSI 2.3.004;\r\n- **Ônibus remoto físico 3D (EXPERIMENTAL)** disponível por opt-in na janela Multiplayer.\r\n\r\n## Teste do ônibus 3D\r\n\r\nO recurso vem **desligado por padrão**. Marque Ônibus remoto 3D (EXPERIMENTAL). Os computadores precisam ter o mesmo mapa compatível e possuir localmente o modelo de ônibus usado pelo outro jogador no mesmo caminho relativo em Vehicles\\\\.\r\n\r\nO NavBR não transfere nem redistribui ônibus pagos/proprietários.\r\n\r\nO backend 3D ainda pode apresentar posicionamento incorreto entre tiles, incompatibilidade com determinados add-ons, queda de FPS ou crash. Comece o teste com poucos jogadores e reporte mapa, ônibus, distância e comportamento observado.\r\n\r\nConsulte ALPHA11_TEST2_COMMUNITY.md anexado para o checklist completo.\r\n",
+      "download_count": 8,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.2-win-x86.exe",
+          "size": 84623924,
+          "download_count": 5
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.2-win-x86.zip",
+          "size": 85173058,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.2/OMSI-NavBR-Plugin-v0.3.0-alpha.11-test.2-win-x86.zip",
+          "size": 5305530,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.11-test.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.2/OMSI-NavBR-Server-v0.3.0-alpha.11-test.2-win-x64.zip",
+          "size": 50196767,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.9",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.9",
+      "prerelease": true,
+      "published_at": "2026-09-15T03:11:33Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.9",
+      "body": "[![Downloads](https://img.shields.io/github/downloads/MichaelPriest/OMSI-NavBR-Multiplayer/v0.3.0-alpha.9/total?label=downloads&color=22c77a)](https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.9)\n\n## What's Changed * v0.3.0-alpha.9 — navegação precisa, próxima parada e downloads by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/16   **Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.8...v0.3.0-alpha.9\r\n",
+      "download_count": 19,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.9-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.9/OMSI-NavBR-Multiplayer-v0.3.0-alpha.9-win-x86.exe",
+          "size": 83589912,
+          "download_count": 16
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.9-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.9/OMSI-NavBR-Multiplayer-v0.3.0-alpha.9-win-x86.zip",
+          "size": 84300219,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.9-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.9/OMSI-NavBR-Server-v0.3.0-alpha.9-win-x64.zip",
+          "size": 50165995,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.8",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.8",
+      "prerelease": true,
+      "published_at": "2026-09-15T01:03:28Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.8",
+      "body": "## What's Changed\n* v0.3.0-alpha.8 — minimapa estável, rota ativa, zoom 10× e chat visual by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/15\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.7...v0.3.0-alpha.8",
+      "download_count": 8,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.8-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.8/OMSI-NavBR-Multiplayer-v0.3.0-alpha.8-win-x86.exe",
+          "size": 83555382,
+          "download_count": 8
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.8-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.8/OMSI-NavBR-Multiplayer-v0.3.0-alpha.8-win-x86.zip",
+          "size": 84281333,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.8-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.8/OMSI-NavBR-Server-v0.3.0-alpha.8-win-x64.zip",
+          "size": 50165714,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.7",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.7",
+      "prerelease": true,
+      "published_at": "2026-09-15T00:07:39Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.7",
+      "body": "## What's Changed\n* v0.3.0-alpha.7 — HUD estável, minimapa base e suporte OMSI 2.2.032 by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/14\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.6...v0.3.0-alpha.7",
+      "download_count": 2,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.7-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.7/OMSI-NavBR-Multiplayer-v0.3.0-alpha.7-win-x86.exe",
+          "size": 83549222,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.7-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.7/OMSI-NavBR-Multiplayer-v0.3.0-alpha.7-win-x86.zip",
+          "size": 84278252,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.7-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.7/OMSI-NavBR-Server-v0.3.0-alpha.7-win-x64.zip",
+          "size": 50165705,
+          "download_count": 0
+        }
+      ]
+    },
+    {
       "tag_name": "v0.3.0-alpha.11-test.1",
       "name": "OMSI NavBR Multiplayer v0.3.0-alpha.11-test.1 — Test 1",
       "prerelease": true,
       "published_at": "2026-09-15T21:20:28Z",
       "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.11-test.1",
-      "body": "Primeira build pública de teste da série Alpha.11, com evolução do HUD/GPS, paradas, rota completa, telemetria 3D, bridge do plugin e infraestrutura de sincronização de tráfego. O spawn físico 3D ainda está em desenvolvimento.",
-      "download_count": 6,
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.11-test.1 — Test 1\r\n\r\nPrimeira build pública de teste da série alpha.11.\r\n\r\n## Prioridades para validar\r\n- HUD/minimapa durante gameplay e ocultação em menus/diálogos.\r\n- pontos de parada e ícone padrão OMSI no GPS.\r\n- visão geral da rota completa.\r\n- multiplayer, chat, voz e marcadores remotos.\r\n- identificação do ônibus remoto e telemetria 3D exata.\r\n- captura e transmissão experimental do tráfego AI com autoridade do host.\r\n\r\n## Importante\r\nA criação física do ônibus remoto e do tráfego 3D dentro do OMSI continua protegida pelo backend experimental e ainda não deve ser considerada funcional nesta Test 1. Esta build serve para validar toda a infraestrutura que antecede a injeção física, além das funções de HUD/mapa já implementadas.\r\n\r\nUse uma cópia/instalação de teste do plugin experimental. A alpha.10 oficial permanece separada.\r\n",
+      "download_count": 10,
       "assets": [
         {
           "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.1-win-x86.exe",
           "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.1-win-x86.exe",
           "size": 84489480,
-          "download_count": 3
+          "download_count": 6
         },
         {
           "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.11-test.1-win-x86.zip",
@@ -61,7 +809,7 @@
           "name": "OMSI-NavBR-Plugin-Experimental-v0.3.0-alpha.11-test.1-win-x86.zip",
           "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.11-test.1/OMSI-NavBR-Plugin-Experimental-v0.3.0-alpha.11-test.1-win-x86.zip",
           "size": 5103799,
-          "download_count": 1
+          "download_count": 2
         },
         {
           "name": "OMSI-NavBR-Server-v0.3.0-alpha.11-test.1-win-x64.zip",
@@ -72,19 +820,271 @@
       ]
     },
     {
+      "tag_name": "v0.3.0-alpha.10-test.6",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.6 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T17:45:39Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.6",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.6\r\n\r\n**PRERELEASE DE TESTE — nao e a alpha.10 final.**\r\n\r\nAs \test.1 a \test.5 permanecem publicadas e nao foram sobrescritas.\r\n\r\n## Test.6\r\n\r\n- novo icone compacto pino laranja + onibus, gerado em 10 resolucoes para Windows;\r\n- correcao do erro XAML do HUD e validacao automatica de brushes no build;\r\n- HUD moderno com barra superior translucida;\r\n- GPS heading-up: onibus sempre para cima e mapa/rota girando;\r\n- linha, destino e proxima parada fora do mapa;\r\n- chat acoplado e bloqueio de input do OMSI durante digitacao;\r\n- setas de manobra quando a geometria permite;\r\n- atalhos adicionais/configuraveis;\r\n- \navbr.log automatico;\r\n- plugin Native AOT x86 autocontido;\r\n- **nao exige Microsoft .NET Runtime x86 instalado separadamente**;\r\n- plugin embutido no proprio EXE;\r\n- botoes para instalar/atualizar/remover o plugin no NavBR;\r\n- deteccao automatica do OMSI pelo caminho conhecido, registro Aerosoft e bibliotecas Steam;\r\n- seletor manual como fallback;\r\n- arquitetura e proxima pesquisa 3D documentadas com OMSI Launcher e OmsiHook como referencias tecnicas.\r\n\r\n**Fluxo recomendado:** baixe o EXE standalone, abra o NavBR com o OMSI fechado e use Instalar / atualizar plugin no painel PLUGIN BRIDGE v1 • EXP.\r\n\r\nResultado esperado depois de instalar e abrir OMSI + NavBR:\r\npackage=EMBEDDED, deployment=NATIVE-AOT-X86, install=INSTALLED, \files=2/2, manifest=YES, \runtime=BUILT-IN, status=CONNECTED, process-match=YES, heartbeat=LIVE.\r\n\r\nO plugin ainda nao cria nem move onibus fisicos de jogadores remotos no mundo 3D do OMSI.\r\n",
+      "download_count": 6,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.6-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-alpha10-test.6-integration-win-x86.zip",
+          "size": 83850284,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.exe",
+          "size": 84032681,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.6-win-x86.zip",
+          "size": 84719078,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.6-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.6-win-x86.zip",
+          "size": 4983825,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.6-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.6/OMSI-NavBR-Server-v0.3.0-alpha.10-test.6-win-x64.zip",
+          "size": 50167193,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.10-test.5",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.5 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T16:55:55Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.5",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.5\r\n\r\n**PRERELEASE DE TESTE — nao e a alpha.10 final.**\r\n\r\nA \test.4 permanece publicada e nao foi sobrescrita. Esta \test.5 corrige o erro de XAML do HUD identificado no teste real.\r\n\r\n## Test.5\r\n\r\n- novo icone oficial, com asset de origem validado antes do build;\r\n- HUD moderno com barra superior translucida;\r\n- GPS heading-up;\r\n- linha/destino/proxima parada fora do mapa;\r\n- chat acoplado e bloqueio de input do OMSI durante digitacao;\r\n- setas de manobra quando a geometria permite;\r\n- atalhos adicionais;\r\n- \navbr.log automatico;\r\n- plugin embutido no proprio EXE;\r\n- botoes para instalar/atualizar/remover o plugin no NavBR;\r\n- deteccao automatica da pasta do OMSI em outras unidades/bibliotecas Steam;\r\n- seletor manual somente como fallback;\r\n- .NET 10 Runtime x86 continua sendo validado antes da instalacao do plugin.\r\n\r\n**Fluxo recomendado:** baixe o EXE standalone, abra o NavBR e use Instalar / atualizar plugin no painel PLUGIN BRIDGE v1 • EXP.\r\n\r\nResultado esperado do painel depois de abrir OMSI + NavBR:\r\npackage=EMBEDDED, install=INSTALLED, manifest=YES, status=CONNECTED, process-match=YES, heartbeat=LIVE.\r\n\r\nO plugin ainda nao cria nem move onibus fisicos no mundo 3D do OMSI.\r\n",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.5-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-alpha10-test.5-integration-win-x86.zip",
+          "size": 79202881,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.5-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.5-win-x86.exe",
+          "size": 83990665,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.5-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.5-win-x86.zip",
+          "size": 84679206,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.5-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.5-win-x86.zip",
+          "size": 379892,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.5-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.5/OMSI-NavBR-Server-v0.3.0-alpha.10-test.5-win-x64.zip",
+          "size": 50167179,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.10-test.4",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.4 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T16:18:57Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.4",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.4\r\n\r\n**PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**\r\n\r\nEsta build existe para validar no OMSI 2.3.004 a nova interface em jogo e a base do plugin experimental.\r\n\r\n## Novidades desta test.4\r\n\r\n- novo icone oficial incorporado ao aplicativo/EXE;\r\n- barra superior translucida com status, jogadores, chat, PTT e atalhos;\r\n- GPS heading-up: o marcador do onibus fica apontando para cima e o mapa/rota giram;\r\n- linha, destino e proxima parada separados da area do mapa;\r\n- setas de manobra quando existe geometria detalhada suficiente;\r\n- chat visual acoplado abaixo do GPS;\r\n- bloqueio de clique no jogo enquanto o chat esta em modo de digitacao;\r\n- mais opcoes de atalhos, mantendo F5-F8 fora da lista;\r\n- \navbr.log gerado automaticamente em toda execucao;\r\n- preflight do .NET 10 Runtime x86 mantido no instalador do plugin.\r\n\r\n## Para o teste recomendado\r\n\r\nBaixe OMSI-NavBR-alpha10-test.4-integration-win-x86.zip.\r\n\r\nO pacote contem:\r\n\r\n- cliente standalone;\r\n- pasta Plugin completa;\r\n- instalador e removedor do plugin;\r\n- checklist de validacao;\r\n- identificacao do build.\r\n\r\nNo painel PLUGIN BRIDGE v1 • EXP, o resultado esperado apos instalar o plugin, abrir o OMSI e o NavBR e:\r\n\r\n- install=INSTALLED;\r\n- \files=3/3;\r\n- manifest=YES;\r\n- status=CONNECTED;\r\n- process-match=YES;\r\n- heartbeat=LIVE;\r\n- callbacks aumentando.\r\n\r\nO plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**\r\n\r\nA alpha.9 continua sendo a ultima prerelease geral. Esta \test.4 e somente para os testes da alpha.10. As \test.1, \test.2 e \test.3 permanecem preservadas para rastreabilidade.\r\n",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.4-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-alpha10-test.4-integration-win-x86.zip",
+          "size": 78846421,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.4-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.4-win-x86.exe",
+          "size": 83624117,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.4-win-x86.zip",
+          "size": 84321048,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.4-win-x86.zip",
+          "size": 379907,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.4-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.4/OMSI-NavBR-Server-v0.3.0-alpha.10-test.4-win-x64.zip",
+          "size": 50167198,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.10-test.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.3 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T15:37:47Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.3",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.3\r\n\r\n**PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**\r\n\r\nEsta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86, o diagnostico da instalacao, a verificacao do .NET 10 Runtime x86 e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.\r\n\r\n## Para o teste recomendado\r\n\r\nBaixe OMSI-NavBR-alpha10-test.3-integration-win-x86.zip.\r\n\r\nO pacote contem:\r\n\r\n- cliente standalone;\r\n- pasta Plugin completa;\r\n- instalador e removedor do plugin;\r\n- checklist de validacao;\r\n- identificacao do build.\r\n\r\nNo painel PLUGIN BRIDGE v1 • EXP, o resultado esperado apos instalar o plugin, abrir o OMSI e o NavBR e:\r\n\r\n- install=INSTALLED;\r\n- \files=3/3;\r\n- manifest=YES;\r\n- status=CONNECTED;\r\n- process-match=YES;\r\n- heartbeat=LIVE;\r\n- callbacks aumentando.\r\n\r\nO instalador agora valida um .NET 10 Runtime x86 real antes de copiar o plugin.\r\n\r\nO plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**\r\n\r\nA alpha.9 continua sendo a ultima prerelease geral. Esta \test.3 e somente para os testes da alpha.10. As \test.1 e \test.2 permanecem preservadas para rastreabilidade.\r\n",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.3-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-alpha10-test.3-integration-win-x86.zip",
+          "size": 78844481,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.3-win-x86.exe",
+          "size": 83615928,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.3-win-x86.zip",
+          "size": 84315294,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.3-win-x86.zip",
+          "size": 379911,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.3/OMSI-NavBR-Server-v0.3.0-alpha.10-test.3-win-x64.zip",
+          "size": 50167201,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.10-test.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.2 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T13:33:25Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.2",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.2\r\n\r\n**PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**\r\n\r\nEsta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86, o diagnostico da instalacao e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.\r\n\r\n## Para o teste recomendado\r\n\r\nBaixe OMSI-NavBR-alpha10-test.2-integration-win-x86.zip.\r\n\r\nO pacote contem:\r\n\r\n- cliente standalone;\r\n- pasta Plugin completa;\r\n- instalador e removedor do plugin;\r\n- checklist de validacao;\r\n- identificacao do build.\r\n\r\nNo painel PLUGIN BRIDGE v1 • EXP, o resultado esperado apos instalar o plugin, abrir o OMSI e o NavBR e:\r\n\r\n- install=INSTALLED;\r\n- \files=3/3;\r\n- manifest=YES;\r\n- status=CONNECTED;\r\n- process-match=YES;\r\n- heartbeat=LIVE;\r\n- callbacks aumentando.\r\n\r\nO plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**\r\n\r\nA alpha.9 continua sendo a ultima prerelease geral. Esta \test.2 e somente para os testes da alpha.10. A \test.1 permanece preservada para rastreabilidade.\r\n",
+      "download_count": 4,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.2-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-alpha10-test.2-integration-win-x86.zip",
+          "size": 78842834,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.exe",
+          "size": 83615910,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.2-win-x86.zip",
+          "size": 84315279,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.2-win-x86.zip",
+          "size": 378329,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.2/OMSI-NavBR-Server-v0.3.0-alpha.10-test.2-win-x64.zip",
+          "size": 50167193,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.10-test.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10-test.1 — integration test",
+      "prerelease": true,
+      "published_at": "2026-09-15T13:21:13Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10-test.1",
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10-test.1\r\n\r\n**PRERELEASE DE TESTE DE INTEGRACAO — nao e a alpha.10 final.**\r\n\r\nEsta build existe para validar no OMSI 2.3.004 a lista de roadmaps, o carregamento do plugin x86 e o bridge local antes de qualquer tentativa de criar um onibus remoto fisico.\r\n\r\n## Para o teste recomendado\r\n\r\nBaixe OMSI-NavBR-alpha10-test.1-integration-win-x86.zip.\r\n\r\nO pacote contem:\r\n\r\n- cliente standalone;\r\n- pasta Plugin completa;\r\n- instalador e removedor do plugin;\r\n- checklist de validacao;\r\n- identificacao do build.\r\n\r\nNo painel PLUGIN BRIDGE v1 • EXP, o resultado esperado apos abrir o OMSI e o NavBR e:\r\n\r\n- status=CONNECTED;\r\n- process-match=YES;\r\n- heartbeat=LIVE;\r\n- callbacks aumentando.\r\n\r\nO plugin continua experimental: **nao escreve variaveis, nao aciona triggers e nao cria/move veiculos no OMSI nesta build.**\r\n\r\nA alpha.9 continua sendo a ultima prerelease geral. Esta \test.1 e somente para os testes da alpha.10.\r\n",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-test.1-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-alpha10-test.1-integration-win-x86.zip",
+          "size": 78841025,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.exe",
+          "size": 83612855,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-test.1-win-x86.zip",
+          "size": 84314131,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-Plugin-v0.3.0-alpha.10-test.1-win-x86.zip",
+          "size": 378335,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.10-test.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10-test.1/OMSI-NavBR-Server-v0.3.0-alpha.10-test.1-win-x64.zip",
+          "size": 50167206,
+          "download_count": 0
+        }
+      ]
+    },
+    {
       "tag_name": "v0.3.0-alpha.10",
       "name": "OMSI NavBR Multiplayer v0.3.0-alpha.10",
       "prerelease": true,
       "published_at": "2026-09-15T18:48:07Z",
       "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.10",
-      "body": "Alpha.10 oficial promovida da test.6 validada, com plugin Native AOT x86 embutido, HUD/GPS, chat, voz e peer-host.",
-      "download_count": 12,
+      "body": "# OMSI NavBR Multiplayer v0.3.0-alpha.10\r\n\r\n**Alpha oficial promovida da `v0.3.0-alpha.10-test.6`.**\r\n\r\nOs binarios principais desta release sao **byte-for-byte identicos** aos artefatos permanentes da test.6 que passaram pela validacao de integracao. Apenas os nomes dos arquivos foram promovidos para a versao oficial `alpha.10`.\r\n\r\n## Destaques\r\n\r\n- cliente WPF x86 standalone;\r\n- host da propria sala no PC de quem cria a sala, porta inicial TCP 27730;\r\n- servidor dedicado continua como alternativa;\r\n- HUD moderno e GPS heading-up;\r\n- linha, destino e proxima parada fora do mapa;\r\n- chat e voz/PTT;\r\n- plugin OMSI Native AOT x86 embutido no EXE;\r\n- instalacao/atualizacao/remocao do plugin pelo proprio NavBR;\r\n- **nao requer .NET Runtime x86 instalado separadamente**;\r\n- deteccao do OMSI por caminho conhecido, registro Aerosoft e bibliotecas Steam;\r\n- logs automaticos em `%LOCALAPPDATA%\\\\OMSI NavBR Multiplayer\\\\`;\r\n- interface em pt-BR, ingles, espanhol, alemao e frances.\r\n\r\n## Escopo 3D\r\n\r\nEsta alpha ainda **nao cria nem move fisicamente o onibus de outro jogador no mundo 3D do OMSI**. Essa evolucao esta sendo desenvolvida na alpha.11, usando OMSI Launcher e OmsiHook/Omsi-Extensions como referencias tecnicas.\r\n\r\n## Proveniencia\r\n\r\nSnapshot promovida: `v0.3.0-alpha.10-test.6`\r\nCommit validado: `7a0fbe3ffbcc338e776add1e1dec1bb5ac7154ea`\r\n\r\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.10-test.5...v0.3.0-alpha.10",
+      "download_count": 13,
       "assets": [
+        {
+          "name": "OMSI-NavBR-alpha10-integration-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10/OMSI-NavBR-alpha10-integration-win-x86.zip",
+          "size": 83850284,
+          "download_count": 2
+        },
         {
           "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe",
           "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.exe",
           "size": 84032681,
-          "download_count": 7
+          "download_count": 8
         },
         {
           "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.10-win-x86.zip",
@@ -103,12 +1103,255 @@
           "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10/OMSI-NavBR-Server-v0.3.0-alpha.10-win-x64.zip",
           "size": 50167193,
           "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.6",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.6",
+      "prerelease": true,
+      "published_at": "2026-09-14T21:59:01Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.6",
+      "body": "## What's Changed\n* v0.3.0-alpha.6 — estabilidade, firewall, atalhos e nova interface by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/13\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.5...v0.3.0-alpha.6",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.6-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.6-win-x86.exe",
+          "size": 83524147,
+          "download_count": 1
         },
         {
-          "name": "OMSI-NavBR-alpha10-integration-win-x86.zip",
-          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.10/OMSI-NavBR-alpha10-integration-win-x86.zip",
-          "size": 83850284,
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.6-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.6/OMSI-NavBR-Multiplayer-v0.3.0-alpha.6-win-x86.zip",
+          "size": 84262874,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.6-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.6/OMSI-NavBR-Server-v0.3.0-alpha.6-win-x64.zip",
+          "size": 50165709,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.5",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.5",
+      "prerelease": true,
+      "published_at": "2026-09-14T20:31:18Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.5",
+      "body": "## What's Changed\n* v0.3.0-alpha.5 — HUD focado no OMSI e atalhos sem conflito by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/12\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.4...v0.3.0-alpha.5",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.5-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.5-win-x86.exe",
+          "size": 82231482,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.5-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.5/OMSI-NavBR-Multiplayer-v0.3.0-alpha.5-win-x86.zip",
+          "size": 83078042,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.5-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.5/OMSI-NavBR-Server-v0.3.0-alpha.5-win-x64.zip",
+          "size": 50165717,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.4",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.4",
+      "prerelease": true,
+      "published_at": "2026-09-14T20:01:32Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.4",
+      "body": "## What's Changed\n* v0.3.0-alpha.4 — convite colável e HUD suavizado by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/11\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.3...v0.3.0-alpha.4",
+      "download_count": 0,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.4-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.4-win-x86.exe",
+          "size": 82227475,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.4-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.4/OMSI-NavBR-Multiplayer-v0.3.0-alpha.4-win-x86.zip",
+          "size": 83072516,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.4-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.4/OMSI-NavBR-Server-v0.3.0-alpha.4-win-x64.zip",
+          "size": 50165711,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.3",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.3",
+      "prerelease": true,
+      "published_at": "2026-09-14T19:51:57Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.3",
+      "body": "## What's Changed\n* v0.3.0-alpha.3 — suavização multiplayer e convite rápido by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/10\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.2...v0.3.0-alpha.3",
+      "download_count": 0,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.3-win-x86.exe",
+          "size": 82225744,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.3/OMSI-NavBR-Multiplayer-v0.3.0-alpha.3-win-x86.zip",
+          "size": 83069840,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.3/OMSI-NavBR-Server-v0.3.0-alpha.3-win-x64.zip",
+          "size": 50165698,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.2",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.2",
+      "prerelease": true,
+      "published_at": "2026-09-14T17:37:24Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.2",
+      "body": "## What's Changed\n* v0.3.0-alpha.2 — HUD estilo GTA, host da sala e chat por voz by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/9\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.3.0-alpha.1...v0.3.0-alpha.2",
+      "download_count": 6,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.2-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.2-win-x86.exe",
+          "size": 82223460,
           "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.2/OMSI-NavBR-Multiplayer-v0.3.0-alpha.2-win-x86.zip",
+          "size": 83067105,
+          "download_count": 2
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.2/OMSI-NavBR-Server-v0.3.0-alpha.2-win-x64.zip",
+          "size": 50165716,
+          "download_count": 2
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.3.0-alpha.1",
+      "name": "OMSI NavBR Multiplayer v0.3.0-alpha.1",
+      "prerelease": true,
+      "published_at": "2026-09-14T16:28:34Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.1",
+      "body": "## What's Changed\n* Site oficial no GitHub Pages by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/7\n* Fase 3: multiplayer online inicial by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/8\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.2.0-alpha.3...v0.3.0-alpha.1",
+      "download_count": 1,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.1-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.1-win-x86.exe",
+          "size": 60810620,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.3.0-alpha.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.1/OMSI-NavBR-Multiplayer-v0.3.0-alpha.1-win-x86.zip",
+          "size": 60854951,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.3.0-alpha.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.3.0-alpha.1/OMSI-NavBR-Server-v0.3.0-alpha.1-win-x64.zip",
+          "size": 50157198,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.2.0-alpha.3",
+      "name": "OMSI NavBR Multiplayer v0.2.0-alpha.3",
+      "prerelease": true,
+      "published_at": "2026-09-14T14:49:23Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.3",
+      "body": "## What's Changed\n* Release: EXE standalone e correção do ícone by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/6\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.2.0-alpha.2...v0.2.0-alpha.3",
+      "download_count": 3,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.exe",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.exe",
+          "size": 60791581,
+          "download_count": 3
+        },
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Multiplayer-v0.2.0-alpha.3-win-x86.zip",
+          "size": 60829486,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.2.0-alpha.3-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.3/OMSI-NavBR-Server-v0.2.0-alpha.3-win-x64.zip",
+          "size": 50149057,
+          "download_count": 0
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.2.0-alpha.2",
+      "name": "OMSI NavBR Multiplayer v0.2.0-alpha.2",
+      "prerelease": true,
+      "published_at": "2026-09-14T14:27:58Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.2",
+      "body": "## What's Changed\n* Fase 2.1: zoom, follow bus e controles do GPS by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/5\n\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/compare/v0.2.0-alpha.1...v0.2.0-alpha.2",
+      "download_count": 2,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.2-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.2/OMSI-NavBR-Multiplayer-v0.2.0-alpha.2-win-x86.zip",
+          "size": 60829511,
+          "download_count": 1
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.2.0-alpha.2-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.2/OMSI-NavBR-Server-v0.2.0-alpha.2-win-x64.zip",
+          "size": 50149020,
+          "download_count": 1
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.2.0-alpha.1",
+      "name": "OMSI NavBR Multiplayer v0.2.0-alpha.1",
+      "prerelease": true,
+      "published_at": "2026-09-14T14:25:17Z",
+      "html_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.2.0-alpha.1",
+      "body": "## What's Changed\n* Fase 1: telemetria ao vivo do OMSI 2.3.004 by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/2\n* Fase 2: identidade visual, releases e catálogo de mapas by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/3\n* CI: corrigir publicação automática de releases by @MichaelPriest in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/4\n\n## New Contributors\n* @MichaelPriest made their first contribution in https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/pull/2\n\n**Full Changelog**: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/commits/v0.2.0-alpha.1",
+      "download_count": 0,
+      "assets": [
+        {
+          "name": "OMSI-NavBR-Multiplayer-v0.2.0-alpha.1-win-x86.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.1/OMSI-NavBR-Multiplayer-v0.2.0-alpha.1-win-x86.zip",
+          "size": 60824745,
+          "download_count": 0
+        },
+        {
+          "name": "OMSI-NavBR-Server-v0.2.0-alpha.1-win-x64.zip",
+          "browser_download_url": "https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/download/v0.2.0-alpha.1/OMSI-NavBR-Server-v0.2.0-alpha.1-win-x64.zip",
+          "size": 50149044,
+          "download_count": 0
         }
       ]
     }

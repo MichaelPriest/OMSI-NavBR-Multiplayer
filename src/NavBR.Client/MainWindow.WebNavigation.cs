@@ -39,7 +39,10 @@ public partial class MainWindow
         var eta = _webNavigationEta.Observe(navigation, DateTimeOffset.UtcNow);
         var tileSize = _webNavigationLayout?.TileSize;
         var roadmapUrl = ResolveWebNavigationRoadmapUrl(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
+        var roadmapFallbackUrl = ResolveWebNavigationRoadmapFallbackUrl(map);
+        var roadmapAvailable =
+            !string.IsNullOrWhiteSpace(roadmapUrl) ||
+            !string.IsNullOrWhiteSpace(roadmapFallbackUrl);
         object? mapBounds = null;
         if (tileSize is double boundsTileSize &&
             _webNavigationLayout?.WorldWidth is double worldWidth &&
@@ -129,6 +132,24 @@ public partial class MainWindow
             };
         }
 
+        var routeDiagnostics = OmsiRouteTraceReader.LastDiagnostics;
+        object? routeDiagnostic =
+            routeDiagnostics is not null &&
+            string.Equals(
+                routeDiagnostics.MapFolder,
+                map.FolderName,
+                StringComparison.OrdinalIgnoreCase)
+                ? new
+                {
+                    mode = routeDiagnostics.Mode,
+                    trackName = routeDiagnostics.TrackName,
+                    line = routeDiagnostics.ActiveLine,
+                    lookupValue = routeDiagnostics.LookupValue,
+                    entryCount = routeDiagnostics.EntryCount,
+                    pointCount = routeDiagnostics.PointCount
+                }
+                : null;
+
         var nextStopIndex = _webNavigationOrderedStops.RouteResolved
             ? ResolveNextStopIndex(
                 _webNavigationOrderedStops.StopNames,
@@ -167,8 +188,10 @@ public partial class MainWindow
             tileSize = _webNavigationLayout?.TileSize,
             roadmapAvailable,
             roadmapUrl,
+            roadmapFallbackUrl,
             bounds = mapBounds,
             routePoints,
+            routeDiagnostic,
             rejoinAvailable = rejoinPath is not null,
             rejoinDistanceMeters = rejoinPath?.DistanceMeters,
             rejoinPoints,
@@ -199,7 +222,12 @@ public partial class MainWindow
         var roadmapUrl = map is null
             ? null
             : ResolveWebNavigationRoadmapUrl(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
+        var roadmapFallbackUrl = map is null
+            ? null
+            : ResolveWebNavigationRoadmapFallbackUrl(map);
+        var roadmapAvailable =
+            !string.IsNullOrWhiteSpace(roadmapUrl) ||
+            !string.IsNullOrWhiteSpace(roadmapFallbackUrl);
 
         object? mapBounds = null;
         if (_webNavigationLayout?.TileSize is double tileSize &&
@@ -242,8 +270,10 @@ public partial class MainWindow
         tileSize = _webNavigationLayout?.TileSize,
         roadmapAvailable,
         roadmapUrl,
+        roadmapFallbackUrl,
         bounds = mapBounds,
         routePoints = Array.Empty<object>(),
+        routeDiagnostic = null as object,
         rejoinAvailable = false,
         rejoinDistanceMeters = null as double?,
         rejoinPoints = Array.Empty<object>(),
@@ -303,6 +333,29 @@ public partial class MainWindow
             _webNavigationLayout,
             lookupTarget,
             telemetry.Line);
+
+        // Some buses/maps expose a short route/course code (for example "01")
+        // instead of the .ttr track name. If that first lookup cannot resolve
+        // real route geometry, retry with the active destination. This still
+        // goes through TTData/.ttp/.ttr resolution and never fabricates a route.
+        if (_webNavigationRoute.Count < 2 &&
+            !string.IsNullOrWhiteSpace(telemetry.DestinationName) &&
+            !string.Equals(
+                telemetry.DestinationName?.Trim(),
+                lookupTarget?.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var destinationRoute = OmsiRouteTraceReader.TryRead(
+                map,
+                _webNavigationLayout,
+                telemetry.DestinationName,
+                telemetry.Line);
+            if (destinationRoute.Count >= 2)
+            {
+                _webNavigationRoute = destinationRoute;
+            }
+        }
+
         _webNavigationOrderedStops = OmsiOrderedRouteStopReader.TryRead(
             map,
             telemetry.Route,

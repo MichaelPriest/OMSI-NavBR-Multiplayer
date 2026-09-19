@@ -22,9 +22,17 @@ public partial class MainWindow
         var currentInstall = _currentOmsi?.InstallDirectory;
         var hudSettings = MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
+        var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics();
-        var pluginOmsiRoot = OmsiPluginInstallationService.ResolveOmsiRoot(
-            _currentOmsi?.InstallDirectory);
+        var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
+        var pluginInstallBlockReason =
+            !OmsiPluginInstallationService.HasEmbeddedPackage
+                ? "package-missing"
+                : string.IsNullOrWhiteSpace(pluginOmsiRoot)
+                    ? "omsi-not-found"
+                    : omsiRunningForPluginUpdate
+                        ? "omsi-running"
+                        : null;
 
         FileInfo? logInfo = null;
         try
@@ -51,10 +59,9 @@ public partial class MainWindow
                 pluginsDirectory = pluginInstall.DisplayPath,
                 omsiRoot = pluginOmsiRoot,
                 embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
-                installAvailable = OmsiPluginInstallationService.HasEmbeddedPackage &&
-                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot) &&
-                                   _currentOmsi is null,
-                omsiRunning = _currentOmsi is not null
+                installAvailable = pluginInstallBlockReason is null,
+                installBlockReason = pluginInstallBlockReason,
+                omsiRunning = omsiRunningForPluginUpdate
             },
             installations = profiles
                 .Select(profile => new
@@ -155,12 +162,11 @@ public partial class MainWindow
 
     private void InstallOmsiPluginFromWeb()
     {
-        var root = OmsiPluginInstallationService.ResolveOmsiRoot(
-            _currentOmsi?.InstallDirectory);
+        var root = ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(root))
         {
             throw new InvalidOperationException(
-                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta do OMSI em Configurações primeiro.");
+                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta, o Omsi.exe ou um atalho .lnk/.url válido em Configurações primeiro.");
         }
 
         var result = OmsiPluginInstallationService.InstallOrUpdate(root);
@@ -168,11 +174,135 @@ public partial class MainWindow
             $"Plugin NavBR instalado/atualizado em {result.PluginsDirectory}. Inicie o OMSI para carregar o plugin.";
     }
 
+    private string? ResolveConfiguredOmsiRootForPlugin(
+        IReadOnlyList<OmsiInstallationProfile>? profiles = null)
+    {
+        var runningRoot = _currentOmsi?.InstallDirectory;
+        if (!string.IsNullOrWhiteSpace(runningRoot))
+        {
+            try
+            {
+                var normalized = Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(runningRoot));
+                if (File.Exists(Path.Combine(normalized, "Omsi.exe")))
+                {
+                    return normalized;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        profiles ??= OmsiInstallationProfileStore.Load();
+        foreach (var profile in profiles
+                     .Where(profile => File.Exists(profile.ExecutablePath))
+                     .OrderByDescending(profile => profile.IsPreferred)
+                     .ThenByDescending(profile => profile.LastUsedAtUtc ?? DateTimeOffset.MinValue))
+        {
+            try
+            {
+                return Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(profile.InstallDirectory));
+            }
+            catch
+            {
+            }
+        }
+
+        return OmsiPluginInstallationService.ResolveOmsiRoot();
+    }
+
+    private static bool IsOmsiProcessRunningForPluginUpdate()
+    {
+        var processes = Process.GetProcessesByName("Omsi");
+        try
+        {
+            foreach (var process in processes)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
+        }
+    }
+
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
     {
         _webOmsiLaunchNotice = null;
-        OmsiInstallationProfileStore.DiscoverAndMerge(
-            string.IsNullOrWhiteSpace(preferredPath) ? _currentOmsi?.InstallDirectory : preferredPath.Trim());
+
+        if (!string.IsNullOrWhiteSpace(preferredPath))
+        {
+            var requestedResolved =
+                OmsiInstallationLocator.TryResolveInstallDirectory(
+                    preferredPath.Trim());
+            if (requestedResolved is null)
+            {
+                _webOmsiLaunchNotice =
+                    "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk/.url válido.";
+                return;
+            }
+
+            OmsiInstallationProfileStore.DiscoverAndMerge(requestedResolved);
+            SetPreferredOmsiInstallDirectory(requestedResolved);
+            _webOmsiLaunchNotice =
+                $"Instalação OMSI reconhecida e selecionada em {requestedResolved}.";
+            return;
+        }
+
+        var profiles = OmsiInstallationProfileStore.DiscoverAndMerge(
+            _currentOmsi?.InstallDirectory);
+        if (profiles.Count == 0)
+        {
+            _webOmsiLaunchNotice =
+                "Nenhuma instalação válida do OMSI 2 foi localizada automaticamente.";
+        }
+    }
+
+    private void SelectOmsiExecutableFromWeb()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Selecione Omsi.exe ou um atalho do OMSI 2",
+            Filter = "OMSI 2 (Omsi.exe;*.lnk;*.url)|Omsi.exe;*.lnk;*.url|Executável OMSI (Omsi.exe)|Omsi.exe|Atalhos (*.lnk;*.url)|*.lnk;*.url|Todos os arquivos (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        var owner = GetPrimaryWebDialogOwner();
+        if ((owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner)) != true)
+        {
+            return;
+        }
+
+        var installation =
+            OmsiInstallationLocator.TryResolveInstallDirectory(dialog.FileName);
+        if (installation is null)
+        {
+            throw new InvalidOperationException(
+                "O arquivo/atalho selecionado não aponta para uma instalação válida do OMSI 2.");
+        }
+
+        OmsiInstallationProfileStore.DiscoverAndMerge(installation);
+        SetPreferredOmsiInstallDirectory(installation);
+        _webOmsiLaunchNotice =
+            $"Instalação OMSI reconhecida e selecionada em {installation}.";
     }
 
     private void SelectOmsiFolderFromWeb()
@@ -197,7 +327,47 @@ public partial class MainWindow
         }
 
         OmsiInstallationProfileStore.DiscoverAndMerge(dialog.FolderName);
-        _webOmsiLaunchNotice = null;
+        SetPreferredOmsiInstallDirectory(dialog.FolderName);
+        _webOmsiLaunchNotice =
+            $"Instalação OMSI reconhecida e selecionada em {dialog.FolderName}.";
+    }
+
+    private static void SetPreferredOmsiInstallDirectory(
+        string installDirectory)
+    {
+        string normalized;
+        try
+        {
+            normalized = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(installDirectory));
+        }
+        catch
+        {
+            return;
+        }
+
+        var profile = OmsiInstallationProfileStore.Load()
+            .FirstOrDefault(item =>
+            {
+                try
+                {
+                    return string.Equals(
+                        Path.TrimEndingDirectorySeparator(
+                            Path.GetFullPath(item.InstallDirectory)),
+                        normalized,
+                        StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
+            });
+
+        if (profile is not null)
+        {
+            OmsiInstallationProfileStore.Upsert(
+                profile with { IsPreferred = true });
+        }
     }
 
     private static void OpenOmsiProfileFolderFromWeb(string? profileId)

@@ -187,7 +187,7 @@ public partial class MainWindow
 
     private string? ResolveOmsiRootForPluginAction()
     {
-        var detected = OmsiPluginInstallationService.ResolveOmsiRoot(_currentOmsi?.InstallDirectory);
+        var detected = ResolveConfiguredOmsiRootForPlugin();
         if (!string.IsNullOrWhiteSpace(detected))
         {
             return detected;
@@ -302,8 +302,7 @@ public partial class MainWindow
 
     private PluginInstallDiagnostics GetPluginInstallDiagnostics()
     {
-        var installDirectory = _currentOmsi?.InstallDirectory ??
-                               OmsiPluginInstallationService.ResolveOmsiRoot();
+        var installDirectory = ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(installDirectory))
         {
             return new PluginInstallDiagnostics("UNKNOWN", 0, "UNKNOWN", "-");
@@ -325,23 +324,14 @@ public partial class MainWindow
                 pluginsDirectory,
                 "NavBR.OmsiPlugin.install-manifest.txt");
             var hasManifest = File.Exists(manifestPath);
-            var currentVersion = System.Reflection.Assembly
-                .GetExecutingAssembly()
-                .GetName()
-                .Version?
-                .ToString() ?? "unknown";
-            var installedVersion = ReadPluginManifestVersion(manifestPath);
-            var versionMatches = hasManifest &&
-                                 !string.IsNullOrWhiteSpace(installedVersion) &&
-                                 string.Equals(
-                                     installedVersion,
-                                     currentVersion,
-                                     StringComparison.OrdinalIgnoreCase);
+            var manifestCurrent =
+                hasManifest &&
+                OmsiPluginInstallationService.IsManifestCurrent(manifestPath);
 
             var state = found switch
             {
                 0 => "MISSING",
-                3 when hasManifest && versionMatches => "INSTALLED",
+                3 when manifestCurrent => "INSTALLED",
                 3 when hasManifest => "OUTDATED",
                 3 => "UNTRACKED",
                 _ => "PARTIAL"

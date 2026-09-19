@@ -11,6 +11,7 @@ namespace NavBR.Client.Multiplayer;
 internal sealed record RemotePhysicalVehicleStatus(
     string State,
     string? ErrorCode,
+    string? ErrorMessage,
     int? PartCount,
     int? ExpectedPartCount,
     DateTimeOffset UpdatedAtUtc);
@@ -100,6 +101,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         return new RemotePhysicalVehicleStatus(
             state,
             ErrorCode: null,
+            ErrorMessage: null,
             PartCount: null,
             ExpectedPartCount: null,
             DateTimeOffset.UtcNow);
@@ -291,6 +293,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        if (!_spawned.ContainsKey(playerId) &&
+            (frame.Telemetry.GridX is not int ||
+             frame.Telemetry.GridY is not int))
+        {
+            SetStatus(
+                playerId,
+                "tile-unavailable",
+                "remote-grid-missing",
+                "Remote telemetry did not include stable OMSI GridX/GridY coordinates.");
+            return;
+        }
+
         if (!_spawned.ContainsKey(playerId))
         {
             if (_spawnRetryAfterByPlayer.TryGetValue(
@@ -366,10 +380,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 if (spawn?.Success != true)
                 {
                     _spawned.TryRemove(playerId, out _);
-                    if (string.Equals(
-                            spawn?.ErrorCode,
-                            "tile-unavailable",
-                            StringComparison.Ordinal))
+                    if (IsTileAvailabilityError(spawn?.ErrorCode))
                     {
                         _spawnRetryAfterByPlayer[playerId] =
                             DateTimeOffset.UtcNow + TileUnavailableRetryDelay;
@@ -632,13 +643,32 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
     }
 
+    private static bool IsTileAvailabilityError(string? errorCode) =>
+        !string.IsNullOrWhiteSpace(errorCode) &&
+        (string.Equals(
+             errorCode,
+             "tile-unavailable",
+             StringComparison.Ordinal) ||
+         string.Equals(
+             errorCode,
+             "tile-grid-unavailable",
+             StringComparison.Ordinal) ||
+         string.Equals(
+             errorCode,
+             "tile-grid-missing",
+             StringComparison.Ordinal));
+
     private static bool IsFatalUpdateFailure(string? errorCode) =>
         string.Equals(errorCode, "vehicle-not-owned", StringComparison.Ordinal) ||
         string.Equals(errorCode, "vehicle-pointer-stale", StringComparison.Ordinal) ||
         string.Equals(errorCode, "invalid-pose", StringComparison.Ordinal) ||
         string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
         string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal);
+        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
 
     private void ReportCommandFailureOnce(
         string playerId,
@@ -653,16 +683,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 "multi-vehicle-consist-unsupported",
                 StringComparison.Ordinal)
             ? "consist-unsupported"
-            : string.Equals(
-                errorCode,
-                "tile-unavailable",
-                StringComparison.Ordinal)
+            : IsTileAvailabilityError(errorCode)
                 ? "tile-unavailable"
                 : $"{operation}-failed";
         SetStatus(
             playerId,
             state,
             errorCode,
+            result?.ErrorMessage,
             result?.RemoteVehicleCount,
             expectedPartCount);
         ReportFailureOnce(
@@ -675,6 +703,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string playerId,
         string state,
         string? errorCode = null,
+        string? errorMessage = null,
         int? partCount = null,
         int? expectedPartCount = null)
     {
@@ -686,6 +715,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _statusByPlayer[playerId] = new RemotePhysicalVehicleStatus(
             state,
             string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
+            string.IsNullOrWhiteSpace(errorMessage) ? null : errorMessage.Trim(),
             partCount is > 0 ? partCount : null,
             expectedPartCount is > 0 ? expectedPartCount : null,
             DateTimeOffset.UtcNow);

@@ -1,77 +1,66 @@
 # Releases
 
-O OMSI NavBR Multiplayer usa versionamento semântico (SemVer) e GitHub Actions para publicar builds de teste e releases gerais.
+O OMSI NavBR Multiplayer usa SemVer e GitHub Actions para publicar prereleases e releases.
 
-## Convenção
-
-- `v0.x.y-alpha.n` — prerelease geral da série alpha;
-- `v0.x.y-alpha.n-test.m` — prerelease pública de integração/teste comunitário;
-- `v0.x.y-beta.n` — fase beta;
-- `v0.x.y` — release estável.
-
-## Estado atual
-
-### Teste público atual
+## Estado atual / Current state
 
 ```text
-v0.3.0-alpha.14-test.6
+v0.3.0-alpha.15
 ```
 
 Release:
 
-https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.14-test.6
+https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.15
 
-A Test 6 é a prerelease pública atual da Alpha.14. Ela consolida as correções mais recentes de Navegação, Personagem/RP, simulador e ônibus remoto físico.
+### Português (pt-BR)
 
-### Destaques da Alpha.14 Test 6
+A Alpha.15 consolida:
+- React/WebView2 como interface principal;
+- multiplayer Servidor NavBR, LAN e Online através do Host;
+- navegação 2D/3D com roadmap real;
+- Plugin Bridge v3 + state interop ABI v7;
+- ônibus remoto físico com Kachel resolvida localmente por GridX/GridY;
+- RP com restauração confirmada do motorista;
+- updater do plugin por fingerprint SHA-256;
+- Portal V2 no GitHub Pages.
 
-- interface principal React/WebView2;
-- três modos de multiplayer: Servidor NavBR oficial, LAN e Online através do Host;
-- Navegação 2D/3D com roadmap real e retorno à rota;
-- Personagem/RP com resolução do motorista humano ativo;
-- ônibus remoto físico experimental com spawn/update/despawn, Kachel/tile, interpolação e diagnóstico por jogador;
-- simulador com verificação física real por `MakeVehicle`;
-- cliente Windows x86, plugin Native AOT x86, servidor dedicado e simulador;
-- checksums SHA-256 nos pacotes publicados.
+O ônibus físico e o RP físico continuam experimentais até validação ampla no OMSI real.
 
-### Pacotes publicados
+### English (en)
 
-A Test 6 publica:
+Alpha.15 consolidates:
+- React/WebView2 as the main desktop UI;
+- NavBR Server, LAN and Internet Host multiplayer modes;
+- 2D/3D navigation using the real roadmap;
+- Plugin Bridge v3 + state interop ABI v7;
+- experimental remote physical buses resolving the local Kachel from GridX/GridY;
+- Character/RP with confirmed driver restoration;
+- SHA-256 based plugin bundle update detection;
+- Portal V2 on GitHub Pages.
 
-```text
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.exe
-OMSI-NavBR-Multiplayer-v0.3.0-alpha.14-test.6-win-x86.zip
-OMSI-NavBR-Server-v0.3.0-alpha.14-test.6-win-x64.zip
-OMSI-NavBR-Plugin-v0.3.0-alpha.14-test.6-win-x86.zip
-OMSI-NavBR-Multiplayer-Simulator-v0.3.0-alpha.14-test.6-win-x64-dev.zip
-SHA256SUMS.txt
-```
+Physical bus injection and physical Character/RP remain experimental until broader real-OMSI validation.
 
-O **EXE standalone x86** é a opção recomendada para a maioria dos usuários.
+## Pacotes / Packages
 
-### Recursos experimentais
+O workflow geral publica:
+- `OMSI-NavBR-Multiplayer-v0.3.0-alpha.15-win-x86.exe`;
+- `OMSI-NavBR-Multiplayer-v0.3.0-alpha.15-win-x86.zip`;
+- `OMSI-NavBR-Server-v0.3.0-alpha.15-win-x64.zip`.
 
-Ônibus remoto físico e Personagem/RP continuam experimentais. O NavBR não redistribui mapas, ônibus, HOFs ou outros conteúdos pagos/proprietários do OMSI.
+O EXE standalone x86 é a opção recomendada para a maioria dos usuários.
 
-Os gates de CI validam build, arquitetura x86, bridge, cliente, servidor, simulador, pacote e checksums, mas não substituem validação visual em uma instalação real do OMSI.
+## Histórico recente / Recent history
 
-## Histórico recente
+- `v0.3.0-alpha.15` — consolidação de runtime físico, RP, plugin updater e Portal V2;
+- `v0.3.0-alpha.14-test.6` — última Test da série Alpha.14;
+- `v0.3.0-alpha.14` — Alpha.14 pública;
+- `v0.3.0-alpha.13-test.1` — testes físicos iniciais.
 
-- `v0.3.0-alpha.11-test.1` — primeira build pública da Alpha.11;
-- `v0.3.0-alpha.14-test.6` — prerelease pública atual com integração React, correções de navegação/RP e ônibus físico experimental;
-- `v0.3.0-alpha.14-test.5` — rodada de validação anterior;
-- `v0.3.0-alpha.11-test.2` — velocidade corrigida, HUD compacto, filtro de paradas, manual interno, diagnósticos e primeira rodada pública do 3D experimental;
-- `v0.3.0-alpha.10` — release oficial anterior, baseada na linha de integração Alpha.10.
-
-## Site e catálogo
-
-O portal oficial é:
+## Portal
 
 https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/
 
-O GitHub Pages lê `site/releases.json` e apresenta os downloads publicados. O workflow de release atualiza esse catálogo após a publicação.
+## Créditos / Credits
 
-## Créditos
-
-**Desenvolvedor:** MichaelPriest  
-**Apoio ao desenvolvimento:** IA ChatGPT
+**Desenvolvedor / Developer:** MichaelPriest  
+**Apoio ao desenvolvimento / Development assistance:** IA ChatGPT

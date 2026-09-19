@@ -22,7 +22,9 @@ export function useReleaseCatalog() {
         const releases = Array.isArray(catalog)
           ? catalog
           : Array.isArray(catalog?.releases) ? catalog.releases : [];
-        releases.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+        // releases.json follows the GitHub Releases ordering. Preserve it so
+        // numbered test builds remain in their intended sequence even when a
+        // release was edited or published later than a higher-numbered build.
         const totalDownloads = Number(catalog?.total_downloads) ||
           releases.reduce((total, release) => total + releaseDownloadCount(release), 0);
         const alphaDownloads = catalog?.alpha_downloads && typeof catalog.alpha_downloads === "object"

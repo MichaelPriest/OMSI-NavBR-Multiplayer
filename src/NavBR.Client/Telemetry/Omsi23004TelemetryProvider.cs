@@ -216,8 +216,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
 
             var vehiclePointer = unchecked((uint)vehicleAddress.ToInt64());
-            int? fallbackDefinition = null;
-
             for (var index = 0; index < count; index++)
             {
                 var humanAddress = memory.ReadUInt32(nint.Add(
@@ -245,8 +243,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                     continue;
                 }
 
-                fallbackDefinition ??= unchecked((int)definition);
-
                 // OMSI public reverse-engineering references define
                 // AIModeEx value 9 as THAME_DrivingBus. Prefer that live state
                 // so passengers attached to the same vehicle are not mistaken
@@ -264,7 +260,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 }
             }
 
-            return fallbackDefinition;
+            return null;
         }
         catch
         {
@@ -586,6 +582,83 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         gridX = 0;
         gridY = 0;
 
+        if (!TryReadMapTilePointer(
+                memory,
+                mapTileIndex,
+                out var tilePointer))
+        {
+            return false;
+        }
+
+        try
+        {
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            var infosAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapKachelInfosOffset));
+            if (infosAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var infosPointer = ReadOnlyProcessMemory.PointerFromUInt32(infosAddress);
+            var infoCount = memory.ReadInt32(nint.Subtract(infosPointer, sizeof(int)));
+            if (infoCount <= 0 || infoCount > 200_000)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < infoCount; index++)
+            {
+                var infoPointer = nint.Add(
+                    infosPointer,
+                    checked(index * Omsi23004MemoryProfile.MapKachelInfoSize));
+                var candidate = memory.ReadUInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoTilePointerOffset));
+                if (candidate != tilePointer)
+                {
+                    continue;
+                }
+
+                var x = memory.ReadInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoGridXOffset));
+                var y = memory.ReadInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoGridYOffset));
+                if (Math.Abs((long)x) > 100_000L ||
+                    Math.Abs((long)y) > 100_000L)
+                {
+                    return false;
+                }
+
+                gridX = x;
+                gridY = y;
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadMapTilePointer(
+        ReadOnlyProcessMemory memory,
+        int mapTileIndex,
+        out uint tilePointer)
+    {
+        tilePointer = 0;
         if (mapTileIndex < 0 || mapTileIndex > 200_000)
         {
             return false;
@@ -608,41 +681,30 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return false;
             }
 
-            var infosAddress = memory.ReadUInt32(nint.Add(
+            var tilesAddress = memory.ReadUInt32(nint.Add(
                 mapPointer,
-                Omsi23004MemoryProfile.MapKachelInfosOffset));
-            if (infosAddress <= 0x10000u)
+                Omsi23004MemoryProfile.MapKachelnOffset));
+            if (tilesAddress <= 0x10000u)
             {
                 return false;
             }
 
-            var infosPointer = ReadOnlyProcessMemory.PointerFromUInt32(infosAddress);
-            var count = memory.ReadInt32(nint.Subtract(infosPointer, sizeof(int)));
-            if (count <= 0 ||
-                count > 200_000 ||
-                mapTileIndex >= count)
+            var tilesPointer = ReadOnlyProcessMemory.PointerFromUInt32(tilesAddress);
+            var count = memory.ReadInt32(nint.Subtract(tilesPointer, sizeof(int)));
+            if (count <= 0 || count > 200_000 || mapTileIndex >= count)
             {
                 return false;
             }
 
-            var infoPointer = nint.Add(
-                infosPointer,
-                mapTileIndex * Omsi23004MemoryProfile.MapKachelInfoSize);
-            var x = memory.ReadInt32(nint.Add(
-                infoPointer,
-                Omsi23004MemoryProfile.MapKachelInfoGridXOffset));
-            var y = memory.ReadInt32(nint.Add(
-                infoPointer,
-                Omsi23004MemoryProfile.MapKachelInfoGridYOffset));
-
-            if (Math.Abs((long)x) > 100_000L ||
-                Math.Abs((long)y) > 100_000L)
+            var value = memory.ReadUInt32(nint.Add(
+                tilesPointer,
+                checked(mapTileIndex * sizeof(int))));
+            if (value <= 0x10000u)
             {
                 return false;
             }
 
-            gridX = x;
-            gridY = y;
+            tilePointer = value;
             return true;
         }
         catch
@@ -657,12 +719,49 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     {
         try
         {
-            var value = memory.ReadInt32(nint.Add(
+            var vehicleTilePointer = memory.ReadUInt32(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleKachelOffset));
-            return value is >= 0 and <= 200_000
-                ? value
-                : null;
+            if (vehicleTilePointer <= 0x10000u)
+            {
+                return null;
+            }
+
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return null;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            var tilesAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapKachelnOffset));
+            if (tilesAddress <= 0x10000u)
+            {
+                return null;
+            }
+
+            var tilesPointer = ReadOnlyProcessMemory.PointerFromUInt32(tilesAddress);
+            var count = memory.ReadInt32(nint.Subtract(tilesPointer, sizeof(int)));
+            if (count <= 0 || count > 200_000)
+            {
+                return null;
+            }
+
+            for (var index = 0; index < count; index++)
+            {
+                var candidate = memory.ReadUInt32(nint.Add(
+                    tilesPointer,
+                    checked(index * sizeof(int))));
+                if (candidate == vehicleTilePointer)
+                {
+                    return index;
+                }
+            }
+
+            return null;
         }
         catch
         {
