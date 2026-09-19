@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using NavBR.Client.Omsi;
 
 namespace NavBR.Client.PluginInstaller;
 
@@ -377,7 +378,16 @@ internal static class OmsiPluginInstallationService
     {
         if (!string.IsNullOrWhiteSpace(preferredRoot))
         {
-            yield return preferredRoot;
+            var resolvedPreferred =
+                OmsiInstallationLocator.TryResolveInstallDirectory(preferredRoot);
+            if (!string.IsNullOrWhiteSpace(resolvedPreferred))
+            {
+                yield return resolvedPreferred;
+            }
+            else if (Directory.Exists(preferredRoot))
+            {
+                yield return preferredRoot;
+            }
         }
 
         // OMSI Launcher documents the native Aerosoft registration as an additional
