@@ -150,7 +150,7 @@ function Sidebar({
       <div className="sidebar-footer">
         <i />
         <div className="sidebar-footer-main">
-          <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
+          <div><strong>Alpha.15</strong><small>React + WebView2</small></div>
           <label className="sidebar-language">
             <span>{t("common.language")}</span>
             <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
