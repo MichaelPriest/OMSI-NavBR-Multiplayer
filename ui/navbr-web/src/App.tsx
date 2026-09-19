@@ -3678,13 +3678,25 @@ function Multiplayer({
                         .filter(Boolean)
                         .join(" · ") || pick("Sem serviço informado", "No service reported", "Sin servicio informado", "Kein Dienst gemeldet", "Aucun service indiqué")}
                     </small>
-                    <small>
+                    <small
+                      title={!player.isLocal && multiplayer.physicalVehiclesEnabled
+                        ? player.physicalVehicleErrorMessage || undefined
+                        : undefined}
+                    >
                       {player.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")}
                       {(player.destinationName || player.nextStopName) ? ` → ${player.destinationName || player.nextStopName}` : ""}
                       {!player.isLocal && multiplayer.physicalVehiclesEnabled
                         ? ` · ${physicalVehicleStatusLabel(player.physicalVehicleState, player.physicalVehicleErrorCode, player.physicalVehiclePartCount, player.physicalVehicleExpectedPartCount, pick)}`
                         : ""}
                     </small>
+                    {!player.isLocal &&
+                      multiplayer.physicalVehiclesEnabled &&
+                      player.physicalVehicleErrorMessage &&
+                      player.physicalVehicleState !== "active" && (
+                        <small className="physical-error-detail">
+                          {player.physicalVehicleErrorMessage}
+                        </small>
+                      )}
                   </div>
                   <span className={`voice-state ${player.speaking ? "speaking" : ""} ${player.telemetryStale ? "stale" : ""}`}>
                     {player.speaking
