@@ -1346,7 +1346,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_DetachHumanForRoleplay(int hu
     Vec3 humanWorldPosition = position;
     if (roleplayTilePointer != 0)
     {
-        _ = TryResolveWorldTranslation(
+        (void)TryResolveWorldTranslation(
             humanPointer,
             roleplayTilePointer,
             position,
@@ -1705,7 +1705,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     Vec3 worldPosition = position;
     if (effectiveTilePointer != 0)
     {
-        _ = TryResolveWorldTranslation(
+        (void)TryResolveWorldTranslation(
             vehiclePointer,
             effectiveTilePointer,
             position,
