@@ -1,8 +1,8 @@
 # Alpha.14 — notas da versão pública
 
-Versão pública e atual: **v0.3.0-alpha.14-test.5**
+Versão pública e atual: **v0.3.0-alpha.14-test.6**
 
-A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.5** passa a ser a release pública atual do OMSI NavBR Multiplayer.
+A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.6** passa a ser a release pública atual do OMSI NavBR Multiplayer.
 
 ## Interface principal
 
@@ -103,7 +103,7 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.5*
 
 ## Observação
 
-A Alpha.14 Test 5 está liberada publicamente. A publicação atual inclui o hotfix `29f30b2` para o travamento do **Online através do Host**. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
+A Alpha.14 Test 6 está liberada publicamente. A publicação atual inclui o hotfix `29f30b2` para o travamento do **Online através do Host**. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
 
 
 ## HUD / Roadmap Studio
@@ -126,3 +126,13 @@ A Alpha.14 Test 5 está liberada publicamente. A publicação atual inclui o hot
 - ônibus remoto físico sincroniza Kachel validada pelo mapa local, suaviza movimento e confirma materialização por IDs;
 - simulador físico usa posição absoluta + local + Kachel do host, pode usar MAN EN92 padrão e rotas diferentes do HOF;
 - `--verify-physical` falha se a telemetria chegar, mas os bots não forem confirmados como `RoadVehicles` reais no OMSI.
+
+
+## Alpha.14 Test 6 — release pública
+
+- integra as correções de campo da navegação, RP e multiplayer físico após a validação da Test 5;
+- mantém o mapa/roadmap real na Navegação React e o caminho de retorno à rota no HUD;
+- reforça o acionamento do RP pelo motorista vivo do ônibus, inclusive resolução pelo plugin quando o catálogo não basta;
+- sincroniza os flags reais de RP/ônibus físico na interface multiplayer;
+- o simulador expõe a verificação física real por `MakeVehicle` para confirmar materialização dentro do OMSI;
+- mantém ônibus remoto físico, Kachel/tile, interpolação e diagnóstico por jogador como recursos experimentais.
