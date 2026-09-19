@@ -83,6 +83,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private bool _groundHeightCalibrated;
     private bool _groundFollowing;
     private double? _lastGroundHeight;
+    private string? _lastErrorCode;
+    private string? _lastErrorMessage;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -113,6 +115,29 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _nativeAnimationDiagnostics;
     public RoleplayNativeActivityObservation? CurrentNativeActivityObservation =>
         _nativeActivityObservation;
+    public string? LastErrorCode => _lastErrorCode;
+    public string? LastErrorMessage => _lastErrorMessage;
+
+    private void SetStatus(
+        string status,
+        string? errorMessage = null,
+        bool isError = false)
+    {
+        if (isError)
+        {
+            _lastErrorCode = status;
+            _lastErrorMessage = string.IsNullOrWhiteSpace(errorMessage)
+                ? status
+                : errorMessage.Trim();
+        }
+        else
+        {
+            _lastErrorCode = null;
+            _lastErrorMessage = null;
+        }
+
+        StatusChanged?.Invoke(status);
+    }
 
     public double? GetBusDistanceMeters()
     {
@@ -338,19 +363,28 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled)
         {
-            StatusChanged?.Invoke("roleplay-disabled");
+            SetStatus(
+                "roleplay-disabled",
+                "Character / RP writes are disabled.",
+                isError: true);
             return false;
         }
 
         if (!IsRuntimeAvailable)
         {
-            StatusChanged?.Invoke("roleplay-plugin-unavailable");
+            SetStatus(
+                "roleplay-plugin-unavailable",
+                "Plugin Bridge is disconnected or does not expose character-possession and character-transform.",
+                isError: true);
             return false;
         }
 
         if (selected is null)
         {
-            StatusChanged?.Invoke("roleplay-character-required");
+            SetStatus(
+                "roleplay-character-required",
+                "No live OMSI driver is selected for the current map.",
+                isError: true);
             return false;
         }
 
@@ -363,7 +397,10 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             !double.IsFinite(anchorY) ||
             !double.IsFinite(anchorZ))
         {
-            StatusChanged?.Invoke("roleplay-waiting-telemetry");
+            SetStatus(
+                "roleplay-waiting-telemetry",
+                "The player bus does not yet expose a finite local OMSI pose.",
+                isError: true);
             return false;
         }
 
@@ -394,7 +431,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             result.HeadingDegrees is not double heading)
         {
             _instanceId = null;
-            StatusChanged?.Invoke(result?.ErrorCode ?? "roleplay-acquire-failed");
+            SetStatus(
+                result?.ErrorCode ?? "roleplay-acquire-failed",
+                result?.ErrorMessage ??
+                "The Plugin Bridge did not confirm acquisition of the active OMSI driver.",
+                isError: true);
             return false;
         }
 
@@ -449,7 +490,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _timer.Start();
         StateChanged?.Invoke(_state);
         EmitNetworkState(_state);
-        StatusChanged?.Invoke("roleplay-active");
+        SetStatus("roleplay-active");
         return true;
     }
 
