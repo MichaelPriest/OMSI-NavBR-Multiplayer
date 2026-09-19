@@ -24,7 +24,10 @@ public partial class MainWindow
         }
 
         var roadmapUrl = ResolveWebNavigationRoadmapUrl(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
+        var roadmapFallbackUrl = ResolveWebNavigationRoadmapFallbackUrl(map);
+        var roadmapAvailable =
+            !string.IsNullOrWhiteSpace(roadmapUrl) ||
+            !string.IsNullOrWhiteSpace(roadmapFallbackUrl);
         var minWorldX = layout.MinGridX * tileSize;
         var minWorldY = layout.MinGridY * tileSize;
         var maxWorldX = minWorldX + worldWidth;
@@ -189,6 +192,7 @@ public partial class MainWindow
             mapFolder = map.FolderName,
             roadmapAvailable,
             roadmapUrl,
+            roadmapFallbackUrl,
             bounds = new
             {
                 minX = minWorldX,
@@ -217,7 +221,12 @@ public partial class MainWindow
         var roadmapUrl = map is null
             ? null
             : ResolveWebNavigationRoadmapUrl(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
+        var roadmapFallbackUrl = map is null
+            ? null
+            : ResolveWebNavigationRoadmapFallbackUrl(map);
+        var roadmapAvailable =
+            !string.IsNullOrWhiteSpace(roadmapUrl) ||
+            !string.IsNullOrWhiteSpace(roadmapFallbackUrl);
 
         return new
         {
@@ -226,6 +235,7 @@ public partial class MainWindow
             mapFolder = map?.FolderName,
             roadmapAvailable,
             roadmapUrl,
+            roadmapFallbackUrl,
             bounds = null as object,
             routePoints = Array.Empty<object>(),
             localVehicle = null as object,
@@ -274,7 +284,64 @@ public partial class MainWindow
     private static string? ResolveWebNavigationRoadmapUrl(OmsiMapInfo map)
     {
         var path = ResolveWebNavigationRoadmapPath(map);
-        return WebRoadmapCache.TryGetPngUrl(path);
+        return TryBuildWebMapResourceUrl(map, path)
+            ?? WebRoadmapCache.TryGetPngUrl(path);
+    }
+
+    private static string? ResolveWebNavigationRoadmapFallbackUrl(OmsiMapInfo map)
+    {
+        var path = ResolveWebNavigationRoadmapPath(map);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var direct = TryBuildWebMapResourceUrl(map, path);
+        var cached = WebRoadmapCache.TryGetPngUrl(path);
+        return !string.IsNullOrWhiteSpace(cached) &&
+               !string.Equals(cached, direct, StringComparison.OrdinalIgnoreCase)
+            ? cached
+            : null;
+    }
+
+    private static string? TryBuildWebMapResourceUrl(
+        OmsiMapInfo map,
+        string? absolutePath)
+    {
+        if (string.IsNullOrWhiteSpace(absolutePath) ||
+            !File.Exists(absolutePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var mapRoot = Path.GetFullPath(map.DirectoryPath);
+            var path = Path.GetFullPath(absolutePath);
+            var relative = Path.GetRelativePath(mapRoot, path);
+            if (Path.IsPathRooted(relative) ||
+                string.Equals(relative, "..", StringComparison.Ordinal) ||
+                relative.StartsWith(
+                    ".." + Path.DirectorySeparatorChar,
+                    StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var escaped = string.Join(
+                "/",
+                relative
+                    .Replace('\\', '/')
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(Uri.EscapeDataString));
+            return escaped.Length == 0
+                ? null
+                : $"https://navbr-map.local/{escaped}";
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static bool TryGetWebNavigation3DPosition(
