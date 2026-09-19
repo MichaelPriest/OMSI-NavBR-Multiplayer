@@ -16,15 +16,15 @@ No modo **Servidor Online**:
 - todos entram pela mesma URL HTTPS do Render;
 - presença, telemetria, chat, voz e estado da sala continuam usando o SignalR existente.
 
-Há três formas de hospedar uma sala:
+Há três formas de usar o multiplayer:
 
-- **Host online sem portas (recomendado para Internet):** o PC que cria a sala continua sendo o dono e a autoridade da sessão, mas não aceita conexões de entrada. Host e convidados conectam ao Render por HTTPS/WebSocket. Funciona sem UPnP, sem redirecionamento da TCP 27730 e também atrás de CGNAT;
-- **Somente LAN:** o PC que criou a sala executa o NavBR.Server local e outros PCs da mesma rede entram pelo IP local;
-- **Internet via UPnP:** o mesmo PC executa o servidor local e o NavBR tenta mapear automaticamente a TCP 27730 no roteador.
+- **Servidor Online NavBR (Render):** o próprio Render executa o NavBR.Server. Os jogadores são clientes do servidor dedicado e não precisam abrir portas, usar UPnP ou possuir IP público. Quem cria uma sala recebe a propriedade administrativa da sala, mas não hospeda o servidor no próprio PC;
+- **Host local somente LAN:** o PC que criou a sala executa o NavBR.Server local e outros PCs da mesma rede entram pelo IP local;
+- **Host local pela Internet via UPnP:** o PC do jogador executa o servidor local e o NavBR tenta mapear automaticamente a TCP 27730 no roteador.
 
-No modo **Host online sem portas**, o Render é apenas o transporte intermediário/servidor de sessão. A propriedade da sala continua sendo atribuída ao jogador que a criou primeiro; se ele sair, a autoridade pode ser transferida para outro jogador conectado.
+No modo **Servidor Online NavBR**, presença, telemetria, chat, voz, diretório de salas e estado compartilhado são processados pelo NavBR.Server em execução no Render. A propriedade de sala é uma permissão administrativa da aplicação e não significa que o PC do criador seja o servidor.
 
-O servidor Render não é necessário quando uma das modalidades peer-host local é usada.
+O servidor Render não é necessário quando uma das modalidades de host local é usada.
 
 ## Deploy com um clique
 
@@ -48,7 +48,7 @@ O Blueprint `render.yaml` cria:
 4. Marque **Usar servidor online**.
 5. Cole a URL em **URL do servidor online**.
 6. Informe sala/apelido/senha, se houver.
-7. Clique em **Criar sala online**.
+7. Clique em **Criar sala no servidor online**.
 
 Os outros jogadores usam a mesma URL e o mesmo ID da sala.
 
