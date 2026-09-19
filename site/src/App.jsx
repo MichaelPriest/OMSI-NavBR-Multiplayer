@@ -49,7 +49,7 @@ export default function App() {
         <StatusSection current={current} />
         <ConceptGallery />
         <AlphaDownloads currentAlphaKey={currentAlphaKey} alphaDownloads={catalog.alphaDownloads} loading={catalog.loading} />
-        <Downloads currentAssets={currentAssets} loading={catalog.loading} error={catalog.error} releasesPage={RELEASES_PAGE} />
+        <Downloads currentAssets={currentAssets} releases={catalog.releases} loading={catalog.loading} error={catalog.error} releasesPage={RELEASES_PAGE} />
         <Features />
         <AdSlot name="direct" />
         <MultiplayerSection />
