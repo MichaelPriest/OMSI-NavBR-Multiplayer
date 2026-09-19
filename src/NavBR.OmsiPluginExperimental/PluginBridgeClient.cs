@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using NavBR.Shared.PluginBridge;
@@ -20,6 +21,12 @@ internal static class PluginBridgeClient
     private static Action<string>? _log;
     private static PluginBridgeMessage? _localState;
     private static PluginBridgeMessage? _pendingStatus;
+
+    private static readonly string? ComponentVersion =
+        typeof(PluginBridgeClient).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+        ?? ComponentVersion;
 
     public static PluginBridgeMessage? LatestRemoteState =>
         RemoteVehicles.LatestCompatible(GetLocalState());
@@ -87,7 +94,7 @@ internal static class PluginBridgeClient
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
             ProcessId: Environment.ProcessId,
-            ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+            ComponentVersion: ComponentVersion,
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
@@ -140,7 +147,7 @@ internal static class PluginBridgeClient
                     PluginBridgeProtocol.PluginHello,
                     PluginBridgeProtocol.Version,
                     ProcessId: Environment.ProcessId,
-                    ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString());
+                    ComponentVersion: ComponentVersion);
 
                 await writer.WriteLineAsync(SerializeMessage(hello));
 
@@ -162,7 +169,7 @@ internal static class PluginBridgeClient
                     PluginBridgeProtocol.PluginCapabilities,
                     PluginBridgeProtocol.Version,
                     ProcessId: Environment.ProcessId,
-                    ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+                    ComponentVersion: ComponentVersion,
                     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ExperimentalWritesEnabled:
                         ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||

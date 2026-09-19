@@ -101,12 +101,21 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   chat: []
 };
 
+function buildVersionLabel(version?: string | null) {
+  if (!version) return "Alpha";
+  const clean = version.split("+")[0];
+  const alpha = clean.match(/alpha\.([0-9]+(?:\.[0-9]+)*)/i);
+  return alpha ? `Alpha.${alpha[1]}` : clean;
+}
+
 function Sidebar({
   screen,
-  setScreen
+  setScreen,
+  appVersion
 }: {
   screen: Screen;
   setScreen: (screen: Screen) => void;
+  appVersion?: string | null;
 }) {
   const { t, pick, cultureName, languages, setLanguage } = useI18n();
   return (
@@ -150,7 +159,7 @@ function Sidebar({
       <div className="sidebar-footer">
         <i />
         <div className="sidebar-footer-main">
-          <div><strong>Alpha.15</strong><small>React + WebView2</small></div>
+          <div><strong>{buildVersionLabel(appVersion)}</strong><small>React + WebView2</small></div>
           <label className="sidebar-language">
             <span>{t("common.language")}</span>
             <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
@@ -3318,7 +3327,13 @@ function Multiplayer({
               <div><span className="eyebrow">{pick("SESSÃO AO VIVO", "LIVE SESSION", "SESIÓN EN VIVO", "LIVE-SITZUNG", "SESSION EN DIRECT")}</span><h3>{pick("Operação compartilhada", "Shared operation", "Operación compartida", "Gemeinsamer Betrieb", "Opération partagée")}</h3></div>
               <span className={`live-pill ${multiplayer.connected ? "" : "muted"}`}><span /> {multiplayer.connected ? "LIVE" : "OFFLINE"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation?.available || state?.navigation?.roadmapAvailable
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="mp-side-stack">
@@ -4737,7 +4752,15 @@ function PluginStartupPrompt({
       </p>
       {plugin.omsiRunning && (
         <p className="migration-note">
-          {pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
+          {plugin.state === "outdated"
+            ? pick(
+                "Feche o OMSI uma vez. O NavBR aplicará automaticamente o plugin novo assim que Omsi.exe encerrar; depois abra o OMSI novamente para liberar ônibus físicos e RP.",
+                "Close OMSI once. NavBR will automatically apply the new plugin as soon as Omsi.exe exits; then launch OMSI again to enable physical buses and RP.",
+                "Cierra OMSI una vez. NavBR aplicará automáticamente el plugin nuevo cuando Omsi.exe termine; después vuelve a abrir OMSI para habilitar autobuses físicos y RP.",
+                "OMSI einmal schließen. NavBR installiert das neue Plugin automatisch, sobald Omsi.exe beendet ist; danach OMSI erneut starten, um physische Busse und RP zu aktivieren.",
+                "Fermez OMSI une fois. NavBR appliquera automatiquement le nouveau plugin dès l’arrêt de Omsi.exe ; relancez ensuite OMSI pour activer les bus physiques et le RP."
+              )
+            : pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
         </p>
       )}
       {!plugin.installAvailable && !plugin.omsiRunning && (
@@ -4822,7 +4845,7 @@ export default function App() {
   return (
     <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
     <div className="app-shell">
-      <Sidebar screen={screen} setScreen={setScreen} />
+      <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
         <PluginStartupPrompt
           state={state}
