@@ -276,6 +276,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
 
   const geometry = useMemo(() => {
     const route = navigation.routePoints;
+    const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
 
     if (route.length < 2) {
@@ -294,8 +295,8 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
     } else {
-      const xs = route.map(point => point.x);
-      const ys = route.map(point => -point.y);
+      const xs = [...route, ...rejoin].map(point => point.x);
+      const ys = [...route, ...rejoin].map(point => -point.y);
       minX = Math.min(...xs);
       maxX = Math.max(...xs);
       minY = Math.min(...ys);
@@ -314,12 +315,14 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     const routePoints = route.map(point => `${point.x},${-point.y}`).join(" ");
+    const rejoinPoints = rejoin.map(point => `${point.x},${-point.y}`).join(" ");
 
     return {
       viewBox: `${centerX - width / 2} ${centerY - height / 2} ${width} ${height}`,
-      routePoints
+      routePoints,
+      rejoinPoints
     };
-  }, [navigation.routePoints, navigation.vehicle, mode, zoom]);
+  }, [navigation.routePoints, navigation.rejoinPoints, navigation.vehicle, mode, zoom]);
 
   return (
     <div className="navigation-map">
@@ -340,6 +343,18 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
           <polyline className="nav-route-shadow" points={geometry.routePoints} />
           <polyline className="nav-route-line" points={geometry.routePoints} />
+
+          {navigation.rejoinAvailable && geometry.rejoinPoints && (
+            <>
+              <polyline className="nav-rejoin-shadow" points={geometry.rejoinPoints} />
+              <polyline className="nav-rejoin-line" points={geometry.rejoinPoints} />
+              {navigation.rejoinPoint && (
+                <g transform={`translate(${navigation.rejoinPoint.x} ${-navigation.rejoinPoint.y})`}>
+                  <circle className="nav-rejoin-target" r="13" />
+                </g>
+              )}
+            </>
+          )}
 
           {navigation.stopPoints.map((stop, index) => (
             <g key={`${stop.name}-${index}`} transform={`translate(${stop.x} ${-stop.y})`}>
@@ -365,6 +380,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
 
       <div className="navigation-map-legend">
         <span><i className="route" /> {pick("Rota OMSI", "OMSI route", "Ruta OMSI", "OMSI-Route", "Itinéraire OMSI")}</span>
+        {navigation.rejoinAvailable && <span><i className="rejoin" /> {pick("Retorno à rota", "Route rejoin", "Retorno a la ruta", "Routenrückkehr", "Retour à l’itinéraire")}</span>}
         <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
         <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
       </div>
@@ -678,7 +694,9 @@ function Navigation({
                 <h3>{maneuver.title}</h3>
                 <p>
                   {navigation.maneuver === "RejoinRoute"
-                    ? formatDistance(navigation.offRouteDistanceMeters)
+                    ? navigation.rejoinAvailable
+                      ? `${formatDistance(navigation.rejoinDistanceMeters)} ${pick("pela via de retorno", "via rejoin path", "por la vía de retorno", "über den Rückkehrweg", "par le chemin de retour")}`
+                      : formatDistance(navigation.offRouteDistanceMeters)
                     : navigation.distanceToManeuverMeters != null
                       ? `em ${formatDistance(navigation.distanceToManeuverMeters)}`
                       : navigation.currentStreetName || pick("Continue pela rota", "Continue on the route", "Continúa por la ruta", "Der Route weiter folgen", "Continuez sur l’itinéraire")}
