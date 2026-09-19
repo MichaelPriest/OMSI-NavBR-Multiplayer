@@ -274,9 +274,11 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
   const [mode, setMode] = useState<"follow" | "full">("follow");
   const [zoom, setZoom] = useState(1);
   const [roadmapSrc, setRoadmapSrc] = useState<string | null>(navigation.roadmapUrl || navigation.roadmapFallbackUrl || null);
+  const [roadmapLoadFailed, setRoadmapLoadFailed] = useState(false);
 
   useEffect(() => {
     setRoadmapSrc(navigation.roadmapUrl || navigation.roadmapFallbackUrl || null);
+    setRoadmapLoadFailed(false);
   }, [navigation.roadmapUrl, navigation.roadmapFallbackUrl]);
 
   const geometry = useMemo(() => {
@@ -350,6 +352,11 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         <button onClick={() => setZoom(value => Math.max(0.5, value * 0.8))} title={pick("Diminuir zoom", "Zoom out", "Alejar", "Herauszoomen", "Dézoomer")}>−</button>
         <button onClick={() => setZoom(value => Math.min(4, value * 1.25))} title={pick("Aumentar zoom", "Zoom in", "Acercar", "Hineinzoomen", "Zoomer")}>+</button>
         <button onClick={() => { setMode("full"); setZoom(1); }}>{pick("Ajustar", "Fit", "Ajustar", "Einpassen", "Ajuster")}</button>
+        {roadmapLoadFailed && (
+          <span className="navigation-map-diagnostic">
+            {pick("Roadmap: falha ao renderizar", "Roadmap: render failed", "Roadmap: error al renderizar", "Roadmap: Renderfehler", "Roadmap : échec du rendu")}
+          </span>
+        )}
         {navigation.routePoints.length < 2 && navigation.routeDiagnostic && (
           <span
             className="navigation-map-diagnostic"
@@ -382,6 +389,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
                   setRoadmapSrc(navigation.roadmapFallbackUrl);
                 } else {
                   setRoadmapSrc(null);
+                  setRoadmapLoadFailed(true);
                 }
               }}
               x={navigation.bounds.minX}
@@ -449,9 +457,11 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   const [camera, setCamera] = useState<"follow" | "roleplay" | "aerial">("follow");
   const [zoom, setZoom] = useState(1);
   const [roadmapSrc, setRoadmapSrc] = useState<string | null>(state.roadmapUrl || state.roadmapFallbackUrl || null);
+  const [roadmapLoadFailed, setRoadmapLoadFailed] = useState(false);
 
   useEffect(() => {
     setRoadmapSrc(state.roadmapUrl || state.roadmapFallbackUrl || null);
+    setRoadmapLoadFailed(false);
   }, [state.roadmapUrl, state.roadmapFallbackUrl]);
 
   useEffect(() => {
@@ -518,6 +528,15 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     );
   }
 
+  if (roadmapLoadFailed) {
+    return (
+      <div className="map-center-message navigation-empty nav3d-empty">
+        <strong>{pick("Roadmap encontrado, mas não pôde ser renderizado", "Roadmap found but could not be rendered", "Roadmap encontrado, pero no se pudo renderizar", "Roadmap gefunden, konnte aber nicht gerendert werden", "Roadmap trouvé mais impossible à afficher")}</strong>
+        <span>{pick("O NavBR tentou o PNG em cache e o arquivo real do mapa. Verifique o Roadmap Studio e os arquivos do mapa ativo.", "NavBR tried the cached PNG and the real map file. Check Roadmap Studio and the active map files.", "NavBR intentó el PNG en caché y el archivo real del mapa. Revisa Roadmap Studio y los archivos del mapa activo.", "NavBR hat das PNG im Cache und die echte Kartendatei versucht. Prüfe Roadmap Studio und die Dateien der aktiven Karte.", "NavBR a essayé le PNG en cache et le fichier réel de la carte. Vérifiez Roadmap Studio et les fichiers de la carte active.")}</span>
+      </div>
+    );
+  }
+
   if (!scene || !state.available) {
     return (
       <div className="map-center-message navigation-empty nav3d-empty">
@@ -569,6 +588,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
                   setRoadmapSrc(state.roadmapFallbackUrl);
                 } else {
                   setRoadmapSrc(null);
+                  setRoadmapLoadFailed(true);
                 }
               }}
               x="0"
