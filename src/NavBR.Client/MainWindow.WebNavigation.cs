@@ -313,6 +313,29 @@ public partial class MainWindow
             _webNavigationLayout,
             lookupTarget,
             telemetry.Line);
+
+        // Some buses/maps expose a short route/course code (for example "01")
+        // instead of the .ttr track name. If that first lookup cannot resolve
+        // real route geometry, retry with the active destination. This still
+        // goes through TTData/.ttp/.ttr resolution and never fabricates a route.
+        if (_webNavigationRoute.Count < 2 &&
+            !string.IsNullOrWhiteSpace(telemetry.DestinationName) &&
+            !string.Equals(
+                telemetry.DestinationName?.Trim(),
+                lookupTarget?.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var destinationRoute = OmsiRouteTraceReader.TryRead(
+                map,
+                _webNavigationLayout,
+                telemetry.DestinationName,
+                telemetry.Line);
+            if (destinationRoute.Count >= 2)
+            {
+                _webNavigationRoute = destinationRoute;
+            }
+        }
+
         _webNavigationOrderedStops = OmsiOrderedRouteStopReader.TryRead(
             map,
             telemetry.Route,
