@@ -1214,6 +1214,10 @@ internal sealed record SimulatorOptions(
     string? MapCompatibilityId,
     string? VehiclePath,
     string? VehicleCompatibilityId,
+    string? OmsiRoot,
+    bool VehicleExplicit,
+    IReadOnlyList<SimulatorHofRoute> HofRoutes,
+    string? ReferencePlayerId,
     string? ActiveLine,
     string? ActiveRoute,
     string? ActiveDestination,
@@ -1225,12 +1229,17 @@ internal sealed record SimulatorOptions(
     double CenterX,
     double CenterY,
     double CenterZ,
+    double LocalCenterX,
+    double LocalCenterY,
+    double LocalCenterZ,
+    int? MapTileIndex,
     double RadiusMeters,
     int IntervalMilliseconds,
     int DurationSeconds,
     string NamePrefix,
     SimulatorMode Mode,
     bool Verify,
+    bool VerifyPhysical,
     bool AutoStartLocalServer,
     bool PositionExplicit,
     bool NavigationSeedExplicit,
@@ -1277,6 +1286,12 @@ internal sealed record SimulatorOptions(
             MapCompatibilityId: NullIfEmpty(values.GetValueOrDefault("map-id")),
             VehiclePath: NullIfEmpty(values.GetValueOrDefault("vehicle-path")),
             VehicleCompatibilityId: NullIfEmpty(values.GetValueOrDefault("vehicle-id")),
+            OmsiRoot: NullIfEmpty(values.GetValueOrDefault("omsi-root")),
+            VehicleExplicit:
+                values.ContainsKey("vehicle-path") ||
+                values.ContainsKey("vehicle-id"),
+            HofRoutes: Array.Empty<SimulatorHofRoute>(),
+            ReferencePlayerId: null,
             ActiveLine: NullIfEmpty(values.GetValueOrDefault("line")),
             ActiveRoute: NullIfEmpty(values.GetValueOrDefault("route")),
             ActiveDestination: NullIfEmpty(values.GetValueOrDefault("destination")),
@@ -1288,12 +1303,17 @@ internal sealed record SimulatorOptions(
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),
             CenterY: ParseDouble(values.GetValueOrDefault("y"), 0d),
             CenterZ: ParseDouble(values.GetValueOrDefault("z"), 0d),
+            LocalCenterX: ParseDouble(values.GetValueOrDefault("local-x"), ParseDouble(values.GetValueOrDefault("x"), 0d)),
+            LocalCenterY: ParseDouble(values.GetValueOrDefault("local-y"), ParseDouble(values.GetValueOrDefault("y"), 0d)),
+            LocalCenterZ: ParseDouble(values.GetValueOrDefault("local-z"), ParseDouble(values.GetValueOrDefault("z"), 0d)),
+            MapTileIndex: ParseNullableInt(values.GetValueOrDefault("map-tile-index")),
             RadiusMeters: Math.Clamp(ParseDouble(values.GetValueOrDefault("radius"), 18d), 6d, 2000d),
             IntervalMilliseconds: ClampInt(values.GetValueOrDefault("interval"), 250, 100, 5000),
             DurationSeconds: Math.Max(0, ClampInt(values.GetValueOrDefault("duration"), 0, 0, 86400)),
             NamePrefix: NullIfEmpty(values.GetValueOrDefault("prefix")) ?? "SIM",
             Mode: mode,
-            Verify: values.ContainsKey("verify"),
+            Verify: values.ContainsKey("verify") || values.ContainsKey("verify-physical"),
+            VerifyPhysical: values.ContainsKey("verify-physical"),
             AutoStartLocalServer: !values.ContainsKey("no-auto-server"),
             PositionExplicit:
                 values.ContainsKey("x") ||
@@ -1303,7 +1323,8 @@ internal sealed record SimulatorOptions(
                 values.ContainsKey("grid-x") ||
                 values.ContainsKey("grid-y") ||
                 values.ContainsKey("tile-x") ||
-                values.ContainsKey("tile-y"),
+                values.ContainsKey("tile-y") ||
+                values.ContainsKey("map-tile-index"),
             RadiusExplicit: values.ContainsKey("radius"),
             ShowHelp: values.ContainsKey("help"));
     }
@@ -1332,6 +1353,11 @@ Options:
   --interval MS        Publish interval, 100..5000 (default 250)
   --duration SEC       0 = until Ctrl+C
   --verify             Verify that frames cross SignalR and positions move.
+  --verify-physical    Require a real OMSI client to confirm the simulator bots were materialized with MakeVehicle.
+  --omsi-root PATH     Optional OMSI root used to resolve the standard physical test bus.
+  --local-x N --local-y N --local-z N
+                       Optional local OMSI transform override for isolated physical tests.
+  --map-tile-index N   Optional OMSI Kachel index override.
   --no-auto-server     Do not auto-start a bundled/local NavBR.Server on loopback.
   --prefix TEXT        Display-name prefix (default SIM)
   --vehicle-path PATH  Optional real .bus path for physical-vehicle testing.
