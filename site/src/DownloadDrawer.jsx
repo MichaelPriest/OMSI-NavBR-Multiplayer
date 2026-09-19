@@ -1,7 +1,7 @@
 import React from "react";
 import { assetHelp, assetLabel, formatBytes, formatNumber } from "./lib.js";
 
-export default function DownloadDrawer({ open, assets, loading, error, releasesPage, onClose }) {
+export default function DownloadDrawer({ open, assets, currentTag, loading, error, releasesPage, onClose }) {
   if (!open) return null;
 
   return (
@@ -16,8 +16,8 @@ export default function DownloadDrawer({ open, assets, loading, error, releasesP
         <div className="download-drawer-head">
           <div>
             <span className="eyebrow">Downloads</span>
-            <h2 id="download-drawer-title">Alpha.14 Test 6</h2>
-            <p>Escolha o pacote. Para jogar/testar normalmente, use o EXE standalone.</p>
+            <h2 id="download-drawer-title">{currentTag || "NavBR"}</h2>
+            <p>Escolha o pacote da versão atual. Para jogar e testar normalmente, use o EXE standalone.</p>
           </div>
           <button className="download-drawer-close" type="button" onClick={onClose} aria-label="Fechar downloads">×</button>
         </div>
