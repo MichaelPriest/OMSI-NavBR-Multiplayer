@@ -220,6 +220,14 @@ export interface NavBrNavigationState {
     maxY: number;
   } | null;
   routePoints: NavBrNavigationPoint[];
+  routeDiagnostic?: {
+    mode: string;
+    trackName?: string | null;
+    line?: string | null;
+    lookupValue?: string | null;
+    entryCount: number;
+    pointCount: number;
+  } | null;
   rejoinAvailable: boolean;
   rejoinDistanceMeters?: number | null;
   rejoinPoints: NavBrNavigationPoint[];
