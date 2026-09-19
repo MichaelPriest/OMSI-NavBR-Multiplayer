@@ -41,7 +41,7 @@ export function Header({ activeSection, onOpenDownloads }) {
         </nav>
 
         <div className="v2-header-actions">
-          <button className="button primary v2-header-download" type="button" onClick={onOpenDownloads}>Baixar NavBR</button>
+          <button className="button primary v2-header-download topbar-downloads" type="button" onClick={onOpenDownloads}>Baixar NavBR</button>
           <button
             className="v2-menu-button"
             type="button"
