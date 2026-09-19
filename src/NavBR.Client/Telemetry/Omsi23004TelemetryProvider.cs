@@ -216,8 +216,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
 
             var vehiclePointer = unchecked((uint)vehicleAddress.ToInt64());
-            int? fallbackDefinition = null;
-
             for (var index = 0; index < count; index++)
             {
                 var humanAddress = memory.ReadUInt32(nint.Add(
@@ -245,8 +243,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                     continue;
                 }
 
-                fallbackDefinition ??= unchecked((int)definition);
-
                 // OMSI public reverse-engineering references define
                 // AIModeEx value 9 as THAME_DrivingBus. Prefer that live state
                 // so passengers attached to the same vehicle are not mistaken
@@ -264,7 +260,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 }
             }
 
-            return fallbackDefinition;
+            return null;
         }
         catch
         {
