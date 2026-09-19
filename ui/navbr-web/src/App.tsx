@@ -3019,7 +3019,7 @@ function Multiplayer({
         <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
         <div className="metric"><small>HOST</small><strong>{
           multiplayer.transportMode === "dedicated-server"
-            ? pick("Render · servidor dedicado", "Render · dedicated server", "Render · servidor dedicado", "Render · dedizierter Server", "Render · serveur dédié")
+            ? pick("NavBR no Render", "NavBR on Render", "NavBR en Render", "NavBR auf Render", "NavBR sur Render")
             : multiplayer.hostRunning
               ? `TCP ${multiplayer.hostPort ?? 27730}`
               : pick("Não sou o host", "Not the host", "No soy el host", "Nicht der Host", "Pas l’hôte")
@@ -3255,7 +3255,7 @@ function Multiplayer({
             <div><small>{pick("ID DA SALA", "ROOM ID", "ID DE SALA", "RAUM-ID", "ID DE SALLE")}</small><strong>{multiplayer.roomId || "—"}</strong></div>
             <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
-            <div><small>{pick("MODO DO HOST", "HOST MODE", "MODO DEL HOST", "HOST-MODUS", "MODE HÔTE")}</small><strong>{
+            <div><small>{pick("TIPO DE SERVIDOR", "SERVER TYPE", "TIPO DE SERVIDOR", "SERVERTYP", "TYPE DE SERVEUR")}</small><strong>{
               multiplayer.transportMode === "dedicated-server"
                 ? pick("Render · servidor dedicado", "Render · dedicated server", "Render · servidor dedicado", "Render · dedizierter Server", "Render · serveur dédié")
                 : hostReachabilityLabel
