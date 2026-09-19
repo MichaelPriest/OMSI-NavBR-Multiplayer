@@ -1,8 +1,6 @@
 # Alpha.14 — escopo mestre
 
-Versão pública atual: **v0.3.0-alpha.14-test.5**.
-
-Desenvolvimento atual na `main`: **v0.3.0-alpha.14-test.6**.
+Versão pública e atual: **v0.3.0-alpha.14-test.5**.
 
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
@@ -124,8 +122,7 @@ Somente desenvolvimento/teste:
 
 ## 7. Release e validação
 
-- **v0.3.0-alpha.14-test.5** é a release pública atual da Alpha.14;
-- **v0.3.0-alpha.14-test.6** é a linha de desenvolvimento atual da `main`;
+- **v0.3.0-alpha.14-test.5** é a release pública e versão atual da Alpha.14;
 - hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;
 - a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;
 - toda publicação recompila/valida React, servidor, plugin, cliente e simulador;
