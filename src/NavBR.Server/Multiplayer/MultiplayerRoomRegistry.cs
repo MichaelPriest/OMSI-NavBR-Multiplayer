@@ -209,21 +209,33 @@ public sealed class MultiplayerRoomRegistry
         return null;
     }
 
-    public PlayerPresence? UpdatePhysicalVehicleCount(
+    public PlayerPresence? UpdatePhysicalVehicleStatus(
         string connectionId,
-        int physicalVehicleCount)
+        IReadOnlyList<string> physicalVehiclePlayerIds)
     {
-        var normalizedCount = Math.Clamp(physicalVehicleCount, 0, 32);
+        var normalizedIds = physicalVehiclePlayerIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(32)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         while (_connections.TryGetValue(connectionId, out var current))
         {
-            if (current.PhysicalVehicleCount == normalizedCount)
+            var currentIds = current.PhysicalVehiclePlayerIds ?? Array.Empty<string>();
+            if (current.PhysicalVehicleCount == normalizedIds.Length &&
+                currentIds.SequenceEqual(
+                    normalizedIds,
+                    StringComparer.OrdinalIgnoreCase))
             {
                 return null;
             }
 
             var updated = current with
             {
-                PhysicalVehicleCount = normalizedCount
+                PhysicalVehicleCount = normalizedIds.Length,
+                PhysicalVehiclePlayerIds = normalizedIds
             };
 
             if (_connections.TryUpdate(connectionId, updated, current))
