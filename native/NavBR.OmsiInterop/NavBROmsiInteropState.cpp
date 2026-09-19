@@ -551,7 +551,7 @@ namespace
 
     bool IsPlayerBusDriverHuman(int humanPointer, int definitionPointer)
     {
-        if (!IsHumanPointer(humanPointer) || definitionPointer <= 0)
+        if (!IsHumanPointer(humanPointer) || definitionPointer < 0)
         {
             return false;
         }
@@ -573,13 +573,26 @@ namespace
 
         const int humanDefinition = *reinterpret_cast<const int*>(base + HumanDefinitionOffset);
         const int myBus = *reinterpret_cast<const int*>(base + HumanMyBusOffset);
+        if (myBus != playerVehicle)
+        {
+            return false;
+        }
 
-        // The selected Drivers definition plus the exact player-bus pointer is
-        // the stable identity check. AI mode / FixDriver flags can legitimately
-        // transition while the player takes control, so they must not prevent
-        // Character/RP from acquiring the real seated driver.
-        return humanDefinition == definitionPointer &&
-               myBus == playerVehicle;
+        if (definitionPointer > 0)
+        {
+            // Explicit catalog selection keeps exact-definition matching.
+            return humanDefinition == definitionPointer;
+        }
+
+        // definitionPointer == 0 means "resolve the live driver". OMSI's
+        // AIModeEx value 9 is THAME_DrivingBus; FixDriver is the additional
+        // seated-driver marker. Requiring either prevents passengers on the
+        // same bus from being acquired as the RP character.
+        const auto aiModeEx = *reinterpret_cast<const unsigned char*>(
+            base + HumanAiModeExOffset);
+        const auto fixDriver = *reinterpret_cast<const unsigned char*>(
+            base + HumanFixDriverOffset);
+        return aiModeEx == 9 || fixDriver != 0;
     }
 
     bool IsHumanControllable(int humanPointer)
