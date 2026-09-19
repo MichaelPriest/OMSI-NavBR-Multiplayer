@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, publish/alpha16-complete ]
     tags:
       - 'v*'
     paths-ignore:
