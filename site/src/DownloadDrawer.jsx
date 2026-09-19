@@ -16,7 +16,7 @@ export default function DownloadDrawer({ open, assets, loading, error, releasesP
         <div className="download-drawer-head">
           <div>
             <span className="eyebrow">Downloads</span>
-            <h2 id="download-drawer-title">Alpha.14 Test 3</h2>
+            <h2 id="download-drawer-title">Alpha.14 Test 6</h2>
             <p>Escolha o pacote. Para jogar/testar normalmente, use o EXE standalone.</p>
           </div>
           <button className="download-drawer-close" type="button" onClick={onClose} aria-label="Fechar downloads">×</button>
