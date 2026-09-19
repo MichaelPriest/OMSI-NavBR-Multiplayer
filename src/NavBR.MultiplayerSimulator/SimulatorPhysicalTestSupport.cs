@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -341,6 +342,40 @@ internal static class SimulatorPhysicalTestSupport
         if (!OperatingSystem.IsWindows())
         {
             yield break;
+        }
+
+        // The simulator is normally executed beside a live OMSI validation
+        // session. Prefer the executable that is actually running so custom
+        // Steam libraries (for example G:\\Games\\...) do not depend on a
+        // registry entry being present or current.
+        Process[] omsiProcesses = [];
+        try
+        {
+            omsiProcesses = Process.GetProcessesByName("Omsi");
+            foreach (var process in omsiProcesses)
+            {
+                string? executable = null;
+                try
+                {
+                    executable = process.MainModule?.FileName;
+                }
+                catch
+                {
+                }
+
+                if (!string.IsNullOrWhiteSpace(executable) &&
+                    Path.GetDirectoryName(executable) is { } runningRoot)
+                {
+                    yield return runningRoot;
+                }
+            }
+        }
+        finally
+        {
+            foreach (var process in omsiProcesses)
+            {
+                process.Dispose();
+            }
         }
 
         foreach (var registryCandidate in ReadRegistryCandidates())
