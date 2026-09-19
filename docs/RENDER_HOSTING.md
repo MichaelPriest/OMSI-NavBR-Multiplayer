@@ -34,6 +34,8 @@ No futuro, o projeto **poderá oferecer uma assinatura oficial do Servidor NavBR
 
 Os modos **LAN** e **Online através do Host** continuam disponíveis independentemente do Servidor NavBR oficial e não dependem da capacidade gratuita do Render.
 
+No modo **Online através do Host**, a Alpha.14 pública atual inclui o hotfix `29f30b2`: o servidor TCP 27730 inicia primeiro e a tentativa de UPnP ocorre em segundo plano com timeout de 8 segundos. Esse fluxo é separado do Render e evita que um roteador lento ou sem UPnP congele a interface.
+
 ## Deploy com um clique
 
 Use o botão **Deploy to Render** no README do repositório.
