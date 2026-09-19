@@ -16,12 +16,15 @@ No modo **Servidor Online**:
 - todos entram pela mesma URL HTTPS do Render;
 - presença, telemetria, chat, voz e estado da sala continuam usando o SignalR existente.
 
-O modo peer-host local continua disponível como alternativa em duas formas:
+Há três formas de hospedar uma sala:
 
-- **Somente LAN:** o PC que criou a sala executa o NavBR.Server e outros PCs da mesma rede entram pelo IP local;
-- **Internet via UPnP:** o mesmo PC hospeda a sala e o NavBR tenta mapear automaticamente a TCP 27730 no roteador.
+- **Host online sem portas (recomendado para Internet):** o PC que cria a sala continua sendo o dono e a autoridade da sessão, mas não aceita conexões de entrada. Host e convidados conectam ao Render por HTTPS/WebSocket. Funciona sem UPnP, sem redirecionamento da TCP 27730 e também atrás de CGNAT;
+- **Somente LAN:** o PC que criou a sala executa o NavBR.Server local e outros PCs da mesma rede entram pelo IP local;
+- **Internet via UPnP:** o mesmo PC executa o servidor local e o NavBR tenta mapear automaticamente a TCP 27730 no roteador.
 
-O servidor Render não é necessário quando uma dessas modalidades peer-host é usada.
+No modo **Host online sem portas**, o Render é apenas o transporte intermediário/servidor de sessão. A propriedade da sala continua sendo atribuída ao jogador que a criou primeiro; se ele sair, a autoridade pode ser transferida para outro jogador conectado.
+
+O servidor Render não é necessário quando uma das modalidades peer-host local é usada.
 
 ## Deploy com um clique
 
