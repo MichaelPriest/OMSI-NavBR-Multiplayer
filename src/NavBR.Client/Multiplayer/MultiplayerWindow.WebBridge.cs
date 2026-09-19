@@ -198,7 +198,7 @@ public partial class MultiplayerWindow
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
             relayServerUrl = _settings.RelayServerUrl,
-            physicalVehiclesEnabled = _settings.ExperimentalPhysicalVehiclesEnabled,
+            physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             networkQuality = new
             {
@@ -234,7 +234,7 @@ public partial class MultiplayerWindow
                     destinationName = sessionOperationalState.DestinationName,
                     nextStopName = sessionOperationalState.NextStopName
                 },
-            roleplayEnabled = _settings.ExperimentalRoleplayCharacterEnabled,
+            roleplayEnabled = ExperimentalFeatureFlags.RoleplayCharacterEnabled,
             localRoleplayActive = _localRoleplayCharacter?.IsActive == true,
             selectedRoleplayCharacter = SelectedRoleplayCharacter?.DisplayName,
             playerCount = players.Length,
