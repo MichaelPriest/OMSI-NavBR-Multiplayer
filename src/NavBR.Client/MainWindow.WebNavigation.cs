@@ -38,11 +38,8 @@ public partial class MainWindow
             _webNavigationBusStops);
         var eta = _webNavigationEta.Observe(navigation, DateTimeOffset.UtcNow);
         var tileSize = _webNavigationLayout?.TileSize;
-        var roadmapPath = ResolveWebNavigationRoadmapPath(map);
-        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapPath) && File.Exists(roadmapPath);
-        var roadmapUrl = roadmapAvailable
-            ? ResolveWebNavigationRoadmapUrl(map)
-            : null;
+        var roadmapUrl = ResolveWebNavigationRoadmapUrl(map);
+        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
         object? mapBounds = null;
         if (tileSize is double boundsTileSize &&
             _webNavigationLayout?.WorldWidth is double worldWidth &&
@@ -199,9 +196,10 @@ public partial class MainWindow
         var roadmapPath = map is null
             ? null
             : ResolveWebNavigationRoadmapPath(map);
-        var roadmapAvailable =
-            !string.IsNullOrWhiteSpace(roadmapPath) &&
-            File.Exists(roadmapPath);
+        var roadmapUrl = map is null
+            ? null
+            : ResolveWebNavigationRoadmapUrl(map);
+        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapUrl);
 
         object? mapBounds = null;
         if (_webNavigationLayout?.TileSize is double tileSize &&
@@ -243,9 +241,7 @@ public partial class MainWindow
         usesWorldCoordinates = false,
         tileSize = _webNavigationLayout?.TileSize,
         roadmapAvailable,
-        roadmapUrl = roadmapAvailable && map is not null
-            ? ResolveWebNavigationRoadmapUrl(map)
-            : null,
+        roadmapUrl,
         bounds = mapBounds,
         routePoints = Array.Empty<object>(),
         rejoinAvailable = false,
