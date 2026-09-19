@@ -44,7 +44,10 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double WalkSpeedMps = 1.45d;
     private const double RunSpeedMps = 3.25d;
     private const double BackwardSpeedMps = 1.05d;
-    private const double TurnSpeedDegreesPerSecond = 105d;
+    private const double StandingTurnSpeedDegreesPerSecond = 120d;
+    private const double MovingTurnSpeedDegreesPerSecond = 96d;
+    private const double MovementAccelerationMps2 = 4.25d;
+    private const double MovementBrakingMps2 = 6.5d;
     private const double MaxDistanceFromBusMeters = 85d;
     private const double EnterBusDistanceMeters = 8d;
     private const double MaxVerticalFollowSpeedMps = 2.75d;
@@ -85,6 +88,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private double? _lastGroundHeight;
     private string? _lastErrorCode;
     private string? _lastErrorMessage;
+    private double _signedMovementSpeedMps;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -484,6 +488,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
+        _signedMovementSpeedMps = 0d;
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
         InstallKeyboardHook();
@@ -517,6 +522,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _nativeAnimationDiagnostics = null;
             ResetNativeActivityObservation();
             _consecutiveFailures = 0;
+            _signedMovementSpeedMps = 0d;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -618,6 +624,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
             if (!RoleplayKeyboardHook.IsOmsiForeground())
             {
+                _signedMovementSpeedMps = 0d;
+                _lastTickUtc = DateTimeOffset.UtcNow;
                 return;
             }
 
@@ -644,29 +652,63 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                           _pressedKeys.Contains(VkRightShift);
             }
 
+            var direction = forward == backward ? 0d : forward ? 1d : -1d;
+            var targetVelocity = direction switch
+            {
+                > 0d => running ? RunSpeedMps : WalkSpeedMps,
+                < 0d => -BackwardSpeedMps,
+                _ => 0d
+            };
+
+            var changingDirection =
+                Math.Abs(_signedMovementSpeedMps) > 0.01d &&
+                Math.Abs(targetVelocity) > 0.01d &&
+                Math.Sign(_signedMovementSpeedMps) != Math.Sign(targetVelocity);
+            var slowingDown =
+                Math.Abs(targetVelocity) < Math.Abs(_signedMovementSpeedMps) ||
+                changingDirection;
+            var acceleration = slowingDown
+                ? MovementBrakingMps2
+                : MovementAccelerationMps2;
+
+            _signedMovementSpeedMps = MoveTowards(
+                _signedMovementSpeedMps,
+                changingDirection ? 0d : targetVelocity,
+                acceleration * deltaSeconds);
+
+            if (!changingDirection &&
+                Math.Abs(_signedMovementSpeedMps - targetVelocity) > 0.0001d)
+            {
+                _signedMovementSpeedMps = MoveTowards(
+                    _signedMovementSpeedMps,
+                    targetVelocity,
+                    MovementAccelerationMps2 * deltaSeconds);
+            }
+
+            if (Math.Abs(_signedMovementSpeedMps) < 0.005d)
+            {
+                _signedMovementSpeedMps = 0d;
+            }
+
+            var speed = Math.Abs(_signedMovementSpeedMps);
             var heading = current.HeadingDegrees;
             if (left ^ right)
             {
+                var turnSpeed = speed > 0.15d
+                    ? MovingTurnSpeedDegreesPerSecond
+                    : StandingTurnSpeedDegreesPerSecond;
                 heading += (right ? 1d : -1d) *
-                           TurnSpeedDegreesPerSecond *
+                           turnSpeed *
                            deltaSeconds;
                 heading = NormalizeHeading(heading);
             }
 
-            var direction = forward == backward ? 0d : forward ? 1d : -1d;
-            var speed = direction switch
-            {
-                > 0d => running ? RunSpeedMps : WalkSpeedMps,
-                < 0d => BackwardSpeedMps,
-                _ => 0d
-            };
-
             var x = current.LocalX;
             var y = current.LocalY;
-            if (direction != 0d && speed > 0d)
+            if (speed > 0.005d)
             {
                 var radians = heading * Math.PI / 180d;
-                var signedDistance = direction * speed * deltaSeconds;
+                var signedDistance = _signedMovementSpeedMps * deltaSeconds;
                 x += Math.Sin(radians) * signedDistance;
                 y += Math.Cos(radians) * signedDistance;
 
@@ -680,6 +722,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                     var scale = MaxDistanceFromBusMeters / fromOrigin;
                     x = _originX + fromOriginX * scale;
                     y = _originY + fromOriginY * scale;
+                    _signedMovementSpeedMps = 0d;
+                    speed = 0d;
                 }
             }
 
@@ -696,9 +740,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 z = followedZ;
             }
 
-            var activity = speed <= 0.01d
+            var activity = speed <= 0.05d
                 ? RoleplayCharacterActivity.Idle
-                : running && direction > 0d
+                : _signedMovementSpeedMps > WalkSpeedMps * 1.15d
                     ? RoleplayCharacterActivity.Running
                     : RoleplayCharacterActivity.Walking;
 
@@ -868,6 +912,28 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _nativeActivityTransitions = 0;
         _nativeActivityMovingTransitions = 0;
         _nativeActivityLastTransitionAtUtc = null;
+    }
+
+    private static double MoveTowards(
+        double current,
+        double target,
+        double maxDelta)
+    {
+        if (!double.IsFinite(current) ||
+            !double.IsFinite(target) ||
+            !double.IsFinite(maxDelta) ||
+            maxDelta <= 0d)
+        {
+            return target;
+        }
+
+        var delta = target - current;
+        if (Math.Abs(delta) <= maxDelta)
+        {
+            return target;
+        }
+
+        return current + Math.Sign(delta) * maxDelta;
     }
 
     private static int? NormalizeOptionalByte(int? value) =>
