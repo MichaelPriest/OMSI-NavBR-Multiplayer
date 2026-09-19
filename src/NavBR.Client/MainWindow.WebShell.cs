@@ -480,11 +480,12 @@ public partial class MainWindow
                 }
                 break;
 
+            case "createOnlineRoom":
             case "createOnlineHost":
                 OpenMultiplayerCentralForShell(showWindow: false);
                 if (_multiplayerWindow is not null)
                 {
-                    await _multiplayerWindow.StartOnlineHostFromWebAsync(
+                    await _multiplayerWindow.StartOnlineServerRoomFromWebAsync(
                         GetWebPayloadString(payload, "roomId"),
                         GetWebPayloadString(payload, "displayName"),
                         GetWebPayloadBool(payload, "isPrivate"),
