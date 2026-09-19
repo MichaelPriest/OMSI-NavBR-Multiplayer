@@ -441,7 +441,7 @@ export interface NavBrHudState {
 export interface NavBrSystemState {
   installationsNotice?: string | null;
   pluginInstallation: {
-    state: "missing" | "partial" | "installed" | "untracked" | "unknown" | "error";
+    state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
     requiredFilesFound: number;
     requiredFilesTotal: number;
     manifestPresent: boolean;
