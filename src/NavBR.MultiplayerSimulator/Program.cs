@@ -82,12 +82,12 @@ if (options.VerifyPhysical)
         string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
         string.IsNullOrWhiteSpace(options.VehiclePath) ||
         string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
-        options.GridX is null ||
-        options.GridY is null)
+        options.PhysicalGridX is null ||
+        options.PhysicalGridY is null)
     {
         Console.Error.WriteLine();
         Console.Error.WriteLine(
-            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, GridX/GridY válidos e um ônibus rígido resolvido.");
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, grid físico RoadVehicle.Kachel válido e um ônibus rígido resolvido.");
         Environment.ExitCode = 6;
         SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
@@ -130,13 +130,16 @@ if (!string.IsNullOrWhiteSpace(options.ActiveLine) ||
 Console.WriteLine(
     $"Seed   : abs=({options.CenterX:F1},{options.CenterY:F1},{options.CenterZ:F1}) • local=({options.LocalCenterX:F1},{options.LocalCenterY:F1},{options.LocalCenterZ:F1}) • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
-        ? $" • grid {gx},{gy}" +
+        ? $" • nav-grid {gx},{gy}" +
           (options.TileX is double tx && options.TileY is double ty
               ? $" • tile {tx:F1},{ty:F1}"
-              : string.Empty) +
-          (options.MapTileIndex is int tileIndex
-              ? $" • Kachel #{tileIndex}"
               : string.Empty)
+        : string.Empty) +
+    (options.PhysicalGridX is int pgx && options.PhysicalGridY is int pgy
+        ? $" • physical-grid {pgx},{pgy}"
+        : " • physical-grid n/a") +
+    (options.MapTileIndex is int tileIndex
+        ? $" • Kachel #{tileIndex}"
         : string.Empty));
 
 var bots = Enumerable.Range(1, options.PlayerCount)
@@ -471,8 +474,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             RotationZ: Math.Sin(half),
             RotationW: Math.Cos(half),
             MapTileIndex: _options.MapTileIndex,
-            PhysicalGridX: _options.GridX,
-            PhysicalGridY: _options.GridY);
+            PhysicalGridX: _options.PhysicalGridX,
+            PhysicalGridY: _options.PhysicalGridY);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
@@ -1006,6 +1009,12 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     GridY = options.NavigationSeedExplicit
                         ? options.GridY
                         : telemetry?.GridY ?? options.GridY,
+                    PhysicalGridX = options.NavigationSeedExplicit
+                        ? options.PhysicalGridX
+                        : telemetry?.PhysicalGridX ?? options.PhysicalGridX,
+                    PhysicalGridY = options.NavigationSeedExplicit
+                        ? options.PhysicalGridY
+                        : telemetry?.PhysicalGridY ?? options.PhysicalGridY,
                     TileX = options.NavigationSeedExplicit
                         ? options.TileX
                         : telemetry?.TileX ?? options.TileX,
@@ -1042,6 +1051,15 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         ? options.RadiusMeters
                         : 18d
                 };
+
+                if (options.VerifyPhysical &&
+                    resolved.PhysicalGridX is null &&
+                    resolved.PhysicalGridY is null)
+                {
+                    Console.WriteLine(
+                        "Physical sync: o host ainda não publicou o grid físico RoadVehicle.Kachel; " +
+                        "o grid de navegação não será reutilizado como identidade física.");
+                }
 
                 if (!string.IsNullOrWhiteSpace(options.MapName) &&
                     !string.Equals(options.MapName, resolved.MapName, StringComparison.OrdinalIgnoreCase))
@@ -1564,6 +1582,8 @@ internal sealed record SimulatorOptions(
     string? ActiveNextStop,
     int? GridX,
     int? GridY,
+    int? PhysicalGridX,
+    int? PhysicalGridY,
     double? TileX,
     double? TileY,
     double CenterX,
@@ -1642,6 +1662,8 @@ internal sealed record SimulatorOptions(
             ActiveNextStop: NullIfEmpty(values.GetValueOrDefault("next-stop")),
             GridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
             GridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
+            PhysicalGridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
+            PhysicalGridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
             TileX: ParseNullableDouble(values.GetValueOrDefault("tile-x")),
             TileY: ParseNullableDouble(values.GetValueOrDefault("tile-y")),
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),
