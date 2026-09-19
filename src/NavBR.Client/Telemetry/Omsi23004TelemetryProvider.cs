@@ -470,6 +470,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             int? gridX = null;
             int? gridY = null;
+            int? physicalGridX = null;
+            int? physicalGridY = null;
             double? tileX = null;
             double? tileY = null;
 
@@ -508,6 +510,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             {
                 gridX = vehicleGridX;
                 gridY = vehicleGridY;
+                physicalGridX = vehicleGridX;
+                physicalGridY = vehicleGridY;
                 tileX = localPosition.X;
                 tileY = localPosition.Y;
             }
@@ -558,7 +562,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 RotationY: rotation.Y,
                 RotationZ: rotation.Z,
                 RotationW: rotation.W,
-                MapTileIndex: mapTileIndex);
+                MapTileIndex: mapTileIndex,
+                PhysicalGridX: physicalGridX,
+                PhysicalGridY: physicalGridY);
         }
         catch (ArgumentException)
         {

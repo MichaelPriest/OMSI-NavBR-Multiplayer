@@ -47,7 +47,9 @@ public sealed record VehicleTelemetry(
     double? RotationW = null,
     string? CurrentStreetName = null,
     bool StopRequested = false,
-    int? MapTileIndex = null);
+    int? MapTileIndex = null,
+    int? PhysicalGridX = null,
+    int? PhysicalGridY = null);
 
 [Flags]
 public enum VehicleDoorFlags

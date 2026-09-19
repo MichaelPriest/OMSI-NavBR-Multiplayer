@@ -3714,13 +3714,18 @@ function Multiplayer({
                       player.physicalVehicleState !== "active" &&
                       (player.physicalTelemetryGridX != null ||
                        player.physicalTelemetryGridY != null ||
+                       player.physicalTelemetryNavigationGridX != null ||
+                       player.physicalTelemetryNavigationGridY != null ||
                        player.physicalTelemetryLocalX != null ||
                        player.physicalTelemetryLocalY != null) && (
                         <small className="physical-runtime-detail">
                           {[
                             player.physicalTelemetryGridX != null && player.physicalTelemetryGridY != null
-                              ? `Grid ${player.physicalTelemetryGridX}/${player.physicalTelemetryGridY}`
-                              : pick("Grid incompleto", "Incomplete grid", "Grid incompleto", "Unvollständiges Grid", "Grid incomplet"),
+                              ? `PhysGrid ${player.physicalTelemetryGridX}/${player.physicalTelemetryGridY}`
+                              : pick("PhysGrid indisponível", "PhysGrid unavailable", "PhysGrid no disponible", "PhysGrid nicht verfügbar", "PhysGrid indisponible"),
+                            player.physicalTelemetryNavigationGridX != null && player.physicalTelemetryNavigationGridY != null
+                              ? `NavGrid ${player.physicalTelemetryNavigationGridX}/${player.physicalTelemetryNavigationGridY}`
+                              : null,
                             player.physicalTelemetryLocalX != null && player.physicalTelemetryLocalY != null
                               ? `Local ${format(player.physicalTelemetryLocalX, 1)} / ${format(player.physicalTelemetryLocalY, 1)}${player.physicalTelemetryLocalZ != null ? ` / ${format(player.physicalTelemetryLocalZ, 1)}` : ""}`
                               : null,

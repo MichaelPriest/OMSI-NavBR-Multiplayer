@@ -294,14 +294,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         if (!_spawned.ContainsKey(playerId) &&
-            (frame.Telemetry.GridX is not int ||
-             frame.Telemetry.GridY is not int))
+            (frame.Telemetry.PhysicalGridX is not int ||
+             frame.Telemetry.PhysicalGridY is not int))
         {
             SetStatus(
                 playerId,
                 "tile-unavailable",
                 "remote-grid-missing",
-                "Remote telemetry did not include stable OMSI GridX/GridY coordinates.");
+                "Remote telemetry did not include RoadVehicle-coherent OMSI GridX/GridY coordinates.");
             return;
         }
 
@@ -745,6 +745,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
         {
             Telemetry = frame.Telemetry with
             {
+                // Native spawn/update must use the grid resolved from the same
+                // RoadVehicle.Kachel as LocalX/LocalY. Navigation GridX/GridY
+                // can legitimately come from Map.CurrentGrid and must not be
+                // mixed with the physical RoadVehicle pose.
+                GridX = frame.Telemetry.PhysicalGridX,
+                GridY = frame.Telemetry.PhysicalGridY,
                 VehiclePath = resolvedVehiclePath,
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,

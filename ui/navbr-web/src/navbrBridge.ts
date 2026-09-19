@@ -15,6 +15,8 @@ export interface NavBrPlayer {
   physicalVehicleUpdatedAtUtc?: string | null;
   physicalTelemetryGridX?: number | null;
   physicalTelemetryGridY?: number | null;
+  physicalTelemetryNavigationGridX?: number | null;
+  physicalTelemetryNavigationGridY?: number | null;
   physicalTelemetryTileX?: number | null;
   physicalTelemetryTileY?: number | null;
   physicalTelemetryLocalX?: number | null;
