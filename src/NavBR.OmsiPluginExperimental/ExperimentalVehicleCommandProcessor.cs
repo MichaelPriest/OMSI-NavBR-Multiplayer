@@ -204,6 +204,17 @@ internal static class PhysicalVehicleBackend
                 : ApplyState(command, existing);
         }
 
+        if (command.MapTileIndex is int mapTileIndex &&
+            (mapTileIndex < 0 ||
+             mapTileIndex > 200_000 ||
+             OmsiNativeInterop.IsMapTileIndexValid(mapTileIndex) != 1))
+        {
+            return Fail(
+                command,
+                "tile-unavailable",
+                "The remote OMSI map tile is not currently available in the local map.");
+        }
+
         if (!TryResolveVehiclePath(command.VehiclePath, out var vehiclePath))
         {
             return Fail(command, "invalid-vehicle-path", "Vehicle path must resolve to an existing Vehicles\\*.bus or Vehicles\\*.ovh file.");
