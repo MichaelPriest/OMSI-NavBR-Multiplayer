@@ -638,7 +638,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string.Equals(errorCode, "invalid-pose", StringComparison.Ordinal) ||
         string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
         string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal);
+        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
 
     private void ReportCommandFailureOnce(
         string playerId,
