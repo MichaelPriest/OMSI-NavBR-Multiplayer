@@ -2130,6 +2130,29 @@ function Settings({
           )}
           <article className="card discovery-card">
             <div className="section-heading">
+              <div><span className="eyebrow">{pick("PLUGIN NAVBR", "NAVBR PLUGIN", "PLUGIN NAVBR", "NAVBR-PLUGIN", "PLUGIN NAVBR")}</span><h3>{pick("Verificação automática na abertura", "Automatic startup check", "Verificación automática al iniciar", "Automatische Prüfung beim Start", "Vérification automatique au démarrage")}</h3></div>
+              <span className={`compatibility-badge ${system.pluginInstallation.state === "installed" ? "compatible" : system.pluginInstallation.state === "untracked" ? "warning" : "blocked"}`}>
+                {system.pluginInstallation.state.toUpperCase()}
+              </span>
+            </div>
+            <p>{pick("Ao abrir o NavBR, o app localiza o OMSI e verifica os 3 arquivos necessários. Se estiverem ausentes ou desatualizados e for seguro substituir, o pacote oficial embutido é instalado automaticamente.", "When NavBR starts, it locates OMSI and checks the 3 required files. If they are missing or outdated and replacement is safe, the embedded official package is installed automatically.", "Al iniciar NavBR, la app localiza OMSI y verifica los 3 archivos necesarios. Si faltan o están desactualizados y es seguro reemplazarlos, instala automáticamente el paquete oficial integrado.", "Beim Start sucht NavBR OMSI und prüft die 3 erforderlichen Dateien. Fehlen sie oder sind sie veraltet und ein Austausch ist sicher, wird das eingebettete offizielle Paket automatisch installiert.", "Au démarrage, NavBR localise OMSI et vérifie les 3 fichiers requis. S'ils manquent ou sont obsolètes et que le remplacement est sûr, le paquet officiel intégré est installé automatiquement.")}</p>
+            <div className="details-grid">
+              <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.pluginInstallation.requiredFilesFound}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("MANIFESTO", "MANIFEST", "MANIFIESTO", "MANIFEST", "MANIFESTE")}</small><strong>{system.pluginInstallation.manifestPresent ? "OK" : "—"}</strong></div>
+              <div><small>{pick("PACOTE EMBUTIDO", "EMBEDDED PACKAGE", "PAQUETE INTEGRADO", "EINGEBETTETES PAKET", "PAQUET INTÉGRÉ")}</small><strong>{system.pluginInstallation.embeddedPackageAvailable ? "OK" : "—"}</strong></div>
+              <div><small>OMSI</small><strong>{system.pluginInstallation.omsiRunning ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
+            </div>
+            {system.pluginInstallation.state !== "installed" && (
+              <div className="discovery-actions">
+                <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
+                  {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
+                </button>
+              </div>
+            )}
+          </article>
+
+          <article className="card discovery-card">
+            <div className="section-heading">
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
               <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
             </div>
@@ -2809,6 +2832,7 @@ function Multiplayer({
   const [chatHotkey, setChatHotkey] = useState("F9");
   const [voiceHotkey, setVoiceHotkey] = useState("F10");
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const defaultOnlineServer = "https://omsi-navbr-multiplayer-server.onrender.com";
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || "");
@@ -3116,7 +3140,7 @@ function Multiplayer({
           <div className="room-form-grid">
             <label>
               <span>{pick("Servidor", "Server", "Servidor", "Server", "Serveur")}</span>
-              <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder="http://127.0.0.1:27730" />
+              <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder={defaultOnlineServer} />
             </label>
             <label>
               <span>{pick("Sala", "Room", "Sala", "Raum", "Salle")}</span>
@@ -3182,14 +3206,20 @@ function Multiplayer({
                 <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
                 <button
                   className="button ghost"
+                  onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false })}
+                >
+                  {pick("Hospedar no meu PC (somente LAN)", "Host on my PC (LAN only)", "Alojar en mi PC (solo LAN)", "Auf meinem PC hosten (nur LAN)", "Héberger sur mon PC (LAN uniquement)")}
+                </button>
+                <button
+                  className="button ghost"
                   onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true })}
                 >
-                  {pick("Hospedar no meu PC (LAN + Internet)", "Host on my PC (LAN + Internet)", "Alojar en mi PC (LAN + Internet)", "Auf meinem PC hosten (LAN + Internet)", "Héberger sur mon PC (LAN + Internet)")}
+                  {pick("Hospedar no meu PC (Internet via UPnP)", "Host on my PC (Internet via UPnP)", "Alojar en mi PC (Internet vía UPnP)", "Auf meinem PC hosten (Internet per UPnP)", "Héberger sur mon PC (Internet via UPnP)")}
                 </button>
                 <button
                   className="button ghost"
                   onClick={() => {
-                    const onlineUrl = relayServerUrl || "https://omsi-navbr-multiplayer-server.onrender.com";
+                    const onlineUrl = relayServerUrl || defaultOnlineServer;
                     setRelayEnabled(true);
                     setRelayServerUrl(onlineUrl);
                     sendCommand("configureRelay", { enabled: true, relayServerUrl: onlineUrl });
