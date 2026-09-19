@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -248,20 +250,154 @@ internal static class OmsiInstallationLocator
             File.Exists(steamManifestPath) ? steamManifestPath : null);
     }
 
-    private static string? NormalizeDirectory(string? path)
+    private static string? NormalizeDirectory(string? path) =>
+        NormalizeDirectory(path, depth: 0);
+
+    private static string? NormalizeDirectory(string? path, int depth)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path) || depth > 2)
         {
             return null;
         }
 
         try
         {
-            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path.Trim()));
+            var candidate = Environment.ExpandEnvironmentVariables(
+                path.Trim().Trim('"'));
+
+            if (File.Exists(candidate))
+            {
+                if (string.Equals(
+                        Path.GetFileName(candidate),
+                        "Omsi.exe",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    var directory = Path.GetDirectoryName(Path.GetFullPath(candidate));
+                    return string.IsNullOrWhiteSpace(directory)
+                        ? null
+                        : Path.TrimEndingDirectorySeparator(directory);
+                }
+
+                var extension = Path.GetExtension(candidate);
+                if (string.Equals(extension, ".lnk", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = TryResolveWindowsShortcut(candidate);
+                    return NormalizeDirectory(target, depth + 1);
+                }
+
+                if (string.Equals(extension, ".url", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = TryResolveInternetShortcut(candidate);
+                    return NormalizeDirectory(target, depth + 1);
+                }
+
+                return null;
+            }
+
+            return Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(candidate));
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string? TryResolveWindowsShortcut(string shortcutPath)
+    {
+        object? shell = null;
+        object? shortcut = null;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType is null)
+            {
+                return null;
+            }
+
+            shell = Activator.CreateInstance(shellType);
+            if (shell is null)
+            {
+                return null;
+            }
+
+            shortcut = shellType.InvokeMember(
+                "CreateShortcut",
+                BindingFlags.InvokeMethod,
+                binder: null,
+                target: shell,
+                args: [Path.GetFullPath(shortcutPath)]);
+            if (shortcut is null)
+            {
+                return null;
+            }
+
+            return shortcut.GetType().InvokeMember(
+                "TargetPath",
+                BindingFlags.GetProperty,
+                binder: null,
+                target: shortcut,
+                args: null) as string;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (shortcut is not null && Marshal.IsComObject(shortcut))
+            {
+                try
+                {
+                    Marshal.FinalReleaseComObject(shortcut);
+                }
+                catch
+                {
+                }
+            }
+
+            if (shell is not null && Marshal.IsComObject(shell))
+            {
+                try
+                {
+                    Marshal.FinalReleaseComObject(shell);
+                }
+                catch
+                {
+                }
+            }
+        }
+    }
+
+    private static string? TryResolveInternetShortcut(string shortcutPath)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(shortcutPath))
+            {
+                if (!line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = line[4..].Trim();
+                if (Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                    uri.IsFile)
+                {
+                    return uri.LocalPath;
+                }
+
+                // A Steam InternetShortcut (steam://rungameid/252530) does not
+                // expose the install directory itself. Returning null lets the
+                // normal Steam manifest discovery resolve the real library.
+                return null;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 }
