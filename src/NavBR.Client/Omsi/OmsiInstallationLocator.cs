@@ -69,6 +69,14 @@ internal static class OmsiInstallationLocator
             .ToArray();
     }
 
+    internal static string? TryResolveInstallDirectory(string? path)
+    {
+        var root = NormalizeDirectory(path);
+        return root is not null && File.Exists(Path.Combine(root, "Omsi.exe"))
+            ? root
+            : null;
+    }
+
     public static OmsiInstallationInfo? FromRunningProcess(OmsiProcessInfo? process)
     {
         if (process is null || string.IsNullOrWhiteSpace(process.InstallDirectory))
