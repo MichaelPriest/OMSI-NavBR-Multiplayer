@@ -60,6 +60,38 @@ if (!synchronized.Success || synchronized.Options is null)
 }
 
 options = synchronized.Options;
+
+if (options.Mode != SimulatorMode.Roleplay)
+{
+    var physicalSetup = SimulatorPhysicalTestSupport.Resolve(options);
+    options = physicalSetup.Options;
+    Console.WriteLine(physicalSetup.Message);
+}
+
+if (options.VerifyPhysical)
+{
+    if (!synchronized.InheritedFromRoom ||
+        string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
+        string.IsNullOrWhiteSpace(options.VehiclePath) ||
+        string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
+        options.MapTileIndex is null)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine(
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, Kachel válida e um ônibus rígido resolvido.");
+        Environment.ExitCode = 6;
+        return;
+    }
+
+    if (options.Mode == SimulatorMode.Roleplay)
+    {
+        Console.Error.WriteLine(
+            "NavBR Simulator: --verify-physical requer mode vehicles ou mixed.");
+        Environment.ExitCode = 6;
+        return;
+    }
+}
+
 Console.WriteLine(
     synchronized.InheritedFromRoom
         ? $"Map    : {options.MapName} (sincronizado com a sala)"
@@ -78,11 +110,14 @@ if (!string.IsNullOrWhiteSpace(options.ActiveLine) ||
 }
 
 Console.WriteLine(
-    $"Seed   : X={options.CenterX:F1} Y={options.CenterY:F1} Z={options.CenterZ:F1} • raio {options.RadiusMeters:F0} m" +
+    $"Seed   : abs=({options.CenterX:F1},{options.CenterY:F1},{options.CenterZ:F1}) • local=({options.LocalCenterX:F1},{options.LocalCenterY:F1},{options.LocalCenterZ:F1}) • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
         ? $" • grid {gx},{gy}" +
           (options.TileX is double tx && options.TileY is double ty
               ? $" • tile {tx:F1},{ty:F1}"
+              : string.Empty) +
+          (options.MapTileIndex is int tileIndex
+              ? $" • Kachel #{tileIndex}"
               : string.Empty)
         : string.Empty));
 
@@ -90,6 +125,10 @@ var bots = Enumerable.Range(1, options.PlayerCount)
     .Select(index => new SimulatedPlayer(index, options))
     .ToArray();
 var probe = options.Verify ? new SimulationProbe(options) : null;
+var expectedPhysicalBots = bots
+    .Where(bot => bot.IsVehicleBot)
+    .Select(bot => bot.PlayerId)
+    .ToArray();
 var connected = false;
 
 try
