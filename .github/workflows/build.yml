@@ -2,9 +2,21 @@ name: build
 
 on:
   push:
-    branches: [ main, feature/alpha10-roadmap-plugin ]
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - '**/*.md'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - '**/*.md'
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
