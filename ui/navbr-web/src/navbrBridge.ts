@@ -9,6 +9,7 @@ export interface NavBrPlayer {
   physicalVehicleSpawned: boolean;
   physicalVehicleState?: string | null;
   physicalVehicleErrorCode?: string | null;
+  physicalVehicleErrorMessage?: string | null;
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
