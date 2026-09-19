@@ -186,12 +186,25 @@ export function AllVersions({ releases, loading, error, releasesPage }) {
 }
 
 export function Features() {
+  const highlighted = [
+    features[0],
+    features[1],
+    features[2],
+    features[3],
+    features[5],
+    features[6],
+    features[9],
+    features[11]
+  ].filter(Boolean);
+
   return (
-    <section id="recursos" className="section shell">
-      <span className="eyebrow">Recursos</span>
-      <h2>O que entra na Alpha.14.</h2>
+    <section className="section shell v2-modules">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Módulos</span><h2>Recursos que compõem o NavBR.</h2></div>
+        <p>Uma visão objetiva dos módulos mais importantes da Alpha atual, sem misturar funções experimentais com recursos consolidados.</p>
+      </div>
       <div className="feature-grid">
-        {features.map(([title, text], index) => (
+        {highlighted.map(([title, text], index) => (
           <article key={title}>
             <div className="feature-icon">{String(index + 1).padStart(2, "0")}</div>
             <h3>{title}</h3>
