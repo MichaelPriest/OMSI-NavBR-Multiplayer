@@ -897,21 +897,23 @@ function physicalVehicleStatusLabel(
           );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
     case "tile-unavailable":
-      return errorCode === "remote-tile-index-missing"
-        ? pick(
-            "Aguardando Kachel real do jogador remoto",
-            "Waiting for the remote player's real OMSI tile",
-            "Esperando la Kachel real del jugador remoto",
-            "Warte auf die echte OMSI-Kachel des Remote-Spielers",
-            "En attente de la vraie tuile OMSI du joueur distant"
-          )
-        : pick(
-            "Kachel recebida, aguardando a tile carregar no OMSI local",
-            "Tile received; waiting for it to load in the local OMSI",
-            "Kachel recibida; esperando que cargue en el OMSI local",
-            "Kachel empfangen; warte auf das Laden im lokalen OMSI",
-            "Tuile reçue ; en attente de son chargement dans l’OMSI local"
-          );
+      if (errorCode === "remote-grid-missing" || errorCode === "tile-grid-missing") {
+        return pick(
+          "Aguardando GridX/GridY real do jogador remoto",
+          "Waiting for the remote player's real OMSI GridX/GridY",
+          "Esperando GridX/GridY real del jugador remoto",
+          "Warte auf echte OMSI-GridX/GridY des Remote-Spielers",
+          "En attente des vrais GridX/GridY OMSI du joueur distant"
+        );
+      }
+
+      return pick(
+        "Grid recebido, aguardando a Kachel carregar no OMSI local",
+        "Grid received; waiting for the Kachel to load in the local OMSI",
+        "Grid recibido; esperando que cargue la Kachel en el OMSI local",
+        "Grid empfangen; warte auf das Laden der Kachel im lokalen OMSI",
+        "Grid reçu ; en attente du chargement de la Kachel dans l’OMSI local"
+      );
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
       ? pick(`Incompatível: ${errorCode}`, `Incompatible: ${errorCode}`, `Incompatible: ${errorCode}`, `Inkompatibel: ${errorCode}`, `Incompatible : ${errorCode}`)
