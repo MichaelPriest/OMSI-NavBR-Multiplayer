@@ -12,7 +12,6 @@ public sealed class RoomHostService : IAsyncDisposable
     private WebApplication? _app;
     private UpnpGatewayInfo? _mappedGateway;
     private CancellationTokenSource? _upnpCts;
-    private Task? _upnpTask;
     private IReadOnlyList<string> _lanJoinUrls = Array.Empty<string>();
 
     public bool IsRunning => _app is not null;
@@ -41,11 +40,11 @@ public sealed class RoomHostService : IAsyncDisposable
 
         try
         {
-            await app.StartAsync(cancellationToken);
+            await app.StartAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await app.DisposeAsync();
+            await app.DisposeAsync().ConfigureAwait(false);
             throw MultiplayerNetworkErrorClassifier.WrapHost(ex, port);
         }
 
@@ -69,7 +68,7 @@ public sealed class RoomHostService : IAsyncDisposable
         // Do not block room creation while a router is being discovered/configured.
         // The UI can connect to the local server immediately and reports UPnP as
         // "checking" until this background task finishes.
-        _upnpTask = ConfigureUpnpInBackgroundAsync(app, port, _upnpCts.Token);
+        _ = ConfigureUpnpInBackgroundAsync(app, port, _upnpCts.Token);
     }
 
     public IReadOnlyList<string> GetLanJoinUrls()
@@ -185,7 +184,6 @@ public sealed class RoomHostService : IAsyncDisposable
         _mappedGateway = null;
         _lanJoinUrls = Array.Empty<string>();
         _upnpCts = null;
-        _upnpTask = null;
         upnpCts?.Cancel();
         upnpCts?.Dispose();
 
@@ -193,7 +191,7 @@ public sealed class RoomHostService : IAsyncDisposable
         {
             try
             {
-                await _upnp.TryDeleteMappingAsync(mappedGateway, port, cancellationToken);
+                await _upnp.TryDeleteMappingAsync(mappedGateway, port, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -209,11 +207,11 @@ public sealed class RoomHostService : IAsyncDisposable
 
         try
         {
-            await app.StopAsync(cancellationToken);
+            await app.StopAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            await app.DisposeAsync();
+            await app.DisposeAsync().ConfigureAwait(false);
             LastUpnpResult = null;
         }
     }
