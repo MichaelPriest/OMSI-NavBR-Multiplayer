@@ -1,0 +1,189 @@
+name: alpha15 supplemental release assets
+
+on:
+  push:
+    branches:
+      - publish/alpha15-assets
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alpha15-supplemental-release-assets
+  cancel-in-progress: true
+
+jobs:
+  publish-assets:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: v0.3.0-alpha.15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Alpha.15 release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:RELEASE_TAG --repo "${{ github.repository }}" --json tagName,isDraft,isPrerelease
+          if ($LASTEXITCODE -ne 0) { throw "Alpha.15 release does not exist." }
+
+      - name: Verify preinstalled .NET 10 SDK
+        shell: pwsh
+        run: |
+          $version = dotnet --version
+          Write-Host "dotnet SDK: $version"
+          if ($version -notmatch '^10\.') { throw "The Windows runner does not provide .NET 10 SDK." }
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Restore supplemental projects
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj -r win-x64
+          dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -r win-x64
+
+      - name: Build OMSI native interop x86
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetStateInteropVersion",
+            "NavBR_ResolveMapTileIndex",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetHumanTransform",
+            "NavBR_RestoreHumanDriverState"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing required Alpha.15 native export: $expected"
+            }
+          }
+
+      - name: Publish Native AOT OMSI plugin x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" }
+          }
+
+      - name: Publish dedicated server and simulator
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Server/NavBR.Server.csproj `
+            -c Release -r win-x64 --self-contained true --no-restore `
+            -o artifacts/server
+
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release -r win-x64 --self-contained true --no-restore `
+            -p:Platform=AnyCPU -p:PlatformTarget=x64 `
+            -o artifacts/simulator
+
+          New-Item -ItemType Directory -Force "artifacts/simulator/server" | Out-Null
+          Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
+
+      - name: Prepare supplemental Alpha.15 assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseDir = "artifacts/release"
+          New-Item -ItemType Directory -Force $releaseDir | Out-Null
+
+          foreach ($target in @("artifacts/plugin","artifacts/simulator")) {
+            Copy-Item LICENSE (Join-Path $target "LICENSE") -Force
+            Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $target "THIRD_PARTY_NOTICES.md") -Force
+          }
+
+          Compress-Archive -Path "artifacts/plugin/*" `
+            -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Plugin-$env:RELEASE_TAG-win-x86.zip") -Force
+          Compress-Archive -Path "artifacts/simulator/*" `
+            -DestinationPath (Join-Path $releaseDir "OMSI-NavBR-Multiplayer-Simulator-$env:RELEASE_TAG-win-x64-dev.zip") -Force
+
+          Copy-Item docs/ALPHA15_RELEASE_NOTES.md (Join-Path $releaseDir "ALPHA15_RELEASE_NOTES.md") -Force
+          Copy-Item docs/ALPHA15_MASTER_SCOPE.md (Join-Path $releaseDir "ALPHA15_MASTER_SCOPE.md") -Force
+          Copy-Item docs/ALPHA15_COMMUNITY.md (Join-Path $releaseDir "ALPHA15_COMMUNITY.md") -Force
+          Copy-Item docs/OMSI_PLUGIN_EXPERIMENTAL.md (Join-Path $releaseDir "OMSI_PLUGIN_EXPERIMENTAL.md") -Force
+          Copy-Item docs/MULTIPLAYER_SIMULATOR.md (Join-Path $releaseDir "MULTIPLAYER_SIMULATOR.md") -Force
+
+          gh release download $env:RELEASE_TAG --repo "${{ github.repository }}" --dir $releaseDir `
+            --pattern "OMSI-NavBR-Multiplayer-$env:RELEASE_TAG-win-x86.exe"
+          gh release download $env:RELEASE_TAG --repo "${{ github.repository }}" --dir $releaseDir `
+            --pattern "OMSI-NavBR-Multiplayer-$env:RELEASE_TAG-win-x86.zip"
+          gh release download $env:RELEASE_TAG --repo "${{ github.repository }}" --dir $releaseDir `
+            --pattern "OMSI-NavBR-Server-$env:RELEASE_TAG-win-x64.zip"
+
+          $hashLines = foreach ($file in Get-ChildItem $releaseDir -File | Sort-Object Name) {
+            if ($file.Name -eq "SHA256SUMS.txt") { continue }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
+
+      - name: Upload supplemental assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseDir = "artifacts/release"
+          $supplemental = @(
+            "OMSI-NavBR-Plugin-$env:RELEASE_TAG-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$env:RELEASE_TAG-win-x64-dev.zip",
+            "ALPHA15_RELEASE_NOTES.md",
+            "ALPHA15_MASTER_SCOPE.md",
+            "ALPHA15_COMMUNITY.md",
+            "OMSI_PLUGIN_EXPERIMENTAL.md",
+            "MULTIPLAYER_SIMULATOR.md",
+            "SHA256SUMS.txt"
+          )
+
+          foreach ($name in $supplemental) {
+            $path = Join-Path $releaseDir $name
+            if (-not (Test-Path $path)) { throw "Supplemental asset missing: $name" }
+            gh release upload $env:RELEASE_TAG $path --repo "${{ github.repository }}" --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Could not upload $name." }
+          }
+
+      - name: Verify complete Alpha.15 release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = gh release view $env:RELEASE_TAG --repo "${{ github.repository }}" --json assets --jq ".assets[].name"
+          $required = @(
+            "OMSI-NavBR-Multiplayer-$env:RELEASE_TAG-win-x86.exe",
+            "OMSI-NavBR-Multiplayer-$env:RELEASE_TAG-win-x86.zip",
+            "OMSI-NavBR-Server-$env:RELEASE_TAG-win-x64.zip",
+            "OMSI-NavBR-Plugin-$env:RELEASE_TAG-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$env:RELEASE_TAG-win-x64-dev.zip",
+            "SHA256SUMS.txt"
+          )
+          foreach ($name in $required) {
+            if ($assets -notcontains $name) { throw "Alpha.15 release asset missing: $name" }
+          }
