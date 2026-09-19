@@ -77,9 +77,9 @@ public sealed record MultiplayerSettings(
         true,
         "omsi",
         null,
-        false,
+        true,
         false,
         EnableApplicationRelay: true,
         RelayServerUrl: DefaultOnlineServerUrl,
-        NetworkSettingsVersion: 2);
+        NetworkSettingsVersion: 3);
 }
