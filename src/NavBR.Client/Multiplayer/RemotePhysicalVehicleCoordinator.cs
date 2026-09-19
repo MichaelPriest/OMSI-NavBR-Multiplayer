@@ -23,6 +23,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const double CapacityReplacementMarginMeters = 75d;
     private static readonly TimeSpan CapacityEvictionCooldown =
         TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan TileUnavailableRetryDelay =
+        TimeSpan.FromSeconds(1);
     private static readonly TimeSpan LocalTelemetryFreshness =
         TimeSpan.FromSeconds(3);
 
@@ -38,6 +40,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, double> _distanceByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _capacityEvictionsInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _capacitySuppressedUntilByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _spawnRetryAfterByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -287,6 +290,19 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         if (!_spawned.ContainsKey(playerId))
         {
+            if (_spawnRetryAfterByPlayer.TryGetValue(
+                    playerId,
+                    out var retryAfter))
+            {
+                if (retryAfter > DateTimeOffset.UtcNow)
+                {
+                    SetStatus(playerId, "tile-unavailable", "tile-unavailable");
+                    return;
+                }
+
+                _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
+            }
+
             SetStatus(playerId, "resolving-asset");
             var resolvedVehiclePath = await _vehicleAssetResolver.ResolveAsync(
                 remoteManifest.VehiclePath,
@@ -347,6 +363,15 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 if (spawn?.Success != true)
                 {
                     _spawned.TryRemove(playerId, out _);
+                    if (string.Equals(
+                            spawn?.ErrorCode,
+                            "tile-unavailable",
+                            StringComparison.Ordinal))
+                    {
+                        _spawnRetryAfterByPlayer[playerId] =
+                            DateTimeOffset.UtcNow + TileUnavailableRetryDelay;
+                    }
+
                     ReportCommandFailureOnce(
                         playerId,
                         "spawn",
@@ -354,6 +379,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         consistInfo?.ExpectedPartCount);
                     return;
                 }
+
+                _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
 
                 _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
                     remoteVehicleCompatibilityId;
@@ -504,6 +531,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _distanceByPlayer.Clear();
         _capacityEvictionsInFlight.Clear();
         _capacitySuppressedUntilByPlayer.Clear();
+        _spawnRetryAfterByPlayer.Clear();
         _statusByPlayer.Clear();
     }
 
@@ -599,7 +627,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 "multi-vehicle-consist-unsupported",
                 StringComparison.Ordinal)
             ? "consist-unsupported"
-            : $"{operation}-failed";
+            : string.Equals(
+                errorCode,
+                "tile-unavailable",
+                StringComparison.Ordinal)
+                ? "tile-unavailable"
+                : $"{operation}-failed";
         SetStatus(
             playerId,
             state,
