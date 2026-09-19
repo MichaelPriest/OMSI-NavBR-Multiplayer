@@ -853,7 +853,6 @@ export type NavBrCommand =
   | "openGhostFolder"
   | "connectRoom"
   | "createOnlineRoom"
-  | "createOnlineHost"
   | "createLocalRoom"
   | "disconnectRoom"
   | "stopLocalHost"
