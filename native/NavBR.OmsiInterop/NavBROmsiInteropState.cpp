@@ -971,7 +971,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadPlayerVehicleGrid(
     }
 
     int resolvedTileIndex = -1;
-    _ = TryGetMapTileIndexByPointer(tilePointer, resolvedTileIndex);
+    (void)TryGetMapTileIndexByPointer(tilePointer, resolvedTileIndex);
 
     *gridX = resolvedGridX;
     *gridY = resolvedGridY;
