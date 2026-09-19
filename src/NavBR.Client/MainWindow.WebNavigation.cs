@@ -18,13 +18,17 @@ public partial class MainWindow
     {
         var telemetry = _lastTelemetry;
         var map = GetActiveMapForOperations();
+
+        if (map is not null)
+        {
+            EnsureWebNavigationMapData(map);
+        }
+
         if (telemetry is null || map is null || !telemetry.IsInGame)
         {
             _webNavigationEta.Reset();
             return BuildUnavailableWebNavigation(telemetry, map);
         }
-
-        EnsureWebNavigationMapData(map);
         EnsureWebNavigationRouteData(map, telemetry);
 
         var navigation = NavBRNavigationEngine.Evaluate(
@@ -34,6 +38,26 @@ public partial class MainWindow
             _webNavigationBusStops);
         var eta = _webNavigationEta.Observe(navigation, DateTimeOffset.UtcNow);
         var tileSize = _webNavigationLayout?.TileSize;
+        var roadmapPath = ResolveWebNavigationRoadmapPath(map);
+        var roadmapAvailable = !string.IsNullOrWhiteSpace(roadmapPath) && File.Exists(roadmapPath);
+        var roadmapUrl = roadmapAvailable
+            ? ResolveWebNavigationRoadmapUrl(map)
+            : null;
+        object? mapBounds = null;
+        if (tileSize is double boundsTileSize &&
+            _webNavigationLayout?.WorldWidth is double worldWidth &&
+            _webNavigationLayout.WorldHeight is double worldHeight)
+        {
+            var minWorldX = _webNavigationLayout.MinGridX * boundsTileSize;
+            var minWorldY = _webNavigationLayout.MinGridY * boundsTileSize;
+            mapBounds = new
+            {
+                minX = minWorldX,
+                minY = minWorldY,
+                maxX = minWorldX + worldWidth,
+                maxY = minWorldY + worldHeight
+            };
+        }
 
         OmsiRouteRejoinPath? rejoinPath = null;
         if (!navigation.IsOnRoute &&
@@ -144,6 +168,9 @@ public partial class MainWindow
             paceMetersPerSecond = eta.PaceMetersPerSecond,
             usesWorldCoordinates = _webNavigationLayout?.UsesWorldCoordinates ?? false,
             tileSize = _webNavigationLayout?.TileSize,
+            roadmapAvailable,
+            roadmapUrl,
+            bounds = mapBounds,
             routePoints,
             rejoinAvailable = rejoinPath is not null,
             rejoinDistanceMeters = rejoinPath?.DistanceMeters,
@@ -167,8 +194,33 @@ public partial class MainWindow
         };
     }
 
-    private object BuildUnavailableWebNavigation(VehicleTelemetry? telemetry, OmsiMapInfo? map) => new
+    private object BuildUnavailableWebNavigation(VehicleTelemetry? telemetry, OmsiMapInfo? map)
     {
+        var roadmapPath = map is null
+            ? null
+            : ResolveWebNavigationRoadmapPath(map);
+        var roadmapAvailable =
+            !string.IsNullOrWhiteSpace(roadmapPath) &&
+            File.Exists(roadmapPath);
+
+        object? mapBounds = null;
+        if (_webNavigationLayout?.TileSize is double tileSize &&
+            _webNavigationLayout.WorldWidth is double worldWidth &&
+            _webNavigationLayout.WorldHeight is double worldHeight)
+        {
+            var minWorldX = _webNavigationLayout.MinGridX * tileSize;
+            var minWorldY = _webNavigationLayout.MinGridY * tileSize;
+            mapBounds = new
+            {
+                minX = minWorldX,
+                minY = minWorldY,
+                maxX = minWorldX + worldWidth,
+                maxY = minWorldY + worldHeight
+            };
+        }
+
+        return new
+        {
         available = false,
         mapName = map?.DisplayName ?? telemetry?.MapName,
         mapFolder = map?.FolderName,
@@ -189,7 +241,12 @@ public partial class MainWindow
         etaToRouteEndSeconds = null as double?,
         paceMetersPerSecond = null as double?,
         usesWorldCoordinates = false,
-        tileSize = null as double?,
+        tileSize = _webNavigationLayout?.TileSize,
+        roadmapAvailable,
+        roadmapUrl = roadmapAvailable && map is not null
+            ? ResolveWebNavigationRoadmapUrl(map)
+            : null,
+        bounds = mapBounds,
         routePoints = Array.Empty<object>(),
         rejoinAvailable = false,
         rejoinDistanceMeters = null as double?,
@@ -204,7 +261,8 @@ public partial class MainWindow
             nextStopIndex = null as int?,
             upcomingStops = Array.Empty<string>()
         }
-    };
+        };
+    }
 
     private void EnsureWebNavigationMapData(OmsiMapInfo map)
     {
