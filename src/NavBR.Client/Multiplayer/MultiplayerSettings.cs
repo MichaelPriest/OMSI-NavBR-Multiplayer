@@ -48,7 +48,7 @@ public sealed record MultiplayerSettings(
     double DashboardAlertsScale = 1d,
     double DashboardSideIndicatorsScale = 1d,
     bool ExperimentalRoleplayCharacterEnabled = false,
-    int NetworkSettingsVersion = 2,
+    int NetworkSettingsVersion = 0,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
@@ -80,5 +80,6 @@ public sealed record MultiplayerSettings(
         false,
         false,
         EnableApplicationRelay: true,
-        RelayServerUrl: DefaultOnlineServerUrl);
+        RelayServerUrl: DefaultOnlineServerUrl,
+        NetworkSettingsVersion: 2);
 }
