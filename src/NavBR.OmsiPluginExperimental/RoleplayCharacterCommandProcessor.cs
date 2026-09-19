@@ -8,7 +8,7 @@ internal static class RoleplayCharacterCommandProcessor
     public static bool ExperimentalWritesEnabled =>
         ExperimentalFeatureFlags.RoleplayCharacterEnabled;
 
-    public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
+    public static bool IsRuntimeSupported => OmsiNativeInterop.IsRoleplayShimReady;
 
     public static bool IsCharacterCommandType(string type) =>
         string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||

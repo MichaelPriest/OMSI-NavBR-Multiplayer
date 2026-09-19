@@ -2,6 +2,7 @@ LIBRARY "NavBR.OmsiInterop"
 EXPORTS
     NavBR_GetAbiVersion
     NavBR_GetStateInteropVersion
+    NavBR_ProbeRoleplayHumanControl
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
     NavBR_GetProgramManager

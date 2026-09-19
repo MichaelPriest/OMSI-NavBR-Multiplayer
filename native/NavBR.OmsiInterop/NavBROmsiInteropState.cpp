@@ -776,6 +776,24 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
     return 7;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
+{
+    const auto imageBase = ImageBase();
+    if (imageBase == 0 || sizeof(void*) != 4)
+    {
+        return 0;
+    }
+
+    // RP only needs the human list, the player/road-vehicle identity used to
+    // resolve the active driver, and the state-layout ABI implemented here.
+    // Do not couple character control to MakeVehicle/map-tile spawn symbols.
+    return IsReadableRange(Resolve(RvaHumansPointer), sizeof(int)) &&
+           IsReadableRange(Resolve(RvaRoadVehiclesPointer), sizeof(int)) &&
+           IsReadableRange(Resolve(RvaPlayerVehicleIndex), sizeof(int))
+        ? 1
+        : 0;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
 {
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;

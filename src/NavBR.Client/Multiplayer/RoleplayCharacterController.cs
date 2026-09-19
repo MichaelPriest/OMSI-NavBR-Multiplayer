@@ -375,11 +375,28 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return false;
         }
 
-        if (!IsRuntimeAvailable)
+        if (Application.Current is not App app || !app.PluginBridge.IsConnected)
         {
             SetStatus(
-                "roleplay-plugin-unavailable",
-                "Plugin Bridge is disconnected or does not expose character-possession and character-transform.",
+                "roleplay-plugin-disconnected",
+                "Plugin Bridge is disconnected. Confirm the NavBR OMSI plugin is loaded by OMSI and restart OMSI after any plugin update.",
+                isError: true);
+            return false;
+        }
+
+        if (!app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterPossession) ||
+            !app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform))
+        {
+            var connection = app.PluginBridge.GetConnectionInfo();
+            var capabilities = connection.LastPluginCapabilities?.Capabilities ??
+                               connection.LastPluginStatus?.Capabilities ??
+                               Array.Empty<string>();
+            var component = string.IsNullOrWhiteSpace(connection.PluginComponentVersion)
+                ? "unknown"
+                : connection.PluginComponentVersion;
+            SetStatus(
+                "roleplay-plugin-capability-unavailable",
+                $"Plugin Bridge connected (plugin {component}) but RP capabilities are missing. Reported capabilities: {(capabilities.Length == 0 ? "none" : string.Join(", ", capabilities))}.",
                 isError: true);
             return false;
         }

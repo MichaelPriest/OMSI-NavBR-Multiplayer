@@ -84,6 +84,36 @@ internal static class OmsiNativeInterop
         }
     }
 
+    public static bool IsRoleplayShimReady
+    {
+        get
+        {
+            if (!IsCandidateOmsi23004Runtime || !EnsureShimLoaded())
+            {
+                return false;
+            }
+
+            try
+            {
+                return GetAbiVersion() == ExpectedAbiVersion &&
+                       GetStateInteropVersion() == ExpectedStateInteropVersion &&
+                       ProbeRoleplayHumanControl() == 1;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+            catch (BadImageFormatException)
+            {
+                return false;
+            }
+        }
+    }
+
     internal static bool TrySnapshotRoadVehicles(out int[] vehiclePointers)
     {
         vehiclePointers = [];
@@ -262,6 +292,9 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeOmsi23004Addresses")]
     private static extern int ProbeOmsi23004Addresses();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeRoleplayHumanControl")]
+    private static extern int ProbeRoleplayHumanControl();
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetImageBase")]
     internal static extern uint GetImageBase();
