@@ -134,7 +134,8 @@ internal static class SimulatorPhysicalTestSupport
             if (!fullPath.StartsWith(
                     rootPrefix,
                     StringComparison.OrdinalIgnoreCase) ||
-                !File.Exists(fullPath))
+                !File.Exists(fullPath) ||
+                HasCoupledVehicleReference(fullPath))
             {
                 return false;
             }
@@ -159,6 +160,63 @@ internal static class SimulatorPhysicalTestSupport
         {
             return false;
         }
+    }
+
+    private static bool HasCoupledVehicleReference(string fullPath)
+    {
+        try
+        {
+            using var stream = File.Open(
+                fullPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(
+                stream,
+                System.Text.Encoding.Latin1,
+                detectEncodingFromByteOrderMarks: true);
+
+            while (reader.ReadLine() is { } line)
+            {
+                var tag = line.Trim();
+                if (!tag.Equals("[couple_back]", StringComparison.OrdinalIgnoreCase) &&
+                    !tag.Equals("[couple_front]", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                while (reader.ReadLine() is { } valueLine)
+                {
+                    var value = valueLine.Trim();
+                    if (value.Length == 0 ||
+                        value.StartsWith(";", StringComparison.Ordinal) ||
+                        value.StartsWith("//", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    // A new section without a coupled definition means this
+                    // particular couple tag is not declaring another vehicle.
+                    if (value.StartsWith("[", StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    return value.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+                           value.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) ||
+                           value.Contains(".bus", StringComparison.OrdinalIgnoreCase) ||
+                           value.Contains(".ovh", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+        }
+        catch
+        {
+            // Fail closed for the physical verifier: an unreadable vehicle
+            // definition must not be advertised as a proven rigid test bus.
+            return true;
+        }
+
+        return false;
     }
 
     private static SimulatorHofRoute[] ResolveHofRoutes(
