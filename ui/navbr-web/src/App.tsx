@@ -2929,7 +2929,7 @@ function Multiplayer({
     if (!useOnlineServer) {
       lines.push(`port=${multiplayer.hostPort ?? 27730}`);
     }
-    lines.push(`mode=${multiplayer.transportMode === "online-host" ? "online-host" : useOnlineServer ? "relay" : "peer-host"}`);
+    lines.push(`mode=${multiplayer.transportMode === "dedicated-server" ? "dedicated-server" : useOnlineServer ? "relay" : "peer-host"}`);
     return lines.join("\n");
   };
 
@@ -2973,7 +2973,7 @@ function Multiplayer({
       setServerUrl(importedServer);
       setRoomId(importedRoom);
       setRoomPassword("");
-      if (mode === "relay" || mode === "online-host") {
+      if (mode === "relay" || mode === "dedicated-server") {
         setRelayEnabled(true);
         setRelayServerUrl(importedServer);
         sendCommand("configureRelay", { enabled: true, relayServerUrl: importedServer });
@@ -3018,8 +3018,8 @@ function Multiplayer({
         <div className="metric"><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.playerCount}</strong></div>
         <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
         <div className="metric"><small>HOST</small><strong>{
-          multiplayer.transportMode === "online-host"
-            ? pick("Você · online sem portas", "You · online without ports", "Tú · online sin puertos", "Du · online ohne Ports", "Vous · en ligne sans ports")
+          multiplayer.transportMode === "dedicated-server"
+            ? pick("Render · servidor dedicado", "Render · dedicated server", "Render · servidor dedicado", "Render · dedizierter Server", "Render · serveur dédié")
             : multiplayer.hostRunning
               ? `TCP ${multiplayer.hostPort ?? 27730}`
               : pick("Não sou o host", "Not the host", "No soy el host", "Nicht der Host", "Pas l’hôte")
@@ -3027,8 +3027,8 @@ function Multiplayer({
         <div className="metric"><small>{pick("TRANSPORTE", "TRANSPORT", "TRANSPORTE", "TRANSPORT", "TRANSPORT")}</small><strong>{
           multiplayer.transportMode === "direct-host"
             ? pick("Host direto", "Direct host", "Host directo", "Direkter Host", "Hôte direct")
-            : multiplayer.transportMode === "online-host"
-              ? pick("Host online sem portas", "Online host without ports", "Host online sin puertos", "Online-Host ohne Ports", "Hôte en ligne sans ports")
+            : multiplayer.transportMode === "dedicated-server"
+              ? pick("Servidor dedicado online", "Online dedicated server", "Servidor dedicado online", "Dedizierter Online-Server", "Serveur dédié en ligne")
               : multiplayer.transportMode === "relay"
                 ? pick("Servidor online", "Online server", "Servidor online", "Online-Server", "Serveur en ligne")
               : multiplayer.transportMode === "remote-host"
@@ -3237,10 +3237,10 @@ function Multiplayer({
                     setRelayEnabled(true);
                     setRelayServerUrl(onlineUrl);
                     setServerUrl(onlineUrl);
-                    sendCommand("createOnlineHost", { roomId, displayName, isPrivate: privateRoom, roomPassword, serverUrl: onlineUrl });
+                    sendCommand("createOnlineRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, serverUrl: onlineUrl });
                   }}
                 >
-                  {pick("Hospedar online sem abrir portas", "Host online without opening ports", "Alojar online sin abrir puertos", "Online hosten ohne Ports zu öffnen", "Héberger en ligne sans ouvrir de ports")}
+                  {pick("Criar sala no servidor online", "Create room on online server", "Crear sala en el servidor online", "Raum auf Online-Server erstellen", "Créer une salle sur le serveur en ligne")}
                 </button>
               </>
             ) : (
@@ -3256,20 +3256,20 @@ function Multiplayer({
             <div><small>{pick("APELIDO", "DISPLAY NAME", "APODO", "ANZEIGENAME", "PSEUDO")}</small><strong>{multiplayer.displayName || "—"}</strong></div>
             <div><small>{pick("ESTADO", "STATE", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{statusLabel}</strong></div>
             <div><small>{pick("MODO DO HOST", "HOST MODE", "MODO DEL HOST", "HOST-MODUS", "MODE HÔTE")}</small><strong>{
-              multiplayer.transportMode === "online-host"
-                ? pick("Online · sem UPnP / sem porta", "Online · no UPnP / no port", "Online · sin UPnP / sin puerto", "Online · ohne UPnP / ohne Port", "En ligne · sans UPnP / sans port")
+              multiplayer.transportMode === "dedicated-server"
+                ? pick("Render · servidor dedicado", "Render · dedicated server", "Render · servidor dedicado", "Render · dedizierter Server", "Render · serveur dédié")
                 : hostReachabilityLabel
             }</strong></div>
             <div><small>{pick("ENDEREÇO INTERNET", "INTERNET ADDRESS", "DIRECCIÓN INTERNET", "INTERNET-ADRESSE", "ADRESSE INTERNET")}</small><strong>{
-              multiplayer.transportMode === "online-host"
+              multiplayer.transportMode === "dedicated-server"
                 ? (multiplayer.serverUrl || multiplayer.relayServerUrl || defaultOnlineServer)
                 : (multiplayer.internetInviteAddress || "—")
             }</strong></div>
           </div>
-          {multiplayer.transportMode === "online-host" ? (
+          {multiplayer.transportMode === "dedicated-server" ? (
             <div className="migration-note">
-              <strong>{pick("Host online ativo — nenhuma porta precisa ser aberta.", "Online host active — no port needs to be opened.", "Host online activo — no es necesario abrir ningún puerto.", "Online-Host aktiv — es muss kein Port geöffnet werden.", "Hôte en ligne actif — aucun port ne doit être ouvert.")}</strong><br />
-              {pick("Seu PC é o dono e a autoridade da sala; todos os jogadores se conectam ao servidor NavBR por HTTPS/WebSocket.", "Your PC owns and controls the room; all players connect to the NavBR server over HTTPS/WebSocket.", "Tu PC es el propietario y la autoridad de la sala; todos los jugadores se conectan al servidor NavBR por HTTPS/WebSocket.", "Dein PC besitzt und steuert den Raum; alle Spieler verbinden sich per HTTPS/WebSocket mit dem NavBR-Server.", "Votre PC possède et contrôle la salle ; tous les joueurs se connectent au serveur NavBR via HTTPS/WebSocket.")}
+              <strong>{pick("Sala hospedada no servidor dedicado NavBR.", "Room hosted on the NavBR dedicated server.", "Sala alojada en el servidor dedicado NavBR.", "Raum auf dem dedizierten NavBR-Server gehostet.", "Salle hébergée sur le serveur dédié NavBR.")}</strong><br />
+              {pick("O Render executa o servidor da sessão. Seu PC é apenas um cliente; quem cria a sala recebe a propriedade administrativa da sala.", "Render runs the session server. Your PC is only a client; the room creator receives administrative ownership of the room.", "Render ejecuta el servidor de la sesión. Tu PC es solo un cliente; quien crea la sala recibe la propiedad administrativa de la sala.", "Render führt den Sitzungsserver aus. Dein PC ist nur ein Client; der Raumersteller erhält die administrative Eigentümerschaft.", "Render exécute le serveur de session. Votre PC est seulement un client ; le créateur reçoit la propriété administrative de la salle.")}
             </div>
           ) : multiplayer.hostRunning && hostReachabilityDetail ? (
             <div className="migration-note">
