@@ -338,8 +338,17 @@ public partial class MainWindow
         // Chromium/WebView2 support for BMP inside SVG <image> can vary across
         // systems and GPU paths. Prefer a cached PNG generated from the real
         // OMSI roadmap; keep the direct map file as a no-copy fallback.
-        return WebRoadmapCache.TryGetPngUrl(path)
-            ?? TryBuildWebMapResourceUrl(map, path);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            return WebRoadmapCache.TryGetPngUrl(path)
+                ?? TryBuildWebMapResourceUrl(map, path);
+        }
+
+        // Some community maps do not ship whole.roadmap.bmp. Build a read-only
+        // WebView cache from the map's real [spline]/[spline_h] placements and
+        // scenery-object road paths instead of requiring the user to modify the
+        // installed map just to see navigation.
+        return OmsiWebRoadmapFallbackCache.TryGetOrRequestUrl(map);
     }
 
     private static string? ResolveWebNavigationRoadmapFallbackUrl(OmsiMapInfo map)
