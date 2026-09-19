@@ -13,11 +13,27 @@ public partial class MainWindow
     private object BuildWebRoleplayState()
     {
         var mapKey = GetRoleplayMapKeyForShell();
-        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
         IReadOnlyList<RoleplayCharacterOption> options = IsRoleplayMapReadyForShell()
             ? GetRoleplayCharacterOptionsForShell()
             : Array.Empty<RoleplayCharacterOption>();
         var controller = GetRoleplayControllerForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+
+        // The current RP backend safely detaches the human who is already
+        // driving the player's bus. Other Map.Drivers entries are catalog
+        // choices only until independent human spawning exists.
+        if (!controller.IsActive &&
+            !string.IsNullOrWhiteSpace(mapKey) &&
+            options.FirstOrDefault(option => option.IsActiveDriver) is { } activeDriver &&
+            !string.Equals(
+                selected?.Id,
+                activeDriver.Id,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            RoleplayCharacterSelectionStore.Set(mapKey, activeDriver);
+            selected = activeDriver;
+            _webRoleplayStatus = "roleplay-active-driver-auto-selected";
+        }
         var current = controller.CurrentState;
         var nativeAnimation = controller.CurrentNativeAnimationDiagnostics;
         var nativeActivityObservation =
@@ -185,12 +201,26 @@ public partial class MainWindow
             throw new InvalidOperationException("Retorne ao ônibus antes de trocar de personagem.");
         }
 
-        var option = GetRoleplayCharacterOptionsForShell()
-            .FirstOrDefault(item =>
-                string.Equals(item.Id, characterId, StringComparison.OrdinalIgnoreCase));
+        var options = GetRoleplayCharacterOptionsForShell();
+        var option = options.FirstOrDefault(item =>
+            string.Equals(item.Id, characterId, StringComparison.OrdinalIgnoreCase));
         if (option is null)
         {
             throw new InvalidOperationException("O personagem selecionado não está mais disponível no mapa atual.");
+        }
+
+        if (!option.IsActiveDriver)
+        {
+            var activeDriver = options.FirstOrDefault(item => item.IsActiveDriver);
+            if (activeDriver is null)
+            {
+                _webRoleplayStatus = "roleplay-active-driver-not-detected";
+                throw new InvalidOperationException(
+                    "O OMSI ainda não informou qual humano está dirigindo o ônibus atual.");
+            }
+
+            option = activeDriver;
+            _webRoleplayStatus = "roleplay-active-driver-auto-selected";
         }
 
         RoleplayCharacterSelectionStore.Set(mapKey, option);
@@ -203,6 +233,24 @@ public partial class MainWindow
     private async Task StartRoleplayFromWebAsync()
     {
         ResetWebRoleplayInteractionFeedback();
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        var options = IsRoleplayMapReadyForShell()
+            ? GetRoleplayCharacterOptionsForShell()
+            : Array.Empty<RoleplayCharacterOption>();
+        var activeDriver = options.FirstOrDefault(option => option.IsActiveDriver);
+        if (activeDriver is null)
+        {
+            _webRoleplayStatus = "roleplay-active-driver-not-detected";
+            UpdateHudRoleplayStateForShell();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mapKey))
+        {
+            RoleplayCharacterSelectionStore.Set(mapKey, activeDriver);
+        }
+
         var controller = GetRoleplayControllerForShell();
         var started = await controller.StartAsync();
         if (!started && string.IsNullOrWhiteSpace(_webRoleplayStatus))
