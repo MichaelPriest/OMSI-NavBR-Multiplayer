@@ -242,7 +242,19 @@ jobs:
 
       - name: Publish Windows x86 client
         shell: pwsh
-        run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/NavBR.Client
+
+          foreach ($required in @(
+            "artifacts/NavBR.Client/OMSI.NavBR.Multiplayer.exe",
+            "artifacts/NavBR.Client/WebUI/dist/index.html"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Complete client output missing: $required"
+            }
+          }
 
       - name: Publish standalone Windows x86 EXE
         shell: pwsh
@@ -291,23 +303,29 @@ jobs:
           }
           finally { [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null }
 
-      - name: Prepare alpha.10 integration test bundle
+      - name: Prepare current integration test bundle
         shell: pwsh
         run: |
-          $bundle = "artifacts/NavBR.Alpha10.IntegrationTest"
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $prefix = [string]$group.VersionPrefix
+          $suffix = [string]$group.VersionSuffix
+          $version = if ([string]::IsNullOrWhiteSpace($suffix)) { $prefix } else { "$prefix-$suffix" }
+
+          $bundle = "artifacts/NavBR.IntegrationTest"
           $pluginBundle = Join-Path $bundle "Plugin"
           if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
           New-Item -ItemType Directory -Path $pluginBundle -Force | Out-Null
           Copy-Item "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe" $bundle
           Copy-Item "artifacts/NavBR.OmsiPlugin.Experimental/*" $pluginBundle -Recurse -Force
-          Copy-Item "docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md")
+          Copy-Item "docs/OMSI_PLUGIN_EXPERIMENTAL.md" (Join-Path $bundle "PLUGIN-TEST.md")
           @(
-            "OMSI NavBR Multiplayer v0.3.0-alpha.10 - integration test build"
+            "OMSI NavBR Multiplayer $version - integration test build"
             "GitHub SHA: $env:GITHUB_SHA"
             "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
             ""
-            "Plugin Native AOT x86: nao requer instalacao separada do .NET Runtime x86."
-            "O EXE contem o pacote do plugin e gerencia a instalacao no OMSI."
+            "React/WebView2 UI: built from ui/navbr-web for this commit."
+            "Plugin Native AOT x86: embedded in the client and included separately in Plugin/."
           ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
 
       - name: Upload NavBR client test build
@@ -334,10 +352,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload alpha.10 integration test bundle
+      - name: Upload current integration test bundle
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-alpha10-integration-test-win-x86
-          path: artifacts/NavBR.Alpha10.IntegrationTest
+          name: OMSI-NavBR-integration-test-win-x86
+          path: artifacts/NavBR.IntegrationTest
           if-no-files-found: error
           retention-days: 14
