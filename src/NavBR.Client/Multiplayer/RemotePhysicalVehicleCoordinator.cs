@@ -291,6 +291,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        if (!_spawned.ContainsKey(playerId) &&
+            (frame.Telemetry.MapTileIndex is not int spawnTileIndex ||
+             spawnTileIndex is < 0 or > 200_000))
+        {
+            SetStatus(
+                playerId,
+                "tile-unavailable",
+                "remote-tile-index-missing");
+            return;
+        }
+
         if (!_spawned.ContainsKey(playerId))
         {
             if (_spawnRetryAfterByPlayer.TryGetValue(
