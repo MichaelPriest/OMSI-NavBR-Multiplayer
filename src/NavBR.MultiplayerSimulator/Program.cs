@@ -271,7 +271,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
         var manifest = new OmsiCompatibilityManifest(
             OmsiVersion: "simulator",
-            NavBRVersion: "alpha.15-simulator",
+            NavBRVersion: "alpha.17-simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
             VehiclePath: _options.VehiclePath,
