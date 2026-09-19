@@ -2,6 +2,8 @@
 
 Versão pública atual: **v0.3.0-alpha.14-test.4**
 
+Candidata privada atual: **v0.3.0-alpha.14-test.5**
+
 A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4** passa a ser a release pública atual do OMSI NavBR Multiplayer.
 
 ## Interface principal
@@ -115,3 +117,14 @@ A Alpha.14 Test 4 está liberada publicamente. A publicação atual inclui o hot
 - modo por tiles preserva as imagens `.roadmap.bmp` existentes e cria backup quando necessário;
 - modo vetorial gera `whole.roadmap.bmp` diretamente de `global.cfg` + splines dos tiles;
 - progresso, dimensões, quantidade de tiles/splines, tamanho e backup são mostrados pela interface.
+
+
+## Alpha.14 Test 5 — candidata de validação
+
+- Navegação 2D passa a renderizar o roadmap real catalogado do mapa, inclusive `roadmap.bmp` quando aplicável;
+- Navegação 3D usa o mesmo roadmap catalogado em vez de depender apenas de `whole.roadmap.bmp`;
+- fora da rota, o NavBR calcula um caminho real de retorno pelas splines próximas e mantém a rota original separada;
+- RP auto-seleciona o humano que está realmente no estado `DrivingBus`/motorista ativo, com fallback pelo ponteiro de definição vivo;
+- ônibus remoto físico sincroniza Kachel validada pelo mapa local, suaviza movimento e confirma materialização por IDs;
+- simulador físico usa posição absoluta + local + Kachel do host, pode usar MAN EN92 padrão e rotas diferentes do HOF;
+- `--verify-physical` falha se a telemetria chegar, mas os bots não forem confirmados como `RoadVehicles` reais no OMSI.
