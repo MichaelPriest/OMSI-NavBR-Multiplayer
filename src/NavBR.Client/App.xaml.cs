@@ -33,7 +33,13 @@ public partial class App : Application
 
         try
         {
-            var pluginBootstrap = OmsiPluginInstallationService.EnsureInstalledAtStartup();
+            var omsiProfiles = OmsiInstallationProfileStore.Load();
+            var preferredOmsiRoot = omsiProfiles
+                .FirstOrDefault(profile => profile.IsPreferred)?
+                .InstallDirectory
+                ?? omsiProfiles.FirstOrDefault()?.InstallDirectory;
+            var pluginBootstrap =
+                OmsiPluginInstallationService.EnsureInstalledAtStartup(preferredOmsiRoot);
             NavBRAppLog.Info(
                 $"plugin-bootstrap status={pluginBootstrap.Status} changed={pluginBootstrap.Changed} " +
                 $"root={pluginBootstrap.OmsiRoot ?? "-"} message={pluginBootstrap.Message ?? "-"}");
