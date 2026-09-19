@@ -13,6 +13,14 @@ export interface NavBrPlayer {
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
+  physicalTelemetryGridX?: number | null;
+  physicalTelemetryGridY?: number | null;
+  physicalTelemetryTileX?: number | null;
+  physicalTelemetryTileY?: number | null;
+  physicalTelemetryLocalX?: number | null;
+  physicalTelemetryLocalY?: number | null;
+  physicalTelemetryLocalZ?: number | null;
+  physicalTelemetryRemoteTileIndex?: number | null;
   speaking: boolean;
   isLocal: boolean;
   line?: string | null;

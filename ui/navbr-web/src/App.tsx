@@ -3709,6 +3709,30 @@ function Multiplayer({
                           {player.physicalVehicleErrorMessage}
                         </small>
                       )}
+                    {!player.isLocal &&
+                      multiplayer.physicalVehiclesEnabled &&
+                      player.physicalVehicleState !== "active" &&
+                      (player.physicalTelemetryGridX != null ||
+                       player.physicalTelemetryGridY != null ||
+                       player.physicalTelemetryLocalX != null ||
+                       player.physicalTelemetryLocalY != null) && (
+                        <small className="physical-runtime-detail">
+                          {[
+                            player.physicalTelemetryGridX != null && player.physicalTelemetryGridY != null
+                              ? `Grid ${player.physicalTelemetryGridX}/${player.physicalTelemetryGridY}`
+                              : pick("Grid incompleto", "Incomplete grid", "Grid incompleto", "Unvollständiges Grid", "Grid incomplet"),
+                            player.physicalTelemetryLocalX != null && player.physicalTelemetryLocalY != null
+                              ? `Local ${format(player.physicalTelemetryLocalX, 1)} / ${format(player.physicalTelemetryLocalY, 1)}${player.physicalTelemetryLocalZ != null ? ` / ${format(player.physicalTelemetryLocalZ, 1)}` : ""}`
+                              : null,
+                            player.physicalTelemetryTileX != null && player.physicalTelemetryTileY != null
+                              ? `TileXY ${format(player.physicalTelemetryTileX, 1)} / ${format(player.physicalTelemetryTileY, 1)}`
+                              : null,
+                            player.physicalTelemetryRemoteTileIndex != null
+                              ? `Kachel(remote) #${player.physicalTelemetryRemoteTileIndex}`
+                              : null
+                          ].filter(Boolean).join(" · ")}
+                        </small>
+                      )}
                   </div>
                   <span className={`voice-state ${player.speaking ? "speaking" : ""} ${player.telemetryStale ? "stale" : ""}`}>
                     {player.speaking
