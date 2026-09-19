@@ -73,8 +73,15 @@ internal static class OmsiThreadCommandQueue
     {
         lock (Sync)
         {
-            return Pending.TryDequeue(out command!);
+            if (Pending.TryDequeue(out var candidate))
+            {
+                command = candidate;
+                return true;
+            }
         }
+
+        command = null!;
+        return false;
     }
 
     private static bool TryDequeueLightweightUpdate(out PluginBridgeMessage command)
