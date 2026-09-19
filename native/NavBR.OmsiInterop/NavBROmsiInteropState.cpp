@@ -1318,42 +1318,6 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_DetachHumanForRoleplay(int hu
     const unsigned char zero = 0;
     const unsigned char one = 1;
 
-    int roleplayTilePointer = 0;
-    Point2 roleplayTilePoint{};
-    const int playerVehicle = GetPlayerVehiclePointer();
-    if (IsRoadVehiclePointer(playerVehicle))
-    {
-        const auto playerBase =
-            static_cast<std::uintptr_t>(playerVehicle);
-        if (IsReadableRange(playerBase + KachelOffset, sizeof(int)))
-        {
-            roleplayTilePointer =
-                *reinterpret_cast<const int*>(
-                    playerBase + KachelOffset);
-            int roleplayGridX = 0;
-            int roleplayGridY = 0;
-            if (roleplayTilePointer != 0 &&
-                TryGetMapTileGridByPointer(
-                    roleplayTilePointer,
-                    roleplayGridX,
-                    roleplayGridY))
-            {
-                roleplayTilePoint =
-                    Point2{ roleplayGridX, roleplayGridY };
-            }
-        }
-    }
-
-    Vec3 humanWorldPosition = position;
-    if (roleplayTilePointer != 0)
-    {
-        (void)TryResolveWorldTranslation(
-            humanPointer,
-            roleplayTilePointer,
-            position,
-            humanWorldPosition);
-    }
-
     return WriteValue(humanPointer, HumanMyBusOffset, zeroBus) &&
            WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
            WriteByte(humanPointer, HumanRenderMeOffset, one) &&
@@ -1551,6 +1515,43 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
     const unsigned int zeroTimer = 0;
     const unsigned char zero = 0;
     const unsigned char one = 1;
+
+    int roleplayTilePointer = 0;
+    Point2 roleplayTilePoint{};
+    const int playerVehicle = GetPlayerVehiclePointer();
+    if (IsRoadVehiclePointer(playerVehicle))
+    {
+        const auto playerBase =
+            static_cast<std::uintptr_t>(playerVehicle);
+        if (IsReadableRange(playerBase + KachelOffset, sizeof(int)))
+        {
+            roleplayTilePointer =
+                *reinterpret_cast<const int*>(
+                    playerBase + KachelOffset);
+            int roleplayGridX = 0;
+            int roleplayGridY = 0;
+            if (roleplayTilePointer != 0 &&
+                TryGetMapTileGridByPointer(
+                    roleplayTilePointer,
+                    roleplayGridX,
+                    roleplayGridY))
+            {
+                roleplayTilePoint =
+                    Point2{ roleplayGridX, roleplayGridY };
+            }
+        }
+    }
+
+    Vec3 humanWorldPosition = position;
+    if (roleplayTilePointer != 0)
+    {
+        (void)TryResolveWorldTranslation(
+            humanPointer,
+            roleplayTilePointer,
+            position,
+            humanWorldPosition);
+    }
+
     const unsigned char aiStop = 0;      // THAM_Stop
     const unsigned char aiDoNothing = 0; // THAME_DoNothing
     const unsigned char aiSubNone = 0;
