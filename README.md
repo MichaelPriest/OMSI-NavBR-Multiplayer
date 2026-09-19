@@ -4,7 +4,9 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública atual é **v0.3.0-alpha.14-test.4**.
+A versão pública atual continua sendo **v0.3.0-alpha.14-test.4**.
+
+A build de desenvolvimento/validação atual da PR #30 é **v0.3.0-alpha.14-test.5**.
 
 - cliente principal: **EXE standalone Windows x86**;
 - ZIP do cliente;
@@ -28,8 +30,11 @@ A versão pública atual é **v0.3.0-alpha.14-test.4**.
 - Plugin Bridge **v3** + interop RP v3;
 - modo Personagem/RP disponível também sem multiplayer, com catálogo real de `Map.Drivers`, ativação, seleção e retorno ao ônibus pelo React;
 - **Ghost / Replay no React** com gravação real a 10 Hz, biblioteca/importação, analytics, prévia read-only da rota e replay 3D experimental pelo Plugin Bridge;
-- ônibus remoto físico experimental;
-- simulador multiplayer com bots no **mesmo mapa**, **próximos do host** e herdando **linha/rota/destino/próxima parada** da operação ativa da sala;
+- ônibus remoto físico experimental com interpolação, Kachel/tile validado, culling por proximidade e confirmação dos jogadores realmente materializados no OMSI;
+- simulador multiplayer com bots no **mesmo mapa**, **próximos do host**, ônibus rígido padrão EN92 quando disponível e rotas independentes do HOF para teste físico;
+- modo `--verify-physical` só aprova quando o host confirma que os IDs exatos dos bots foram materializados por `MakeVehicle` no OMSI;
+- Navegação 2D/3D usa o roadmap real catalogado e calcula caminho de retorno à rota pelas splines quando o veículo está fora da rota;
+- RP prioriza e auto-seleciona o motorista humano ativo real do ônibus;
 - interface pt-BR, English, Español, Deutsch e Français.
 
 ## Executar OMSI pelo NavBR
@@ -91,8 +96,9 @@ Quando executado contra uma sala real:
 2. herda MapName e compatibilidade;
 3. espera telemetria real para usar a posição do host como centro;
 4. posiciona os bots em um raio curto, por padrão **18 m**;
-5. herda a operação ativa da sala: **linha, rota, destino e próxima parada**;
-6. rejeita no modo --verify bots que publiquem em mapa diferente.
+5. mantém os bots próximos do host e pode usar rotas diferentes do HOF;
+6. usa o MAN EN92 padrão do OMSI como primeira opção de ônibus rígido para teste físico, quando instalado;
+7. `--verify` valida rede/movimento e `--verify-physical` exige confirmação real de `MakeVehicle` no OMSI.
 
 Se 127.0.0.1:27730 estiver vazio, o pacote do simulador pode iniciar automaticamente o NavBR.Server incluído.
 
