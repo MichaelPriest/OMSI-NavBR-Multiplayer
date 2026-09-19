@@ -2272,7 +2272,7 @@ function Settings({
                     {system.pluginInstallation.installBlockReason === "omsi-running"
                       ? pick("Feche o OMSI para liberar a atualização do plugin.", "Close OMSI to enable the plugin update.", "Cierra OMSI para habilitar la actualización del plugin.", "OMSI schließen, um das Plugin-Update freizugeben.", "Fermez OMSI pour autoriser la mise à jour du plugin.")
                       : system.pluginInstallation.installBlockReason === "omsi-not-found"
-                        ? pick("Cadastre a pasta do OMSI, o Omsi.exe ou um atalho .lnk válido.", "Register the OMSI folder, Omsi.exe, or a valid .lnk shortcut.", "Registra la carpeta de OMSI, Omsi.exe o un acceso directo .lnk válido.", "OMSI-Ordner, Omsi.exe oder eine gültige .lnk-Verknüpfung hinterlegen.", "Enregistrez le dossier OMSI, Omsi.exe ou un raccourci .lnk valide.")
+                        ? pick("Cadastre a pasta do OMSI, o Omsi.exe ou um atalho .lnk/.url válido.", "Register the OMSI folder, Omsi.exe, or a valid .lnk/.url shortcut.", "Registra la carpeta de OMSI, Omsi.exe o un acceso directo .lnk/.url válido.", "OMSI-Ordner, Omsi.exe oder eine gültige .lnk/.url-Verknüpfung hinterlegen.", "Enregistrez le dossier OMSI, Omsi.exe ou un raccourci .lnk/.url valide.")
                         : pick("Esta build não contém o pacote embutido do plugin.", "This build does not contain the embedded plugin package.", "Esta build no contiene el paquete integrado del plugin.", "Dieser Build enthält das eingebettete Plugin-Paket nicht.", "Cette build ne contient pas le paquet intégré du plugin.")}
                   </small>
                 )}
@@ -2288,12 +2288,12 @@ function Settings({
                 <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
               </div>
             </div>
-            <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também aceitar uma pasta, o próprio Omsi.exe ou um atalho .lnk válido.", "NavBR can locate registered installations and Steam libraries, and can also accept a folder, Omsi.exe itself, or a valid .lnk shortcut.", "NavBR puede localizar instalaciones registradas y bibliotecas Steam, y también aceptar una carpeta, el propio Omsi.exe o un acceso directo .lnk válido.", "NavBR kann registrierte Installationen und Steam-Bibliotheken finden und auch einen Ordner, Omsi.exe selbst oder eine gültige .lnk-Verknüpfung akzeptieren.", "NavBR peut localiser les installations enregistrées et les bibliothèques Steam, et accepter aussi un dossier, Omsi.exe lui-même ou un raccourci .lnk valide.")}</p>
+            <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também aceitar uma pasta, o próprio Omsi.exe ou atalhos .lnk/.url.", "NavBR can locate registered installations and Steam libraries, and can also accept a folder, Omsi.exe itself, or .lnk/.url shortcuts.", "NavBR puede localizar instalaciones registradas y bibliotecas Steam, y también aceptar una carpeta, el propio Omsi.exe o accesos directos .lnk/.url.", "NavBR kann registrierte Installationen und Steam-Bibliotheken finden und auch einen Ordner, Omsi.exe selbst oder .lnk/.url-Verknüpfungen akzeptieren.", "NavBR peut localiser les installations enregistrées et les bibliothèques Steam, et accepter aussi un dossier, Omsi.exe lui-même ou des raccourcis .lnk/.url.")}</p>
             <div className="discovery-actions">
               <input
                 value={manualPath}
                 onChange={event => setManualPath(event.target.value)}
-                placeholder="Ex.: G:\Games\OMSI 2 ou C:\Users\...\OMSI 2.lnk"
+                placeholder="Ex.: G:\Games\OMSI 2 ou Desktop\OMSI 2.lnk/.url"
               />
               <button className="button primary" onClick={() => sendCommand("discoverOmsiProfiles", { path: manualPath })}>
                 {manualPath.trim() ? pick("Adicionar / descobrir", "Add / discover", "Añadir / descubrir", "Hinzufügen / erkennen", "Ajouter / détecter") : pick("Descobrir automaticamente", "Discover automatically", "Descubrir automáticamente", "Automatisch erkennen", "Détecter automatiquement")}
