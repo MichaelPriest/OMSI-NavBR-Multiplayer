@@ -8,36 +8,60 @@ export function ScrollProgress() {
 }
 
 export function Header({ activeSection, onOpenDownloads }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = [
-    ["contribua", "❤ Contribua"],
-    ["estado", "Alpha.14"],
-    ["download", "Downloads"],
-    ["todas-versoes", "Todas as versões"],
     ["recursos", "Recursos"],
     ["multiplayer", "Multiplayer"],
+    ["download", "Downloads"],
+    ["todas-versoes", "Versões"],
+    ["roadmap", "Roadmap"],
     ["documentacao", "Documentação"]
   ];
 
   return (
     <>
-      <aside className="navbr-support-strip" aria-label="Apoie o desenvolvimento do NavBR">
-        <div className="shell navbr-support-strip-inner">
-          <span><strong>NavBR é um projeto independente.</strong> Ajude a manter desenvolvimento, testes e infraestrutura.</span>
-          <a href="#contribua">❤ Contribua</a>
+      <aside className="v2-utility-bar" aria-label="Informações do projeto">
+        <div className="shell">
+          <span><strong>OMSI NavBR</strong> • projeto independente e open source</span>
+          <a href="#contribua">Apoiar via Pix</a>
         </div>
       </aside>
-      <header className="topbar">
+
+      <header className="topbar v2-topbar">
         <a className="brand" href="#inicio" aria-label="OMSI NavBR Multiplayer">
           <span className="brand-box"><img src="./assets/navbr.ico" alt="" /></span>
           <span className="brand-copy"><b>NavBR</b><small>OMSI Multiplayer</small></span>
         </a>
-        <nav aria-label="Navegação principal">
+
+        <nav className="v2-desktop-nav" aria-label="Navegação principal">
           {navItems.map(([id, label]) => (
-            <a key={id} href={`#${id}`} className={activeSection === id ? "is-active" : ""}>{label}</a>
+            <a key={id} href={"#" + id} className={activeSection === id ? "is-active" : ""}>{label}</a>
           ))}
-          <button className="topbar-downloads" type="button" onClick={onOpenDownloads}>Última versão</button>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
+
+        <div className="v2-header-actions">
+          <button className="button primary v2-header-download" type="button" onClick={onOpenDownloads}>Baixar NavBR</button>
+          <button
+            className="v2-menu-button"
+            type="button"
+            aria-label="Abrir menu"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(value => !value)}
+          >
+            <i /><i /><i />
+          </button>
+        </div>
+
+        {mobileOpen && (
+          <nav className="v2-mobile-nav" aria-label="Navegação móvel">
+            {navItems.map(([id, label]) => (
+              <a key={id} href={"#" + id} onClick={() => setMobileOpen(false)}>{label}</a>
+            ))}
+            <a href="#contribua" onClick={() => setMobileOpen(false)}>Contribua</a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a>
+          </nav>
+        )}
       </header>
     </>
   );
@@ -179,10 +203,41 @@ export function AdSlot({ name }) {
 
 export function Footer() {
   return (
-    <footer className="shell">
-      <div className="footer-inner">
-        <p>OMSI NavBR Multiplayer • projeto independente • MIT</p>
-        <p>Site React/Vite alimentado pelo catálogo real de releases do GitHub.</p>
+    <footer className="v2-footer">
+      <div className="shell v2-footer-grid">
+        <div className="v2-footer-brand">
+          <a className="brand" href="#inicio">
+            <span className="brand-box"><img src="./assets/navbr.ico" alt="" /></span>
+            <span className="brand-copy"><b>NavBR</b><small>OMSI Multiplayer</small></span>
+          </a>
+          <p>Projeto independente para OMSI 2. Código aberto sob licença MIT.</p>
+        </div>
+
+        <div>
+          <strong>Produto</strong>
+          <a href="#recursos">Recursos</a>
+          <a href="#multiplayer">Multiplayer</a>
+          <a href="#roadmap">Roadmap</a>
+        </div>
+
+        <div>
+          <strong>Downloads</strong>
+          <a href="#download">Versão atual</a>
+          <a href="#todas-versoes">Todas as versões</a>
+          <a href={GITHUB_URL + "/releases"} target="_blank" rel="noreferrer">GitHub Releases ↗</a>
+        </div>
+
+        <div>
+          <strong>Projeto</strong>
+          <a href="#documentacao">Documentação</a>
+          <a href="#contribua">Contribua</a>
+          <a href={GITHUB_URL} target="_blank" rel="noreferrer">Código-fonte ↗</a>
+        </div>
+      </div>
+
+      <div className="shell v2-footer-bottom">
+        <span>OMSI NavBR Multiplayer</span>
+        <span>OMSI é uma marca de seus respectivos proprietários. NavBR é um projeto independente.</span>
       </div>
     </footer>
   );

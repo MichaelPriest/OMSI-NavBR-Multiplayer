@@ -1,28 +1,105 @@
 import React, { useState } from "react";
-import ReleaseCard from "./ReleaseCard.jsx";
-import { GITHUB_URL } from "./lib.js";
+import { GITHUB_URL, formatDate, summarizeBody } from "./lib.js";
 
-export function MultiplayerSection() {
-  const steps = [
-    ["Servidor NavBR", "Servidor dedicado oficial no Render. Não exige portas no PC, mas a infraestrutura atual é gratuita e limitada para Alpha/testes."],
-    ["LAN", "Seu PC executa o NavBR.Server para jogadores na mesma rede local, sem depender do servidor oficial."],
-    ["Online através do Host", "Seu PC executa o servidor e recebe jogadores pela Internet. O servidor sobe primeiro e o UPnP é tentado em segundo plano, com timeout de 8 s, sem congelar o app."]
+export function ProductHighlights() {
+  const items = [
+    ["01", "Multiplayer integrado", "Salas, presença, chat, voz e telemetria compartilhando o mesmo estado operacional."],
+    ["02", "Navegação no mapa real", "Roadmap, rota, paradas e retorno à rota usando dados do mapa carregado no OMSI."],
+    ["03", "Operação e HUD", "Painéis, HUD configurável, CCO, perfil, empresa e ferramentas para condução."],
+    ["04", "Integração nativa", "Plugin Bridge e interop x86 para recursos experimentais que precisam conversar diretamente com o OMSI."]
   ];
 
   return (
-    <section id="multiplayer" className="section shell split-section">
-      <div>
-        <span className="eyebrow">3 modos de multiplayer</span>
-        <h2>Escolha onde a sessão será hospedada.</h2>
-        <p className="section-lead">
-          O Servidor NavBR oficial usa atualmente o plano gratuito do Render e pode atingir limites de capacidade. A Alpha.14 pública atual inclui o hotfix 29f30b2 para o modo Online através do Host, evitando bloqueio da interface durante o UPnP. No futuro, o projeto poderá oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há preço, plano ou data definidos.
-        </p>
+    <section id="recursos" className="section shell v2-highlights">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">O produto</span><h2>Um ecossistema em torno da condução.</h2></div>
+        <p>A proposta do NavBR é reunir multiplayer e ferramentas operacionais sem substituir o simulador: o OMSI continua sendo a autoridade da condução.</p>
       </div>
-      <div className="steps">
-        {steps.map(([title, text], index) => (
+      <div className="v2-highlight-grid">
+        {items.map(([number, title, text]) => (
+          <article key={title}><span>{number}</span><h3>{title}</h3><p>{text}</p></article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function MultiplayerSection() {
+  const modes = [
+    ["Servidor NavBR", "Conecte-se ao servidor oficial de testes sem hospedar uma sala no próprio PC.", "Mais simples"],
+    ["LAN", "Crie uma sessão na mesma rede local para validar multiplayer entre máquinas próximas.", "Rede local"],
+    ["Host pela Internet", "Hospede a sessão no seu PC e permita conexões externas quando a rede estiver configurada.", "Avançado"]
+  ];
+
+  return (
+    <section id="multiplayer" className="section shell v2-multiplayer">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Multiplayer</span><h2>Três formas de jogar em conjunto.</h2></div>
+        <p>Cada modo tem um objetivo claro. Diagnósticos de rede, firewall, NAT/CGNAT e UPnP permanecem separados para evitar mensagens enganosas.</p>
+      </div>
+      <div className="v2-mode-grid">
+        {modes.map(([title, text, badge], index) => (
           <article key={title}>
-            <b>{index + 1}</b>
-            <div><h3>{title}</h3><p>{text}</p></div>
+            <div className="v2-mode-number">0{index + 1}</div>
+            <span className="v2-mode-badge">{badge}</span>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </article>
+        ))}
+      </div>
+      <div className="v2-flow">
+        <span>OMSI 2</span><i>→</i><span>NavBR Client</span><i>→</i><span>Servidor / Host</span><i>→</i><span>Outros motoristas</span>
+      </div>
+    </section>
+  );
+}
+
+export function NewsSection({ releases = [] }) {
+  const items = releases.slice(0, 4);
+  return (
+    <section id="novidades" className="section shell v2-news">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Novidades</span><h2>O que mudou nas últimas builds.</h2></div>
+        <a className="text-link" href="#todas-versoes">Ver histórico completo →</a>
+      </div>
+      <div className="v2-news-list">
+        {items.map((release, index) => {
+          const summary = summarizeBody(release.body);
+          const shortSummary = summary ? summary.slice(0, 210) + (summary.length > 210 ? "…" : "") : "Build pública do NavBR.";
+          return (
+            <article key={release.tag_name}>
+              <div className="v2-news-index">{String(index + 1).padStart(2, "0")}</div>
+              <div className="v2-news-main">
+                <div className="v2-news-meta"><span>{release.tag_name}</span><small>{formatDate(release.published_at)}</small></div>
+                <h3>{release.name || release.tag_name}</h3>
+                <p>{shortSummary}</p>
+              </div>
+              <a href={release.html_url} target="_blank" rel="noreferrer" aria-label={"Abrir " + release.tag_name}>↗</a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function RoadmapSection() {
+  const columns = [
+    ["Agora", "Correções e validação", ["Ônibus físico remoto", "Roadmap/GPS e retorno à rota", "Personagem/RP", "Instalação e atualização do plugin"]],
+    ["Próximo", "Consolidação", ["UX das salas", "Diagnósticos de runtime", "Compatibilidade entre veículos", "Melhorias no servidor e CCO"]],
+    ["Futuro", "Expansão", ["NavBR Mobile Companion", "IBIS Mobile", "Segundo monitor / GPS", "Recursos móveis de operação"]]
+  ];
+
+  return (
+    <section id="roadmap" className="section shell v2-roadmap">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Roadmap</span><h2>Construído por etapas, sem promessas artificiais.</h2></div>
+        <p>O foco atual é corrigir e validar o que já existe antes de ampliar o produto.</p>
+      </div>
+      <div className="v2-roadmap-grid">
+        {columns.map(([title, subtitle, items], index) => (
+          <article key={title} className={index === 0 ? "active" : ""}>
+            <span>{title}</span><h3>{subtitle}</h3><ul>{items.map(item => <li key={item}>{item}</li>)}</ul>
           </article>
         ))}
       </div>
@@ -30,26 +107,26 @@ export function MultiplayerSection() {
   );
 }
 
-export function DocumentationSection({ releases }) {
+export function DocumentationSection() {
+  const links = [
+    ["Alpha.14", "Roteiro de testes e visão geral", GITHUB_URL + "/blob/main/docs/ALPHA14_COMMUNITY.md"],
+    ["Escopo técnico", "Decisões e limites da Alpha.14", GITHUB_URL + "/blob/main/docs/ALPHA14_MASTER_SCOPE.md"],
+    ["Plugin OMSI", "Integração experimental e diagnóstico", GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
+    ["Mobile Companion", "Roadmap do smartphone e IBIS", GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"]
+  ];
+
   return (
-    <section id="documentacao" className="section shell">
-      <span className="eyebrow">Documentação</span>
-      <h2>Alpha.14 documentada e simulável.</h2>
-      <p className="section-lead">
-        Roteiro de teste, escopo mestre, plugin experimental e simulador permanecem versionados junto ao código.
-      </p>
-      <div className="actions">
-        <a className="button primary" href={`${GITHUB_URL}/blob/main/docs/ALPHA14_COMMUNITY.md`} target="_blank" rel="noreferrer">Roteiro Alpha.14</a>
-        <a className="button secondary" href={`${GITHUB_URL}/blob/main/docs/ALPHA14_MASTER_SCOPE.md`} target="_blank" rel="noreferrer">Escopo Alpha.14</a>
-        <a className="button secondary" href={`${GITHUB_URL}/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md`} target="_blank" rel="noreferrer">Plugin experimental</a>
+    <section id="documentacao" className="section shell v2-docs">
+      <div className="v2-section-heading">
+        <div><span className="eyebrow">Documentação</span><h2>Detalhes para quem quer testar, entender ou contribuir.</h2></div>
+        <a className="button secondary" href={GITHUB_URL} target="_blank" rel="noreferrer">Abrir GitHub</a>
       </div>
-      <div className="release-history">
-        <h3>Releases recentes</h3>
-        <div className="release-grid">
-          {releases.slice(0, 6).map(release => (
-            <ReleaseCard key={release.tag_name} release={release} />
-          ))}
-        </div>
+      <div className="v2-doc-grid">
+        {links.map(([title, text, href]) => (
+          <a href={href} target="_blank" rel="noreferrer" key={title}>
+            <span>Documento</span><h3>{title}</h3><p>{text}</p><b>Consultar →</b>
+          </a>
+        ))}
       </div>
     </section>
   );
@@ -70,18 +147,18 @@ export function SupportSection() {
   };
 
   return (
-    <section id="contribua" className="section shell support-wrap support-top">
-      <div className="support-card">
+    <section id="contribua" className="section shell v2-support">
+      <div className="v2-support-card">
         <div>
           <span className="eyebrow">Apoie o projeto</span>
-          <h2>Ajude o NavBR a continuar evoluindo.</h2>
-          <p>Contribuições são voluntárias e ajudam com desenvolvimento, infraestrutura e testes.</p>
+          <h2>Ajude a manter desenvolvimento, testes e infraestrutura.</h2>
+          <p>O NavBR é um projeto independente. Contribuições via Pix são voluntárias e não desbloqueiam recursos exclusivos.</p>
         </div>
-        <div className="pix-box">
-          <span>PIX — CHAVE ALEATÓRIA</span>
+        <div className="v2-pix-card">
+          <span>PIX • CHAVE ALEATÓRIA</span>
           <strong>{pixKey}</strong>
           <button className="button primary" type="button" onClick={copyPix}>Copiar chave Pix</button>
-          <small className="pix-status" aria-live="polite">{copyStatus}</small>
+          <small aria-live="polite">{copyStatus || "Contribuição voluntária"}</small>
         </div>
       </div>
     </section>
