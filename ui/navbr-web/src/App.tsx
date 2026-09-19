@@ -2263,7 +2263,10 @@ function Settings({
           <article className="card discovery-card">
             <div className="section-heading">
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
-              <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
+              <div className="settings-action-row">
+                <button className="button ghost" onClick={() => sendCommand("selectOmsiExecutable")}>{pick("Selecionar Omsi.exe / atalho", "Select Omsi.exe / shortcut", "Seleccionar Omsi.exe / acceso directo", "Omsi.exe / Verknüpfung wählen", "Sélectionner Omsi.exe / raccourci")}</button>
+                <button className="button ghost" onClick={() => sendCommand("selectOmsiFolder")}>{pick("Selecionar pasta", "Select folder", "Seleccionar carpeta", "Ordner auswählen", "Sélectionner le dossier")}</button>
+              </div>
             </div>
             <p>{pick("O NavBR pode localizar instalações registradas, bibliotecas Steam e também aceitar uma pasta, o próprio Omsi.exe ou um atalho .lnk válido.", "NavBR can locate registered installations and Steam libraries, and can also accept a folder, Omsi.exe itself, or a valid .lnk shortcut.", "NavBR puede localizar instalaciones registradas y bibliotecas Steam, y también aceptar una carpeta, el propio Omsi.exe o un acceso directo .lnk válido.", "NavBR kann registrierte Installationen und Steam-Bibliotheken finden und auch einen Ordner, Omsi.exe selbst oder eine gültige .lnk-Verknüpfung akzeptieren.", "NavBR peut localiser les installations enregistrées et les bibliothèques Steam, et accepter aussi un dossier, Omsi.exe lui-même ou un raccourci .lnk valide.")}</p>
             <div className="discovery-actions">
