@@ -136,6 +136,7 @@ internal sealed class OmsiRouteRejoinPathfinder
             foreach (var tile in selectedTiles)
             {
                 foreach (var segment in ReadTile(
+                             map.DirectoryPath,
                              tile.Key.X,
                              tile.Key.Y,
                              tile.Value,
@@ -229,6 +230,7 @@ internal sealed class OmsiRouteRejoinPathfinder
     }
 
     private IReadOnlyList<RoadSegment> ReadTile(
+        string mapDirectory,
         int gridX,
         int gridY,
         string tilePath,
@@ -251,6 +253,7 @@ internal sealed class OmsiRouteRejoinPathfinder
         }
 
         var segments = ParseTile(
+            mapDirectory,
             gridX,
             gridY,
             tilePath,
@@ -260,6 +263,7 @@ internal sealed class OmsiRouteRejoinPathfinder
     }
 
     private static IReadOnlyList<RoadSegment> ParseTile(
+        string mapDirectory,
         int gridX,
         int gridY,
         string tilePath,
@@ -337,7 +341,6 @@ internal sealed class OmsiRouteRejoinPathfinder
             }
         }
 
-        var mapDirectory = Path.GetDirectoryName(tilePath);
         if (!string.IsNullOrWhiteSpace(mapDirectory))
         {
             foreach (var sceneryPath in OmsiRouteSceneryPathGeometryReader.ReadAllRoadPaths(

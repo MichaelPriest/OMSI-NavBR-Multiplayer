@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using NavBR.Client.Diagnostics;
 
 namespace NavBR.Client.Maps;
 
@@ -85,11 +86,15 @@ internal static class OmsiWebRoadmapFallbackCache
             return;
         }
 
+        NavBRAppLog.Info(
+            "roadmap-fallback-generation-start",
+            $"map={LogValue(map.FolderName)} key={ShortKey(key)}");
+
         var thread = new Thread(() =>
         {
             try
             {
-                var generated = Generate(map, outputPath);
+                var generated = Generate(map, outputPath, out var detail);
                 if (generated)
                 {
                     RetryAfter.TryRemove(key, out _);
@@ -100,12 +105,21 @@ internal static class OmsiWebRoadmapFallbackCache
                         DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
                 }
 
+                NavBRAppLog.Info(
+                    generated
+                        ? "roadmap-fallback-generation-success"
+                        : "roadmap-fallback-generation-failed",
+                    $"map={LogValue(map.FolderName)} key={ShortKey(key)} {detail}");
                 completion.TrySetResult(generated);
             }
-            catch
+            catch (Exception ex)
             {
                 RetryAfter[key] =
                     DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
+                NavBRAppLog.Info(
+                    "roadmap-fallback-generation-error",
+                    $"map={LogValue(map.FolderName)} key={ShortKey(key)} " +
+                    $"type={ex.GetType().Name} message={LogValue(ex.Message)}");
                 completion.TrySetResult(false);
             }
             finally
@@ -127,13 +141,31 @@ internal static class OmsiWebRoadmapFallbackCache
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
         }
-        catch
+        catch (Exception ex)
         {
             GenerationTasks.TryRemove(key, out _);
             RetryAfter[key] =
                 DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
+            NavBRAppLog.Info(
+                "roadmap-fallback-thread-start-failed",
+                $"map={LogValue(map.FolderName)} key={ShortKey(key)} " +
+                $"type={ex.GetType().Name} message={LogValue(ex.Message)}");
             completion.TrySetResult(false);
         }
+    }
+
+    private static string ShortKey(string key) =>
+        key.Length <= 12 ? key : key[..12];
+
+    private static string LogValue(string? value)
+    {
+        var normalized = (value ?? "-")
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim();
+        return normalized.Length <= 160
+            ? normalized
+            : normalized[..160];
     }
 
     private static string? BuildCacheKey(OmsiMapInfo map)
@@ -173,8 +205,10 @@ internal static class OmsiWebRoadmapFallbackCache
 
     private static bool Generate(
         OmsiMapInfo map,
-        string outputPath)
+        string outputPath,
+        out string detail)
     {
+        detail = "reason=unknown";
         try
         {
             var layout = OmsiMapLayoutReader.TryRead(map.GlobalConfigPath);
@@ -183,14 +217,22 @@ internal static class OmsiWebRoadmapFallbackCache
                 layout.GridWidth <= 0 ||
                 layout.GridHeight <= 0)
             {
+                detail = "reason=layout-unavailable";
                 return false;
             }
 
             var tiles = ReadTileCatalog(
                 map.DirectoryPath,
                 map.GlobalConfigPath);
-            if (tiles.Count == 0 || tiles.Count > MaxTiles)
+            if (tiles.Count == 0)
             {
+                detail = "reason=no-tiles";
+                return false;
+            }
+
+            if (tiles.Count > MaxTiles)
+            {
+                detail = $"reason=too-many-tiles tiles={tiles.Count}";
                 return false;
             }
 
@@ -276,6 +318,7 @@ internal static class OmsiWebRoadmapFallbackCache
 
             if (geometryCount == 0)
             {
+                detail = $"reason=no-road-geometry tiles={tiles.Count}";
                 return false;
             }
 
@@ -291,6 +334,7 @@ internal static class OmsiWebRoadmapFallbackCache
             var directory = Path.GetDirectoryName(outputPath);
             if (string.IsNullOrWhiteSpace(directory))
             {
+                detail = "reason=cache-directory-unavailable";
                 return false;
             }
 
@@ -306,6 +350,9 @@ internal static class OmsiWebRoadmapFallbackCache
                 }
 
                 File.Move(temporaryPath, outputPath, overwrite: true);
+                detail =
+                    $"reason=ok tiles={tiles.Count} geometry={geometryCount} " +
+                    $"size={width}x{height}";
                 return true;
             }
             finally
@@ -322,11 +369,14 @@ internal static class OmsiWebRoadmapFallbackCache
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Navigation keeps its route/vehicle overlays even if a community
             // map contains malformed geometry. Never turn fallback rendering
             // into a startup failure.
+            detail =
+                $"reason=exception type={ex.GetType().Name} " +
+                $"message={LogValue(ex.Message)}";
             return false;
         }
     }
