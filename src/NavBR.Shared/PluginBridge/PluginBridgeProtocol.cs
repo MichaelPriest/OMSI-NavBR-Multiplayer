@@ -39,6 +39,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleSpawn = "vehicle-spawn";
     public const string CapabilityVehicleTransform = "vehicle-transform";
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
+    public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
     public const string CapabilityTimetableState = "timetable-state";
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";
