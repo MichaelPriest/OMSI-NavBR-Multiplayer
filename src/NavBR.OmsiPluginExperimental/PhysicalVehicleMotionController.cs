@@ -167,9 +167,18 @@ internal static class PhysicalVehicleMotionController
                 // If the desktop app, SignalR connection or named pipe dies
                 // without a clean despawn, never leave an orphan NavBR bus in
                 // OMSI indefinitely.
-                _ = OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer);
-                PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
-                States.Remove(instanceId);
+                if (OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) == 1)
+                {
+                    PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
+                    States.Remove(instanceId);
+                }
+                else
+                {
+                    // Preserve ownership and retry at a bounded cadence instead
+                    // of forgetting a still-live OMSI object.
+                    state.LastTargetTickMs =
+                        now - StaleTargetAfterMs + 1_000;
+                }
                 continue;
             }
 
