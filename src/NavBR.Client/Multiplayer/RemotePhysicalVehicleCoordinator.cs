@@ -20,6 +20,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const int MaxPhysicalRemotePlayers = 32;
     private const double PhysicalSpawnRadiusMeters = 750d;
     private const double PhysicalDespawnRadiusMeters = 1_000d;
+    private static readonly TimeSpan LocalTelemetryFreshness =
+        TimeSpan.FromSeconds(3);
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
@@ -173,7 +175,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // reconnecting or has not published a valid OMSI state yet. Never let
         // a late remote frame create a physical vehicle in that window.
         var localManifest = _localManifest;
-        if (localManifest is null)
+        var localTelemetry = _localTelemetry;
+        if (localManifest is null ||
+            localTelemetry is null ||
+            !localTelemetry.IsInGame ||
+            DateTimeOffset.UtcNow - localTelemetry.Timestamp > LocalTelemetryFreshness)
         {
             SetStatus(playerId, "local-state-unavailable");
             await DespawnOwnedAsync(playerId, cancellationToken);
