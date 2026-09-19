@@ -766,20 +766,6 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     telemetry?.NextStopName ??
                     options.ActiveNextStop;
 
-                if (string.IsNullOrWhiteSpace(activeLine) &&
-                    string.IsNullOrWhiteSpace(activeRoute))
-                {
-                    if (!announcedWaiting)
-                    {
-                        Console.WriteLine(
-                            "Mapa e posição encontrados. Aguardando linha/rota ativa da autoridade da sala...");
-                        announcedWaiting = true;
-                    }
-
-                    await Task.Delay(750, cancellationToken);
-                    continue;
-                }
-
                 var resolved = options with
                 {
                     MapName = reference.MapName,
@@ -789,13 +775,22 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         telemetry?.MapCompatibilityId,
                     CenterX = options.PositionExplicit
                         ? options.CenterX
-                        : telemetry?.LocalX ?? telemetry?.X ?? options.CenterX,
+                        : telemetry?.X ?? options.CenterX,
                     CenterY = options.PositionExplicit
                         ? options.CenterY
-                        : telemetry?.LocalY ?? telemetry?.Y ?? options.CenterY,
+                        : telemetry?.Y ?? options.CenterY,
                     CenterZ = options.PositionExplicit
                         ? options.CenterZ
-                        : telemetry?.LocalZ ?? telemetry?.Z ?? options.CenterZ,
+                        : telemetry?.Z ?? options.CenterZ,
+                    LocalCenterX = options.PositionExplicit
+                        ? options.LocalCenterX
+                        : telemetry?.LocalX ?? telemetry?.X ?? options.LocalCenterX,
+                    LocalCenterY = options.PositionExplicit
+                        ? options.LocalCenterY
+                        : telemetry?.LocalY ?? telemetry?.Y ?? options.LocalCenterY,
+                    LocalCenterZ = options.PositionExplicit
+                        ? options.LocalCenterZ
+                        : telemetry?.LocalZ ?? telemetry?.Z ?? options.LocalCenterZ,
                     GridX = options.NavigationSeedExplicit
                         ? options.GridX
                         : telemetry?.GridX ?? options.GridX,
@@ -808,6 +803,10 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     TileY = options.NavigationSeedExplicit
                         ? options.TileY
                         : telemetry?.TileY ?? options.TileY,
+                    MapTileIndex = options.NavigationSeedExplicit
+                        ? options.MapTileIndex
+                        : telemetry?.MapTileIndex ?? options.MapTileIndex,
+                    ReferencePlayerId = reference.PlayerId,
                     VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
@@ -1318,7 +1317,10 @@ internal sealed record SimulatorOptions(
             PositionExplicit:
                 values.ContainsKey("x") ||
                 values.ContainsKey("y") ||
-                values.ContainsKey("z"),
+                values.ContainsKey("z") ||
+                values.ContainsKey("local-x") ||
+                values.ContainsKey("local-y") ||
+                values.ContainsKey("local-z"),
             NavigationSeedExplicit:
                 values.ContainsKey("grid-x") ||
                 values.ContainsKey("grid-y") ||
