@@ -36,7 +36,10 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 - jogadores, latência, mapa real da sessão, chat e voz;
 - seleção de microfone/saída e mixer temporário de mute/ganho por jogador usando o `VoiceChatService` nativo;
 - Personagem/RP com catálogo real de `Map.Drivers`, seleção e comandos Sair/Retornar ao ônibus;
-- peer-host TCP 27730 e servidor dedicado opcional.
+- três modos separados: Servidor NavBR oficial, LAN e Online através do Host;
+- no **Online através do Host**, o servidor TCP 27730 inicia antes da tentativa de UPnP;
+- UPnP roda em segundo plano com timeout de 8 segundos, sem bloquear a interface;
+- se o roteador não responder ou o mapeamento falhar, a sala continua disponível em LAN.
 
 ## CCO / Empresa
 
@@ -56,11 +59,12 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 
 ## Rede
 
-- peer-host padrão TCP 27730;
+- TCP 27730 para LAN/Online através do Host;
 - regra Windows Firewall para todos os perfis de rede;
 - elevação UAC e verificação posterior;
 - aba Rede separa Firewall, listener local, UPnP, NAT/CGNAT e teste externo;
 - UPnP automático não pode ser alterado durante hospedagem;
+- hotfix público `29f30b2`: DNS/socket/UPnP deixaram de bloquear o fluxo do clique em **Online através do Host**;
 - teste externo só é executado quando o serviço de callback estiver configurado.
 
 ## Plugin / RP
@@ -95,7 +99,7 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 
 ## Observação
 
-A Alpha.14 Test 4 está liberada publicamente. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
+A Alpha.14 Test 4 está liberada publicamente. A publicação atual inclui o hotfix `29f30b2` para o travamento do **Online através do Host**. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
 
 
 ## HUD / Roadmap Studio
