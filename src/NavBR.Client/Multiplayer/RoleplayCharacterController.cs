@@ -89,6 +89,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private string? _lastErrorCode;
     private string? _lastErrorMessage;
     private double _signedMovementSpeedMps;
+    private bool _focusStopApplied;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -489,6 +490,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
         _signedMovementSpeedMps = 0d;
+        _focusStopApplied = false;
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
         InstallKeyboardHook();
@@ -523,6 +525,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             ResetNativeActivityObservation();
             _consecutiveFailures = 0;
             _signedMovementSpeedMps = 0d;
+            _focusStopApplied = false;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -626,8 +629,69 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             {
                 _signedMovementSpeedMps = 0d;
                 _lastTickUtc = DateTimeOffset.UtcNow;
+
+                // Key-up messages may happen after OMSI loses focus and are then
+                // intentionally ignored by the keyboard hook. Clear the entire
+                // RP key set so returning to OMSI can never resume stale motion.
+                lock (_inputSync)
+                {
+                    _pressedKeys.Clear();
+                }
+
+                if (!_focusStopApplied)
+                {
+                    var stopped = current with
+                    {
+                        Timestamp = DateTimeOffset.UtcNow,
+                        SpeedMps = 0d,
+                        Activity = RoleplayCharacterActivity.Idle
+                    };
+
+                    var stopResult = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
+                        instanceId,
+                        stopped,
+                        MultiplayerSettingsStore.Load().DisplayName);
+
+                    if (sessionGeneration != Volatile.Read(ref _sessionGeneration) ||
+                        !string.Equals(instanceId, _instanceId, StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
+                    if (stopResult?.Success != true)
+                    {
+                        _consecutiveFailures++;
+                        if (_consecutiveFailures >= 3)
+                        {
+                            await StopAsync(
+                                stopResult?.ErrorCode ??
+                                "roleplay-focus-stop-failed");
+                        }
+
+                        return;
+                    }
+
+                    _focusStopApplied = true;
+                    _consecutiveFailures = 0;
+                    UpdateNativeAnimationDiagnostics(stopResult, commandedSpeedMps: 0d);
+                    _state = stopped with
+                    {
+                        LocalX = stopResult.LocalX ?? stopped.LocalX,
+                        LocalY = stopResult.LocalY ?? stopped.LocalY,
+                        LocalZ = stopResult.LocalZ ?? stopped.LocalZ,
+                        HeadingDegrees = stopResult.HeadingDegrees ?? stopped.HeadingDegrees,
+                        SpeedMps = 0d,
+                        Activity = RoleplayCharacterActivity.Idle
+                    };
+
+                    StateChanged?.Invoke(_state);
+                    EmitNetworkState(_state);
+                }
+
                 return;
             }
+
+            _focusStopApplied = false;
 
             var now = DateTimeOffset.UtcNow;
             var deltaSeconds = Math.Clamp(
