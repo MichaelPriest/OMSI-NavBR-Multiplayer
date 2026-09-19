@@ -410,7 +410,7 @@ internal static class PhysicalVehicleBackend
         var vehiclePointer = createdVehiclePointers[0];
 
         // Do not call a pointer "physical" until OMSI has attached the
-        // RoadVehicle definition, complex-object runtime instance and model.
+        // exact RoadVehicle definition, complex-object runtime instance and model.
         // A partially created pointer can accept position writes yet remain
         // completely invisible in the renderer.
         const int requiredMaterializationFlags =
