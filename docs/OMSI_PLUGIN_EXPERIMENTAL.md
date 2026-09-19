@@ -8,6 +8,7 @@ O plugin de escrita física continua **experimental, opt-in e focado no OMSI 2.3
 - ABI/state version 3;
 - plugin Native AOT x86;
 - capacidades atualizadas em runtime;
+- capability `vehicle-interpolation` para ônibus remoto físico suavizado;
 - cliente e plugin de gerações antigas são deliberadamente incompatíveis.
 
 ## Ônibus remoto físico
@@ -23,6 +24,19 @@ Antes de escrever no OMSI, valida:
 - identidade real do veículo;
 - mapa/protocolo compatíveis;
 - limites de segurança.
+
+### Movimento remoto suavizado
+
+A PR #30 passa a tratar os frames recebidos como alvos de movimento em vez de teletransportar o ônibus a cada pacote:
+
+- interpolação adaptativa executada no callback do próprio OMSI, limitada a aproximadamente 60 Hz;
+- posição, quaternion e velocidade são interpolados;
+- quaternion usa nlerp normalizado com correção de hemisfério;
+- frames antigos/fora de ordem são ignorados;
+- saltos de 30 m ou intervalos superiores a 1,5 s são tratados como teleporte e aplicados por snap seguro;
+- luzes e setas continuam sendo aplicadas imediatamente;
+- luz de freio também pode ser inferida de `BrakePercent`;
+- até duas falhas transitórias de update são toleradas antes de respawn; erros fatais de ownership/ponteiro continuam fail-safe.
 
 ## Personagem / RP
 
