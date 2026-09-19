@@ -147,6 +147,7 @@ A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
 - [docs/RENDER_HOSTING.md](docs/RENDER_HOSTING.md) — servidor online gratuito no Render;
 - [docs/OMSI_PLUGIN_EXPERIMENTAL.md](docs/OMSI_PLUGIN_EXPERIMENTAL.md) — plugin v3;
 - [docs/HARDWARE_COCKPIT.md](docs/HARDWARE_COCKPIT.md) — Hardware Cockpit;
+- [docs/MOBILE_COMPANION.md](docs/MOBILE_COMPANION.md) — roadmap futuro do Companion para smartphone (fora do escopo atual);
 - [docs/MANUAL_DE_USO.md](docs/MANUAL_DE_USO.md) — manual.
 
 ## Segurança
