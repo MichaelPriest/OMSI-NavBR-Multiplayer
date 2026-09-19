@@ -1,16 +1,22 @@
 # Rede multiplayer
 
-## Servidor online
+## Três modos de multiplayer
 
-O mesmo `NavBR.Server` pode ser hospedado publicamente, inclusive em um Web Service gratuito do Render. Nesse modo o cliente usa HTTPS/WSS e não precisa abrir TCP 27730, configurar UPnP ou depender de IP público no PC do jogador.
+### 1. Servidor NavBR oficial
 
-A interface chama esse transporte de **Servidor Online**. O estado interno ainda reutiliza a infraestrutura de servidor remoto/relay da Alpha.14 para manter compatibilidade com o protocolo atual.
+O `NavBR.Server` roda no servidor oficial do projeto no Render. O cliente usa HTTPS/WSS e não precisa abrir TCP 27730, configurar UPnP ou depender de IP público no PC do jogador.
 
-Veja [RENDER_HOSTING.md](RENDER_HOSTING.md).
+A infraestrutura atual usa Render Free e é explicitamente tratada como **gratuita e limitada** para Alpha/testes. Veja [RENDER_HOSTING.md](RENDER_HOSTING.md).
 
-## Peer-host
+### 2. LAN
 
-O PC que cria a sala pode hospedar a própria sessão em **TCP 27730**. Presença, telemetria, chat, voz e estado operacional passam pelo SignalR.
+O PC que cria a sala executa o `NavBR.Server` em **TCP 27730** para jogadores na mesma rede local.
+
+### 3. Online através do Host
+
+O PC que cria a sala executa o `NavBR.Server` em **TCP 27730** e recebe jogadores pela Internet. Esse modo é independente do Servidor NavBR oficial e pode exigir Firewall, UPnP ou port forwarding dependendo da rede.
+
+Presença, telemetria, chat, voz e estado operacional usam SignalR nos três modos.
 
 ## Firewall Windows
 
@@ -43,6 +49,8 @@ A tela Rede verifica separadamente se existe listener TCP local em 27730. Sem sa
 
 UPnP é opcional e só é alterável quando a hospedagem local está parada.
 
+Desde o hotfix público da Alpha.14 Test 4 (SHA `29f30b2`), o modo **Online através do Host** não espera mais o roteador para concluir a criação da sala. O servidor TCP 27730 sobe primeiro; a descoberta/mapeamento UPnP roda em segundo plano com timeout global de 8 segundos. Resolução DNS e conexão ao gateway também são assíncronas. Se o UPnP falhar ou expirar, a sala permanece ativa em LAN e a interface recebe o estado de falha sem congelar.
+
 CGNAT/double NAT podem impedir conexões diretas mesmo com Firewall e UPnP corretos.
 
 ## Teste externo
@@ -58,9 +66,9 @@ A Central Multiplayer também expõe o estado de alcance do host separadamente:
 - UPnP mapeado sem confirmação externa;
 - endereço de Internet disponível via UPnP.
 
-## Servidor remoto / compatibilidade de relay
+## Servidor remoto / compatibilidade interna
 
-A infraestrutura antes apresentada como relay é usada para conectar o cliente a um `NavBR.Server` remoto. Na interface principal ela aparece como **Servidor Online**. O endpoint público não é codificado no cliente: a URL gerada pelo provedor deve ser configurada na tela da sala.
+A infraestrutura interna herdada do antigo relay é usada para conectar o cliente a um `NavBR.Server` remoto. Na interface principal, o servidor padrão é apresentado como **Servidor NavBR oficial**. O endpoint oficial atual é `https://omsi-navbr-multiplayer-server.onrender.com`, mantendo suporte a URL personalizada para desenvolvimento/testes.
 
 ## Salas privadas
 
