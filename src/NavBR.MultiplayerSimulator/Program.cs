@@ -156,6 +156,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     private readonly string _displayName;
     private readonly HubConnection _connection;
     private readonly double _phase;
+    private readonly string? _line;
+    private readonly string? _route;
+    private readonly string? _destination;
+    private readonly string? _nextStop;
     private bool _roleplayActive;
     private double _roleplayX;
     private double _roleplayY;
@@ -164,6 +168,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
 
     public string PlayerId => _playerId;
 
+    public bool IsVehicleBot =>
+        _options.Mode == SimulatorMode.Vehicles ||
+        (_options.Mode == SimulatorMode.Mixed && _index % 2 != 0);
+
     public SimulatedPlayer(int index, SimulatorOptions options)
     {
         _index = index;
@@ -171,9 +179,18 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         _playerId = $"sim-{index:00}-{Guid.NewGuid():N}"[..24];
         _displayName = $"{options.NamePrefix} {index:00}";
         _phase = index * Math.PI * 2d / Math.Max(1, options.PlayerCount);
+
+        var hofRoute = IsVehicleBot && options.HofRoutes.Count > 0
+            ? options.HofRoutes[(index - 1) % options.HofRoutes.Count]
+            : null;
+        _line = hofRoute?.Line ?? options.ActiveLine;
+        _route = hofRoute?.Route ?? options.ActiveRoute;
+        _destination = hofRoute?.Description ?? options.ActiveDestination;
+        _nextStop = hofRoute is null ? options.ActiveNextStop : null;
+
         var initialRadius = Math.Max(4d, options.RadiusMeters * 0.45d);
-        _roleplayX = options.CenterX + Math.Cos(_phase) * initialRadius;
-        _roleplayY = options.CenterY + Math.Sin(_phase) * initialRadius;
+        _roleplayX = options.LocalCenterX + Math.Cos(_phase) * initialRadius;
+        _roleplayY = options.LocalCenterY + Math.Sin(_phase) * initialRadius;
         _roleplayHeading = (_phase * 180d / Math.PI + 90d) % 360d;
 
         _connection = new HubConnectionBuilder()
@@ -227,9 +244,15 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             _options.RadiusMeters * (0.55d + (_index % 4) * 0.12d));
         var angularSpeed = 0.035d + (_index % 3) * 0.008d;
         var angle = _phase + elapsedSeconds * angularSpeed;
-        var x = _options.CenterX + Math.Cos(angle) * radius;
-        var y = _options.CenterY + Math.Sin(angle) * radius;
+        var offsetX = Math.Cos(angle) * radius;
+        var offsetY = Math.Sin(angle) * radius;
+
+        var x = _options.CenterX + offsetX;
+        var y = _options.CenterY + offsetY;
         var z = _options.CenterZ;
+        var localX = _options.LocalCenterX + offsetX;
+        var localY = _options.LocalCenterY + offsetY;
+        var localZ = _options.LocalCenterZ;
         var heading = (angle * 180d / Math.PI + 90d) % 360d;
 
         var roleplayThisFrame =
@@ -270,7 +293,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
                 _options.MapCompatibilityId,
                 _roleplayX,
                 _roleplayY,
-                z,
+                localZ,
                 _roleplayHeading,
                 speed,
                 activity,
@@ -329,8 +352,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             Timestamp: DateTimeOffset.UtcNow,
             MapName: _options.MapName,
             VehicleName: $"SIM Bus {_index:00}",
-            Line: _options.ActiveLine,
-            Route: _options.ActiveRoute,
+            Line: _line,
+            Route: _route,
             X: x,
             Y: y,
             Z: z,
@@ -339,11 +362,11 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             IsInGame: true,
             GridX: _options.GridX,
             GridY: _options.GridY,
-            TileX: _options.TileX is double baseTileX ? baseTileX + (x - _options.CenterX) : null,
-            TileY: _options.TileY is double baseTileY ? baseTileY + (y - _options.CenterY) : null,
+            TileX: OffsetTileCoordinate(_options.TileX, offsetX),
+            TileY: OffsetTileCoordinate(_options.TileY, offsetY),
             MapCompatibilityId: _options.MapCompatibilityId,
-            NextStopName: _options.ActiveNextStop,
-            DestinationName: _options.ActiveDestination,
+            NextStopName: _nextStop,
+            DestinationName: _destination,
             VehiclePath: _options.VehiclePath,
             FuelPercent: Math.Clamp(88d - _index * 2d, 10d, 100d),
             ThrottlePercent: throttlePercent,
@@ -351,15 +374,34 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             Lights: lights,
             TurnSignal: turnSignal,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
-            LocalX: x,
-            LocalY: y,
-            LocalZ: z,
+            LocalX: localX,
+            LocalY: localY,
+            LocalZ: localZ,
             RotationX: 0d,
             RotationY: 0d,
             RotationZ: Math.Sin(half),
-            RotationW: Math.Cos(half));
+            RotationW: Math.Cos(half),
+            MapTileIndex: _options.MapTileIndex);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
+    }
+
+    private static double? OffsetTileCoordinate(double? value, double offset)
+    {
+        if (value is not double baseValue ||
+            !double.IsFinite(baseValue) ||
+            !double.IsFinite(offset))
+        {
+            return value;
+        }
+
+        var candidate = baseValue + offset;
+        // Physical placement uses LocalX/LocalY + Kachel. Keep navigation
+        // coordinates inside the inherited tile instead of fabricating a tile
+        // transition the simulator cannot authoritatively resolve.
+        return candidate is > 0.5d and < 299.5d
+            ? candidate
+            : baseValue;
     }
 
     public async ValueTask DisposeAsync()
