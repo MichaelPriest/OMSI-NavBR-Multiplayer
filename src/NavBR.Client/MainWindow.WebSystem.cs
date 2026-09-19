@@ -247,7 +247,15 @@ public partial class MainWindow
             throw new InvalidOperationException("O perfil OMSI selecionado não existe mais.");
         }
 
-        _webOmsiLaunchNotice = null;
+        if (!EnsurePluginBeforeOmsiLaunch(
+                profile.InstallDirectory,
+                out var pluginNotice))
+        {
+            _webOmsiLaunchNotice = pluginNotice;
+            return;
+        }
+
+        _webOmsiLaunchNotice = pluginNotice;
         _ = OmsiLauncherService.Launch(profile);
         _ = RefreshOmsiStatusAsync();
     }
