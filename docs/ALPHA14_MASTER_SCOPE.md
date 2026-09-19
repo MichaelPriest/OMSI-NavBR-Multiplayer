@@ -81,6 +81,8 @@ Somente desenvolvimento/teste:
 - proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;
 - tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;
 - culling físico por distância com histerese (spawn até 750 m, despawn acima de 1 km), mantendo jogadores distantes na sessão sem criar objetos físicos desnecessários;
+- remoção automática de ônibus físico órfão após 5 s sem novos alvos, preservando ownership quando o OMSI rejeitar a limpeza;
+- throughput seguro da fila física: 1 comando arbitrário/pesado + até 4 updates leves adicionais por frame do OMSI;
 - velocidade/luzes/setas quando suportadas;
 - compatibilidade antes da escrita;
 - resolução de asset remoto por fingerprint SHA-256;
