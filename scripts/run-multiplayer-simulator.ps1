@@ -1,5 +1,5 @@
 param(
-    [string]$Server = "http://127.0.0.1:27730",
+    [string]$Server = "https://omsi-navbr-multiplayer-server.onrender.com",
     [string]$Room = "navbr-sim",
     [string]$RoomPassword = "",
     [ValidateRange(1, 32)]

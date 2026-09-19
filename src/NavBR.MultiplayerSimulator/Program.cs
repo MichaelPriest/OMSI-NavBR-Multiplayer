@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Reflection;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
@@ -7,7 +8,7 @@ using NavBR.Shared.Telemetry;
 
 var interactiveLaunch = args.Length == 0;
 var effectiveArgs = interactiveLaunch
-    ? SimulatorInteractiveLauncher.BuildArguments()
+    ? await SimulatorInteractiveLauncher.BuildArgumentsAsync()
     : args;
 var options = SimulatorOptions.Parse(effectiveArgs);
 if (options.ShowHelp)
@@ -1424,40 +1425,42 @@ internal static class SimulatorInteractiveLauncher
     public const string DefaultServerUrl =
         "https://omsi-navbr-multiplayer-server.onrender.com";
 
-    public static string[] BuildArguments()
+    public static async Task<string[]> BuildArgumentsAsync()
     {
         Console.Title = "OMSI NavBR Multiplayer - Simulador de Players";
         Console.WriteLine("OMSI NavBR Multiplayer - Simulador de Players");
-        Console.WriteLine("Modo interativo para teste real de sala/ônibus.");
+        Console.WriteLine("Servidor Render configurado automaticamente.");
+        Console.WriteLine($"Servidor: {DefaultServerUrl}");
+        Console.WriteLine("Procurando sala pública ativa...");
         Console.WriteLine();
 
-        var server = ReadValue("Servidor", DefaultServerUrl);
-        var room = ReadValue("Sala", "navbr-sim");
-        var players = ReadInt("Players", 6, 1, 32);
-        var mode = ReadMode("Modo (vehicles/mixed/rp)", "mixed");
-        var verifyPhysical = ReadYesNo(
-            "Verificar ônibus físicos no OMSI? (S/n)",
-            defaultValue: true);
-
-        var values = new List<string>
+        var roomId = await ResolveRoomIdAsync();
+        if (string.IsNullOrWhiteSpace(roomId))
         {
-            "--server", server,
-            "--room", room,
-            "--players", players.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "--mode", mode
-        };
-
-        if (verifyPhysical && !string.Equals(mode, "rp", StringComparison.OrdinalIgnoreCase))
-        {
-            values.Add("--verify-physical");
-        }
-        else
-        {
-            values.Add("--verify");
+            Console.Write("ID da sala: ");
+            roomId = Console.ReadLine()?.Trim();
         }
 
+        if (string.IsNullOrWhiteSpace(roomId))
+        {
+            roomId = "navbr-sim";
+            Console.WriteLine($"Nenhuma sala informada; usando fallback {roomId}.");
+        }
+
+        Console.WriteLine($"Sala   : {roomId}");
+        Console.WriteLine("Players: 6");
+        Console.WriteLine("Modo   : mixed");
+        Console.WriteLine("Teste físico: ativado");
         Console.WriteLine();
-        return values.ToArray();
+
+        return
+        [
+            "--server", DefaultServerUrl,
+            "--room", roomId,
+            "--players", "6",
+            "--mode", "mixed",
+            "--verify-physical"
+        ];
     }
 
     public static void PauseIfInteractive(bool interactive)
@@ -1478,42 +1481,56 @@ internal static class SimulatorInteractiveLauncher
         }
     }
 
-    private static string ReadValue(string label, string fallback)
+    private static async Task<string?> ResolveRoomIdAsync()
     {
-        Console.Write($"{label} [{fallback}]: ");
-        var value = Console.ReadLine()?.Trim();
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
-    }
-
-    private static int ReadInt(string label, int fallback, int min, int max)
-    {
-        Console.Write($"{label} [{fallback}]: ");
-        var value = Console.ReadLine()?.Trim();
-        return int.TryParse(value, out var parsed)
-            ? Math.Clamp(parsed, min, max)
-            : fallback;
-    }
-
-    private static string ReadMode(string label, string fallback)
-    {
-        Console.Write($"{label} [{fallback}]: ");
-        var value = Console.ReadLine()?.Trim().ToLowerInvariant();
-        return value is "vehicles" or "mixed" or "rp"
-            ? value
-            : fallback;
-    }
-
-    private static bool ReadYesNo(string label, bool defaultValue)
-    {
-        Console.Write($"{label}: ");
-        var value = Console.ReadLine()?.Trim();
-        if (string.IsNullOrWhiteSpace(value))
+        try
         {
-            return defaultValue;
-        }
+            using var client = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+            var endpoint = new Uri(new Uri(DefaultServerUrl), "/api/rooms");
+            var rooms = await client.GetFromJsonAsync<PublicRoomSummary[]>(endpoint)
+                        ?? Array.Empty<PublicRoomSummary>();
 
-        return value.StartsWith("s", StringComparison.OrdinalIgnoreCase) ||
-               value.StartsWith("y", StringComparison.OrdinalIgnoreCase);
+            var active = rooms
+                .Where(room => room.PlayerCount > 0)
+                .OrderByDescending(room => room.PlayerCount)
+                .ThenByDescending(room => room.UpdatedAtUtc)
+                .ToArray();
+
+            if (active.Length == 1)
+            {
+                Console.WriteLine(
+                    $"Sala ativa encontrada automaticamente: {active[0].RoomId} " +
+                    $"({active[0].PlayerCount} player(s), mapa {active[0].MapName ?? "-"})");
+                return active[0].RoomId;
+            }
+
+            if (active.Length > 1)
+            {
+                Console.WriteLine("Mais de uma sala pública está ativa:");
+                foreach (var room in active.Take(10))
+                {
+                    Console.WriteLine(
+                        $"  - {room.RoomId} | {room.PlayerCount} player(s) | mapa {room.MapName ?? "-"}");
+                }
+                Console.WriteLine("Informe abaixo o ID exato da sala que deseja simular.");
+                return null;
+            }
+
+            Console.WriteLine(
+                "Nenhuma sala pública ativa foi encontrada. " +
+                "Se a sala for privada, informe o ID manualmente.");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"Não foi possível consultar /api/rooms agora ({ex.GetType().Name}).");
+            Console.WriteLine("Informe o ID da sala manualmente.");
+            return null;
+        }
     }
 }
 
