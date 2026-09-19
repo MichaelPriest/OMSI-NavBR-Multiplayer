@@ -4,6 +4,10 @@ O OMSI NavBR Multiplayer pode usar um **Web Service do Render** como servidor on
 
 ## O que muda para o jogador
 
+O servidor online padrão do app é:
+
+`https://omsi-navbr-multiplayer-server.onrender.com`
+
 No modo **Servidor Online**:
 
 - o jogador não precisa abrir TCP 27730 no roteador;
@@ -12,7 +16,25 @@ No modo **Servidor Online**:
 - todos entram pela mesma URL HTTPS do Render;
 - presença, telemetria, chat, voz e estado da sala continuam usando o SignalR existente.
 
-O modo peer-host local continua disponível como alternativa.
+O NavBR oferece **três modos distintos** de multiplayer:
+
+1. **Servidor NavBR oficial (Render):** o próprio Render executa o `NavBR.Server`. Os jogadores são clientes do servidor dedicado e não precisam abrir portas, usar UPnP ou possuir IP público. Quem cria a sala recebe a propriedade administrativa da sala, mas não hospeda o servidor no próprio PC.
+2. **LAN:** o PC que cria a sala executa o `NavBR.Server` localmente e os outros jogadores entram pela mesma rede local.
+3. **Online através do Host:** o PC de quem cria a sala executa o `NavBR.Server` e recebe jogadores pela Internet. Esse modo não usa o Servidor NavBR oficial e pode exigir Firewall, UPnP ou redirecionamento da TCP 27730, dependendo da rede/roteador.
+
+No modo **Servidor NavBR**, presença, telemetria, chat, voz, diretório de salas e estado compartilhado são processados pelo `NavBR.Server` em execução no Render. A propriedade de sala é uma permissão administrativa da aplicação e não significa que o PC do criador seja o servidor.
+
+### Capacidade atual do Servidor NavBR
+
+O Servidor NavBR oficial está atualmente em infraestrutura **Render Free**, portanto deve ser apresentado como **gratuito e limitado**. A configuração atual oferece 0,1 CPU, 512 MB de RAM, 750 horas gratuitas por workspace por mês, uma única instância e pode entrar em spin-down após 15 minutos sem tráfego de entrada.
+
+Nesta fase Alpha, o servidor oficial é uma conveniência para testes e uso comunitário leve. Muitas salas, muitos jogadores, voz e telemetria simultâneas podem atingir limites de CPU, memória ou tráfego.
+
+No futuro, o projeto **poderá oferecer uma assinatura oficial do Servidor NavBR** com maior capacidade, disponibilidade e estabilidade. Isso é uma possibilidade de produto, não uma oferta já lançada: ainda não há plano, preço, SLA ou data definidos.
+
+Os modos **LAN** e **Online através do Host** continuam disponíveis independentemente do Servidor NavBR oficial e não dependem da capacidade gratuita do Render.
+
+No modo **Online através do Host**, a Alpha.14 pública atual inclui o hotfix `29f30b2`: o servidor TCP 27730 inicia primeiro e a tentativa de UPnP ocorre em segundo plano com timeout de 8 segundos. Esse fluxo é separado do Render e evita que um roteador lento ou sem UPnP congele a interface.
 
 ## Deploy com um clique
 
@@ -36,18 +58,50 @@ O Blueprint `render.yaml` cria:
 4. Marque **Usar servidor online**.
 5. Cole a URL em **URL do servidor online**.
 6. Informe sala/apelido/senha, se houver.
-7. Clique em **Criar sala online**.
+7. Clique em **Criar sala no servidor online**.
 
 Os outros jogadores usam a mesma URL e o mesmo ID da sala.
 
-## Render Free
+## Render Free — limites atuais (revisado em 18/09/2026)
 
-O plano gratuito é adequado para testes comunitários, mas tem limitações:
+O plano gratuito continua adequado para Alpha e testes comunitários, não para uma infraestrutura multiplayer de produção.
 
-- o serviço pode hibernar após período sem tráfego;
-- a primeira conexão após hibernação pode levar mais tempo;
+Segundo a documentação atual do Render:
+
+- a instância Free de Web Service fornece **0,1 CPU e 512 MB de RAM**;
+- há **750 horas de instância Free por workspace por mês**;
+- o serviço entra em spin-down depois de **15 minutos sem tráfego de entrada**;
+- desde fevereiro de 2026, **mensagens WebSocket recebidas também contam como atividade** e evitam o spin-down enquanto a sessão está realmente trocando dados;
+- o retorno de um serviço adormecido pode levar aproximadamente **1 minuto**;
 - o filesystem é efêmero;
-- um novo deploy/restart derruba conexões WebSocket existentes.
+- Free fica limitado a **uma única instância**, sem horizontal scaling;
+- o plano Hobby atual inclui **5 GB/mês de outbound bandwidth**;
+- respostas WebSocket enviadas aos jogadores contam como outbound bandwidth;
+- o plano Hobby inclui **500 minutos/mês de build pipeline**.
+
+Fontes oficiais:
+
+- https://render.com/docs/free
+- https://render.com/docs/blueprint-spec
+- https://render.com/docs/outbound-bandwidth
+- https://render.com/docs/websocket
+- https://render.com/docs/new-workspace-plans
+
+### Quantas salas e jogadores?
+
+O Render **não define um número de “salas NavBR” ou “jogadores NavBR”**. Esses são objetos da aplicação.
+
+Na implementação atual do NavBR.Server:
+
+- não existe hard cap de salas;
+- não existe hard cap de jogadores por sala;
+- cada jogador conectado mantém uma conexão SignalR/WebSocket;
+- salas e presença ficam em memória;
+- `/health` agora informa `activeRooms` e `activeConnections` para acompanhar carga real.
+
+Portanto, o limite prático no Free será atingido por **CPU, 512 MB de RAM e principalmente pelos 5 GB de saída mensal**, especialmente quando voz, telemetria e várias salas estiverem ativas ao mesmo tempo.
+
+Não foi colocado um limite artificial nesta etapa. Antes de fixar um valor de jogadores/salas, a recomendação do projeto é executar testes de carga e observar os contadores de `/health`, memória, CPU, latência e consumo de outbound bandwidth.
 
 O NavBR mantém salas e presença em memória. Isso é intencional nesta fase: quando não há jogadores conectados, não existe estado de sala que precise ser persistido.
 
