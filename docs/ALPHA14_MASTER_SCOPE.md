@@ -80,6 +80,7 @@ Somente desenvolvimento/teste:
 - interpolação adaptativa de posição/quaternion/velocidade no thread do OMSI, com alvo de até ~60 Hz;
 - proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;
 - tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;
+- culling físico por distância com histerese (spawn até 750 m, despawn acima de 1 km), mantendo jogadores distantes na sessão sem criar objetos físicos desnecessários;
 - velocidade/luzes/setas quando suportadas;
 - compatibilidade antes da escrita;
 - resolução de asset remoto por fingerprint SHA-256;
