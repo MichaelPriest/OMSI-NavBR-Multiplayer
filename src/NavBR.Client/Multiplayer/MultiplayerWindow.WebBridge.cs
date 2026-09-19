@@ -147,9 +147,7 @@ public partial class MultiplayerWindow
                 ? "direct-host"
                 : _settings.EnableApplicationRelay &&
                   !IsLoopbackServerUrl(ServerTextBox.Text.Trim())
-                    ? _client.IsRoomOwner
-                        ? "online-host"
-                        : "relay"
+                    ? "dedicated-server"
                     : "remote-host";
 
         return new
@@ -508,7 +506,7 @@ public partial class MultiplayerWindow
         }
     }
 
-    internal Task StartOnlineHostFromWebAsync(
+    internal Task StartOnlineServerRoomFromWebAsync(
         string? roomId,
         string? displayName,
         bool createPrivateRoom,
