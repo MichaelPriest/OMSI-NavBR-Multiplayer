@@ -21,6 +21,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const double PhysicalSpawnRadiusMeters = 750d;
     private const double PhysicalDespawnRadiusMeters = 1_000d;
     private const double CapacityReplacementMarginMeters = 75d;
+    private static readonly TimeSpan CapacityEvictionCooldown =
+        TimeSpan.FromSeconds(2);
     private static readonly TimeSpan LocalTelemetryFreshness =
         TimeSpan.FromSeconds(3);
 
@@ -35,6 +37,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, int> _consecutiveUpdateFailuresByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, double> _distanceByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _capacityEvictionsInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _capacitySuppressedUntilByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -226,6 +229,20 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 }
                 return;
             }
+        }
+
+        if (!_spawned.ContainsKey(playerId) &&
+            _capacitySuppressedUntilByPlayer.TryGetValue(
+                playerId,
+                out var suppressedUntil))
+        {
+            if (suppressedUntil > DateTimeOffset.UtcNow)
+            {
+                SetStatus(playerId, "capacity-evicted");
+                return;
+            }
+
+            _capacitySuppressedUntilByPlayer.TryRemove(playerId, out _);
         }
 
         var remoteVehicleCompatibilityId =
@@ -486,6 +503,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _consecutiveUpdateFailuresByPlayer.Clear();
         _distanceByPlayer.Clear();
         _capacityEvictionsInFlight.Clear();
+        _capacitySuppressedUntilByPlayer.Clear();
         _statusByPlayer.Clear();
     }
 
@@ -493,6 +511,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string candidatePlayerId,
         double candidateDistanceMeters)
     {
+        // Only one capacity replacement may run at a time. Otherwise several
+        // simultaneous near players could evict several far buses before the
+        // first newly freed slot is consumed.
+        if (!_capacityEvictionsInFlight.IsEmpty)
+        {
+            return true;
+        }
+
         var farthest = _spawned.Keys
             .Where(id =>
                 !string.Equals(
@@ -528,11 +554,16 @@ internal sealed class RemotePhysicalVehicleCoordinator
         try
         {
             await DespawnAsync(playerId);
-            SetStatus(playerId, "capacity-evicted");
-            RemoteDiagnosticsService.Record(
-                "physical-vehicle",
-                "info",
-                "capacity-evicted-for-nearer-player");
+            if (!IsSpawned(playerId))
+            {
+                _capacitySuppressedUntilByPlayer[playerId] =
+                    DateTimeOffset.UtcNow + CapacityEvictionCooldown;
+                SetStatus(playerId, "capacity-evicted");
+                RemoteDiagnosticsService.Record(
+                    "physical-vehicle",
+                    "info",
+                    "capacity-evicted-for-nearer-player");
+            }
         }
         catch (Exception ex)
         {
