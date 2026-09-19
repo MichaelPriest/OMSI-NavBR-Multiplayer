@@ -6,7 +6,7 @@ export function MultiplayerSection() {
   const steps = [
     ["Servidor NavBR", "Servidor dedicado oficial no Render. Não exige portas no PC, mas a infraestrutura atual é gratuita e limitada para Alpha/testes."],
     ["LAN", "Seu PC executa o NavBR.Server para jogadores na mesma rede local, sem depender do servidor oficial."],
-    ["Online através do Host", "Seu PC executa o servidor e recebe jogadores pela Internet; pode exigir UPnP, Firewall ou redirecionamento da TCP 27730."]
+    ["Online através do Host", "Seu PC executa o servidor e recebe jogadores pela Internet. O servidor sobe primeiro e o UPnP é tentado em segundo plano, com timeout de 8 s, sem congelar o app."]
   ];
 
   return (
@@ -15,7 +15,7 @@ export function MultiplayerSection() {
         <span className="eyebrow">3 modos de multiplayer</span>
         <h2>Escolha onde a sessão será hospedada.</h2>
         <p className="section-lead">
-          O Servidor NavBR oficial usa atualmente o plano gratuito do Render e pode atingir limites de capacidade. No futuro, o projeto poderá oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há preço, plano ou data definidos.
+          O Servidor NavBR oficial usa atualmente o plano gratuito do Render e pode atingir limites de capacidade. A Alpha.14 pública atual inclui o hotfix 29f30b2 para o modo Online através do Host, evitando bloqueio da interface durante o UPnP. No futuro, o projeto poderá oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há preço, plano ou data definidos.
         </p>
       </div>
       <div className="steps">
