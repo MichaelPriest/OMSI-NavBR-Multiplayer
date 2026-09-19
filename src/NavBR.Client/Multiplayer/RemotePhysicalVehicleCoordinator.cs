@@ -44,6 +44,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
+    private int _lastPublishedPhysicalCount = -1;
+
+    public event Action<int>? PhysicalVehicleCountChanged;
 
     public RemotePhysicalVehicleCoordinator(
         Func<string?>? omsiInstallDirectorySource = null)
@@ -389,6 +392,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                 _lastFailureByPlayer.TryRemove(playerId, out _);
                 SetStatus(playerId, "active");
+                PublishPhysicalVehicleCountIfChanged();
                 RemoteDiagnosticsService.Record(
                     "physical-vehicle",
                     "info",
@@ -507,6 +511,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         _lastFailureByPlayer.TryRemove(playerId, out _);
+        PublishPhysicalVehicleCountIfChanged();
         RemoteDiagnosticsService.Record(
             "physical-vehicle",
             "info",
@@ -533,6 +538,19 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _capacitySuppressedUntilByPlayer.Clear();
         _spawnRetryAfterByPlayer.Clear();
         _statusByPlayer.Clear();
+        PublishPhysicalVehicleCountIfChanged(force: true);
+    }
+
+    private void PublishPhysicalVehicleCountIfChanged(bool force = false)
+    {
+        var count = _spawned.Count;
+        if (!force && count == Volatile.Read(ref _lastPublishedPhysicalCount))
+        {
+            return;
+        }
+
+        Volatile.Write(ref _lastPublishedPhysicalCount, count);
+        PhysicalVehicleCountChanged?.Invoke(count);
     }
 
     private bool TryScheduleFartherVehicleEviction(
