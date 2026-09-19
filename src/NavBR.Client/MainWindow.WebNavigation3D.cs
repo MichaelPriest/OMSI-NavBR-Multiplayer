@@ -293,8 +293,12 @@ public partial class MainWindow
     private static string? ResolveWebNavigationRoadmapUrl(OmsiMapInfo map)
     {
         var path = ResolveWebNavigationRoadmapPath(map);
-        return TryBuildWebMapResourceUrl(map, path)
-            ?? WebRoadmapCache.TryGetPngUrl(path);
+
+        // Chromium/WebView2 support for BMP inside SVG <image> can vary across
+        // systems and GPU paths. Prefer a cached PNG generated from the real
+        // OMSI roadmap; keep the direct map file as a no-copy fallback.
+        return WebRoadmapCache.TryGetPngUrl(path)
+            ?? TryBuildWebMapResourceUrl(map, path);
     }
 
     private static string? ResolveWebNavigationRoadmapFallbackUrl(OmsiMapInfo map)
@@ -305,11 +309,11 @@ public partial class MainWindow
             return null;
         }
 
-        var direct = TryBuildWebMapResourceUrl(map, path);
         var cached = WebRoadmapCache.TryGetPngUrl(path);
-        return !string.IsNullOrWhiteSpace(cached) &&
-               !string.Equals(cached, direct, StringComparison.OrdinalIgnoreCase)
-            ? cached
+        var direct = TryBuildWebMapResourceUrl(map, path);
+        return !string.IsNullOrWhiteSpace(direct) &&
+               !string.Equals(direct, cached, StringComparison.OrdinalIgnoreCase)
+            ? direct
             : null;
     }
 
