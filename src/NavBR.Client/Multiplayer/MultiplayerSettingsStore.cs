@@ -134,12 +134,13 @@ public static class MultiplayerSettingsStore
         var enableApplicationRelay = legacyLoopbackDefault ||
                                      settings.EnableApplicationRelay;
 
-        // Alpha.15 promotes physical remote buses from a hidden opt-in test to
-        // the default multiplayer experience. Apply this once to pre-v3
-        // settings; after any subsequent save, an explicit user opt-out is
-        // preserved because NetworkSettingsVersion is written as 3.
+        // Physical remote buses are a default multiplayer feature now. Keep a
+        // dedicated migration version instead of piggybacking on networking:
+        // older profiles may already have NetworkSettingsVersion=3 for relay
+        // changes while never receiving the physical-bus default. Migrate such
+        // profiles once; subsequent explicit opt-out remains preserved.
         var enablePhysicalVehiclesByDefault =
-            settings.NetworkSettingsVersion < 3;
+            settings.PhysicalVehiclesSettingsVersion < 1;
         if (stopIconStyle == "custom" && customIconPath is null)
         {
             stopIconStyle = "omsi";
@@ -212,6 +213,7 @@ public static class MultiplayerSettingsStore
             ExperimentalPhysicalVehiclesEnabled =
                 enablePhysicalVehiclesByDefault || settings.ExperimentalPhysicalVehiclesEnabled,
             NetworkSettingsVersion = 3,
+            PhysicalVehiclesSettingsVersion = 1,
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
