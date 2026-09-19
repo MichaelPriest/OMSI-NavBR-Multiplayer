@@ -1416,3 +1416,57 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .rp-interaction-feedback.failed { border-color:#64373b; }
 .rp-interaction-feedback.failed em { color:#f09aa0; }
 .rp-interaction-blocked { margin:10px 0 0; color:#f2ca79; font-size:11px; line-height:1.45; }
+
+
+/* Alpha.14 room dashboard cleanup */
+.room-screen { display:grid; gap:14px; }
+.room-screen-header { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding:4px 2px 2px; }
+.room-screen-header h3 { margin:4px 0 5px; font-size:21px; }
+.room-screen-header p { margin:0; max-width:760px; color:#7e96a7; font-size:12px; line-height:1.5; }
+.room-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.room-dashboard { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(280px,.7fr); gap:14px; align-items:start; }
+.room-setup-card, .room-status-card, .room-directory-card { padding:20px; }
+.room-form-grid.clean { grid-template-columns:1fr 1fr 1.3fr; margin-top:0; }
+.room-access-options { display:grid; grid-template-columns:auto minmax(220px,1fr); gap:14px; align-items:end; margin-top:12px; padding:12px 14px; border:1px solid #1a3141; border-radius:11px; background:#081721; }
+.room-access-options .privacy-toggle { margin:0; }
+.room-access-options .password-field { margin:0; }
+.room-mode-heading { margin:20px 0 10px; }
+.room-mode-heading h3 { margin:4px 0 0; font-size:14px; }
+.room-mode-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.room-mode-card { position:relative; min-height:150px; padding:15px 14px 13px; border:1px solid #1d3546; border-radius:12px; background:#081721; color:#dce9f1; text-align:left; cursor:pointer; display:grid; align-content:start; gap:7px; transition:border-color .15s ease, transform .15s ease, background .15s ease; }
+.room-mode-card:hover { transform:translateY(-1px); border-color:#3e7699; background:#0a1b27; }
+.room-mode-card.recommended { border-color:#316d91; background:linear-gradient(145deg,#0b2232,#081721); }
+.room-mode-number { width:26px; height:26px; display:grid; place-items:center; border-radius:8px; background:#102d42; color:#8bd5ff; font-weight:900; font-size:11px; }
+.room-mode-card strong { font-size:13px; }
+.room-mode-card small { color:#8ca2b0; font-size:11px; line-height:1.4; }
+.room-mode-card em { margin-top:auto; color:#6f8b9d; font-size:9px; font-style:normal; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+.room-mode-card.recommended em { color:#7bcdfd; }
+.room-join-actions, .room-connected-actions { display:flex; gap:9px; flex-wrap:wrap; margin-top:13px; }
+.room-advanced-options { margin-top:13px; border:1px solid #1a3141; border-radius:11px; background:#07131d; overflow:hidden; }
+.room-advanced-options summary { cursor:pointer; padding:12px 14px; color:#9cb1bf; font-size:11px; font-weight:800; }
+.room-advanced-options[open] { padding-bottom:13px; }
+.room-advanced-options[open] summary { border-bottom:1px solid #172c3a; margin-bottom:12px; }
+.room-advanced-options > label, .room-advanced-options > p { margin-left:14px; margin-right:14px; }
+.room-advanced-options > p { color:#748d9e; font-size:11px; line-height:1.5; }
+.room-status-card { display:grid; align-content:start; gap:12px; }
+.room-status-list { display:grid; gap:0; border:1px solid #1a3141; border-radius:11px; overflow:hidden; }
+.room-status-list > div { display:grid; grid-template-columns:90px minmax(0,1fr); gap:10px; padding:10px 12px; border-bottom:1px solid #152b39; background:#081721; align-items:center; }
+.room-status-list > div:last-child { border-bottom:0; }
+.room-status-list small { color:#678497; font-size:9px; font-weight:800; letter-spacing:.07em; }
+.room-status-list strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; text-align:right; }
+.room-status-note { display:grid; gap:4px; padding:11px 12px; border:1px solid #244459; border-radius:10px; background:#0a1c28; }
+.room-status-note strong { font-size:11px; color:#a8dcfb; }
+.room-status-note span { color:#7f98a8; font-size:10px; line-height:1.45; }
+.compact-invite { margin-top:0; }
+.room-status-network { width:100%; }
+.room-directory-card { margin-top:0; }
+.room-directory-card .public-room-browser { margin:0; padding:0; border:0; }
+.room-directory-card .public-room-list { max-height:320px; }
+@media (max-width:1180px) {
+  .room-dashboard { grid-template-columns:1fr; }
+}
+@media (max-width:900px) {
+  .room-screen-header { display:grid; }
+  .room-header-actions { justify-content:flex-start; }
+  .room-form-grid.clean, .room-mode-grid, .room-access-options { grid-template-columns:1fr; }
+}
