@@ -401,6 +401,21 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var heading = QuaternionToHeadingDegrees(rotation);
             var vehicleIdentity = OmsiVehicleIdentityReader.Read(memory, _processInfo, vehicleAddress);
 
+            // These fields already exist in the supported OMSI profile but were
+            // previously left at VehicleTelemetry defaults. Read them best-effort
+            // so remote physical buses receive real control/visual state instead
+            // of permanent zeros.
+            var throttlePercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleThrottleOffset));
+            var brakePercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleBrakePedalOffset));
+            var fuelPercent = TryReadPercent(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
+            var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
+
             int? gridX = null;
             int? gridY = null;
             double? tileX = null;
@@ -446,6 +461,11 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 NextStopName: nextStopName,
                 DestinationName: destinationName,
                 VehiclePath: vehicleIdentity.RelativePath,
+                FuelPercent: fuelPercent,
+                ThrottlePercent: throttlePercent,
+                BrakePercent: brakePercent,
+                Lights: visualState.Lights,
+                TurnSignal: visualState.TurnSignal,
                 VehicleCompatibilityId: vehicleIdentity.CompatibilityId,
                 LocalX: localPosition.X,
                 LocalY: localPosition.Y,
@@ -466,6 +486,114 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
         }
+    }
+
+    private static double? TryReadPercent(
+        ReadOnlyProcessMemory memory,
+        nint address)
+    {
+        try
+        {
+            var value = (double)memory.ReadSingle(address);
+            if (!double.IsFinite(value) || value < -0.05d)
+            {
+                return null;
+            }
+
+            // OMSI control/runtime fields are commonly normalized to 0..1,
+            // while a few add-ons expose an already-percent-like value. Accept
+            // both shapes without letting malformed memory enter telemetry.
+            if (value <= 1.05d)
+            {
+                return Math.Clamp(value, 0d, 1d) * 100d;
+            }
+
+            if (value <= 100d)
+            {
+                return Math.Clamp(value, 0d, 100d);
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static VehicleVisualTelemetry TryReadVehicleVisualState(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress)
+    {
+        try
+        {
+            var external = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiLightOffset));
+            var interior = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiInteriorLightOffset));
+            var left = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset));
+            var right = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset));
+            var brake = ReadVisualFlag(
+                memory,
+                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBrakeLightOffset));
+
+            var lights = VehicleLightFlags.None;
+            if (external)
+            {
+                // The validated AI field represents external road lighting as a
+                // single state. Keep it generic instead of guessing low/high beam.
+                lights |= VehicleLightFlags.Position;
+            }
+
+            if (interior)
+            {
+                lights |= VehicleLightFlags.Interior;
+            }
+
+            if (brake)
+            {
+                lights |= VehicleLightFlags.Brake;
+            }
+
+            TurnSignalState turnSignal;
+            if (left && right)
+            {
+                lights |= VehicleLightFlags.Hazard;
+                turnSignal = TurnSignalState.Hazard;
+            }
+            else if (left)
+            {
+                turnSignal = TurnSignalState.Left;
+            }
+            else if (right)
+            {
+                turnSignal = TurnSignalState.Right;
+            }
+            else
+            {
+                turnSignal = TurnSignalState.Off;
+            }
+
+            return new VehicleVisualTelemetry(lights, turnSignal);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private static bool ReadVisualFlag(
+        ReadOnlyProcessMemory memory,
+        nint address)
+    {
+        var value = memory.ReadSingle(address);
+        return float.IsFinite(value) && value > 0.5f;
     }
 
     private static double ResolveVehicleSpeedKph(
@@ -744,6 +872,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             return null;
         }
     }
+
+    private readonly record struct VehicleVisualTelemetry(
+        VehicleLightFlags Lights,
+        TurnSignalState TurnSignal);
 
     private static double QuaternionToHeadingDegrees(MemoryQuaternion q)
     {
