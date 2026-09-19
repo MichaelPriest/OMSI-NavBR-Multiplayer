@@ -490,7 +490,7 @@ jobs:
           gh release edit $env:TEST_TAG `
             --repo "${{ github.repository }}" `
             --target "$env:RELEASE_TARGET" `
-            --title "OMSI NavBR Multiplayer $env:TEST_TAG — HUD preview + RP v3" `
+            --title "OMSI NavBR Multiplayer $env:TEST_TAG — Physical bus + Navigation/RP validation" `
             --notes-file "artifacts/release-notes.md" `
             --prerelease --draft=true
           if ($LASTEXITCODE -ne 0) { throw "Failed to finalize draft $env:TEST_TAG." }
