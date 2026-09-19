@@ -591,13 +591,13 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 Activities = activities,
                 SawThrottleTelemetry =
                     sample.SawThrottleTelemetry ||
-                    (throttlePercent is double throttle && throttle > 0d),
+                    (throttlePercent is double currentThrottle && currentThrottle > 0d),
                 SawBrakeTelemetry =
                     sample.SawBrakeTelemetry ||
-                    (brakePercent is double brake && brake > 0d),
+                    (brakePercent is double currentBrake && currentBrake > 0d),
                 SawFuelTelemetry =
                     sample.SawFuelTelemetry ||
-                    (fuelPercent is double fuel && fuel >= 0d),
+                    (fuelPercent is double currentFuel && currentFuel >= 0d),
                 SawLights =
                     sample.SawLights ||
                     lights != VehicleLightFlags.None,
