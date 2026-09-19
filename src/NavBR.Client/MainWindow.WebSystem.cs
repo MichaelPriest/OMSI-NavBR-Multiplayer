@@ -246,8 +246,55 @@ public partial class MainWindow
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
     {
         _webOmsiLaunchNotice = null;
-        OmsiInstallationProfileStore.DiscoverAndMerge(
-            string.IsNullOrWhiteSpace(preferredPath) ? _currentOmsi?.InstallDirectory : preferredPath.Trim());
+        var requested = string.IsNullOrWhiteSpace(preferredPath)
+            ? _currentOmsi?.InstallDirectory
+            : preferredPath.Trim();
+        var profiles = OmsiInstallationProfileStore.DiscoverAndMerge(requested);
+
+        if (!string.IsNullOrWhiteSpace(preferredPath))
+        {
+            var requestedResolved = OmsiInstallationLocator
+                .Discover(preferredPath.Trim())
+                .FirstOrDefault();
+            _webOmsiLaunchNotice = requestedResolved is not null
+                ? $"Instalação OMSI reconhecida em {requestedResolved.InstallDirectory}."
+                : "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk válido.";
+        }
+        else if (profiles.Count == 0)
+        {
+            _webOmsiLaunchNotice =
+                "Nenhuma instalação válida do OMSI 2 foi localizada automaticamente.";
+        }
+    }
+
+    private void SelectOmsiExecutableFromWeb()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Selecione Omsi.exe ou um atalho do OMSI 2",
+            Filter = "OMSI 2 (Omsi.exe;*.lnk)|Omsi.exe;*.lnk|Executável OMSI (Omsi.exe)|Omsi.exe|Atalho do Windows (*.lnk)|*.lnk|Todos os arquivos (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        var owner = GetPrimaryWebDialogOwner();
+        if ((owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner)) != true)
+        {
+            return;
+        }
+
+        var installation = OmsiInstallationLocator
+            .Discover(dialog.FileName)
+            .FirstOrDefault();
+        if (installation is null)
+        {
+            throw new InvalidOperationException(
+                "O arquivo/atalho selecionado não aponta para uma instalação válida do OMSI 2.");
+        }
+
+        OmsiInstallationProfileStore.DiscoverAndMerge(dialog.FileName);
+        _webOmsiLaunchNotice =
+            $"Instalação OMSI reconhecida em {installation.InstallDirectory}.";
     }
 
     private void SelectOmsiFolderFromWeb()
