@@ -503,8 +503,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
         var result = await OmsiPluginBridgeRelay.DespawnRemoteVehicleAsync(
             playerId,
             cancellationToken);
-        if (result is { Success: false })
+        if (result?.Success != true)
         {
+            // A missing Plugin Bridge reply is not proof that the OMSI-owned
+            // vehicle disappeared. Preserve NavBR ownership metadata so a
+            // later frame/cleanup can retry instead of orphaning the bus.
             _spawned.TryAdd(playerId, 0);
             if (!string.IsNullOrWhiteSpace(previousCompatibilityId))
             {
