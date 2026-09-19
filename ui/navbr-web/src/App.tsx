@@ -2646,6 +2646,13 @@ function RoleplayPanel({
             </span>
           </label>
 
+          {roleplay.errorMessage && !roleplay.active && (
+            <div className="command-error rp-backend-error">
+              <strong>{roleplay.errorCode || pick("Falha no RP", "RP failure", "Fallo de RP", "RP-Fehler", "Échec RP")}</strong>
+              <span>{roleplay.errorMessage}</span>
+            </div>
+          )}
+
           <div className="details-grid rp-status-grid">
             <div><small>{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</small><strong>{state?.telemetry?.mapName || "—"}</strong></div>
             <div><small>STATUS</small><strong>{roleplayStatusLabel(roleplay.status, pick)}</strong></div>
