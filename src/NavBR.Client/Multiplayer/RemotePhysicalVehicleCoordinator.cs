@@ -11,6 +11,7 @@ namespace NavBR.Client.Multiplayer;
 internal sealed record RemotePhysicalVehicleStatus(
     string State,
     string? ErrorCode,
+    string? ErrorMessage,
     int? PartCount,
     int? ExpectedPartCount,
     DateTimeOffset UpdatedAtUtc);
@@ -100,6 +101,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         return new RemotePhysicalVehicleStatus(
             state,
             ErrorCode: null,
+            ErrorMessage: null,
             PartCount: null,
             ExpectedPartCount: null,
             DateTimeOffset.UtcNow);
@@ -678,6 +680,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             playerId,
             state,
             errorCode,
+            result?.ErrorMessage,
             result?.RemoteVehicleCount,
             expectedPartCount);
         ReportFailureOnce(
@@ -690,6 +693,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string playerId,
         string state,
         string? errorCode = null,
+        string? errorMessage = null,
         int? partCount = null,
         int? expectedPartCount = null)
     {
@@ -701,6 +705,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _statusByPlayer[playerId] = new RemotePhysicalVehicleStatus(
             state,
             string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
+            string.IsNullOrWhiteSpace(errorMessage) ? null : errorMessage.Trim(),
             partCount is > 0 ? partCount : null,
             expectedPartCount is > 0 ? expectedPartCount : null,
             DateTimeOffset.UtcNow);
