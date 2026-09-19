@@ -741,7 +741,7 @@ function physicalVehicleStatusLabel(
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
-    case "active": return pick("OMSI 3D ativo", "OMSI 3D active", "OMSI 3D activo", "OMSI 3D aktiv", "OMSI 3D actif");
+    case "active": return pick("OMSI 3D ativo · movimento suavizado", "OMSI 3D active · smoothed motion", "OMSI 3D activo · movimiento suavizado", "OMSI 3D aktiv · geglättete Bewegung", "OMSI 3D actif · mouvement lissé");
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
     case "consist-unsupported":
@@ -803,6 +803,7 @@ function physicalVehicleStatusLabel(
     case "session-changed": return pick("Sessão mudou durante a resolução", "Session changed during resolution", "La sesión cambió durante la resolución", "Sitzung änderte sich während der Auflösung", "La session a changé pendant la résolution");
     case "path-state-missing": return pick("Estado do asset local foi perdido", "Local asset state was lost", "Se perdió el estado del asset local", "Lokaler Asset-Status ging verloren", "L’état de l’asset local a été perdu");
     case "spawn-failed": return pick("Falha ao criar ônibus físico", "Physical bus spawn failed", "Falló la creación del autobús físico", "Physischer Bus konnte nicht erstellt werden", "Échec de création du bus physique");
+    case "update-retrying": return pick("Recuperando atualização 3D", "Recovering 3D update", "Recuperando actualización 3D", "3D-Aktualisierung wird wiederhergestellt", "Récupération de la mise à jour 3D");
     case "update-failed": return pick("Falha ao atualizar ônibus físico", "Physical bus update failed", "Falló la actualización del autobús físico", "Physischer Bus konnte nicht aktualisiert werden", "Échec de mise à jour du bus physique");
     case "despawn-failed": return pick("Falha ao remover ônibus físico", "Physical bus removal failed", "Falló la eliminación del autobús físico", "Physischer Bus konnte nicht entfernt werden", "Échec de suppression du bus physique");
     case "disabled": return pick("Ônibus físico desativado", "Physical bus disabled", "Autobús físico desactivado", "Physischer Bus deaktiviert", "Bus physique désactivé");
