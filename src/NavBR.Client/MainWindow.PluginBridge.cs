@@ -325,11 +325,24 @@ public partial class MainWindow
                 pluginsDirectory,
                 "NavBR.OmsiPlugin.install-manifest.txt");
             var hasManifest = File.Exists(manifestPath);
+            var currentVersion = System.Reflection.Assembly
+                .GetExecutingAssembly()
+                .GetName()
+                .Version?
+                .ToString() ?? "unknown";
+            var installedVersion = ReadPluginManifestVersion(manifestPath);
+            var versionMatches = hasManifest &&
+                                 !string.IsNullOrWhiteSpace(installedVersion) &&
+                                 string.Equals(
+                                     installedVersion,
+                                     currentVersion,
+                                     StringComparison.OrdinalIgnoreCase);
 
             var state = found switch
             {
                 0 => "MISSING",
-                3 when hasManifest => "INSTALLED",
+                3 when hasManifest && versionMatches => "INSTALLED",
+                3 when hasManifest => "OUTDATED",
                 3 => "UNTRACKED",
                 _ => "PARTIAL"
             };
@@ -344,6 +357,33 @@ public partial class MainWindow
         {
             return new PluginInstallDiagnostics("ERROR", 0, "UNKNOWN", "-");
         }
+    }
+
+    private static string? ReadPluginManifestVersion(string manifestPath)
+    {
+        try
+        {
+            if (!File.Exists(manifestPath))
+            {
+                return null;
+            }
+
+            const string prefix = "# NavBR:";
+            foreach (var line in File.ReadLines(manifestPath))
+            {
+                if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = line[prefix.Length..].Trim();
+                    return string.IsNullOrWhiteSpace(value) ? null : value;
+                }
+            }
+        }
+        catch
+        {
+            // Diagnostics must never break app startup.
+        }
+
+        return null;
     }
 
     private static string ShortFingerprint(string? value)
