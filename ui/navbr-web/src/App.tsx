@@ -4257,7 +4257,7 @@ function PluginStartupPrompt({
     return null;
   }
 
-  const missing = plugin.state === "missing" || plugin.state === "partial";
+  const needsInstall = plugin.state === "missing" || plugin.state === "partial" || plugin.state === "outdated";
   const canInstall = plugin.installAvailable && !plugin.omsiRunning;
 
   return (
@@ -4265,9 +4265,11 @@ function PluginStartupPrompt({
       <div className="section-heading">
         <div>
           <span className="eyebrow">{pick("PLUGIN OMSI", "OMSI PLUGIN", "PLUGIN OMSI", "OMSI-PLUGIN", "PLUGIN OMSI")}</span>
-          <h3>{missing
-            ? pick("Plugin NavBR não está instalado corretamente", "NavBR plugin is not installed correctly", "El plugin NavBR no está instalado correctamente", "NavBR-Plugin ist nicht korrekt installiert", "Le plugin NavBR n’est pas correctement installé")
-            : pick("Verifique o plugin NavBR", "Check the NavBR plugin", "Verifica el plugin NavBR", "NavBR-Plugin prüfen", "Vérifiez le plugin NavBR")}</h3>
+          <h3>{plugin.state === "outdated"
+            ? pick("Plugin NavBR precisa ser atualizado", "NavBR plugin needs an update", "El plugin NavBR necesita actualizarse", "NavBR-Plugin muss aktualisiert werden", "Le plugin NavBR doit être mis à jour")
+            : needsInstall
+              ? pick("Plugin NavBR não está instalado corretamente", "NavBR plugin is not installed correctly", "El plugin NavBR no está instalado correctamente", "NavBR-Plugin ist nicht korrekt installiert", "Le plugin NavBR n’est pas correctement installé")
+              : pick("Verifique o plugin NavBR", "Check the NavBR plugin", "Verifica el plugin NavBR", "NavBR-Plugin prüfen", "Vérifiez le plugin NavBR")}</h3>
         </div>
       </div>
       <p>
