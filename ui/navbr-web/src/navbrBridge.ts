@@ -471,6 +471,7 @@ export interface NavBrSystemState {
     omsiRoot?: string | null;
     embeddedPackageAvailable: boolean;
     installAvailable: boolean;
+    installBlockReason?: "package-missing" | "omsi-not-found" | "omsi-running" | null;
     omsiRunning: boolean;
   };
   installations: NavBrOmsiInstallation[];
