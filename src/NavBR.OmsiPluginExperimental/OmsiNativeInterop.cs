@@ -227,7 +227,7 @@ internal static class OmsiNativeInterop
     internal static bool TrySnapshotHumans(out int[] humanPointers)
     {
         humanPointers = [];
-        if (!IsShimReady)
+        if (!IsRoleplayShimReady)
         {
             return false;
         }

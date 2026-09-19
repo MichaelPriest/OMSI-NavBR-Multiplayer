@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Reflection;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
@@ -270,15 +271,26 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         await _connection.StartAsync(cancellationToken);
 
         var manifest = new OmsiCompatibilityManifest(
-            OmsiVersion: "simulator",
-            NavBRVersion: "alpha.15-simulator",
+            // The simulator represents another player in the same real OMSI
+            // environment. Reuse only compatibility facts observed from the
+            // real reference player; never invent fingerprints.
+            OmsiVersion: _options.ReferenceOmsiVersion ?? "simulator",
+            NavBRVersion:
+                typeof(SimulatedPlayer).Assembly
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion
+                ?? typeof(SimulatedPlayer).Assembly.GetName().Version?.ToString()
+                ?? "simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
-            HofName: null,
-            HofCompatibilityId: null,
-            PluginProtocolVersion: 3,
+            HofName: _options.ReferenceHofName,
+            HofCompatibilityId: _options.ReferenceHofCompatibilityId,
+            PluginProtocolVersion:
+                _options.ReferencePluginProtocolVersion > 0
+                    ? _options.ReferencePluginProtocolVersion
+                    : 3,
             PluginDeployment: "simulator",
             Capabilities: ["telemetry", "roleplay-character"]);
 
@@ -993,9 +1005,23 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         ? options.MapTileIndex
                         : telemetry?.MapTileIndex ?? options.MapTileIndex,
                     ReferencePlayerId = reference.PlayerId,
-                    VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
+                    ReferenceOmsiVersion =
+                        reference.Compatibility?.OmsiVersion,
+                    ReferenceHofName =
+                        reference.Compatibility?.HofName,
+                    ReferenceHofCompatibilityId =
+                        reference.Compatibility?.HofCompatibilityId,
+                    ReferencePluginProtocolVersion =
+                        reference.Compatibility?.PluginProtocolVersion is > 0
+                            ? reference.Compatibility.PluginProtocolVersion
+                            : 3,
+                    VehiclePath =
+                        options.VehiclePath ??
+                        reference.Compatibility?.VehiclePath ??
+                        telemetry?.VehiclePath,
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
+                        reference.Compatibility?.VehicleCompatibilityId ??
                         telemetry?.VehicleCompatibilityId,
                     ActiveLine = activeLine,
                     ActiveRoute = activeRoute,
@@ -1403,6 +1429,10 @@ internal sealed record SimulatorOptions(
     bool VehicleExplicit,
     IReadOnlyList<SimulatorHofRoute> HofRoutes,
     string? ReferencePlayerId,
+    string? ReferenceOmsiVersion,
+    string? ReferenceHofName,
+    string? ReferenceHofCompatibilityId,
+    int ReferencePluginProtocolVersion,
     string? ActiveLine,
     string? ActiveRoute,
     string? ActiveDestination,
@@ -1477,6 +1507,10 @@ internal sealed record SimulatorOptions(
                 values.ContainsKey("vehicle-id"),
             HofRoutes: Array.Empty<SimulatorHofRoute>(),
             ReferencePlayerId: null,
+            ReferenceOmsiVersion: null,
+            ReferenceHofName: null,
+            ReferenceHofCompatibilityId: null,
+            ReferencePluginProtocolVersion: 3,
             ActiveLine: NullIfEmpty(values.GetValueOrDefault("line")),
             ActiveRoute: NullIfEmpty(values.GetValueOrDefault("route")),
             ActiveDestination: NullIfEmpty(values.GetValueOrDefault("destination")),

@@ -282,14 +282,17 @@ internal static class RoleplayCharacterBackend
             float driverHeading = 0f;
             float driverSpeed = 0f;
 
+            var automaticDriverResolution = definitionPointer == 0;
+            var playerVehicle = automaticDriverResolution
+                ? OmsiNativeInterop.GetPlayerVehiclePointer()
+                : 0;
+            var attachedCandidates = new List<DriverCandidate>();
+
             for (var index = 0; index < humans.Length; index++)
             {
                 var pointer = humans[index];
                 if (pointer == 0 ||
                     usedPointers.Contains(pointer) ||
-                    OmsiNativeInterop.IsPlayerBusDriverHuman(
-                        pointer,
-                        definitionPointer) != 1 ||
                     OmsiNativeInterop.ReadHumanPose(
                         pointer,
                         out var x,
@@ -305,27 +308,99 @@ internal static class RoleplayCharacterBackend
                 var dy = y - anchorY;
                 var dz = z - anchorZ;
                 var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-                if (!double.IsFinite(distance) || distance >= bestDistance)
+                if (!double.IsFinite(distance))
                 {
                     continue;
                 }
 
-                driverPointer = pointer;
-                driverIndex = index;
-                bestDistance = distance;
-                driverX = x;
-                driverY = y;
-                driverZ = z;
-                driverHeading = heading;
-                driverSpeed = speed;
+                if (OmsiNativeInterop.IsPlayerBusDriverHuman(
+                        pointer,
+                        definitionPointer) == 1)
+                {
+                    if (distance < bestDistance)
+                    {
+                        driverPointer = pointer;
+                        driverIndex = index;
+                        bestDistance = distance;
+                        driverX = x;
+                        driverY = y;
+                        driverZ = z;
+                        driverHeading = heading;
+                        driverSpeed = speed;
+                    }
+
+                    continue;
+                }
+
+                if (!automaticDriverResolution ||
+                    playerVehicle == 0 ||
+                    OmsiNativeInterop.ReadHumanDriverState(
+                        pointer,
+                        out var myBus,
+                        out _,
+                        out _,
+                        out _) != 1 ||
+                    myBus != playerVehicle)
+                {
+                    continue;
+                }
+
+                attachedCandidates.Add(
+                    new DriverCandidate(
+                        pointer,
+                        index,
+                        distance,
+                        x,
+                        y,
+                        z,
+                        heading,
+                        speed));
+            }
+
+            if (driverPointer == 0 &&
+                automaticDriverResolution &&
+                attachedCandidates.Count > 0)
+            {
+                var ordered = attachedCandidates
+                    .OrderBy(candidate => candidate.Distance)
+                    .ToArray();
+                var candidate = ordered[0];
+
+                // A single human attached to the player bus is unambiguous.
+                // With several attached humans (for example passenger-heavy
+                // add-ons), only accept the nearest one when it is clearly
+                // separated from the next candidate. This avoids turning a
+                // passenger into the RP player merely because custom driver
+                // flags differ from stock OMSI.
+                var unambiguous =
+                    ordered.Length == 1 ||
+                    (ordered.Length > 1 &&
+                     ordered[1].Distance - candidate.Distance >= 0.75d);
+
+                if (unambiguous)
+                {
+                    driverPointer = candidate.Pointer;
+                    driverIndex = candidate.Index;
+                    bestDistance = candidate.Distance;
+                    driverX = candidate.X;
+                    driverY = candidate.Y;
+                    driverZ = candidate.Z;
+                    driverHeading = candidate.Heading;
+                    driverSpeed = candidate.Speed;
+                }
             }
 
             if (driverPointer == 0)
             {
+                var detail = automaticDriverResolution
+                    ? $"Automatic driver resolution found {attachedCandidates.Count} human(s) attached to the player bus, but none was an unambiguous active driver."
+                    : "The selected character is not the active human driver of the player's bus.";
                 return Fail(
                     command,
-                    "selected-driver-not-active",
-                    "The selected character is not the active human driver of the player's bus.");
+                    automaticDriverResolution && attachedCandidates.Count > 1
+                        ? "selected-driver-ambiguous"
+                        : "selected-driver-not-active",
+                    detail);
             }
 
             if (bestDistance > MaxAcquireDistanceMeters ||
@@ -1057,6 +1132,16 @@ internal static class RoleplayCharacterBackend
         string code,
         string message) =>
         RoleplayCharacterCommandProcessor.Result(command, false, code, message);
+
+    private sealed record DriverCandidate(
+        int Pointer,
+        int Index,
+        double Distance,
+        float X,
+        float Y,
+        float Z,
+        float Heading,
+        float Speed);
 
     private sealed record RoleplayCharacterInstance(
         string InstanceId,

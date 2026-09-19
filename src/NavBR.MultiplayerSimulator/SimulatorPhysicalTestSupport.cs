@@ -34,15 +34,18 @@ internal static class SimulatorPhysicalTestSupport
         string? selectedRelativePath = null;
         string? selectedCompatibilityId = null;
 
-        if (options.VehicleExplicit &&
-            TryResolveExistingVehicle(
+        // Explicit and room-inherited identities both describe a real local
+        // vehicle and must win over the stock test bus. Otherwise the simulator
+        // can join with one fingerprint while the host expects another and the
+        // physical coordinator correctly refuses to spawn it.
+        if (TryResolveExistingVehicle(
                 root,
                 options.VehiclePath,
-                out var explicitRelativePath,
-                out var explicitCompatibilityId))
+                out var inheritedRelativePath,
+                out var inheritedCompatibilityId))
         {
-            selectedRelativePath = explicitRelativePath;
-            selectedCompatibilityId = explicitCompatibilityId;
+            selectedRelativePath = inheritedRelativePath;
+            selectedCompatibilityId = inheritedCompatibilityId;
         }
         else
         {
@@ -60,17 +63,6 @@ internal static class SimulatorPhysicalTestSupport
                 selectedRelativePath = relativePath;
                 selectedCompatibilityId = compatibilityId;
                 break;
-            }
-
-            if (selectedRelativePath is null &&
-                TryResolveExistingVehicle(
-                    root,
-                    options.VehiclePath,
-                    out var inheritedRelativePath,
-                    out var inheritedCompatibilityId))
-            {
-                selectedRelativePath = inheritedRelativePath;
-                selectedCompatibilityId = inheritedCompatibilityId;
             }
         }
 
