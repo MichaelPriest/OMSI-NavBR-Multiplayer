@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using NavBR.Client.Omsi;
@@ -56,19 +57,11 @@ internal static class OmsiPluginInstallationService
         var manifestPresent = File.Exists(manifestPath);
         var legacyNavBrInstallation =
             !manifestPresent && IsLegacyNavBrInstallation(pluginsRoot);
-        var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
-        var installedVersion = ReadInstalledVersion(manifestPath);
-        var versionMatches =
-            manifestPresent &&
-            !string.IsNullOrWhiteSpace(installedVersion) &&
-            string.Equals(
-                installedVersion,
-                currentVersion,
-                StringComparison.OrdinalIgnoreCase);
+        var manifestCurrent = IsManifestCurrent(manifestPath);
 
         if (requiredFilesFound == RequiredPluginFiles.Length &&
             manifestPresent &&
-            versionMatches)
+            manifestCurrent)
         {
             return new PluginStartupInstallResult(
                 "ready",
@@ -284,12 +277,16 @@ internal static class OmsiPluginInstallationService
                 }
 
                 var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+                var packageHash = GetEmbeddedPackageHash()
+                    ?? throw new InvalidOperationException(
+                        "Não foi possível calcular o hash do pacote embutido do plugin.");
                 File.WriteAllLines(
                     manifestPath,
                     [
                         "# OMSI NavBR Plugin experimental - arquivos instalados",
                         $"# Instalado em: {DateTimeOffset.Now:O}",
                         $"# NavBR: {version}",
+                        $"# Package-SHA256: {packageHash}",
                         legacyNavBrInstallation
                             ? "# Migration: legacy NavBR plugin adopted and updated"
                             : "# Migration: none",
@@ -579,6 +576,86 @@ internal static class OmsiPluginInstallationService
         {
             return false;
         }
+    }
+
+    internal static bool IsManifestCurrent(string manifestPath)
+    {
+        if (!File.Exists(manifestPath))
+        {
+            return false;
+        }
+
+        var currentVersion =
+            Assembly.GetExecutingAssembly().GetName().Version?.ToString() ??
+            "unknown";
+        var installedVersion = ReadInstalledVersion(manifestPath);
+        if (string.IsNullOrWhiteSpace(installedVersion) ||
+            !string.Equals(
+                installedVersion,
+                currentVersion,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var currentPackageHash = GetEmbeddedPackageHash();
+        var installedPackageHash = ReadInstalledPackageHash(manifestPath);
+        return !string.IsNullOrWhiteSpace(currentPackageHash) &&
+               !string.IsNullOrWhiteSpace(installedPackageHash) &&
+               string.Equals(
+                   currentPackageHash,
+                   installedPackageHash,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetEmbeddedPackageHash()
+    {
+        try
+        {
+            using var stream =
+                Assembly.GetExecutingAssembly().GetManifestResourceStream(
+                    EmbeddedResourceName);
+            if (stream is null)
+            {
+                return null;
+            }
+
+            return "sha256:" +
+                   Convert.ToHexString(SHA256.HashData(stream))
+                       .ToLowerInvariant();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ReadInstalledPackageHash(string manifestPath)
+    {
+        try
+        {
+            if (!File.Exists(manifestPath))
+            {
+                return null;
+            }
+
+            const string prefix = "# Package-SHA256:";
+            foreach (var line in File.ReadLines(manifestPath))
+            {
+                if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = line[prefix.Length..].Trim();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static string? ReadInstalledVersion(string manifestPath)
