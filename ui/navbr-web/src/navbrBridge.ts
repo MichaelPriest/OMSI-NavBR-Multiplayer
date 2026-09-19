@@ -905,6 +905,7 @@ export type NavBrCommand =
   | "installOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
+  | "selectOmsiExecutable"
   | "openOmsiProfileFolder"
   | "launchOmsiProfile"
   | "setPreferredOmsiProfile"
