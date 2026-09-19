@@ -2473,6 +2473,8 @@ function roleplayStatusLabel(
     case "roleplay-active": return pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif");
     case "roleplay-returned-to-bus": return pick("Motorista retornou ao ônibus", "Driver returned to the bus", "El conductor volvió al autobús", "Fahrer ist zum Bus zurückgekehrt", "Le conducteur est retourné au bus");
     case "roleplay-character-selected": return pick("Personagem selecionado", "Character selected", "Personaje seleccionado", "Charakter ausgewählt", "Personnage sélectionné");
+    case "roleplay-active-driver-auto-selected": return pick("Motorista ativo detectado automaticamente", "Active driver detected automatically", "Conductor activo detectado automáticamente", "Aktiver Fahrer automatisch erkannt", "Conducteur actif détecté automatiquement");
+    case "roleplay-active-driver-not-detected": return pick("Aguardando o motorista ativo do ônibus", "Waiting for the active bus driver", "Esperando al conductor activo del autobús", "Warte auf den aktiven Busfahrer", "En attente du conducteur actif du bus");
     case "roleplay-plugin-unavailable": return pick("Plugin Bridge sem suporte RP", "Plugin Bridge has no RP support", "Plugin Bridge sin soporte RP", "Plugin Bridge ohne RP-Unterstützung", "Plugin Bridge sans prise en charge RP");
     case "roleplay-character-required": return pick("Selecione um personagem", "Select a character", "Selecciona un personaje", "Charakter auswählen", "Sélectionnez un personnage");
     case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
@@ -2722,7 +2724,7 @@ function RoleplayPanel({
                 <button
                   key={character.id}
                   className={`rp-character-row ${character.selected ? "selected" : ""}`}
-                  disabled={roleplay.active}
+                  disabled={roleplay.active || !character.isActiveDriver}
                   onClick={() => sendCommand("selectRoleplayCharacter", { characterId: character.id })}
                 >
                   <span className="rp-character-avatar">♙</span>
@@ -2730,7 +2732,11 @@ function RoleplayPanel({
                     <strong>{character.displayName}</strong>
                     <small>{character.isActiveDriver ? pick("Motorista ativo do mapa", "Active map driver", "Conductor activo del mapa", "Aktiver Kartenfahrer", "Conducteur actif de la carte") : character.sourceValue}</small>
                   </span>
-                  <em>{character.selected ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné") : pick("Usar", "Use", "Usar", "Verwenden", "Utiliser")}</em>
+                  <em>{character.selected
+                    ? pick("Selecionado", "Selected", "Seleccionado", "Ausgewählt", "Sélectionné")
+                    : character.isActiveDriver
+                      ? pick("Usar", "Use", "Usar", "Verwenden", "Utiliser")
+                      : pick("Catálogo", "Catalog", "Catálogo", "Katalog", "Catalogue")}</em>
                 </button>
               ))}
             </div>
