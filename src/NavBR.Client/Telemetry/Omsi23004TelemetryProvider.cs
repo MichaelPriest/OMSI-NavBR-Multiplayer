@@ -76,12 +76,16 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 return Array.Empty<RoleplayCharacterOption>();
             }
 
+            var activeDriverDefinitionPointer =
+                TryReadActiveRoleplayDriverDefinitionPointer(memory);
+
             var listAddress = memory.ReadUInt32(nint.Add(
                 mapPointer,
                 Omsi23004MemoryProfile.MapDriversListOffset));
             if (listAddress <= 0x10000u)
             {
-                return Array.Empty<RoleplayCharacterOption>();
+                return BuildActiveRoleplayDriverFallback(
+                    activeDriverDefinitionPointer);
             }
 
             var listPointer = ReadOnlyProcessMemory.PointerFromUInt32(listAddress);
@@ -94,14 +98,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             if (count is <= 0 or > 512 || itemsAddress <= 0x10000u)
             {
-                return Array.Empty<RoleplayCharacterOption>();
+                return BuildActiveRoleplayDriverFallback(
+                    activeDriverDefinitionPointer);
             }
 
             var itemsPointer = ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
-            var result = new List<RoleplayCharacterOption>(Math.Min(count, 128));
+            var result = new List<RoleplayCharacterOption>(Math.Min(count + 1, 129));
             var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var activeDriverDefinitionPointer =
-                TryReadActiveRoleplayDriverDefinitionPointer(memory);
 
             for (var index = 0; index < count && result.Count < 128; index++)
             {
@@ -142,12 +145,42 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                         activeDriverDefinitionPointer == unchecked((int)definitionPointer)));
             }
 
+            if (activeDriverDefinitionPointer is int activePointer &&
+                activePointer > 0 &&
+                !result.Any(option => option.IsActiveDriver))
+            {
+                var fallback = BuildActiveRoleplayDriverFallback(activePointer);
+                if (fallback.Count > 0)
+                {
+                    result.Insert(0, fallback[0]);
+                }
+            }
+
             return result;
         }
         catch
         {
             return Array.Empty<RoleplayCharacterOption>();
         }
+    }
+
+    private static IReadOnlyList<RoleplayCharacterOption> BuildActiveRoleplayDriverFallback(
+        int? definitionPointer)
+    {
+        if (definitionPointer is not int pointer || pointer <= 0)
+        {
+            return Array.Empty<RoleplayCharacterOption>();
+        }
+
+        return
+        [
+            new RoleplayCharacterOption(
+                $"active-driver:{unchecked((uint)pointer):x8}",
+                "Motorista atual",
+                "OMSI active driver",
+                pointer,
+                IsActiveDriver: true)
+        ];
     }
 
     private static int? TryReadActiveRoleplayDriverDefinitionPointer(
