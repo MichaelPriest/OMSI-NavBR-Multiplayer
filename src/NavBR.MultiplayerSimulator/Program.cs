@@ -1,10 +1,16 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Net.Http.Json;
+using System.Reflection;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
-var options = SimulatorOptions.Parse(args);
+var interactiveLaunch = args.Length == 0;
+var effectiveArgs = interactiveLaunch
+    ? await SimulatorInteractiveLauncher.BuildArgumentsAsync()
+    : args;
+var options = SimulatorOptions.Parse(effectiveArgs);
 if (options.ShowHelp)
 {
     SimulatorOptions.PrintHelp();
@@ -34,6 +40,7 @@ if (!localServer.Ready)
     Console.Error.WriteLine(localServer.ErrorMessage);
     Console.Error.WriteLine("Crie uma sala no NavBR, inicie o servidor dedicado ou use a build do simulador que inclui a pasta 'server'.");
     Environment.ExitCode = 3;
+    SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
     return;
 }
 
@@ -56,6 +63,7 @@ if (!synchronized.Success || synchronized.Options is null)
     Console.Error.WriteLine(synchronized.ErrorMessage);
     Console.Error.WriteLine("Entre na sala pelo NavBR com o OMSI carregado no mapa e execute o simulador novamente.");
     Environment.ExitCode = 5;
+    SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
     return;
 }
 
@@ -74,13 +82,14 @@ if (options.VerifyPhysical)
         string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
         string.IsNullOrWhiteSpace(options.VehiclePath) ||
         string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
-        options.GridX is null ||
-        options.GridY is null)
+        !((options.PhysicalGridX is int && options.PhysicalGridY is int) ||
+          options.MapTileIndex is >= 0))
     {
         Console.Error.WriteLine();
         Console.Error.WriteLine(
-            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, GridX/GridY válidos e um ônibus rígido resolvido.");
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, grid físico ou Kachel local válido e um ônibus rígido resolvido.");
         Environment.ExitCode = 6;
+        SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
     }
 
@@ -89,6 +98,7 @@ if (options.VerifyPhysical)
         Console.Error.WriteLine(
             "NavBR Simulator: --verify-physical requer mode vehicles ou mixed.");
         Environment.ExitCode = 6;
+        SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
     }
 
@@ -120,13 +130,16 @@ if (!string.IsNullOrWhiteSpace(options.ActiveLine) ||
 Console.WriteLine(
     $"Seed   : abs=({options.CenterX:F1},{options.CenterY:F1},{options.CenterZ:F1}) • local=({options.LocalCenterX:F1},{options.LocalCenterY:F1},{options.LocalCenterZ:F1}) • raio {options.RadiusMeters:F0} m" +
     (options.GridX is int gx && options.GridY is int gy
-        ? $" • grid {gx},{gy}" +
+        ? $" • nav-grid {gx},{gy}" +
           (options.TileX is double tx && options.TileY is double ty
               ? $" • tile {tx:F1},{ty:F1}"
-              : string.Empty) +
-          (options.MapTileIndex is int tileIndex
-              ? $" • Kachel #{tileIndex}"
               : string.Empty)
+        : string.Empty) +
+    (options.PhysicalGridX is int pgx && options.PhysicalGridY is int pgy
+        ? $" • physical-grid {pgx},{pgy}"
+        : " • physical-grid n/a") +
+    (options.MapTileIndex is int tileIndex
+        ? $" • Kachel #{tileIndex}"
         : string.Empty));
 
 var bots = Enumerable.Range(1, options.PlayerCount)
@@ -214,6 +227,8 @@ finally
     }
 }
 
+SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
+
 internal sealed class SimulatedPlayer : IAsyncDisposable
 {
     private readonly int _index;
@@ -270,15 +285,26 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         await _connection.StartAsync(cancellationToken);
 
         var manifest = new OmsiCompatibilityManifest(
-            OmsiVersion: "simulator",
-            NavBRVersion: "alpha.14-simulator",
+            // The simulator represents another player in the same real OMSI
+            // environment. Reuse only compatibility facts observed from the
+            // real reference player; never invent fingerprints.
+            OmsiVersion: _options.ReferenceOmsiVersion,
+            NavBRVersion:
+                typeof(SimulatedPlayer).Assembly
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion
+                ?? typeof(SimulatedPlayer).Assembly.GetName().Version?.ToString()
+                ?? "simulator",
             MapName: _options.MapName,
             MapCompatibilityId: _options.MapCompatibilityId,
             VehiclePath: _options.VehiclePath,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
-            HofName: null,
-            HofCompatibilityId: null,
-            PluginProtocolVersion: 3,
+            HofName: _options.ReferenceHofName,
+            HofCompatibilityId: _options.ReferenceHofCompatibilityId,
+            PluginProtocolVersion:
+                _options.ReferencePluginProtocolVersion > 0
+                    ? _options.ReferencePluginProtocolVersion
+                    : 3,
             PluginDeployment: "simulator",
             Capabilities: ["telemetry", "roleplay-character"]);
 
@@ -447,7 +473,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             RotationY: 0d,
             RotationZ: Math.Sin(half),
             RotationW: Math.Cos(half),
-            MapTileIndex: _options.MapTileIndex);
+            MapTileIndex: _options.MapTileIndex,
+            PhysicalGridX: _options.PhysicalGridX,
+            PhysicalGridY: _options.PhysicalGridY);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
@@ -981,6 +1009,12 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     GridY = options.NavigationSeedExplicit
                         ? options.GridY
                         : telemetry?.GridY ?? options.GridY,
+                    PhysicalGridX = options.NavigationSeedExplicit
+                        ? options.PhysicalGridX
+                        : telemetry?.PhysicalGridX ?? options.PhysicalGridX,
+                    PhysicalGridY = options.NavigationSeedExplicit
+                        ? options.PhysicalGridY
+                        : telemetry?.PhysicalGridY ?? options.PhysicalGridY,
                     TileX = options.NavigationSeedExplicit
                         ? options.TileX
                         : telemetry?.TileX ?? options.TileX,
@@ -991,9 +1025,23 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         ? options.MapTileIndex
                         : telemetry?.MapTileIndex ?? options.MapTileIndex,
                     ReferencePlayerId = reference.PlayerId,
-                    VehiclePath = options.VehiclePath ?? telemetry?.VehiclePath,
+                    ReferenceOmsiVersion =
+                        reference.Compatibility?.OmsiVersion,
+                    ReferenceHofName =
+                        reference.Compatibility?.HofName,
+                    ReferenceHofCompatibilityId =
+                        reference.Compatibility?.HofCompatibilityId,
+                    ReferencePluginProtocolVersion =
+                        reference.Compatibility?.PluginProtocolVersion is > 0
+                            ? reference.Compatibility.PluginProtocolVersion
+                            : 3,
+                    VehiclePath =
+                        options.VehiclePath ??
+                        reference.Compatibility?.VehiclePath ??
+                        telemetry?.VehiclePath,
                     VehicleCompatibilityId =
                         options.VehicleCompatibilityId ??
+                        reference.Compatibility?.VehicleCompatibilityId ??
                         telemetry?.VehicleCompatibilityId,
                     ActiveLine = activeLine,
                     ActiveRoute = activeRoute,
@@ -1003,6 +1051,16 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                         ? options.RadiusMeters
                         : 18d
                 };
+
+                if (options.VerifyPhysical &&
+                    resolved.PhysicalGridX is null &&
+                    resolved.PhysicalGridY is null)
+                {
+                    Console.WriteLine(
+                        resolved.MapTileIndex is int inheritedTileIndex && inheritedTileIndex >= 0
+                            ? $"Physical sync: grid físico indisponível; usando Kachel #{inheritedTileIndex} do host somente para os bots de validação."
+                            : "Physical sync: o host ainda não publicou grid físico nem Kachel válido; o grid de navegação não será reutilizado como identidade física.");
+                }
 
                 if (!string.IsNullOrWhiteSpace(options.MapName) &&
                     !string.Equals(options.MapName, resolved.MapName, StringComparison.OrdinalIgnoreCase))
@@ -1381,6 +1439,160 @@ internal sealed class LocalServerBootstrap : IAsyncDisposable
     }
 }
 
+internal static class SimulatorInteractiveLauncher
+{
+    public const string OnlineServerUrl =
+        "https://omsi-navbr-multiplayer-server.onrender.com";
+    public const string LocalServerUrl =
+        "http://127.0.0.1:27730";
+    public const string DefaultServerUrl = OnlineServerUrl;
+
+    public static async Task<string[]> BuildArgumentsAsync()
+    {
+        Console.Title = "OMSI NavBR Multiplayer - Simulador de Players";
+        Console.WriteLine("OMSI NavBR Multiplayer - Simulador de Players");
+        Console.WriteLine("Modo automático: servidor local + servidor online suportados.");
+        Console.WriteLine();
+
+        var serverUrl = await ResolveAutoServerUrlAsync();
+        Console.WriteLine(
+            string.Equals(serverUrl, LocalServerUrl, StringComparison.OrdinalIgnoreCase)
+                ? $"Servidor selecionado: LOCAL ({serverUrl})"
+                : $"Servidor selecionado: ONLINE ({serverUrl})");
+        Console.WriteLine("Procurando sala pública ativa...");
+        Console.WriteLine();
+
+        var roomId = await ResolveRoomIdAsync(serverUrl);
+        if (string.IsNullOrWhiteSpace(roomId))
+        {
+            roomId = "navbr-sim";
+            Console.WriteLine($"Nenhuma sala pública ativa detectada; usando sala {roomId}.");
+        }
+
+        Console.WriteLine($"Sala   : {roomId}");
+        Console.WriteLine("Players: 6");
+        Console.WriteLine("Modo   : mixed");
+        Console.WriteLine("Teste físico: ativado");
+        Console.WriteLine();
+
+        return
+        [
+            "--server", serverUrl,
+            "--room", roomId,
+            "--players", "6",
+            "--mode", "mixed",
+            "--verify-physical"
+        ];
+    }
+
+    public static void PauseIfInteractive(bool interactive)
+    {
+        if (!interactive)
+        {
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Pressione ENTER para fechar o simulador.");
+        try
+        {
+            Console.ReadLine();
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task<string> ResolveAutoServerUrlAsync()
+    {
+        if (await IsHealthyAsync(LocalServerUrl, TimeSpan.FromSeconds(1)))
+        {
+            Console.WriteLine("Servidor local detectado em execução; usando LOCAL.");
+            return LocalServerUrl;
+        }
+
+        Console.WriteLine("Servidor local não está ativo; usando ONLINE Render.");
+        return OnlineServerUrl;
+    }
+
+    private static async Task<bool> IsHealthyAsync(
+        string serverUrl,
+        TimeSpan timeout)
+    {
+        try
+        {
+            using var client = new HttpClient
+            {
+                Timeout = timeout
+            };
+            using var response = await client.GetAsync(
+                new Uri(new Uri(serverUrl), "/health"));
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<string?> ResolveRoomIdAsync(string serverUrl)
+    {
+        try
+        {
+            using var client = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+            var endpoint = new Uri(new Uri(serverUrl), "/api/rooms");
+            var rooms = await client.GetFromJsonAsync<PublicRoomSummary[]>(endpoint)
+                        ?? Array.Empty<PublicRoomSummary>();
+
+            var active = rooms
+                .Where(room => room.PlayerCount > 0)
+                .OrderByDescending(room => room.PlayerCount)
+                .ThenByDescending(room => room.UpdatedAtUtc)
+                .ToArray();
+
+            if (active.Length == 1)
+            {
+                Console.WriteLine(
+                    $"Sala ativa encontrada automaticamente: {active[0].RoomId} " +
+                    $"({active[0].PlayerCount} player(s), mapa {active[0].MapName ?? "-"})");
+                return active[0].RoomId;
+            }
+
+            if (active.Length > 1)
+            {
+                Console.WriteLine("Mais de uma sala pública está ativa:");
+                foreach (var room in active.Take(10))
+                {
+                    Console.WriteLine(
+                        $"  - {room.RoomId} | {room.PlayerCount} player(s) | mapa {room.MapName ?? "-"}");
+                }
+
+                var preferred = active.FirstOrDefault(room =>
+                    string.Equals(room.RoomId, "navbr-sim", StringComparison.OrdinalIgnoreCase));
+                if (preferred is not null)
+                {
+                    Console.WriteLine("Selecionando automaticamente a sala navbr-sim.");
+                    return preferred.RoomId;
+                }
+
+                Console.WriteLine($"Selecionando automaticamente a sala {active[0].RoomId}.");
+                return active[0].RoomId;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"Não foi possível consultar /api/rooms em {serverUrl} ({ex.GetType().Name}).");
+            return null;
+        }
+    }
+}
+
 internal enum SimulatorMode
 {
     Vehicles,
@@ -1401,12 +1613,18 @@ internal sealed record SimulatorOptions(
     bool VehicleExplicit,
     IReadOnlyList<SimulatorHofRoute> HofRoutes,
     string? ReferencePlayerId,
+    string? ReferenceOmsiVersion,
+    string? ReferenceHofName,
+    string? ReferenceHofCompatibilityId,
+    int ReferencePluginProtocolVersion,
     string? ActiveLine,
     string? ActiveRoute,
     string? ActiveDestination,
     string? ActiveNextStop,
     int? GridX,
     int? GridY,
+    int? PhysicalGridX,
+    int? PhysicalGridY,
     double? TileX,
     double? TileY,
     double CenterX,
@@ -1461,7 +1679,7 @@ internal sealed record SimulatorOptions(
         };
 
         return new SimulatorOptions(
-            ServerUrl: values.GetValueOrDefault("server") ?? "http://127.0.0.1:27730",
+            ServerUrl: values.GetValueOrDefault("server") ?? SimulatorInteractiveLauncher.DefaultServerUrl,
             RoomId: values.GetValueOrDefault("room") ?? "navbr-sim",
             RoomPassword: NullIfEmpty(values.GetValueOrDefault("password")),
             PlayerCount: ClampInt(values.GetValueOrDefault("players"), 6, 1, 32),
@@ -1475,12 +1693,18 @@ internal sealed record SimulatorOptions(
                 values.ContainsKey("vehicle-id"),
             HofRoutes: Array.Empty<SimulatorHofRoute>(),
             ReferencePlayerId: null,
+            ReferenceOmsiVersion: null,
+            ReferenceHofName: null,
+            ReferenceHofCompatibilityId: null,
+            ReferencePluginProtocolVersion: 3,
             ActiveLine: NullIfEmpty(values.GetValueOrDefault("line")),
             ActiveRoute: NullIfEmpty(values.GetValueOrDefault("route")),
             ActiveDestination: NullIfEmpty(values.GetValueOrDefault("destination")),
             ActiveNextStop: NullIfEmpty(values.GetValueOrDefault("next-stop")),
             GridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
             GridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
+            PhysicalGridX: ParseNullableInt(values.GetValueOrDefault("grid-x")),
+            PhysicalGridY: ParseNullableInt(values.GetValueOrDefault("grid-y")),
             TileX: ParseNullableDouble(values.GetValueOrDefault("tile-x")),
             TileY: ParseNullableDouble(values.GetValueOrDefault("tile-y")),
             CenterX: ParseDouble(values.GetValueOrDefault("x"), 0d),

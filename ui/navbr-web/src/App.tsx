@@ -101,12 +101,21 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   chat: []
 };
 
+function buildVersionLabel(version?: string | null) {
+  if (!version) return "Alpha";
+  const clean = version.split("+")[0];
+  const alpha = clean.match(/alpha\.([0-9]+(?:\.[0-9]+)*)/i);
+  return alpha ? `Alpha.${alpha[1]}` : clean;
+}
+
 function Sidebar({
   screen,
-  setScreen
+  setScreen,
+  appVersion
 }: {
   screen: Screen;
   setScreen: (screen: Screen) => void;
+  appVersion?: string | null;
 }) {
   const { t, pick, cultureName, languages, setLanguage } = useI18n();
   return (
@@ -150,7 +159,7 @@ function Sidebar({
       <div className="sidebar-footer">
         <i />
         <div className="sidebar-footer-main">
-          <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
+          <div><strong>{buildVersionLabel(appVersion)}</strong><small>React + WebView2</small></div>
           <label className="sidebar-language">
             <span>{t("common.language")}</span>
             <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
@@ -269,7 +278,15 @@ const maneuverLabel = (
   }
 };
 
-function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
+function NavigationMap({
+  navigation,
+  remoteVehicles = [],
+  remoteRoleplayCharacters = []
+}: {
+  navigation: NavBrNavigationState;
+  remoteVehicles?: NavBrState["navigation3D"]["remoteVehicles"];
+  remoteRoleplayCharacters?: NavBrState["navigation3D"]["remoteRoleplayCharacters"];
+}) {
   const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
   const [zoom, setZoom] = useState(1);
@@ -285,8 +302,15 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const route = navigation.routePoints;
     const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
+    const remotePoints = [
+      ...remoteVehicles.map(item => ({ x: item.x, y: item.y })),
+      ...remoteRoleplayCharacters.map(item => ({ x: item.x, y: item.y }))
+    ];
 
-    if (route.length < 2 && !navigation.roadmapAvailable && !vehicle) {
+    if (route.length < 2 &&
+        !navigation.roadmapAvailable &&
+        !vehicle &&
+        remotePoints.length === 0) {
       return null;
     }
 
@@ -301,9 +325,10 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX = vehicle.x + radius;
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
-    } else if (route.length > 0 || rejoin.length > 0) {
-      const xs = [...route, ...rejoin].map(point => point.x);
-      const ys = [...route, ...rejoin].map(point => -point.y);
+    } else if (route.length > 0 || rejoin.length > 0 || remotePoints.length > 0) {
+      const allPoints = [...route, ...rejoin, ...remotePoints];
+      const xs = allPoints.map(point => point.x);
+      const ys = allPoints.map(point => -point.y);
       minX = Math.min(...xs);
       maxX = Math.max(...xs);
       minY = Math.min(...ys);
@@ -342,7 +367,17 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       routePoints,
       rejoinPoints
     };
-  }, [navigation.routePoints, navigation.rejoinPoints, navigation.roadmapAvailable, navigation.bounds, navigation.vehicle, mode, zoom]);
+  }, [
+    navigation.routePoints,
+    navigation.rejoinPoints,
+    navigation.roadmapAvailable,
+    navigation.bounds,
+    navigation.vehicle,
+    remoteVehicles,
+    remoteRoleplayCharacters,
+    mode,
+    zoom
+  ]);
 
   return (
     <div className="navigation-map">
@@ -428,14 +463,54 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
             </g>
           ))}
 
+          {remoteVehicles.map(remote => (
+            <g
+              className="nav-remote-bus"
+              key={`bus-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="18" className="nav-remote-bus-outer" />
+              <circle r="13" className="nav-remote-bus-inner" />
+              <polygon className="nav-remote-bus-arrow" points="0,-14 7,9 0,4 -7,9" />
+              <text
+                className="nav-remote-label"
+                x="22"
+                y="-18"
+                transform={`rotate(${-remote.headingDegrees} 22 -18)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
+          {remoteRoleplayCharacters.map(remote => (
+            <g
+              className="nav-remote-roleplay"
+              key={`rp-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="16" className="nav-remote-roleplay-outer" />
+              <circle cy="-3" r="5" className="nav-remote-roleplay-head" />
+              <path className="nav-remote-roleplay-body" d="M 0 3 L 0 15 M -6 8 L 6 8 M 0 15 L -5 24 M 0 15 L 5 24" />
+              <text
+                className="nav-remote-label roleplay"
+                x="20"
+                y="-17"
+                transform={`rotate(${-remote.headingDegrees} 20 -17)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
           {navigation.vehicle && (
             <g
               className="nav-vehicle"
               transform={`translate(${navigation.vehicle.x} ${-navigation.vehicle.y}) rotate(${navigation.vehicle.headingDegrees})`}
             >
-              <circle r="23" className="nav-vehicle-halo" />
-              <path d="M -12 -20 L 12 -20 L 14 13 L 0 23 L -14 13 Z" />
-              <path className="nav-vehicle-heading" d="M 0 -32 L -7 -20 L 7 -20 Z" />
+              <circle r="19" className="nav-vehicle-hud-outer" />
+              <circle r="14" className="nav-vehicle-hud-inner" />
+              <polygon className="nav-vehicle-hud-arrow" points="0,-15 8,10 0,4 -8,10" />
             </g>
           )}
         </svg>
@@ -446,6 +521,12 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         {navigation.rejoinAvailable && <span><i className="rejoin" /> {pick("Retorno à rota", "Route rejoin", "Retorno a la ruta", "Routenrückkehr", "Retour à l’itinéraire")}</span>}
         <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
         <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
+        {remoteVehicles.length > 0 && (
+          <span><i className="remote-bus" /> {remoteVehicles.length} {pick("ônibus online", "online bus(es)", "autobús(es) online", "Online-Bus(se)", "bus en ligne")}</span>
+        )}
+        {remoteRoleplayCharacters.length > 0 && (
+          <span><i className="remote-rp" /> {remoteRoleplayCharacters.length} RP</span>
+        )}
       </div>
     </div>
   );
@@ -488,6 +569,10 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     });
 
     const route = state.routePoints.map(point => project(point.x, point.y));
+    const rejoin = (state.rejoinPoints || []).map(point => project(point.x, point.y));
+    const rejoinTarget = state.rejoinPoint
+      ? project(state.rejoinPoint.x, state.rejoinPoint.y)
+      : null;
     const local = state.localVehicle
       ? { ...state.localVehicle, ...project(state.localVehicle.x, state.localVehicle.y) }
       : null;
@@ -516,7 +601,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
     }
 
-    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, remoteRoleplay, viewBox };
+    return { sceneWidth, sceneHeight, route, rejoin, rejoinTarget, local, roleplay, remotes, remoteRoleplay, viewBox };
   }, [state, camera, zoom, roadmapSrc]);
 
   if (!state.roadmapAvailable) {
@@ -547,6 +632,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   }
 
   const routePoints = scene.route.map(point => `${point.x},${point.y}`).join(" ");
+  const rejoinPoints = scene.rejoin.map(point => `${point.x},${point.y}`).join(" ");
 
   return (
     <div className="navigation-3d">
@@ -603,6 +689,21 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
               <>
                 <polyline className="nav3d-route-shadow" points={routePoints} />
                 <polyline className="nav3d-route-line" points={routePoints} />
+              </>
+            )}
+
+            {state.rejoinAvailable && scene.rejoin.length >= 2 && (
+              <>
+                <polyline className="nav3d-rejoin-shadow" points={rejoinPoints} />
+                <polyline className="nav3d-rejoin-line" points={rejoinPoints} />
+                {scene.rejoinTarget && (
+                  <circle
+                    className="nav3d-rejoin-target"
+                    cx={scene.rejoinTarget.x}
+                    cy={scene.rejoinTarget.y}
+                    r="9"
+                  />
+                )}
               </>
             )}
 
@@ -769,7 +870,11 @@ function Navigation({
           </div>
           {mapView === "3d" && navigation3D
             ? <Navigation3DMap state={navigation3D} />
-            : <NavigationMap navigation={navigation} />}
+            : <NavigationMap
+                navigation={navigation}
+                remoteVehicles={navigation3D?.remoteVehicles}
+                remoteRoleplayCharacters={navigation3D?.remoteRoleplayCharacters}
+              />}
         </article>
 
         <aside className="navigation-side">
@@ -1156,12 +1261,18 @@ function Operations({
           <article className="card cco-map-card">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">{pick("SESSÃO OPERACIONAL", "OPERATION SESSION", "SESIÓN OPERACIONAL", "BETRIEBSSITZUNG", "SESSION OPÉRATIONNELLE")}</span>
+                <span className="eyebrow">{pick("MAPA E RETORNO À ROTA", "MAP AND ROUTE REJOIN", "MAPA Y RETORNO A LA RUTA", "KARTE UND ROUTENRÜCKKEHR", "CARTE ET RETOUR À L’ITINÉRAIRE")}</span>
                 <h3>{local?.mapName || state?.telemetry?.mapName || pick("Sem mapa ativo", "No active map", "Sin mapa activo", "Keine aktive Karte", "Aucune carte active")}</h3>
               </div>
               <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="cco-side-stack">
@@ -2568,11 +2679,15 @@ function roleplayStatusLabel(
 ) {
   switch (status) {
     case "roleplay-active": return pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif");
+    case "roleplay-paused-focus-loss": return pick("RP pausado · OMSI fora de foco", "RP paused · OMSI is out of focus", "RP pausado · OMSI fuera de foco", "RP pausiert · OMSI nicht im Fokus", "RP en pause · OMSI n’est pas au premier plan");
+    case "roleplay-focus-stop-failed": return pick("Falha ao confirmar parada segura do personagem", "Could not confirm the character safe stop", "No se pudo confirmar la parada segura del personaje", "Sicherer Stopp der Figur konnte nicht bestätigt werden", "Impossible de confirmer l’arrêt sécurisé du personnage");
     case "roleplay-returned-to-bus": return pick("Motorista retornou ao ônibus", "Driver returned to the bus", "El conductor volvió al autobús", "Fahrer ist zum Bus zurückgekehrt", "Le conducteur est retourné au bus");
     case "roleplay-character-selected": return pick("Personagem selecionado", "Character selected", "Personaje seleccionado", "Charakter ausgewählt", "Personnage sélectionné");
     case "roleplay-active-driver-auto-selected": return pick("Motorista ativo detectado automaticamente", "Active driver detected automatically", "Conductor activo detectado automáticamente", "Aktiver Fahrer automatisch erkannt", "Conducteur actif détecté automatiquement");
     case "roleplay-active-driver-not-detected": return pick("Aguardando o motorista ativo do ônibus", "Waiting for the active bus driver", "Esperando al conductor activo del autobús", "Warte auf den aktiven Busfahrer", "En attente du conducteur actif du bus");
     case "roleplay-plugin-unavailable": return pick("Plugin Bridge sem suporte RP", "Plugin Bridge has no RP support", "Plugin Bridge sin soporte RP", "Plugin Bridge ohne RP-Unterstützung", "Plugin Bridge sans prise en charge RP");
+    case "roleplay-plugin-disconnected": return pick("Plugin Bridge desconectado", "Plugin Bridge disconnected", "Plugin Bridge desconectado", "Plugin Bridge getrennt", "Plugin Bridge déconnecté");
+    case "roleplay-plugin-capability-unavailable": return pick("Plugin conectado, mas capacidades RP ausentes", "Plugin connected, but RP capabilities are missing", "Plugin conectado, pero faltan capacidades RP", "Plugin verbunden, aber RP-Funktionen fehlen", "Plugin connecté, mais capacités RP absentes");
     case "roleplay-character-required": return pick("Selecione um personagem", "Select a character", "Selecciona un personaje", "Charakter auswählen", "Sélectionnez un personnage");
     case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
     case "roleplay-map-or-character-changed": return pick("Mapa/personagem alterado", "Map/character changed", "Mapa/personaje cambiado", "Karte/Charakter geändert", "Carte/personnage modifié");
@@ -2593,6 +2708,14 @@ function roleplayStatusLabel(
     case "roleplay-entered-bus": return pick("Retornou ao ônibus", "Returned to the bus", "Volvió al autobús", "Zum Bus zurückgekehrt", "Retour au bus");
     case "roleplay-emergency-return": return pick("RP encerrado pelo retorno de emergência", "RP ended by emergency return", "RP finalizado por retorno de emergencia", "RP durch Notfall-Rückkehr beendet", "RP terminé par retour d’urgence");
     case "roleplay-release-failed": return pick("O RP foi encerrado, mas o plugin não confirmou a restauração do motorista", "RP ended, but the plugin did not confirm driver restoration", "El RP terminó, pero el plugin no confirmó la restauración del conductor", "RP wurde beendet, aber das Plugin bestätigte die Fahrerwiederherstellung nicht", "Le RP est terminé, mais le plugin n’a pas confirmé la restauration du conducteur");
+    case "driver-restore-failed": return pick("O OMSI recusou a restauração do motorista; o NavBR tentou novamente e manteve o erro visível", "OMSI rejected driver restoration; NavBR retried and kept the error visible", "OMSI rechazó la restauración del conductor; NavBR volvió a intentarlo y mantuvo visible el error", "OMSI hat die Fahrerwiederherstellung abgelehnt; NavBR hat erneut versucht und den Fehler sichtbar gehalten", "OMSI a refusé la restauration du conducteur ; NavBR a réessayé et a conservé l’erreur visible");
+    case "driver-restore-unconfirmed": return pick("O motorista foi restaurado, mas o OMSI não confirmou o estado final", "The driver was restored, but OMSI did not confirm the final state", "El conductor fue restaurado, pero OMSI no confirmó el estado final", "Der Fahrer wurde wiederhergestellt, aber OMSI bestätigte den Endzustand nicht", "Le conducteur a été restauré, mais OMSI n’a pas confirmé l’état final");
+    case "driver-pointer-stale": return pick("O personagem do motorista não existe mais na lista ativa do OMSI", "The driver character no longer exists in OMSI's active list", "El personaje del conductor ya no existe en la lista activa de OMSI", "Die Fahrerfigur existiert nicht mehr in der aktiven OMSI-Liste", "Le personnage conducteur n’existe plus dans la liste active d’OMSI");
+    case "driver-detach-failed": return pick("O OMSI recusou retirar o motorista do ônibus", "OMSI rejected detaching the driver from the bus", "OMSI rechazó separar al conductor del autobús", "OMSI hat das Lösen des Fahrers vom Bus abgelehnt", "OMSI a refusé de détacher le conducteur du bus");
+    case "driver-detach-unconfirmed": return pick("O motorista saiu do ônibus, mas o estado não foi confirmado", "The driver left the bus, but the state was not confirmed", "El conductor salió del autobús, pero no se confirmó el estado", "Der Fahrer hat den Bus verlassen, aber der Zustand wurde nicht bestätigt", "Le conducteur a quitté le bus, mais l’état n’a pas été confirmé");
+    case "driver-transform-unconfirmed": return pick("O OMSI não confirmou a posição física do personagem", "OMSI did not confirm the character's physical position", "OMSI no confirmó la posición física del personaje", "OMSI bestätigte die physische Position der Figur nicht", "OMSI n’a pas confirmé la position physique du personnage");
+    case "selected-driver-too-far": return pick("O motorista selecionado está longe demais do ônibus ativo", "The selected driver is too far from the active bus", "El conductor seleccionado está demasiado lejos del autobús activo", "Der ausgewählte Fahrer ist zu weit vom aktiven Bus entfernt", "Le conducteur sélectionné est trop éloigné du bus actif");
+    case "roleplay-writes-disabled": return pick("As escritas experimentais de RP estão desativadas", "Experimental RP writes are disabled", "Las escrituras experimentales de RP están desactivadas", "Experimentelle RP-Schreibzugriffe sind deaktiviert", "Les écritures RP expérimentales sont désactivées");
     case "roleplay-disabled": return pick("Recurso RP desativado", "RP feature disabled", "Función RP desactivada", "RP-Funktion deaktiviert", "Fonction RP désactivée");
     case "roleplay-enabled": return pick("Recurso RP ativado", "RP feature enabled", "Función RP activada", "RP-Funktion aktiviert", "Fonction RP activée");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
@@ -2956,7 +3079,7 @@ function RoleplayPanel({
             <span><kbd>E</kbd><strong>{pick("Entrar no ônibus quando estiver próximo", "Enter the bus when nearby", "Entrar al autobús cuando esté cerca", "In den Bus einsteigen, wenn er nahe ist", "Entrer dans le bus à proximité")}</strong></span>
             <span><kbd>Esc</kbd><strong>{pick("Retorno de emergência", "Emergency return", "Retorno de emergencia", "Notfall-Rückkehr", "Retour d’urgence")}</strong></span>
           </div>
-          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. E exige proximidade real do ônibus; Esc permanece disponível como retorno de emergência.", "Shortcuts are captured only while OMSI is in the foreground. E requires real bus proximity; Esc remains available as an emergency return.", "Los atajos solo se capturan cuando OMSI está en primer plano. E requiere proximidad real al autobús; Esc sigue disponible como retorno de emergencia.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. E erfordert echte Busnähe; Esc bleibt als Notfall-Rückkehr verfügbar.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. E exige une proximité réelle du bus ; Esc reste disponible comme retour d’urgence.")}</p>
+          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. Ao trocar de janela, o NavBR zera o movimento, solta as teclas RP e mantém o personagem parado até um novo comando. E exige proximidade real do ônibus; Esc permanece disponível como retorno de emergência.", "Shortcuts are captured only while OMSI is in the foreground. When focus changes, NavBR zeroes movement, releases RP keys, and keeps the character stopped until a new command. E requires real bus proximity; Esc remains available as an emergency return.", "Los atajos solo se capturan cuando OMSI está en primer plano. Al cambiar de ventana, NavBR detiene el movimiento, libera las teclas RP y mantiene al personaje parado hasta un nuevo comando. E requiere proximidad real al autobús; Esc sigue disponible como retorno de emergencia.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. Beim Fensterwechsel stoppt NavBR die Bewegung, löst die RP-Tasten und hält die Figur bis zu einer neuen Eingabe an. E erfordert echte Busnähe; Esc bleibt als Notfall-Rückkehr verfügbar.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. Lors d’un changement de fenêtre, NavBR annule le mouvement, libère les touches RP et maintient le personnage à l’arrêt jusqu’à une nouvelle commande. E exige une proximité réelle du bus ; Esc reste disponible comme retour d’urgence.")}</p>
         </section>
       )}
     </>
@@ -3224,7 +3347,13 @@ function Multiplayer({
               <div><span className="eyebrow">{pick("SESSÃO AO VIVO", "LIVE SESSION", "SESIÓN EN VIVO", "LIVE-SITZUNG", "SESSION EN DIRECT")}</span><h3>{pick("Operação compartilhada", "Shared operation", "Operación compartida", "Gemeinsamer Betrieb", "Opération partagée")}</h3></div>
               <span className={`live-pill ${multiplayer.connected ? "" : "muted"}`}><span /> {multiplayer.connected ? "LIVE" : "OFFLINE"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation?.available || state?.navigation?.roadmapAvailable
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="mp-side-stack">
@@ -3697,6 +3826,35 @@ function Multiplayer({
                       player.physicalVehicleState !== "active" && (
                         <small className="physical-error-detail">
                           {player.physicalVehicleErrorMessage}
+                        </small>
+                      )}
+                    {!player.isLocal &&
+                      multiplayer.physicalVehiclesEnabled &&
+                      player.physicalVehicleState !== "active" &&
+                      (player.physicalTelemetryGridX != null ||
+                       player.physicalTelemetryGridY != null ||
+                       player.physicalTelemetryNavigationGridX != null ||
+                       player.physicalTelemetryNavigationGridY != null ||
+                       player.physicalTelemetryLocalX != null ||
+                       player.physicalTelemetryLocalY != null) && (
+                        <small className="physical-runtime-detail">
+                          {[
+                            player.physicalTelemetryGridX != null && player.physicalTelemetryGridY != null
+                              ? `PhysGrid ${player.physicalTelemetryGridX}/${player.physicalTelemetryGridY}`
+                              : pick("PhysGrid indisponível", "PhysGrid unavailable", "PhysGrid no disponible", "PhysGrid nicht verfügbar", "PhysGrid indisponible"),
+                            player.physicalTelemetryNavigationGridX != null && player.physicalTelemetryNavigationGridY != null
+                              ? `NavGrid ${player.physicalTelemetryNavigationGridX}/${player.physicalTelemetryNavigationGridY}`
+                              : null,
+                            player.physicalTelemetryLocalX != null && player.physicalTelemetryLocalY != null
+                              ? `Local ${format(player.physicalTelemetryLocalX, 1)} / ${format(player.physicalTelemetryLocalY, 1)}${player.physicalTelemetryLocalZ != null ? ` / ${format(player.physicalTelemetryLocalZ, 1)}` : ""}`
+                              : null,
+                            player.physicalTelemetryTileX != null && player.physicalTelemetryTileY != null
+                              ? `TileXY ${format(player.physicalTelemetryTileX, 1)} / ${format(player.physicalTelemetryTileY, 1)}`
+                              : null,
+                            player.physicalTelemetryRemoteTileIndex != null
+                              ? `Kachel(remote) #${player.physicalTelemetryRemoteTileIndex}`
+                              : null
+                          ].filter(Boolean).join(" · ")}
                         </small>
                       )}
                   </div>
@@ -4614,7 +4772,15 @@ function PluginStartupPrompt({
       </p>
       {plugin.omsiRunning && (
         <p className="migration-note">
-          {pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
+          {plugin.state === "outdated"
+            ? pick(
+                "Feche o OMSI uma vez. O NavBR aplicará automaticamente o plugin novo assim que Omsi.exe encerrar; depois abra o OMSI novamente para liberar ônibus físicos e RP.",
+                "Close OMSI once. NavBR will automatically apply the new plugin as soon as Omsi.exe exits; then launch OMSI again to enable physical buses and RP.",
+                "Cierra OMSI una vez. NavBR aplicará automáticamente el plugin nuevo cuando Omsi.exe termine; después vuelve a abrir OMSI para habilitar autobuses físicos y RP.",
+                "OMSI einmal schließen. NavBR installiert das neue Plugin automatisch, sobald Omsi.exe beendet ist; danach OMSI erneut starten, um physische Busse und RP zu aktivieren.",
+                "Fermez OMSI une fois. NavBR appliquera automatiquement le nouveau plugin dès l’arrêt de Omsi.exe ; relancez ensuite OMSI pour activer les bus physiques et le RP."
+              )
+            : pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
         </p>
       )}
       {!plugin.installAvailable && !plugin.omsiRunning && (
@@ -4699,7 +4865,7 @@ export default function App() {
   return (
     <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
     <div className="app-shell">
-      <Sidebar screen={screen} setScreen={setScreen} />
+      <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
         <PluginStartupPrompt
           state={state}

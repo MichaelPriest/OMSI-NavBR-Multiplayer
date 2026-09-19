@@ -470,6 +470,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             int? gridX = null;
             int? gridY = null;
+            int? physicalGridX = null;
+            int? physicalGridY = null;
             double? tileX = null;
             double? tileY = null;
 
@@ -490,17 +492,32 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tileY = navigationTileY;
             }
 
-            // The player's RoadVehicle owns both Kachel and Position. When the
-            // real Kachel resolves to a valid grid, use Position.X/Y from that
-            // same object as the local coordinates. This keeps the four values
-            // in the same reference frame and is also the frame used by the
-            // physical vehicle backend.
+            // The player's RoadVehicle owns both Kachel and Position. Resolve
+            // the physical grid directly from RoadVehicle.Kachel whenever
+            // possible. Some maps/builds expose a valid Kachel pointer even
+            // when the Kacheln list index cannot be reconstructed reliably.
+            var hasPhysicalGrid = false;
+            var vehicleGridX = 0;
+            var vehicleGridY = 0;
             if (mapTileIndex is int exactTileIndex &&
                 TryReadMapTileGrid(
                     memory,
                     exactTileIndex,
-                    out var vehicleGridX,
-                    out var vehicleGridY) &&
+                    out vehicleGridX,
+                    out vehicleGridY))
+            {
+                hasPhysicalGrid = true;
+            }
+            else if (TryReadVehicleTileGrid(
+                         memory,
+                         vehicleAddress,
+                         out vehicleGridX,
+                         out vehicleGridY))
+            {
+                hasPhysicalGrid = true;
+            }
+
+            if (hasPhysicalGrid &&
                 float.IsFinite(localPosition.X) &&
                 float.IsFinite(localPosition.Y) &&
                 Math.Abs(localPosition.X) <= 1_200f &&
@@ -508,6 +525,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             {
                 gridX = vehicleGridX;
                 gridY = vehicleGridY;
+                physicalGridX = vehicleGridX;
+                physicalGridY = vehicleGridY;
                 tileX = localPosition.X;
                 tileY = localPosition.Y;
             }
@@ -558,7 +577,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 RotationY: rotation.Y,
                 RotationZ: rotation.Z,
                 RotationW: rotation.W,
-                MapTileIndex: mapTileIndex);
+                MapTileIndex: mapTileIndex,
+                PhysicalGridX: physicalGridX,
+                PhysicalGridY: physicalGridY);
         }
         catch (ArgumentException)
         {
@@ -570,6 +591,86 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         {
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
+        }
+    }
+
+    private static bool TryReadVehicleTileGrid(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out int gridX,
+        out int gridY)
+    {
+        gridX = 0;
+        gridY = 0;
+
+        try
+        {
+            var vehicleTilePointer = memory.ReadUInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleKachelOffset));
+            if (vehicleTilePointer <= 0x10000u)
+            {
+                return false;
+            }
+
+            var mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+            if (mapAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
+            var infosAddress = memory.ReadUInt32(nint.Add(
+                mapPointer,
+                Omsi23004MemoryProfile.MapKachelInfosOffset));
+            if (infosAddress <= 0x10000u)
+            {
+                return false;
+            }
+
+            var infosPointer = ReadOnlyProcessMemory.PointerFromUInt32(infosAddress);
+            var infoCount = memory.ReadInt32(nint.Subtract(infosPointer, sizeof(int)));
+            if (infoCount <= 0 || infoCount > 200_000)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < infoCount; index++)
+            {
+                var infoPointer = nint.Add(
+                    infosPointer,
+                    checked(index * Omsi23004MemoryProfile.MapKachelInfoSize));
+                var candidate = memory.ReadUInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoTilePointerOffset));
+                if (candidate != vehicleTilePointer)
+                {
+                    continue;
+                }
+
+                var x = memory.ReadInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoGridXOffset));
+                var y = memory.ReadInt32(nint.Add(
+                    infoPointer,
+                    Omsi23004MemoryProfile.MapKachelInfoGridYOffset));
+                if (Math.Abs((long)x) > 100_000L ||
+                    Math.Abs((long)y) > 100_000L)
+                {
+                    return false;
+                }
+
+                gridX = x;
+                gridY = y;
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
         }
     }
 

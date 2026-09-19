@@ -42,16 +42,76 @@ internal static class OmsiNativeInterop
                     return false;
                 }
 
-                var version = FileVersionInfo.GetVersionInfo(executable).FileVersion;
-                return !string.IsNullOrWhiteSpace(version) &&
-                       (version.Contains("2.3.004", StringComparison.OrdinalIgnoreCase) ||
-                        version.Contains("2.3.4", StringComparison.OrdinalIgnoreCase));
+                var fileVersion = FileVersionInfo.GetVersionInfo(executable).FileVersion;
+                if (IsOmsi23004Version(fileVersion))
+                {
+                    return true;
+                }
+
+                // Keep the plugin runtime gate consistent with the desktop
+                // detector. Patched/repacked OMSI executables can retain stale
+                // PE FileVersion metadata while logfile.txt reports the actual
+                // running simulator version.
+                var omsiRoot = Path.GetDirectoryName(executable);
+                return !string.IsNullOrWhiteSpace(omsiRoot) &&
+                       IsOmsi23004Version(TryReadRuntimeVersionFromLog(omsiRoot));
             }
             catch
             {
                 return false;
             }
         }
+    }
+
+    private static bool IsOmsi23004Version(string? version) =>
+        !string.IsNullOrWhiteSpace(version) &&
+        (version.Contains("2.3.004", StringComparison.OrdinalIgnoreCase) ||
+         version.Contains("2.3.4", StringComparison.OrdinalIgnoreCase));
+
+    private static string? TryReadRuntimeVersionFromLog(string omsiRoot)
+    {
+        var logfilePath = Path.Combine(omsiRoot, "logfile.txt");
+        if (!File.Exists(logfilePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = new FileStream(
+                logfilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(
+                stream,
+                detectEncodingFromByteOrderMarks: true);
+
+            for (var index = 0; index < 64 && reader.ReadLine() is { } line; index++)
+            {
+                var marker = line.IndexOf(
+                    "Version:",
+                    StringComparison.OrdinalIgnoreCase);
+                if (marker < 0)
+                {
+                    continue;
+                }
+
+                var value = line[(marker + "Version:".Length)..].Trim();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return null;
     }
 
     public static bool IsShimReady
@@ -67,7 +127,37 @@ internal static class OmsiNativeInterop
             {
                 return GetAbiVersion() == ExpectedAbiVersion &&
                        GetStateInteropVersion() == ExpectedStateInteropVersion &&
-                       ProbeOmsi23004Addresses() == 1;
+                       ProbePhysicalVehicleBackend() == 1;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+            catch (BadImageFormatException)
+            {
+                return false;
+            }
+        }
+    }
+
+    public static bool IsRoleplayShimReady
+    {
+        get
+        {
+            if (!IsCandidateOmsi23004Runtime || !EnsureShimLoaded())
+            {
+                return false;
+            }
+
+            try
+            {
+                return GetAbiVersion() == ExpectedAbiVersion &&
+                       GetStateInteropVersion() == ExpectedStateInteropVersion &&
+                       ProbeRoleplayHumanControl() == 1;
             }
             catch (DllNotFoundException)
             {
@@ -137,7 +227,7 @@ internal static class OmsiNativeInterop
     internal static bool TrySnapshotHumans(out int[] humanPointers)
     {
         humanPointers = [];
-        if (!IsShimReady)
+        if (!IsRoleplayShimReady)
         {
             return false;
         }
@@ -263,6 +353,12 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeOmsi23004Addresses")]
     private static extern int ProbeOmsi23004Addresses();
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbeRoleplayHumanControl")]
+    private static extern int ProbeRoleplayHumanControl();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ProbePhysicalVehicleBackend")]
+    private static extern int ProbePhysicalVehicleBackend();
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetImageBase")]
     internal static extern uint GetImageBase();
 
@@ -308,6 +404,12 @@ internal static class OmsiNativeInterop
         out float x,
         out float y,
         out float z);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadPlayerVehicleGrid")]
+    internal static extern int ReadPlayerVehicleGrid(
+        out int gridX,
+        out int gridY,
+        out int mapTileIndex);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleTileIndex")]
     internal static extern int ReadRoadVehicleTileIndex(int vehiclePointer);

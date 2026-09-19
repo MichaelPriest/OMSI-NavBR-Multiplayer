@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -34,15 +35,18 @@ internal static class SimulatorPhysicalTestSupport
         string? selectedRelativePath = null;
         string? selectedCompatibilityId = null;
 
-        if (options.VehicleExplicit &&
-            TryResolveExistingVehicle(
+        // Explicit and room-inherited identities both describe a real local
+        // vehicle and must win over the stock test bus. Otherwise the simulator
+        // can join with one fingerprint while the host expects another and the
+        // physical coordinator correctly refuses to spawn it.
+        if (TryResolveExistingVehicle(
                 root,
                 options.VehiclePath,
-                out var explicitRelativePath,
-                out var explicitCompatibilityId))
+                out var inheritedRelativePath,
+                out var inheritedCompatibilityId))
         {
-            selectedRelativePath = explicitRelativePath;
-            selectedCompatibilityId = explicitCompatibilityId;
+            selectedRelativePath = inheritedRelativePath;
+            selectedCompatibilityId = inheritedCompatibilityId;
         }
         else
         {
@@ -60,17 +64,6 @@ internal static class SimulatorPhysicalTestSupport
                 selectedRelativePath = relativePath;
                 selectedCompatibilityId = compatibilityId;
                 break;
-            }
-
-            if (selectedRelativePath is null &&
-                TryResolveExistingVehicle(
-                    root,
-                    options.VehiclePath,
-                    out var inheritedRelativePath,
-                    out var inheritedCompatibilityId))
-            {
-                selectedRelativePath = inheritedRelativePath;
-                selectedCompatibilityId = inheritedCompatibilityId;
             }
         }
 
@@ -141,7 +134,8 @@ internal static class SimulatorPhysicalTestSupport
             if (!fullPath.StartsWith(
                     rootPrefix,
                     StringComparison.OrdinalIgnoreCase) ||
-                !File.Exists(fullPath))
+                !File.Exists(fullPath) ||
+                HasCoupledVehicleReference(fullPath))
             {
                 return false;
             }
@@ -166,6 +160,67 @@ internal static class SimulatorPhysicalTestSupport
         {
             return false;
         }
+    }
+
+    private static bool HasCoupledVehicleReference(string fullPath)
+    {
+        try
+        {
+            var info = new FileInfo(fullPath);
+            if (!info.Exists ||
+                info.Length <= 0 ||
+                info.Length > 2 * 1024 * 1024)
+            {
+                return true;
+            }
+
+            var lines = File.ReadAllLines(
+                fullPath,
+                System.Text.Encoding.Latin1);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var tag = lines[index].Trim();
+                if (!tag.Equals("[couple_back]", StringComparison.OrdinalIgnoreCase) &&
+                    !tag.Equals("[couple_front]", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                for (var cursor = index + 1; cursor < lines.Length; cursor++)
+                {
+                    var value = lines[cursor].Trim();
+                    if (value.Length == 0 ||
+                        value.StartsWith(";", StringComparison.Ordinal) ||
+                        value.StartsWith("//", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (value.StartsWith("[", StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    if (value.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+                        value.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains(".bus", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains(".ovh", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    break;
+                }
+            }
+        }
+        catch
+        {
+            // Fail closed for the physical verifier: an unreadable vehicle
+            // definition must not be advertised as a proven rigid test bus.
+            return true;
+        }
+
+        return false;
     }
 
     private static SimulatorHofRoute[] ResolveHofRoutes(
@@ -349,6 +404,40 @@ internal static class SimulatorPhysicalTestSupport
         if (!OperatingSystem.IsWindows())
         {
             yield break;
+        }
+
+        // The simulator is normally executed beside a live OMSI validation
+        // session. Prefer the executable that is actually running so custom
+        // Steam libraries (for example G:\\Games\\...) do not depend on a
+        // registry entry being present or current.
+        Process[] omsiProcesses = [];
+        try
+        {
+            omsiProcesses = Process.GetProcessesByName("Omsi");
+            foreach (var process in omsiProcesses)
+            {
+                string? executable = null;
+                try
+                {
+                    executable = process.MainModule?.FileName;
+                }
+                catch
+                {
+                }
+
+                if (!string.IsNullOrWhiteSpace(executable) &&
+                    Path.GetDirectoryName(executable) is { } runningRoot)
+                {
+                    yield return runningRoot;
+                }
+            }
+        }
+        finally
+        {
+            foreach (var process in omsiProcesses)
+            {
+                process.Dispose();
+            }
         }
 
         foreach (var registryCandidate in ReadRegistryCandidates())

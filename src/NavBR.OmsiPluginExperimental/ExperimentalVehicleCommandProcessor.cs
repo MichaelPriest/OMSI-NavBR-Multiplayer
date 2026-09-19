@@ -611,6 +611,19 @@ internal static class PhysicalVehicleBackend
         if (command.GridX is not int gridX ||
             command.GridY is not int gridY)
         {
+            var simulatorFallback =
+                command.PlayerId?.StartsWith(
+                    "sim-",
+                    StringComparison.OrdinalIgnoreCase) == true &&
+                command.MapTileIndex is int inheritedTileIndex &&
+                inheritedTileIndex >= 0 &&
+                OmsiNativeInterop.IsMapTileIndexValid(inheritedTileIndex) == 1;
+            if (simulatorFallback)
+            {
+                localizedCommand = command;
+                return true;
+            }
+
             errorCode = "tile-grid-missing";
             errorMessage =
                 "Remote physical vehicle telemetry did not include a stable OMSI GridX/GridY tile identity.";

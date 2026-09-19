@@ -13,6 +13,16 @@ export interface NavBrPlayer {
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
+  physicalTelemetryGridX?: number | null;
+  physicalTelemetryGridY?: number | null;
+  physicalTelemetryNavigationGridX?: number | null;
+  physicalTelemetryNavigationGridY?: number | null;
+  physicalTelemetryTileX?: number | null;
+  physicalTelemetryTileY?: number | null;
+  physicalTelemetryLocalX?: number | null;
+  physicalTelemetryLocalY?: number | null;
+  physicalTelemetryLocalZ?: number | null;
+  physicalTelemetryRemoteTileIndex?: number | null;
   speaking: boolean;
   isLocal: boolean;
   line?: string | null;
@@ -285,6 +295,10 @@ export interface NavBrNavigation3DState {
     maxY: number;
   } | null;
   routePoints: NavBrNavigationPoint[];
+  rejoinAvailable: boolean;
+  rejoinDistanceMeters?: number | null;
+  rejoinPoints: NavBrNavigationPoint[];
+  rejoinPoint?: NavBrNavigationPoint | null;
   localVehicle?: NavBrNavigation3DVehicle | null;
   localRoleplayCharacter?: NavBrNavigation3DRoleplayCharacter | null;
   remoteVehicles: NavBrNavigation3DRemoteVehicle[];

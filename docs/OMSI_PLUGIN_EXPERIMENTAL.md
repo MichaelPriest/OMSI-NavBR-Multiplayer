@@ -90,3 +90,41 @@ Alpha.15 requires state interop **v7**. The new `NavBR_ResolveMapTileIndex(gridX
 `MapTileIndex` must not be treated as a portable identity across multiplayer clients because it indexes the Kachel list of a specific OMSI process.
 
 The updater also compares the embedded bundle SHA-256. Older manifests without a fingerprint are treated as outdated.
+
+
+## Performance Guard / Proteção de desempenho
+
+O Plugin Bridge mantém todo acesso nativo na thread de callback do OMSI, mas o
+trabalho nessa thread agora é explicitamente limitado para não transformar o
+multiplayer em uma fonte adicional de stutter:
+
+- no máximo 12 ônibus remotos são materializados fisicamente; os demais
+  continuam visíveis no HUD/mapa/rede sem criar outro RoadVehicle no OMSI;
+- os 12 slots físicos priorizam os jogadores mais próximos;
+- spawn ocorre até 500 m e o despawn usa histerese até 700 m;
+- updates do bridge usam LOD por distância (mais frequentes perto do jogador);
+- um spawn confirmado não recebe um update duplicado no mesmo frame;
+- ônibus cuja interpolação já terminou deixam de receber writes de transform
+  até chegar um novo alvo;
+- a interpolação nativa reduz automaticamente de 50 Hz para 30/20 Hz conforme
+  aumenta o número de ônibus físicos;
+- a fila de comandos é drenada em fatias limitadas, no máximo uma vez por
+  janela de trabalho do OMSI, e não em todo callback de variável;
+- heartbeat/log de arquivo é gravado por uma fila de background, nunca por I/O
+  síncrono dentro do callback do simulador;
+- readback de validação durante movimento foi reduzido para 1 Hz, mantendo
+  validação imediata em spawn, teleport e troca de Kachel.
+
+Essas medidas não alteram arquivos, configurações gráficas, IA ou parâmetros
+internos do OMSI do usuário. Elas reduzem apenas o custo incremental do NavBR.
+
+### English
+
+The Plugin Bridge keeps native access on OMSI's callback thread, but work on
+that thread is now explicitly budgeted. Physical rendering is limited to the
+12 nearest remote buses (500 m spawn / 700 m despawn hysteresis), bridge updates
+use distance LOD, settled buses stop receiving redundant native transform
+writes, interpolation scales from 50 Hz down to 30/20 Hz as physical-bus count
+grows, command draining is rate-limited, readback runs at 1 Hz during smooth
+motion, and file logging is handed to a background writer. Players beyond the
+physical budget remain present in the session, HUD and maps.

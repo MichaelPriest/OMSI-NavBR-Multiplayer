@@ -25,13 +25,14 @@ public partial class HudOverlayWindow
     {
         _smoothedHudFrames[frame.Player.PlayerId] = frame;
         EnsureRemoteSmoothingTimer();
-        UpdateSmoothedRemotePlayers();
+        RefreshRemoteSmoothingCadence();
     }
 
     public void RemoveRemotePlayerSmooth(string playerId)
     {
         _smoothedHudFrames.Remove(playerId);
         _smoothedHudMotion.Remove(playerId);
+        RefreshRemoteSmoothingCadence();
         RemoveRemotePlayer(playerId);
     }
 
@@ -62,6 +63,27 @@ public partial class HudOverlayWindow
         if (!_remoteSmoothingTimer.IsEnabled)
         {
             _remoteSmoothingTimer.Start();
+        }
+    }
+
+    private void RefreshRemoteSmoothingCadence()
+    {
+        if (_remoteSmoothingTimer is null)
+        {
+            return;
+        }
+
+        var intervalMs = _smoothedHudFrames.Count switch
+        {
+            >= 16 => 100d, // 10 FPS in very large rooms.
+            >= 7 => 50d,   // 20 FPS in medium rooms.
+            _ => 33d       // ~30 FPS for small rooms.
+        };
+
+        var desired = TimeSpan.FromMilliseconds(intervalMs);
+        if (_remoteSmoothingTimer.Interval != desired)
+        {
+            _remoteSmoothingTimer.Interval = desired;
         }
     }
 

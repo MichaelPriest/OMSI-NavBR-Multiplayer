@@ -49,6 +49,7 @@ public sealed record MultiplayerSettings(
     double DashboardSideIndicatorsScale = 1d,
     bool ExperimentalRoleplayCharacterEnabled = false,
     int NetworkSettingsVersion = 0,
+    int PhysicalVehiclesSettingsVersion = 0,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
@@ -77,9 +78,10 @@ public sealed record MultiplayerSettings(
         true,
         "omsi",
         null,
-        false,
+        true,
         false,
         EnableApplicationRelay: true,
         RelayServerUrl: DefaultOnlineServerUrl,
-        NetworkSettingsVersion: 2);
+        NetworkSettingsVersion: 3,
+        PhysicalVehiclesSettingsVersion: 1);
 }

@@ -29,6 +29,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
       - name: Resolve version and release state
         id: version
         shell: pwsh
@@ -69,34 +74,185 @@ jobs:
         shell: pwsh
         run: .\scripts\repair-navbr-icon.ps1
 
-      - name: Publish Windows x86 client
+      - name: Setup Node 22
         if: steps.version.outputs.exists != 'true'
-        run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/client
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-      - name: Publish standalone Windows x86 EXE
+      - name: Build React desktop UI
         if: steps.version.outputs.exists != 'true'
-        run: >-
-          dotnet publish src/NavBR.Client/NavBR.Client.csproj
-          -c Release
-          -r win-x86
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:IncludeAllContentForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -p:DebugType=None
-          -p:DebugSymbols=false
-          -o artifacts/client-single
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI was not generated."
+          }
+
+          $distFiles = @(Get-ChildItem "ui/navbr-web/dist" -Recurse -File)
+          if ($distFiles.Count -lt 2) {
+            throw "React WebView2 UI output is incomplete."
+          }
+
+      - name: Restore release projects
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
 
       - name: Publish Windows x64 server
         if: steps.version.outputs.exists != 'true'
         run: dotnet publish src/NavBR.Server/NavBR.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/server
 
+      - name: Build OMSI native interop x86
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetStateInteropVersion",
+            "NavBR_ProbeRoleplayHumanControl",
+            "NavBR_ProbePhysicalVehicleBackend",
+            "NavBR_ResolveMapTileIndex",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetHumanTransform",
+            "NavBR_RestoreHumanDriverState"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing required native OMSI interop export: $expected"
+            }
+          }
+
+      - name: Publish Native AOT OMSI plugin x86
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 --no-restore `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" }
+          }
+
+      - name: Prepare embedded OMSI plugin bundle
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PluginDirectory "artifacts/plugin" `
+            -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+          if (-not (Test-Path "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip")) {
+            throw "Embedded plugin bundle was not generated."
+          }
+
+      - name: Build and validate complete Windows x86 client
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI disappeared before client build."
+          }
+
+          $assembly = Get-ChildItem "src/NavBR.Client/bin" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" |
+            Where-Object { $_.FullName -match '[\\/]Release[\\/]' } |
+            Select-Object -First 1
+          if (-not $assembly) { throw "Client assembly not found." }
+
+          $bytes = [System.IO.File]::ReadAllBytes($assembly.FullName)
+          $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+          if (-not $text.Contains("NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip")) {
+            throw "Client does not contain the embedded OMSI plugin bundle."
+          }
+
+      - name: Smoke-test Plugin Bridge
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin Bridge smoke test failed." }
+
+      - name: Publish complete Windows x86 client
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/client
+
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None -p:DebugSymbols=false `
+            -o artifacts/client-single
+
+          foreach ($required in @(
+            "artifacts/client/WebUI/dist/index.html",
+            "artifacts/client/OMSI.NavBR.Multiplayer.exe",
+            "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Complete client output missing: $required"
+            }
+          }
+
+      - name: Publish multiplayer simulator dev tool
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:Platform=AnyCPU -p:PlatformTarget=x64 `
+            -o artifacts/simulator
+
+          New-Item -ItemType Directory -Force "artifacts/simulator/server" | Out-Null
+          Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
+
       - name: Add legal notices to packages
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
         run: |
-          foreach ($target in @("artifacts/client", "artifacts/server")) {
+          foreach ($target in @("artifacts/client", "artifacts/server", "artifacts/plugin", "artifacts/simulator")) {
             Copy-Item LICENSE "$target/LICENSE" -Force
             Copy-Item THIRD_PARTY_NOTICES.md "$target/THIRD_PARTY_NOTICES.md" -Force
             New-Item -ItemType Directory -Force -Path "$target/licenses" | Out-Null
@@ -118,9 +274,34 @@ jobs:
 
           Compress-Archive -Path artifacts/client/* -DestinationPath "OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
           Compress-Archive -Path artifacts/server/* -DestinationPath "OMSI-NavBR-Server-$tag-win-x64.zip"
+          Compress-Archive -Path artifacts/plugin/* -DestinationPath "OMSI-NavBR-Plugin-$tag-win-x86.zip"
+          Compress-Archive -Path artifacts/simulator/* -DestinationPath "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip"
+
+          Copy-Item docs/OMSI_PLUGIN_EXPERIMENTAL.md "OMSI_PLUGIN_EXPERIMENTAL.md" -Force
+          Copy-Item docs/MULTIPLAYER_SIMULATOR.md "MULTIPLAYER_SIMULATOR.md" -Force
+          Copy-Item docs/RELEASES.md "RELEASES.md" -Force
+
+          $hashFiles = @(
+            $releaseExe,
+            "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
+            "OMSI-NavBR-Server-$tag-win-x64.zip",
+            "OMSI-NavBR-Plugin-$tag-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
+            "OMSI_PLUGIN_EXPERIMENTAL.md",
+            "MULTIPLAYER_SIMULATOR.md",
+            "RELEASES.md"
+          )
+          $hashLines = foreach ($path in $hashFiles) {
+            $file = Get-Item -LiteralPath $path
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content "SHA256SUMS.txt" -Encoding ascii
 
           Write-Host "Release EXE: $releaseExe"
           Write-Host "Release ZIP: OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
+          Write-Host "Plugin ZIP: OMSI-NavBR-Plugin-$tag-win-x86.zip"
+          Write-Host "Simulator ZIP: OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip"
 
       - name: Create GitHub release
         if: steps.version.outputs.exists != 'true'
@@ -134,6 +315,12 @@ jobs:
             "OMSI-NavBR-Multiplayer-$tag-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
+            "OMSI-NavBR-Plugin-$tag-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
+            "OMSI_PLUGIN_EXPERIMENTAL.md",
+            "MULTIPLAYER_SIMULATOR.md",
+            "RELEASES.md",
+            "SHA256SUMS.txt",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
             "--repo", "${{ github.repository }}",

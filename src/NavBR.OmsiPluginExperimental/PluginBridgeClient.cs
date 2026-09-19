@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using NavBR.Shared.PluginBridge;
@@ -20,6 +21,12 @@ internal static class PluginBridgeClient
     private static Action<string>? _log;
     private static PluginBridgeMessage? _localState;
     private static PluginBridgeMessage? _pendingStatus;
+
+    private static readonly string? ComponentVersion =
+        typeof(PluginBridgeClient).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+        ?? typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString();
 
     public static PluginBridgeMessage? LatestRemoteState =>
         RemoteVehicles.LatestCompatible(GetLocalState());
@@ -71,9 +78,20 @@ internal static class PluginBridgeClient
         }
 
         OutboundCommandResults.Enqueue(result);
+        var detail = string.IsNullOrWhiteSpace(result.ErrorMessage)
+            ? "-"
+            : result.ErrorMessage
+                .Replace('\r', ' ')
+                .Replace('\n', ' ')
+                .Trim();
+        if (detail.Length > 240)
+        {
+            detail = detail[..240];
+        }
+
         Log(
             $"command-result id={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
-            $"success={result.Success} error={result.ErrorCode ?? "-"}");
+            $"success={result.Success} error={result.ErrorCode ?? "-"} detail={detail}");
     }
 
     public static void ReportRuntimeStatus(
@@ -83,11 +101,50 @@ internal static class PluginBridgeClient
         double? speedKph = null,
         bool? stopRequested = null)
     {
+        int? physicalGridX = null;
+        int? physicalGridY = null;
+        int? physicalMapTileIndex = null;
+        try
+        {
+            var playerVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
+            if (playerVehicle != 0)
+            {
+                var directTileIndex =
+                    OmsiNativeInterop.ReadRoadVehicleTileIndex(playerVehicle);
+                if (directTileIndex >= 0)
+                {
+                    physicalMapTileIndex = directTileIndex;
+                }
+            }
+
+            if (OmsiNativeInterop.ReadPlayerVehicleGrid(
+                    out var gridX,
+                    out var gridY,
+                    out var mapTileIndex) == 1)
+            {
+                physicalGridX = gridX;
+                physicalGridY = gridY;
+                if (mapTileIndex >= 0)
+                {
+                    physicalMapTileIndex = mapTileIndex;
+                }
+            }
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+        catch (BadImageFormatException)
+        {
+        }
+
         var status = new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
             ProcessId: Environment.ProcessId,
-            ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+            ComponentVersion: ComponentVersion,
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
@@ -96,6 +153,9 @@ internal static class PluginBridgeClient
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
+            GridX: physicalGridX,
+            GridY: physicalGridY,
+            MapTileIndex: physicalMapTileIndex,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
@@ -140,7 +200,7 @@ internal static class PluginBridgeClient
                     PluginBridgeProtocol.PluginHello,
                     PluginBridgeProtocol.Version,
                     ProcessId: Environment.ProcessId,
-                    ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString());
+                    ComponentVersion: ComponentVersion);
 
                 await writer.WriteLineAsync(SerializeMessage(hello));
 
@@ -162,7 +222,7 @@ internal static class PluginBridgeClient
                     PluginBridgeProtocol.PluginCapabilities,
                     PluginBridgeProtocol.Version,
                     ProcessId: Environment.ProcessId,
-                    ComponentVersion: typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString(),
+                    ComponentVersion: ComponentVersion,
                     TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ExperimentalWritesEnabled:
                         ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
