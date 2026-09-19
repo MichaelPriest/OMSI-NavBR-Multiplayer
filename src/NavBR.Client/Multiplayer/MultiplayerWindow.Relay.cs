@@ -29,11 +29,11 @@ public partial class MultiplayerWindow
     private void ApplyRelayLocalization()
     {
         RelayEnabledCheckBox.Content = RelayText(
-            "Usar servidor online dedicado quando a conexão direta não for possível (experimental)",
-            "Use dedicated online server when direct connection is not possible (experimental)",
-            "Usar servidor online dedicado cuando la conexión directa no sea posible (experimental)",
-            "dedizierten Online-Server verwenden, wenn keine direkte Verbindung möglich ist (experimentell)",
-            "Utiliser le serveur en ligne dédié lorsque la connexion directe est impossible (expérimental)");
+            "Servidor NavBR oficial (gratuito/limitado)",
+            "Official NavBR Server (free/limited)",
+            "Servidor NavBR oficial (gratuito/limitado)",
+            "Offizieller NavBR-Server (kostenlos/begrenzt)",
+            "Serveur NavBR officiel (gratuit/limité)");
 
         RelayServerLabelText.Text = RelayText(
             "Servidor online",
@@ -43,11 +43,11 @@ public partial class MultiplayerWindow
             "Serveur en ligne");
 
         RelayDescriptionText.Text = RelayText(
-            "No modo servidor online, o NavBR.Server roda no servidor configurado. O PC do jogador é cliente e não precisa abrir a TCP 27730 nem usar UPnP.",
-            "In online-server mode, NavBR.Server runs on the configured server. The player's PC is a client and does not need TCP 27730 forwarding or UPnP.",
-            "En modo servidor online, NavBR.Server se ejecuta en el servidor configurado. El PC del jugador es un cliente y no necesita abrir TCP 27730 ni usar UPnP.",
-            "Im Online-Server-Modus läuft NavBR.Server auf dem konfigurierten Server. Der Spieler-PC ist nur Client und benötigt weder TCP-27730-Freigabe noch UPnP.",
-            "En mode serveur en ligne, NavBR.Server s’exécute sur le serveur configuré. Le PC du joueur est un client et ne nécessite ni ouverture TCP 27730 ni UPnP.");
+            "Modo 1 de 3. O NavBR.Server roda no servidor oficial; o PC do jogador é cliente e não abre a TCP 27730. A infraestrutura atual usa Render Free e é limitada para Alpha/testes. Futuramente poderá existir assinatura oficial com maior capacidade.",
+            "Mode 1 of 3. NavBR.Server runs on the official server; the player's PC is a client and does not expose TCP 27730. The current infrastructure uses Render Free and is limited for Alpha/testing. An official higher-capacity subscription may be offered in the future.",
+            "Modo 1 de 3. NavBR.Server se ejecuta en el servidor oficial; el PC del jugador es cliente y no abre TCP 27730. La infraestructura actual usa Render Free y es limitada para Alpha/pruebas. En el futuro podrá existir una suscripción oficial con mayor capacidad.",
+            "Modus 1 von 3. NavBR.Server läuft auf dem offiziellen Server; der Spieler-PC ist Client und gibt TCP 27730 nicht frei. Die aktuelle Infrastruktur nutzt Render Free und ist für Alpha/Tests begrenzt. Künftig könnte ein offizielles Abo mit mehr Kapazität angeboten werden.",
+            "Mode 1 sur 3. NavBR.Server s’exécute sur le serveur officiel ; le PC du joueur est client et n’ouvre pas TCP 27730. L’infrastructure actuelle utilise Render Free et reste limitée pour l’Alpha/les tests. Un abonnement officiel offrant plus de capacité pourra être proposé à l’avenir.");
     }
 
     private void RelayEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
