@@ -13,7 +13,7 @@ A versão pública atual é **v0.3.0-alpha.14-test.4**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> A Alpha.14 Test 4 é a **release pública atual**. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
+> A Alpha.14 Test 4 é a **release pública atual**. A build pública foi atualizada com o hotfix do modo **Online através do Host** (SHA `29f30b2`), removendo o bloqueio da interface durante a tentativa de UPnP. Recursos de escrita física no OMSI permanecem experimentais e opt-in.
 
 ## Destaques da Alpha.14
 
@@ -68,6 +68,9 @@ O PC de quem cria a sala executa o `NavBR.Server` e recebe os demais jogadores p
 
 - não usa o Servidor NavBR oficial;
 - pode exigir Firewall, UPnP ou redirecionamento da TCP 27730 dependendo da rede;
+- o servidor local sobe primeiro e a tentativa de UPnP acontece em segundo plano;
+- a descoberta/mapeamento UPnP tem timeout de 8 segundos e não bloqueia mais a interface;
+- se o UPnP falhar ou expirar, a sala continua ativa em LAN e o app mostra o estado real;
 - a capacidade depende do PC e da conexão de Internet do host.
 
 ### Render gratuito
