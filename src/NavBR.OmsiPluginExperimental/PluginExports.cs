@@ -34,6 +34,7 @@ public static class PluginExports
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
+            PhysicalVehicleMotionController.Clear();
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
             PluginBridgeClient.Start(Log);
         }
@@ -49,6 +50,7 @@ public static class PluginExports
         try
         {
             RoleplayCharacterBackend.ReleaseAllBestEffort();
+            PhysicalVehicleBackend.MarkAllOwnedVehiclesForRemoval();
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -138,6 +140,11 @@ public static class PluginExports
             OmsiThreadCommandQueue.Drain(
                 1,
                 PluginBridgeClient.QueueCommandResult);
+
+            // Remote buses receive network targets at a lower cadence than the
+            // OMSI render/update loop. Apply interpolation here so all guarded
+            // transform writes remain on OMSI's callback thread.
+            PhysicalVehicleMotionController.Tick();
 
             var now = DateTimeOffset.UtcNow;
             var staleRemoved = 0;
