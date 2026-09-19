@@ -29,6 +29,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
       - name: Resolve version and release state
         id: version
         shell: pwsh
@@ -92,11 +97,69 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         run: dotnet publish src/NavBR.Server/NavBR.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/server
 
+      - name: Build OMSI native interop x86
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/interop" | Out-Null
+          cl /nologo /LD /O2 /EHsc /DWIN32_LEAN_AND_MEAN `
+            native/NavBR.OmsiInterop/NavBROmsiInterop.cpp `
+            native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp `
+            /link /DEF:native/NavBR.OmsiInterop/NavBROmsiInterop.def `
+            /OUT:artifacts/interop/NavBR.OmsiInterop.dll
+          if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
+
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($expected in @(
+            "NavBR_GetStateInteropVersion",
+            "NavBR_ResolveMapTileIndex",
+            "NavBR_MakeVehicle",
+            "NavBR_SetVehicleTransform",
+            "NavBR_SetHumanTransform",
+            "NavBR_RestoreHumanDriverState"
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($expected))\b") {
+              throw "Missing required native OMSI interop export: $expected"
+            }
+          }
+
+      - name: Publish Native AOT OMSI plugin x86
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
+            -c Release -r win-x86 `
+            -p:PublishAot=true -p:NativeLib=Shared `
+            -o artifacts/plugin
+          Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
+          foreach ($required in @(
+            "artifacts/plugin/NavBR.OmsiPlugin.dll",
+            "artifacts/plugin/NavBR.OmsiInterop.dll",
+            "artifacts/plugin/NavBR.OmsiPlugin.opl",
+            "artifacts/plugin/Install-NavBROmsiPlugin.ps1",
+            "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
+          )) {
+            if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" }
+          }
+
+      - name: Publish multiplayer simulator dev tool
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:Platform=AnyCPU -p:PlatformTarget=x64 `
+            -o artifacts/simulator
+
+          New-Item -ItemType Directory -Force "artifacts/simulator/server" | Out-Null
+          Copy-Item "artifacts/server/*" "artifacts/simulator/server" -Recurse -Force
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" "artifacts/simulator/run-multiplayer-simulator.ps1" -Force
+
       - name: Add legal notices to packages
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
         run: |
-          foreach ($target in @("artifacts/client", "artifacts/server")) {
+          foreach ($target in @("artifacts/client", "artifacts/server", "artifacts/plugin", "artifacts/simulator")) {
             Copy-Item LICENSE "$target/LICENSE" -Force
             Copy-Item THIRD_PARTY_NOTICES.md "$target/THIRD_PARTY_NOTICES.md" -Force
             New-Item -ItemType Directory -Force -Path "$target/licenses" | Out-Null
@@ -118,9 +181,34 @@ jobs:
 
           Compress-Archive -Path artifacts/client/* -DestinationPath "OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
           Compress-Archive -Path artifacts/server/* -DestinationPath "OMSI-NavBR-Server-$tag-win-x64.zip"
+          Compress-Archive -Path artifacts/plugin/* -DestinationPath "OMSI-NavBR-Plugin-$tag-win-x86.zip"
+          Compress-Archive -Path artifacts/simulator/* -DestinationPath "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip"
+
+          Copy-Item docs/OMSI_PLUGIN_EXPERIMENTAL.md "OMSI_PLUGIN_EXPERIMENTAL.md" -Force
+          Copy-Item docs/MULTIPLAYER_SIMULATOR.md "MULTIPLAYER_SIMULATOR.md" -Force
+          Copy-Item docs/RELEASES.md "RELEASES.md" -Force
+
+          $hashFiles = @(
+            $releaseExe,
+            "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
+            "OMSI-NavBR-Server-$tag-win-x64.zip",
+            "OMSI-NavBR-Plugin-$tag-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
+            "OMSI_PLUGIN_EXPERIMENTAL.md",
+            "MULTIPLAYER_SIMULATOR.md",
+            "RELEASES.md"
+          )
+          $hashLines = foreach ($path in $hashFiles) {
+            $file = Get-Item -LiteralPath $path
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $hashLines | Set-Content "SHA256SUMS.txt" -Encoding ascii
 
           Write-Host "Release EXE: $releaseExe"
           Write-Host "Release ZIP: OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
+          Write-Host "Plugin ZIP: OMSI-NavBR-Plugin-$tag-win-x86.zip"
+          Write-Host "Simulator ZIP: OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip"
 
       - name: Create GitHub release
         if: steps.version.outputs.exists != 'true'
@@ -134,6 +222,12 @@ jobs:
             "OMSI-NavBR-Multiplayer-$tag-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
+            "OMSI-NavBR-Plugin-$tag-win-x86.zip",
+            "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
+            "OMSI_PLUGIN_EXPERIMENTAL.md",
+            "MULTIPLAYER_SIMULATOR.md",
+            "RELEASES.md",
+            "SHA256SUMS.txt",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
             "--repo", "${{ github.repository }}",
