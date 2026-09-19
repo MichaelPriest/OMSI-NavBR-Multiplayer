@@ -38,6 +38,7 @@ namespace
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
 
+    constexpr int MapKachelLoadedOffset = 0x038;
     constexpr int MapKachelnOffset = 0x118;
     constexpr int MapLoadedOffset = 0x120;
 
@@ -318,10 +319,17 @@ namespace
 
         const int tilePointer =
             *reinterpret_cast<const int*>(itemAddress);
-        return tilePointer != 0 &&
-               IsReadableRange(
-                   static_cast<std::uintptr_t>(tilePointer),
-                   sizeof(int));
+        if (tilePointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset,
+                sizeof(unsigned char)))
+        {
+            return false;
+        }
+
+        const auto tileLoaded = *reinterpret_cast<const unsigned char*>(
+            static_cast<std::uintptr_t>(tilePointer) + MapKachelLoadedOffset);
+        return tileLoaded != 0;
     }
 
 
