@@ -2570,7 +2570,7 @@ function RoleplayPanel({
   // "Sair do ônibus" is itself the explicit RP opt-in. Do not require the
   // write flag/runtimeAvailable before the first click, otherwise the UI can
   // deadlock with the button disabled before C# has a chance to enable RP.
-  const canStart = roleplay.mapReady && Boolean(roleplay.selected) && !roleplay.active;
+  const canStart = roleplay.mapReady && !roleplay.active;
   const current = roleplay.current;
   const normalizedInteractionFilter = interactionFilter.trim().toLowerCase();
   const filteredInteractions = normalizedInteractionFilter
