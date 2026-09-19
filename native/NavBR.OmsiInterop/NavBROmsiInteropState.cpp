@@ -592,6 +592,11 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehi
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)
+{
+    return IsMapTileIndexValid(mapTileIndex) ? 1 : 0;
+}
+
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetHumanCount()
 {
