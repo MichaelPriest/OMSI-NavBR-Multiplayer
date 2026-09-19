@@ -17,6 +17,11 @@ public static class NavBRServerApplication
     {
         var builder = WebApplication.CreateBuilder(args ?? Array.Empty<string>());
         var externalProbeEnabled = IsEnabled("NAVBR_ENABLE_EXTERNAL_PORT_PROBE");
+        var hostingMode = Environment.GetEnvironmentVariable("NAVBR_HOSTING_MODE")?.Trim();
+        if (string.IsNullOrWhiteSpace(hostingMode))
+        {
+            hostingMode = "peer-host";
+        }
 
         if (!string.IsNullOrWhiteSpace(listenUrl))
         {
@@ -109,12 +114,14 @@ public static class NavBRServerApplication
 
         app.UseCors();
         app.UseRateLimiter();
-        app.MapGet("/health", () => Results.Ok(new
+        app.MapGet("/health", (MultiplayerRoomRegistry registry) => Results.Ok(new
         {
             status = "ok",
             service = "NavBR.Server",
             multiplayer = "signalr",
-            hosting = "peer-host",
+            hosting = hostingMode,
+            activeRooms = registry.GetActiveRoomIds().Count,
+            activeConnections = registry.GetActiveConnectionCount(),
             diagnostics = "available",
             externalPortProbe = externalProbeEnabled ? "enabled" : "disabled"
         }));
