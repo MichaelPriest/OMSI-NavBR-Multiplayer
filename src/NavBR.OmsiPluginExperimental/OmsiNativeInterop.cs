@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 4;
+    private const int ExpectedStateInteropVersion = 5;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
@@ -449,7 +449,8 @@ internal static class OmsiNativeInterop
         float rotationY,
         float rotationZ,
         float rotationW,
-        float groundSpeedMps);
+        float groundSpeedMps,
+        int mapTileIndex);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetVehicleVisualState")]
     internal static extern int SetVehicleVisualState(
