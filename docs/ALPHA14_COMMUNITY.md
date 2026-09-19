@@ -10,13 +10,16 @@
 
 ## 2. Central Multiplayer
 
-- crie uma sala;
+- confirme os três modos: **Servidor NavBR**, **LAN** e **Online através do Host**;
+- crie uma sala em cada modo;
 - confirme que não aparece o wizard antigo 1 Sala / 2 Privacidade / 3 Rede;
 - teste sala pública e privada;
 - teste convite;
 - teste Salas públicas;
 - teste chat e voz;
-- teste Personagem/RP.
+- teste Personagem/RP;
+- no **Online através do Host**, confirme que o clique não congela a interface enquanto o UPnP é verificado;
+- se o roteador não oferecer UPnP, confirme que a sala permanece funcionando em LAN e o estado muda sem travar o app.
 
 ## 3. Firewall
 
