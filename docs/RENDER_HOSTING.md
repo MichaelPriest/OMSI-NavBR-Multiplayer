@@ -16,15 +16,23 @@ No modo **Servidor Online**:
 - todos entram pela mesma URL HTTPS do Render;
 - presença, telemetria, chat, voz e estado da sala continuam usando o SignalR existente.
 
-Há três formas de usar o multiplayer:
+O NavBR oferece **três modos distintos** de multiplayer:
 
-- **Servidor Online NavBR (Render):** o próprio Render executa o NavBR.Server. Os jogadores são clientes do servidor dedicado e não precisam abrir portas, usar UPnP ou possuir IP público. Quem cria uma sala recebe a propriedade administrativa da sala, mas não hospeda o servidor no próprio PC;
-- **Host local somente LAN:** o PC que criou a sala executa o NavBR.Server local e outros PCs da mesma rede entram pelo IP local;
-- **Host local pela Internet via UPnP:** o PC do jogador executa o servidor local e o NavBR tenta mapear automaticamente a TCP 27730 no roteador.
+1. **Servidor NavBR oficial (Render):** o próprio Render executa o `NavBR.Server`. Os jogadores são clientes do servidor dedicado e não precisam abrir portas, usar UPnP ou possuir IP público. Quem cria a sala recebe a propriedade administrativa da sala, mas não hospeda o servidor no próprio PC.
+2. **LAN:** o PC que cria a sala executa o `NavBR.Server` localmente e os outros jogadores entram pela mesma rede local.
+3. **Online através do Host:** o PC de quem cria a sala executa o `NavBR.Server` e recebe jogadores pela Internet. Esse modo não usa o Servidor NavBR oficial e pode exigir Firewall, UPnP ou redirecionamento da TCP 27730, dependendo da rede/roteador.
 
-No modo **Servidor Online NavBR**, presença, telemetria, chat, voz, diretório de salas e estado compartilhado são processados pelo NavBR.Server em execução no Render. A propriedade de sala é uma permissão administrativa da aplicação e não significa que o PC do criador seja o servidor.
+No modo **Servidor NavBR**, presença, telemetria, chat, voz, diretório de salas e estado compartilhado são processados pelo `NavBR.Server` em execução no Render. A propriedade de sala é uma permissão administrativa da aplicação e não significa que o PC do criador seja o servidor.
 
-O servidor Render não é necessário quando uma das modalidades de host local é usada.
+### Capacidade atual do Servidor NavBR
+
+O Servidor NavBR oficial está atualmente em infraestrutura **Render Free**, portanto deve ser apresentado como **gratuito e limitado**. A configuração atual oferece 0,1 CPU, 512 MB de RAM, 750 horas gratuitas por workspace por mês, uma única instância e pode entrar em spin-down após 15 minutos sem tráfego de entrada.
+
+Nesta fase Alpha, o servidor oficial é uma conveniência para testes e uso comunitário leve. Muitas salas, muitos jogadores, voz e telemetria simultâneas podem atingir limites de CPU, memória ou tráfego.
+
+No futuro, o projeto **poderá oferecer uma assinatura oficial do Servidor NavBR** com maior capacidade, disponibilidade e estabilidade. Isso é uma possibilidade de produto, não uma oferta já lançada: ainda não há plano, preço, SLA ou data definidos.
+
+Os modos **LAN** e **Online através do Host** continuam disponíveis independentemente do Servidor NavBR oficial e não dependem da capacidade gratuita do Render.
 
 ## Deploy com um clique
 
