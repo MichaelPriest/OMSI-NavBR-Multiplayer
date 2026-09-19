@@ -1,5 +1,5 @@
 export const REPO = "MichaelPriest/OMSI-NavBR-Multiplayer";
-export const CURRENT_TAG = "v0.3.0-alpha.14-test.4";
+export const CURRENT_TAG = "v0.3.0-alpha.14-test.5";
 export const GITHUB_URL = `https://github.com/${REPO}`;
 export const RELEASES_PAGE = `${GITHUB_URL}/releases`;
 
