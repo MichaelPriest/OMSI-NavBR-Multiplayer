@@ -279,7 +279,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
 
-    if (route.length < 2) {
+    if (route.length < 2 && !navigation.roadmapAvailable && !vehicle) {
       return null;
     }
 
@@ -294,7 +294,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX = vehicle.x + radius;
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
-    } else {
+    } else if (route.length > 0 || rejoin.length > 0) {
       const xs = [...route, ...rejoin].map(point => point.x);
       const ys = [...route, ...rejoin].map(point => -point.y);
       minX = Math.min(...xs);
@@ -306,6 +306,19 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX += pad;
       minY -= pad;
       maxY += pad;
+    } else if (navigation.bounds) {
+      minX = navigation.bounds.minX;
+      maxX = navigation.bounds.maxX;
+      minY = -navigation.bounds.maxY;
+      maxY = -navigation.bounds.minY;
+    } else if (vehicle) {
+      const radius = 650;
+      minX = vehicle.x - radius;
+      maxX = vehicle.x + radius;
+      minY = -vehicle.y - radius;
+      maxY = -vehicle.y + radius;
+    } else {
+      return null;
     }
 
     const baseWidth = Math.max(120, maxX - minX);
@@ -322,7 +335,7 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       routePoints,
       rejoinPoints
     };
-  }, [navigation.routePoints, navigation.rejoinPoints, navigation.vehicle, mode, zoom]);
+  }, [navigation.routePoints, navigation.rejoinPoints, navigation.roadmapAvailable, navigation.bounds, navigation.vehicle, mode, zoom]);
 
   return (
     <div className="navigation-map">
@@ -341,8 +354,24 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         </div>
       ) : (
         <svg viewBox={geometry.viewBox} preserveAspectRatio="xMidYMid meet" aria-label={pick("Roadmap da rota ativa", "Active route roadmap", "Roadmap de la ruta activa", "Roadmap der aktiven Route", "Roadmap de l’itinéraire actif")}>
-          <polyline className="nav-route-shadow" points={geometry.routePoints} />
-          <polyline className="nav-route-line" points={geometry.routePoints} />
+          {navigation.roadmapAvailable && navigation.roadmapUrl && navigation.bounds && (
+            <image
+              className="nav-roadmap-image"
+              href={navigation.roadmapUrl}
+              x={navigation.bounds.minX}
+              y={-navigation.bounds.maxY}
+              width={navigation.bounds.maxX - navigation.bounds.minX}
+              height={navigation.bounds.maxY - navigation.bounds.minY}
+              preserveAspectRatio="none"
+            />
+          )}
+
+          {geometry.routePoints && (
+            <>
+              <polyline className="nav-route-shadow" points={geometry.routePoints} />
+              <polyline className="nav-route-line" points={geometry.routePoints} />
+            </>
+          )}
 
           {navigation.rejoinAvailable && geometry.rejoinPoints && (
             <>
