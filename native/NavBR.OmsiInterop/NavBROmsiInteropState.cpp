@@ -40,6 +40,11 @@ namespace
 
     constexpr int MapKachelLoadedOffset = 0x038;
     constexpr int MapKachelnOffset = 0x118;
+    constexpr int MapKachelInfosOffset = 0x11C;
+    constexpr int MapKachelInfoSize = 0x10;
+    constexpr int MapKachelInfoGridXOffset = 0x00;
+    constexpr int MapKachelInfoGridYOffset = 0x04;
+    constexpr int MapKachelInfoTilePointerOffset = 0x0C;
     constexpr int MapLoadedOffset = 0x120;
 
     // OmsiHumanBeingInst offsets documented by public OMSI reverse-engineering
@@ -332,6 +337,121 @@ namespace
         return tileLoaded != 0;
     }
 
+    bool TryResolveMapTileIndexByGrid(
+        int gridX,
+        int gridY,
+        int& mapTileIndex)
+    {
+        mapTileIndex = -1;
+        if (std::abs(static_cast<long long>(gridX)) > 100000LL ||
+            std::abs(static_cast<long long>(gridY)) > 100000LL)
+        {
+            return false;
+        }
+
+        int tileCount = 0;
+        int tileItems = 0;
+        if (!TryGetMapTileItems(tileCount, tileItems))
+        {
+            return false;
+        }
+
+        const auto globalAddress = Resolve(RvaMapPointer);
+        if (!IsReadableRange(globalAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int mapPointer = *reinterpret_cast<const int*>(globalAddress);
+        if (mapPointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infos = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset);
+        if (infos == 0)
+        {
+            return false;
+        }
+
+        const auto infoLengthAddress =
+            static_cast<std::uintptr_t>(infos) - sizeof(int);
+        if (!IsReadableRange(infoLengthAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infoCount =
+            *reinterpret_cast<const int*>(infoLengthAddress);
+        if (infoCount <= 0 ||
+            infoCount > MaxReasonableMapTiles ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(infos),
+                static_cast<std::size_t>(infoCount) *
+                    static_cast<std::size_t>(MapKachelInfoSize)))
+        {
+            return false;
+        }
+
+        for (int infoIndex = 0; infoIndex < infoCount; ++infoIndex)
+        {
+            const auto infoAddress =
+                static_cast<std::uintptr_t>(infos) +
+                static_cast<std::uintptr_t>(infoIndex) *
+                    static_cast<std::uintptr_t>(MapKachelInfoSize);
+
+            const int x = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridXOffset);
+            const int y = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridYOffset);
+            if (x != gridX || y != gridY)
+            {
+                continue;
+            }
+
+            const int tilePointer = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoTilePointerOffset);
+            if (tilePointer == 0 ||
+                !IsReadableRange(
+                    static_cast<std::uintptr_t>(tilePointer) +
+                        MapKachelLoadedOffset,
+                    sizeof(unsigned char)) ||
+                *reinterpret_cast<const unsigned char*>(
+                    static_cast<std::uintptr_t>(tilePointer) +
+                        MapKachelLoadedOffset) == 0)
+            {
+                return false;
+            }
+
+            for (int tileIndex = 0; tileIndex < tileCount; ++tileIndex)
+            {
+                const auto itemAddress =
+                    static_cast<std::uintptr_t>(tileItems) +
+                    static_cast<std::uintptr_t>(tileIndex) * sizeof(int);
+                if (!IsReadableRange(itemAddress, sizeof(int)))
+                {
+                    return false;
+                }
+
+                const int candidate =
+                    *reinterpret_cast<const int*>(itemAddress);
+                if (candidate == tilePointer)
+                {
+                    mapTileIndex = tileIndex;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
 
     bool TryGetHumanItems(int& count, int& itemArray)
     {
@@ -603,6 +723,16 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehi
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)
 {
     return IsMapTileIndexValid(mapTileIndex) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ResolveMapTileIndex(
+    int gridX,
+    int gridY)
+{
+    int mapTileIndex = -1;
+    return TryResolveMapTileIndexByGrid(gridX, gridY, mapTileIndex)
+        ? mapTileIndex
+        : -1;
 }
 
 
