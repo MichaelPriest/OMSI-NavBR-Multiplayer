@@ -526,27 +526,63 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 _pressedKeys.Clear();
             }
 
-            // Clear local state first so the UI/HUD can always leave RP mode,
-            // even if the experimental plugin fails while restoring the driver.
+            // Clear local state first so the UI/HUD can always leave RP mode.
+            // The plugin keeps ownership until it confirms the native driver
+            // restoration, which lets us retry transient OMSI write failures.
             StateChanged?.Invoke(null);
-            StatusChanged?.Invoke(reason);
+            SetStatus(reason);
 
             if (!string.IsNullOrWhiteSpace(instanceId))
             {
-                try
+                PluginBridgeMessage? release = null;
+                Exception? releaseException = null;
+
+                for (var attempt = 1; attempt <= 3; attempt++)
                 {
-                    var release = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
-                        instanceId,
-                        playerId,
-                        cancellationToken);
-                    if (release?.Success != true)
+                    try
                     {
-                        StatusChanged?.Invoke("roleplay-release-failed");
+                        release = await OmsiPluginBridgeRelay.ReleaseRoleplayCharacterAsync(
+                            instanceId,
+                            playerId,
+                            attempt == 1
+                                ? cancellationToken
+                                : CancellationToken.None);
+                        releaseException = null;
+
+                        if (release?.Success == true)
+                        {
+                            break;
+                        }
+
+                        if (string.Equals(
+                                release?.ErrorCode,
+                                "driver-pointer-stale",
+                                StringComparison.Ordinal))
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        releaseException = ex;
+                    }
+
+                    if (attempt < 3)
+                    {
+                        await Task.Delay(
+                            TimeSpan.FromMilliseconds(120),
+                            CancellationToken.None);
                     }
                 }
-                catch
+
+                if (release?.Success != true)
                 {
-                    StatusChanged?.Invoke("roleplay-release-failed");
+                    SetStatus(
+                        release?.ErrorCode ?? "roleplay-release-failed",
+                        release?.ErrorMessage ??
+                        releaseException?.Message ??
+                        "The Plugin Bridge could not confirm restoring the OMSI driver after leaving roleplay mode.",
+                        isError: true);
                 }
             }
         }
