@@ -302,8 +302,20 @@ jobs:
             -p:DebugSymbols=false `
             -o artifacts/NavBR.MultiplayerSimulator
 
+          dotnet publish src/NavBR.Server/NavBR.Server.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/NavBR.MultiplayerSimulator/server
+
           foreach ($required in @(
             "artifacts/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.exe",
+            "artifacts/NavBR.MultiplayerSimulator/server/NavBR.Server.exe",
             "scripts/run-multiplayer-simulator.ps1",
             "docs/MULTIPLAYER_SIMULATOR.md"
           )) {
@@ -316,6 +328,20 @@ jobs:
             "artifacts/NavBR.MultiplayerSimulator/run-multiplayer-simulator.ps1" -Force
           Copy-Item "docs/MULTIPLAYER_SIMULATOR.md" `
             "artifacts/NavBR.MultiplayerSimulator/README-SIMULATOR.md" -Force
+
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server https://omsi-navbr-multiplayer-server.onrender.com --room navbr-sim --players 6 --mode mixed --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-online.cmd" -Encoding ASCII
+
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server http://127.0.0.1:27730 --room navbr-sim --players 6 --mode mixed --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-local.cmd" -Encoding ASCII
 
       - name: Validate standalone EXE icon resource
         shell: pwsh

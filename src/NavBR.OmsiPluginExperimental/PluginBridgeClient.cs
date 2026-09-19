@@ -106,6 +106,17 @@ internal static class PluginBridgeClient
         int? physicalMapTileIndex = null;
         try
         {
+            var playerVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
+            if (playerVehicle != 0)
+            {
+                var directTileIndex =
+                    OmsiNativeInterop.ReadRoadVehicleTileIndex(playerVehicle);
+                if (directTileIndex >= 0)
+                {
+                    physicalMapTileIndex = directTileIndex;
+                }
+            }
+
             if (OmsiNativeInterop.ReadPlayerVehicleGrid(
                     out var gridX,
                     out var gridY,
@@ -113,9 +124,10 @@ internal static class PluginBridgeClient
             {
                 physicalGridX = gridX;
                 physicalGridY = gridY;
-                physicalMapTileIndex = mapTileIndex >= 0
-                    ? mapTileIndex
-                    : null;
+                if (mapTileIndex >= 0)
+                {
+                    physicalMapTileIndex = mapTileIndex;
+                }
             }
         }
         catch (DllNotFoundException)

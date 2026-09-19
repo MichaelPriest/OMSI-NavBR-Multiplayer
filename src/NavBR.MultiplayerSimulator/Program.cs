@@ -82,12 +82,12 @@ if (options.VerifyPhysical)
         string.IsNullOrWhiteSpace(options.ReferencePlayerId) ||
         string.IsNullOrWhiteSpace(options.VehiclePath) ||
         string.IsNullOrWhiteSpace(options.VehicleCompatibilityId) ||
-        options.PhysicalGridX is null ||
-        options.PhysicalGridY is null)
+        !((options.PhysicalGridX is int && options.PhysicalGridY is int) ||
+          options.MapTileIndex is >= 0))
     {
         Console.Error.WriteLine();
         Console.Error.WriteLine(
-            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, grid físico RoadVehicle.Kachel válido e um ônibus rígido resolvido.");
+            "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, grid físico ou Kachel local válido e um ônibus rígido resolvido.");
         Environment.ExitCode = 6;
         SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
@@ -1057,8 +1057,9 @@ internal sealed class RoomSimulationContextResolver : IAsyncDisposable
                     resolved.PhysicalGridY is null)
                 {
                     Console.WriteLine(
-                        "Physical sync: o host ainda não publicou o grid físico RoadVehicle.Kachel; " +
-                        "o grid de navegação não será reutilizado como identidade física.");
+                        resolved.MapTileIndex is int inheritedTileIndex && inheritedTileIndex >= 0
+                            ? $"Physical sync: grid físico indisponível; usando Kachel #{inheritedTileIndex} do host somente para os bots de validação."
+                            : "Physical sync: o host ainda não publicou grid físico nem Kachel válido; o grid de navegação não será reutilizado como identidade física.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(options.MapName) &&
@@ -1440,29 +1441,32 @@ internal sealed class LocalServerBootstrap : IAsyncDisposable
 
 internal static class SimulatorInteractiveLauncher
 {
-    public const string DefaultServerUrl =
+    public const string OnlineServerUrl =
         "https://omsi-navbr-multiplayer-server.onrender.com";
+    public const string LocalServerUrl =
+        "http://127.0.0.1:27730";
+    public const string DefaultServerUrl = OnlineServerUrl;
 
     public static async Task<string[]> BuildArgumentsAsync()
     {
         Console.Title = "OMSI NavBR Multiplayer - Simulador de Players";
         Console.WriteLine("OMSI NavBR Multiplayer - Simulador de Players");
-        Console.WriteLine("Servidor Render configurado automaticamente.");
-        Console.WriteLine($"Servidor: {DefaultServerUrl}");
+        Console.WriteLine("Modo automático: servidor local + servidor online suportados.");
+        Console.WriteLine();
+
+        var serverUrl = await ResolveAutoServerUrlAsync();
+        Console.WriteLine(
+            string.Equals(serverUrl, LocalServerUrl, StringComparison.OrdinalIgnoreCase)
+                ? $"Servidor selecionado: LOCAL ({serverUrl})"
+                : $"Servidor selecionado: ONLINE ({serverUrl})");
         Console.WriteLine("Procurando sala pública ativa...");
         Console.WriteLine();
 
-        var roomId = await ResolveRoomIdAsync();
-        if (string.IsNullOrWhiteSpace(roomId))
-        {
-            Console.Write("ID da sala: ");
-            roomId = Console.ReadLine()?.Trim();
-        }
-
+        var roomId = await ResolveRoomIdAsync(serverUrl);
         if (string.IsNullOrWhiteSpace(roomId))
         {
             roomId = "navbr-sim";
-            Console.WriteLine($"Nenhuma sala informada; usando fallback {roomId}.");
+            Console.WriteLine($"Nenhuma sala pública ativa detectada; usando sala {roomId}.");
         }
 
         Console.WriteLine($"Sala   : {roomId}");
@@ -1473,7 +1477,7 @@ internal static class SimulatorInteractiveLauncher
 
         return
         [
-            "--server", DefaultServerUrl,
+            "--server", serverUrl,
             "--room", roomId,
             "--players", "6",
             "--mode", "mixed",
@@ -1499,7 +1503,39 @@ internal static class SimulatorInteractiveLauncher
         }
     }
 
-    private static async Task<string?> ResolveRoomIdAsync()
+    private static async Task<string> ResolveAutoServerUrlAsync()
+    {
+        if (await IsHealthyAsync(LocalServerUrl, TimeSpan.FromSeconds(1)))
+        {
+            Console.WriteLine("Servidor local detectado em execução; usando LOCAL.");
+            return LocalServerUrl;
+        }
+
+        Console.WriteLine("Servidor local não está ativo; usando ONLINE Render.");
+        return OnlineServerUrl;
+    }
+
+    private static async Task<bool> IsHealthyAsync(
+        string serverUrl,
+        TimeSpan timeout)
+    {
+        try
+        {
+            using var client = new HttpClient
+            {
+                Timeout = timeout
+            };
+            using var response = await client.GetAsync(
+                new Uri(new Uri(serverUrl), "/health"));
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<string?> ResolveRoomIdAsync(string serverUrl)
     {
         try
         {
@@ -1507,7 +1543,7 @@ internal static class SimulatorInteractiveLauncher
             {
                 Timeout = TimeSpan.FromSeconds(15)
             };
-            var endpoint = new Uri(new Uri(DefaultServerUrl), "/api/rooms");
+            var endpoint = new Uri(new Uri(serverUrl), "/api/rooms");
             var rooms = await client.GetFromJsonAsync<PublicRoomSummary[]>(endpoint)
                         ?? Array.Empty<PublicRoomSummary>();
 
@@ -1533,20 +1569,25 @@ internal static class SimulatorInteractiveLauncher
                     Console.WriteLine(
                         $"  - {room.RoomId} | {room.PlayerCount} player(s) | mapa {room.MapName ?? "-"}");
                 }
-                Console.WriteLine("Informe abaixo o ID exato da sala que deseja simular.");
-                return null;
+
+                var preferred = active.FirstOrDefault(room =>
+                    string.Equals(room.RoomId, "navbr-sim", StringComparison.OrdinalIgnoreCase));
+                if (preferred is not null)
+                {
+                    Console.WriteLine("Selecionando automaticamente a sala navbr-sim.");
+                    return preferred.RoomId;
+                }
+
+                Console.WriteLine($"Selecionando automaticamente a sala {active[0].RoomId}.");
+                return active[0].RoomId;
             }
 
-            Console.WriteLine(
-                "Nenhuma sala pública ativa foi encontrada. " +
-                "Se a sala for privada, informe o ID manualmente.");
             return null;
         }
         catch (Exception ex)
         {
             Console.WriteLine(
-                $"Não foi possível consultar /api/rooms agora ({ex.GetType().Name}).");
-            Console.WriteLine("Informe o ID da sala manualmente.");
+                $"Não foi possível consultar /api/rooms em {serverUrl} ({ex.GetType().Name}).");
             return null;
         }
     }

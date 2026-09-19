@@ -1,5 +1,7 @@
 param(
-    [string]$Server = "https://omsi-navbr-multiplayer-server.onrender.com",
+    [ValidateSet("auto", "online", "local")]
+    [string]$Connection = "auto",
+    [string]$Server = "",
     [string]$Room = "navbr-sim",
     [string]$RoomPassword = "",
     [ValidateRange(1, 32)]
@@ -25,6 +27,30 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($Server)) {
+    switch ($Connection) {
+        "online" {
+            $Server = "https://omsi-navbr-multiplayer-server.onrender.com"
+        }
+        "local" {
+            $Server = "http://127.0.0.1:27730"
+        }
+        default {
+            $localUrl = "http://127.0.0.1:27730"
+            try {
+                $null = Invoke-WebRequest -UseBasicParsing -Uri "$localUrl/health" -TimeoutSec 1
+                $Server = $localUrl
+                Write-Host "Servidor local detectado; usando LOCAL."
+            }
+            catch {
+                $Server = "https://omsi-navbr-multiplayer-server.onrender.com"
+                Write-Host "Servidor local indisponivel; usando ONLINE Render."
+            }
+        }
+    }
+}
+
 $simulatorExe = Join-Path $PSScriptRoot "NavBR.MultiplayerSimulator.exe"
 $project = Join-Path $PSScriptRoot "..\src\NavBR.MultiplayerSimulator\NavBR.MultiplayerSimulator.csproj"
 

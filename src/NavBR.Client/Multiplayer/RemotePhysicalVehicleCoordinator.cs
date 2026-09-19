@@ -294,15 +294,23 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var hasStablePhysicalGrid =
+            frame.Telemetry.PhysicalGridX is int &&
+            frame.Telemetry.PhysicalGridY is int;
+        var hasSimulatorLocalTile =
+            playerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase) &&
+            frame.Telemetry.MapTileIndex is int simulatorTileIndex &&
+            simulatorTileIndex >= 0;
+
         if (!_spawned.ContainsKey(playerId) &&
-            (frame.Telemetry.PhysicalGridX is not int ||
-             frame.Telemetry.PhysicalGridY is not int))
+            !hasStablePhysicalGrid &&
+            !hasSimulatorLocalTile)
         {
             SetStatus(
                 playerId,
                 "tile-unavailable",
                 "remote-grid-missing",
-                "Remote telemetry did not include RoadVehicle-coherent OMSI GridX/GridY coordinates.");
+                "Remote telemetry did not include RoadVehicle-coherent GridX/GridY. Only simulator validation may use the host-inherited local Kachel index.");
             return;
         }
 
@@ -810,6 +818,10 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 // mixed with the physical RoadVehicle pose.
                 GridX = frame.Telemetry.PhysicalGridX,
                 GridY = frame.Telemetry.PhysicalGridY,
+                MapTileIndex =
+                    frame.Player.PlayerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase)
+                        ? frame.Telemetry.MapTileIndex
+                        : null,
                 VehiclePath = resolvedVehiclePath,
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,

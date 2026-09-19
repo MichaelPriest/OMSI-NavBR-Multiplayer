@@ -192,16 +192,22 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         {
             var pluginStatus = app.PluginBridge.GetConnectionInfo().LastStatus;
             if (pluginStatus?.TimestampUnixMilliseconds is long statusTimestamp &&
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - statusTimestamp <= 5_000 &&
-                pluginStatus.GridX is int physicalGridX &&
-                pluginStatus.GridY is int physicalGridY)
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - statusTimestamp <= 5_000)
             {
                 outgoing = outgoing with
                 {
-                    PhysicalGridX = outgoing.PhysicalGridX ?? physicalGridX,
-                    PhysicalGridY = outgoing.PhysicalGridY ?? physicalGridY,
                     MapTileIndex = outgoing.MapTileIndex ?? pluginStatus.MapTileIndex
                 };
+
+                if (pluginStatus.GridX is int physicalGridX &&
+                    pluginStatus.GridY is int physicalGridY)
+                {
+                    outgoing = outgoing with
+                    {
+                        PhysicalGridX = outgoing.PhysicalGridX ?? physicalGridX,
+                        PhysicalGridY = outgoing.PhysicalGridY ?? physicalGridY
+                    };
+                }
             }
         }
 
