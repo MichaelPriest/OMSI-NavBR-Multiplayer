@@ -72,9 +72,47 @@ internal static class OmsiInstallationLocator
     internal static string? TryResolveInstallDirectory(string? path)
     {
         var root = NormalizeDirectory(path);
-        return root is not null && File.Exists(Path.Combine(root, "Omsi.exe"))
-            ? root
-            : null;
+        if (root is not null && File.Exists(Path.Combine(root, "Omsi.exe")))
+        {
+            return root;
+        }
+
+        if (!string.IsNullOrWhiteSpace(path) &&
+            File.Exists(path) &&
+            string.Equals(
+                Path.GetExtension(path),
+                ".url",
+                StringComparison.OrdinalIgnoreCase) &&
+            IsOmsiSteamShortcut(path))
+        {
+            foreach (var steamRoot in DiscoverSteamRoots())
+            {
+                var steamApps = Path.Combine(steamRoot, "steamapps");
+                var manifestPath = Path.Combine(
+                    steamApps,
+                    $"appmanifest_{SteamAppId}.acf");
+                if (!File.Exists(manifestPath))
+                {
+                    continue;
+                }
+
+                var installDir = TryReadSteamInstallDir(manifestPath);
+                if (string.IsNullOrWhiteSpace(installDir))
+                {
+                    continue;
+                }
+
+                var candidate = NormalizeDirectory(
+                    Path.Combine(steamApps, "common", installDir));
+                if (candidate is not null &&
+                    File.Exists(Path.Combine(candidate, "Omsi.exe")))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     public static OmsiInstallationInfo? FromRunningProcess(OmsiProcessInfo? process)
@@ -376,6 +414,35 @@ internal static class OmsiInstallationLocator
                 }
             }
         }
+    }
+
+    private static bool IsOmsiSteamShortcut(string shortcutPath)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(shortcutPath))
+            {
+                if (!line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = line[4..].Trim();
+                return string.Equals(
+                           value,
+                           $"steam://rungameid/{SteamAppId}",
+                           StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(
+                           value,
+                           $"steam://run/{SteamAppId}",
+                           StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static string? TryResolveInternetShortcut(string shortcutPath)
