@@ -2932,6 +2932,8 @@ function Multiplayer({
   const [chatHotkey, setChatHotkey] = useState("F9");
   const [voiceHotkey, setVoiceHotkey] = useState("F10");
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [roomIntent, setRoomIntent] = useState<"create" | "join">("create");
+  const [createRoomMode, setCreateRoomMode] = useState<"navbr" | "lan" | "host">("navbr");
   const defaultOnlineServer = "https://omsi-navbr-multiplayer-server.onrender.com";
 
   useEffect(() => {
@@ -3258,139 +3260,195 @@ function Multiplayer({
 
           <div className="room-dashboard">
             <article className="card room-setup-card">
-              <div className="section-heading compact">
-                <div>
-                  <span className="eyebrow">{pick("ACESSO", "ACCESS", "ACCESO", "ZUGANG", "ACCÈS")}</span>
-                  <h3>{pick("Dados da sala", "Room details", "Datos de la sala", "Raumdaten", "Détails de la salle")}</h3>
-                </div>
-              </div>
-
-              <div className="room-form-grid clean">
-                <label>
-                  <span>{pick("Sala", "Room", "Sala", "Raum", "Salle")}</span>
-                  <input value={roomId} onChange={event => setRoomId(event.target.value)} disabled={multiplayer.connected} placeholder="navbr-1234" />
-                </label>
-                <label>
-                  <span>{pick("Apelido", "Display name", "Apodo", "Anzeigename", "Pseudo")}</span>
-                  <input value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={multiplayer.connected} placeholder="Driver" />
-                </label>
-                <label>
-                  <span>{pick("Servidor para entrar", "Join server", "Servidor para entrar", "Beitrittsserver", "Serveur à rejoindre")}</span>
-                  <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} disabled={multiplayer.connected} placeholder={defaultOnlineServer} />
-                </label>
-              </div>
-
-              <div className="room-access-options">
-                <label className="privacy-toggle">
-                  <input type="checkbox" checked={privateRoom} disabled={multiplayer.connected} onChange={event => setPrivateRoom(event.target.checked)} />
-                  <span>{pick("Sala privada", "Private room", "Sala privada", "Privater Raum", "Salle privée")}</span>
-                </label>
-                <label className="password-field">
-                  <span>{pick("Senha", "Password", "Contraseña", "Passwort", "Mot de passe")}</span>
-                  <input
-                    type="password"
-                    value={roomPassword}
-                    disabled={multiplayer.connected}
-                    onChange={event => setRoomPassword(event.target.value)}
-                    placeholder={privateRoom ? pick("Mínimo 4 caracteres", "Minimum 4 characters", "Mínimo 4 caracteres", "Mindestens 4 Zeichen", "Minimum 4 caractères") : pick("Somente se a sala exigir", "Only if the room requires it", "Solo si la sala lo requiere", "Nur wenn der Raum es erfordert", "Seulement si la salle l’exige")}
-                  />
-                </label>
+              <div className="room-intent-switch" role="tablist" aria-label={pick("Ação da sala", "Room action", "Acción de la sala", "Raumaktion", "Action de salle")}>
+                <button
+                  className={roomIntent === "create" ? "active" : ""}
+                  onClick={() => setRoomIntent("create")}
+                  disabled={multiplayer.connected}
+                >
+                  {pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer une salle")}
+                </button>
+                <button
+                  className={roomIntent === "join" ? "active" : ""}
+                  onClick={() => setRoomIntent("join")}
+                  disabled={multiplayer.connected}
+                >
+                  {pick("Entrar em sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre une salle")}
+                </button>
               </div>
 
               {!multiplayer.connected ? (
-                <>
-                  <div className="room-mode-heading">
-                    <span className="eyebrow">{pick("CRIAR SALA", "CREATE ROOM", "CREAR SALA", "RAUM ERSTELLEN", "CRÉER UNE SALLE")}</span>
-                    <h3>{pick("Escolha onde a sessão será hospedada", "Choose where the session will be hosted", "Elige dónde se alojará la sesión", "Wähle, wo die Sitzung gehostet wird", "Choisissez où la session sera hébergée")}</h3>
-                  </div>
+                roomIntent === "create" ? (
+                  <>
+                    <div className="section-heading compact room-create-heading">
+                      <div>
+                        <span className="eyebrow">{pick("CRIAR", "CREATE", "CREAR", "ERSTELLEN", "CRÉER")}</span>
+                        <h3>{pick("Nova sala", "New room", "Nueva sala", "Neuer Raum", "Nouvelle salle")}</h3>
+                      </div>
+                    </div>
 
-                  <div className="room-mode-grid">
-                    <button
-                      className="room-mode-card recommended"
-                      onClick={() => {
-                        const onlineUrl = relayServerUrl || defaultOnlineServer;
-                        setRelayEnabled(true);
-                        setRelayServerUrl(onlineUrl);
-                        setServerUrl(onlineUrl);
-                        sendCommand("createOnlineRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, serverUrl: onlineUrl });
-                      }}
-                    >
-                      <span className="room-mode-number">1</span>
-                      <strong>{pick("Servidor NavBR", "NavBR Server", "Servidor NavBR", "NavBR-Server", "Serveur NavBR")}</strong>
-                      <small>{pick("Mais simples · sem abrir portas", "Simplest · no port forwarding", "Más simple · sin abrir puertos", "Am einfachsten · keine Portfreigabe", "Le plus simple · sans ouverture de ports")}</small>
-                      <em>{pick("Gratuito / limitado na Alpha", "Free / limited in Alpha", "Gratis / limitado en Alpha", "Kostenlos / in Alpha begrenzt", "Gratuit / limité en Alpha")}</em>
-                    </button>
+                    <div className="room-form-grid room-create-fields">
+                      <label>
+                        <span>{pick("Nome da sala", "Room name", "Nombre de sala", "Raumname", "Nom de la salle")}</span>
+                        <input value={roomId} onChange={event => setRoomId(event.target.value)} placeholder="navbr-1234" />
+                      </label>
+                      <label>
+                        <span>{pick("Seu apelido", "Your display name", "Tu apodo", "Dein Anzeigename", "Votre pseudo")}</span>
+                        <input value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder="Driver" />
+                      </label>
+                    </div>
+
+                    <div className="room-privacy-row">
+                      <label className="privacy-toggle">
+                        <input type="checkbox" checked={privateRoom} onChange={event => setPrivateRoom(event.target.checked)} />
+                        <span>{pick("Privada", "Private", "Privada", "Privat", "Privée")}</span>
+                      </label>
+                      {privateRoom && (
+                        <label className="password-field">
+                          <span>{pick("Senha", "Password", "Contraseña", "Passwort", "Mot de passe")}</span>
+                          <input
+                            type="password"
+                            value={roomPassword}
+                            onChange={event => setRoomPassword(event.target.value)}
+                            placeholder={pick("Mínimo 4 caracteres", "Minimum 4 characters", "Mínimo 4 caracteres", "Mindestens 4 Zeichen", "Minimum 4 caractères")}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="room-mode-compact">
+                      <button
+                        className={createRoomMode === "navbr" ? "active" : ""}
+                        onClick={() => setCreateRoomMode("navbr")}
+                      >
+                        <strong>{pick("Servidor NavBR", "NavBR Server", "Servidor NavBR", "NavBR-Server", "Serveur NavBR")}</strong>
+                        <small>{pick("Online", "Online", "Online", "Online", "En ligne")}</small>
+                      </button>
+                      <button
+                        className={createRoomMode === "lan" ? "active" : ""}
+                        onClick={() => setCreateRoomMode("lan")}
+                      >
+                        <strong>LAN</strong>
+                        <small>{pick("Rede local", "Local network", "Red local", "Lokales Netz", "Réseau local")}</small>
+                      </button>
+                      <button
+                        className={createRoomMode === "host" ? "active" : ""}
+                        onClick={() => setCreateRoomMode("host")}
+                      >
+                        <strong>{pick("Meu PC", "My PC", "Mi PC", "Mein PC", "Mon PC")}</strong>
+                        <small>{pick("Host Internet", "Internet host", "Host Internet", "Internet-Host", "Hôte Internet")}</small>
+                      </button>
+                    </div>
 
                     <button
-                      className="room-mode-card"
+                      className="button primary room-create-submit"
                       onClick={() => {
+                        if (createRoomMode === "navbr") {
+                          const onlineUrl = relayServerUrl || defaultOnlineServer;
+                          setRelayEnabled(true);
+                          setRelayServerUrl(onlineUrl);
+                          setServerUrl(onlineUrl);
+                          sendCommand("createOnlineRoom", {
+                            roomId,
+                            displayName,
+                            isPrivate: privateRoom,
+                            roomPassword,
+                            serverUrl: onlineUrl
+                          });
+                          return;
+                        }
+
                         setRelayEnabled(false);
-                        sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false });
+                        sendCommand("createLocalRoom", {
+                          roomId,
+                          displayName,
+                          isPrivate: privateRoom,
+                          roomPassword,
+                          useRelay: false,
+                          exposeInternet: createRoomMode === "host"
+                        });
                       }}
                     >
-                      <span className="room-mode-number">2</span>
-                      <strong>LAN</strong>
-                      <small>{pick("Seu PC hospeda na rede local", "Your PC hosts on the local network", "Tu PC aloja en la red local", "Dein PC hostet im lokalen Netzwerk", "Votre PC héberge sur le réseau local")}</small>
-                      <em>{pick("Sem Internet pública", "No public Internet", "Sin Internet pública", "Kein öffentliches Internet", "Sans Internet public")}</em>
+                      {pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer la salle")}
                     </button>
 
-                    <button
-                      className="room-mode-card"
-                      onClick={() => {
-                        setRelayEnabled(false);
-                        sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true });
-                      }}
-                    >
-                      <span className="room-mode-number">3</span>
-                      <strong>{pick("Online pelo Host", "Online via Host", "Online por Host", "Online über Host", "En ligne via l’hôte")}</strong>
-                      <small>{pick("Seu PC hospeda pela Internet", "Your PC hosts over the Internet", "Tu PC aloja por Internet", "Dein PC hostet über das Internet", "Votre PC héberge via Internet")}</small>
-                      <em>{pick("Pode exigir UPnP / TCP 27730", "May require UPnP / TCP 27730", "Puede requerir UPnP / TCP 27730", "Kann UPnP / TCP 27730 erfordern", "Peut nécessiter UPnP / TCP 27730")}</em>
-                    </button>
-                  </div>
+                    <details className="room-help-details">
+                      <summary>{pick("Qual modo devo usar?", "Which mode should I use?", "¿Qué modo debo usar?", "Welchen Modus soll ich verwenden?", "Quel mode utiliser ?")}</summary>
+                      <div className="room-help-grid">
+                        <span><strong>{pick("Servidor NavBR", "NavBR Server", "Servidor NavBR", "NavBR-Server", "Serveur NavBR")}</strong>{pick("Mais simples para jogar pela Internet.", "Simplest option for Internet play.", "La opción más simple para jugar por Internet.", "Einfachste Option für Internet-Spiel.", "Option la plus simple pour jouer en ligne.")}</span>
+                        <span><strong>LAN</strong>{pick("Somente computadores na mesma rede.", "Only computers on the same network.", "Solo equipos en la misma red.", "Nur Computer im selben Netzwerk.", "Uniquement les ordinateurs du même réseau.")}</span>
+                        <span><strong>{pick("Meu PC", "My PC", "Mi PC", "Mein PC", "Mon PC")}</strong>{pick("Hospeda pela Internet e pode exigir UPnP/porta 27730.", "Hosts over the Internet and may require UPnP/port 27730.", "Aloja por Internet y puede requerir UPnP/puerto 27730.", "Hostet über das Internet und kann UPnP/Port 27730 benötigen.", "Héberge via Internet et peut nécessiter UPnP/port 27730.")}</span>
+                      </div>
+                    </details>
 
-                  <div className="room-join-actions">
-                    <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
-                      {pick("Entrar na sala informada", "Join entered room", "Entrar en la sala indicada", "Angegebenem Raum beitreten", "Rejoindre la salle indiquée")}
-                    </button>
-                    <button className="button ghost" onClick={pasteInvite}>📥 {pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
-                  </div>
+                    {createRoomMode === "navbr" && (
+                      <details className="room-advanced-options">
+                        <summary>{pick("Servidor personalizado", "Custom server", "Servidor personalizado", "Eigener Server", "Serveur personnalisé")}</summary>
+                        <label className="password-field">
+                          <span>{pick("URL do servidor", "Server URL", "URL del servidor", "Server-URL", "URL du serveur")}</span>
+                          <input
+                            value={relayServerUrl}
+                            onChange={event => setRelayServerUrl(event.target.value)}
+                            onBlur={() => sendCommand("configureRelay", { enabled: true, relayServerUrl })}
+                            placeholder={defaultOnlineServer}
+                          />
+                        </label>
+                      </details>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="section-heading compact room-create-heading">
+                      <div>
+                        <span className="eyebrow">{pick("ENTRAR", "JOIN", "ENTRAR", "BEITRETEN", "REJOINDRE")}</span>
+                        <h3>{pick("Conectar a uma sala", "Connect to a room", "Conectar a una sala", "Mit einem Raum verbinden", "Se connecter à une salle")}</h3>
+                      </div>
+                    </div>
 
-                  <details className="room-advanced-options">
-                    <summary>{pick("Opções avançadas do servidor", "Advanced server options", "Opciones avanzadas del servidor", "Erweiterte Serveroptionen", "Options avancées du serveur")}</summary>
-                    <label className="privacy-toggle">
-                      <input
-                        type="checkbox"
-                        checked={relayEnabled}
-                        disabled={multiplayer.connected || multiplayer.hostRunning}
-                        onChange={event => {
-                          const enabled = event.target.checked;
-                          setRelayEnabled(enabled);
-                          sendCommand("configureRelay", { enabled, relayServerUrl });
-                        }}
-                      />
-                      <span>{pick("Usar servidor online personalizado", "Use custom online server", "Usar servidor online personalizado", "Benutzerdefinierten Online-Server verwenden", "Utiliser un serveur en ligne personnalisé")}</span>
-                    </label>
-                    <label className="password-field">
-                      <span>{pick("URL do servidor online", "Online server URL", "URL del servidor online", "Online-Server-URL", "URL du serveur en ligne")}</span>
-                      <input
-                        value={relayServerUrl}
-                        disabled={!relayEnabled || multiplayer.connected || multiplayer.hostRunning}
-                        onChange={event => setRelayServerUrl(event.target.value)}
-                        onBlur={() => sendCommand("configureRelay", { enabled: relayEnabled, relayServerUrl })}
-                        placeholder={defaultOnlineServer}
-                      />
-                    </label>
-                    <p>{pick("O servidor NavBR público atual usa infraestrutura gratuita do Render e pode hibernar ou atingir limites durante a fase Alpha.", "The current public NavBR server uses free Render infrastructure and may sleep or hit limits during Alpha.", "El servidor público NavBR actual usa infraestructura gratuita de Render y puede suspenderse o alcanzar límites durante Alpha.", "Der aktuelle öffentliche NavBR-Server nutzt kostenlose Render-Infrastruktur und kann während der Alpha schlafen oder Limits erreichen.", "Le serveur public NavBR actuel utilise l’infrastructure gratuite de Render et peut se mettre en veille ou atteindre ses limites pendant l’Alpha.")}</p>
-                  </details>
-                </>
+                    <div className="room-form-grid room-join-fields">
+                      <label>
+                        <span>{pick("Sala", "Room", "Sala", "Raum", "Salle")}</span>
+                        <input value={roomId} onChange={event => setRoomId(event.target.value)} placeholder="navbr-1234" />
+                      </label>
+                      <label>
+                        <span>{pick("Seu apelido", "Your display name", "Tu apodo", "Dein Anzeigename", "Votre pseudo")}</span>
+                        <input value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder="Driver" />
+                      </label>
+                      <label className="room-server-field">
+                        <span>{pick("Servidor", "Server", "Servidor", "Server", "Serveur")}</span>
+                        <input value={serverUrl} onChange={event => setServerUrl(event.target.value)} placeholder={defaultOnlineServer} />
+                      </label>
+                      <label>
+                        <span>{pick("Senha, se houver", "Password, if required", "Contraseña, si existe", "Passwort, falls nötig", "Mot de passe, si nécessaire")}</span>
+                        <input type="password" value={roomPassword} onChange={event => setRoomPassword(event.target.value)} />
+                      </label>
+                    </div>
+
+                    <div className="room-join-actions">
+                      <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
+                        {pick("Entrar", "Join", "Entrar", "Beitreten", "Rejoindre")}
+                      </button>
+                      <button className="button ghost" onClick={pasteInvite}>📥 {pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
+                    </div>
+                  </>
+                )
               ) : (
-                <div className="room-connected-actions">
-                  <button className="button ghost" onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
-                  <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
-                    {multiplayer.hostRunning ? pick("Encerrar servidor deste PC", "Stop this PC server", "Detener servidor de este PC", "Server dieses PCs stoppen", "Arrêter le serveur de ce PC") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
-                  </button>
-                </div>
+                <>
+                  <div className="section-heading compact">
+                    <div>
+                      <span className="eyebrow">{pick("SALA ATIVA", "ACTIVE ROOM", "SALA ACTIVA", "AKTIVER RAUM", "SALLE ACTIVE")}</span>
+                      <h3>{multiplayer.roomId || roomId}</h3>
+                    </div>
+                  </div>
+                  <div className="room-connected-actions">
+                    <button className="button ghost" onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
+                    <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
+                      {multiplayer.hostRunning ? pick("Encerrar servidor", "Stop server", "Detener servidor", "Server stoppen", "Arrêter le serveur") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
+                    </button>
+                  </div>
+                </>
               )}
+
               {inviteNotice && <div className="network-message">{inviteNotice}</div>}
             </article>
 
