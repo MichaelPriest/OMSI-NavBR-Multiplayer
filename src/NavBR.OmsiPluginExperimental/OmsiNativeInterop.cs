@@ -284,6 +284,9 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsMapTileIndexValid")]
     internal static extern int IsMapTileIndexValid(int mapTileIndex);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ResolveMapTileIndex")]
+    internal static extern int ResolveMapTileIndex(int gridX, int gridY);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetHumanCount")]
     private static extern int GetHumanCount();
 
