@@ -1,8 +1,6 @@
 # Alpha.14 — notas da versão pública
 
-Versão pública atual: **v0.3.0-alpha.14-test.5**
-
-Desenvolvimento atual na `main`: **v0.3.0-alpha.14-test.6**
+Versão pública e atual: **v0.3.0-alpha.14-test.5**
 
 A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.5** passa a ser a release pública atual do OMSI NavBR Multiplayer.
 
