@@ -329,30 +329,38 @@ internal static class PhysicalVehicleBackend
             var completeDiff = OmsiNativeInterop.TryFindNewRoadVehicles(
                 before,
                 out createdVehiclePointers);
+
+            // OmsiHook-compatible wrappers expose MakeVehicle's return value as
+            // the spawned vehicle ID. On a busy map the global before/after
+            // list diff can be empty or contain unrelated concurrent AI
+            // changes. Prefer the exact return value when it can be validated
+            // against the live RoadVehicles list and was absent before.
+            if (OmsiNativeInterop.TryResolveMakeVehicleResult(
+                    makeVehicleResult,
+                    before,
+                    out var exactCreatedVehiclePointer))
+            {
+                createdVehiclePointers = [exactCreatedVehiclePointer];
+                completeDiff = true;
+            }
+
             if (!completeDiff || createdVehiclePointers.Length == 0)
             {
-                foreach (var pointer in createdVehiclePointers)
-                {
-                    _ = OmsiNativeInterop.MarkVehicleForKilling(pointer);
-                }
-
                 return Fail(
                     command,
                     "spawn-pointer-unresolved",
-                    $"OMSI spawn did not produce a fully identifiable RoadVehicle set. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, detected={createdVehiclePointers.Length}.");
+                    $"OMSI spawn did not produce a fully identifiable RoadVehicle. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, detected={createdVehiclePointers.Length}.");
             }
 
             if (createdVehiclePointers.Length != 1)
             {
-                foreach (var pointer in createdVehiclePointers)
-                {
-                    _ = OmsiNativeInterop.MarkVehicleForKilling(pointer);
-                }
-
+                // Do not kill every pointer from an ambiguous global diff:
+                // another OMSI AI spawn may have happened concurrently and we
+                // must never delete a vehicle that NavBR does not own.
                 return Fail(
                     command,
-                    "multi-vehicle-consist-unsupported",
-                    $"OMSI created {createdVehiclePointers.Length} RoadVehicle instances for this definition. They were removed because articulated/multi-vehicle ownership is not validated yet. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}.",
+                    "spawn-pointer-ambiguous",
+                    $"OMSI created or exposed {createdVehiclePointers.Length} new RoadVehicle candidates but the exact MakeVehicle result could not be resolved safely. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}.",
                     remoteVehicleCount: createdVehiclePointers.Length);
             }
         }

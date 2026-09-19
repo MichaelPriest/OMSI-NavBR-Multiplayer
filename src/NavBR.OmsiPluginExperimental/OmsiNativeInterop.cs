@@ -300,6 +300,77 @@ internal static class OmsiNativeInterop
         return valid.Length == added.Length;
     }
 
+    internal static bool TryResolveMakeVehicleResult(
+        int makeVehicleResult,
+        IReadOnlyCollection<int> before,
+        out int vehiclePointer)
+    {
+        vehiclePointer = 0;
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            var known = new HashSet<int>(before);
+
+            // Some reverse-engineering references expose MakeVehicle's return
+            // value as the created object/ID. Accept a direct pointer only when
+            // it is a live RoadVehicle and was not present before this spawn.
+            if (makeVehicleResult > 0 &&
+                !known.Contains(makeVehicleResult) &&
+                IsRoadVehiclePointer(makeVehicleResult) == 1)
+            {
+                vehiclePointer = makeVehicleResult;
+                return true;
+            }
+
+            var count = GetRoadVehicleCount();
+            if (count <= 0 || count > MaxReasonableRoadVehicles)
+            {
+                return false;
+            }
+
+            // Other wrappers describe the same return as a vehicle ID/index.
+            // Validate both zero-based and one-based interpretations against
+            // the live main list and the pre-spawn snapshot before accepting.
+            var candidateIndexes = new[]
+            {
+                makeVehicleResult,
+                makeVehicleResult - 1
+            }
+            .Distinct()
+            .Where(index => index >= 0 && index < count);
+
+            foreach (var index in candidateIndexes)
+            {
+                var pointer = GetRoadVehicleAt(index);
+                if (pointer != 0 &&
+                    !known.Contains(pointer) &&
+                    IsRoadVehiclePointer(pointer) == 1)
+                {
+                    vehiclePointer = pointer;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     private static bool EnsureShimLoaded()
     {
         lock (ShimLoadSync)

@@ -296,8 +296,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         var hasStablePhysicalGrid =
-            frame.Telemetry.PhysicalGridX is int &&
-            frame.Telemetry.PhysicalGridY is int;
+            (frame.Telemetry.PhysicalGridX is int &&
+             frame.Telemetry.PhysicalGridY is int) ||
+            (frame.Telemetry.PhysicalGridX is null &&
+             frame.Telemetry.PhysicalGridY is null &&
+             frame.Telemetry.GridX is int &&
+             frame.Telemetry.GridY is int);
         var hasSimulatorLocalTile =
             playerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase) &&
             frame.Telemetry.MapTileIndex is int simulatorTileIndex &&
@@ -311,7 +315,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 playerId,
                 "tile-unavailable",
                 "remote-grid-missing",
-                "Remote telemetry did not include RoadVehicle-coherent GridX/GridY. Only simulator validation may use the host-inherited local Kachel index.");
+                "Remote telemetry did not include any usable OMSI GridX/GridY identity. Current physical grid is preferred; legacy GridX/GridY is accepted only when the local plugin can resolve it to a loaded Kachel.");
             return;
         }
 
@@ -821,17 +825,30 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private static PlayerTelemetryFrame BuildPhysicalFrame(
         PlayerTelemetryFrame frame,
         OmsiCompatibilityManifest remoteManifest,
-        string resolvedVehiclePath) =>
-        frame with
+        string resolvedVehiclePath)
+    {
+        var hasPhysicalGrid =
+            frame.Telemetry.PhysicalGridX is int &&
+            frame.Telemetry.PhysicalGridY is int;
+        var physicalGridX = hasPhysicalGrid
+            ? frame.Telemetry.PhysicalGridX
+            : frame.Telemetry.GridX;
+        var physicalGridY = hasPhysicalGrid
+            ? frame.Telemetry.PhysicalGridY
+            : frame.Telemetry.GridY;
+
+        return frame with
         {
             Telemetry = frame.Telemetry with
             {
-                // Native spawn/update must use the grid resolved from the same
-                // RoadVehicle.Kachel as LocalX/LocalY. Navigation GridX/GridY
-                // can legitimately come from Map.CurrentGrid and must not be
-                // mixed with the physical RoadVehicle pose.
-                GridX = frame.Telemetry.PhysicalGridX,
-                GridY = frame.Telemetry.PhysicalGridY,
+                // Prefer the RoadVehicle.Kachel-coherent physical grid. The
+                // public Render deployment can temporarily run an older
+                // NavBR.Shared that strips PhysicalGridX/Y; in that case keep
+                // backward compatibility by forwarding legacy GridX/Y. The
+                // plugin still resolves that pair to a loaded local Kachel
+                // before any write, so an invalid legacy grid fails closed.
+                GridX = physicalGridX,
+                GridY = physicalGridY,
                 MapTileIndex =
                     frame.Player.PlayerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase)
                         ? frame.Telemetry.MapTileIndex
@@ -842,6 +859,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
             }
         };
+    }
 
     private bool TryGetLocalDistanceMeters(
         VehicleTelemetry remoteTelemetry,
