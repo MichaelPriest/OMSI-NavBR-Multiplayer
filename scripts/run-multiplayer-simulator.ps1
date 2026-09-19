@@ -20,6 +20,7 @@ param(
     [double]$Radius = 18,
     [int]$Duration = 0,
     [switch]$Verify,
+    [switch]$VerifyPhysical,
     [switch]$NoAutoServer
 )
 
@@ -67,7 +68,10 @@ if (-not [string]::IsNullOrWhiteSpace($VehiclePath)) {
 if (-not [string]::IsNullOrWhiteSpace($VehicleId)) {
     $argsList += @("--vehicle-id", $VehicleId)
 }
-if ($Verify) {
+if ($VerifyPhysical) {
+    $argsList += "--verify-physical"
+}
+elseif ($Verify) {
     $argsList += "--verify"
 }
 if ($NoAutoServer) {
@@ -79,6 +83,7 @@ Write-Host "Server : $Server"
 Write-Host "Room   : $Room"
 Write-Host "Players: $Players"
 Write-Host "Mode   : $Mode"
+Write-Host "Physical verify: $($VerifyPhysical.IsPresent)"
 Write-Host ""
 Write-Host "Os jogadores simulados usam clientes SignalR reais e aparecem na Central Multiplayer."
 Write-Host "Ctrl+C encerra o simulador."
