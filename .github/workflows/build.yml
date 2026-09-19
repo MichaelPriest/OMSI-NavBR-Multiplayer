@@ -18,6 +18,34 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build React desktop UI
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI was not generated."
+          }
+
+          $distFiles = @(Get-ChildItem "ui/navbr-web/dist" -Recurse -File)
+          if ($distFiles.Count -lt 2) {
+            throw "React WebView2 UI output is incomplete."
+          }
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:

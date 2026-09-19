@@ -74,24 +74,45 @@ jobs:
         shell: pwsh
         run: .\scripts\repair-navbr-icon.ps1
 
-      - name: Publish Windows x86 client
+      - name: Setup Node 22
         if: steps.version.outputs.exists != 'true'
-        run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/client
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-      - name: Publish standalone Windows x86 EXE
+      - name: Build React desktop UI
         if: steps.version.outputs.exists != 'true'
-        run: >-
-          dotnet publish src/NavBR.Client/NavBR.Client.csproj
-          -c Release
-          -r win-x86
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:IncludeAllContentForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -p:DebugType=None
-          -p:DebugSymbols=false
-          -o artifacts/client-single
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI was not generated."
+          }
+
+          $distFiles = @(Get-ChildItem "ui/navbr-web/dist" -Recurse -File)
+          if ($distFiles.Count -lt 2) {
+            throw "React WebView2 UI output is incomplete."
+          }
+
+      - name: Restore release projects
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
+          dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
 
       - name: Publish Windows x64 server
         if: steps.version.outputs.exists != 'true'
@@ -128,7 +149,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj `
-            -c Release -r win-x86 `
+            -c Release -r win-x86 --no-restore `
             -p:PublishAot=true -p:NativeLib=Shared `
             -o artifacts/plugin
           Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" "artifacts/plugin/NavBR.OmsiInterop.dll" -Force
@@ -140,6 +161,76 @@ jobs:
             "artifacts/plugin/Remove-NavBROmsiPlugin.ps1"
           )) {
             if (-not (Test-Path $required)) { throw "Plugin package incomplete: $required" }
+          }
+
+      - name: Prepare embedded OMSI plugin bundle
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          .\scripts\prepare-embedded-plugin.ps1 `
+            -PluginDirectory "artifacts/plugin" `
+            -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
+
+          if (-not (Test-Path "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip")) {
+            throw "Embedded plugin bundle was not generated."
+          }
+
+      - name: Build and validate complete Windows x86 client
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI disappeared before client build."
+          }
+
+          $assembly = Get-ChildItem "src/NavBR.Client/bin" -Recurse -Filter "OMSI.NavBR.Multiplayer.dll" |
+            Where-Object { $_.FullName -match '[\\/]Release[\\/]' } |
+            Select-Object -First 1
+          if (-not $assembly) { throw "Client assembly not found." }
+
+          $bytes = [System.IO.File]::ReadAllBytes($assembly.FullName)
+          $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+          if (-not $text.Contains("NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip")) {
+            throw "Client does not contain the embedded OMSI plugin bundle."
+          }
+
+      - name: Smoke-test Plugin Bridge
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/bridge-smoke
+          & "artifacts/bridge-smoke/NavBR.PluginBridgeSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Plugin Bridge smoke test failed." }
+
+      - name: Publish complete Windows x86 client
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/client
+
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None -p:DebugSymbols=false `
+            -o artifacts/client-single
+
+          foreach ($required in @(
+            "artifacts/client/WebUI/dist/index.html",
+            "artifacts/client/OMSI.NavBR.Multiplayer.exe",
+            "artifacts/client-single/OMSI.NavBR.Multiplayer.exe"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Complete client output missing: $required"
+            }
           }
 
       - name: Publish multiplayer simulator dev tool
