@@ -166,28 +166,29 @@ internal static class SimulatorPhysicalTestSupport
     {
         try
         {
-            using var stream = File.Open(
-                fullPath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(
-                stream,
-                System.Text.Encoding.Latin1,
-                detectEncodingFromByteOrderMarks: true);
-
-            while (reader.ReadLine() is { } line)
+            var info = new FileInfo(fullPath);
+            if (!info.Exists ||
+                info.Length <= 0 ||
+                info.Length > 2 * 1024 * 1024)
             {
-                var tag = line.Trim();
+                return true;
+            }
+
+            var lines = File.ReadAllLines(
+                fullPath,
+                System.Text.Encoding.Latin1);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var tag = lines[index].Trim();
                 if (!tag.Equals("[couple_back]", StringComparison.OrdinalIgnoreCase) &&
                     !tag.Equals("[couple_front]", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                while (reader.ReadLine() is { } valueLine)
+                for (var cursor = index + 1; cursor < lines.Length; cursor++)
                 {
-                    var value = valueLine.Trim();
+                    var value = lines[cursor].Trim();
                     if (value.Length == 0 ||
                         value.StartsWith(";", StringComparison.Ordinal) ||
                         value.StartsWith("//", StringComparison.Ordinal))
@@ -195,17 +196,20 @@ internal static class SimulatorPhysicalTestSupport
                         continue;
                     }
 
-                    // A new section without a coupled definition means this
-                    // particular couple tag is not declaring another vehicle.
                     if (value.StartsWith("[", StringComparison.Ordinal))
                     {
                         break;
                     }
 
-                    return value.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-                           value.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) ||
-                           value.Contains(".bus", StringComparison.OrdinalIgnoreCase) ||
-                           value.Contains(".ovh", StringComparison.OrdinalIgnoreCase);
+                    if (value.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
+                        value.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains(".bus", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains(".ovh", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    break;
                 }
             }
         }
