@@ -294,13 +294,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         if (!_spawned.ContainsKey(playerId) &&
-            (frame.Telemetry.MapTileIndex is not int spawnTileIndex ||
-             spawnTileIndex is < 0 or > 200_000))
+            (frame.Telemetry.GridX is not int ||
+             frame.Telemetry.GridY is not int))
         {
             SetStatus(
                 playerId,
                 "tile-unavailable",
-                "remote-tile-index-missing");
+                "remote-grid-missing",
+                "Remote telemetry did not include stable OMSI GridX/GridY coordinates.");
             return;
         }
 
@@ -379,10 +380,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 if (spawn?.Success != true)
                 {
                     _spawned.TryRemove(playerId, out _);
-                    if (string.Equals(
-                            spawn?.ErrorCode,
-                            "tile-unavailable",
-                            StringComparison.Ordinal))
+                    if (IsTileAvailabilityError(spawn?.ErrorCode))
                     {
                         _spawnRetryAfterByPlayer[playerId] =
                             DateTimeOffset.UtcNow + TileUnavailableRetryDelay;
@@ -645,6 +643,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
     }
 
+    private static bool IsTileAvailabilityError(string? errorCode) =>
+        !string.IsNullOrWhiteSpace(errorCode) &&
+        (string.Equals(
+             errorCode,
+             "tile-unavailable",
+             StringComparison.Ordinal) ||
+         string.Equals(
+             errorCode,
+             "tile-grid-unavailable",
+             StringComparison.Ordinal) ||
+         string.Equals(
+             errorCode,
+             "tile-grid-missing",
+             StringComparison.Ordinal));
+
     private static bool IsFatalUpdateFailure(string? errorCode) =>
         string.Equals(errorCode, "vehicle-not-owned", StringComparison.Ordinal) ||
         string.Equals(errorCode, "vehicle-pointer-stale", StringComparison.Ordinal) ||
@@ -670,10 +683,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 "multi-vehicle-consist-unsupported",
                 StringComparison.Ordinal)
             ? "consist-unsupported"
-            : string.Equals(
-                errorCode,
-                "tile-unavailable",
-                StringComparison.Ordinal)
+            : IsTileAvailabilityError(errorCode)
                 ? "tile-unavailable"
                 : $"{operation}-failed";
         SetStatus(
