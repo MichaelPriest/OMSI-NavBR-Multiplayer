@@ -36,6 +36,7 @@ export default function App() {
       <DownloadDrawer
         open={downloadsOpen}
         assets={currentAssets}
+        currentTag={current?.tag_name}
         loading={catalog.loading}
         error={catalog.error}
         releasesPage={RELEASES_PAGE}
