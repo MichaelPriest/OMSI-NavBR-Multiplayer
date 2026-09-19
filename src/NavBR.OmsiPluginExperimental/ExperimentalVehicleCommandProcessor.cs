@@ -26,6 +26,7 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleVisualState);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleInterpolation);
+            capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTileSync);
         }
 
         if (RoleplayCharacterCommandProcessor.IsRuntimeSupported)
@@ -480,7 +481,11 @@ internal static class PhysicalVehicleBackend
                 pose.RotationY,
                 pose.RotationZ,
                 pose.RotationW,
-                speedMps) != 1)
+                speedMps,
+                command.MapTileIndex is int mapTileIndex &&
+                mapTileIndex >= 0
+                    ? mapTileIndex
+                    : -1) != 1)
         {
             return Fail(command, "transform-write-failed", "OMSI rejected the guarded vehicle transform write.");
         }
