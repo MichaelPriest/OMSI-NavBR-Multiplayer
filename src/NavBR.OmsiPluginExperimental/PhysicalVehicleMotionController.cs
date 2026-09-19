@@ -11,8 +11,9 @@ internal static class PhysicalVehicleMotionController
 {
     private const long MinimumTickIntervalMs = 16;
     private const double MinimumInterpolationMs = 70d;
-    private const double MaximumInterpolationMs = 220d;
+    private const double MaximumInterpolationMs = 320d;
     private const double DefaultInterpolationMs = 120d;
+    private const double InterpolationPeriodScale = 1.05d;
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
     private const long StaleTargetAfterMs = 5_000;
@@ -107,6 +108,15 @@ internal static class PhysicalVehicleMotionController
 
         var now = Environment.TickCount64;
         var gapMs = Math.Max(0L, now - state.LastTargetTickMs);
+        var sourceGapMs =
+            sourceTimestamp is long sourceValue &&
+            state.LastSourceTimestampMs is long previousSourceValue &&
+            sourceValue > previousSourceValue
+                ? sourceValue - previousSourceValue
+                : 0L;
+        var cadenceMs = sourceGapMs is >= 20 and <= 1_000
+            ? sourceGapMs
+            : gapMs;
         var distance = Distance(state.Current, target);
 
         if (gapMs >= TeleportGapMs || distance >= TeleportDistanceMeters)
@@ -133,9 +143,12 @@ internal static class PhysicalVehicleMotionController
         state.Start = state.Current;
         state.Target = target;
         state.StartTickMs = now;
-        state.DurationMs = gapMs <= 0
+        state.DurationMs = cadenceMs <= 0
             ? DefaultInterpolationMs
-            : Math.Clamp(gapMs * 0.85d, MinimumInterpolationMs, MaximumInterpolationMs);
+            : Math.Clamp(
+                cadenceMs * InterpolationPeriodScale,
+                MinimumInterpolationMs,
+                MaximumInterpolationMs);
         state.LastTargetTickMs = now;
         state.LastSourceTimestampMs = sourceTimestamp;
         return true;
