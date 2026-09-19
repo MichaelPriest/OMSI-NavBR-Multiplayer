@@ -23,6 +23,10 @@ internal static class OmsiWebRoadmapFallbackCache
 
     private static readonly ConcurrentDictionary<string, Task> GenerationTasks =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, DateTimeOffset> RetryAfter =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan FailedGenerationRetryDelay =
+        TimeSpan.FromSeconds(30);
 
     private sealed record SplinePlacement(
         double X,
@@ -54,15 +58,81 @@ internal static class OmsiWebRoadmapFallbackCache
                 return BuildCacheUrl(relativePath);
             }
 
-            GenerationTasks.GetOrAdd(
-                key,
-                _ => Task.Run(() => Generate(map, outputPath)));
+            if (RetryAfter.TryGetValue(key, out var retryAfter) &&
+                retryAfter > DateTimeOffset.UtcNow)
+            {
+                return null;
+            }
 
+            RequestGeneration(key, map, outputPath);
             return null;
         }
         catch
         {
             return null;
+        }
+    }
+
+    private static void RequestGeneration(
+        string key,
+        OmsiMapInfo map,
+        string outputPath)
+    {
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!GenerationTasks.TryAdd(key, completion.Task))
+        {
+            return;
+        }
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var generated = Generate(map, outputPath);
+                if (generated)
+                {
+                    RetryAfter.TryRemove(key, out _);
+                }
+                else
+                {
+                    RetryAfter[key] =
+                        DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
+                }
+
+                completion.TrySetResult(generated);
+            }
+            catch
+            {
+                RetryAfter[key] =
+                    DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
+                completion.TrySetResult(false);
+            }
+            finally
+            {
+                GenerationTasks.TryRemove(key, out _);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "NavBR roadmap renderer"
+        };
+
+        try
+        {
+            // DrawingVisual/RenderTargetBitmap are WPF dispatcher objects.
+            // Keep generation away from the UI thread, but use a dedicated
+            // STA apartment so community maps without whole.roadmap.bmp can
+            // actually render instead of failing silently on a pool MTA.
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+        }
+        catch
+        {
+            GenerationTasks.TryRemove(key, out _);
+            RetryAfter[key] =
+                DateTimeOffset.UtcNow + FailedGenerationRetryDelay;
+            completion.TrySetResult(false);
         }
     }
 
@@ -101,7 +171,7 @@ internal static class OmsiWebRoadmapFallbackCache
         return $"https://navbr-cache.local/{escaped}";
     }
 
-    private static void Generate(
+    private static bool Generate(
         OmsiMapInfo map,
         string outputPath)
     {
@@ -113,7 +183,7 @@ internal static class OmsiWebRoadmapFallbackCache
                 layout.GridWidth <= 0 ||
                 layout.GridHeight <= 0)
             {
-                return;
+                return false;
             }
 
             var tiles = ReadTileCatalog(
@@ -121,7 +191,7 @@ internal static class OmsiWebRoadmapFallbackCache
                 map.GlobalConfigPath);
             if (tiles.Count == 0 || tiles.Count > MaxTiles)
             {
-                return;
+                return false;
             }
 
             var rawWidth = Math.Max(
@@ -206,7 +276,7 @@ internal static class OmsiWebRoadmapFallbackCache
 
             if (geometryCount == 0)
             {
-                return;
+                return false;
             }
 
             var bitmap = new RenderTargetBitmap(
@@ -221,7 +291,7 @@ internal static class OmsiWebRoadmapFallbackCache
             var directory = Path.GetDirectoryName(outputPath);
             if (string.IsNullOrWhiteSpace(directory))
             {
-                return;
+                return false;
             }
 
             Directory.CreateDirectory(directory);
@@ -236,6 +306,7 @@ internal static class OmsiWebRoadmapFallbackCache
                 }
 
                 File.Move(temporaryPath, outputPath, overwrite: true);
+                return true;
             }
             finally
             {
@@ -256,6 +327,7 @@ internal static class OmsiWebRoadmapFallbackCache
             // Navigation keeps its route/vehicle overlays even if a community
             // map contains malformed geometry. Never turn fallback rendering
             // into a startup failure.
+            return false;
         }
     }
 
