@@ -49,6 +49,8 @@ A tela Rede verifica separadamente se existe listener TCP local em 27730. Sem sa
 
 UPnP é opcional e só é alterável quando a hospedagem local está parada.
 
+Desde o hotfix público da Alpha.14 Test 4 (SHA `29f30b2`), o modo **Online através do Host** não espera mais o roteador para concluir a criação da sala. O servidor TCP 27730 sobe primeiro; a descoberta/mapeamento UPnP roda em segundo plano com timeout global de 8 segundos. Resolução DNS e conexão ao gateway também são assíncronas. Se o UPnP falhar ou expirar, a sala permanece ativa em LAN e a interface recebe o estado de falha sem congelar.
+
 CGNAT/double NAT podem impedir conexões diretas mesmo com Firewall e UPnP corretos.
 
 ## Teste externo
