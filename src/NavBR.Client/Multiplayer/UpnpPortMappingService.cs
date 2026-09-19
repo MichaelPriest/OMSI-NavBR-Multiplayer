@@ -29,12 +29,12 @@ internal sealed class UpnpPortMappingService
 
     public async Task<UpnpGatewayInfo?> DiscoverAsync(CancellationToken cancellationToken = default)
     {
-        var locations = await DiscoverLocationsAsync(cancellationToken);
+        var locations = await DiscoverLocationsAsync(cancellationToken).ConfigureAwait(false);
         foreach (var location in locations)
         {
             try
             {
-                var gateway = await ResolveGatewayAsync(location, cancellationToken);
+                var gateway = await ResolveGatewayAsync(location, cancellationToken).ConfigureAwait(false);
                 if (gateway is not null)
                 {
                     return gateway;
@@ -57,7 +57,7 @@ internal sealed class UpnpPortMappingService
             throw new ArgumentOutOfRangeException(nameof(port));
         }
 
-        var gateway = await DiscoverAsync(cancellationToken);
+        var gateway = await DiscoverAsync(cancellationToken).ConfigureAwait(false);
         if (gateway is null)
         {
             return new UpnpMappingResult(
@@ -81,8 +81,8 @@ internal sealed class UpnpPortMappingService
                 </u:AddPortMapping>
                 """;
 
-            await SendSoapAsync(gateway, "AddPortMapping", body, cancellationToken);
-            var external = await TryGetExternalAddressAsync(gateway, cancellationToken);
+            await SendSoapAsync(gateway, "AddPortMapping", body, cancellationToken).ConfigureAwait(false);
+            var external = await TryGetExternalAddressAsync(gateway, cancellationToken).ConfigureAwait(false);
             return new UpnpMappingResult(
                 true,
                 MultiplayerNetworkErrorCode.Unknown,
@@ -115,7 +115,7 @@ internal sealed class UpnpPortMappingService
                   <NewProtocol>TCP</NewProtocol>
                 </u:DeletePortMapping>
                 """;
-            await SendSoapAsync(gateway, "DeletePortMapping", body, cancellationToken);
+            await SendSoapAsync(gateway, "DeletePortMapping", body, cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch
@@ -133,7 +133,7 @@ internal sealed class UpnpPortMappingService
             var body = $"""
                 <u:GetExternalIPAddress xmlns:u="{gateway.ServiceType}"></u:GetExternalIPAddress>
                 """;
-            var response = await SendSoapAsync(gateway, "GetExternalIPAddress", body, cancellationToken);
+            var response = await SendSoapAsync(gateway, "GetExternalIPAddress", body, cancellationToken).ConfigureAwait(false);
             var document = XDocument.Parse(response);
             return document.Descendants()
                 .FirstOrDefault(element => element.Name.LocalName == "NewExternalIPAddress")?
@@ -160,7 +160,7 @@ internal sealed class UpnpPortMappingService
             string.Empty,
             string.Empty);
         var payload = Encoding.ASCII.GetBytes(request);
-        await udp.SendAsync(payload, SsdpEndpoint, cancellationToken);
+        await udp.SendAsync(payload, SsdpEndpoint, cancellationToken).ConfigureAwait(false);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(3));
@@ -170,7 +170,7 @@ internal sealed class UpnpPortMappingService
         {
             try
             {
-                var result = await udp.ReceiveAsync(timeout.Token);
+                var result = await udp.ReceiveAsync(timeout.Token).ConfigureAwait(false);
                 var text = Encoding.UTF8.GetString(result.Buffer);
                 foreach (var line in text.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
                 {
@@ -202,7 +202,7 @@ internal sealed class UpnpPortMappingService
 
     private async Task<UpnpGatewayInfo?> ResolveGatewayAsync(Uri descriptionUri, CancellationToken cancellationToken)
     {
-        var xml = await _http.GetStringAsync(descriptionUri, cancellationToken);
+        var xml = await _http.GetStringAsync(descriptionUri, cancellationToken).ConfigureAwait(false);
         var document = XDocument.Parse(xml);
 
         foreach (var service in document.Descendants().Where(element => element.Name.LocalName == "service"))
@@ -230,7 +230,7 @@ internal sealed class UpnpPortMappingService
             var controlUri = Uri.TryCreate(controlValue, UriKind.Absolute, out var absolute)
                 ? absolute
                 : new Uri(descriptionUri, controlValue);
-            var localAddress = ResolveLocalAddress(controlUri);
+            var localAddress = await ResolveLocalAddressAsync(controlUri, cancellationToken).ConfigureAwait(false);
             if (localAddress is null)
             {
                 continue;
@@ -241,7 +241,7 @@ internal sealed class UpnpPortMappingService
                 controlUri,
                 serviceType,
                 localAddress);
-            var external = await TryGetExternalAddressAsync(gateway, cancellationToken);
+            var external = await TryGetExternalAddressAsync(gateway, cancellationToken).ConfigureAwait(false);
             return gateway with { ExternalAddress = external };
         }
 
@@ -267,8 +267,8 @@ internal sealed class UpnpPortMappingService
         };
         request.Headers.TryAddWithoutValidation("SOAPACTION", $"\"{gateway.ServiceType}#{action}\"");
 
-        using var response = await _http.SendAsync(request, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"UPnP SOAP {action} failed with HTTP {(int)response.StatusCode}: {responseBody}");
@@ -276,27 +276,50 @@ internal sealed class UpnpPortMappingService
         return responseBody;
     }
 
-    private static IPAddress? ResolveLocalAddress(Uri controlUri)
+    private static async Task<IPAddress?> ResolveLocalAddressAsync(
+        Uri controlUri,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var addresses = Dns.GetHostAddresses(controlUri.Host)
-                .Where(address => address.AddressFamily == AddressFamily.InterNetwork)
-                .ToArray();
-            foreach (var address in addresses)
+            IPAddress[] addresses;
+            if (IPAddress.TryParse(controlUri.Host, out var parsed))
             {
-                using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.Connect(new IPEndPoint(address, controlUri.Port > 0 ? controlUri.Port : 80));
-                if (socket.LocalEndPoint is IPEndPoint local && !IPAddress.IsLoopback(local.Address))
+                addresses = [parsed];
+            }
+            else
+            {
+                addresses = await Dns.GetHostAddressesAsync(
+                    controlUri.Host,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            foreach (var address in addresses.Where(address =>
+                         address.AddressFamily == AddressFamily.InterNetwork))
+            {
+                using var socket = new Socket(
+                    AddressFamily.InterNetwork,
+                    SocketType.Dgram,
+                    ProtocolType.Udp);
+                await socket.ConnectAsync(
+                    new IPEndPoint(address, controlUri.Port > 0 ? controlUri.Port : 80),
+                    cancellationToken).ConfigureAwait(false);
+                if (socket.LocalEndPoint is IPEndPoint local &&
+                    !IPAddress.IsLoopback(local.Address))
                 {
                     return local.Address;
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch
         {
             // UPnP is optional. Discovery failure must not prevent local hosting.
         }
+
         return null;
     }
 }
