@@ -30,6 +30,7 @@ internal sealed class OmsiRouteRejoinPathfinder
 
     private string? _mapKey;
     private string? _lastSearchKey;
+    private string? _lastDiagnosticSignature;
     private OmsiRouteRejoinPath? _lastResult;
     private Dictionary<(int X, int Y), string> _tileCatalog = new();
     private readonly Dictionary<string, CachedTile> _tileCache =
@@ -49,12 +50,40 @@ internal sealed class OmsiRouteRejoinPathfinder
             telemetry.TileX is not double vehicleTileX ||
             telemetry.TileY is not double vehicleTileY)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "input-missing",
+                telemetry.GridX,
+                telemetry.GridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
         EnsureMap(map);
         if (_tileCatalog.Count == 0)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "tile-catalog-empty",
+                vehicleGridX,
+                vehicleGridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -73,6 +102,20 @@ internal sealed class OmsiRouteRejoinPathfinder
             tileSize);
         if (targetTrace is null)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "target-missing",
+                vehicleGridX,
+                vehicleGridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -85,6 +128,20 @@ internal sealed class OmsiRouteRejoinPathfinder
             directDistance < 1d ||
             directDistance > MaxRejoinSearchMeters)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "direct-distance-invalid",
+                vehicleGridX,
+                vehicleGridY,
+                targetTrace.GridX,
+                targetTrace.GridY,
+                directDistance,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -99,6 +156,14 @@ internal sealed class OmsiRouteRejoinPathfinder
 
         _lastSearchKey = searchKey;
         _lastResult = null;
+
+        var lastReason = "search-exhausted";
+        var lastMargin = 0;
+        var lastTileCount = 0;
+        var lastSegmentCount = 0;
+        var lastNodeCount = 0;
+        double? lastStartSnap = null;
+        double? lastTargetSnap = null;
 
         // A valid road return can legitimately leave the immediately adjacent
         // tile rectangle (one-way layouts, terminals, bridges and large urban
@@ -119,8 +184,11 @@ internal sealed class OmsiRouteRejoinPathfinder
                     pair.Key.Y <= maxGridY)
                 .Take(MaxTilesPerSearch + 1)
                 .ToArray();
+            lastMargin = margin;
+            lastTileCount = selectedTiles.Length;
             if (selectedTiles.Length == 0)
             {
+                lastReason = "no-tiles";
                 continue;
             }
 
@@ -129,6 +197,7 @@ internal sealed class OmsiRouteRejoinPathfinder
             // attempted and failed closed.
             if (selectedTiles.Length > MaxTilesPerSearch)
             {
+                lastReason = "too-many-tiles";
                 break;
             }
 
@@ -146,30 +215,44 @@ internal sealed class OmsiRouteRejoinPathfinder
                 }
             }
 
+            lastSegmentCount = segments.Count;
             if (segments.Count == 0)
             {
+                lastReason = "no-segments";
                 continue;
             }
 
             var graph = BuildGraph(segments);
+            lastNodeCount = graph.Nodes.Count;
             if (graph.Nodes.Count < 2)
             {
+                lastReason = "graph-too-small";
                 continue;
             }
 
             var startNode = FindNearestNode(graph.Nodes, vehicle);
             var targetNode = FindNearestNode(graph.Nodes, target);
-            if (startNode is null ||
-                targetNode is null ||
-                Distance2D(startNode.Point, vehicle) > MaxSnapToRoadMeters ||
-                Distance2D(targetNode.Point, target) > MaxSnapToRoadMeters)
+            if (startNode is null || targetNode is null)
             {
+                lastReason = "snap-unavailable";
+                lastStartSnap = null;
+                lastTargetSnap = null;
+                continue;
+            }
+
+            lastStartSnap = Distance2D(startNode.Point, vehicle);
+            lastTargetSnap = Distance2D(targetNode.Point, target);
+            if (lastStartSnap > MaxSnapToRoadMeters ||
+                lastTargetSnap > MaxSnapToRoadMeters)
+            {
+                lastReason = "snap-too-far";
                 continue;
             }
 
             var nodePath = FindShortestPath(graph, startNode.Id, targetNode.Id);
             if (nodePath.Count == 0)
             {
+                lastReason = "no-path";
                 continue;
             }
 
@@ -191,6 +274,7 @@ internal sealed class OmsiRouteRejoinPathfinder
             output = Decimate(output, MaxOutputPoints);
             if (output.Count < 2)
             {
+                lastReason = "output-too-small";
                 continue;
             }
 
@@ -206,9 +290,37 @@ internal sealed class OmsiRouteRejoinPathfinder
                 output,
                 distance,
                 new OmsiRouteRejoinPoint(target.X, target.Y));
+            WriteRejoinDiagnostics(
+                map,
+                "success",
+                vehicleGridX,
+                vehicleGridY,
+                targetTrace.GridX,
+                targetTrace.GridY,
+                directDistance,
+                margin,
+                selectedTiles.Length,
+                segments.Count,
+                graph.Nodes.Count,
+                lastStartSnap,
+                lastTargetSnap);
             return _lastResult;
         }
 
+        WriteRejoinDiagnostics(
+            map,
+            lastReason,
+            vehicleGridX,
+            vehicleGridY,
+            targetTrace.GridX,
+            targetTrace.GridY,
+            directDistance,
+            lastMargin,
+            lastTileCount,
+            lastSegmentCount,
+            lastNodeCount,
+            lastStartSnap,
+            lastTargetSnap);
         return null;
     }
 
@@ -222,6 +334,7 @@ internal sealed class OmsiRouteRejoinPathfinder
 
         _mapKey = key;
         _lastSearchKey = null;
+        _lastDiagnosticSignature = null;
         _lastResult = null;
         _tileCache.Clear();
         _tileCatalog = ReadTileCatalog(
@@ -361,6 +474,107 @@ internal sealed class OmsiRouteRejoinPathfinder
         }
 
         return result;
+    }
+
+    private void WriteRejoinDiagnostics(
+        OmsiMapInfo map,
+        string result,
+        int? vehicleGridX,
+        int? vehicleGridY,
+        int? targetGridX,
+        int? targetGridY,
+        double? directDistance,
+        int margin,
+        int tileCount,
+        int segmentCount,
+        int nodeCount,
+        double? startSnap,
+        double? targetSnap)
+    {
+        var signature = string.Join(
+            "|",
+            map.FolderName,
+            result,
+            vehicleGridX?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            vehicleGridY?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            targetGridX?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            targetGridY?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            margin.ToString(CultureInfo.InvariantCulture),
+            tileCount.ToString(CultureInfo.InvariantCulture),
+            segmentCount.ToString(CultureInfo.InvariantCulture),
+            nodeCount.ToString(CultureInfo.InvariantCulture),
+            startSnap?.ToString("F1", CultureInfo.InvariantCulture) ?? "-",
+            targetSnap?.ToString("F1", CultureInfo.InvariantCulture) ?? "-");
+
+        if (string.Equals(_lastDiagnosticSignature, signature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastDiagnosticSignature = signature;
+
+        try
+        {
+            var localAppData = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localAppData))
+            {
+                return;
+            }
+
+            var directory = Path.Combine(
+                localAppData,
+                "OMSI NavBR Multiplayer");
+            Directory.CreateDirectory(directory);
+            var logPath = Path.Combine(directory, "navbr-route.log");
+            var line = string.Join(
+                " ",
+                $"[{DateTimeOffset.Now:O}]",
+                "kind=rejoin",
+                $"map={ToLogValue(map.FolderName)}",
+                $"result={result}",
+                $"vehicleGrid={FormatGrid(vehicleGridX, vehicleGridY)}",
+                $"targetGrid={FormatGrid(targetGridX, targetGridY)}",
+                $"direct={FormatNumber(directDistance)}",
+                $"margin={margin.ToString(CultureInfo.InvariantCulture)}",
+                $"tiles={tileCount.ToString(CultureInfo.InvariantCulture)}",
+                $"segments={segmentCount.ToString(CultureInfo.InvariantCulture)}",
+                $"nodes={nodeCount.ToString(CultureInfo.InvariantCulture)}",
+                $"startSnap={FormatNumber(startSnap)}",
+                $"targetSnap={FormatNumber(targetSnap)}");
+
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string FormatGrid(int? x, int? y) =>
+        x is int gridX && y is int gridY
+            ? $"{gridX.ToString(CultureInfo.InvariantCulture)},{gridY.ToString(CultureInfo.InvariantCulture)}"
+            : "-";
+
+    private static string FormatNumber(double? value) =>
+        value is double number && double.IsFinite(number)
+            ? number.ToString("F1", CultureInfo.InvariantCulture)
+            : "-";
+
+    private static string ToLogValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        return value
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim()
+            .Replace(' ', '_');
     }
 
     private static RoadGraph BuildGraph(IReadOnlyList<RoadSegment> segments)
