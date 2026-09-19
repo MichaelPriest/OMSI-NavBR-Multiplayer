@@ -388,8 +388,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             !app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform))
         {
             var connection = app.PluginBridge.GetConnectionInfo();
-            var capabilities = connection.LastPluginCapabilities?.Capabilities ??
-                               connection.LastPluginStatus?.Capabilities ??
+            var capabilities = connection.LastCapabilities?.Capabilities ??
+                               connection.LastStatus?.Capabilities ??
                                Array.Empty<string>();
             var component = string.IsNullOrWhiteSpace(connection.PluginComponentVersion)
                 ? "unknown"
