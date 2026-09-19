@@ -14,7 +14,7 @@ public partial class MainWindow
     {
         var mapKey = GetRoleplayMapKeyForShell();
         IReadOnlyList<RoleplayCharacterOption> options = IsRoleplayMapReadyForShell()
-            ? GetRoleplayCharacterOptionsForShell()
+            ? GetWebRoleplayCharacterOptions()
             : Array.Empty<RoleplayCharacterOption>();
         var controller = GetRoleplayControllerForShell();
         var selected = RoleplayCharacterSelectionStore.Get(mapKey);
@@ -203,7 +203,7 @@ public partial class MainWindow
             throw new InvalidOperationException("Retorne ao ônibus antes de trocar de personagem.");
         }
 
-        var options = GetRoleplayCharacterOptionsForShell();
+        var options = GetWebRoleplayCharacterOptions();
         var option = options.FirstOrDefault(item =>
             string.Equals(item.Id, characterId, StringComparison.OrdinalIgnoreCase));
         if (option is null)
@@ -252,15 +252,10 @@ public partial class MainWindow
 
         var mapKey = GetRoleplayMapKeyForShell();
         var options = IsRoleplayMapReadyForShell()
-            ? GetRoleplayCharacterOptionsForShell()
+            ? GetWebRoleplayCharacterOptions()
             : Array.Empty<RoleplayCharacterOption>();
         var activeDriver = options.FirstOrDefault(option => option.IsActiveDriver)
-            ?? new RoleplayCharacterOption(
-                "active-driver:auto",
-                "Motorista atual",
-                "OMSI live driver",
-                DefinitionPointer: 0,
-                IsActiveDriver: true);
+            ?? CreateLiveDriverFallback();
 
         if (!string.IsNullOrWhiteSpace(mapKey))
         {
@@ -276,6 +271,29 @@ public partial class MainWindow
 
         UpdateHudRoleplayStateForShell();
     }
+
+    private IReadOnlyList<RoleplayCharacterOption> GetWebRoleplayCharacterOptions()
+    {
+        var options = GetRoleplayCharacterOptionsForShell();
+        if (options.Any(option => option.IsActiveDriver))
+        {
+            return options;
+        }
+
+        // Some maps/buses do not expose a usable Map.Drivers catalog even
+        // though OMSI has a real human seated in the player bus. The native
+        // backend can resolve that live driver safely with DefinitionPointer=0.
+        // This is a resolver sentinel, not a fabricated NPC.
+        return [.. options, CreateLiveDriverFallback()];
+    }
+
+    private static RoleplayCharacterOption CreateLiveDriverFallback() =>
+        new(
+            "active-driver:auto",
+            "Motorista atual (OMSI)",
+            "OMSI live driver",
+            DefinitionPointer: 0,
+            IsActiveDriver: true);
 
     private IReadOnlyList<string> GetRoleplayVehicleInteractionsForShell()
     {
