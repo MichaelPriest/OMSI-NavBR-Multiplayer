@@ -274,7 +274,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             // The simulator represents another player in the same real OMSI
             // environment. Reuse only compatibility facts observed from the
             // real reference player; never invent fingerprints.
-            OmsiVersion: _options.ReferenceOmsiVersion ?? "simulator",
+            OmsiVersion: _options.ReferenceOmsiVersion,
             NavBRVersion:
                 typeof(SimulatedPlayer).Assembly
                     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
