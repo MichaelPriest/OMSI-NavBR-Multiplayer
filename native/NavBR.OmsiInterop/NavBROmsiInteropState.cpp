@@ -500,6 +500,90 @@ namespace
     }
 
 
+    bool TryGetMapTileGridByPointer(
+        int tilePointer,
+        int& gridX,
+        int& gridY)
+    {
+        gridX = 0;
+        gridY = 0;
+        if (tilePointer <= 0)
+        {
+            return false;
+        }
+
+        const auto globalAddress = Resolve(RvaMapPointer);
+        if (!IsReadableRange(globalAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int mapPointer = *reinterpret_cast<const int*>(globalAddress);
+        if (mapPointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infos = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mapPointer) + MapKachelInfosOffset);
+        if (infos == 0)
+        {
+            return false;
+        }
+
+        const auto infoLengthAddress =
+            static_cast<std::uintptr_t>(infos) - sizeof(int);
+        if (!IsReadableRange(infoLengthAddress, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int infoCount =
+            *reinterpret_cast<const int*>(infoLengthAddress);
+        if (infoCount <= 0 ||
+            infoCount > MaxReasonableMapTiles ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(infos),
+                static_cast<std::size_t>(infoCount) *
+                    static_cast<std::size_t>(MapKachelInfoSize)))
+        {
+            return false;
+        }
+
+        for (int infoIndex = 0; infoIndex < infoCount; ++infoIndex)
+        {
+            const auto infoAddress =
+                static_cast<std::uintptr_t>(infos) +
+                static_cast<std::uintptr_t>(infoIndex) *
+                    static_cast<std::uintptr_t>(MapKachelInfoSize);
+            const int candidate = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoTilePointerOffset);
+            if (candidate != tilePointer)
+            {
+                continue;
+            }
+
+            const int x = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridXOffset);
+            const int y = *reinterpret_cast<const int*>(
+                infoAddress + MapKachelInfoGridYOffset);
+            if (std::abs(static_cast<long long>(x)) > 100000LL ||
+                std::abs(static_cast<long long>(y)) > 100000LL)
+            {
+                return false;
+            }
+
+            gridX = x;
+            gridY = y;
+            return true;
+        }
+
+        return false;
+    }
+
     bool TryGetHumanItems(int& count, int& itemArray)
     {
         count = 0;
@@ -849,6 +933,50 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadPlayerVehicleGrid(
+    int* gridX,
+    int* gridY,
+    int* mapTileIndex)
+{
+    if (gridX == nullptr || gridY == nullptr || mapTileIndex == nullptr)
+    {
+        return 0;
+    }
+
+    const int playerVehicle = GetPlayerVehiclePointer();
+    if (!IsRoadVehiclePointer(playerVehicle))
+    {
+        return 0;
+    }
+
+    const auto tileAddress =
+        static_cast<std::uintptr_t>(playerVehicle) + KachelOffset;
+    if (!IsReadableRange(tileAddress, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int tilePointer =
+        *reinterpret_cast<const int*>(tileAddress);
+    int resolvedGridX = 0;
+    int resolvedGridY = 0;
+    if (!TryGetMapTileGridByPointer(
+            tilePointer,
+            resolvedGridX,
+            resolvedGridY))
+    {
+        return 0;
+    }
+
+    int resolvedTileIndex = -1;
+    _ = TryGetMapTileIndexByPointer(tilePointer, resolvedTileIndex);
+
+    *gridX = resolvedGridX;
+    *gridY = resolvedGridY;
+    *mapTileIndex = resolvedTileIndex;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleTileIndex(

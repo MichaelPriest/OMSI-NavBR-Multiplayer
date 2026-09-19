@@ -101,6 +101,33 @@ internal static class PluginBridgeClient
         double? speedKph = null,
         bool? stopRequested = null)
     {
+        int? physicalGridX = null;
+        int? physicalGridY = null;
+        int? physicalMapTileIndex = null;
+        try
+        {
+            if (OmsiNativeInterop.ReadPlayerVehicleGrid(
+                    out var gridX,
+                    out var gridY,
+                    out var mapTileIndex) == 1)
+            {
+                physicalGridX = gridX;
+                physicalGridY = gridY;
+                physicalMapTileIndex = mapTileIndex >= 0
+                    ? mapTileIndex
+                    : null;
+            }
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+        catch (BadImageFormatException)
+        {
+        }
+
         var status = new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
@@ -114,6 +141,9 @@ internal static class PluginBridgeClient
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
+            GridX: physicalGridX,
+            GridY: physicalGridY,
+            MapTileIndex: physicalMapTileIndex,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,

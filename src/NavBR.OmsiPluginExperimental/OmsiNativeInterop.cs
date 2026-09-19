@@ -405,6 +405,12 @@ internal static class OmsiNativeInterop
         out float y,
         out float z);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadPlayerVehicleGrid")]
+    internal static extern int ReadPlayerVehicleGrid(
+        out int gridX,
+        out int gridY,
+        out int mapTileIndex);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleTileIndex")]
     internal static extern int ReadRoadVehicleTileIndex(int vehiclePointer);
 

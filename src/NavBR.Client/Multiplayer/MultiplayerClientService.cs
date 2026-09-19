@@ -184,6 +184,27 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             MapCompatibilityId = compatibilityId
         };
 
+        // The in-process OMSI plugin is the authoritative fallback for the
+        // physical RoadVehicle.Kachel identity. External memory telemetry can
+        // legitimately miss the dynamic Kacheln index on some maps while the
+        // plugin, running inside Omsi.exe, can still resolve the live tile.
+        if (System.Windows.Application.Current is App app)
+        {
+            var pluginStatus = app.PluginBridge.GetConnectionInfo().LastStatus;
+            if (pluginStatus?.TimestampUnixMilliseconds is long statusTimestamp &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - statusTimestamp <= 5_000 &&
+                pluginStatus.GridX is int physicalGridX &&
+                pluginStatus.GridY is int physicalGridY)
+            {
+                outgoing = outgoing with
+                {
+                    PhysicalGridX = outgoing.PhysicalGridX ?? physicalGridX,
+                    PhysicalGridY = outgoing.PhysicalGridY ?? physicalGridY,
+                    MapTileIndex = outgoing.MapTileIndex ?? pluginStatus.MapTileIndex
+                };
+            }
+        }
+
         // Keep physical rendering compatibility synchronized with the actual
         // live OMSI state. Players often connect before the final map/bus/HOF
         // identity is available, and may change vehicles without reconnecting.
