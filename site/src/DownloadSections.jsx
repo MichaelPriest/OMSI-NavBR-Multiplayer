@@ -1,5 +1,7 @@
 import React from "react";
+import ReleaseCard from "./ReleaseCard.jsx";
 import {
+  alphaKey,
   alphaLabel,
   alphaNumber,
   assetHelp,
@@ -33,30 +35,81 @@ export function AlphaDownloads({ currentAlphaKey, alphaDownloads, loading }) {
   );
 }
 
-export function Downloads({ currentAssets, loading, error, releasesPage }) {
+export function Downloads({ currentAssets, releases, loading, error, releasesPage }) {
+  const groups = (releases || []).reduce((result, release) => {
+    const key = alphaKey(release?.tag_name) || "outros";
+    if (!result[key]) result[key] = [];
+    result[key].push(release);
+    return result;
+  }, {});
+
+  const groupedEntries = Object.entries(groups).sort((a, b) => {
+    if (a[0] === "outros") return 1;
+    if (b[0] === "outros") return -1;
+    return alphaNumber(b[0]) - alphaNumber(a[0]);
+  });
+
   return (
     <section id="download" className="section shell">
-      <span className="eyebrow">Release pública</span>
-      <h2>Baixe a Alpha.14 pública.</h2>
+      <span className="eyebrow">Downloads</span>
+      <h2>Todas as versões publicadas do NavBR.</h2>
       <p className="section-lead">
-        Use o EXE standalone para jogar e testar. Plugin, servidor dedicado e simulador ficam disponíveis separadamente.
+        A versão atual aparece primeiro. Abaixo, o histórico completo mantém cada Alpha e versão de teste disponível com os arquivos publicados originalmente no GitHub Releases.
       </p>
-      <div className="release-grid">
-        {currentAssets.length ? currentAssets.map(asset => (
-          <article className="release-card" key={asset.name}>
-            <span className="tag">{assetLabel(asset.name)}</span>
-            <h3>{asset.name}</h3>
-            <p>{assetHelp(asset.name)}</p>
-            <div className="release-downloads">
-              {formatBytes(asset.size)} • {formatNumber(asset.download_count)} downloads
+
+      <div className="download-current">
+        <div className="download-current-head">
+          <div>
+            <span className="tag">VERSÃO ATUAL</span>
+            <h3>Alpha.14 pública</h3>
+          </div>
+          <a className="button secondary" href={releasesPage} target="_blank" rel="noreferrer">Ver no GitHub</a>
+        </div>
+        <div className="release-grid">
+          {currentAssets.length ? currentAssets.map(asset => (
+            <article className="release-card" key={asset.name}>
+              <span className="tag">{assetLabel(asset.name)}</span>
+              <h3>{asset.name}</h3>
+              <p>{assetHelp(asset.name)}</p>
+              <div className="release-downloads">
+                {formatBytes(asset.size)} • {formatNumber(asset.download_count)} downloads
+              </div>
+              <a className="button primary" href={asset.browser_download_url} target="_blank" rel="noreferrer">Baixar</a>
+            </article>
+          )) : (
+            <article className="release-card">
+              <h3>{loading ? "Carregando builds…" : "Build não encontrada no catálogo"}</h3>
+              <p>{error ? "O catálogo não respondeu. Abra o GitHub para baixar manualmente." : "Aguarde a atualização do catálogo."}</p>
+              <a className="button secondary" href={releasesPage} target="_blank" rel="noreferrer">Abrir releases</a>
+            </article>
+          )}
+        </div>
+      </div>
+
+      <div className="version-archive" aria-label="Histórico completo de downloads">
+        <div className="version-archive-head">
+          <div>
+            <span className="eyebrow">Arquivo de versões</span>
+            <h3>{releases?.length || 0} versões públicas disponíveis</h3>
+          </div>
+          <p>Inclui Alphas anteriores e builds de teste que continuam publicadas.</p>
+        </div>
+
+        {groupedEntries.length ? groupedEntries.map(([key, items]) => (
+          <section className="version-group" key={key}>
+            <div className="version-group-head">
+              <h3>{key === "outros" ? "Outras versões" : alphaLabel(key)}</h3>
+              <span>{items.length} {items.length === 1 ? "versão" : "versões"}</span>
             </div>
-            <a className="button primary" href={asset.browser_download_url} target="_blank" rel="noreferrer">Baixar</a>
-          </article>
+            <div className="release-grid version-release-grid">
+              {items.map(release => <ReleaseCard key={release.tag_name} release={release} />)}
+            </div>
+          </section>
         )) : (
           <article className="release-card">
-            <h3>{loading ? "Carregando builds…" : "Build não encontrada no catálogo"}</h3>
-            <p>{error ? "O catálogo não respondeu. Abra o GitHub para baixar manualmente." : "Aguarde a atualização do catálogo."}</p>
-            <a className="button secondary" href={releasesPage} target="_blank" rel="noreferrer">Abrir releases</a>
+            <h3>{loading ? "Carregando histórico…" : "Histórico indisponível"}</h3>
+            <p>{error || "O catálogo ainda não possui versões publicadas."}</p>
+            <a className="button secondary" href={releasesPage} target="_blank" rel="noreferrer">Abrir GitHub Releases</a>
           </article>
         )}
       </div>
