@@ -9,7 +9,6 @@ namespace NavBR.OmsiPluginExperimental;
 /// </summary>
 internal static class PhysicalVehicleMotionController
 {
-    private const long MinimumTickIntervalMs = 16;
     private const double MinimumInterpolationMs = 70d;
     private const double MaximumInterpolationMs = 320d;
     private const double DefaultInterpolationMs = 120d;
@@ -17,7 +16,7 @@ internal static class PhysicalVehicleMotionController
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
     private const long StaleTargetAfterMs = 5_000;
-    private const long ReadbackIntervalMs = 250;
+    private const long ReadbackIntervalMs = 1_000;
     private const double ReadbackToleranceMeters = 3d;
 
     private static readonly Dictionary<string, MotionState> States =
@@ -206,7 +205,20 @@ internal static class PhysicalVehicleMotionController
     public static void Tick()
     {
         var now = Environment.TickCount64;
-        if (_lastTickMs > 0 && now - _lastTickMs < MinimumTickIntervalMs)
+        var activeCount = States.Count;
+        if (activeCount == 0)
+        {
+            _lastTickMs = now;
+            return;
+        }
+
+        var minimumTickIntervalMs = activeCount switch
+        {
+            >= 9 => 50L, // 20 Hz when OMSI is already managing many remote buses.
+            >= 5 => 33L, // ~30 Hz for medium rooms.
+            _ => 20L     // 50 Hz maximum for a few nearby buses.
+        };
+        if (_lastTickMs > 0 && now - _lastTickMs < minimumTickIntervalMs)
         {
             return;
         }
@@ -246,9 +258,17 @@ internal static class PhysicalVehicleMotionController
 
             var duration = Math.Max(1d, state.DurationMs);
             var amount = Math.Clamp((now - state.StartTickMs) / duration, 0d, 1d);
-            var next = Interpolate(state.Start, state.Target, amount);
+            var settled = IsSettled(state.Current, state.Target);
+            var next = settled
+                ? state.Target
+                : Interpolate(state.Start, state.Target, amount);
 
-            if (!TryApplyTransform(instance, next, writeTileIndex: false))
+            // The previous implementation kept writing the exact same native
+            // transform every callback after interpolation had completed.
+            // Stationary/settled remote buses now cost no transform write at
+            // all until a new network target arrives.
+            if (!settled &&
+                !TryApplyTransform(instance, next, writeTileIndex: false))
             {
                 state.FaultCode = "motion-transform-write-failed";
                 state.FaultMessage =
@@ -278,6 +298,25 @@ internal static class PhysicalVehicleMotionController
 
             state.Current = next;
         }
+    }
+
+    private static bool IsSettled(
+        MotionSnapshot current,
+        MotionSnapshot target)
+    {
+        if (Distance(current, target) > 0.01d ||
+            Math.Abs(current.SpeedMps - target.SpeedMps) > 0.01f)
+        {
+            return false;
+        }
+
+        var rotationDot =
+            current.RotationX * target.RotationX +
+            current.RotationY * target.RotationY +
+            current.RotationZ * target.RotationZ +
+            current.RotationW * target.RotationW;
+
+        return Math.Abs(rotationDot) >= 0.99999f;
     }
 
     public static void Remove(string? instanceId)

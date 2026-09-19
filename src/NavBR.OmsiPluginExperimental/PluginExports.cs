@@ -8,7 +8,6 @@ public static class PluginExports
 {
     private const long VehicleVariableFreshnessMs = 1_000;
 
-    private static readonly object LogSync = new();
     private static DateTimeOffset _lastHeartbeat = DateTimeOffset.MinValue;
     private static DateTimeOffset _lastStatusReport = DateTimeOffset.MinValue;
     private static long _systemVariableCallbacks;
@@ -16,12 +15,7 @@ public static class PluginExports
     private static int _stopRequested;
     private static long _lastVelocityTickMs;
     private static long _lastStopRequestTickMs;
-
-    private static string LogDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "OMSI NavBR Multiplayer");
-
-    private static string LogPath => Path.Combine(LogDirectory, "navbr-plugin.log");
+    private static long _lastOmsiWorkTickMs;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(PluginStart))]
     public static void PluginStart(IntPtr owner)
@@ -30,6 +24,9 @@ public static class PluginExports
         {
             _lastHeartbeat = DateTimeOffset.MinValue;
             _lastStatusReport = DateTimeOffset.MinValue;
+            Interlocked.Exchange(ref _systemVariableCallbacks, 0);
+            Interlocked.Exchange(ref _lastOmsiWorkTickMs, 0);
+            PluginLogWriter.Start();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
@@ -57,6 +54,7 @@ public static class PluginExports
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
             Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
+            PluginLogWriter.Stop();
         }
         catch (Exception ex)
         {
@@ -134,18 +132,37 @@ public static class PluginExports
         {
             Interlocked.Increment(ref _systemVariableCallbacks);
 
-            // Commands arrive through the named-pipe worker, but every raw OMSI
-            // write is handed off here. Process one arbitrary command plus a few
-            // lightweight movement updates; expensive spawn/acquire work remains
-            // bounded to at most one command per OMSI frame.
-            OmsiThreadCommandQueue.DrainFrame(
-                5,
-                PluginBridgeClient.QueueCommandResult);
+            // AccessSystemVariable can be called several times inside one OMSI
+            // render/update frame. Never drain the command queue on every
+            // variable callback: that multiplies native work on OMSI's main
+            // thread. The guard admits one bounded work slice at a time.
+            var workTick = Environment.TickCount64;
+            var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
+            var minimumWorkIntervalMs = activePhysicalVehicles switch
+            {
+                >= 9 => 33L,
+                >= 5 => 24L,
+                _ => 16L
+            };
 
-            // Remote buses receive network targets at a lower cadence than the
-            // OMSI render/update loop. Apply interpolation here so all guarded
-            // transform writes remain on OMSI's callback thread.
-            PhysicalVehicleMotionController.Tick();
+            if (TryAcquireOmsiWorkSlot(workTick, minimumWorkIntervalMs))
+            {
+                var maxCommands = activePhysicalVehicles switch
+                {
+                    >= 9 => 2,
+                    >= 5 => 3,
+                    _ => 4
+                };
+
+                OmsiThreadCommandQueue.DrainFrame(
+                    maxCommands,
+                    PluginBridgeClient.QueueCommandResult);
+
+                // Remote buses receive network targets at a lower cadence than
+                // OMSI's callback loop. The motion controller has its own
+                // adaptive rate and skips settled vehicles entirely.
+                PhysicalVehicleMotionController.Tick();
+            }
 
             var now = DateTimeOffset.UtcNow;
             var staleRemoved = 0;
@@ -234,6 +251,28 @@ public static class PluginExports
         }
     }
 
+    private static bool TryAcquireOmsiWorkSlot(long nowTick, long minimumIntervalMs)
+    {
+        while (true)
+        {
+            var previous = Interlocked.Read(ref _lastOmsiWorkTickMs);
+            if (previous > 0 &&
+                nowTick >= previous &&
+                nowTick - previous < minimumIntervalMs)
+            {
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref _lastOmsiWorkTickMs,
+                    nowTick,
+                    previous) == previous)
+            {
+                return true;
+            }
+        }
+    }
+
     private static long AgeMilliseconds(long nowTick, long lastTick)
     {
         if (lastTick <= 0 || nowTick < lastTick)
@@ -244,21 +283,6 @@ public static class PluginExports
         return nowTick - lastTick;
     }
 
-    private static void Log(string message)
-    {
-        try
-        {
-            lock (LogSync)
-            {
-                Directory.CreateDirectory(LogDirectory);
-                File.AppendAllText(
-                    LogPath,
-                    $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] {message}{Environment.NewLine}");
-            }
-        }
-        catch
-        {
-            // Um erro de log nunca deve afetar a estabilidade do simulador.
-        }
-    }
+    private static void Log(string message) =>
+        PluginLogWriter.Enqueue(message);
 }

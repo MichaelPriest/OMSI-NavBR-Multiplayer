@@ -18,9 +18,9 @@ internal sealed record RemotePhysicalVehicleStatus(
 
 internal sealed class RemotePhysicalVehicleCoordinator
 {
-    private const int MaxPhysicalRemotePlayers = 32;
-    private const double PhysicalSpawnRadiusMeters = 750d;
-    private const double PhysicalDespawnRadiusMeters = 1_000d;
+    private const int MaxPhysicalRemotePlayers = 12;
+    private const double PhysicalSpawnRadiusMeters = 500d;
+    private const double PhysicalDespawnRadiusMeters = 700d;
     private const double CapacityReplacementMarginMeters = 75d;
     private static readonly TimeSpan CapacityEvictionCooldown =
         TimeSpan.FromSeconds(2);
@@ -42,6 +42,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, byte> _capacityEvictionsInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _capacitySuppressedUntilByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _spawnRetryAfterByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _lastPhysicalUpdateAtByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -402,12 +403,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     resolvedVehiclePath;
                 _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                 _lastFailureByPlayer.TryRemove(playerId, out _);
+                _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
                 SetStatus(playerId, "active");
                 PublishPhysicalVehicleSetIfChanged();
                 RemoteDiagnosticsService.Record(
                     "physical-vehicle",
                     "info",
                     "spawn-success");
+
+                // Spawn already applies and confirms this exact frame. Do not
+                // immediately send a duplicate UpdateRemoteVehicle command.
+                return;
             }
         }
 
@@ -421,6 +427,16 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 playerId,
                 "asset",
                 "physical-vehicle-path-state-missing");
+            return;
+        }
+
+        var updateInterval = ResolvePhysicalUpdateInterval(currentDistanceMeters);
+        if (_lastPhysicalUpdateAtByPlayer.TryGetValue(
+                playerId,
+                out var lastPhysicalUpdateAt) &&
+            DateTimeOffset.UtcNow - lastPhysicalUpdateAt < updateInterval)
+        {
+            SetStatus(playerId, "active");
             return;
         }
 
@@ -453,6 +469,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
         _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _lastFailureByPlayer.TryRemove(playerId, out _);
         SetStatus(playerId, "active");
@@ -493,6 +510,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
+        _lastPhysicalUpdateAtByPlayer.TryRemove(playerId, out _);
         _spawnedCompatibilityByPlayer.TryRemove(
             playerId,
             out var previousCompatibilityId);
@@ -551,6 +569,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _capacityEvictionsInFlight.Clear();
         _capacitySuppressedUntilByPlayer.Clear();
         _spawnRetryAfterByPlayer.Clear();
+        _lastPhysicalUpdateAtByPlayer.Clear();
         _statusByPlayer.Clear();
         PublishPhysicalVehicleSetIfChanged(force: true);
     }
@@ -644,6 +663,22 @@ internal sealed class RemotePhysicalVehicleCoordinator
         {
             _capacityEvictionsInFlight.TryRemove(playerId, out _);
         }
+    }
+
+    private static TimeSpan ResolvePhysicalUpdateInterval(
+        double? distanceMeters)
+    {
+        if (distanceMeters is not double distance || !double.IsFinite(distance))
+        {
+            return TimeSpan.FromMilliseconds(100);
+        }
+
+        return distance switch
+        {
+            <= 150d => TimeSpan.FromMilliseconds(50),
+            <= 350d => TimeSpan.FromMilliseconds(100),
+            _ => TimeSpan.FromMilliseconds(200)
+        };
     }
 
     private static bool IsTileAvailabilityError(string? errorCode) =>
