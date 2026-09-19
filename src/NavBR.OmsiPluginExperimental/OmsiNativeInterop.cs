@@ -335,6 +335,8 @@ internal static class OmsiNativeInterop
             // Other wrappers describe the same return as a vehicle ID/index.
             // Validate both zero-based and one-based interpretations against
             // the live main list and the pre-spawn snapshot before accepting.
+            // This is intentionally a fallback: the direct pointer path above
+            // remains authoritative whenever OMSI exposes one.
             var candidateIndexes = new[]
             {
                 makeVehicleResult,
