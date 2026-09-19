@@ -10,6 +10,7 @@ public partial class HudOverlayWindow
 {
     private string? _routeTraceCacheKey;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
+    private readonly OmsiRouteRejoinPathfinder _hudRouteRejoinPathfinder = new();
     private bool _enhancedMapRenderingStarted;
 
     private void StartEnhancedMapRendering()
@@ -61,6 +62,8 @@ public partial class HudOverlayWindow
         var safeZoom = Math.Max(0.01d, zoom);
         ActiveRoutePolyline.StrokeThickness = 4.5d / safeZoom;
         ActiveRouteShadow.StrokeThickness = 8d / safeZoom;
+        RejoinRoutePolyline.StrokeThickness = 3.8d / safeZoom;
+        RejoinRouteShadow.StrokeThickness = 7d / safeZoom;
 
         if (map is not null)
         {
@@ -88,6 +91,8 @@ public partial class HudOverlayWindow
         {
             ActiveRoutePolyline.Visibility = Visibility.Collapsed;
             ActiveRouteShadow.Visibility = Visibility.Collapsed;
+            RejoinRoutePolyline.Visibility = Visibility.Collapsed;
+            RejoinRouteShadow.Visibility = Visibility.Collapsed;
             TurnPanel.Visibility = Visibility.Collapsed;
             return;
         }
@@ -111,8 +116,29 @@ public partial class HudOverlayWindow
             layout,
             _routeTracePoints,
             _busStops);
+
+        OmsiRouteRejoinPath? rejoinPath = null;
+        if (navigation.RouteAvailable &&
+            !navigation.IsOnRoute &&
+            _routeTracePoints.Count >= 2)
+        {
+            rejoinPath = _hudRouteRejoinPathfinder.TryFind(
+                map,
+                layout,
+                telemetry,
+                _routeTracePoints);
+        }
+
+        RenderRejoinPath(
+            rejoinPath,
+            layout,
+            bitmap.PixelWidth,
+            bitmap.PixelHeight,
+            localPixelX,
+            localPixelY);
+
         UpdateNavigationSummary(navigation, map);
-        UpdateTurnGuidance(navigation);
+        UpdateTurnGuidance(navigation, rejoinPath);
     }
 
     private void UpdateTripInfo(VehicleTelemetry? telemetry, OmsiMapInfo? map)
@@ -254,7 +280,64 @@ public partial class HudOverlayWindow
         ActiveRouteShadow.Visibility = Visibility.Visible;
     }
 
-    private void UpdateTurnGuidance(NavBRNavigationSnapshot navigation)
+    private void RenderRejoinPath(
+        OmsiRouteRejoinPath? rejoinPath,
+        OmsiMapLayout layout,
+        int bitmapWidth,
+        int bitmapHeight,
+        double localPixelX,
+        double localPixelY)
+    {
+        if (rejoinPath is null ||
+            rejoinPath.Points.Count < 2 ||
+            layout.TileSize is not double tileSize ||
+            layout.WorldWidth is not double worldWidth ||
+            layout.WorldHeight is not double worldHeight)
+        {
+            RejoinRoutePolyline.Visibility = Visibility.Collapsed;
+            RejoinRouteShadow.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        const double canvasWidth = 296d;
+        const double canvasHeight = 186d;
+        const double sourceViewWidth = 900d;
+        var scale = canvasWidth / sourceViewWidth;
+        var originX = layout.MinGridX * tileSize;
+        var originY = layout.MinGridY * tileSize;
+
+        var points = new PointCollection(rejoinPath.Points.Count);
+        foreach (var point in rejoinPath.Points)
+        {
+            var pixelX = (point.X - originX) * bitmapWidth / worldWidth;
+            var pixelY = bitmapHeight -
+                         ((point.Y - originY) * bitmapHeight / worldHeight);
+            if (!double.IsFinite(pixelX) || !double.IsFinite(pixelY))
+            {
+                continue;
+            }
+
+            points.Add(new Point(
+                canvasWidth / 2d + (pixelX - localPixelX) * scale,
+                canvasHeight / 2d + (pixelY - localPixelY) * scale));
+        }
+
+        if (points.Count < 2)
+        {
+            RejoinRoutePolyline.Visibility = Visibility.Collapsed;
+            RejoinRouteShadow.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        RejoinRoutePolyline.Points = points;
+        RejoinRouteShadow.Points = points.Clone();
+        RejoinRoutePolyline.Visibility = Visibility.Visible;
+        RejoinRouteShadow.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateTurnGuidance(
+        NavBRNavigationSnapshot navigation,
+        OmsiRouteRejoinPath? rejoinPath)
     {
         if (!navigation.RouteAvailable)
         {
@@ -266,11 +349,11 @@ public partial class HudOverlayWindow
         {
             TurnArrowText.Text = "↺";
             TurnInstructionText.Text = NavigationText(
-                $"Fora da rota • retorne em {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
-                $"Off route • rejoin in {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
-                $"Fuera de ruta • vuelva en {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
-                $"Route verlassen • zurück in {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}",
-                $"Hors itinéraire • retour dans {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}");
+                $"Fora da rota • retorne em {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
+                $"Off route • rejoin in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
+                $"Fuera de ruta • vuelva en {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
+                $"Route verlassen • zurück in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
+                $"Hors itinéraire • retour dans {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}");
             TurnPanel.Visibility = Visibility.Visible;
             return;
         }
