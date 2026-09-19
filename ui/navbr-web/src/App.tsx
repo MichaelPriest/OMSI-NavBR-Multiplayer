@@ -569,6 +569,10 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     });
 
     const route = state.routePoints.map(point => project(point.x, point.y));
+    const rejoin = (state.rejoinPoints || []).map(point => project(point.x, point.y));
+    const rejoinTarget = state.rejoinPoint
+      ? project(state.rejoinPoint.x, state.rejoinPoint.y)
+      : null;
     const local = state.localVehicle
       ? { ...state.localVehicle, ...project(state.localVehicle.x, state.localVehicle.y) }
       : null;
@@ -597,7 +601,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
     }
 
-    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, remoteRoleplay, viewBox };
+    return { sceneWidth, sceneHeight, route, rejoin, rejoinTarget, local, roleplay, remotes, remoteRoleplay, viewBox };
   }, [state, camera, zoom, roadmapSrc]);
 
   if (!state.roadmapAvailable) {
@@ -628,6 +632,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   }
 
   const routePoints = scene.route.map(point => `${point.x},${point.y}`).join(" ");
+  const rejoinPoints = scene.rejoin.map(point => `${point.x},${point.y}`).join(" ");
 
   return (
     <div className="navigation-3d">
@@ -684,6 +689,21 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
               <>
                 <polyline className="nav3d-route-shadow" points={routePoints} />
                 <polyline className="nav3d-route-line" points={routePoints} />
+              </>
+            )}
+
+            {state.rejoinAvailable && scene.rejoin.length >= 2 && (
+              <>
+                <polyline className="nav3d-rejoin-shadow" points={rejoinPoints} />
+                <polyline className="nav3d-rejoin-line" points={rejoinPoints} />
+                {scene.rejoinTarget && (
+                  <circle
+                    className="nav3d-rejoin-target"
+                    cx={scene.rejoinTarget.x}
+                    cy={scene.rejoinTarget.y}
+                    r="9"
+                  />
+                )}
               </>
             )}
 

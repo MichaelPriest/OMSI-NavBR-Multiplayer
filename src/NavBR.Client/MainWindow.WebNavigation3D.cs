@@ -50,6 +50,39 @@ public partial class MainWindow
             })
             .ToArray();
 
+        var navigation = NavBRNavigationEngine.Evaluate(
+            telemetry,
+            layout,
+            _webNavigationRoute,
+            _webNavigationBusStops);
+        OmsiRouteRejoinPath? rejoinPath = null;
+        if (!navigation.IsOnRoute &&
+            navigation.RouteAvailable &&
+            _webNavigationRoute.Count >= 2)
+        {
+            rejoinPath = _webNavigationRejoinPathfinder.TryFind(
+                map,
+                layout,
+                telemetry,
+                _webNavigationRoute);
+        }
+
+        var rejoinPoints = rejoinPath?.Points
+            .Select(point => new
+            {
+                x = point.X,
+                y = point.Y
+            })
+            .ToArray() ?? [];
+
+        object? rejoinPoint = rejoinPath is null
+            ? null
+            : new
+            {
+                x = rejoinPath.RejoinPoint.X,
+                y = rejoinPath.RejoinPoint.Y
+            };
+
         object? localVehicle = TryGetWebNavigation3DPosition(
             telemetry,
             tileSize,
@@ -210,6 +243,10 @@ public partial class MainWindow
                 maxY = maxWorldY
             },
             routePoints,
+            rejoinAvailable = rejoinPath is not null,
+            rejoinDistanceMeters = rejoinPath?.DistanceMeters,
+            rejoinPoints,
+            rejoinPoint,
             localVehicle,
             localRoleplayCharacter,
             remoteVehicles,
@@ -247,6 +284,10 @@ public partial class MainWindow
             roadmapFallbackUrl,
             bounds = null as object,
             routePoints = Array.Empty<object>(),
+            rejoinAvailable = false,
+            rejoinDistanceMeters = null as double?,
+            rejoinPoints = Array.Empty<object>(),
+            rejoinPoint = null as object,
             localVehicle = null as object,
             localRoleplayCharacter = null as object,
             remoteVehicles = Array.Empty<object>(),

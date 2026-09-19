@@ -295,6 +295,10 @@ export interface NavBrNavigation3DState {
     maxY: number;
   } | null;
   routePoints: NavBrNavigationPoint[];
+  rejoinAvailable: boolean;
+  rejoinDistanceMeters?: number | null;
+  rejoinPoints: NavBrNavigationPoint[];
+  rejoinPoint?: NavBrNavigationPoint | null;
   localVehicle?: NavBrNavigation3DVehicle | null;
   localRoleplayCharacter?: NavBrNavigation3DRoleplayCharacter | null;
   remoteVehicles: NavBrNavigation3DRemoteVehicle[];
