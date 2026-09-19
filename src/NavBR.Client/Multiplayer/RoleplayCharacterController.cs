@@ -686,12 +686,17 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
                     StateChanged?.Invoke(_state);
                     EmitNetworkState(_state);
+                    SetStatus("roleplay-paused-focus-loss");
                 }
 
                 return;
             }
 
-            _focusStopApplied = false;
+            if (_focusStopApplied)
+            {
+                _focusStopApplied = false;
+                SetStatus("roleplay-active");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var deltaSeconds = Math.Clamp(
