@@ -1,10 +1,10 @@
 # Alpha.14 — notas da versão pública
 
-Versão pública atual: **v0.3.0-alpha.14-test.4**
+Versão pública atual: **v0.3.0-alpha.14-test.5**
 
-Candidata privada atual: **v0.3.0-alpha.14-test.5**
+Desenvolvimento atual na `main`: **v0.3.0-alpha.14-test.6**
 
-A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4** passa a ser a release pública atual do OMSI NavBR Multiplayer.
+A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.5** passa a ser a release pública atual do OMSI NavBR Multiplayer.
 
 ## Interface principal
 
@@ -105,7 +105,7 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 
 ## Observação
 
-A Alpha.14 Test 4 está liberada publicamente. A publicação atual inclui o hotfix `29f30b2` para o travamento do **Online através do Host**. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
+A Alpha.14 Test 5 está liberada publicamente. A publicação atual inclui o hotfix `29f30b2` para o travamento do **Online através do Host**. Escrita física no OMSI e Personagem/RP permanecem experimentais, opt-in e fail-safe.
 
 
 ## HUD / Roadmap Studio
@@ -119,7 +119,7 @@ A Alpha.14 Test 4 está liberada publicamente. A publicação atual inclui o hot
 - progresso, dimensões, quantidade de tiles/splines, tamanho e backup são mostrados pela interface.
 
 
-## Alpha.14 Test 5 — candidata de validação
+## Alpha.14 Test 5 — release pública
 
 - Navegação 2D passa a renderizar o roadmap real catalogado do mapa, inclusive `roadmap.bmp` quando aplicável;
 - Navegação 3D usa o mesmo roadmap catalogado em vez de depender apenas de `whole.roadmap.bmp`;
