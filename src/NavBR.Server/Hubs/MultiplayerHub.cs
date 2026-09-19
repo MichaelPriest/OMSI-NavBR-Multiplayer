@@ -502,6 +502,12 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             throw new HubException("Telemetry contains invalid percentage values.");
         }
 
+        if (telemetry.MapTileIndex is int mapTileIndex &&
+            mapTileIndex is < 0 or > 200_000)
+        {
+            throw new HubException("Telemetry contains invalid OMSI Kachel index.");
+        }
+
         _ = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name");
         _ = NormalizeOptional(
             telemetry.MapCompatibilityId,
