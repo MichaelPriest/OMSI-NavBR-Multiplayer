@@ -295,6 +295,35 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         var radians = heading * Math.PI / 180d;
         var half = radians / 2d;
 
+        // Exercise the real multiplayer visual/control telemetry path instead
+        // of publishing permanent defaults. The sequence is deterministic so
+        // CI can verify it without mocks.
+        var visualPhase = ((int)Math.Floor(elapsedSeconds * 2d) + _index) % 4;
+        var brakePercent = visualPhase == 2 ? 65d : 0d;
+        var throttlePercent = brakePercent > 0d
+            ? 0d
+            : 35d + (_index % 4) * 10d;
+        var turnSignal = visualPhase switch
+        {
+            0 => TurnSignalState.Left,
+            2 => TurnSignalState.Right,
+            3 => TurnSignalState.Hazard,
+            _ => TurnSignalState.Off
+        };
+        var lights = VehicleLightFlags.Position;
+        if (_index % 2 == 0)
+        {
+            lights |= VehicleLightFlags.Interior;
+        }
+        if (brakePercent > 0d)
+        {
+            lights |= VehicleLightFlags.Brake;
+        }
+        if (turnSignal == TurnSignalState.Hazard)
+        {
+            lights |= VehicleLightFlags.Hazard;
+        }
+
         var telemetry = new VehicleTelemetry(
             PlayerId: _playerId,
             Timestamp: DateTimeOffset.UtcNow,
@@ -316,6 +345,11 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             NextStopName: _options.ActiveNextStop,
             DestinationName: _options.ActiveDestination,
             VehiclePath: _options.VehiclePath,
+            FuelPercent: Math.Clamp(88d - _index * 2d, 10d, 100d),
+            ThrottlePercent: throttlePercent,
+            BrakePercent: brakePercent,
+            Lights: lights,
+            TurnSignal: turnSignal,
             VehicleCompatibilityId: _options.VehicleCompatibilityId,
             LocalX: x,
             LocalY: y,
@@ -382,7 +416,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Telemetry.HeadingDegrees,
                 frame.Telemetry.MapName,
                 MovementKind.Vehicle,
-                null));
+                null,
+                frame.Telemetry.ThrottlePercent,
+                frame.Telemetry.BrakePercent,
+                frame.Telemetry.FuelPercent,
+                frame.Telemetry.Lights,
+                frame.Telemetry.TurnSignal));
         _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
             Record(
                 frame.Player.PlayerId,
@@ -391,7 +430,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Character.HeadingDegrees,
                 frame.Character.MapName,
                 MovementKind.Roleplay,
-                frame.Character.Activity));
+                frame.Character.Activity,
+                null,
+                null,
+                null,
+                VehicleLightFlags.None,
+                TurnSignalState.Off));
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
@@ -455,6 +499,23 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     "Mixed simulation did not deliver both vehicle and RP frames.");
             }
 
+            var vehicleSamples = samples
+                .Where(sample => sample.Kind == MovementKind.Vehicle)
+                .ToArray();
+            if (vehicleSamples.Length > 0)
+            {
+                if (!vehicleSamples.Any(sample => sample.SawThrottleTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawBrakeTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawFuelTelemetry) ||
+                    !vehicleSamples.Any(sample => sample.SawLights) ||
+                    !vehicleSamples.Any(sample => sample.SawTurnSignal))
+                {
+                    return new VerificationResult(
+                        false,
+                        "Vehicle movement arrived, but advanced control/visual telemetry did not traverse the multiplayer pipeline.");
+                }
+            }
+
             var minimum = samples.Min(sample => sample.DistanceMeters);
             var rpStates = samples
                 .Where(sample => sample.Kind == MovementKind.Roleplay)
@@ -478,7 +539,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
         double heading,
         string? mapName,
         MovementKind kind,
-        RoleplayCharacterActivity? activity)
+        RoleplayCharacterActivity? activity,
+        double? throttlePercent,
+        double? brakePercent,
+        double? fuelPercent,
+        VehicleLightFlags lights,
+        TurnSignalState turnSignal)
     {
         if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(heading))
         {
@@ -499,7 +565,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
                     mapName,
                     1,
                     kind,
-                    activity is null ? [] : [activity.Value]);
+                    activity is null ? [] : [activity.Value],
+                    SawThrottleTelemetry: throttlePercent is double throttle && throttle > 0d,
+                    SawBrakeTelemetry: brakePercent is double brake && brake > 0d,
+                    SawFuelTelemetry: fuelPercent is double fuel && fuel >= 0d,
+                    SawLights: lights != VehicleLightFlags.None,
+                    SawTurnSignal: turnSignal != TurnSignalState.Off);
                 return;
             }
 
@@ -517,7 +588,22 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 Count = sample.Count + 1,
                 MapName = mapName ?? sample.MapName,
                 Kind = kind,
-                Activities = activities
+                Activities = activities,
+                SawThrottleTelemetry =
+                    sample.SawThrottleTelemetry ||
+                    (throttlePercent is double throttle && throttle > 0d),
+                SawBrakeTelemetry =
+                    sample.SawBrakeTelemetry ||
+                    (brakePercent is double brake && brake > 0d),
+                SawFuelTelemetry =
+                    sample.SawFuelTelemetry ||
+                    (fuelPercent is double fuel && fuel >= 0d),
+                SawLights =
+                    sample.SawLights ||
+                    lights != VehicleLightFlags.None,
+                SawTurnSignal =
+                    sample.SawTurnSignal ||
+                    turnSignal != TurnSignalState.Off
             };
         }
     }
@@ -556,7 +642,12 @@ internal sealed class SimulationProbe : IAsyncDisposable
         string? MapName,
         int Count,
         MovementKind Kind,
-        IReadOnlyList<RoleplayCharacterActivity> Activities)
+        IReadOnlyList<RoleplayCharacterActivity> Activities,
+        bool SawThrottleTelemetry,
+        bool SawBrakeTelemetry,
+        bool SawFuelTelemetry,
+        bool SawLights,
+        bool SawTurnSignal)
     {
         public double DistanceMeters =>
             Math.Sqrt(
