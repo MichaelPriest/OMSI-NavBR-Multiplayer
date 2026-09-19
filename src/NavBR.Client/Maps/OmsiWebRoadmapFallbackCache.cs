@@ -176,15 +176,9 @@ internal static class OmsiWebRoadmapFallbackCache
                         }
                     }
 
-                    var mapDirectory = Path.GetDirectoryName(tile.Value);
-                    if (string.IsNullOrWhiteSpace(mapDirectory))
-                    {
-                        continue;
-                    }
-
                     foreach (var sceneryPath in
                              OmsiRouteSceneryPathGeometryReader.ReadAllRoadPaths(
-                                 mapDirectory,
+                                 map.DirectoryPath,
                                  tile.Value))
                     {
                         var points = sceneryPath
