@@ -625,21 +625,22 @@ namespace
             return false;
         }
 
-        if (definitionPointer > 0)
-        {
-            // Explicit catalog selection keeps exact-definition matching.
-            return humanDefinition == definitionPointer;
-        }
-
-        // definitionPointer == 0 means "resolve the live driver". OMSI's
-        // AIModeEx value 9 is THAME_DrivingBus; FixDriver is the additional
-        // seated-driver marker. Requiring either prevents passengers on the
-        // same bus from being acquired as the RP character.
+        // Always require the live seated-driver state. Matching only the
+        // definition pointer is not sufficient because passengers can reuse
+        // the same human definition as the driver on some maps/add-ons.
         const auto aiModeEx = *reinterpret_cast<const unsigned char*>(
             base + HumanAiModeExOffset);
         const auto fixDriver = *reinterpret_cast<const unsigned char*>(
             base + HumanFixDriverOffset);
-        return aiModeEx == 9 || fixDriver != 0;
+        if (aiModeEx != 9 && fixDriver == 0)
+        {
+            return false;
+        }
+
+        // An explicit catalog selection additionally keeps exact-definition
+        // matching. definitionPointer == 0 means "resolve the live driver".
+        return definitionPointer <= 0 ||
+               humanDefinition == definitionPointer;
     }
 
     bool IsHumanControllable(int humanPointer)
