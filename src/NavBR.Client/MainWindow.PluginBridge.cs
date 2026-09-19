@@ -187,7 +187,7 @@ public partial class MainWindow
 
     private string? ResolveOmsiRootForPluginAction()
     {
-        var detected = OmsiPluginInstallationService.ResolveOmsiRoot(_currentOmsi?.InstallDirectory);
+        var detected = ResolveConfiguredOmsiRootForPlugin();
         if (!string.IsNullOrWhiteSpace(detected))
         {
             return detected;
@@ -302,8 +302,7 @@ public partial class MainWindow
 
     private PluginInstallDiagnostics GetPluginInstallDiagnostics()
     {
-        var installDirectory = _currentOmsi?.InstallDirectory ??
-                               OmsiPluginInstallationService.ResolveOmsiRoot();
+        var installDirectory = ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(installDirectory))
         {
             return new PluginInstallDiagnostics("UNKNOWN", 0, "UNKNOWN", "-");
