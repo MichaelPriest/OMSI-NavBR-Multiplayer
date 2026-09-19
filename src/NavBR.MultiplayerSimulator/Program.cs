@@ -90,6 +90,13 @@ if (options.VerifyPhysical)
         Environment.ExitCode = 6;
         return;
     }
+
+    // Running --verify-physical is itself an explicit local opt-in to OMSI
+    // writes for this development test. The already-running NavBR client reads
+    // the same flag file on every physical-frame eligibility check.
+    ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(true);
+    Console.WriteLine(
+        "Physical test: ônibus remotos físicos ativados localmente para esta validação.");
 }
 
 Console.WriteLine(
