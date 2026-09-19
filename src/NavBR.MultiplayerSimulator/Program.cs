@@ -5,7 +5,11 @@ using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
-var options = SimulatorOptions.Parse(args);
+var interactiveLaunch = args.Length == 0;
+var effectiveArgs = interactiveLaunch
+    ? SimulatorInteractiveLauncher.BuildArguments()
+    : args;
+var options = SimulatorOptions.Parse(effectiveArgs);
 if (options.ShowHelp)
 {
     SimulatorOptions.PrintHelp();
@@ -35,6 +39,7 @@ if (!localServer.Ready)
     Console.Error.WriteLine(localServer.ErrorMessage);
     Console.Error.WriteLine("Crie uma sala no NavBR, inicie o servidor dedicado ou use a build do simulador que inclui a pasta 'server'.");
     Environment.ExitCode = 3;
+    SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
     return;
 }
 
@@ -57,6 +62,7 @@ if (!synchronized.Success || synchronized.Options is null)
     Console.Error.WriteLine(synchronized.ErrorMessage);
     Console.Error.WriteLine("Entre na sala pelo NavBR com o OMSI carregado no mapa e execute o simulador novamente.");
     Environment.ExitCode = 5;
+    SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
     return;
 }
 
@@ -82,6 +88,7 @@ if (options.VerifyPhysical)
         Console.Error.WriteLine(
             "NavBR Simulator: --verify-physical exige um cliente NavBR real na sala com OMSI carregado, GridX/GridY válidos e um ônibus rígido resolvido.");
         Environment.ExitCode = 6;
+        SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
     }
 
@@ -90,6 +97,7 @@ if (options.VerifyPhysical)
         Console.Error.WriteLine(
             "NavBR Simulator: --verify-physical requer mode vehicles ou mixed.");
         Environment.ExitCode = 6;
+        SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
         return;
     }
 
@@ -214,6 +222,8 @@ finally
         await probe.DisposeAsync();
     }
 }
+
+SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
 
 internal sealed class SimulatedPlayer : IAsyncDisposable
 {
@@ -1409,6 +1419,104 @@ internal sealed class LocalServerBootstrap : IAsyncDisposable
     }
 }
 
+internal static class SimulatorInteractiveLauncher
+{
+    public const string DefaultServerUrl =
+        "https://omsi-navbr-multiplayer-server.onrender.com";
+
+    public static string[] BuildArguments()
+    {
+        Console.Title = "OMSI NavBR Multiplayer - Simulador de Players";
+        Console.WriteLine("OMSI NavBR Multiplayer - Simulador de Players");
+        Console.WriteLine("Modo interativo para teste real de sala/ônibus.");
+        Console.WriteLine();
+
+        var server = ReadValue("Servidor", DefaultServerUrl);
+        var room = ReadValue("Sala", "navbr-sim");
+        var players = ReadInt("Players", 6, 1, 32);
+        var mode = ReadMode("Modo (vehicles/mixed/rp)", "mixed");
+        var verifyPhysical = ReadYesNo(
+            "Verificar ônibus físicos no OMSI? (S/n)",
+            defaultValue: true);
+
+        var values = new List<string>
+        {
+            "--server", server,
+            "--room", room,
+            "--players", players.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--mode", mode
+        };
+
+        if (verifyPhysical && !string.Equals(mode, "rp", StringComparison.OrdinalIgnoreCase))
+        {
+            values.Add("--verify-physical");
+        }
+        else
+        {
+            values.Add("--verify");
+        }
+
+        Console.WriteLine();
+        return values.ToArray();
+    }
+
+    public static void PauseIfInteractive(bool interactive)
+    {
+        if (!interactive)
+        {
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Pressione ENTER para fechar o simulador.");
+        try
+        {
+            Console.ReadLine();
+        }
+        catch
+        {
+        }
+    }
+
+    private static string ReadValue(string label, string fallback)
+    {
+        Console.Write($"{label} [{fallback}]: ");
+        var value = Console.ReadLine()?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static int ReadInt(string label, int fallback, int min, int max)
+    {
+        Console.Write($"{label} [{fallback}]: ");
+        var value = Console.ReadLine()?.Trim();
+        return int.TryParse(value, out var parsed)
+            ? Math.Clamp(parsed, min, max)
+            : fallback;
+    }
+
+    private static string ReadMode(string label, string fallback)
+    {
+        Console.Write($"{label} [{fallback}]: ");
+        var value = Console.ReadLine()?.Trim().ToLowerInvariant();
+        return value is "vehicles" or "mixed" or "rp"
+            ? value
+            : fallback;
+    }
+
+    private static bool ReadYesNo(string label, bool defaultValue)
+    {
+        Console.Write($"{label}: ");
+        var value = Console.ReadLine()?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        return value.StartsWith("s", StringComparison.OrdinalIgnoreCase) ||
+               value.StartsWith("y", StringComparison.OrdinalIgnoreCase);
+    }
+}
+
 internal enum SimulatorMode
 {
     Vehicles,
@@ -1493,7 +1601,7 @@ internal sealed record SimulatorOptions(
         };
 
         return new SimulatorOptions(
-            ServerUrl: values.GetValueOrDefault("server") ?? "http://127.0.0.1:27730",
+            ServerUrl: values.GetValueOrDefault("server") ?? SimulatorInteractiveLauncher.DefaultServerUrl,
             RoomId: values.GetValueOrDefault("room") ?? "navbr-sim",
             RoomPassword: NullIfEmpty(values.GetValueOrDefault("password")),
             PlayerCount: ClampInt(values.GetValueOrDefault("players"), 6, 1, 32),
