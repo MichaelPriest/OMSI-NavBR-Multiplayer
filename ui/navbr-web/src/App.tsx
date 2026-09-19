@@ -791,6 +791,7 @@ function physicalVehicleStatusLabel(
             "Articulé/convoi détecté — prise en charge physique encore bloquée"
           );
     case "asset-unresolved": return pick("Modelo local não encontrado", "Local model not found", "Modelo local no encontrado", "Lokales Modell nicht gefunden", "Modèle local introuvable");
+    case "tile-unavailable": return pick("Aguardando tile do ônibus carregar no OMSI", "Waiting for the bus tile to load in OMSI", "Esperando que cargue el tile del autobús en OMSI", "Warte auf das Laden der Bus-Kachel in OMSI", "En attente du chargement de la tuile du bus dans OMSI");
     case "identity-missing": return pick("Aguardando identidade do ônibus", "Waiting for bus identity", "Esperando identidad del autobús", "Warte auf Bus-Identität", "En attente de l’identité du bus");
     case "incompatible": return errorCode
       ? pick(`Incompatível: ${errorCode}`, `Incompatible: ${errorCode}`, `Incompatible: ${errorCode}`, `Inkompatibel: ${errorCode}`, `Incompatible : ${errorCode}`)
