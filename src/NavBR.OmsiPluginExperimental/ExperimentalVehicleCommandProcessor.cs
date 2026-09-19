@@ -212,6 +212,19 @@ internal static class PhysicalVehicleBackend
                 : ApplyState(command, existing);
         }
 
+        if (IsRemoteCommand(command.Type) &&
+            !TryResolveLocalRemoteTile(
+                command,
+                out command,
+                out var tileErrorCode,
+                out var tileErrorMessage))
+        {
+            return Fail(
+                command,
+                tileErrorCode,
+                tileErrorMessage);
+        }
+
         if (command.MapTileIndex is int mapTileIndex &&
             (mapTileIndex < 0 ||
              mapTileIndex > 200_000 ||
@@ -513,14 +526,26 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "vehicle-pointer-stale", "The OMSI vehicle instance is no longer present in RoadVehicles.");
         }
 
+        if (!TryResolveLocalRemoteTile(
+                command,
+                out var localizedCommand,
+                out var tileErrorCode,
+                out var tileErrorMessage))
+        {
+            return Fail(
+                command,
+                tileErrorCode,
+                tileErrorMessage);
+        }
+
         return PhysicalVehicleMotionController.TrySetTarget(
                 instance,
-                command,
+                localizedCommand,
                 out var errorCode,
                 out var errorMessage)
-            ? ExperimentalVehicleCommandProcessor.Result(command, true)
+            ? ExperimentalVehicleCommandProcessor.Result(localizedCommand, true)
             : Fail(
-                command,
+                localizedCommand,
                 errorCode ?? "motion-target-failed",
                 errorMessage ?? "Could not update the remote physical vehicle smoothing target.");
     }
@@ -571,6 +596,46 @@ internal static class PhysicalVehicleBackend
         }
 
         return ExperimentalVehicleCommandProcessor.Result(command, true);
+    }
+
+    private static bool TryResolveLocalRemoteTile(
+        PluginBridgeMessage command,
+        out PluginBridgeMessage localizedCommand,
+        out string errorCode,
+        out string errorMessage)
+    {
+        localizedCommand = command;
+        errorCode = string.Empty;
+        errorMessage = string.Empty;
+
+        if (command.GridX is not int gridX ||
+            command.GridY is not int gridY)
+        {
+            errorCode = "tile-grid-missing";
+            errorMessage =
+                "Remote physical vehicle telemetry did not include a stable OMSI GridX/GridY tile identity.";
+            return false;
+        }
+
+        var localTileIndex =
+            OmsiNativeInterop.ResolveMapTileIndex(gridX, gridY);
+        if (localTileIndex < 0 ||
+            OmsiNativeInterop.IsMapTileIndexValid(localTileIndex) != 1)
+        {
+            errorCode = "tile-grid-unavailable";
+            errorMessage =
+                $"OMSI grid ({gridX}, {gridY}) is not currently loaded in the local map.";
+            return false;
+        }
+
+        // MapTileIndex is an index into the local process' currently loaded
+        // Kachel list and is not portable across multiplayer clients. Resolve
+        // the remote stable grid coordinates into this OMSI process instead.
+        localizedCommand = command with
+        {
+            MapTileIndex = localTileIndex
+        };
+        return true;
     }
 
     private static bool TryReadPose(PluginBridgeMessage command, out VehiclePose pose)
