@@ -1255,20 +1255,24 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         rotationW * inverseLength
     };
 
-    float speed = std::fabs(groundSpeedMps);
-    if (speed > 150.0f)
+    float speedMps = std::fabs(groundSpeedMps);
+    if (speedMps > 150.0f)
     {
-        speed = 150.0f;
+        speedMps = 150.0f;
     }
 
+    // OMSI's Tacho/script-facing speed is km/h, while Groundspeed is m/s.
+    // Keep both fields in their native units so scripts and physical motion
+    // observe the same real vehicle speed.
+    const float tachoKph = speedMps * 3.6f;
     const unsigned char disabled = 0;
 
     return WriteValue(vehiclePointer, PositionOffset, position) &&
            WriteValue(vehiclePointer, RotationOffset, rotation) &&
            WriteValue(vehiclePointer, LastPositionOffset, position) &&
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
-           WriteValue(vehiclePointer, TachoOffset, speed) &&
-           WriteValue(vehiclePointer, GroundspeedOffset, speed) &&
+           WriteValue(vehiclePointer, TachoOffset, tachoKph) &&
+           WriteValue(vehiclePointer, GroundspeedOffset, speedMps) &&
            WriteByte(vehiclePointer, PaiOffset, disabled) &&
            (mapTileIndex < 0 ||
             WriteValue(vehiclePointer, KachelOffset, mapTilePointer))
