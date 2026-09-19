@@ -2940,7 +2940,7 @@ function RoleplayPanel({
           {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.", "Plugin Bridge must advertise character possession and transform capabilities.", "Plugin Bridge debe anunciar las capacidades de posesión y transformación del personaje.", "Plugin Bridge muss Fähigkeiten für Charakterübernahme und Transformation melden.", "Plugin Bridge doit annoncer les capacités de possession et de transformation du personnage.")}</p>}
         </article>
 
-        <article className="card rp-character-card">
+        <article className="card rp-character-card rp-character-selection-card">
           <div className="section-heading">
             <div><span className="eyebrow">MAP.DRIVERS</span><h3>{pick("Personagens disponíveis", "Available characters", "Personajes disponibles", "Verfügbare Charaktere", "Personnages disponibles")}</h3></div>
             <span className="stop-count">{roleplay.characters.length}</span>

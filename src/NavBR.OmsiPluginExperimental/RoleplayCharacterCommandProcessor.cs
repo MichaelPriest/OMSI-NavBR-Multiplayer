@@ -692,7 +692,10 @@ internal static class RoleplayCharacterBackend
                 return Fail(command, "invalid-character-pose", "Character updates require a finite local pose.");
             }
 
-            if (OmsiNativeInterop.SetHumanTransform(
+            // Reassert ownership every frame because OMSI/add-on AI can restore
+            // MyBus/render state after the acquisition callback.
+            if (OmsiNativeInterop.DetachHumanForRoleplay(instance.HumanPointer) != 1 ||
+                OmsiNativeInterop.SetHumanTransform(
                     instance.HumanPointer,
                     x,
                     y,
@@ -703,14 +706,57 @@ internal static class RoleplayCharacterBackend
                 return Fail(command, "character-transform-failed", "OMSI rejected the guarded human transform.");
             }
 
+            if (OmsiNativeInterop.ReadHumanDriverState(
+                    instance.HumanPointer,
+                    out var actualBus,
+                    out var actualFixDriver,
+                    out var actualRenderMe,
+                    out var actualInWorld) != 1 ||
+                actualBus != 0 ||
+                actualFixDriver != 0 ||
+                actualRenderMe == 0 ||
+                actualInWorld == 0)
+            {
+                return Fail(
+                    command,
+                    "character-world-state-unconfirmed",
+                    "OMSI did not keep the roleplay human detached and visible in the world.");
+            }
+
+            if (OmsiNativeInterop.ReadHumanPose(
+                    instance.HumanPointer,
+                    out var actualX,
+                    out var actualY,
+                    out var actualZ,
+                    out var actualHeading,
+                    out var actualSpeed) != 1)
+            {
+                return Fail(
+                    command,
+                    "character-pose-unconfirmed",
+                    "OMSI did not expose a readable roleplay human pose after the movement write.");
+            }
+
+            var dx = actualX - x;
+            var dy = actualY - y;
+            var dz = actualZ - z;
+            var errorDistance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (!double.IsFinite(errorDistance) || errorDistance > 0.35d)
+            {
+                return Fail(
+                    command,
+                    "character-movement-overridden",
+                    $"OMSI overwrote the RP movement before confirmation (pose error {errorDistance:F2} m).");
+            }
+
             return BuildSuccessStateResult(
                 command,
                 instance,
-                x,
-                y,
-                z,
-                heading,
-                speed);
+                actualX,
+                actualY,
+                actualZ,
+                actualHeading,
+                actualSpeed);
         }
     }
 

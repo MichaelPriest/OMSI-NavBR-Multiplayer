@@ -29,6 +29,9 @@ namespace
     constexpr int MarkedForKillingOffset = 0x25C;
     constexpr int LastPositionOffset = 0x26E;
     constexpr int LastRotationOffset = 0x27A;
+    constexpr int CalcTimerOffset = 0x2D8;
+    constexpr int VisibleLogicalOffset = 0x2DC;
+    constexpr int VisibleLogicalRenderThreadOffset = 0x2DD;
     constexpr int TachoOffset = 0x424;
     constexpr int GroundspeedOffset = 0x428;
     constexpr int PaiOffset = 0x624;
@@ -37,6 +40,8 @@ namespace
     constexpr int AiBlinkerLeftOffset = 0x63C;
     constexpr int AiBlinkerRightOffset = 0x640;
     constexpr int AiBrakeLightOffset = 0x644;
+    constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
+    constexpr int RoadVehicleWasCalculatedOffset = 0x715;
 
     constexpr int MapKachelLoadedOffset = 0x038;
     constexpr int MapKachelnOffset = 0x118;
@@ -857,7 +862,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 7;
+    return 8;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
@@ -1114,13 +1119,17 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_DetachHumanForRoleplay(int hu
     }
 
     const int zeroBus = 0;
+    const unsigned int zeroTimer = 0;
     const unsigned char zero = 0;
     const unsigned char one = 1;
 
     return WriteValue(humanPointer, HumanMyBusOffset, zeroBus) &&
            WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
            WriteByte(humanPointer, HumanRenderMeOffset, one) &&
-           WriteByte(humanPointer, HumanInWorldOffset, one)
+           WriteByte(humanPointer, HumanInWorldOffset, one) &&
+           WriteValue(humanPointer, CalcTimerOffset, zeroTimer) &&
+           WriteByte(humanPointer, VisibleLogicalOffset, one) &&
+           WriteByte(humanPointer, VisibleLogicalRenderThreadOffset, one)
         ? 1
         : 0;
 }
@@ -1307,14 +1316,25 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetHumanTransform(
     const Vec3 position{ x, y, z };
     const Quaternion rotation{ 0.0f, 0.0f, std::sin(half), std::cos(half) };
 
+    const int zeroBus = 0;
+    const unsigned int zeroTimer = 0;
+    const unsigned char zero = 0;
+    const unsigned char one = 1;
     const unsigned char aiStop = 0;      // THAM_Stop
     const unsigned char aiDoNothing = 0; // THAME_DoNothing
     const unsigned char aiSubNone = 0;
 
-    return WriteValue(humanPointer, PositionOffset, position) &&
+    return WriteValue(humanPointer, HumanMyBusOffset, zeroBus) &&
+           WriteByte(humanPointer, HumanFixDriverOffset, zero) &&
+           WriteByte(humanPointer, HumanRenderMeOffset, one) &&
+           WriteByte(humanPointer, HumanInWorldOffset, one) &&
+           WriteValue(humanPointer, PositionOffset, position) &&
            WriteValue(humanPointer, RotationOffset, rotation) &&
            WriteValue(humanPointer, LastPositionOffset, position) &&
            WriteValue(humanPointer, LastRotationOffset, rotation) &&
+           WriteValue(humanPointer, CalcTimerOffset, zeroTimer) &&
+           WriteByte(humanPointer, VisibleLogicalOffset, one) &&
+           WriteByte(humanPointer, VisibleLogicalRenderThreadOffset, one) &&
            WriteValue(humanPointer, HumanLastMovedDistOffset, lastMovedDist) &&
            WriteValue(humanPointer, HumanStateOffset, paxState) &&
            WriteValue(humanPointer, HumanSollSpeedOffset, speedMps) &&
@@ -1411,17 +1431,25 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     // Keep both fields in their native units so scripts and physical motion
     // observe the same real vehicle speed.
     const float tachoKph = speedMps * 3.6f;
+    const unsigned int zeroTimer = 0;
     const unsigned char disabled = 0;
+    const unsigned char enabled = 1;
 
-    return WriteValue(vehiclePointer, PositionOffset, position) &&
+    return WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) &&
+           WriteValue(vehiclePointer, PositionOffset, position) &&
            WriteValue(vehiclePointer, RotationOffset, rotation) &&
            WriteValue(vehiclePointer, LastPositionOffset, position) &&
            WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
+           WriteValue(vehiclePointer, CalcTimerOffset, zeroTimer) &&
+           WriteByte(vehiclePointer, VisibleLogicalOffset, enabled) &&
+           WriteByte(vehiclePointer, VisibleLogicalRenderThreadOffset, enabled) &&
            WriteValue(vehiclePointer, TachoOffset, tachoKph) &&
            WriteValue(vehiclePointer, GroundspeedOffset, speedMps) &&
            WriteByte(vehiclePointer, PaiOffset, disabled) &&
            (mapTileIndex < 0 ||
-            WriteValue(vehiclePointer, KachelOffset, mapTilePointer))
+            (WriteValue(vehiclePointer, KachelOffset, mapTilePointer) &&
+             WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled) &&
+             WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled)))
         ? 1
         : 0;
 }

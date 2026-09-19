@@ -620,6 +620,8 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .rp-current-state strong { font-size:12px; }
 .rp-actions { margin-top:14px; }
 .rp-character-list { display:grid; gap:8px; max-height:470px; overflow:auto; padding-right:3px; }
+.rp-character-selection-card { grid-column:1 / -1; width:100%; }
+.rp-character-selection-card .rp-character-list { grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); max-height:360px; }
 .rp-character-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:11px; align-items:center; width:100%; text-align:left; border:1px solid #1b3342; border-radius:11px; background:#081721; color:#dceaf3; padding:11px 12px; cursor:pointer; }
 .rp-character-row:hover { border-color:#31536a; background:#0b1c28; }
 .rp-character-row.selected { border-color:#316d51; background:#0d241a; }
