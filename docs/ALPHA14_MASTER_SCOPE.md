@@ -77,6 +77,9 @@ Somente desenvolvimento/teste:
 
 - spawn/update/despawn experimental;
 - pose/quaternion nativos;
+- interpolação adaptativa de posição/quaternion/velocidade no thread do OMSI, com alvo de até ~60 Hz;
+- proteção contra frames fora de ordem e snap seguro para teleportes/grandes gaps;
+- tolerância curta a falhas transitórias de update para evitar despawn/respawn desnecessário;
 - velocidade/luzes/setas quando suportadas;
 - compatibilidade antes da escrita;
 - resolução de asset remoto por fingerprint SHA-256;
