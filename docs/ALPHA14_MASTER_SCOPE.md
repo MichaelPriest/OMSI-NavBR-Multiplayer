@@ -2,6 +2,8 @@
 
 Versão pública atual: **v0.3.0-alpha.14-test.4**.
 
+Build de validação atual da PR #30: **v0.3.0-alpha.14-test.5**.
+
 A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimental, Personagem/RP e ferramentas operacionais.
 
 ## 1. Interface
@@ -46,7 +48,10 @@ Somente desenvolvimento/teste:
 - herda mapa/compatibilidade;
 - aguarda telemetria real;
 - bots próximos ao host;
-- herda linha, rota, destino e próxima parada;
+- usa mapa/posição/Kachel reais da autoridade da sala;
+- bots de veículo podem usar rotas independentes do HOF;
+- prefere o MAN EN92 rígido padrão do OMSI para teste físico quando instalado;
+- `--verify-physical` exige confirmação dos IDs exatos materializados por `MakeVehicle` no OMSI;
 - `--verify` exige movimento e mapa consistente.
 
 ## 4. Personagem / RP
@@ -120,6 +125,7 @@ Somente desenvolvimento/teste:
 ## 7. Release e validação
 
 - **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;
+- **v0.3.0-alpha.14-test.5** é a build candidata atual da PR #30 para validação privada;
 - hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;
 - a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;
 - toda publicação recompila/valida React, servidor, plugin, cliente e simulador;
