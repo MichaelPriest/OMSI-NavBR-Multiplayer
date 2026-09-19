@@ -877,10 +877,18 @@ function physicalVehicleStatusLabel(
     case "switching-vehicle": return pick("Trocando modelo físico", "Switching physical model", "Cambiando modelo físico", "Physisches Modell wird gewechselt", "Changement de modèle physique");
     case "session-changed": return pick("Sessão mudou durante a resolução", "Session changed during resolution", "La sesión cambió durante la resolución", "Sitzung änderte sich während der Auflösung", "La session a changé pendant la résolution");
     case "path-state-missing": return pick("Estado do asset local foi perdido", "Local asset state was lost", "Se perdió el estado del asset local", "Lokaler Asset-Status ging verloren", "L’état de l’asset local a été perdu");
-    case "spawn-failed": return pick("Falha ao criar ônibus físico", "Physical bus spawn failed", "Falló la creación del autobús físico", "Physischer Bus konnte nicht erstellt werden", "Échec de création du bus physique");
-    case "update-retrying": return pick("Recuperando atualização 3D", "Recovering 3D update", "Recuperando actualización 3D", "3D-Aktualisierung wird wiederhergestellt", "Récupération de la mise à jour 3D");
-    case "update-failed": return pick("Falha ao atualizar ônibus físico", "Physical bus update failed", "Falló la actualización del autobús físico", "Physischer Bus konnte nicht aktualisiert werden", "Échec de mise à jour du bus physique");
-    case "despawn-failed": return pick("Falha ao remover ônibus físico", "Physical bus removal failed", "Falló la eliminación del autobús físico", "Physischer Bus konnte nicht entfernt werden", "Échec de suppression du bus physique");
+    case "spawn-failed": return errorCode
+      ? pick(`Falha no spawn: ${errorCode}`, `Spawn failed: ${errorCode}`, `Falló el spawn: ${errorCode}`, `Spawn fehlgeschlagen: ${errorCode}`, `Échec du spawn : ${errorCode}`)
+      : pick("Falha ao criar ônibus físico", "Physical bus spawn failed", "Falló la creación del autobús físico", "Physischer Bus konnte nicht erstellt werden", "Échec de création du bus physique");
+    case "update-retrying": return errorCode
+      ? pick(`Recuperando 3D: ${errorCode}`, `Recovering 3D: ${errorCode}`, `Recuperando 3D: ${errorCode}`, `3D-Wiederherstellung: ${errorCode}`, `Récupération 3D : ${errorCode}`)
+      : pick("Recuperando atualização 3D", "Recovering 3D update", "Recuperando actualización 3D", "3D-Aktualisierung wird wiederhergestellt", "Récupération de la mise à jour 3D");
+    case "update-failed": return errorCode
+      ? pick(`Falha ao atualizar: ${errorCode}`, `Update failed: ${errorCode}`, `Falló la actualización: ${errorCode}`, `Update fehlgeschlagen: ${errorCode}`, `Échec de mise à jour : ${errorCode}`)
+      : pick("Falha ao atualizar ônibus físico", "Physical bus update failed", "Falló la actualización del autobús físico", "Physischer Bus konnte nicht aktualisiert werden", "Échec de mise à jour du bus physique");
+    case "despawn-failed": return errorCode
+      ? pick(`Falha ao remover: ${errorCode}`, `Removal failed: ${errorCode}`, `Falló la eliminación: ${errorCode}`, `Entfernen fehlgeschlagen: ${errorCode}`, `Échec de suppression : ${errorCode}`)
+      : pick("Falha ao remover ônibus físico", "Physical bus removal failed", "Falló la eliminación del autobús físico", "Physischer Bus konnte nicht entfernt werden", "Échec de suppression du bus physique");
     case "disabled": return pick("Ônibus físico desativado", "Physical bus disabled", "Autobús físico desactivado", "Physischer Bus deaktiviert", "Bus physique désactivé");
     default: return pick("Aguardando telemetria física", "Waiting for physical telemetry", "Esperando telemetría física", "Warte auf physische Telemetrie", "En attente de télémétrie physique");
   }
