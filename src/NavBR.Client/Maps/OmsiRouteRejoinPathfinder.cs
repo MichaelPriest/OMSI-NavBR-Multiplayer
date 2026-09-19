@@ -21,12 +21,14 @@ internal sealed class OmsiRouteRejoinPathfinder
     private const int MaxSamplesPerSpline = 128;
     private const double EndpointJoinMeters = 8d;
     private const double EndpointJoinVerticalMeters = 3d;
-    private const double MaxSnapToRoadMeters = 32d;
+    private const double MaxSnapToRoadMeters = 18d;
     private const double MaxRejoinSearchMeters = 2200d;
     private const int MaxTilesPerSearch = 100;
     private const int MaxOutputPoints = 260;
 
     private string? _mapKey;
+    private string? _lastSearchKey;
+    private OmsiRouteRejoinPath? _lastResult;
     private Dictionary<(int X, int Y), string> _tileCatalog = new();
     private readonly Dictionary<string, CachedTile> _tileCache =
         new(StringComparer.OrdinalIgnoreCase);
@@ -79,6 +81,18 @@ internal sealed class OmsiRouteRejoinPathfinder
         {
             return null;
         }
+
+        var searchKey = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{_mapKey}|{Math.Round(vehicle.X / 15d)}|{Math.Round(vehicle.Y / 15d)}|" +
+            $"{targetTrace.GridX}|{targetTrace.GridY}|{Math.Round(targetTrace.TileX / 15d)}|{Math.Round(targetTrace.TileY / 15d)}");
+        if (string.Equals(searchKey, _lastSearchKey, StringComparison.Ordinal))
+        {
+            return _lastResult;
+        }
+
+        _lastSearchKey = searchKey;
+        _lastResult = null;
 
         var minGridX = Math.Min(vehicleGridX, targetTrace.GridX) - 1;
         var maxGridX = Math.Max(vehicleGridX, targetTrace.GridX) + 1;
@@ -160,10 +174,11 @@ internal sealed class OmsiRouteRejoinPathfinder
             distance += Math.Sqrt(dx * dx + dy * dy);
         }
 
-        return new OmsiRouteRejoinPath(
+        _lastResult = new OmsiRouteRejoinPath(
             output,
             distance,
             new OmsiRouteRejoinPoint(target.X, target.Y));
+        return _lastResult;
     }
 
     private void EnsureMap(OmsiMapInfo map)
@@ -175,6 +190,8 @@ internal sealed class OmsiRouteRejoinPathfinder
         }
 
         _mapKey = key;
+        _lastSearchKey = null;
+        _lastResult = null;
         _tileCache.Clear();
         _tileCatalog = ReadTileCatalog(
             map.DirectoryPath,
