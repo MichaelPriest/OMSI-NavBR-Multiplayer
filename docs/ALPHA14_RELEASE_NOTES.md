@@ -78,7 +78,8 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 - ônibus remoto físico continua experimental;
 - ônibus remoto físico agora usa interpolação adaptativa no thread do OMSI em vez de aplicar cada frame como salto direto;
 - posição, quaternion e velocidade são suavizados; frames fora de ordem são ignorados e teleportes grandes usam snap seguro;
-- falhas transitórias de atualização têm tolerância curta para reduzir respawns desnecessários.
+- falhas transitórias de atualização têm tolerância curta para reduzir respawns desnecessários;
+- materialização física usa culling por proximidade: spawn até 750 m e despawn acima de 1 km, preservando jogadores distantes na sessão sem criar objetos 3D desnecessários.
 
 ## Simulador
 
