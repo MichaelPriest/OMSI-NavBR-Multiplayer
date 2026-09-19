@@ -3017,7 +3017,7 @@ function Multiplayer({
         <div className="metric"><small>{pick("MAPA LOCAL", "LOCAL MAP", "MAPA LOCAL", "LOKALE KARTE", "CARTE LOCALE")}</small><strong>{telemetry?.mapName || "—"}</strong></div>
         <div className="metric"><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.playerCount}</strong></div>
         <div className="metric"><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{multiplayer.latencyMs == null ? "—" : `${format(multiplayer.latencyMs, 0)} ms`}</strong></div>
-        <div className="metric"><small>HOST</small><strong>{
+        <div className="metric"><small>{multiplayer.transportMode === "dedicated-server" ? pick("SERVIDOR", "SERVER", "SERVIDOR", "SERVER", "SERVEUR") : "HOST"}</small><strong>{
           multiplayer.transportMode === "dedicated-server"
             ? pick("NavBR no Render", "NavBR on Render", "NavBR en Render", "NavBR auf Render", "NavBR sur Render")
             : multiplayer.hostRunning
