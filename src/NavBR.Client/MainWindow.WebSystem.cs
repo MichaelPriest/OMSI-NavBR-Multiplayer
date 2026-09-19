@@ -166,7 +166,7 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(root))
         {
             throw new InvalidOperationException(
-                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta, o Omsi.exe ou um atalho válido em Configurações primeiro.");
+                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta, o Omsi.exe ou um atalho .lnk/.url válido em Configurações primeiro.");
         }
 
         var result = OmsiPluginInstallationService.InstallOrUpdate(root);
@@ -258,7 +258,7 @@ public partial class MainWindow
                 .FirstOrDefault();
             _webOmsiLaunchNotice = requestedResolved is not null
                 ? $"Instalação OMSI reconhecida em {requestedResolved.InstallDirectory}."
-                : "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk válido.";
+                : "O caminho informado não resolveu uma instalação válida do OMSI 2. Informe a pasta que contém Omsi.exe, o próprio Omsi.exe ou um atalho .lnk/.url válido.";
         }
         else if (profiles.Count == 0)
         {
@@ -272,7 +272,7 @@ public partial class MainWindow
         var dialog = new OpenFileDialog
         {
             Title = "Selecione Omsi.exe ou um atalho do OMSI 2",
-            Filter = "OMSI 2 (Omsi.exe;*.lnk)|Omsi.exe;*.lnk|Executável OMSI (Omsi.exe)|Omsi.exe|Atalho do Windows (*.lnk)|*.lnk|Todos os arquivos (*.*)|*.*",
+            Filter = "OMSI 2 (Omsi.exe;*.lnk;*.url)|Omsi.exe;*.lnk;*.url|Executável OMSI (Omsi.exe)|Omsi.exe|Atalhos (*.lnk;*.url)|*.lnk;*.url|Todos os arquivos (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
