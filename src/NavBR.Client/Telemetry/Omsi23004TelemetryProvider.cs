@@ -476,26 +476,44 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             int? gridY = null;
             double? tileX = null;
             double? tileY = null;
-            if (TryReadNavigationPosition(memory, out var gx, out var gy, out var tx, out var ty))
+
+            // NavigationVehicle + Map.CurrentGrid forms one coherent fallback
+            // coordinate pair. Never combine its TileX/TileY with another
+            // grid source: doing that can shift the vehicle by whole Kacheln
+            // and produces false multi-kilometre off-route readings.
+            if (TryReadNavigationPosition(
+                    memory,
+                    out var navigationGridX,
+                    out var navigationGridY,
+                    out var navigationTileX,
+                    out var navigationTileY))
             {
-                gridX = gx;
-                gridY = gy;
-                tileX = tx;
-                tileY = ty;
+                gridX = navigationGridX;
+                gridY = navigationGridY;
+                tileX = navigationTileX;
+                tileY = navigationTileY;
             }
 
-            // KachelInfos is indexed by the vehicle's real Kachel and carries
-            // the exact grid coordinate for that tile. Prefer it over
-            // Map.CenterKachel, which follows the local map/camera context.
+            // The player's RoadVehicle owns both Kachel and Position. When the
+            // real Kachel resolves to a valid grid, use Position.X/Y from that
+            // same object as the local coordinates. This keeps the four values
+            // in the same reference frame and is also the frame used by the
+            // physical vehicle backend.
             if (mapTileIndex is int exactTileIndex &&
                 TryReadMapTileGrid(
                     memory,
                     exactTileIndex,
                     out var vehicleGridX,
-                    out var vehicleGridY))
+                    out var vehicleGridY) &&
+                float.IsFinite(localPosition.X) &&
+                float.IsFinite(localPosition.Y) &&
+                Math.Abs(localPosition.X) <= 1_200f &&
+                Math.Abs(localPosition.Y) <= 1_200f)
             {
                 gridX = vehicleGridX;
                 gridY = vehicleGridY;
+                tileX = localPosition.X;
+                tileY = localPosition.Y;
             }
 
             string? line = null;
