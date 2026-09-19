@@ -36,7 +36,8 @@ A PR #30 passa a tratar os frames recebidos como alvos de movimento em vez de te
 - saltos de 30 m ou intervalos superiores a 1,5 s são tratados como teleporte e aplicados por snap seguro;
 - luzes e setas continuam sendo aplicadas imediatamente;
 - luz de freio também pode ser inferida de `BrakePercent`;
-- até duas falhas transitórias de update são toleradas antes de respawn; erros fatais de ownership/ponteiro continuam fail-safe.
+- até duas falhas transitórias de update são toleradas antes de respawn; erros fatais de ownership/ponteiro continuam fail-safe;
+- ônibus remotos só são materializados fisicamente quando estão próximos: spawn até 750 m e despawn acima de 1 km, com histerese para evitar churn na borda; jogadores fora desse raio continuam presentes normalmente no multiplayer.
 
 ## Personagem / RP
 
