@@ -23,7 +23,7 @@ A versão pública atual é **v0.3.0-alpha.14-test.4**.
 - selects/ComboBox com tema escuro consistente;
 - Central Multiplayer sem o wizard legado sobreposto;
 - abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado, com dispositivos de áudio e mixer por jogador no próprio React;
-- salas públicas/privadas, senha, convite, peer-host TCP 27730, UPnP e relay experimental;
+- salas públicas/privadas, senha e convite com três modos: Servidor NavBR oficial, LAN e Online através do Host;
 - tela **Rede** com verificação real do Firewall TCP 27730, listener local, NAT/CGNAT, UPnP e teste externo quando configurado;
 - Plugin Bridge **v3** + interop RP v3;
 - modo Personagem/RP disponível também sem multiplayer, com catálogo real de `Map.Drivers`, ativação, seleção e retorno ao ônibus pelo React;
@@ -40,24 +40,35 @@ Se nenhuma instalação válida for encontrada, o app abre a seleção de instal
 
 ## Multiplayer
 
-O NavBR suporta dois modos de hospedagem:
+O NavBR suporta **três modos de multiplayer**:
 
-### Servidor Online
+### 1. Servidor NavBR oficial
 
-Um `NavBR.Server` hospedado publicamente (por exemplo, no Render) recebe as salas via HTTPS/SignalR.
+O `NavBR.Server` roda no servidor oficial hospedado no Render e recebe as salas via HTTPS/SignalR.
 
 - jogadores não precisam abrir TCP 27730;
 - não depende de UPnP nem do IP público do jogador;
-- CGNAT do jogador não impede a conexão ao servidor hospedado;
-- salas públicas/privadas, presença, telemetria, chat e voz usam o mesmo protocolo atual.
+- CGNAT do jogador não impede a conexão;
+- quem cria a sala é o proprietário administrativo da sala, mas o servidor continua sendo o NavBR no Render;
+- a infraestrutura atual é **gratuita e limitada**, adequada principalmente para Alpha/testes.
 
-### Host local / peer-host
+O Render Free atual fornece 0,1 CPU, 512 MB de RAM, 750 horas gratuitas por mês e uma única instância, com possibilidade de spin-down após 15 minutos sem tráfego. No futuro o projeto poderá oferecer uma **assinatura oficial** com maior capacidade e estabilidade; ainda não há plano, preço ou data definidos.
 
-O computador de quem cria a sala também pode continuar funcionando como servidor da própria sessão.
+### 2. LAN
+
+O PC de quem cria a sala executa o `NavBR.Server` apenas para a rede local.
 
 - porta padrão: TCP 27730;
-- UPnP é opcional;
-- o host direto pode exigir Firewall/port forwarding dependendo da rede.
+- não usa o Servidor NavBR oficial;
+- indicado para jogadores na mesma LAN.
+
+### 3. Online através do Host
+
+O PC de quem cria a sala executa o `NavBR.Server` e recebe os demais jogadores pela Internet.
+
+- não usa o Servidor NavBR oficial;
+- pode exigir Firewall, UPnP ou redirecionamento da TCP 27730 dependendo da rede;
+- a capacidade depende do PC e da conexão de Internet do host.
 
 ### Render gratuito
 
@@ -113,7 +124,7 @@ A Alpha.14 também leva o fluxo principal de Ghost para a interface React.
 - OMSI alvo inicial: **2.3.004**;
 - cliente: **.NET 10 / C# / WPF x86 host + WebView2 + React/TypeScript/Vite**;
 - servidor: **ASP.NET Core + SignalR**;
-- host da sala: **servidor online hospedado** ou o próprio PC de quem cria a sala;
+- hospedagem multiplayer: **Servidor NavBR oficial**, **LAN** ou **Online através do Host**;
 - peer-host local: **TCP 27730**;
 - servidor online: **HTTPS/WSS** pelo provedor de hospedagem;
 - projeto público.
