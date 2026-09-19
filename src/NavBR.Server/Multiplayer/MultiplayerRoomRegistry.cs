@@ -50,6 +50,8 @@ public sealed class MultiplayerRoomRegistry
             .ToArray();
     }
 
+    public int GetActiveConnectionCount() => _connections.Count;
+
     public IReadOnlyList<string> GetActiveRoomIds()
     {
         return _connections.Values
