@@ -81,7 +81,7 @@ jobs:
           done < /tmp/navbr-tags.txt
 
           jq '
-              (sort_by(.published_at // .created_at) | reverse) as $all
+              ([.[] | select(.draft != true)] | sort_by(.published_at // .created_at) | reverse) as $all
               | {
                   total_downloads: ([$all[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
                   alpha_downloads: (
@@ -98,7 +98,7 @@ jobs:
                     | map({key: .[0].key, value: (map(.value) | add // 0)})
                     | from_entries
                   ),
-                  releases: ($all[:12] | map({
+                  releases: ($all | map({
                     tag_name,
                     name,
                     prerelease,
@@ -106,7 +106,7 @@ jobs:
                     html_url,
                     body,
                     download_count: ([.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
-                    assets: [.assets[] | {name, browser_download_url, size, download_count}]
+                    assets: [.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | {name, browser_download_url, size, download_count}]
                   }))
                 }
             ' \
