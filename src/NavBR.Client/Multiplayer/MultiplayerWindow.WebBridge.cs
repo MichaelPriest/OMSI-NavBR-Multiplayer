@@ -628,8 +628,14 @@ public partial class MultiplayerWindow
         _settings = _settings with
         {
             EphemeralRoomPassword = password,
-            EphemeralCreatePrivateRoom = createPrivateRoom
+            EphemeralCreatePrivateRoom = createPrivateRoom,
+            EnableApplicationRelay = false,
+            EnableAutomaticUpnp = exposeInternet
         };
+        MultiplayerSettingsStore.Save(_settings);
+
+        RelayEnabledCheckBox.IsChecked = false;
+        UpnpEnabledCheckBox.IsChecked = exposeInternet;
 
         try
         {
