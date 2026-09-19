@@ -26,7 +26,7 @@ internal static class PluginBridgeClient
         typeof(PluginBridgeClient).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion
-        ?? ComponentVersion;
+        ?? typeof(PluginBridgeClient).Assembly.GetName().Version?.ToString();
 
     public static PluginBridgeMessage? LatestRemoteState =>
         RemoteVehicles.LatestCompatible(GetLocalState());
