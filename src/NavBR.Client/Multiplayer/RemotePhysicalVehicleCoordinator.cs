@@ -20,6 +20,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const int MaxPhysicalRemotePlayers = 32;
     private const double PhysicalSpawnRadiusMeters = 750d;
     private const double PhysicalDespawnRadiusMeters = 1_000d;
+    private const double CapacityReplacementMarginMeters = 75d;
     private static readonly TimeSpan LocalTelemetryFreshness =
         TimeSpan.FromSeconds(3);
 
@@ -32,6 +33,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, int> _consecutiveUpdateFailuresByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, double> _distanceByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _capacityEvictionsInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -204,8 +207,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        double? currentDistanceMeters = null;
         if (TryGetLocalDistanceMeters(frame.Telemetry, out var distanceMeters))
         {
+            currentDistanceMeters = distanceMeters;
+            _distanceByPlayer[playerId] = distanceMeters;
+
             var distanceLimit = _spawned.ContainsKey(playerId)
                 ? PhysicalDespawnRadiusMeters
                 : PhysicalSpawnRadiusMeters;
@@ -247,6 +254,15 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (!_spawned.ContainsKey(playerId) &&
             _spawned.Count >= MaxPhysicalRemotePlayers)
         {
+            if (currentDistanceMeters is double candidateDistance &&
+                TryScheduleFartherVehicleEviction(
+                    playerId,
+                    candidateDistance))
+            {
+                SetStatus(playerId, "waiting-nearer-slot");
+                return;
+            }
+
             SetStatus(playerId, "limit-reached");
             ReportFailureOnce(playerId, "limit", "physical-vehicle-limit-reached");
             return;
@@ -468,7 +484,67 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _spawnedCompatibilityByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
         _consecutiveUpdateFailuresByPlayer.Clear();
+        _distanceByPlayer.Clear();
+        _capacityEvictionsInFlight.Clear();
         _statusByPlayer.Clear();
+    }
+
+    private bool TryScheduleFartherVehicleEviction(
+        string candidatePlayerId,
+        double candidateDistanceMeters)
+    {
+        var farthest = _spawned.Keys
+            .Where(id =>
+                !string.Equals(
+                    id,
+                    candidatePlayerId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                _distanceByPlayer.ContainsKey(id))
+            .Select(id => new
+            {
+                PlayerId = id,
+                Distance = _distanceByPlayer.TryGetValue(id, out var value)
+                    ? value
+                    : double.NaN
+            })
+            .Where(item => double.IsFinite(item.Distance))
+            .OrderByDescending(item => item.Distance)
+            .FirstOrDefault();
+
+        if (farthest is null ||
+            farthest.Distance - candidateDistanceMeters <
+                CapacityReplacementMarginMeters ||
+            !_capacityEvictionsInFlight.TryAdd(farthest.PlayerId, 0))
+        {
+            return false;
+        }
+
+        _ = EvictForCloserVehicleAsync(farthest.PlayerId);
+        return true;
+    }
+
+    private async Task EvictForCloserVehicleAsync(string playerId)
+    {
+        try
+        {
+            await DespawnAsync(playerId);
+            SetStatus(playerId, "capacity-evicted");
+            RemoteDiagnosticsService.Record(
+                "physical-vehicle",
+                "info",
+                "capacity-evicted-for-nearer-player");
+        }
+        catch (Exception ex)
+        {
+            RemoteDiagnosticsService.Record(
+                "physical-vehicle",
+                "error",
+                $"capacity-eviction-failed type={ex.GetType().Name}");
+        }
+        finally
+        {
+            _capacityEvictionsInFlight.TryRemove(playerId, out _);
+        }
     }
 
     private static bool IsFatalUpdateFailure(string? errorCode) =>
