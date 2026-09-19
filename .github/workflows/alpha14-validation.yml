@@ -264,7 +264,7 @@ jobs:
           }
 
           $nativeInterop = Get-Content "native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp" -Raw
-          if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+5\s*;') {
+          if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+6\s*;') {
             throw "Native OMSI interop must expose state ABI v6."
           }
 
