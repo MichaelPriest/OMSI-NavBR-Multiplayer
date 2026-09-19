@@ -143,12 +143,29 @@ try
     Console.WriteLine($"Connected {bots.Length} simulated players.");
 
     var started = DateTimeOffset.UtcNow;
+    var effectiveDurationSeconds = options.DurationSeconds > 0
+        ? options.DurationSeconds
+        : options.VerifyPhysical
+            ? 30
+            : 0;
+
     while (!shutdown.IsCancellationRequested &&
-           (options.DurationSeconds <= 0 ||
-            (DateTimeOffset.UtcNow - started).TotalSeconds < options.DurationSeconds))
+           (effectiveDurationSeconds <= 0 ||
+            (DateTimeOffset.UtcNow - started).TotalSeconds < effectiveDurationSeconds))
     {
         var elapsed = (DateTimeOffset.UtcNow - started).TotalSeconds;
         await Task.WhenAll(bots.Select(bot => bot.PublishFrameAsync(elapsed, shutdown.Token)));
+
+        if (options.VerifyPhysical &&
+            probe is not null &&
+            elapsed >= 3d &&
+            probe.HasConfirmedPhysicalBots(expectedPhysicalBots))
+        {
+            Console.WriteLine(
+                $"Physical verification observed {expectedPhysicalBots.Length} simulator bus(es) materialized in the host OMSI.");
+            break;
+        }
+
         await Task.Delay(options.IntervalMilliseconds, shutdown.Token);
     }
 }
@@ -165,24 +182,26 @@ catch (HttpRequestException ex)
 }
 finally
 {
+    if (probe is not null && connected)
+    {
+        var result = probe.Verify(
+            bots.Select(bot => bot.PlayerId).ToArray(),
+            expectedPhysicalBots);
+        if (!result.Success)
+        {
+            Console.Error.WriteLine($"Simulator verification failed: {result.Message}");
+            Environment.ExitCode = 2;
+        }
+        else
+        {
+            Console.WriteLine($"Simulator verification passed: {result.Message}");
+        }
+    }
+
     await Task.WhenAll(bots.Select(bot => bot.DisposeAsync().AsTask()));
 
     if (probe is not null)
     {
-        if (connected)
-        {
-            var result = probe.Verify(bots.Select(bot => bot.PlayerId).ToArray());
-            if (!result.Success)
-            {
-                Console.Error.WriteLine($"Movement verification failed: {result.Message}");
-                Environment.ExitCode = 2;
-            }
-            else
-            {
-                Console.WriteLine($"Movement verification passed: {result.Message}");
-            }
-        }
-
         await probe.DisposeAsync();
     }
 }
@@ -479,6 +498,8 @@ internal sealed class SimulationProbe : IAsyncDisposable
     private readonly HubConnection _connection;
     private readonly Dictionary<string, MovementSample> _samples =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<string>> _physicalSetsByPlayer =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
     private readonly string _playerId = $"sim-probe-{Guid.NewGuid():N}"[..28];
 
@@ -503,6 +524,9 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Telemetry.FuelPercent,
                 frame.Telemetry.Lights,
                 frame.Telemetry.TurnSignal));
+        _connection.On<PlayerPresence>("playerPresenceChanged", RecordPresence);
+        _connection.On<PlayerPresence>("playerJoined", RecordPresence);
+
         _connection.On<RoleplayCharacterFrame>("roleplayCharacter", frame =>
             Record(
                 frame.Player.PlayerId,
@@ -522,7 +546,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         await _connection.StartAsync(cancellationToken);
-        await _connection.InvokeAsync<RoomSnapshot>(
+        var snapshot = await _connection.InvokeAsync<RoomSnapshot>(
             "JoinRoom",
             new JoinRoomRequest(
                 _options.RoomId,
@@ -533,9 +557,37 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 Compatibility: null,
                 RoomPassword: _options.RoomPassword),
             cancellationToken);
+
+        foreach (var player in snapshot.Players)
+        {
+            RecordPresence(player);
+        }
     }
 
-    public VerificationResult Verify(IReadOnlyList<string> expectedPlayerIds)
+    public bool HasConfirmedPhysicalBots(IReadOnlyList<string> expectedPhysicalPlayerIds)
+    {
+        if (expectedPhysicalPlayerIds.Count == 0)
+        {
+            return true;
+        }
+
+        lock (_sync)
+        {
+            if (string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+                !_physicalSetsByPlayer.TryGetValue(
+                    _options.ReferencePlayerId,
+                    out var physicalIds))
+            {
+                return false;
+            }
+
+            return expectedPhysicalPlayerIds.All(physicalIds.Contains);
+        }
+    }
+
+    public VerificationResult Verify(
+        IReadOnlyList<string> expectedPlayerIds,
+        IReadOnlyList<string> expectedPhysicalPlayerIds)
     {
         lock (_sync)
         {
@@ -597,6 +649,30 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 }
             }
 
+            if (_options.VerifyPhysical)
+            {
+                if (expectedPhysicalPlayerIds.Count == 0)
+                {
+                    return new VerificationResult(
+                        false,
+                        "Physical verification requested, but no simulated vehicle bots were active.");
+                }
+
+                if (!HasConfirmedPhysicalBots(expectedPhysicalPlayerIds))
+                {
+                    var observed = string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+                                   !_physicalSetsByPlayer.TryGetValue(
+                                       _options.ReferencePlayerId,
+                                       out var physicalIds)
+                        ? Array.Empty<string>()
+                        : physicalIds.ToArray();
+
+                    return new VerificationResult(
+                        false,
+                        $"Host OMSI did not confirm all simulator buses through MakeVehicle. Confirmed {observed.Length}/{expectedPhysicalPlayerIds.Count}.");
+                }
+            }
+
             var minimum = samples.Min(sample => sample.DistanceMeters);
             var rpStates = samples
                 .Where(sample => sample.Kind == MovementKind.Roleplay)
@@ -607,9 +683,28 @@ internal sealed class SimulationProbe : IAsyncDisposable
             var rpSummary = rpStates.Length == 0
                 ? "no RP states"
                 : $"RP states: {string.Join(", ", rpStates)}";
+            var physicalSummary = _options.VerifyPhysical
+                ? $"; {expectedPhysicalPlayerIds.Count} physical bus(es) confirmed in OMSI"
+                : string.Empty;
             return new VerificationResult(
                 true,
-                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}.");
+                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}{physicalSummary}.");
+        }
+    }
+
+    private void RecordPresence(PlayerPresence player)
+    {
+        var ids = player.PhysicalVehiclePlayerIds;
+        if (ids is null)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            _physicalSetsByPlayer[player.PlayerId] = ids
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
     }
 
