@@ -32,6 +32,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _spawnLifecycleGate = new(1, 1);
     private readonly ConcurrentDictionary<string, string> _lastFailureByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RemotePhysicalVehicleStatus> _statusByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
@@ -322,7 +323,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             {
                 if (retryAfter > DateTimeOffset.UtcNow)
                 {
-                    SetStatus(playerId, "tile-unavailable", "tile-unavailable");
+                    SetStatus(playerId, "spawn-retrying");
                     return;
                 }
 
@@ -380,48 +381,61 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 frame,
                 remoteManifest,
                 resolvedVehiclePath);
-            if (_spawned.TryAdd(playerId, 0))
+
+            // MakeVehicle is extremely sensitive to lifecycle races even
+            // though the plugin itself executes on OMSI's callback thread.
+            // Serialize create ownership across remote players, while leaving
+            // steady-state transform updates independent.
+            await _spawnLifecycleGate.WaitAsync(cancellationToken);
+            try
             {
-                SetStatus(playerId, "spawning");
-                var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
-                    spawnFrame,
-                    cancellationToken);
-                if (spawn?.Success != true)
+                if (_spawned.TryAdd(playerId, 0))
                 {
-                    _spawned.TryRemove(playerId, out _);
-                    if (IsTileAvailabilityError(spawn?.ErrorCode))
+                    SetStatus(playerId, "spawning");
+                    var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
+                        spawnFrame,
+                        cancellationToken);
+                    if (spawn?.Success != true)
                     {
+                        _spawned.TryRemove(playerId, out _);
                         _spawnRetryAfterByPlayer[playerId] =
-                            DateTimeOffset.UtcNow + TileUnavailableRetryDelay;
+                            DateTimeOffset.UtcNow +
+                            (IsTileAvailabilityError(spawn?.ErrorCode)
+                                ? TileUnavailableRetryDelay
+                                : TimeSpan.FromMilliseconds(750));
+
+                        ReportCommandFailureOnce(
+                            playerId,
+                            "spawn",
+                            spawn,
+                            consistInfo?.ExpectedPartCount);
+                        return;
                     }
 
-                    ReportCommandFailureOnce(
-                        playerId,
-                        "spawn",
-                        spawn,
-                        consistInfo?.ExpectedPartCount);
+                    _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
+
+                    _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
+                        remoteVehicleCompatibilityId;
+                    _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
+                        resolvedVehiclePath;
+                    _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
+                    _lastFailureByPlayer.TryRemove(playerId, out _);
+                    _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
+                    SetStatus(playerId, "active");
+                    PublishPhysicalVehicleSetIfChanged();
+                    RemoteDiagnosticsService.Record(
+                        "physical-vehicle",
+                        "info",
+                        "spawn-success");
+
+                    // Spawn already applies and confirms this exact frame. Do not
+                    // immediately send a duplicate UpdateRemoteVehicle command.
                     return;
                 }
-
-                _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
-
-                _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
-                    remoteVehicleCompatibilityId;
-                _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
-                    resolvedVehiclePath;
-                _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
-                _lastFailureByPlayer.TryRemove(playerId, out _);
-                _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
-                SetStatus(playerId, "active");
-                PublishPhysicalVehicleSetIfChanged();
-                RemoteDiagnosticsService.Record(
-                    "physical-vehicle",
-                    "info",
-                    "spawn-success");
-
-                // Spawn already applies and confirms this exact frame. Do not
-                // immediately send a duplicate UpdateRemoteVehicle command.
-                return;
+            }
+            finally
+            {
+                _spawnLifecycleGate.Release();
             }
         }
 

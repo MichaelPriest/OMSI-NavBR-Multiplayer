@@ -31,6 +31,18 @@ internal sealed class RoleplayKeyboardHook : IDisposable
         }
     }
 
+    public static bool IsKeyDown(int virtualKey)
+    {
+        try
+        {
+            return (GetAsyncKeyState(virtualKey) & unchecked((short)0x8000)) != 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static bool IsOmsiForeground()
     {
         var foreground = GetForegroundWindow();
@@ -113,6 +125,9 @@ internal sealed class RoleplayKeyboardHook : IDisposable
         int nCode,
         IntPtr wParam,
         IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();

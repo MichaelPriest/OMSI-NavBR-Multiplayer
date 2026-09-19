@@ -167,7 +167,7 @@ try
     var effectiveDurationSeconds = options.DurationSeconds > 0
         ? options.DurationSeconds
         : options.VerifyPhysical
-            ? 30
+            ? 60
             : 0;
 
     while (!shutdown.IsCancellationRequested &&
@@ -703,9 +703,21 @@ internal sealed class SimulationProbe : IAsyncDisposable
                         ? Array.Empty<string>()
                         : physicalIds.ToArray();
 
+                    var missingPhysical = expectedPhysicalPlayerIds
+                        .Where(id => !observed.Contains(id, StringComparer.OrdinalIgnoreCase))
+                        .ToArray();
+                    var confirmedSummary = observed.Length == 0
+                        ? "none"
+                        : string.Join(", ", observed.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+                    var missingSummary = missingPhysical.Length == 0
+                        ? "none"
+                        : string.Join(", ", missingPhysical.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+
                     return new VerificationResult(
                         false,
-                        $"Host OMSI did not confirm all simulator buses through MakeVehicle. Confirmed {observed.Length}/{expectedPhysicalPlayerIds.Count}.");
+                        $"Host OMSI did not confirm all simulator buses through MakeVehicle. " +
+                        $"Confirmed {observed.Length}/{expectedPhysicalPlayerIds.Count}. " +
+                        $"Confirmed IDs: {confirmedSummary}. Missing IDs: {missingSummary}.");
                 }
             }
 

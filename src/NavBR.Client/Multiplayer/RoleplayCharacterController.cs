@@ -738,6 +738,18 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                           _pressedKeys.Contains(VkRightShift);
             }
 
+            // Low-level hooks can be blocked by overlays, privilege boundaries
+            // or another hook in the chain. Poll the real keyboard state while
+            // OMSI owns focus so RP movement still works even if no hook event
+            // reached NavBR. Hook state remains useful for consuming the keys.
+            forward |= RoleplayKeyboardHook.IsKeyDown(VkW);
+            backward |= RoleplayKeyboardHook.IsKeyDown(VkS);
+            left |= RoleplayKeyboardHook.IsKeyDown(VkA);
+            right |= RoleplayKeyboardHook.IsKeyDown(VkD);
+            running |= RoleplayKeyboardHook.IsKeyDown(VkShift) ||
+                       RoleplayKeyboardHook.IsKeyDown(VkLeftShift) ||
+                       RoleplayKeyboardHook.IsKeyDown(VkRightShift);
+
             var direction = forward == backward ? 0d : forward ? 1d : -1d;
             var targetVelocity = direction switch
             {
@@ -1121,6 +1133,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         catch
         {
             _keyboardHook = null;
+            SetStatus("roleplay-active-keyboard-polling");
         }
     }
 
