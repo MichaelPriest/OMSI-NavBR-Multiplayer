@@ -867,6 +867,7 @@ namespace
 
     template <typename T>
     bool WriteValue(int vehiclePointer, int offset, const T& value);
+    bool IsRoadVehiclePointer(int vehiclePointer);
 
     bool TryReadMatrix(int objectPointer, int offset, Matrix4& matrix)
     {
