@@ -18,8 +18,8 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
             omsiInstallDirectorySource);
-        _physicalVehicles.PhysicalVehicleCountChanged += count =>
-            _ = PublishPhysicalVehicleCountAsync(count);
+        _physicalVehicles.PhysicalVehicleSetChanged += playerIds =>
+            _ = PublishPhysicalVehicleSetAsync(playerIds);
     }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
@@ -253,8 +253,8 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             cancellationToken);
     }
 
-    private async Task PublishPhysicalVehicleCountAsync(
-        int physicalVehicleCount,
+    private async Task PublishPhysicalVehicleSetAsync(
+        IReadOnlyList<string> playerIds,
         CancellationToken cancellationToken = default)
     {
         var connection = _connection;
@@ -268,7 +268,11 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         {
             await connection.SendAsync(
                 "UpdatePhysicalVehicleStatus",
-                Math.Clamp(physicalVehicleCount, 0, 32),
+                playerIds
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(32)
+                    .ToArray(),
                 cancellationToken);
         }
         catch
