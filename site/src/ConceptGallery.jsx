@@ -44,7 +44,7 @@ export default function ConceptGallery() {
           </article>
         ))}
       </div>
-      <p className="v2-concept-note">Imagens conceituais geradas por IA. A interface real pode diferir conforme a implementação e os dados disponíveis no OMSI.</p>
+      <p className="v2-concept-note">Conceitos visuais gerados por IA. A interface real pode diferir conforme a implementação e os dados disponíveis no OMSI.</p>
     </section>
   );
 }
