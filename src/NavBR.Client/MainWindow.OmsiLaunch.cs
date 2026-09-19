@@ -1,4 +1,6 @@
 using NavBR.Client.Omsi;
+using NavBR.Client.PluginInstaller;
+using NavBR.Client.Multiplayer;
 
 namespace NavBR.Client;
 
@@ -25,7 +27,16 @@ public partial class MainWindow
                 return;
             }
 
-            _webOmsiLaunchNotice = null;
+            if (!EnsurePluginBeforeOmsiLaunch(
+                    profile.InstallDirectory,
+                    out var pluginNotice))
+            {
+                _webOmsiLaunchNotice = pluginNotice;
+                NavigatePrimaryWebShell("settings-installations");
+                return;
+            }
+
+            _webOmsiLaunchNotice = pluginNotice;
             _ = OmsiLauncherService.Launch(profile);
         }
         catch (Exception ex)
@@ -34,5 +45,41 @@ public partial class MainWindow
                 $"Não foi possível iniciar o OMSI automaticamente. {ex.Message}";
             NavigatePrimaryWebShell("settings-installations");
         }
+    }
+
+    private static bool EnsurePluginBeforeOmsiLaunch(
+        string installDirectory,
+        out string? notice)
+    {
+        notice = null;
+
+        var result = OmsiPluginInstallationService.EnsureInstalledAtStartup(
+            installDirectory);
+        if (result.Status is "installed")
+        {
+            notice = "Plugin NavBR atualizado automaticamente antes de iniciar o OMSI.";
+            return true;
+        }
+
+        if (result.Status is "ready" or "untracked")
+        {
+            return true;
+        }
+
+        var settings = MultiplayerSettingsStore.Load();
+        var nativeIntegrationRequested =
+            settings.ExperimentalPhysicalVehiclesEnabled ||
+            settings.ExperimentalRoleplayCharacterEnabled;
+
+        if (!nativeIntegrationRequested)
+        {
+            notice = result.Message;
+            return true;
+        }
+
+        notice =
+            $"O plugin NavBR não pôde ser preparado para ônibus físicos/RP: {result.Message ?? result.Status}. " +
+            "Corrija o plugin antes de iniciar o OMSI.";
+        return false;
     }
 }
