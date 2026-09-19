@@ -209,6 +209,32 @@ public sealed class MultiplayerRoomRegistry
         return null;
     }
 
+    public PlayerPresence? UpdatePhysicalVehicleCount(
+        string connectionId,
+        int physicalVehicleCount)
+    {
+        var normalizedCount = Math.Clamp(physicalVehicleCount, 0, 32);
+        while (_connections.TryGetValue(connectionId, out var current))
+        {
+            if (current.PhysicalVehicleCount == normalizedCount)
+            {
+                return null;
+            }
+
+            var updated = current with
+            {
+                PhysicalVehicleCount = normalizedCount
+            };
+
+            if (_connections.TryUpdate(connectionId, updated, current))
+            {
+                return updated;
+            }
+        }
+
+        return null;
+    }
+
     public PlayerPresence? Remove(string connectionId)
     {
         return _connections.TryRemove(connectionId, out var presence)
