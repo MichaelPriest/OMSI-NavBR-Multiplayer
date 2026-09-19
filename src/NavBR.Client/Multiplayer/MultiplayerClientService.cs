@@ -78,6 +78,17 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         await DisconnectAsync();
 
+        // The WebView controller can exist without ever rendering the retired
+        // WPF window. Re-apply the persisted physical-bus preference at the
+        // actual connection boundary so a partial/hidden UI initialization
+        // can never leave settings=true while the runtime marker remains off.
+        if (ExperimentalFeatureFlags.PhysicalVehiclesEnabled !=
+            settings.ExperimentalPhysicalVehiclesEnabled)
+        {
+            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
+                settings.ExperimentalPhysicalVehiclesEnabled);
+        }
+
         string hubUrl;
         try
         {
