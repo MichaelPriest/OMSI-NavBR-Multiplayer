@@ -11,7 +11,7 @@ export function Header({ activeSection, onOpenDownloads }) {
   const navItems = [
     ["contribua", "❤ Contribua"],
     ["estado", "Alpha.14"],
-    ["download", "Builds"],
+    ["download", "Downloads"],
     ["recursos", "Recursos"],
     ["multiplayer", "Multiplayer"],
     ["documentacao", "Documentação"]
@@ -34,7 +34,7 @@ export function Header({ activeSection, onOpenDownloads }) {
           {navItems.map(([id, label]) => (
             <a key={id} href={`#${id}`} className={activeSection === id ? "is-active" : ""}>{label}</a>
           ))}
-          <button className="topbar-downloads" type="button" onClick={onOpenDownloads}>Downloads</button>
+          <button className="topbar-downloads" type="button" onClick={onOpenDownloads}>Última versão</button>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
