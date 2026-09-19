@@ -52,7 +52,8 @@ public partial class MainWindow
                 omsiRoot = pluginOmsiRoot,
                 embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
                 installAvailable = OmsiPluginInstallationService.HasEmbeddedPackage &&
-                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot),
+                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot) &&
+                                   _currentOmsi is null,
                 omsiRunning = _currentOmsi is not null
             },
             installations = profiles
