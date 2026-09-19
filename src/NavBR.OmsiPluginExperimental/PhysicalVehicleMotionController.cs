@@ -17,6 +17,8 @@ internal static class PhysicalVehicleMotionController
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
     private const long StaleTargetAfterMs = 5_000;
+    private const long ReadbackIntervalMs = 250;
+    private const double ReadbackToleranceMeters = 3d;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
@@ -54,6 +56,16 @@ internal static class PhysicalVehicleMotionController
             return false;
         }
 
+        if (!TryConfirmTransform(
+                instance,
+                snapshot,
+                validateTileIndex: true,
+                out errorCode,
+                out errorMessage))
+        {
+            return false;
+        }
+
         var now = Environment.TickCount64;
         States[instance.InstanceId] = new MotionState
         {
@@ -63,7 +75,8 @@ internal static class PhysicalVehicleMotionController
             StartTickMs = now,
             LastTargetTickMs = now,
             DurationMs = DefaultInterpolationMs,
-            LastSourceTimestampMs = command.TimestampUnixMilliseconds
+            LastSourceTimestampMs = command.TimestampUnixMilliseconds,
+            LastReadbackTickMs = now
         };
         return true;
     }
@@ -87,6 +100,15 @@ internal static class PhysicalVehicleMotionController
         if (!States.TryGetValue(instance.InstanceId, out var state))
         {
             return TryInitialize(instance, command, out errorCode, out errorMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.FaultCode))
+        {
+            errorCode = state.FaultCode;
+            errorMessage = state.FaultMessage ??
+                "OMSI did not confirm the previous physical vehicle motion write.";
+            States.Remove(instance.InstanceId);
+            return false;
         }
 
         var sourceTimestamp = command.TimestampUnixMilliseconds;
@@ -146,6 +168,16 @@ internal static class PhysicalVehicleMotionController
                 return false;
             }
 
+            if (!TryConfirmTransform(
+                    instance,
+                    target,
+                    validateTileIndex: tileChanged,
+                    out errorCode,
+                    out errorMessage))
+            {
+                return false;
+            }
+
             state.Current = target;
             state.Start = target;
             state.Target = target;
@@ -153,6 +185,7 @@ internal static class PhysicalVehicleMotionController
             state.LastTargetTickMs = now;
             state.DurationMs = DefaultInterpolationMs;
             state.LastSourceTimestampMs = sourceTimestamp;
+            state.LastReadbackTickMs = now;
             return true;
         }
 
@@ -217,8 +250,30 @@ internal static class PhysicalVehicleMotionController
 
             if (!TryApplyTransform(instance, next, writeTileIndex: false))
             {
-                States.Remove(instanceId);
+                state.FaultCode = "motion-transform-write-failed";
+                state.FaultMessage =
+                    "OMSI rejected a smoothed physical vehicle transform write.";
                 continue;
+            }
+
+            if (now - state.LastReadbackTickMs >= ReadbackIntervalMs)
+            {
+                if (!TryConfirmTransform(
+                        instance,
+                        next,
+                        validateTileIndex: false,
+                        out var readbackErrorCode,
+                        out var readbackErrorMessage))
+                {
+                    state.FaultCode =
+                        readbackErrorCode ?? "motion-readback-failed";
+                    state.FaultMessage =
+                        readbackErrorMessage ??
+                        "OMSI did not confirm the smoothed physical vehicle transform.";
+                    continue;
+                }
+
+                state.LastReadbackTickMs = now;
             }
 
             state.Current = next;
@@ -256,6 +311,58 @@ internal static class PhysicalVehicleMotionController
             writeTileIndex && snapshot.MapTileIndex is int mapTileIndex
                 ? mapTileIndex
                 : -1) == 1;
+
+    private static bool TryConfirmTransform(
+        PhysicalVehicleInstance instance,
+        MotionSnapshot snapshot,
+        bool validateTileIndex,
+        out string? errorCode,
+        out string? errorMessage)
+    {
+        errorCode = null;
+        errorMessage = null;
+
+        if (OmsiNativeInterop.ReadRoadVehiclePosition(
+                instance.VehiclePointer,
+                out var actualX,
+                out var actualY,
+                out var actualZ) != 1)
+        {
+            errorCode = "motion-readback-unavailable";
+            errorMessage =
+                "OMSI did not expose a readable position after the physical vehicle transform.";
+            return false;
+        }
+
+        var dx = (double)actualX - snapshot.X;
+        var dy = (double)actualY - snapshot.Y;
+        var dz = (double)actualZ - snapshot.Z;
+        var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        if (!double.IsFinite(distance) || distance > ReadbackToleranceMeters)
+        {
+            errorCode = "motion-transform-mismatch";
+            errorMessage =
+                $"OMSI physical vehicle readback differs from the requested smoothed pose by {distance:F2} m.";
+            return false;
+        }
+
+        if (validateTileIndex &&
+            snapshot.MapTileIndex is int expectedTileIndex)
+        {
+            var actualTileIndex =
+                OmsiNativeInterop.ReadRoadVehicleTileIndex(
+                    instance.VehiclePointer);
+            if (actualTileIndex != expectedTileIndex)
+            {
+                errorCode = "motion-tile-mismatch";
+                errorMessage =
+                    $"OMSI physical vehicle is on Kachel {actualTileIndex}, expected {expectedTileIndex}.";
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static bool TryApplyVisualState(
         PhysicalVehicleInstance instance,
@@ -396,6 +503,9 @@ internal static class PhysicalVehicleMotionController
         public long LastTargetTickMs { get; set; }
         public double DurationMs { get; set; }
         public long? LastSourceTimestampMs { get; set; }
+        public long LastReadbackTickMs { get; set; }
+        public string? FaultCode { get; set; }
+        public string? FaultMessage { get; set; }
     }
 
     private readonly record struct MotionSnapshot(
