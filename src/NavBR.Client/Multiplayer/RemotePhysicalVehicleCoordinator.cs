@@ -750,13 +750,37 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
-        _statusByPlayer[playerId] = new RemotePhysicalVehicleStatus(
+        var normalizedErrorCode =
+            string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim();
+        var normalizedErrorMessage =
+            string.IsNullOrWhiteSpace(errorMessage) ? null : errorMessage.Trim();
+        var normalizedPartCount = partCount is > 0 ? partCount : null;
+        var normalizedExpectedPartCount =
+            expectedPartCount is > 0 ? expectedPartCount : null;
+
+        var next = new RemotePhysicalVehicleStatus(
             state,
-            string.IsNullOrWhiteSpace(errorCode) ? null : errorCode.Trim(),
-            string.IsNullOrWhiteSpace(errorMessage) ? null : errorMessage.Trim(),
-            partCount is > 0 ? partCount : null,
-            expectedPartCount is > 0 ? expectedPartCount : null,
+            normalizedErrorCode,
+            normalizedErrorMessage,
+            normalizedPartCount,
+            normalizedExpectedPartCount,
             DateTimeOffset.UtcNow);
+
+        var changed =
+            !_statusByPlayer.TryGetValue(playerId, out var previous) ||
+            !string.Equals(previous.State, next.State, StringComparison.Ordinal) ||
+            !string.Equals(previous.ErrorCode, next.ErrorCode, StringComparison.Ordinal) ||
+            previous.PartCount != next.PartCount ||
+            previous.ExpectedPartCount != next.ExpectedPartCount;
+
+        _statusByPlayer[playerId] = next;
+        if (changed)
+        {
+            NavBRAppLog.Info(
+                $"physical-vehicle player={playerId} state={next.State} " +
+                $"error={next.ErrorCode ?? "-"} parts={next.PartCount?.ToString() ?? "-"} " +
+                $"expected-parts={next.ExpectedPartCount?.ToString() ?? "-"}");
+        }
     }
 
     private void ReportFailureOnce(string playerId, string key, string message)
