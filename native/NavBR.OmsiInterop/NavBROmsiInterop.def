@@ -16,6 +16,7 @@ EXPORTS
     NavBR_IsHumanControllable
     NavBR_GetPlayerVehiclePointer
     NavBR_ReadRoadVehiclePosition
+    NavBR_ReadRoadVehicleTileIndex
     NavBR_IsPlayerBusDriverHuman
     NavBR_ReadHumanPose
     NavBR_ReadHumanDriverState
