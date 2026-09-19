@@ -1604,3 +1604,13 @@ h3 { margin:6px 0 16px; font-size:19px; }
   display: block;
   opacity: 0.78;
 }
+
+
+.physical-error-detail {
+  display: block;
+  margin-top: 3px;
+  opacity: 0.72;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
