@@ -15,6 +15,7 @@ internal static class PhysicalVehicleMotionController
     private const double DefaultInterpolationMs = 120d;
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
+    private const long StaleTargetAfterMs = 5_000;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
@@ -157,6 +158,17 @@ internal static class PhysicalVehicleMotionController
             if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
                 OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
             {
+                States.Remove(instanceId);
+                continue;
+            }
+
+            if (now - state.LastTargetTickMs >= StaleTargetAfterMs)
+            {
+                // If the desktop app, SignalR connection or named pipe dies
+                // without a clean despawn, never leave an orphan NavBR bus in
+                // OMSI indefinitely.
+                _ = OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer);
+                PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
                 States.Remove(instanceId);
                 continue;
             }
