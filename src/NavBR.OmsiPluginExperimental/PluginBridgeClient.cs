@@ -78,9 +78,20 @@ internal static class PluginBridgeClient
         }
 
         OutboundCommandResults.Enqueue(result);
+        var detail = string.IsNullOrWhiteSpace(result.ErrorMessage)
+            ? "-"
+            : result.ErrorMessage
+                .Replace('\r', ' ')
+                .Replace('\n', ' ')
+                .Trim();
+        if (detail.Length > 240)
+        {
+            detail = detail[..240];
+        }
+
         Log(
             $"command-result id={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"} " +
-            $"success={result.Success} error={result.ErrorCode ?? "-"}");
+            $"success={result.Success} error={result.ErrorCode ?? "-"} detail={detail}");
     }
 
     public static void ReportRuntimeStatus(
