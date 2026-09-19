@@ -132,6 +132,24 @@ public partial class MainWindow
             };
         }
 
+        var routeDiagnostics = OmsiRouteTraceReader.LastDiagnostics;
+        object? routeDiagnostic =
+            routeDiagnostics is not null &&
+            string.Equals(
+                routeDiagnostics.MapFolder,
+                map.FolderName,
+                StringComparison.OrdinalIgnoreCase)
+                ? new
+                {
+                    mode = routeDiagnostics.Mode,
+                    trackName = routeDiagnostics.TrackName,
+                    line = routeDiagnostics.ActiveLine,
+                    lookupValue = routeDiagnostics.LookupValue,
+                    entryCount = routeDiagnostics.EntryCount,
+                    pointCount = routeDiagnostics.PointCount
+                }
+                : null;
+
         var nextStopIndex = _webNavigationOrderedStops.RouteResolved
             ? ResolveNextStopIndex(
                 _webNavigationOrderedStops.StopNames,
@@ -173,6 +191,7 @@ public partial class MainWindow
             roadmapFallbackUrl,
             bounds = mapBounds,
             routePoints,
+            routeDiagnostic,
             rejoinAvailable = rejoinPath is not null,
             rejoinDistanceMeters = rejoinPath?.DistanceMeters,
             rejoinPoints,
@@ -254,6 +273,7 @@ public partial class MainWindow
         roadmapFallbackUrl,
         bounds = mapBounds,
         routePoints = Array.Empty<object>(),
+        routeDiagnostic = null as object,
         rejoinAvailable = false,
         rejoinDistanceMeters = null as double?,
         rejoinPoints = Array.Empty<object>(),
