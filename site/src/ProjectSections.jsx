@@ -4,18 +4,18 @@ import { GITHUB_URL } from "./lib.js";
 
 export function MultiplayerSection() {
   const steps = [
-    ["PC A cria a sala", "Abra Multiplayer > Sala, escolha mapa/operação e crie a sessão."],
-    ["PC B entra", "Use o endereço/convite ou o diretório público e confirme compatibilidade."],
-    ["Confirme os dois sentidos", "Observe jogadores, movimento, voz/chat, RP e despawn/reconexão."]
+    ["Servidor NavBR", "Servidor dedicado oficial no Render. Não exige portas no PC, mas a infraestrutura atual é gratuita e limitada para Alpha/testes."],
+    ["LAN", "Seu PC executa o NavBR.Server para jogadores na mesma rede local, sem depender do servidor oficial."],
+    ["Online através do Host", "Seu PC executa o servidor e recebe jogadores pela Internet; pode exigir UPnP, Firewall ou redirecionamento da TCP 27730."]
   ];
 
   return (
     <section id="multiplayer" className="section shell split-section">
       <div>
-        <span className="eyebrow">Teste multiplayer</span>
-        <h2>Comece em dois PCs na mesma rede local.</h2>
+        <span className="eyebrow">3 modos de multiplayer</span>
+        <h2>Escolha onde a sessão será hospedada.</h2>
         <p className="section-lead">
-          O modo padrão continua peer-host. Para validar ônibus físico e RP, use o mesmo mapa e versões compatíveis de plugin.
+          O Servidor NavBR oficial usa atualmente o plano gratuito do Render e pode atingir limites de capacidade. No futuro, o projeto poderá oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há preço, plano ou data definidos.
         </p>
       </div>
       <div className="steps">
