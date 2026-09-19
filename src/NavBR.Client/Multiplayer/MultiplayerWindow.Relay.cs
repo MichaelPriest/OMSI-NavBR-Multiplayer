@@ -173,11 +173,11 @@ public partial class MultiplayerWindow
 
             var roomId = RoomTextBox.Text.Trim();
             var inviteText = RelayText(
-                $"Relay: {normalizedRelayUrl} • sala {roomId}",
-                $"Relay: {normalizedRelayUrl} • room {roomId}",
-                $"Relay: {normalizedRelayUrl} • sala {roomId}",
-                $"Relay: {normalizedRelayUrl} • Raum {roomId}",
-                $"Relais : {normalizedRelayUrl} • salle {roomId}");
+                $"Servidor: {normalizedRelayUrl} • sala {roomId}",
+                $"Server: {normalizedRelayUrl} • room {roomId}",
+                $"Servidor: {normalizedRelayUrl} • sala {roomId}",
+                $"Server: {normalizedRelayUrl} • Raum {roomId}",
+                $"Serveur : {normalizedRelayUrl} • salle {roomId}");
             InviteAddressText.Text = inviteText;
             RoomInviteAddressText.Text = inviteText;
 
