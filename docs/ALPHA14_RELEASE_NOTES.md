@@ -75,7 +75,10 @@ A Alpha.14 consolida as builds de teste anteriores e a **v0.3.0-alpha.14-test.4*
 - personagem real do mapa, selecionado pela interface React;
 - HUD e auto-prompt direcionam para a tela RP React;
 - restauração de pose/vínculo/IA;
-- ônibus remoto físico continua experimental.
+- ônibus remoto físico continua experimental;
+- ônibus remoto físico agora usa interpolação adaptativa no thread do OMSI em vez de aplicar cada frame como salto direto;
+- posição, quaternion e velocidade são suavizados; frames fora de ordem são ignorados e teleportes grandes usam snap seguro;
+- falhas transitórias de atualização têm tolerância curta para reduzir respawns desnecessários.
 
 ## Simulador
 
