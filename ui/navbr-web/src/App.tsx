@@ -3206,13 +3206,19 @@ function Multiplayer({
                 <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
                 <button
                   className="button ghost"
-                  onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false })}
+                  onClick={() => {
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false });
+                  }}
                 >
                   {pick("Hospedar no meu PC (somente LAN)", "Host on my PC (LAN only)", "Alojar en mi PC (solo LAN)", "Auf meinem PC hosten (nur LAN)", "Héberger sur mon PC (LAN uniquement)")}
                 </button>
                 <button
                   className="button ghost"
-                  onClick={() => sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true })}
+                  onClick={() => {
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true });
+                  }}
                 >
                   {pick("Hospedar no meu PC (Internet via UPnP)", "Host on my PC (Internet via UPnP)", "Alojar en mi PC (Internet vía UPnP)", "Auf meinem PC hosten (Internet per UPnP)", "Héberger sur mon PC (Internet via UPnP)")}
                 </button>
