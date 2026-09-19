@@ -3208,28 +3208,24 @@ function Multiplayer({
             </label>
           </div>
 
+          {!multiplayer.connected && (
+            <div className="migration-note">
+              <strong>{pick("Escolha um dos 3 modos de multiplayer", "Choose one of the 3 multiplayer modes", "Elige uno de los 3 modos multijugador", "Wähle einen der 3 Multiplayer-Modi", "Choisissez l’un des 3 modes multijoueur")}</strong><br />
+              {pick("1. Servidor NavBR: servidor dedicado oficial, sem abrir portas. 2. LAN: seu PC hospeda apenas na rede local. 3. Online pelo Host: seu PC hospeda pela Internet e pode exigir UPnP/Firewall/porta TCP 27730.", "1. NavBR Server: official dedicated server, no port forwarding. 2. LAN: your PC hosts only on the local network. 3. Online via Host: your PC hosts over the Internet and may require UPnP/firewall/TCP 27730.", "1. Servidor NavBR: servidor dedicado oficial, sin abrir puertos. 2. LAN: tu PC aloja solo en la red local. 3. Online por Host: tu PC aloja por Internet y puede requerir UPnP/firewall/TCP 27730.", "1. NavBR-Server: offizieller dedizierter Server ohne Portfreigabe. 2. LAN: dein PC hostet nur im lokalen Netz. 3. Online über Host: dein PC hostet über das Internet und kann UPnP/Firewall/TCP 27730 benötigen.", "1. Serveur NavBR : serveur dédié officiel, sans ouverture de ports. 2. LAN : votre PC héberge uniquement sur le réseau local. 3. En ligne via l’hôte : votre PC héberge sur Internet et peut nécessiter UPnP/pare-feu/TCP 27730.")}
+            </div>
+          )}
+
+          {!multiplayer.connected && (
+            <div className="migration-note">
+              <strong>{pick("Servidor NavBR oficial — gratuito e limitado nesta fase", "Official NavBR Server — free and limited at this stage", "Servidor NavBR oficial — gratuito y limitado en esta fase", "Offizieller NavBR-Server — derzeit kostenlos und begrenzt", "Serveur NavBR officiel — gratuit et limité à ce stade")}</strong><br />
+              {pick("A infraestrutura atual usa Render Free: 0,1 CPU, 512 MB de RAM, 750 horas gratuitas por mês, uma única instância e possível hibernação após 15 minutos sem tráfego. É adequada para Alpha/testes e pode atingir limites com muitas salas ou jogadores. No futuro poderemos oferecer uma assinatura oficial com maior capacidade e estabilidade; ainda não há plano, preço ou data definidos.", "The current infrastructure uses Render Free: 0.1 CPU, 512 MB RAM, 750 free hours per month, a single instance, and possible sleep after 15 minutes without traffic. It is suitable for Alpha/testing and may hit limits with many rooms or players. In the future we may offer an official subscription with greater capacity and stability; no plan, price, or date is defined yet.", "La infraestructura actual usa Render Free: 0,1 CPU, 512 MB de RAM, 750 horas gratuitas al mes, una sola instancia y posible suspensión tras 15 minutos sin tráfico. Es adecuada para Alpha/pruebas y puede alcanzar límites con muchas salas o jugadores. En el futuro podremos ofrecer una suscripción oficial con mayor capacidad y estabilidad; todavía no hay plan, precio ni fecha definidos.", "Die aktuelle Infrastruktur nutzt Render Free: 0,1 CPU, 512 MB RAM, 750 kostenlose Stunden pro Monat, eine Instanz und mögliches Einschlafen nach 15 Minuten ohne Datenverkehr. Sie eignet sich für Alpha/Tests und kann bei vielen Räumen oder Spielern an Grenzen stoßen. Künftig könnten wir ein offizielles Abo mit mehr Kapazität und Stabilität anbieten; Plan, Preis und Termin stehen noch nicht fest.", "L’infrastructure actuelle utilise Render Free : 0,1 CPU, 512 Mo de RAM, 750 heures gratuites par mois, une seule instance et une possible mise en veille après 15 minutes sans trafic. Elle convient à l’Alpha/aux tests et peut atteindre ses limites avec de nombreuses salles ou joueurs. À l’avenir, nous pourrons proposer un abonnement officiel offrant davantage de capacité et de stabilité ; aucun plan, prix ni date n’est encore défini.")}
+            </div>
+          )}
+
           <div className="room-actions">
             {!multiplayer.connected ? (
               <>
-                <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar na sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre la salle")}</button>
-                <button
-                  className="button ghost"
-                  onClick={() => {
-                    setRelayEnabled(false);
-                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false });
-                  }}
-                >
-                  {pick("Hospedar no meu PC (somente LAN)", "Host on my PC (LAN only)", "Alojar en mi PC (solo LAN)", "Auf meinem PC hosten (nur LAN)", "Héberger sur mon PC (LAN uniquement)")}
-                </button>
-                <button
-                  className="button ghost"
-                  onClick={() => {
-                    setRelayEnabled(false);
-                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true });
-                  }}
-                >
-                  {pick("Hospedar no meu PC (Internet via UPnP)", "Host on my PC (Internet via UPnP)", "Alojar en mi PC (Internet vía UPnP)", "Auf meinem PC hosten (Internet per UPnP)", "Héberger sur mon PC (Internet via UPnP)")}
-                </button>
+                <button className="button ghost" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>{pick("Entrar em uma sala", "Join a room", "Entrar en una sala", "Einem Raum beitreten", "Rejoindre une salle")}</button>
                 <button
                   className="button primary"
                   onClick={() => {
@@ -3240,12 +3236,30 @@ function Multiplayer({
                     sendCommand("createOnlineRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, serverUrl: onlineUrl });
                   }}
                 >
-                  {pick("Criar sala no servidor online", "Create room on online server", "Crear sala en el servidor online", "Raum auf Online-Server erstellen", "Créer une salle sur le serveur en ligne")}
+                  {pick("1 · Servidor NavBR (gratuito/limitado)", "1 · NavBR Server (free/limited)", "1 · Servidor NavBR (gratuito/limitado)", "1 · NavBR-Server (kostenlos/begrenzt)", "1 · Serveur NavBR (gratuit/limité)")}
+                </button>
+                <button
+                  className="button ghost"
+                  onClick={() => {
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: false });
+                  }}
+                >
+                  {pick("2 · LAN — hospedar neste PC", "2 · LAN — host on this PC", "2 · LAN — alojar en este PC", "2 · LAN — auf diesem PC hosten", "2 · LAN — héberger sur ce PC")}
+                </button>
+                <button
+                  className="button ghost"
+                  onClick={() => {
+                    setRelayEnabled(false);
+                    sendCommand("createLocalRoom", { roomId, displayName, isPrivate: privateRoom, roomPassword, useRelay: false, exposeInternet: true });
+                  }}
+                >
+                  {pick("3 · Online pelo Host — este PC", "3 · Online via Host — this PC", "3 · Online por Host — este PC", "3 · Online über Host — dieser PC", "3 · En ligne via l’hôte — ce PC")}
                 </button>
               </>
             ) : (
               <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
-                {multiplayer.hostRunning ? pick("Encerrar sala local", "Stop local room", "Cerrar sala local", "Lokalen Raum beenden", "Fermer la salle locale") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
+                {multiplayer.hostRunning ? pick("Encerrar servidor deste PC", "Stop this PC server", "Detener servidor de este PC", "Server dieses PCs stoppen", "Arrêter le serveur de ce PC") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
               </button>
             )}
           </div>
