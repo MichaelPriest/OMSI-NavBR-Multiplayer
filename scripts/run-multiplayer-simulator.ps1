@@ -20,7 +20,7 @@ param(
     [double]$Radius = 18,
     [int]$Duration = 0,
     [switch]$Verify,
-    [switch]$VerifyPhysical,
+    [switch]$VerifyPhysical = $true,
     [switch]$NoAutoServer
 )
 
@@ -86,6 +86,9 @@ Write-Host "Mode   : $Mode"
 Write-Host "Physical verify: $($VerifyPhysical.IsPresent)"
 Write-Host ""
 Write-Host "Os jogadores simulados usam clientes SignalR reais e aparecem na Central Multiplayer."
+if ($VerifyPhysical) {
+    Write-Host "Modo físico padrão: o teste só passa quando o host confirmar os ônibus via MakeVehicle dentro do OMSI."
+}
 Write-Host "Ctrl+C encerra o simulador."
 
 if (Test-Path $simulatorExe) {
