@@ -22,9 +22,17 @@ public partial class MainWindow
         var currentInstall = _currentOmsi?.InstallDirectory;
         var hudSettings = MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
+        var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics();
-        var pluginOmsiRoot = OmsiPluginInstallationService.ResolveOmsiRoot(
-            _currentOmsi?.InstallDirectory);
+        var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
+        var pluginInstallBlockReason =
+            !OmsiPluginInstallationService.HasEmbeddedPackage
+                ? "package-missing"
+                : string.IsNullOrWhiteSpace(pluginOmsiRoot)
+                    ? "omsi-not-found"
+                    : omsiRunningForPluginUpdate
+                        ? "omsi-running"
+                        : null;
 
         FileInfo? logInfo = null;
         try
@@ -51,10 +59,9 @@ public partial class MainWindow
                 pluginsDirectory = pluginInstall.DisplayPath,
                 omsiRoot = pluginOmsiRoot,
                 embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
-                installAvailable = OmsiPluginInstallationService.HasEmbeddedPackage &&
-                                   !string.IsNullOrWhiteSpace(pluginOmsiRoot) &&
-                                   _currentOmsi is null,
-                omsiRunning = _currentOmsi is not null
+                installAvailable = pluginInstallBlockReason is null,
+                installBlockReason = pluginInstallBlockReason,
+                omsiRunning = omsiRunningForPluginUpdate
             },
             installations = profiles
                 .Select(profile => new
@@ -155,17 +162,85 @@ public partial class MainWindow
 
     private void InstallOmsiPluginFromWeb()
     {
-        var root = OmsiPluginInstallationService.ResolveOmsiRoot(
-            _currentOmsi?.InstallDirectory);
+        var root = ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(root))
         {
             throw new InvalidOperationException(
-                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta do OMSI em Configurações primeiro.");
+                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta, o Omsi.exe ou um atalho válido em Configurações primeiro.");
         }
 
         var result = OmsiPluginInstallationService.InstallOrUpdate(root);
         _webOmsiLaunchNotice =
             $"Plugin NavBR instalado/atualizado em {result.PluginsDirectory}. Inicie o OMSI para carregar o plugin.";
+    }
+
+    private string? ResolveConfiguredOmsiRootForPlugin(
+        IReadOnlyList<OmsiInstallationProfile>? profiles = null)
+    {
+        var runningRoot = _currentOmsi?.InstallDirectory;
+        if (!string.IsNullOrWhiteSpace(runningRoot))
+        {
+            try
+            {
+                var normalized = Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(runningRoot));
+                if (File.Exists(Path.Combine(normalized, "Omsi.exe")))
+                {
+                    return normalized;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        profiles ??= OmsiInstallationProfileStore.Load();
+        foreach (var profile in profiles
+                     .Where(profile => File.Exists(profile.ExecutablePath))
+                     .OrderByDescending(profile => profile.IsPreferred)
+                     .ThenByDescending(profile => profile.LastUsedAtUtc ?? DateTimeOffset.MinValue))
+        {
+            try
+            {
+                return Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(profile.InstallDirectory));
+            }
+            catch
+            {
+            }
+        }
+
+        return OmsiPluginInstallationService.ResolveOmsiRoot();
+    }
+
+    private static bool IsOmsiProcessRunningForPluginUpdate()
+    {
+        var processes = Process.GetProcessesByName("Omsi");
+        try
+        {
+            foreach (var process in processes)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
+        }
     }
 
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)
