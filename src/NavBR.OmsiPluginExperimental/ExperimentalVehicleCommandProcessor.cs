@@ -25,6 +25,7 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleSpawn);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleVisualState);
+            capabilities.Add(PluginBridgeProtocol.CapabilityVehicleInterpolation);
         }
 
         if (RoleplayCharacterCommandProcessor.IsRuntimeSupported)
