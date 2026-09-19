@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#050d16" />
+  <title>OMSI NavBR Multiplayer</title>
+  <meta name="description" content="Multiplayer, navegação, HUD, voz e ferramentas operacionais para OMSI 2." />
+  <link rel="icon" href="site/assets/navbr.ico" />
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+
+  <aside class="utility">
+    <div class="shell utility-inner">
+      <span><strong>OMSI NavBR</strong> • projeto independente e open source</span>
+      <a href="#contribua">Apoiar via Pix</a>
+    </div>
+  </aside>
+
+  <header class="header">
+    <div class="shell header-inner">
+      <a class="brand" href="#inicio">
+        <span class="logo"><img src="site/assets/navbr.ico" alt="" /></span>
+        <span><b>NavBR</b><small>OMSI Multiplayer</small></span>
+      </a>
+      <nav class="nav">
+        <a href="#recursos">Recursos</a>
+        <a href="#multiplayer">Multiplayer</a>
+        <a href="#download">Downloads</a>
+        <a href="#todas-versoes">Versões</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#documentacao">Documentação</a>
+      </nav>
+      <a class="button primary header-cta" href="#download">Baixar NavBR</a>
+      <button class="menu" id="menuButton" aria-label="Abrir menu"><i></i><i></i><i></i></button>
+    </div>
+    <nav class="mobile-nav" id="mobileNav">
+      <a href="#recursos">Recursos</a>
+      <a href="#multiplayer">Multiplayer</a>
+      <a href="#download">Downloads</a>
+      <a href="#todas-versoes">Todas as versões</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#documentacao">Documentação</a>
+      <a href="#contribua">Contribua</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero shell">
+      <div class="hero-copy">
+        <div class="kicker"><span></span> OMSI NavBR Multiplayer</div>
+        <h1>Multiplayer, navegação e ferramentas operacionais <em>para o OMSI 2.</em></h1>
+        <p>Um projeto independente que conecta motoristas, mapa, voz, HUD, operação e recursos experimentais de RP em uma interface moderna integrada ao OMSI.</p>
+        <div class="hero-actions">
+          <a class="button primary" id="heroDownload" href="#download">Baixar NavBR para Windows</a>
+          <a class="button secondary" href="#recursos">Conhecer o projeto</a>
+        </div>
+        <div class="hero-note"><span id="heroVersion">Alpha atual</span><i></i><span>Windows x86</span><i></i><span>OMSI 2.3.004</span></div>
+      </div>
+      <div class="hero-stage">
+        <div class="product-frame">
+          <div class="product-bar"><div class="dots"><i></i><i></i><i></i></div><span>NavBR • Multiplayer</span><small>Portal V2</small></div>
+          <img src="site/assets/navbr-hero.svg" alt="Conceito visual do OMSI NavBR Multiplayer" />
+          <div class="product-caption"><div><strong>Interface moderna</strong><span>Integração real com backend C# e OMSI.</span></div><b>Alpha</b></div>
+        </div>
+        <div class="floating-card float-a"><span>Multiplayer</span><strong>SignalR + salas reais</strong></div>
+        <div class="floating-card float-b"><span>Plugin</span><strong>Native AOT x86</strong></div>
+      </div>
+    </section>
+
+    <section class="trust">
+      <div class="shell trust-grid">
+        <div><strong id="trustVersion">Alpha</strong><span>release pública atual</span></div>
+        <div><strong id="totalDownloads">—</strong><span>downloads acumulados</span></div>
+        <div><strong>MIT</strong><span>código aberto</span></div>
+        <div><strong>5 idiomas</strong><span>interface multilíngue</span></div>
+        <div><strong>Independente</strong><span>feito pela comunidade</span></div>
+      </div>
+    </section>
+
+    <aside class="ad shell">
+      <div class="ad-label">PUBLICIDADE</div>
+      <div class="ad-box native-ad"><div id="container-fe112edda848f13dd1ca9fb2279fbed7"></div></div>
+    </aside>
+
+    <section id="recursos" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">O produto</span><h2>Um ecossistema em torno da condução.</h2></div><p>O NavBR reúne multiplayer e ferramentas operacionais sem substituir o simulador. O OMSI continua sendo a autoridade da condução.</p></div>
+      <div class="highlights">
+        <article><span>01</span><h3>Multiplayer integrado</h3><p>Salas, presença, chat, voz e telemetria compartilhando o mesmo estado operacional.</p></article>
+        <article><span>02</span><h3>Navegação no mapa real</h3><p>Roadmap, rota, paradas e retorno à rota usando dados do mapa carregado no OMSI.</p></article>
+        <article><span>03</span><h3>Operação e HUD</h3><p>Painéis, HUD configurável, CCO, perfil, empresa e ferramentas para condução.</p></article>
+        <article><span>04</span><h3>Integração nativa</h3><p>Plugin Bridge e interop x86 para recursos experimentais que precisam conversar diretamente com o OMSI.</p></article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Direção visual</span><h2>Uma interface pensada para acompanhar o simulador.</h2></div><p>As imagens abaixo são conceitos gerados por IA e não representam capturas da implementação atual.</p></div>
+      <div class="concept-grid">
+        <article class="featured"><div class="concept-image"><img src="site/assets/concept-hud.svg" alt="Conceito HUD" /><span>CONCEITO IA</span></div><div class="concept-copy"><small>HUD / NAVEGAÇÃO</small><h3>Informação operacional sem tirar o foco da condução</h3><p>Próxima parada, rota, velocidade e estado multiplayer.</p></div></article>
+        <article><div class="concept-image"><img src="site/assets/concept-multiplayer.svg" alt="Conceito multiplayer" /><span>CONCEITO IA</span></div><div class="concept-copy"><small>MULTIPLAYER</small><h3>Motoristas compartilhando a mesma operação</h3><p>Presença, voz, sala e posições sincronizadas.</p></div></article>
+        <article><div class="concept-image"><img src="site/assets/concept-roleplay.svg" alt="Conceito RP" /><span>CONCEITO IA</span></div><div class="concept-copy"><small>PERSONAGEM / RP</small><h3>Continue a experiência fora do ônibus</h3><p>Conceito de personagem e acompanhamento no mapa.</p></div></article>
+      </div>
+    </section>
+
+    <section id="multiplayer" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Multiplayer</span><h2>Três formas de jogar em conjunto.</h2></div><p>Cada modo tem um objetivo claro, com diagnósticos de rede separados para evitar mensagens enganosas.</p></div>
+      <div class="modes">
+        <article><b>01</b><span>MAIS SIMPLES</span><h3>Servidor NavBR</h3><p>Conecte-se ao servidor oficial de testes sem hospedar uma sala no próprio PC.</p></article>
+        <article><b>02</b><span>REDE LOCAL</span><h3>LAN</h3><p>Crie uma sessão na mesma rede local para validar multiplayer entre máquinas próximas.</p></article>
+        <article><b>03</b><span>AVANÇADO</span><h3>Host pela Internet</h3><p>Hospede a sessão no seu PC e permita conexões externas quando a rede estiver configurada.</p></article>
+      </div>
+      <div class="flow"><span>OMSI 2</span><i>→</i><span>NavBR Client</span><i>→</i><span>Servidor / Host</span><i>→</i><span>Outros motoristas</span></div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Estado do projeto</span><h2>O que está disponível hoje.</h2></div><p>O NavBR continua em Alpha. Recursos experimentais são identificados claramente.</p></div>
+      <div class="status-grid">
+        <article><div><span>Interface</span><em>Disponível</em></div><strong>React + WebView2</strong></article>
+        <article><div><span>Multiplayer</span><em>Disponível</em></div><strong>SignalR / salas / voz</strong></article>
+        <article><div><span>Plugin OMSI</span><em class="warn">Experimental</em></div><strong>Native AOT x86 + Bridge</strong></article>
+        <article><div><span>Ônibus físico / RP</span><em class="test">Em validação</em></div><strong>Integração nativa</strong></article>
+      </div>
+    </section>
+
+    <section id="download" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Download atual</span><h2>Baixe a versão pública mais recente.</h2></div><p>Para jogar e testar normalmente, use o EXE standalone. Os demais pacotes ficam como opções específicas.</p></div>
+      <div class="current-banner"><div><span>VERSÃO ATUAL</span><strong id="currentTag">Carregando…</strong><small id="currentName">Catálogo público</small></div><a id="currentReleaseLink" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases">Abrir release no GitHub →</a></div>
+      <div class="release-grid" id="currentAssets"></div>
+    </section>
+
+    <section id="novidades" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Novidades</span><h2>O que mudou nas últimas builds.</h2></div><a href="#todas-versoes" class="text-link">Ver histórico completo →</a></div>
+      <div class="news-list" id="newsList"></div>
+    </section>
+
+    <section id="todas-versoes" class="section all-versions">
+      <div class="shell">
+        <div class="section-heading"><div><span class="eyebrow">Arquivo de versões</span><h2>Todas as versões públicas, em um só lugar.</h2></div><p>Pesquise por versão ou filtre por Alpha. Os downloads apontam para os arquivos originais do GitHub Releases.</p></div>
+        <div class="release-toolbar">
+          <label><span>Buscar versão</span><input type="search" id="releaseSearch" placeholder="Ex.: alpha.14-test.4" /></label>
+          <label><span>Filtrar por Alpha</span><select id="alphaFilter"><option value="all">Todas as Alphas</option></select></label>
+          <div class="release-count"><strong id="filteredCount">0</strong><span id="totalVersionCount">de 0 versões</span></div>
+        </div>
+        <div id="versionArchive" class="version-archive"></div>
+      </div>
+    </section>
+
+    <aside class="ad shell">
+      <div class="ad-label">PUBLICIDADE</div>
+      <a class="sponsor-link" href="https://www.profitableratecpmnetwork.com/a8tvv2zu8n?key=65f851ce1b0f30c80d91f114566cfb88" target="_blank" rel="sponsored noreferrer">
+        <strong>Conteúdo patrocinado</strong><span>Este acesso ajuda a financiar hospedagem, testes e desenvolvimento do NavBR.</span><b>Ver oferta patrocinada →</b>
+      </a>
+    </aside>
+
+    <section id="roadmap" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Roadmap</span><h2>Construído por etapas, sem promessas artificiais.</h2></div><p>O foco atual é corrigir e validar o que já existe antes de ampliar o produto.</p></div>
+      <div class="roadmap-grid">
+        <article class="active"><span>AGORA</span><h3>Correções e validação</h3><ul><li>Ônibus físico remoto</li><li>Roadmap/GPS e retorno à rota</li><li>Personagem/RP</li><li>Instalação e atualização do plugin</li></ul></article>
+        <article><span>PRÓXIMO</span><h3>Consolidação</h3><ul><li>UX das salas</li><li>Diagnósticos de runtime</li><li>Compatibilidade entre veículos</li><li>Melhorias no servidor e CCO</li></ul></article>
+        <article><span>FUTURO</span><h3>Expansão</h3><ul><li>NavBR Mobile Companion</li><li>IBIS Mobile</li><li>Segundo monitor / GPS</li><li>Recursos móveis de operação</li></ul></article>
+      </div>
+    </section>
+
+    <section id="documentacao" class="section shell">
+      <div class="section-heading"><div><span class="eyebrow">Documentação</span><h2>Detalhes para quem quer testar, entender ou contribuir.</h2></div><a class="button secondary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer" target="_blank">Abrir GitHub</a></div>
+      <div class="docs-grid">
+        <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA14_COMMUNITY.md"><span>Documento</span><h3>Alpha.14</h3><p>Roteiro de testes e visão geral.</p><b>Consultar →</b></a>
+        <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/ALPHA14_MASTER_SCOPE.md"><span>Documento</span><h3>Escopo técnico</h3><p>Decisões e limites da Alpha.14.</p><b>Consultar →</b></a>
+        <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"><span>Documento</span><h3>Plugin OMSI</h3><p>Integração experimental e diagnóstico.</p><b>Consultar →</b></a>
+        <a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/MOBILE_COMPANION.md"><span>Documento</span><h3>Mobile Companion</h3><p>Roadmap do smartphone e IBIS.</p><b>Consultar →</b></a>
+      </div>
+    </section>
+
+    <aside class="ad shell">
+      <div class="ad-label">PUBLICIDADE</div>
+      <div class="ad-box"><strong>Espaço publicitário</strong><span>Reservado para apoiar desenvolvimento, infraestrutura e testes do NavBR.</span></div>
+    </aside>
+
+    <section id="contribua" class="section shell support">
+      <div class="support-card">
+        <div><span class="eyebrow">Apoie o projeto</span><h2>Ajude a manter desenvolvimento, testes e infraestrutura.</h2><p>O NavBR é um projeto independente. Contribuições via Pix são voluntárias e não desbloqueiam recursos exclusivos.</p></div>
+        <div class="pix"><span>PIX • CHAVE ALEATÓRIA</span><strong id="pixKey">b07a9cc9-b10d-48a8-b201-d28bddc4399a</strong><button class="button primary" id="copyPix">Copiar chave Pix</button><small id="copyPixStatus">Contribuição voluntária</small></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-grid">
+      <div><a class="brand" href="#inicio"><span class="logo"><img src="site/assets/navbr.ico" alt="" /></span><span><b>NavBR</b><small>OMSI Multiplayer</small></span></a><p>Projeto independente para OMSI 2. Código aberto sob licença MIT.</p></div>
+      <div><strong>Produto</strong><a href="#recursos">Recursos</a><a href="#multiplayer">Multiplayer</a><a href="#roadmap">Roadmap</a></div>
+      <div><strong>Downloads</strong><a href="#download">Versão atual</a><a href="#todas-versoes">Todas as versões</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases">GitHub Releases ↗</a></div>
+      <div><strong>Projeto</strong><a href="#documentacao">Documentação</a><a href="#contribua">Contribua</a><a href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer">Código-fonte ↗</a></div>
+    </div>
+    <div class="shell footer-bottom"><span>OMSI NavBR Multiplayer</span><span>OMSI é uma marca de seus respectivos proprietários. NavBR é um projeto independente.</span></div>
+  </footer>
+
+  <script src="https://pl31372716.profitableratecpmnetwork.com/ed/6a/14/ed6a145b997a12d36e14a919de76a3ca.js"></script>
+  <script src="https://pl31372717.profitableratecpmnetwork.com/e7/00/43/e700431c5e6534141987ce3a30b0adfd.js"></script>
+  <script async data-cfasync="false" src="https://pl31372719.profitableratecpmnetwork.com/fe112edda848f13dd1ca9fb2279fbed7/invoke.js"></script>
+  <script src="portal.js"></script>
+</body>
+</html>
