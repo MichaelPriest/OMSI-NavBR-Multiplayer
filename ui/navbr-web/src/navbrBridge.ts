@@ -212,6 +212,7 @@ export interface NavBrNavigationState {
   tileSize?: number | null;
   roadmapAvailable: boolean;
   roadmapUrl?: string | null;
+  roadmapFallbackUrl?: string | null;
   bounds?: {
     minX: number;
     minY: number;
@@ -267,6 +268,7 @@ export interface NavBrNavigation3DState {
   mapFolder?: string | null;
   roadmapAvailable: boolean;
   roadmapUrl?: string | null;
+  roadmapFallbackUrl?: string | null;
   bounds?: {
     minX: number;
     minY: number;
