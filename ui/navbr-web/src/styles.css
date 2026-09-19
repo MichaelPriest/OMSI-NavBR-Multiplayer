@@ -1593,3 +1593,14 @@ h3 { margin:6px 0 16px; font-size:19px; }
   font-size: 0.72rem;
   opacity: 0.72;
 }
+
+
+.plugin-update-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.plugin-update-hint {
+  display: block;
+  opacity: 0.78;
+}
