@@ -115,7 +115,7 @@ export interface NavBrMultiplayerState {
     isRoomOwner: boolean;
     isTrafficAuthority: boolean;
   };
-  transportMode: "none" | "direct-host" | "remote-host" | "relay" | "online-host";
+  transportMode: "none" | "direct-host" | "remote-host" | "relay" | "dedicated-server";
   roomCompatibility: {
     level: "none" | "waiting" | "compatible" | "partial" | "warning" | "blocked";
     remoteCount: number;
@@ -852,6 +852,7 @@ export type NavBrCommand =
   | "stopGhostPlayback"
   | "openGhostFolder"
   | "connectRoom"
+  | "createOnlineRoom"
   | "createOnlineHost"
   | "createLocalRoom"
   | "disconnectRoom"
