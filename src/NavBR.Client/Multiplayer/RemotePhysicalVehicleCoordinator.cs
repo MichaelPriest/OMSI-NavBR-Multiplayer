@@ -26,6 +26,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _spawnedCompatibilityByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _resolvedVehiclePathByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, int> _consecutiveUpdateFailuresByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
 
@@ -293,6 +294,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     remoteVehicleCompatibilityId;
                 _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
                     resolvedVehiclePath;
+                _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                 _lastFailureByPlayer.TryRemove(playerId, out _);
                 SetStatus(playerId, "active");
                 RemoteDiagnosticsService.Record(
@@ -322,13 +324,29 @@ internal sealed class RemotePhysicalVehicleCoordinator
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
             physicalFrame,
             cancellationToken);
-        if (update is { Success: false })
+        if (update?.Success != true)
         {
-            await DespawnOwnedAsync(playerId, cancellationToken);
-            ReportCommandFailureOnce(playerId, "update", update);
+            var errorCode = update?.ErrorCode ?? "no-result";
+            var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
+                playerId,
+                1,
+                static (_, previous) => Math.Min(previous + 1, 10));
+
+            if (IsFatalUpdateFailure(errorCode) || failureCount >= 3)
+            {
+                await DespawnOwnedAsync(playerId, cancellationToken);
+                ReportCommandFailureOnce(playerId, "update", update);
+                return;
+            }
+
+            SetStatus(
+                playerId,
+                "update-retrying",
+                errorCode);
             return;
         }
 
+        _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _lastFailureByPlayer.TryRemove(playerId, out _);
         SetStatus(playerId, "active");
     }
@@ -367,6 +385,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _spawnedCompatibilityByPlayer.TryRemove(
             playerId,
             out var previousCompatibilityId);
@@ -416,8 +435,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         _spawnedCompatibilityByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
+        _consecutiveUpdateFailuresByPlayer.Clear();
         _statusByPlayer.Clear();
     }
+
+    private static bool IsFatalUpdateFailure(string? errorCode) =>
+        string.Equals(errorCode, "vehicle-not-owned", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "vehicle-pointer-stale", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "invalid-pose", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal);
 
     private void ReportCommandFailureOnce(
         string playerId,
