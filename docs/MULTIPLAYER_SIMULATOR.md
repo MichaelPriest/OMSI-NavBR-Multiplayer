@@ -64,3 +64,8 @@ O modo --verify cria um probe na mesma sala e falha se:
 - o simulador valida rede/UI e não substitui teste físico dentro do OMSI;
 - o simulador não inventa assets de ônibus proprietários;
 - câmera, terreno e animações RP continuam exigindo teste real.
+
+
+## Validação de telemetria física avançada
+
+Os ônibus simulados alternam de forma determinística acelerador, freio, combustível, iluminação externa/interna, luz de freio e setas/pisca-alerta. O probe automático considera falha quando movimento chega, mas esses estados não atravessam o pipeline multiplayer.
