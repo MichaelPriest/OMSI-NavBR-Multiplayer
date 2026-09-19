@@ -135,10 +135,11 @@ public static class PluginExports
             Interlocked.Increment(ref _systemVariableCallbacks);
 
             // Commands arrive through the named-pipe worker, but every raw OMSI
-            // write is handed off here. Process only one per callback so a burst
-            // cannot stall the simulator frame for an unbounded amount of time.
-            OmsiThreadCommandQueue.Drain(
-                1,
+            // write is handed off here. Process one arbitrary command plus a few
+            // lightweight movement updates; expensive spawn/acquire work remains
+            // bounded to at most one command per OMSI frame.
+            OmsiThreadCommandQueue.DrainFrame(
+                5,
                 PluginBridgeClient.QueueCommandResult);
 
             // Remote buses receive network targets at a lower cadence than the
