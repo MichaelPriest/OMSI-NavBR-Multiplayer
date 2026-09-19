@@ -259,13 +259,13 @@ jobs:
           if ($protocol -notmatch 'Plugin\.v3') { throw "Alpha.14 requires the v3 named pipe." }
 
           $managedInterop = Get-Content "src/NavBR.OmsiPluginExperimental/OmsiNativeInterop.cs" -Raw
-          if ($managedInterop -notmatch 'ExpectedStateInteropVersion\s*=\s*5\s*;') {
-            throw "Managed OMSI interop must require state ABI v5."
+          if ($managedInterop -notmatch 'ExpectedStateInteropVersion\\s*=\\s*6\\s*;') {
+            throw "Managed OMSI interop must require state ABI v6."
           }
 
           $nativeInterop = Get-Content "native/NavBR.OmsiInterop/NavBROmsiInteropState.cpp" -Raw
           if ($nativeInterop -notmatch 'NavBR_GetStateInteropVersion\(\)[\s\S]*?return\s+5\s*;') {
-            throw "Native OMSI interop must expose state ABI v5."
+            throw "Native OMSI interop must expose state ABI v6."
           }
 
       - name: Build Windows x86 client
