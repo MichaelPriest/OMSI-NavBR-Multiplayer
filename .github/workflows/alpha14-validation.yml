@@ -206,6 +206,7 @@ jobs:
             'NavBR_GetHumanAt',
             'NavBR_IsHumanPointer',
             'NavBR_ReadRoadVehiclePosition',
+            'NavBR_ResolveMapTileIndex',
             'NavBR_IsPlayerBusDriverHuman',
             'NavBR_ReadHumanPose',
             'NavBR_ReadHumanDriverState',
@@ -216,7 +217,7 @@ jobs:
             'NavBR_TriggerRoadVehicle'
           )) {
             if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
-              throw "Native OMSI interop is missing RP export: $name"
+              throw "Native OMSI interop is missing required Alpha.14 export: $name"
             }
           }
 
