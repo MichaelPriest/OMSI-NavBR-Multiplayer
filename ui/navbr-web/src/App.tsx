@@ -350,6 +350,20 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         <button onClick={() => setZoom(value => Math.max(0.5, value * 0.8))} title={pick("Diminuir zoom", "Zoom out", "Alejar", "Herauszoomen", "Dézoomer")}>−</button>
         <button onClick={() => setZoom(value => Math.min(4, value * 1.25))} title={pick("Aumentar zoom", "Zoom in", "Acercar", "Hineinzoomen", "Zoomer")}>+</button>
         <button onClick={() => { setMode("full"); setZoom(1); }}>{pick("Ajustar", "Fit", "Ajustar", "Einpassen", "Ajuster")}</button>
+        {navigation.routePoints.length < 2 && navigation.routeDiagnostic && (
+          <span
+            className="navigation-map-diagnostic"
+            title={[
+              navigation.routeDiagnostic.trackName ? `track=${navigation.routeDiagnostic.trackName}` : null,
+              navigation.routeDiagnostic.line ? `line=${navigation.routeDiagnostic.line}` : null,
+              navigation.routeDiagnostic.lookupValue ? `lookup=${navigation.routeDiagnostic.lookupValue}` : null,
+              `entries=${navigation.routeDiagnostic.entryCount}`,
+              `points=${navigation.routeDiagnostic.pointCount}`
+            ].filter(Boolean).join(" • ")}
+          >
+            TTData: {navigation.routeDiagnostic.mode}
+          </span>
+        )}
       </div>
 
       {!geometry ? (
