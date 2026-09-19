@@ -4,9 +4,9 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública atual continua sendo **v0.3.0-alpha.14-test.4**.
+A versão pública atual é **v0.3.0-alpha.14-test.5**.
 
-A build de desenvolvimento/validação atual da PR #30 é **v0.3.0-alpha.14-test.5**.
+A `main` já segue o desenvolvimento da **v0.3.0-alpha.14-test.6**.
 
 - cliente principal: **EXE standalone Windows x86**;
 - ZIP do cliente;
