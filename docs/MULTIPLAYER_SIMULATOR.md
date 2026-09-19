@@ -96,6 +96,8 @@ A resolução local do veículo agora prefere o mesmo `.bus`/`.ovh` herdado da s
 
 Isso mantém o fingerprint usado pelo simulador igual ao calculado pelo cliente real (`sha256:<arquivo .bus/.ovh>`) e permite que o coordenador físico chegue à etapa de `MakeVehicle` sem inventar assets.
 
+Para `--verify-physical`, a identidade herdada só é reutilizada quando a definição é realmente **single-part/rígida**. Se o ônibus atual declarar outro veículo por `[couple_front]` ou `[couple_back]` (por exemplo, articulados), o simulador procura um ônibus rígido padrão realmente instalado. Isso evita um teste falso que seria recusado depois pelo coordenador como `consist-unsupported`.
+
 ### English (en)
 
 For physical validation, the simulator no longer advertises a generic identity. When a real player is present in the room, it reuses only observed session facts: map/fingerprint, protocol, vehicle path/fingerprint, and HOF when available.
@@ -103,3 +105,5 @@ For physical validation, the simulator no longer advertises a generic identity. 
 Local vehicle resolution now prefers the same inherited `.bus`/`.ovh` before the stock test bus. The OMSI root can also be discovered from the currently running `Omsi.exe`, including custom Steam Libraries outside `Program Files`.
 
 This keeps the simulator fingerprint aligned with the real client (`sha256:<.bus/.ovh file>`) so the physical coordinator can reach the guarded `MakeVehicle` stage without inventing assets.
+
+For `--verify-physical`, an inherited identity is reused only when the definition is truly **single-part/rigid**. If the current bus declares another vehicle through `[couple_front]` or `[couple_back]` (for example an articulated bus), the simulator looks for a real installed stock rigid bus instead. This prevents a false test setup that the physical coordinator would later reject as `consist-unsupported`.
