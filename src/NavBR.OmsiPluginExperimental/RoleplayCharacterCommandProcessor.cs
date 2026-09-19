@@ -400,6 +400,79 @@ internal static class RoleplayCharacterBackend
                     "OMSI rejected the selected driver roleplay state.");
             }
 
+            // Do not report RP as active only because the guarded writes
+            // returned success. Read the human back from OMSI and confirm that
+            // the driver is detached, visible/in-world and actually positioned
+            // at the requested exit point.
+            var stateConfirmed =
+                OmsiNativeInterop.ReadHumanDriverState(
+                    driverPointer,
+                    out var detachedBus,
+                    out var detachedFixDriver,
+                    out var detachedRenderMe,
+                    out var detachedInWorld) == 1 &&
+                detachedBus == 0 &&
+                detachedFixDriver == 0 &&
+                detachedRenderMe != 0 &&
+                detachedInWorld != 0;
+
+            var poseConfirmed =
+                OmsiNativeInterop.ReadHumanPose(
+                    driverPointer,
+                    out var confirmedX,
+                    out var confirmedY,
+                    out var confirmedZ,
+                    out var confirmedHeading,
+                    out var confirmedSpeed) == 1;
+            if (poseConfirmed)
+            {
+                var confirmDx = confirmedX - spawnX;
+                var confirmDy = confirmedY - spawnY;
+                var confirmDz = confirmedZ - spawnZ;
+                var confirmDistance = Math.Sqrt(
+                    confirmDx * confirmDx +
+                    confirmDy * confirmDy +
+                    confirmDz * confirmDz);
+                poseConfirmed =
+                    double.IsFinite(confirmDistance) &&
+                    confirmDistance <= 1.0d;
+            }
+
+            if (!stateConfirmed || !poseConfirmed)
+            {
+                // SetHumanTransform requires a detached/controllable human, so
+                // restore the original pose before reattaching the driver.
+                _ = OmsiNativeInterop.SetHumanTransform(
+                    driverPointer,
+                    driverX,
+                    driverY,
+                    driverZ,
+                    NormalizeHeading(driverHeading),
+                    Math.Clamp(Math.Abs(driverSpeed), 0f, MaxCharacterSpeedMps));
+                _ = OmsiNativeInterop.RestoreHumanDriverState(
+                    driverPointer,
+                    originalBus,
+                    fixDriver,
+                    renderMe,
+                    inWorld);
+                _ = OmsiNativeInterop.RestoreHumanAiState(
+                    driverPointer,
+                    aiMode,
+                    aiModeEx,
+                    aiSubMode,
+                    sollSpeed,
+                    actSpeed);
+
+                return Fail(
+                    command,
+                    !stateConfirmed
+                        ? "driver-detach-unconfirmed"
+                        : "driver-transform-unconfirmed",
+                    !stateConfirmed
+                        ? "OMSI did not confirm the active driver as detached and visible in the world."
+                        : "OMSI did not confirm the roleplay character at the requested exit position.");
+            }
+
             var instance = new RoleplayCharacterInstance(
                 instanceId,
                 driverPointer,
