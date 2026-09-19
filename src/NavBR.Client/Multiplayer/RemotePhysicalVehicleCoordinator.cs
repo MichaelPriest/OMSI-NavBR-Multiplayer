@@ -4,6 +4,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -17,6 +18,8 @@ internal sealed record RemotePhysicalVehicleStatus(
 internal sealed class RemotePhysicalVehicleCoordinator
 {
     private const int MaxPhysicalRemotePlayers = 32;
+    private const double PhysicalSpawnRadiusMeters = 750d;
+    private const double PhysicalDespawnRadiusMeters = 1_000d;
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
@@ -29,6 +32,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, int> _consecutiveUpdateFailuresByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
+    private VehicleTelemetry? _localTelemetry;
 
     public RemotePhysicalVehicleCoordinator(
         Func<string?>? omsiInstallDirectorySource = null)
@@ -56,6 +60,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public void SetLocalManifest(OmsiCompatibilityManifest? manifest)
     {
         _localManifest = manifest;
+    }
+
+    public void SetLocalTelemetry(VehicleTelemetry? telemetry)
+    {
+        _localTelemetry = telemetry;
     }
 
     public bool IsSpawned(string playerId) =>
@@ -187,6 +196,23 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 report.Issues.FirstOrDefault()?.Code);
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
+        }
+
+        if (TryGetLocalDistanceMeters(frame.Telemetry, out var distanceMeters))
+        {
+            var distanceLimit = _spawned.ContainsKey(playerId)
+                ? PhysicalDespawnRadiusMeters
+                : PhysicalSpawnRadiusMeters;
+            if (distanceMeters > distanceLimit)
+            {
+                SetStatus(playerId, "out-of-range");
+                if (_spawned.ContainsKey(playerId))
+                {
+                    await DespawnOwnedAsync(playerId, cancellationToken);
+                    SetStatus(playerId, "out-of-range");
+                }
+                return;
+            }
         }
 
         var remoteVehicleCompatibilityId =
@@ -520,6 +546,42 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
             }
         };
+
+    private bool TryGetLocalDistanceMeters(
+        VehicleTelemetry remoteTelemetry,
+        out double distanceMeters)
+    {
+        distanceMeters = 0d;
+        var local = _localTelemetry;
+        if (local is null ||
+            !local.IsInGame ||
+            !remoteTelemetry.IsInGame ||
+            !double.IsFinite(local.X) ||
+            !double.IsFinite(local.Y) ||
+            !double.IsFinite(local.Z) ||
+            !double.IsFinite(remoteTelemetry.X) ||
+            !double.IsFinite(remoteTelemetry.Y) ||
+            !double.IsFinite(remoteTelemetry.Z))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(local.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(remoteTelemetry.MapCompatibilityId) &&
+            !string.Equals(
+                local.MapCompatibilityId,
+                remoteTelemetry.MapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var dx = remoteTelemetry.X - local.X;
+        var dy = remoteTelemetry.Y - local.Y;
+        var dz = remoteTelemetry.Z - local.Z;
+        distanceMeters = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        return double.IsFinite(distanceMeters);
+    }
 
     private static OmsiCompatibilityManifest BuildLiveRemoteManifest(PlayerTelemetryFrame frame)
     {
