@@ -72,3 +72,14 @@ O modo --verify cria um probe na mesma sala e falha se:
 ## Validação de telemetria física avançada
 
 Os ônibus simulados alternam de forma determinística acelerador, freio, combustível, iluminação externa/interna, luz de freio e setas/pisca-alerta. O probe automático considera falha quando movimento chega, mas esses estados não atravessam o pipeline multiplayer.
+
+
+## Alpha.15 — validação física por grid / Alpha.15 — grid-based physical validation
+
+### Português (pt-BR)
+
+O modo `--verify-physical` exige `GridX/GridY` reais herdados de um jogador NavBR com OMSI carregado. O índice `MapTileIndex` do host não é reutilizado como identidade remota; cada OMSI resolve sua própria Kachel local a partir do grid.
+
+### English (en)
+
+`--verify-physical` requires real `GridX/GridY` inherited from a NavBR player with OMSI loaded. The host's `MapTileIndex` is not reused as a remote identity; each OMSI process resolves its own local Kachel from the grid.

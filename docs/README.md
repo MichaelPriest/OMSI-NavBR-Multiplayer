@@ -1,23 +1,39 @@
 # Documentação do OMSI NavBR Multiplayer
 
-## Desenvolvimento atual — Alpha.12
+## Desenvolvimento atual — Alpha.15
 
-A próxima versão de desenvolvimento é **`0.3.0-alpha.12-dev`** e concentra o escopo completo de expansão do NavBR.
+A versão de desenvolvimento e publicação atual é **`0.3.0-alpha.15`**.
 
-- [Alpha.12 — escopo mestre](ALPHA12_MASTER_SCOPE.md) — fonte principal para tudo que entra na próxima versão: GPS avançado, multiplayer, salas públicas/privadas, voz, ônibus físico 3D, tráfego compartilhado, Hardware Cockpit, perfil do motorista, empresas virtuais, CCO/Dispatcher, replay, mapa web, permissões, SDK, workshop e companion.
-- [Roadmap](ROADMAP.md) — histórico e evolução das fases anteriores. Para decisões novas da Alpha.12, o escopo mestre acima prevalece.
-- [Alpha.11 — desenvolvimento](ALPHA11_DEVELOPMENT.md) — histórico técnico da série Alpha.11.
-- [Alpha.11 Test 4 — comunidade](ALPHA11_TEST4_COMMUNITY.md) — checklist da última pré-release pública antes da Alpha.12.
+### Português (pt-BR)
 
-## Uso e testes
+- [Alpha.15 — notas da versão](ALPHA15_RELEASE_NOTES.md)
+- [Alpha.15 — escopo mestre](ALPHA15_MASTER_SCOPE.md)
+- [Alpha.15 — roteiro de validação](ALPHA15_COMMUNITY.md)
+- [Roadmap](ROADMAP.md)
+- [Releases](RELEASES.md)
+
+A Alpha.15 consolida a interface React/WebView2, multiplayer, navegação, Plugin Bridge v3, state interop ABI v7, ônibus físico experimental, Personagem/RP e o Portal V2. Escritas nativas no OMSI permanecem experimentais e opt-in.
+
+### English (en)
+
+- [Alpha.15 — release notes / notas da versão](ALPHA15_RELEASE_NOTES.md)
+- [Alpha.15 — master scope / escopo mestre](ALPHA15_MASTER_SCOPE.md)
+- [Alpha.15 — validation guide / roteiro de validação](ALPHA15_COMMUNITY.md)
+- [Roadmap](ROADMAP.md)
+- [Releases](RELEASES.md)
+
+Alpha.15 consolidates the React/WebView2 desktop UI, multiplayer, navigation, Plugin Bridge v3, state interop ABI v7, experimental physical buses, Character/RP and Portal V2. Native OMSI writes remain experimental and opt-in.
+
+## Uso e testes / Usage and testing
 
 - [Manual de uso](MANUAL_DE_USO.md)
 - [Hardware Cockpit Bridge](HARDWARE_COCKPIT.md)
 - [Como gerar Roadmap dos mapas](GERAR_ROADMAP_MAPAS.md)
 - [HUD e chat por voz](HUD_AND_VOICE.md)
 - [Telemetria](TELEMETRY.md)
+- [Simulador Multiplayer](MULTIPLAYER_SIMULATOR.md)
 
-## Multiplayer e integração OMSI
+## Multiplayer e integração OMSI / Multiplayer and OMSI integration
 
 - [Rede multiplayer](NETWORKING.md)
 - [Salas peer-host](PEER_HOST.md)
@@ -25,9 +41,7 @@ A próxima versão de desenvolvimento é **`0.3.0-alpha.12-dev`** e concentra o 
 - [Plugin OMSI experimental](OMSI_PLUGIN_EXPERIMENTAL.md)
 - [Referências técnicas OMSI](REFERENCIAS_OMSILAUNCH_OMSIHOOK.md)
 
-A Alpha.11 já possui base experimental para `spawn -> update -> despawn` de ônibus remotos físicos dentro do OMSI, mas o recurso continua **opt-in e sujeito a validação real**. O plugin não é obrigatório para GPS/HUD/multiplayer externo.
-
-## Mapas, rota e diagnóstico
+## Mapas, rota e diagnóstico / Maps, routing and diagnostics
 
 Problemas de traçado devem incluir, quando possível:
 
@@ -35,14 +49,8 @@ Problemas de traçado devem incluir, quando possível:
 %LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr-route.log
 ```
 
-O NavBR trabalha com `global.cfg`, TTData (`.ttp/.ttr`), tiles `.map`, splines `.sli`, paths/crossings `.sco` e roadmaps quando disponíveis.
+Routing reports should include the same log whenever possible.
 
-## Distribuição e licenças
+## Histórico / History
 
-- [Releases](RELEASES.md)
-- [Licenças](LICENSES.md)
-- [Arquitetura](ARCHITECTURE.md)
-
-## Regra de documentação da Alpha.12
-
-Nenhuma funcionalidade combinada deve desaparecer do backlog. Recursos ainda não seguros podem permanecer experimentais ou atrás de feature flags, mas continuam registrados em [ALPHA12_MASTER_SCOPE.md](ALPHA12_MASTER_SCOPE.md) até serem implementados, validados ou explicitamente substituídos por uma solução equivalente.
+A documentação Alpha.14/13/12/11 permanece no repositório como histórico técnico e de testes.

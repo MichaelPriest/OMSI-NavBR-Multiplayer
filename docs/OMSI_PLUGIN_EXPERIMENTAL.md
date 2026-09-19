@@ -71,3 +71,22 @@ Caminhos de veículos devem resolver para arquivos válidos dentro da instalaç�
 - animações/gestos;
 - personagem remoto físico completo;
 - compatibilidade ampla com outras versões do OMSI.
+
+
+## Alpha.15 — state interop ABI v7 / Alpha.15 — state interop ABI v7
+
+### Português (pt-BR)
+
+A Alpha.15 exige state interop **v7**. O novo export `NavBR_ResolveMapTileIndex(gridX, gridY)` resolve uma identidade de tile estável para o índice/pointer de Kachel carregado no processo OMSI local.
+
+`MapTileIndex` não deve ser tratado como identidade portátil entre dois clientes multiplayer: ele é índice da lista de Kacheln carregadas naquele processo.
+
+O updater também compara o SHA-256 do bundle embarcado. Manifestos antigos sem fingerprint são considerados desatualizados.
+
+### English (en)
+
+Alpha.15 requires state interop **v7**. The new `NavBR_ResolveMapTileIndex(gridX, gridY)` export resolves a stable tile identity into the Kachel index/pointer loaded by the local OMSI process.
+
+`MapTileIndex` must not be treated as a portable identity across multiplayer clients because it indexes the Kachel list of a specific OMSI process.
+
+The updater also compares the embedded bundle SHA-256. Older manifests without a fingerprint are treated as outdated.

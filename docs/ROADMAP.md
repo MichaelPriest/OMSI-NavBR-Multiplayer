@@ -1,6 +1,6 @@
 # Roadmap
 
-Este roadmap reflete o estado da série **v0.3.0-alpha.11** e separa claramente o que é prioridade antes da primeira versão estável do que fica planejado para depois do **v1.0**.
+Este roadmap reflete o estado da série **v0.3.0-alpha.15** e separa claramente o que é prioridade antes da primeira versão estável do que fica planejado para depois do **v1.0**.
 
 Legenda:
 
@@ -190,7 +190,7 @@ O peer-host é o modo principal da série 0.3. Esta fase é complementar, não r
 
 ## Fase 6 — Veículos remotos dentro do OMSI (experimental)
 
-A Alpha.11 abre o primeiro teste público da camada física, mas o plugin continua opcional.
+A Alpha.15 consolida a camada física experimental, mantendo o plugin opcional.
 
 ### Implementado na base experimental
 
@@ -212,7 +212,7 @@ A Alpha.11 abre o primeiro teste público da camada física, mas o plugin contin
 ### Aguardando validação real
 
 - 🧪 Confirmar spawn físico em dois computadores reais
-- 🧪 Confirmar posição correta em tiles diferentes
+- 🧪 Confirmar posição correta em Kacheln diferentes usando resolução local por GridX/GridY
 - 🧪 Confirmar rotação/quaternion e suavização
 - 🧪 Confirmar faróis, freio e setas
 - 🧪 Confirmar remoção segura quando jogador sai/desconecta
@@ -222,7 +222,8 @@ A Alpha.11 abre o primeiro teste público da camada física, mas o plugin contin
 
 ### Próximas etapas antes da estabilidade
 
-- ⬜ Fechar sincronização confiável entre tiles
+- ✅ Resolver a Kachel local por GridX/GridY entre processos OMSI distintos
+- 🧪 Validar troca real entre Kacheln em dois PCs
 - ⬜ Extrapolação curta e limitada para perda de pacotes
 - ⬜ Política de snap por erro máximo seguro
 - ⬜ Compatibilidade/fallback de modelo de ônibus

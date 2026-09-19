@@ -2,6 +2,39 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.15] — Kachel local, ABI v7, RP seguro e consolidação do Portal V2
+
+### Corrigido
+
+- ônibus remoto físico deixa de reutilizar o `MapTileIndex` de outro processo OMSI; cada cliente resolve a Kachel local pelo par estável `GridX/GridY`;
+- `Tacho` do veículo físico remoto passa a ser escrito em km/h e `Groundspeed` permanece em m/s;
+- retorno do Personagem/RP ao ônibus só é considerado concluído após confirmação do estado nativo do motorista;
+- cliente repete de forma limitada a restauração do motorista quando o OMSI rejeita uma escrita transitória;
+- updater do plugin diferencia bundle antigo/atual por SHA-256, evitando considerar uma DLL antiga como atual;
+- seleção de `Omsi.exe`, `.lnk` e `.url` passa a vincular corretamente a instalação preferida;
+- roadmap da navegação prefere cache PNG derivado do roadmap real e apresenta diagnóstico explícito quando a imagem não renderiza.
+
+### Adicionado
+
+- state interop **ABI v7** e export `NavBR_ResolveMapTileIndex`;
+- validação do par `GridX/GridY` no servidor;
+- mensagens detalhadas do backend físico expostas no React;
+- diagnóstico dos retornos nativos de `MakeVehicle` e da cópia da lista temporária;
+- Portal V2 profissional com download atual, arquivo completo de versões, busca/filtro, roadmap, documentação, Pix e publicidade preservados;
+- branch estática `gh-pages` para publicação do portal sem depender do workflow antigo do GitHub Pages.
+
+### Mantido como experimental
+
+- ônibus remoto físico dentro do OMSI;
+- Personagem/RP físico;
+- replay Ghost 3D;
+- escrita nativa no OMSI via Plugin Bridge.
+
+### Validação
+
+- build Windows x86, Native AOT x86, exports, instalação/remoção do plugin, bundle embutido e handshake do Plugin Bridge passaram nos gates automáticos;
+- ainda é necessário teste real em dois PCs/duas sessões OMSI para confirmar spawn, troca de Kachel, suavização, RP e navegação em mapas reais.
+
 ## [0.3.0-alpha.11-test.2] — teste comunitário, HUD corrigido e 3D experimental
 
 ### Corrigido
