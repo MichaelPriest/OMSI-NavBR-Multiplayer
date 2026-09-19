@@ -11,8 +11,17 @@ public partial class MainWindow
     {
         var telemetry = _lastTelemetry;
         var map = GetActiveMapForOperations();
-        var layout = _webNavigationLayout;
 
+        if (map is not null)
+        {
+            EnsureWebNavigationMapData(map);
+            if (telemetry?.IsInGame == true)
+            {
+                EnsureWebNavigationRouteData(map, telemetry);
+            }
+        }
+
+        var layout = _webNavigationLayout;
         if (telemetry is null ||
             map is null ||
             !telemetry.IsInGame ||
