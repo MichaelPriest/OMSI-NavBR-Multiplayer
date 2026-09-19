@@ -374,30 +374,48 @@ internal static class OmsiInstallationLocator
     {
         try
         {
+            string? url = null;
+            string? iconFile = null;
+
             foreach (var line in File.ReadLines(shortcutPath))
             {
-                if (!line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
                 {
+                    url = line[4..].Trim();
                     continue;
                 }
 
-                var value = line[4..].Trim();
-                if (Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
-                    uri.IsFile)
+                if (line.StartsWith("IconFile=", StringComparison.OrdinalIgnoreCase))
                 {
-                    return uri.LocalPath;
+                    iconFile = line[9..].Trim().Trim('"');
                 }
-
-                // A Steam InternetShortcut (steam://rungameid/252530) does not
-                // expose the install directory itself. Returning null lets the
-                // normal Steam manifest discovery resolve the real library.
-                return null;
             }
+
+            if (!string.IsNullOrWhiteSpace(iconFile) &&
+                File.Exists(iconFile) &&
+                string.Equals(
+                    Path.GetFileName(iconFile),
+                    "Omsi.exe",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return iconFile;
+            }
+
+            if (!string.IsNullOrWhiteSpace(url) &&
+                Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                uri.IsFile)
+            {
+                return uri.LocalPath;
+            }
+
+            // Steam desktop shortcuts normally use steam://rungameid/252530.
+            // The URL itself has no install directory, but the caller will
+            // continue through Steam manifest discovery after this returns null.
+            return null;
         }
         catch
         {
+            return null;
         }
-
-        return null;
     }
 }
