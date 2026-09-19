@@ -502,6 +502,19 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             throw new HubException("Telemetry contains invalid percentage values.");
         }
 
+        if ((telemetry.GridX is null) != (telemetry.GridY is null))
+        {
+            throw new HubException("Telemetry OMSI grid must include both GridX and GridY.");
+        }
+
+        if (telemetry.GridX is int gridX &&
+            telemetry.GridY is int gridY &&
+            (Math.Abs((long)gridX) > 100_000L ||
+             Math.Abs((long)gridY) > 100_000L))
+        {
+            throw new HubException("Telemetry contains invalid OMSI grid coordinates.");
+        }
+
         if (telemetry.MapTileIndex is int mapTileIndex &&
             mapTileIndex is < 0 or > 200_000)
         {
