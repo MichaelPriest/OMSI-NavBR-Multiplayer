@@ -193,7 +193,7 @@ internal static class RoleplayCharacterBackend
     private const double MaxAcquireDistanceMeters = 45d;
     private const double MaxAcquireHeightDifferenceMeters = 4d;
     private const double MaxAutomaticDriverFallbackDistanceMeters = 8d;
-    private const double MaxAutomaticFreeHumanFallbackDistanceMeters = 25d;
+    private const double MaxAutomaticFreeHumanFallbackDistanceMeters = 500d;
     private const double MinimumAutomaticDriverSeparationMeters = 0.75d;
     private const double MinimumFreeHumanSeparationMeters = 1.5d;
     private const float MaxCharacterSpeedMps = 6f;
@@ -441,7 +441,11 @@ internal static class RoleplayCharacterBackend
                 automaticDriverResolution &&
                 freeWorldCandidates.Count > 0)
             {
-                TrySelectUnambiguousDriver(
+                // This is not an attempt to identify a specific driver. It is
+                // an explicit RP fallback that borrows the nearest detached,
+                // controllable OMSI human and restores its original state on
+                // release. Therefore clustered pedestrians are not ambiguous.
+                SelectNearestCandidate(
                     freeWorldCandidates,
                     ref driverPointer,
                     ref driverIndex,
@@ -450,8 +454,7 @@ internal static class RoleplayCharacterBackend
                     ref driverY,
                     ref driverZ,
                     ref driverHeading,
-                    ref driverSpeed,
-                    MinimumFreeHumanSeparationMeters);
+                    ref driverSpeed);
                 selectedFreeWorldFallback = driverPointer != 0;
             }
 
@@ -463,19 +466,24 @@ internal static class RoleplayCharacterBackend
                 return Fail(
                     command,
                     automaticDriverResolution &&
-                    attachedCandidates.Count + detachedDriverLikeCandidates.Count + freeWorldCandidates.Count > 1
+                    attachedCandidates.Count + detachedDriverLikeCandidates.Count > 1
                         ? "selected-driver-ambiguous"
                         : "selected-driver-not-active",
                     detail);
             }
 
-            if (bestDistance > MaxAcquireDistanceMeters ||
+            var maximumAcquireDistance = selectedFreeWorldFallback
+                ? MaxAutomaticFreeHumanFallbackDistanceMeters
+                : MaxAcquireDistanceMeters;
+            if (bestDistance > maximumAcquireDistance ||
                 Math.Abs(driverZ - anchorZ) > MaxAcquireHeightDifferenceMeters)
             {
                 return Fail(
                     command,
                     "selected-driver-too-far",
-                    "The selected driver is not close enough to the current player bus.");
+                    selectedFreeWorldFallback
+                        ? "The nearest detached OMSI human is too far from the player bus for the RP fallback."
+                        : "The selected driver is not close enough to the current player bus.");
             }
 
             if (OmsiNativeInterop.ReadHumanAiState(
@@ -1209,6 +1217,35 @@ internal static class RoleplayCharacterBackend
         string code,
         string message) =>
         RoleplayCharacterCommandProcessor.Result(command, false, code, message);
+
+    private static void SelectNearestCandidate(
+        IReadOnlyList<DriverCandidate> candidates,
+        ref int driverPointer,
+        ref int driverIndex,
+        ref double bestDistance,
+        ref float driverX,
+        ref float driverY,
+        ref float driverZ,
+        ref float driverHeading,
+        ref float driverSpeed)
+    {
+        var candidate = candidates
+            .OrderBy(value => value.Distance)
+            .FirstOrDefault();
+        if (candidate is null)
+        {
+            return;
+        }
+
+        driverPointer = candidate.Pointer;
+        driverIndex = candidate.Index;
+        bestDistance = candidate.Distance;
+        driverX = candidate.X;
+        driverY = candidate.Y;
+        driverZ = candidate.Z;
+        driverHeading = candidate.Heading;
+        driverSpeed = candidate.Speed;
+    }
 
     private static void TrySelectUnambiguousDriver(
         IReadOnlyList<DriverCandidate> candidates,
