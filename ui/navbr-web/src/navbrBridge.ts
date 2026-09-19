@@ -676,6 +676,8 @@ export interface NavBrRoleplayState {
     status?: string | null;
   } | null;
   status?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   selected?: {
     id: string;
     displayName: string;
