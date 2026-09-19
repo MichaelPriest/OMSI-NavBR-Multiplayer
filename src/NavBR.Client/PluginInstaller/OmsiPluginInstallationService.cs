@@ -53,6 +53,8 @@ internal static class OmsiPluginInstallationService
         var requiredFilesFound = RequiredPluginFiles.Count(file =>
             File.Exists(Path.Combine(pluginsRoot, file)));
         var manifestPresent = File.Exists(manifestPath);
+        var legacyNavBrInstallation =
+            !manifestPresent && IsLegacyNavBrInstallation(pluginsRoot);
         var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         var installedVersion = ReadInstalledVersion(manifestPath);
         var versionMatches =
@@ -64,16 +66,27 @@ internal static class OmsiPluginInstallationService
                 StringComparison.OrdinalIgnoreCase);
 
         if (requiredFilesFound == RequiredPluginFiles.Length &&
-            (!manifestPresent || versionMatches))
+            manifestPresent &&
+            versionMatches)
         {
             return new PluginStartupInstallResult(
-                manifestPresent ? "ready" : "untracked",
+                "ready",
                 root,
                 pluginsRoot,
                 Changed: false,
-                manifestPresent
-                    ? null
-                    : "Os arquivos exigidos já existem sem manifesto NavBR; nenhuma sobrescrita automática foi feita.");
+                null);
+        }
+
+        if (requiredFilesFound == RequiredPluginFiles.Length &&
+            !manifestPresent &&
+            !legacyNavBrInstallation)
+        {
+            return new PluginStartupInstallResult(
+                "untracked",
+                root,
+                pluginsRoot,
+                Changed: false,
+                "Os arquivos exigidos já existem sem manifesto NavBR e não puderam ser reconhecidos como uma instalação NavBR legada.");
         }
 
         // Never change plugin binaries while OMSI is using them. The manual
@@ -94,14 +107,14 @@ internal static class OmsiPluginInstallationService
         var hasUntrackedRequiredFile = RequiredPluginFiles.Any(file =>
             File.Exists(Path.Combine(pluginsRoot, file)) &&
             !tracked.Contains(file));
-        if (hasUntrackedRequiredFile)
+        if (hasUntrackedRequiredFile && !legacyNavBrInstallation)
         {
             return new PluginStartupInstallResult(
                 "conflict",
                 root,
                 pluginsRoot,
                 Changed: false,
-                "Há arquivos NavBR não rastreados na pasta plugins; instalação automática não sobrescreveu esses arquivos.");
+                "Há arquivos não rastreados com nomes reservados do NavBR na pasta plugins; a instalação automática não sobrescreveu esses arquivos.");
         }
 
         try
@@ -170,6 +183,18 @@ internal static class OmsiPluginInstallationService
         Directory.CreateDirectory(pluginsRoot);
         var manifestPath = Path.Combine(pluginsRoot, "NavBR.OmsiPlugin.install-manifest.txt");
         var previouslyTracked = ReadTrackedFiles(manifestPath);
+        var legacyNavBrInstallation =
+            !File.Exists(manifestPath) && IsLegacyNavBrInstallation(pluginsRoot);
+        if (legacyNavBrInstallation)
+        {
+            foreach (var required in RequiredPluginFiles)
+            {
+                if (File.Exists(Path.Combine(pluginsRoot, required)))
+                {
+                    previouslyTracked.Add(required);
+                }
+            }
+        }
 
         using var packageStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(EmbeddedResourceName)
             ?? throw new InvalidOperationException("Pacote do plugin embutido não pôde ser aberto.");
@@ -211,7 +236,13 @@ internal static class OmsiPluginInstallationService
         var staging = Path.Combine(
             Path.GetTempPath(),
             "NavBR-PluginInstall-" + Guid.NewGuid().ToString("N"));
+        var backupRoot = Path.Combine(staging, "backup");
         Directory.CreateDirectory(staging);
+
+        var existingFiles = RequiredPluginFiles
+            .Where(file => File.Exists(Path.Combine(pluginsRoot, file)))
+            .ToArray();
+        var manifestExisted = File.Exists(manifestPath);
 
         try
         {
@@ -221,12 +252,79 @@ internal static class OmsiPluginInstallationService
                 entries[required].ExtractToFile(stagedFile, overwrite: true);
             }
 
-            foreach (var required in RequiredPluginFiles)
+            if (existingFiles.Length > 0 || manifestExisted)
             {
-                File.Copy(
-                    Path.Combine(staging, required),
-                    Path.Combine(pluginsRoot, required),
-                    overwrite: true);
+                Directory.CreateDirectory(backupRoot);
+                foreach (var existing in existingFiles)
+                {
+                    File.Copy(
+                        Path.Combine(pluginsRoot, existing),
+                        Path.Combine(backupRoot, existing),
+                        overwrite: true);
+                }
+
+                if (manifestExisted)
+                {
+                    File.Copy(
+                        manifestPath,
+                        Path.Combine(backupRoot, Path.GetFileName(manifestPath)),
+                        overwrite: true);
+                }
+            }
+
+            try
+            {
+                foreach (var required in RequiredPluginFiles)
+                {
+                    File.Copy(
+                        Path.Combine(staging, required),
+                        Path.Combine(pluginsRoot, required),
+                        overwrite: true);
+                }
+
+                var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+                File.WriteAllLines(
+                    manifestPath,
+                    [
+                        "# OMSI NavBR Plugin experimental - arquivos instalados",
+                        $"# Instalado em: {DateTimeOffset.Now:O}",
+                        $"# NavBR: {version}",
+                        legacyNavBrInstallation
+                            ? "# Migration: legacy NavBR plugin adopted and updated"
+                            : "# Migration: none",
+                        "# Deployment: Native AOT x86 + NavBR OMSI ABI interop x86",
+                        .. RequiredPluginFiles
+                    ]);
+            }
+            catch
+            {
+                foreach (var required in RequiredPluginFiles)
+                {
+                    var destination = Path.Combine(pluginsRoot, required);
+                    var backup = Path.Combine(backupRoot, required);
+                    if (File.Exists(backup))
+                    {
+                        File.Copy(backup, destination, overwrite: true);
+                    }
+                    else if (File.Exists(destination))
+                    {
+                        File.Delete(destination);
+                    }
+                }
+
+                var manifestBackup = Path.Combine(
+                    backupRoot,
+                    Path.GetFileName(manifestPath));
+                if (File.Exists(manifestBackup))
+                {
+                    File.Copy(manifestBackup, manifestPath, overwrite: true);
+                }
+                else if (File.Exists(manifestPath))
+                {
+                    File.Delete(manifestPath);
+                }
+
+                throw;
             }
         }
         finally
@@ -240,17 +338,6 @@ internal static class OmsiPluginInstallationService
                 // Staging cleanup must not invalidate a successful install.
             }
         }
-
-        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
-        File.WriteAllLines(
-            manifestPath,
-            [
-                "# OMSI NavBR Plugin experimental - arquivos instalados",
-                $"# Instalado em: {DateTimeOffset.Now:O}",
-                $"# NavBR: {version}",
-                "# Deployment: Native AOT x86 + NavBR OMSI ABI interop x86",
-                .. RequiredPluginFiles
-            ]);
 
         return new PluginInstallResult(root, pluginsRoot, RequiredPluginFiles.Length);
     }
@@ -451,6 +538,36 @@ internal static class OmsiPluginInstallationService
         if (Process.GetProcessesByName("Omsi").Any(process => !process.HasExited))
         {
             throw new InvalidOperationException("Feche o OMSI antes de instalar, atualizar ou remover o plugin NavBR.");
+        }
+    }
+
+    private static bool IsLegacyNavBrInstallation(string pluginsRoot)
+    {
+        try
+        {
+            var oplPath = Path.Combine(pluginsRoot, "NavBR.OmsiPlugin.opl");
+            if (!File.Exists(oplPath))
+            {
+                return false;
+            }
+
+            var info = new FileInfo(oplPath);
+            if (info.Length <= 0 || info.Length > 64 * 1024)
+            {
+                return false;
+            }
+
+            var text = File.ReadAllText(oplPath);
+            return text.Contains("[dll]", StringComparison.OrdinalIgnoreCase) &&
+                   text.Contains(
+                       "NavBR.OmsiPlugin.dll",
+                       StringComparison.OrdinalIgnoreCase) &&
+                   (File.Exists(Path.Combine(pluginsRoot, "NavBR.OmsiPlugin.dll")) ||
+                    File.Exists(Path.Combine(pluginsRoot, "NavBR.OmsiInterop.dll")));
+        }
+        catch
+        {
+            return false;
         }
     }
 
