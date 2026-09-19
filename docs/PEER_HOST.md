@@ -26,7 +26,9 @@ Use a ação de Firewall do NavBR para criar a regra TCP 27730 em todos os perfi
 
 No modo **Online através do Host**, dependendo da rede podem ser necessários UPnP ou port forwarding. CGNAT pode impedir host direto. Nessa situação, o jogador pode optar pelo Servidor NavBR oficial, que não exige conexão de entrada no PC.
 
-Ao criar uma sala, a Central Multiplayer mostra o alcance real conhecido pelo cliente:
+Ao criar uma sala, o NavBR inicia o servidor local primeiro e tenta o UPnP em segundo plano. A tentativa tem timeout de 8 segundos e não bloqueia mais a interface. Se o roteador não responder, a sala continua ativa em LAN.
+
+A Central Multiplayer mostra o alcance real conhecido pelo cliente:
 - **Somente LAN**: o host está ativo e acessível na rede local, sem endereço externo confirmado;
 - **Internet via UPnP**: o roteador aceitou o mapeamento e forneceu endereço externo;
 - **UPnP ativo · não verificado externamente**: o mapeamento foi criado, mas não há confirmação por um serviço externo.
