@@ -213,6 +213,31 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             .SendAsync("playerPresenceChanged", updated);
     }
 
+    public async Task UpdatePhysicalVehicleStatus(int physicalVehicleCount)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before updating physical vehicle status.");
+        }
+
+        if (physicalVehicleCount is < 0 or > 32)
+        {
+            throw new HubException("Invalid physical vehicle count.");
+        }
+
+        var updated = registry.UpdatePhysicalVehicleCount(
+            Context.ConnectionId,
+            physicalVehicleCount);
+        if (updated is null)
+        {
+            return;
+        }
+
+        await Clients
+            .Group(presence.RoomId)
+            .SendAsync("playerPresenceChanged", updated);
+    }
+
     public async Task SendChatMessage(string text)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
