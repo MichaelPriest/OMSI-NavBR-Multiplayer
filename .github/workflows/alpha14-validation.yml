@@ -1,13 +1,8 @@
 name: alpha14 validation
 
+# Historical Alpha.14 validation. Kept for explicit regression checks only;
+# current pull requests are validated by build.yml.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - feature/alpha13-online-vehicles
-      - main
   workflow_dispatch:
 
 permissions:
