@@ -415,6 +415,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 memory,
                 nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
             var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
+            var mapTileIndex = TryReadMapTileIndex(memory, vehicleAddress);
 
             int? gridX = null;
             int? gridY = null;
@@ -473,7 +474,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 RotationX: rotation.X,
                 RotationY: rotation.Y,
                 RotationZ: rotation.Z,
-                RotationW: rotation.W);
+                RotationW: rotation.W,
+                MapTileIndex: mapTileIndex);
         }
         catch (ArgumentException)
         {
@@ -484,6 +486,25 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         catch
         {
             LastErrorCode = TelemetryErrorCode.ReadFailed;
+            return null;
+        }
+    }
+
+    private static int? TryReadMapTileIndex(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress)
+    {
+        try
+        {
+            var value = memory.ReadInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleKachelOffset));
+            return value is >= 0 and <= 200_000
+                ? value
+                : null;
+        }
+        catch
+        {
             return null;
         }
     }
