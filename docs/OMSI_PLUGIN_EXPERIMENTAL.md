@@ -37,7 +37,9 @@ A PR #30 passa a tratar os frames recebidos como alvos de movimento em vez de te
 - luzes e setas continuam sendo aplicadas imediatamente;
 - luz de freio também pode ser inferida de `BrakePercent`;
 - até duas falhas transitórias de update são toleradas antes de respawn; erros fatais de ownership/ponteiro continuam fail-safe;
-- ônibus remotos só são materializados fisicamente quando estão próximos: spawn até 750 m e despawn acima de 1 km, com histerese para evitar churn na borda; jogadores fora desse raio continuam presentes normalmente no multiplayer.
+- ônibus remotos só são materializados fisicamente quando estão próximos: spawn até 750 m e despawn acima de 1 km, com histerese para evitar churn na borda; jogadores fora desse raio continuam presentes normalmente no multiplayer;
+- se app/pipe/rede desaparecer sem um despawn limpo, um alvo físico sem atualização por 5 s entra em limpeza automática; se o OMSI rejeitar a remoção, o ownership é preservado para nova tentativa;
+- a fila do callback processa no máximo 1 comando arbitrário/pesado por frame e até 4 updates leves adicionais, elevando a fluidez com vários ônibus sem liberar bursts de spawn no mesmo frame.
 
 ## Personagem / RP
 
