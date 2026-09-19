@@ -216,6 +216,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             }
 
             var vehiclePointer = unchecked((uint)vehicleAddress.ToInt64());
+            int? fallbackDefinition = null;
+
             for (var index = 0; index < count; index++)
             {
                 var humanAddress = memory.ReadUInt32(nint.Add(
@@ -238,16 +240,36 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 var definition = memory.ReadUInt32(nint.Add(
                     humanPointer,
                     Omsi23004MemoryProfile.HumanDefinitionOffset));
-                return definition > 0x10000u
-                    ? unchecked((int)definition)
-                    : null;
+                if (definition <= 0x10000u)
+                {
+                    continue;
+                }
+
+                fallbackDefinition ??= unchecked((int)definition);
+
+                // OMSI public reverse-engineering references define
+                // AIModeEx value 9 as THAME_DrivingBus. Prefer that live state
+                // so passengers attached to the same vehicle are not mistaken
+                // for the RP driver.
+                var aiModeEx = memory.ReadByte(nint.Add(
+                    humanPointer,
+                    0x6C5));
+                var fixDriver = memory.ReadByte(nint.Add(
+                    humanPointer,
+                    0x662));
+
+                if (aiModeEx == 9 || fixDriver != 0)
+                {
+                    return unchecked((int)definition);
+                }
             }
+
+            return fallbackDefinition;
         }
         catch
         {
+            return null;
         }
-
-        return null;
     }
 
     private static string BuildRoleplayCharacterDisplayName(string source)
