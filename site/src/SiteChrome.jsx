@@ -12,6 +12,7 @@ export function Header({ activeSection, onOpenDownloads }) {
     ["contribua", "❤ Contribua"],
     ["estado", "Alpha.14"],
     ["download", "Downloads"],
+    ["todas-versoes", "Todas as versões"],
     ["recursos", "Recursos"],
     ["multiplayer", "Multiplayer"],
     ["documentacao", "Documentação"]
