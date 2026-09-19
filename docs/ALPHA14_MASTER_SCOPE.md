@@ -25,13 +25,14 @@ A Alpha.14 consolida a interface React/WebView2, multiplayer físico experimenta
 
 ## 2. Multiplayer
 
-- peer-host TCP 27730;
-- servidor dedicado opcional;
+- três modos explícitos: **Servidor NavBR oficial**, **LAN** e **Online através do Host**;
+- TCP 27730 nos modos hospedados pelo PC;
+- servidor NavBR dedicado no Render para o modo oficial;
 - salas públicas/privadas;
 - chat e voz;
 - dispositivos de áudio e mixer por jogador;
-- UPnP opcional;
-- relay experimental;
+- UPnP opcional e não bloqueante no Online através do Host;
+- timeout de 8 segundos para descoberta/mapeamento UPnP;
 - Firewall verificável em todos os perfis;
 - diagnóstico separado de listener, NAT/CGNAT, UPnP e probe externo;
 - presença, telemetria, mapa e estado operacional via SignalR;
@@ -110,6 +111,7 @@ Somente desenvolvimento/teste:
 ## 7. Release e validação
 
 - **v0.3.0-alpha.14-test.4** é a release pública atual da Alpha.14;
+- hotfix público `29f30b2` corrige o travamento ao iniciar **Online através do Host**, movendo UPnP para segundo plano;
 - a publicação foi validada por `build`, `alpha14 validation` e compatibilidade do workflow legado antes da promoção para `main`;
 - toda publicação recompila/valida React, servidor, plugin, cliente e simulador;
 - recursos físicos/RP continuam experimentais, opt-in e fail-safe.
