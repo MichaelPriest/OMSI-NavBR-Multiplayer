@@ -181,6 +181,13 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
         run: |
+          # Publishing the standalone server for win-x64 refreshes its NuGet
+          # assets file. Restore the client graph again for win-x86 so project
+          # references (including NavBR.Server) expose the runtime target the
+          # desktop build needs.
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          if ($LASTEXITCODE -ne 0) { throw "Client win-x86 restore failed after server publish." }
+
           dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
           if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
