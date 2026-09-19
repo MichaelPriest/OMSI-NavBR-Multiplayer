@@ -18,4 +18,6 @@ public sealed record PlayerPresence(
     /// through OMSI MakeVehicle. Null means the client has not reported it.
     /// </summary>
     public int? PhysicalVehicleCount { get; init; }
+
+    public IReadOnlyList<string>? PhysicalVehiclePlayerIds { get; init; }
 }
