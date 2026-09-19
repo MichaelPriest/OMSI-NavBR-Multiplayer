@@ -133,6 +133,7 @@ jobs:
           $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
           foreach ($expected in @(
             "NavBR_GetStateInteropVersion",
+            "NavBR_ProbeRoleplayHumanControl",
             "NavBR_ResolveMapTileIndex",
             "NavBR_MakeVehicle",
             "NavBR_SetVehicleTransform",
