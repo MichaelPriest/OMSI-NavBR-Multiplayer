@@ -241,12 +241,12 @@ internal static class RoleplayCharacterBackend
             command.HeadingDegrees is not double busHeadingValue ||
             !double.IsFinite(busHeadingValue) ||
             command.CharacterDefinitionPointer is not int definitionPointer ||
-            definitionPointer <= 0)
+            definitionPointer < 0)
         {
             return Fail(
                 command,
                 "invalid-character-selection",
-                "A selected OMSI driver character and finite local anchor are required.");
+                "A live OMSI driver selection (or automatic driver resolution) and finite local anchor are required.");
         }
 
         lock (Sync)
