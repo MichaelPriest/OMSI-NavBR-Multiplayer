@@ -114,3 +114,24 @@ Incluído nesta etapa:
 - IBIS continua em leitura até existir uma capacidade nativa específica de escrita no Plugin Bridge.
 
 O app não envia comandos genéricos/falsos ao ônibus local.
+
+
+### Controles reais do ônibus no celular
+
+A Alpha 2 agora possui uma capacidade adicional, desligada por padrão:
+
+`local-vehicle-trigger`
+
+Fluxo de segurança:
+
+1. o desktop lê somente eventos `[mouseevent]` reais do arquivo/modelo do ônibus carregado;
+2. o usuário precisa ativar **Controles do ônibus pelo celular (EXPERIMENTAL)** no NavBR desktop;
+3. o Plugin Bridge precisa anunciar a capacidade `local-vehicle-trigger`;
+4. cada comando vindo do APK é revalidado contra o catálogo atual do ônibus;
+5. somente o `RoadVehicle` do jogador local é usado como alvo;
+6. o comando é executado no callback/thread correto do OMSI;
+7. nomes de triggers são retidos de forma limitada e deduplicada para evitar ponteiros Delphi inválidos.
+
+No APK, a aba **Ônibus** possui busca, favoritos e botões dinâmicos. O app não inventa nomes como porta/luz/buzina: ele mostra somente os eventos reais encontrados no veículo.
+
+A autorização usa a flag própria `experimental-mobile-vehicle-controls.enabled` e não depende da opção de ônibus físicos remotos.
