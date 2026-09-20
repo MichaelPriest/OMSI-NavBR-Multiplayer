@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace NavBR.Client.Mobile;
 
@@ -37,7 +38,18 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
             ContentRootPath = AppContext.BaseDirectory
         });
         builder.WebHost.UseUrls($"http://0.0.0.0:{Port}");
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("mobile-companion", policy =>
+                policy.WithOrigins(
+                        "http://localhost",
+                        "https://localhost",
+                        "capacitor://localhost")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod());
+        });
         var app = builder.Build();
+        app.UseCors("mobile-companion");
 
         var mobileRoot = Path.Combine(AppContext.BaseDirectory, "MobileUI", "dist");
         var mobileRootExists = Directory.Exists(mobileRoot);
