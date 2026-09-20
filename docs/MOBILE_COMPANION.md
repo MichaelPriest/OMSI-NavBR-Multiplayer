@@ -1,8 +1,8 @@
-# NavBR Mobile Companion — Alpha 1 Android
+# NavBR Mobile Companion — Alpha 2 Android
 
 ## Estado
 
-**Em desenvolvimento ativo na branch `feature/mobile-companion-alpha1` e PR #33.**
+**Em desenvolvimento ativo na branch `feature/mobile-companion-alpha2` e PR #34 (DRAFT, sem merge).**
 
 A entrega principal da Alpha 1 passa a ser um **APK Android**, mantendo a PWA como base visual compartilhada.
 
@@ -62,17 +62,21 @@ O APK acessa o host local do NavBR por HTTP na LAN nesta Alpha porque o PC não 
 
 ## IBIS
 
-Nesta Alpha 1 o IBIS é **somente leitura real**.
+A leitura continua vindo somente do estado real do OMSI.
 
-Ainda não existe no Plugin Bridge uma capacidade nativa segura para escrever linha, rota, destino e HOF no ônibus do jogador. Nenhum comando fake é enviado.
+Na Alpha 2, a referência técnica do **OmsiHook/Omsi-Extensions** foi revisada. O OmsiHook demonstra duas famílias de integração relevantes: acesso a variáveis/stringvars do script e acionamento de triggers do veículo. Para esta etapa, o NavBR adota somente a segunda via, porque ela pode reutilizar a ponte local já protegida e validada.
 
-Próxima etapa:
+Fluxo dos controles IBIS:
 
-1. adicionar capacidades IBIS explícitas ao Plugin Bridge;
-2. ler catálogo real de linha/rota/HOF do mapa/ônibus;
-3. permitir somente opções realmente disponíveis;
-4. executar a alteração no thread correto do OMSI;
-5. confirmar o resultado antes de atualizar o APK.
+1. o desktop lê o catálogo `[mouseevent]` real do ônibus carregado;
+2. desse catálogo, identifica conservadoramente famílias de eventos de IBIS/AFR/impressora/matrix;
+3. o APK mostra somente esses nomes reais;
+4. cada pressão e liberação é revalidada novamente pelo desktop;
+5. o comando só segue se `local-vehicle-trigger` estiver disponível e a autorização experimental do usuário estiver ligada;
+6. o alvo continua sendo exclusivamente o `RoadVehicle` local do jogador;
+7. nenhum nome de trigger é inventado e nenhum mock é usado.
+
+A escrita direta de linha/rota/destino/HOF via variáveis ou stringvars continua **desativada**. Ela só será adicionada quando o NavBR resolver com segurança os arrays de script do veículo atual, como a arquitetura do OmsiHook faz, em vez de assumir nomes/offsets universais.
 
 ## Portas
 
@@ -85,11 +89,11 @@ Próxima etapa:
 
 O CI compila a PWA e depois gera:
 
-`OMSI-NavBR-Mobile-Alpha1-debug.apk`
+`OMSI-NavBR-Mobile-Alpha2-debug.apk`
 
 O APK é publicado como artifact:
 
-`OMSI-NavBR-Mobile-Android-Alpha1`
+`OMSI-NavBR-Mobile-Android-Alpha2`
 
 ## Sem mocks
 
@@ -111,7 +115,7 @@ Incluído nesta etapa:
 - lease de PTT com liberação automática caso o celular perca a conexão;
 - endpoint mobile de comandos autenticado pelo token da sessão;
 - catálogo de mouse events reais detectados no veículo exposto para o futuro painel personalizável;
-- IBIS continua em leitura até existir uma capacidade nativa específica de escrita no Plugin Bridge.
+- IBIS mantém leitura real e agora também expõe **teclas/eventos reais do próprio veículo** quando identificados no catálogo `[mouseevent]`; escrita genérica de variáveis/stringvars continua desativada.
 
 O app não envia comandos genéricos/falsos ao ônibus local.
 

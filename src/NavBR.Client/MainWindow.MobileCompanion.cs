@@ -57,6 +57,14 @@ public partial class MainWindow
                 .Take(128)
                 .ToArray();
 
+        var detectedIbisEvents = telemetry is null
+            ? Array.Empty<string>()
+            : OmsiVehicleInteractionCatalog.ReadIbisEvents(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath)
+                .Take(64)
+                .ToArray();
+
         object? vehicle = telemetry is null ? null : new
         {
             telemetry.MapName,
@@ -93,6 +101,10 @@ public partial class MainWindow
             localVehicleControlsEnabled &&
             localVehicleTriggerAvailable &&
             detectedVehicleEvents.Length > 0;
+
+        var ibisWritable =
+            controlsWritable &&
+            detectedIbisEvents.Length > 0;
 
         return new
         {
@@ -133,8 +145,18 @@ public partial class MainWindow
             ibis = new
             {
                 available = telemetry?.IsInGame == true,
-                writable = false,
-                writeReason = "plugin-bridge-ibis-capability-not-implemented",
+                writable = ibisWritable,
+                writeReason = ibisWritable
+                    ? null
+                    : !localVehicleControlsEnabled
+                        ? "mobile-local-vehicle-controls-disabled"
+                        : !localVehicleTriggerAvailable
+                            ? "plugin-bridge-local-vehicle-trigger-unavailable"
+                            : detectedIbisEvents.Length == 0
+                                ? "no-real-ibis-events-detected"
+                                : "player-vehicle-unavailable",
+                controlMode = "real-mouseevent-trigger",
+                detectedEvents = detectedIbisEvents,
                 line = telemetry?.Line,
                 route = telemetry?.Route,
                 destination = telemetry?.DestinationName,
@@ -202,6 +224,12 @@ public partial class MainWindow
             case "vehicle-trigger":
                 return await ExecuteMobileVehicleTriggerAsync(command, action);
 
+            case "ibis-trigger":
+                return await ExecuteMobileVehicleTriggerAsync(
+                    command,
+                    action,
+                    ibisOnly: true);
+
             default:
                 return MobileCommandResult(false, action, "unsupported-command");
         }
@@ -209,7 +237,8 @@ public partial class MainWindow
 
     private async Task<object> ExecuteMobileVehicleTriggerAsync(
         MobileCompanionCommand command,
-        string action)
+        string action,
+        bool ibisOnly = false)
     {
         var telemetry = _lastTelemetry;
         var triggerName = command.TriggerName?.Trim();
@@ -237,12 +266,21 @@ public partial class MainWindow
             return MobileCommandResult(false, action, "invalid-trigger");
         }
 
-        var detectedEvents = OmsiVehicleInteractionCatalog.Read(
-            ResolveConfiguredOmsiRootForPlugin(),
-            telemetry.VehiclePath);
+        var detectedEvents = ibisOnly
+            ? OmsiVehicleInteractionCatalog.ReadIbisEvents(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath)
+            : OmsiVehicleInteractionCatalog.Read(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath);
         if (!detectedEvents.Contains(triggerName, StringComparer.Ordinal))
         {
-            return MobileCommandResult(false, action, "trigger-not-in-real-vehicle-catalog");
+            return MobileCommandResult(
+                false,
+                action,
+                ibisOnly
+                    ? "ibis-trigger-not-in-real-vehicle-catalog"
+                    : "trigger-not-in-real-vehicle-catalog");
         }
 
         var result = await OmsiPluginBridgeRelay.SetLocalVehicleTriggerAsync(

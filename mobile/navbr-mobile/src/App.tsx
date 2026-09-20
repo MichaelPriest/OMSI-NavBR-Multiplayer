@@ -54,7 +54,8 @@ type MobileState = {
     networkQuality?: { level: string; roundTripMs?: number | null; jitterMs?: number | null; lossPercent?: number | null };
   };
   ibis: {
-    available: boolean; writable: boolean; writeReason?: string | null; line?: string | null; route?: string | null;
+    available: boolean; writable: boolean; writeReason?: string | null; controlMode?: string | null;
+    detectedEvents: string[]; line?: string | null; route?: string | null;
     destination?: string | null; hof?: string | null; nextStop?: string | null; delaySeconds?: number | null;
   };
 };
@@ -149,6 +150,7 @@ export default function App() {
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
   const [controlFilter, setControlFilter] = useState("");
+  const [ibisFilter, setIbisFilter] = useState("");
   const [controlFavorites, setControlFavorites] = useState<string[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem("navbr-mobile-control-favorites") || "[]");
@@ -272,6 +274,10 @@ export default function App() {
       return favoriteOrder || a.localeCompare(b);
     });
 
+  const availableIbisControls = (state?.ibis.detectedEvents || [])
+    .filter(name => !ibisFilter.trim() || name.toLowerCase().includes(ibisFilter.trim().toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
+
   return <main className="app-shell">
     <header className="mobile-header">
       <div><span className="eyebrow">NAVBR MOBILE · ALPHA 2</span><strong>{vehicle?.line || "—"} <i>·</i> {vehicle?.route || "—"}</strong></div>
@@ -350,7 +356,42 @@ export default function App() {
         </div>}
       </div>}
 
-      {tab === "ibis" && <div><div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable ? "OPERACIONAL" : "LEITURA"}</b></div><div className="ibis-display"><label>LINHA<strong>{state?.ibis.line || "—"}</strong></label><label>ROTA / CURSO<strong>{state?.ibis.route || "—"}</strong></label><label>DESTINO<strong>{state?.ibis.destination || "—"}</strong></label><label>HOF<strong>{state?.ibis.hof || "—"}</strong></label><label>PRÓXIMA PARADA<strong>{state?.ibis.nextStop || "—"}</strong></label><label>ATRASO<strong>{state?.ibis.delaySeconds == null ? "—" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</strong></label></div>{!state?.ibis.writable && <div className="ibis-warning">IBIS continua usando somente dados reais. A escrita será ligada quando existir capacidade nativa específica no Plugin Bridge.</div>}</div>}
+      {tab === "ibis" && <div className="ibis-page">
+        <div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable ? "CONTROLES REAIS" : "LEITURA"}</b></div>
+        <div className="ibis-display"><label>LINHA<strong>{state?.ibis.line || "—"}</strong></label><label>ROTA / CURSO<strong>{state?.ibis.route || "—"}</strong></label><label>DESTINO<strong>{state?.ibis.destination || "—"}</strong></label><label>HOF<strong>{state?.ibis.hof || "—"}</strong></label><label>PRÓXIMA PARADA<strong>{state?.ibis.nextStop || "—"}</strong></label><label>ATRASO<strong>{state?.ibis.delaySeconds == null ? "—" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</strong></label></div>
+        <div className="vehicle-controls-card">
+          <div className="section-title"><div><small>TECLAS REAIS DO VEÍCULO</small><h2>IBIS / AFR / Matrix</h2></div><b className={state?.ibis.writable ? "good" : "bad"}>{state?.ibis.writable ? "LIBERADO" : "BLOQUEADO"}</b></div>
+          <input className="control-search" value={ibisFilter} onChange={e => setIbisFilter(e.target.value)} placeholder="Buscar tecla/evento do IBIS…" />
+          {availableIbisControls.length === 0
+            ? <div className="map-empty compact-empty">Nenhum evento real de IBIS/AFR/Matrix foi identificado neste veículo.</div>
+            : <div className="vehicle-control-grid">
+                {availableIbisControls.map(eventName => <div className="vehicle-control-item" key={eventName}>
+                  <button
+                    className="vehicle-trigger-button"
+                    disabled={!state?.ibis.writable}
+                    onPointerDown={e => {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      navigator.vibrate?.(12);
+                      void sendCommand("ibis-trigger", { triggerName: eventName, active: true });
+                    }}
+                    onPointerUp={() => void sendCommand("ibis-trigger", { triggerName: eventName, active: false })}
+                    onPointerCancel={() => void sendCommand("ibis-trigger", { triggerName: eventName, active: false })}
+                    onLostPointerCapture={() => void sendCommand("ibis-trigger", { triggerName: eventName, active: false })}
+                  >
+                    <strong>{friendlyControlName(eventName)}</strong>
+                    <small>{eventName}</small>
+                  </button>
+                </div>)}
+              </div>}
+        </div>
+        {!state?.ibis.writable && <div className="ibis-warning">
+          {!state?.vehicleControls.enabled
+            ? "Ative “Controles do ônibus pelo celular (EXPERIMENTAL)” no NavBR do PC para liberar as teclas reais do IBIS."
+            : !state?.vehicleControls.capabilityAvailable
+              ? "O Plugin Bridge ainda não informou a capacidade local-vehicle-trigger."
+              : "Leitura real ativa, mas este ônibus não expôs eventos reconhecidos de IBIS/AFR/Matrix."}
+        </div>}
+      </div>}
 
       {tab === "multi" && <div className="multi-page">
         <div className="section-title"><div><small>MULTIPLAYER</small><h2>{mp?.roomId || "Sem sala"}</h2></div><b className={mp?.connected ? "good" : "bad"}>{mp?.connected ? `${mp.playerCount} ONLINE` : "OFFLINE"}</b></div>
