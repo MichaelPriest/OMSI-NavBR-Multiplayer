@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública e atual é **v0.3.0-alpha.15**.
+A versão pública e atual é **v0.3.0-alpha.18**.
 
 - cliente principal: **EXE standalone Windows x86**;
 - ZIP do cliente;
@@ -13,9 +13,16 @@ A versão pública e atual é **v0.3.0-alpha.15**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> A Alpha.15 consolida as correções de integração e runtime da série Alpha.14. Ônibus físico remoto e Personagem/RP continuam experimentais e opt-in até validação ampla em instalações reais do OMSI.
+> **AVISO DE TESTE DA ALPHA.18:** esta versão foi liberada publicamente para ampliar a validação. O multiplayer **LAN/local** e **online/Servidor NavBR/Host pela Internet ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI**. Sala conectada, telemetria ou confirmação do simulador não devem ser interpretadas como validação completa do multiplayer físico. Use como alpha pública de teste e reporte logs/resultados.
 
-## Destaques da Alpha.15
+## Destaques da Alpha.18
+
+- verificador de plugin compara individualmente `NavBR.OmsiPlugin.dll`, `NavBR.OmsiInterop.dll` e `NavBR.OmsiPlugin.opl` por SHA-256 contra o bundle embutido;
+- atualização automática do plugin quando ausente/desatualizado e atualização adiada automaticamente enquanto o OMSI estiver aberto;
+- diagnóstico de spawn físico reforçado para impedir que bots/simulador reutilizem o ponteiro do ônibus local;
+- confirmação de materialização física exige ponteiro novo, RoadVehicle válido, presença contínua e diagnóstico de render do OMSI;
+- pacote de ícones autoral NavBR integrado à interface;
+- instalador Windows com desinstalador e simulador incluído;
 
 - **React + TypeScript + Vite em WebView2 como única interface desktop acessível ao usuário**, com .NET/WPF x86 preservado apenas como host técnico invisível dos serviços nativos;
 - Home com **Executar OMSI**, Navegação/GPS 2D/3D, Multiplayer, CCO, Empresa/Frota, Perfil, Ghost/Replay, Hardware Cockpit, Instalações OMSI, HUD, Roadmap Studio, Diagnóstico e ferramentas;
@@ -116,7 +123,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 
 ## Ghost / Replay
 
-A Alpha.15 mantém o fluxo principal de Ghost na interface React.
+A Alpha.18 mantém o fluxo principal de Ghost na interface React.
 
 - grava telemetria local real a cada 100 ms;
 - salva arquivos `.navbrghost` usando o `GhostRecorder` existente;
@@ -138,8 +145,9 @@ A Alpha.15 mantém o fluxo principal de Ghost na interface React.
 
 ## Documentação
 
-- [docs/ALPHA15_RELEASE_NOTES.md](docs/ALPHA15_RELEASE_NOTES.md) — notas da Alpha.15;
-- [docs/ALPHA15_COMMUNITY.md](docs/ALPHA15_COMMUNITY.md) — roteiro de validação da Alpha.15;
+- [docs/ALPHA18_RELEASE_NOTES.md](docs/ALPHA18_RELEASE_NOTES.md) — notas e limitações públicas da Alpha.18;
+- [docs/ALPHA18_COMMUNITY.md](docs/ALPHA18_COMMUNITY.md) — roteiro de validação pública da Alpha.18;
+- [docs/ALPHA15_RELEASE_NOTES.md](docs/ALPHA15_RELEASE_NOTES.md) — histórico da Alpha.15;
 - [docs/ALPHA15_MASTER_SCOPE.md](docs/ALPHA15_MASTER_SCOPE.md) — escopo consolidado da Alpha.15;
 - [docs/ALPHA14_RELEASE_NOTES.md](docs/ALPHA14_RELEASE_NOTES.md) — histórico da Alpha.14;
 - [docs/MULTIPLAYER_SIMULATOR.md](docs/MULTIPLAYER_SIMULATOR.md) — simulador;
@@ -167,7 +175,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.15 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.18 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico em memória** enquanto serviços nativos ainda são desacoplados de sua classe. O app não usa mais `StartupUri="MainWindow.xaml"` e não chama mais `Show()` no host; telemetria, estatísticas, RP e tray são inicializados explicitamente e os antigos installers/renderizadores visuais da Alpha.11/12 não são executados. Fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 
