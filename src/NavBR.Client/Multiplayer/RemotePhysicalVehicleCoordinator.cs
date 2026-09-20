@@ -33,6 +33,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private const int VehicleIdentityChangeMinObservations = 4;
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _spawnInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _spawnPending = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
         new(StringComparer.OrdinalIgnoreCase);
@@ -444,22 +445,29 @@ internal sealed class RemotePhysicalVehicleCoordinator
             await _spawnLifecycleGate.WaitAsync(cancellationToken);
             try
             {
-                if (_spawned.TryAdd(playerId, 0))
+                if (_spawnInFlight.TryAdd(playerId, 0))
                 {
                     SetStatus(playerId, "spawning");
                     var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
                         spawnFrame,
                         cancellationToken);
+                    _spawnInFlight.TryRemove(playerId, out _);
+
                     if (spawn?.Success != true)
                     {
-                        _spawned.TryRemove(playerId, out _);
-
                         if (string.Equals(
                                 spawn?.ErrorCode,
                                 "spawn-model-pending",
                                 StringComparison.Ordinal))
                         {
+                            // The OMSI instance already exists and is completing
+                            // deferred model callbacks. Preserve the exact local
+                            // asset identity now; do not publish it as active yet.
                             _spawnPending[playerId] = 0;
+                            _spawnedCompatibilityByPlayer[playerId] =
+                                remoteVehicleCompatibilityId;
+                            _resolvedVehiclePathByPlayer[playerId] =
+                                resolvedVehiclePath;
                             _spawnRetryAfterByPlayer[playerId] =
                                 DateTimeOffset.UtcNow +
                                 TimeSpan.FromMilliseconds(250);
@@ -489,14 +497,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         return;
                     }
 
+                    // Commit all ownership metadata before exposing _spawned.
+                    // A telemetry frame must never see an active vehicle without
+                    // the path/hash required for its next transform update.
+                    _spawnedCompatibilityByPlayer[playerId] =
+                        remoteVehicleCompatibilityId;
+                    _resolvedVehiclePathByPlayer[playerId] =
+                        resolvedVehiclePath;
+                    _spawned[playerId] = 0;
+
                     _spawnPending.TryRemove(playerId, out _);
                     ReleaseSpawnMaterializationSlot(playerId);
                     _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
-
-                    _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
-                        remoteVehicleCompatibilityId;
-                    _resolvedVehiclePathByPlayer[frame.Player.PlayerId] =
-                        resolvedVehiclePath;
                     _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
@@ -512,13 +524,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     return;
                 }
 
-                // A concurrent state change prevented this frame from reserving
-                // the active slot. Do not strand the global materialization
-                // owner in that case.
+                // Another spawn command for this player is already in flight.
                 ReleaseSpawnMaterializationSlot(playerId);
+                SetStatus(playerId, "spawning");
+                return;
             }
             catch
             {
+                _spawnInFlight.TryRemove(playerId, out _);
                 _spawnPending.TryRemove(playerId, out _);
                 ReleaseSpawnMaterializationSlot(playerId);
                 throw;
@@ -533,13 +546,31 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 frame.Player.PlayerId,
                 out var localVehiclePath))
         {
-            await DespawnOwnedAsync(playerId, cancellationToken);
-            SetStatus(playerId, "path-state-missing");
-            ReportFailureOnce(
-                playerId,
-                "asset",
-                "physical-vehicle-path-state-missing");
-            return;
+            // Ownership can survive a reconnect/status transition while the
+            // local path cache is rebuilt. Recover by the authoritative hash
+            // instead of immediately destroying the OMSI instance.
+            SetStatus(playerId, "recovering-path");
+            localVehiclePath = await _vehicleAssetResolver.ResolveAsync(
+                remoteManifest.VehiclePath,
+                remoteVehicleCompatibilityId,
+                cancellationToken);
+            if (string.IsNullOrWhiteSpace(localVehiclePath))
+            {
+                _spawnRetryAfterByPlayer[playerId] =
+                    DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(750);
+                SetStatus(
+                    playerId,
+                    "path-recovery-pending",
+                    "physical-vehicle-path-state-missing",
+                    "The remote bus is owned but its local vehicle path is being recovered from the content fingerprint.");
+                return;
+            }
+
+            _resolvedVehiclePathByPlayer[playerId] = localVehiclePath;
+            _spawnedCompatibilityByPlayer[playerId] =
+                remoteVehicleCompatibilityId;
+            NavBRAppLog.Info(
+                $"physical-vehicle-path-recovered player={playerId} path={localVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)}");
         }
 
         var updateInterval = ResolvePhysicalUpdateInterval(currentDistanceMeters);
@@ -687,6 +718,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             await DespawnAsync(playerId, cancellationToken);
         }
 
+        _spawnInFlight.Clear();
         _spawnPending.Clear();
         lock (_spawnMaterializationSync)
         {
