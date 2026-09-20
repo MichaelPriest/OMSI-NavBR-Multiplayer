@@ -1,0 +1,14 @@
+{
+  "name": "OMSI NavBR Mobile Companion",
+  "short_name": "NavBR Mobile",
+  "description": "GPS, IBIS e status do OMSI NavBR no celular.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07131c",
+  "theme_color": "#07131c",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
