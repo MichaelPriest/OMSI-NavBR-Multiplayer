@@ -108,6 +108,11 @@ jobs:
             npx cap sync android
             if ($LASTEXITCODE -ne 0) { throw "Capacitor Android sync failed." }
 
+            $javaRoot = "android/app/src/main/java/br/navbr/mobile"
+            New-Item -ItemType Directory -Path $javaRoot -Force | Out-Null
+            Copy-Item "android-patches/MainActivity.java" (Join-Path $javaRoot "MainActivity.java") -Force
+            Copy-Item "android-patches/NavBrDiscoveryPlugin.java" (Join-Path $javaRoot "NavBrDiscoveryPlugin.java") -Force
+
             $manifest = "android/app/src/main/AndroidManifest.xml"
             $xml = Get-Content $manifest -Raw
             $xml = $xml -replace '<application ', '<application android:usesCleartextTraffic="true" '
