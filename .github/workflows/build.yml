@@ -104,6 +104,7 @@ jobs:
             'NavBR_ProbePhysicalVehicleBackend',
             'NavBR_GetRoadVehicleCount',
             'NavBR_GetRoadVehicleAt',
+            'NavBR_ReadRoadVehicleRenderDiagnostics',
             'NavBR_IsRoadVehiclePointer',
             'NavBR_GetHumanCount',
             'NavBR_GetHumanAt',

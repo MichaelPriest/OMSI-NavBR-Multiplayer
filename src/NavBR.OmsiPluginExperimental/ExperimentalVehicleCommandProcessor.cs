@@ -514,7 +514,16 @@ internal static class PhysicalVehicleBackend
 
         if (!PhysicalVehicleInstanceRegistry.TryAdd(instance))
         {
-            _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+            if (IsSafeOwnedPointer(instance, out var cleanupUnsafeReason))
+            {
+                _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+            }
+            else
+            {
+                PluginLogWriter.Enqueue(
+                    $"physical-safety skip-registry-cleanup id={instanceId} pointer={FormatPointer(vehiclePointer)} reason={cleanupUnsafeReason}");
+            }
+
             return Fail(command, "instance-registry-full", "Could not register the newly created NavBR vehicle safely.");
         }
 
