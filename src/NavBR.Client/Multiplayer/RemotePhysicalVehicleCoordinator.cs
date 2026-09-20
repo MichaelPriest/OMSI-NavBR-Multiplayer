@@ -28,6 +28,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         TimeSpan.FromSeconds(1);
     private static readonly TimeSpan LocalTelemetryFreshness =
         TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan VehicleIdentityChangeDebounce =
+        TimeSpan.FromSeconds(1.5);
+    private const int VehicleIdentityChangeMinObservations = 4;
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _spawnPending = new(StringComparer.OrdinalIgnoreCase);
@@ -45,6 +48,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, DateTimeOffset> _capacitySuppressedUntilByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _spawnRetryAfterByPlayer = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastPhysicalUpdateAtByPlayer = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, VehicleIdentityCandidate> _vehicleIdentityCandidateByPlayer =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -260,24 +265,57 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         var remoteVehicleCompatibilityId =
             remoteManifest.VehicleCompatibilityId.Trim();
-        if (_spawned.ContainsKey(frame.Player.PlayerId) &&
-            (!_spawnedCompatibilityByPlayer.TryGetValue(
-                 frame.Player.PlayerId,
-                 out var spawnedCompatibilityId) ||
-             !string.Equals(
-                 spawnedCompatibilityId,
-                 remoteVehicleCompatibilityId,
-                 StringComparison.OrdinalIgnoreCase)))
+        if (_spawned.ContainsKey(frame.Player.PlayerId))
         {
-            // The remote player changed vehicle. Remove the old NavBR-owned
-            // instance before creating the newly reported asset.
-            SetStatus(playerId, "switching-vehicle");
-            await DespawnOwnedAsync(playerId, cancellationToken);
-            if (_spawned.ContainsKey(frame.Player.PlayerId))
+            if (!_spawnedCompatibilityByPlayer.TryGetValue(
+                    frame.Player.PlayerId,
+                    out var spawnedCompatibilityId) ||
+                string.IsNullOrWhiteSpace(spawnedCompatibilityId))
             {
-                // Despawn failed and restored the old ownership state. Never
-                // reuse that instance as if it represented the new vehicle.
-                return;
+                // Recover ownership metadata rather than immediately tearing
+                // down a bus that OMSI has already materialized. This can
+                // happen around reconnect/status publication boundaries.
+                _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
+                    remoteVehicleCompatibilityId;
+                _vehicleIdentityCandidateByPlayer.TryRemove(playerId, out _);
+                NavBRAppLog.Info(
+                    "physical-vehicle-identity-recovered",
+                    $"player={playerId} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)}");
+            }
+            else if (!string.Equals(
+                         spawnedCompatibilityId,
+                         remoteVehicleCompatibilityId,
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                if (!IsVehicleIdentityChangeStable(
+                        playerId,
+                        spawnedCompatibilityId,
+                        remoteVehicleCompatibilityId,
+                        remoteManifest.VehiclePath))
+                {
+                    return;
+                }
+
+                // Only replace a live OMSI vehicle after the new identity has
+                // remained stable across multiple frames. A single stale or
+                // alternating manifest/telemetry frame must never cause a
+                // despawn/spawn loop.
+                SetStatus(
+                    playerId,
+                    "switching-vehicle",
+                    "vehicle-identity-confirmed",
+                    $"Vehicle identity stabilized: {DescribeCompatibilityId(spawnedCompatibilityId)} -> {DescribeCompatibilityId(remoteVehicleCompatibilityId)}.");
+                await DespawnOwnedAsync(playerId, cancellationToken);
+                if (_spawned.ContainsKey(frame.Player.PlayerId))
+                {
+                    // Despawn failed and restored the old ownership state. Never
+                    // reuse that instance as if it represented the new vehicle.
+                    return;
+                }
+            }
+            else
+            {
+                _vehicleIdentityCandidateByPlayer.TryRemove(playerId, out _);
             }
         }
 
@@ -588,6 +626,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
         _lastPhysicalUpdateAtByPlayer.TryRemove(playerId, out _);
+        _vehicleIdentityCandidateByPlayer.TryRemove(playerId, out _);
         _spawnedCompatibilityByPlayer.TryRemove(
             playerId,
             out var previousCompatibilityId);
@@ -654,6 +693,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             _materializingPlayerId = null;
         }
         _spawnedCompatibilityByPlayer.Clear();
+        _vehicleIdentityCandidateByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
         _consecutiveUpdateFailuresByPlayer.Clear();
         _distanceByPlayer.Clear();
@@ -663,6 +703,70 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _lastPhysicalUpdateAtByPlayer.Clear();
         _statusByPlayer.Clear();
         PublishPhysicalVehicleSetIfChanged(force: true);
+    }
+
+    private bool IsVehicleIdentityChangeStable(
+        string playerId,
+        string currentCompatibilityId,
+        string nextCompatibilityId,
+        string? nextVehiclePath)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var candidate = _vehicleIdentityCandidateByPlayer.AddOrUpdate(
+            playerId,
+            _ => new VehicleIdentityCandidate(
+                nextCompatibilityId,
+                nextVehiclePath,
+                now,
+                1),
+            (_, previous) =>
+                string.Equals(
+                    previous.CompatibilityId,
+                    nextCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? previous with
+                    {
+                        VehiclePath = nextVehiclePath ?? previous.VehiclePath,
+                        Observations = Math.Min(
+                            previous.Observations + 1,
+                            VehicleIdentityChangeMinObservations + 8)
+                    }
+                    : new VehicleIdentityCandidate(
+                        nextCompatibilityId,
+                        nextVehiclePath,
+                        now,
+                        1));
+
+        var age = now - candidate.FirstSeenUtc;
+        if (candidate.Observations < VehicleIdentityChangeMinObservations ||
+            age < VehicleIdentityChangeDebounce)
+        {
+            SetStatus(
+                playerId,
+                "vehicle-change-pending",
+                "vehicle-identity-unstable",
+                $"Ignoring transient vehicle identity change {DescribeCompatibilityId(currentCompatibilityId)} -> {DescribeCompatibilityId(nextCompatibilityId)}; observations={candidate.Observations}, age={age.TotalMilliseconds:F0}ms.");
+            return false;
+        }
+
+        _vehicleIdentityCandidateByPlayer.TryRemove(playerId, out _);
+        NavBRAppLog.Info(
+            "physical-vehicle-identity-switch-confirmed",
+            $"player={playerId} previous={DescribeCompatibilityId(currentCompatibilityId)} next={DescribeCompatibilityId(nextCompatibilityId)} path={nextVehiclePath ?? "-"} observations={candidate.Observations} ageMs={age.TotalMilliseconds:F0}");
+        return true;
+    }
+
+    private static string DescribeCompatibilityId(string? compatibilityId)
+    {
+        var value = compatibilityId?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        return value.Length <= 24
+            ? value
+            : value[..24] + "…";
     }
 
     private bool TryAcquireSpawnMaterializationSlot(string playerId)
@@ -994,6 +1098,12 @@ internal sealed class RemotePhysicalVehicleCoordinator
         distanceMeters = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         return double.IsFinite(distanceMeters);
     }
+
+    private sealed record VehicleIdentityCandidate(
+        string CompatibilityId,
+        string? VehiclePath,
+        DateTimeOffset FirstSeenUtc,
+        int Observations);
 
     private static OmsiCompatibilityManifest BuildLiveRemoteManifest(PlayerTelemetryFrame frame)
     {
