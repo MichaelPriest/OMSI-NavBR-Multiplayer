@@ -24,26 +24,43 @@ internal static class OmsiPluginInstallationService
     public static bool HasEmbeddedPackage =>
         Assembly.GetExecutingAssembly().GetManifestResourceInfo(EmbeddedResourceName) is not null;
 
-    public static PluginStartupInstallResult EnsureInstalledAtStartup(string? preferredRoot = null)
+    public static PluginVerificationResult VerifyInstallation(string? preferredRoot = null)
     {
+        var checkedAtUtc = DateTimeOffset.UtcNow;
         if (!HasEmbeddedPackage)
         {
-            return new PluginStartupInstallResult(
+            return new PluginVerificationResult(
                 "package-missing",
                 null,
                 null,
-                Changed: false,
+                null,
+                null,
+                null,
+                RequiredPluginFiles.Length,
+                0,
+                0,
+                UpdateRequired: false,
+                checkedAtUtc,
+                Array.Empty<PluginFileVerification>(),
                 "A build atual não contém o pacote do plugin embutido.");
         }
 
         var root = ResolveOmsiRoot(preferredRoot);
         if (string.IsNullOrWhiteSpace(root))
         {
-            return new PluginStartupInstallResult(
+            return new PluginVerificationResult(
                 "omsi-not-found",
                 null,
                 null,
-                Changed: false,
+                GetCurrentPackageVersion(),
+                GetEmbeddedPackageHash(),
+                null,
+                RequiredPluginFiles.Length,
+                0,
+                0,
+                UpdateRequired: false,
+                checkedAtUtc,
+                Array.Empty<PluginFileVerification>(),
                 "Nenhuma instalação válida do OMSI 2 foi localizada.");
         }
 
@@ -51,40 +68,185 @@ internal static class OmsiPluginInstallationService
         var manifestPath = Path.Combine(
             pluginsRoot,
             "NavBR.OmsiPlugin.install-manifest.txt");
-        var tracked = ReadTrackedFiles(manifestPath);
-        var requiredFilesFound = RequiredPluginFiles.Count(file =>
-            File.Exists(Path.Combine(pluginsRoot, file)));
         var manifestPresent = File.Exists(manifestPath);
         var legacyNavBrInstallation =
             !manifestPresent && IsLegacyNavBrInstallation(pluginsRoot);
-        var manifestCurrent = IsManifestCurrent(manifestPath);
+        var expectedVersion = GetCurrentPackageVersion();
+        var expectedPackageHash = GetEmbeddedPackageHash();
+        var installedVersion = ReadInstalledVersion(manifestPath);
+        var installedPackageHash = ReadInstalledPackageHash(manifestPath);
 
-        if (requiredFilesFound == RequiredPluginFiles.Length &&
-            manifestPresent &&
-            manifestCurrent)
+        try
+        {
+            using var packageStream = Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream(EmbeddedResourceName)
+                ?? throw new InvalidOperationException(
+                    "Pacote do plugin embutido não pôde ser aberto.");
+            using var archive = new ZipArchive(
+                packageStream,
+                ZipArchiveMode.Read,
+                leaveOpen: false);
+            var entries = archive.Entries
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+                .ToDictionary(entry => entry.Name, StringComparer.OrdinalIgnoreCase);
+
+            var files = new List<PluginFileVerification>(RequiredPluginFiles.Length);
+            foreach (var required in RequiredPluginFiles)
+            {
+                if (!entries.TryGetValue(required, out var entry))
+                {
+                    files.Add(new PluginFileVerification(
+                        required,
+                        Exists: File.Exists(Path.Combine(pluginsRoot, required)),
+                        HashMatches: false,
+                        ExpectedSha256: null,
+                        InstalledSha256: null));
+                    continue;
+                }
+
+                string expectedHash;
+                using (var entryStream = entry.Open())
+                {
+                    expectedHash = ToSha256(SHA256.HashData(entryStream));
+                }
+
+                var destination = Path.Combine(pluginsRoot, required);
+                var exists = File.Exists(destination);
+                string? installedHash = null;
+                if (exists)
+                {
+                    using var installedStream = File.OpenRead(destination);
+                    installedHash = ToSha256(SHA256.HashData(installedStream));
+                }
+
+                files.Add(new PluginFileVerification(
+                    required,
+                    exists,
+                    exists &&
+                    string.Equals(
+                        expectedHash,
+                        installedHash,
+                        StringComparison.OrdinalIgnoreCase),
+                    expectedHash,
+                    installedHash));
+            }
+
+            var found = files.Count(file => file.Exists);
+            var verified = files.Count(file => file.Exists && file.HashMatches);
+            var allFilesCurrent =
+                found == RequiredPluginFiles.Length &&
+                verified == RequiredPluginFiles.Length;
+            var manifestCurrent =
+                manifestPresent &&
+                string.Equals(
+                    expectedVersion,
+                    installedVersion,
+                    StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(expectedPackageHash) &&
+                string.Equals(
+                    expectedPackageHash,
+                    installedPackageHash,
+                    StringComparison.OrdinalIgnoreCase);
+
+            var state = allFilesCurrent && manifestCurrent
+                ? "ready"
+                : found == 0
+                    ? "missing"
+                    : found < RequiredPluginFiles.Length
+                        ? "partial"
+                        : !manifestPresent && !legacyNavBrInstallation
+                            ? "untracked"
+                            : "outdated";
+
+            return new PluginVerificationResult(
+                state,
+                root,
+                pluginsRoot,
+                expectedVersion,
+                expectedPackageHash,
+                installedVersion,
+                RequiredPluginFiles.Length,
+                found,
+                verified,
+                UpdateRequired: state is "missing" or "partial" or "outdated",
+                checkedAtUtc,
+                files,
+                state switch
+                {
+                    "ready" => null,
+                    "untracked" =>
+                        "Os arquivos exigidos já existem sem manifesto NavBR e não puderam ser reconhecidos como uma instalação NavBR legada.",
+                    "outdated" =>
+                        "Um ou mais arquivos instalados, a versão do manifesto ou o hash do pacote não correspondem ao plugin embutido nesta versão do NavBR.",
+                    "partial" =>
+                        "A instalação do plugin NavBR está incompleta.",
+                    _ =>
+                        "O plugin NavBR ainda não está instalado."
+                });
+        }
+        catch (Exception ex)
+        {
+            return new PluginVerificationResult(
+                "error",
+                root,
+                pluginsRoot,
+                expectedVersion,
+                expectedPackageHash,
+                installedVersion,
+                RequiredPluginFiles.Length,
+                0,
+                0,
+                UpdateRequired: false,
+                checkedAtUtc,
+                Array.Empty<PluginFileVerification>(),
+                ex.Message);
+        }
+    }
+
+    public static PluginStartupInstallResult EnsureInstalledAtStartup(string? preferredRoot = null)
+    {
+        var verification = VerifyInstallation(preferredRoot);
+        if (verification.Status is "package-missing" or "omsi-not-found" or "error")
+        {
+            return new PluginStartupInstallResult(
+                verification.Status,
+                verification.OmsiRoot,
+                verification.PluginsDirectory,
+                Changed: false,
+                verification.Message);
+        }
+
+        if (verification.Status == "ready")
         {
             return new PluginStartupInstallResult(
                 "ready",
-                root,
-                pluginsRoot,
+                verification.OmsiRoot,
+                verification.PluginsDirectory,
                 Changed: false,
                 null);
         }
 
-        if (requiredFilesFound == RequiredPluginFiles.Length &&
-            !manifestPresent &&
-            !legacyNavBrInstallation)
+        if (verification.Status == "untracked")
         {
             return new PluginStartupInstallResult(
                 "untracked",
-                root,
-                pluginsRoot,
+                verification.OmsiRoot,
+                verification.PluginsDirectory,
                 Changed: false,
-                "Os arquivos exigidos já existem sem manifesto NavBR e não puderam ser reconhecidos como uma instalação NavBR legada.");
+                verification.Message);
         }
 
-        // Never change plugin binaries while OMSI is using them. The manual
-        // installer remains available after the simulator is closed.
+        var root = verification.OmsiRoot!;
+        var pluginsRoot = verification.PluginsDirectory!;
+        var manifestPath = Path.Combine(
+            pluginsRoot,
+            "NavBR.OmsiPlugin.install-manifest.txt");
+        var tracked = ReadTrackedFiles(manifestPath);
+        var legacyNavBrInstallation =
+            !File.Exists(manifestPath) && IsLegacyNavBrInstallation(pluginsRoot);
+
+        // Never change plugin binaries while OMSI is using them. Verification is
+        // still reported, but the actual replacement waits until OMSI exits.
         if (Process.GetProcessesByName("Omsi").Any(process => !process.HasExited))
         {
             return new PluginStartupInstallResult(
@@ -92,12 +254,11 @@ internal static class OmsiPluginInstallationService
                 root,
                 pluginsRoot,
                 Changed: false,
-                "OMSI está em execução; a instalação automática foi adiada.");
+                verification.Message ??
+                "OMSI está em execução; a atualização automática foi adiada.");
         }
 
-        // If a partial installation contains an untracked NavBR-named file,
-        // preserve it. InstallOrUpdate performs the same guard and will return
-        // a controlled failure instead of overwriting unknown content.
+        // Preserve unknown files that merely happen to use NavBR reserved names.
         var hasUntrackedRequiredFile = RequiredPluginFiles.Any(file =>
             File.Exists(Path.Combine(pluginsRoot, file)) &&
             !tracked.Contains(file));
@@ -108,12 +269,23 @@ internal static class OmsiPluginInstallationService
                 root,
                 pluginsRoot,
                 Changed: false,
-                "Há arquivos não rastreados com nomes reservados do NavBR na pasta plugins; a instalação automática não sobrescreveu esses arquivos.");
+                "Há arquivos não rastreados com nomes reservados do NavBR na pasta plugins; a atualização automática não sobrescreveu esses arquivos.");
         }
 
         try
         {
             var installed = InstallOrUpdate(root);
+            var postInstall = VerifyInstallation(root);
+            if (postInstall.Status != "ready")
+            {
+                return new PluginStartupInstallResult(
+                    "failed",
+                    installed.OmsiRoot,
+                    installed.PluginsDirectory,
+                    Changed: true,
+                    $"A atualização foi gravada, mas a verificação final retornou '{postInstall.Status}': {postInstall.Message}");
+            }
+
             return new PluginStartupInstallResult(
                 "installed",
                 installed.OmsiRoot,
@@ -620,15 +792,20 @@ internal static class OmsiPluginInstallationService
                 return null;
             }
 
-            return "sha256:" +
-                   Convert.ToHexString(SHA256.HashData(stream))
-                       .ToLowerInvariant();
+            return ToSha256(SHA256.HashData(stream));
         }
         catch
         {
             return null;
         }
     }
+
+    private static string GetCurrentPackageVersion() =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString() ??
+        "unknown";
+
+    private static string ToSha256(byte[] hash) =>
+        "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
 
     private static string? ReadInstalledPackageHash(string manifestPath)
     {
@@ -730,3 +907,25 @@ internal sealed record PluginStartupInstallResult(
     string? PluginsDirectory,
     bool Changed,
     string? Message);
+
+internal sealed record PluginVerificationResult(
+    string Status,
+    string? OmsiRoot,
+    string? PluginsDirectory,
+    string? ExpectedVersion,
+    string? ExpectedPackageHash,
+    string? InstalledVersion,
+    int RequiredFilesTotal,
+    int RequiredFilesFound,
+    int VerifiedFiles,
+    bool UpdateRequired,
+    DateTimeOffset CheckedAtUtc,
+    IReadOnlyList<PluginFileVerification> Files,
+    string? Message);
+
+internal sealed record PluginFileVerification(
+    string Name,
+    bool Exists,
+    bool HashMatches,
+    string? ExpectedSha256,
+    string? InstalledSha256);
