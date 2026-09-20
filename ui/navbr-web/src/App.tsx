@@ -2441,7 +2441,21 @@ function Settings({
                     </span>
                   ))}
             </div>
-            <small className="plugin-update-hint">{pick("Alpha 1: GPS, estado do OMSI e IBIS em leitura real. Escrita IBIS fica bloqueada até existir capacidade nativa no Plugin Bridge.", "Alpha 1: real GPS, OMSI status and read-only IBIS. IBIS writes stay blocked until the Plugin Bridge exposes a native capability.", "Alpha 1: GPS real, estado de OMSI e IBIS de solo lectura. La escritura IBIS queda bloqueada hasta que el Plugin Bridge exponga una capacidad nativa.", "Alpha 1: echtes GPS, OMSI-Status und IBIS nur lesend. IBIS-Schreibzugriffe bleiben gesperrt, bis der Plugin Bridge eine native Fähigkeit bereitstellt.", "Alpha 1 : GPS réel, état OMSI et IBIS en lecture seule. L’écriture IBIS reste bloquée jusqu’à une capacité native du Plugin Bridge.")}</small>
+            <label className="privacy-toggle">
+              <input
+                type="checkbox"
+                checked={system.mobileCompanion.vehicleControlsEnabled}
+                onChange={event => sendCommand("setMobileVehicleControlsEnabled", { enabled: event.target.checked })}
+              />
+              <span>{pick("Ativar controles do ônibus pelo celular (EXPERIMENTAL)", "Enable bus controls from phone (EXPERIMENTAL)", "Activar controles del autobús desde el móvil (EXPERIMENTAL)", "Bussteuerung über Smartphone aktivieren (EXPERIMENTELL)", "Activer les commandes du bus depuis le téléphone (EXPÉRIMENTAL)")}</span>
+            </label>
+            <small className="plugin-update-hint">
+              {system.mobileCompanion.vehicleControlsEnabled
+                ? system.mobileCompanion.vehicleControlsAvailable
+                  ? pick("Controles locais autorizados. O APK ainda revalida cada evento contra o catálogo real do ônibus.", "Local controls authorized. The APK still revalidates every event against the real bus catalog.", "Controles locales autorizados. El APK aún revalida cada evento contra el catálogo real del autobús.", "Lokale Steuerung freigegeben. Die APK validiert jedes Ereignis weiterhin gegen den echten Bus-Katalog.", "Commandes locales autorisées. L’APK revalide chaque événement avec le catalogue réel du bus.")
+                  : pick("Autorizado, mas aguardando a capacidade local-vehicle-trigger do Plugin Bridge.", "Authorized, but waiting for the Plugin Bridge local-vehicle-trigger capability.", "Autorizado, pero esperando la capacidad local-vehicle-trigger del Plugin Bridge.", "Freigegeben, wartet aber auf die local-vehicle-trigger-Fähigkeit des Plugin Bridge.", "Autorisé, mais en attente de la capacité local-vehicle-trigger du Plugin Bridge.")
+                : pick("Desligado por padrão. GPS, painel, multiplayer e voz continuam somente leitura/controle seguro.", "Off by default. GPS, dashboard, multiplayer and voice remain available safely.", "Desactivado por defecto. GPS, panel, multijugador y voz siguen disponibles de forma segura.", "Standardmäßig deaktiviert. GPS, Dashboard, Multiplayer und Sprache bleiben sicher verfügbar.", "Désactivé par défaut. GPS, tableau de bord, multijoueur et voix restent disponibles en toute sécurité.")}
+            </small>
           </article>
 
           <article className="card discovery-card">
