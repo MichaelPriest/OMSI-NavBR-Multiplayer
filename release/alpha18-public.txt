@@ -1,0 +1,3 @@
+OMSI NavBR Multiplayer v0.3.0-alpha.18
+Public test prerelease marker.
+LAN/local and online multiplayer remain pending real end-to-end validation with two PCs/two OMSI sessions.
