@@ -79,6 +79,49 @@ jobs:
             throw "NavBR Mobile manifest was not generated."
           }
 
+      - name: Setup Java 21 for Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Mobile Companion Android APK
+        shell: pwsh
+        run: |
+          Push-Location mobile/navbr-mobile
+          try {
+            if (Test-Path "android") { Remove-Item "android" -Recurse -Force }
+            npx cap add android
+            if ($LASTEXITCODE -ne 0) { throw "Capacitor Android project creation failed." }
+            npx cap sync android
+            if ($LASTEXITCODE -ne 0) { throw "Capacitor Android sync failed." }
+
+            $manifest = "android/app/src/main/AndroidManifest.xml"
+            $xml = Get-Content $manifest -Raw
+            $xml = $xml -replace '<application ', '<application android:usesCleartextTraffic="true" '
+            Set-Content -LiteralPath $manifest -Value $xml -Encoding UTF8
+
+            Push-Location android
+            try {
+              .\gradlew.bat assembleDebug --no-daemon
+              if ($LASTEXITCODE -ne 0) { throw "Android APK build failed." }
+            }
+            finally {
+              Pop-Location
+            }
+
+            $apk = "android/app/build/outputs/apk/debug/app-debug.apk"
+            if (-not (Test-Path $apk)) { throw "Android APK was not generated." }
+            New-Item -ItemType Directory -Path "../../artifacts/NavBR.Mobile" -Force | Out-Null
+            Copy-Item $apk "../../artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha1-debug.apk" -Force
+          }
+          finally {
+            Pop-Location
+          }
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -525,6 +568,14 @@ jobs:
             "Plugin Native AOT x86: embedded in the client and included separately in Plugin/."
             "Player simulator: standalone win-x86 included in Simulator/."
           ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
+
+      - name: Upload Mobile Companion Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Mobile-Android-Alpha1
+          path: artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha1-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload NavBR client test build
         uses: actions/upload-artifact@v4
