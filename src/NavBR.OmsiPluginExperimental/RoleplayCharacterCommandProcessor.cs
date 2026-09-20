@@ -200,6 +200,9 @@ internal static class RoleplayCharacterBackend
     private const double MaxInteractionDistanceMeters = 8d;
     private const double MaxInteractionHeightDifferenceMeters = 4d;
     private const int MaxRetainedTriggerStrings = 256;
+    private const long ReassertIntervalMs = 20;
+    private const long MovingTargetFreshnessMs = 400;
+    private static long _lastReassertTickMs;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
@@ -633,6 +636,7 @@ internal static class RoleplayCharacterBackend
                         : "OMSI did not confirm the roleplay character at the requested exit position.");
             }
 
+            var acquiredAt = DateTimeOffset.UtcNow;
             var instance = new RoleplayCharacterInstance(
                 instanceId,
                 driverPointer,
@@ -652,7 +656,13 @@ internal static class RoleplayCharacterBackend
                 driverZ,
                 NormalizeHeading(driverHeading),
                 driverSpeed,
-                DateTimeOffset.UtcNow);
+                acquiredAt,
+                spawnX,
+                spawnY,
+                spawnZ,
+                spawnHeading,
+                0f,
+                Environment.TickCount64);
 
             Owned[instanceId] = instance;
 
@@ -748,6 +758,17 @@ internal static class RoleplayCharacterBackend
                     "character-movement-overridden",
                     $"OMSI overwrote the RP movement before confirmation (pose error {errorDistance:F2} m).");
             }
+
+            instance = instance with
+            {
+                CurrentX = actualX,
+                CurrentY = actualY,
+                CurrentZ = actualZ,
+                CurrentHeading = NormalizeHeading(actualHeading),
+                CurrentSpeed = Math.Clamp(Math.Abs(speed), 0f, MaxCharacterSpeedMps),
+                LastTargetTickMs = Environment.TickCount64
+            };
+            Owned[instanceId] = instance;
 
             return BuildSuccessStateResult(
                 command,
@@ -993,6 +1014,77 @@ internal static class RoleplayCharacterBackend
         return true;
     }
 
+    public static int ActiveCount
+    {
+        get
+        {
+            lock (Sync)
+            {
+                return Owned.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reasserts the last confirmed RP pose directly from OMSI's callback loop.
+    /// Desktop input updates remain authoritative; this only prevents OMSI's
+    /// passenger/driver AI from restoring an older transform between bridge
+    /// commands. A stale moving command is forced to zero speed so a lost
+    /// desktop connection cannot leave walk animation running indefinitely.
+    /// </summary>
+    public static void Tick()
+    {
+        var now = Environment.TickCount64;
+        if (_lastReassertTickMs > 0 &&
+            now >= _lastReassertTickMs &&
+            now - _lastReassertTickMs < ReassertIntervalMs)
+        {
+            return;
+        }
+
+        _lastReassertTickMs = now;
+        lock (Sync)
+        {
+            if (Owned.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var pair in Owned.ToArray())
+            {
+                var instance = pair.Value;
+                if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
+                {
+                    continue;
+                }
+
+                var targetAgeMs = now >= instance.LastTargetTickMs
+                    ? now - instance.LastTargetTickMs
+                    : long.MaxValue;
+                var speed = targetAgeMs <= MovingTargetFreshnessMs
+                    ? instance.CurrentSpeed
+                    : 0f;
+
+                // Reassert both detachment and transform. Some buses/add-ons
+                // restore driver/passenger state after the command callback;
+                // keeping this on the OMSI callback loop makes RP ownership
+                // survive until the next real desktop target arrives.
+                if (OmsiNativeInterop.DetachHumanForRoleplay(instance.HumanPointer) != 1)
+                {
+                    continue;
+                }
+
+                _ = OmsiNativeInterop.SetHumanTransform(
+                    instance.HumanPointer,
+                    instance.CurrentX,
+                    instance.CurrentY,
+                    instance.CurrentZ,
+                    instance.CurrentHeading,
+                    speed);
+            }
+        }
+    }
+
     public static void ReleaseAllBestEffort()
     {
         lock (Sync)
@@ -1030,6 +1122,7 @@ internal static class RoleplayCharacterBackend
 
             Owned.Clear();
             ActiveTriggersByInstance.Clear();
+            _lastReassertTickMs = 0;
         }
     }
 
@@ -1362,5 +1455,11 @@ internal static class RoleplayCharacterBackend
         float OriginalZ,
         float OriginalHeading,
         float OriginalSpeed,
-        DateTimeOffset AcquiredAtUtc);
+        DateTimeOffset AcquiredAtUtc,
+        float CurrentX,
+        float CurrentY,
+        float CurrentZ,
+        float CurrentHeading,
+        float CurrentSpeed,
+        long LastTargetTickMs);
 }
