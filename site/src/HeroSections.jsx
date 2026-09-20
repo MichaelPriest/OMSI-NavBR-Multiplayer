@@ -34,7 +34,7 @@ export function Hero({ current, standalone }) {
           </picture>
           <div className="v2-product-caption">
             <div><strong>Interface React + WebView2</strong><span>Estado real do backend C# e integração OMSI.</span></div>
-            <span className="v2-pill">Alpha.14</span>
+            <span className="v2-pill">{current?.tag_name || CURRENT_TAG}</span>
           </div>
         </div>
         <div className="v2-floating-card v2-float-a"><span>Multiplayer</span><strong>SignalR + salas reais</strong></div>
@@ -48,7 +48,7 @@ export function TrustStrip({ current, alphaDownloads, totalDownloads }) {
   return (
     <section className="v2-trust">
       <div className="shell v2-trust-grid">
-        <div><strong>{current ? "Alpha.14" : "—"}</strong><span>release pública atual</span></div>
+        <div><strong>{current?.tag_name || CURRENT_TAG}</strong><span>alpha pública de teste</span></div>
         <div><strong>{formatNumber(totalDownloads)}</strong><span>downloads acumulados</span></div>
         <div><strong>MIT</strong><span>código aberto</span></div>
         <div><strong>5 idiomas</strong><span>interface multilíngue</span></div>
@@ -61,7 +61,7 @@ export function TrustStrip({ current, alphaDownloads, totalDownloads }) {
 export function StatusSection({ current }) {
   const items = [
     ["Interface", "React + WebView2", "Disponível", "ready"],
-    ["Multiplayer", "SignalR / salas / voz", "Disponível", "ready"],
+    ["Multiplayer", "LAN + online", "Em validação real", "testing"],
     ["Plugin OMSI", "Native AOT x86 + Bridge", "Experimental", "experimental"],
     ["Ônibus físico / RP", "integração nativa", "Em validação", "testing"]
   ];
@@ -70,7 +70,7 @@ export function StatusSection({ current }) {
     <section id="estado" className="section shell v2-status-section">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Estado do projeto</span><h2>O que está disponível hoje.</h2></div>
-        <p>O NavBR continua em Alpha. Recursos experimentais são identificados claramente e não são apresentados como concluídos.</p>
+        <p>O NavBR continua em Alpha. A Alpha.18 está pública para testes, mas multiplayer LAN/local e online ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI.</p>
       </div>
       <div className="v2-status-grid">
         {items.map(([label, value, state, kind]) => (

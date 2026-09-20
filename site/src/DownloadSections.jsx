@@ -53,8 +53,12 @@ export function Downloads({ currentAssets, current, loading, error, releasesPage
         <a className="button secondary" href="#todas-versoes">Ver todas as versões</a>
       </div>
       <p className="section-lead">
-        Para jogar e testar normalmente, use o EXE standalone. Os demais pacotes são alternativas ou ferramentas específicas.
+        Para novos testes, prefira o instalador Windows. O EXE standalone continua disponível como alternativa.
       </p>
+      <div className="v2-public-alpha-warning">
+        <strong>Alpha.18 pública de teste</strong>
+        <span>Multiplayer LAN/local e online ainda não foram validados ponta a ponta com dois PCs/duas sessões reais do OMSI. Baixe para testar, não como versão estável.</span>
+      </div>
 
       <div className="current-release-banner">
         <div>

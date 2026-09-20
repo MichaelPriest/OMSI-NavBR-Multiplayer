@@ -109,6 +109,10 @@ body{
 .v2-flow{margin-top:16px;padding:16px 19px;border:1px solid rgba(255,255,255,.075);border-radius:15px;display:flex;align-items:center;justify-content:center;gap:14px;background:rgba(4,13,22,.5);font-size:.78rem;color:#8198aa}
 .v2-flow span{color:#bac8d2;font-weight:750}.v2-flow i{font-style:normal;color:#3e657f}
 
+.v2-public-alpha-warning{margin:18px 0;padding:16px 18px;border:1px solid #76552d;border-radius:14px;background:linear-gradient(120deg,rgba(202,139,57,.12),rgba(36,25,13,.65));display:grid;gap:5px}
+.v2-public-alpha-warning strong{color:#f2c47d;font-size:.82rem}
+.v2-public-alpha-warning span{color:#bda98c;font-size:.78rem;line-height:1.5}
+
 .downloads-current-section{padding-top:78px}
 .section-title-row{display:flex;align-items:end;justify-content:space-between;gap:24px}
 .current-release-banner{margin:25px 0 18px;padding:20px 22px;border:1px solid rgba(34,199,122,.28);border-radius:18px;background:linear-gradient(120deg,rgba(34,199,122,.08),rgba(8,22,36,.8));display:flex;align-items:center;justify-content:space-between;gap:20px}
