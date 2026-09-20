@@ -10,16 +10,25 @@ public static class OmsiPluginBridgeRelay
 {
     public static string? ResolveCurrentMapCompatibilityId(string? fallback = null)
     {
-        if (Application.Current?.MainWindow is MainWindow mainWindow)
+        var normalizedFallback =
+            string.IsNullOrWhiteSpace(fallback) ? null : fallback.Trim();
+
+        // Remote physical-vehicle processing runs from SignalR/telemetry
+        // worker threads. MainWindow is a WPF DispatcherObject and must never
+        // be queried from those threads. The telemetry already carries the
+        // authoritative map fingerprint; only enrich it from MainWindow when
+        // this call is actually executing on the UI dispatcher.
+        if (Application.Current?.MainWindow is MainWindow mainWindow &&
+            mainWindow.Dispatcher.CheckAccess())
         {
             var current = mainWindow.GetCurrentMapCompatibilityIdForPlugin();
             if (!string.IsNullOrWhiteSpace(current))
             {
-                return current;
+                return current.Trim();
             }
         }
 
-        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+        return normalizedFallback;
     }
 
     public static Task ForwardLocalTelemetryAsync(
