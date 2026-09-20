@@ -151,6 +151,8 @@ var expectedPhysicalBots = bots
     .Select(bot => bot.PlayerId)
     .ToArray();
 var connected = false;
+var physicalVerificationAnnounced = false;
+var interactiveVerificationStopRequested = false;
 
 try
 {
@@ -166,7 +168,7 @@ try
     var started = DateTimeOffset.UtcNow;
     var effectiveDurationSeconds = options.DurationSeconds > 0
         ? options.DurationSeconds
-        : options.VerifyPhysical
+        : options.VerifyPhysical && !interactiveLaunch
             ? 60
             : 0;
 
@@ -182,9 +184,35 @@ try
             elapsed >= 3d &&
             probe.HasConfirmedPhysicalBots(expectedPhysicalBots))
         {
-            Console.WriteLine(
-                $"Physical verification observed {expectedPhysicalBots.Length} simulator bus(es) materialized in the host OMSI.");
-            break;
+            if (!physicalVerificationAnnounced)
+            {
+                physicalVerificationAnnounced = true;
+                Console.WriteLine(
+                    $"Physical verification observed {expectedPhysicalBots.Length} simulator bus(es) owned and updating in the host OMSI.");
+
+                if (interactiveLaunch && options.DurationSeconds <= 0)
+                {
+                    Console.WriteLine(
+                        "Os ônibus permanecerão ativos para inspeção visual no OMSI. Pressione qualquer tecla ou Ctrl+C para encerrar e removê-los.");
+                }
+            }
+
+            if (!interactiveLaunch)
+            {
+                break;
+            }
+        }
+
+        if (physicalVerificationAnnounced &&
+            interactiveLaunch &&
+            options.DurationSeconds <= 0 &&
+            !Console.IsInputRedirected &&
+            Console.KeyAvailable)
+        {
+            _ = Console.ReadKey(intercept: true);
+            interactiveVerificationStopRequested = true;
+            shutdown.Cancel();
+            continue;
         }
 
         await Task.Delay(options.IntervalMilliseconds, shutdown.Token);
@@ -227,7 +255,10 @@ finally
     }
 }
 
-SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
+if (!interactiveVerificationStopRequested)
+{
+    SimulatorInteractiveLauncher.PauseIfInteractive(interactiveLaunch);
+}
 
 internal sealed class SimulatedPlayer : IAsyncDisposable
 {
