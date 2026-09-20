@@ -51,7 +51,8 @@ internal static class PhysicalVehicleMotionController
         if (!TryApplyTransform(instance, snapshot, writeTileIndex: true))
         {
             errorCode = "transform-write-failed";
-            errorMessage = "OMSI rejected the guarded vehicle transform write.";
+            errorMessage =
+                $"OMSI rejected the guarded vehicle transform write at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
             return false;
         }
 
@@ -163,7 +164,8 @@ internal static class PhysicalVehicleMotionController
                     writeTileIndex: tileChanged))
             {
                 errorCode = "transform-write-failed";
-                errorMessage = "OMSI rejected the guarded vehicle transform write.";
+                errorMessage =
+                    $"OMSI rejected the guarded vehicle transform write at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
                 return false;
             }
 

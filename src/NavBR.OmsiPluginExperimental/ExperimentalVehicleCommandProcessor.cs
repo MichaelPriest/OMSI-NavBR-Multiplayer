@@ -466,6 +466,19 @@ internal static class PhysicalVehicleBackend
             : ApplyState(command, instance);
         if (applied.Success != true)
         {
+            if (IsTransientPostSpawnFailure(applied.ErrorCode))
+            {
+                // MakeVehicle already succeeded and the pointer is ours. Do
+                // not destroy/recreate it just because a secondary transform
+                // field is not writable yet while OMSI finishes attaching the
+                // RoadVehicle graph. Keeping ownership also prevents one
+                // retained Delphi path allocation per retry.
+                var pending = GetMaterializationPendingResult(
+                    command,
+                    instance);
+                return pending ?? applied;
+            }
+
             PhysicalVehicleMotionController.Remove(instanceId);
             PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
             _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
@@ -515,6 +528,25 @@ internal static class PhysicalVehicleBackend
             "spawn-model-pending",
             $"OMSI created and positioned RoadVehicle 0x{instance.VehiclePointer:X8}; its visual model is still materializing (flags=0x{flags:X2} [{DescribeMaterializationFlags(flags)}], required=0x{RequiredMaterializationFlags:X2}, age={age.TotalMilliseconds:F0}ms).");
     }
+
+    private static bool IsTransientPostSpawnFailure(
+        string? errorCode) =>
+        string.Equals(
+            errorCode,
+            "transform-write-failed",
+            StringComparison.Ordinal) ||
+        string.Equals(
+            errorCode,
+            "visual-state-write-failed",
+            StringComparison.Ordinal) ||
+        string.Equals(
+            errorCode,
+            "motion-readback-unavailable",
+            StringComparison.Ordinal) ||
+        string.Equals(
+            errorCode,
+            "spawn-materialization-unconfirmed",
+            StringComparison.Ordinal);
 
     private static string DescribeMaterializationFlags(int flags)
     {
@@ -710,7 +742,8 @@ internal static class PhysicalVehicleBackend
                 pose.RotationW,
                 speedMps,
                 command.MapTileIndex is int mapTileIndex &&
-                mapTileIndex >= 0
+                (mapTileIndex == OmsiNativeInterop.HostPlayerTileSentinel ||
+                 mapTileIndex >= 0)
                     ? mapTileIndex
                     : -1) != 1)
         {

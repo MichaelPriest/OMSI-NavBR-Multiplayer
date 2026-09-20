@@ -17,8 +17,8 @@ namespace
     constexpr std::uintptr_t RvaPlayerVehicleIndex = 0x00861740u - PreferredImageBase;
 
     constexpr int RoadVehicleListItemsOffset = 0x28;
-    constexpr int RoadVehicleListCountOffset = 0x2C;
     constexpr int ObjectListItemsPointerOffset = 0x04;
+    constexpr int ObjectListCountOffset = 0x08;
     constexpr int MaxReasonableRoadVehicles = 4096;
     constexpr int MaxReasonableHumans = 8192;
     constexpr int MaxReasonableMapTiles = 200000;
@@ -265,16 +265,27 @@ namespace
 
         const int mainList = *reinterpret_cast<const int*>(globalAddress);
         if (mainList == 0 ||
-            !IsReadableRange(static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset, sizeof(int)) ||
-            !IsReadableRange(static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset, sizeof(int)))
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset,
+                sizeof(int)))
+        {
+            return false;
+        }
+
+        const int objectList = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset);
+        if (objectList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(objectList),
+                ObjectListCountOffset + sizeof(int)))
         {
             return false;
         }
 
         const int currentCount = *reinterpret_cast<const int*>(
-            static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset);
-        const int objectList = *reinterpret_cast<const int*>(
-            static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset);
+            static_cast<std::uintptr_t>(objectList) + ObjectListCountOffset);
+        const int items = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset);
 
         if (currentCount < 0 || currentCount > MaxReasonableRoadVehicles)
         {
@@ -287,14 +298,6 @@ namespace
             return true;
         }
 
-        if (objectList == 0 ||
-            !IsReadableRange(static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset, sizeof(int)))
-        {
-            return false;
-        }
-
-        const int items = *reinterpret_cast<const int*>(
-            static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset);
         if (items == 0 ||
             !IsReadableRange(
                 static_cast<std::uintptr_t>(items),
@@ -870,6 +873,14 @@ namespace
         return true;
     }
 
+    volatile LONG LastVehicleTransformFailureStage = 0;
+
+    int FailVehicleTransform(int stage)
+    {
+        InterlockedExchange(&LastVehicleTransformFailureStage, stage);
+        return 0;
+    }
+
     template <typename T>
     bool WriteValue(int vehiclePointer, int offset, const T& value);
     bool IsRoadVehiclePointer(int vehiclePointer);
@@ -1062,7 +1073,15 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 11;
+    return 12;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
+{
+    return static_cast<int>(InterlockedCompareExchange(
+        &LastVehicleTransformFailureStage,
+        0,
+        0));
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
@@ -1712,6 +1731,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     float groundSpeedMps,
     int mapTileIndex)
 {
+    InterlockedExchange(&LastVehicleTransformFailureStage, 0);
+
     if (!IsRoadVehiclePointer(vehiclePointer) ||
         !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
@@ -1719,7 +1740,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         !std::isfinite(groundSpeedMps) ||
         mapTileIndex < -2)
     {
-        return 0;
+        return FailVehicleTransform(1);
     }
 
     // -2 is an internal NavBR selector used only by the local multiplayer
@@ -1735,7 +1756,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
             sizeof(int)))
     {
-        return 0;
+        return FailVehicleTransform(2);
     }
 
     int mapTilePointer = 0;
@@ -1744,30 +1765,33 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         const int playerVehicle = GetPlayerVehiclePointer();
         if (!IsRoadVehiclePointer(playerVehicle))
         {
-            return 0;
+            return FailVehicleTransform(3);
         }
 
         const auto playerTileAddress =
             static_cast<std::uintptr_t>(playerVehicle) + KachelOffset;
         if (!IsReadableRange(playerTileAddress, sizeof(int)))
         {
-            return 0;
+            return FailVehicleTransform(4);
         }
 
         mapTilePointer =
             *reinterpret_cast<const int*>(playerTileAddress);
+        int hostGridX = 0;
+        int hostGridY = 0;
         if (mapTilePointer == 0 ||
-            !IsReadableRange(
-                static_cast<std::uintptr_t>(mapTilePointer),
-                sizeof(int)))
+            !TryGetMapTileGridByPointer(
+                mapTilePointer,
+                hostGridX,
+                hostGridY))
         {
-            return 0;
+            return FailVehicleTransform(5);
         }
     }
     else if (mapTileIndex >= 0 &&
              !TryGetMapTilePointerByIndex(mapTileIndex, mapTilePointer))
     {
-        return 0;
+        return FailVehicleTransform(6);
     }
 
     int effectiveTilePointer = mapTilePointer;
@@ -1805,7 +1829,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         rotationW * rotationW);
     if (!std::isfinite(quaternionLength) || quaternionLength < 0.0001f)
     {
-        return 0;
+        return FailVehicleTransform(7);
     }
 
     const float inverseLength = 1.0f / quaternionLength;
@@ -1841,39 +1865,42 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             worldPosition);
     }
 
-    return WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) &&
-           WriteValue(vehiclePointer, PositionOffset, position) &&
-           WriteValue(vehiclePointer, RotationOffset, rotation) &&
-           WriteValue(vehiclePointer, LastPositionOffset, position) &&
-           WriteValue(vehiclePointer, LastRotationOffset, rotation) &&
-           WriteRenderMatrices(
-               vehiclePointer,
-               position,
-               worldPosition,
-               rotation) &&
-           (effectiveTilePointer == 0 ||
-            WriteValue(
-                vehiclePointer,
-                KachelOffset,
-                effectiveTilePointer)) &&
-           (!hasEffectiveTileGrid ||
-            WriteValue(
-                vehiclePointer,
-                MyKachelPointOffset,
-                effectiveTilePoint)) &&
-           WriteValue(vehiclePointer, CalcTimerOffset, zeroTimer) &&
-           WriteByte(vehiclePointer, VisibleLogicalOffset, enabled) &&
-           WriteByte(vehiclePointer, VisibleLogicalRenderThreadOffset, enabled) &&
-           WriteValue(vehiclePointer, TachoOffset, tachoKph) &&
-           WriteValue(vehiclePointer, GroundspeedOffset, speedMps) &&
-           WriteByte(vehiclePointer, PaiOffset, disabled) &&
-           (!writeExplicitTile ||
-            (WriteValue(vehiclePointer, KachelOffset, mapTilePointer) &&
-             WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled) &&
-             WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled) &&
-             WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, enabled)))
-        ? 1
-        : 0;
+    if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
+    if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
+    if (!WriteValue(vehiclePointer, RotationOffset, rotation)) return FailVehicleTransform(12);
+    if (!WriteValue(vehiclePointer, LastPositionOffset, position)) return FailVehicleTransform(13);
+    if (!WriteValue(vehiclePointer, LastRotationOffset, rotation)) return FailVehicleTransform(14);
+    if (!WriteRenderMatrices(
+            vehiclePointer,
+            position,
+            worldPosition,
+            rotation)) return FailVehicleTransform(15);
+    if (effectiveTilePointer != 0 &&
+        !WriteValue(
+            vehiclePointer,
+            KachelOffset,
+            effectiveTilePointer)) return FailVehicleTransform(16);
+    if (hasEffectiveTileGrid &&
+        !WriteValue(
+            vehiclePointer,
+            MyKachelPointOffset,
+            effectiveTilePoint)) return FailVehicleTransform(17);
+    if (!WriteValue(vehiclePointer, CalcTimerOffset, zeroTimer)) return FailVehicleTransform(18);
+    if (!WriteByte(vehiclePointer, VisibleLogicalOffset, enabled)) return FailVehicleTransform(19);
+    if (!WriteByte(vehiclePointer, VisibleLogicalRenderThreadOffset, enabled)) return FailVehicleTransform(20);
+    if (!WriteValue(vehiclePointer, TachoOffset, tachoKph)) return FailVehicleTransform(21);
+    if (!WriteValue(vehiclePointer, GroundspeedOffset, speedMps)) return FailVehicleTransform(22);
+    if (!WriteByte(vehiclePointer, PaiOffset, disabled)) return FailVehicleTransform(23);
+    if (writeExplicitTile)
+    {
+        if (!WriteValue(vehiclePointer, KachelOffset, mapTilePointer)) return FailVehicleTransform(24);
+        if (!WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled)) return FailVehicleTransform(25);
+        if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled)) return FailVehicleTransform(26);
+        if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, enabled)) return FailVehicleTransform(27);
+    }
+
+    InterlockedExchange(&LastVehicleTransformFailureStage, 0);
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
