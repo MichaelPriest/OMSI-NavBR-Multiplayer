@@ -162,6 +162,12 @@ public static class PluginExports
                 // OMSI's callback loop. The motion controller has its own
                 // adaptive rate and skips settled vehicles entirely.
                 PhysicalVehicleMotionController.Tick();
+
+                // RP targets come from the desktop at ~20 Hz, but OMSI can
+                // restore human/driver state inside the frames between bridge
+                // commands. Reassert the last confirmed target on this same
+                // OMSI callback loop so movement remains physically visible.
+                RoleplayCharacterBackend.Tick();
             }
 
             var now = DateTimeOffset.UtcNow;
