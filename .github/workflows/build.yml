@@ -1,4 +1,5 @@
 name: build
+# Mobile Alpha 2 validation: local vehicle controls
 
 on:
   push:
