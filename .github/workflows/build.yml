@@ -85,8 +85,17 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Validate preinstalled Android SDK
+        shell: pwsh
+        run: |
+          if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = "C:\Android\android-sdk" }
+          if (-not $env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME }
+          if (-not (Test-Path $env:ANDROID_HOME)) {
+            throw "Android SDK not found at $env:ANDROID_HOME"
+          }
+          "ANDROID_HOME=$env:ANDROID_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$env:ANDROID_SDK_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Using preinstalled Android SDK: $env:ANDROID_HOME"
 
       - name: Build Mobile Companion Android APK
         shell: pwsh
