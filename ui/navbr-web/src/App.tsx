@@ -261,16 +261,16 @@ const formatEta = (seconds: number | undefined | null) => {
 const maneuverLabel = (
   maneuver: string,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
-) => {
+): { icon: NavBrIconName; title: string } => {
   switch (maneuver) {
-    case "SlightLeft": return { arrow: "↖", title: pick("Mantenha à esquerda", "Keep left", "Mantente a la izquierda", "Links halten", "Restez à gauche") };
-    case "Left": return { arrow: "←", title: pick("Vire à esquerda", "Turn left", "Gira a la izquierda", "Links abbiegen", "Tournez à gauche") };
-    case "SharpLeft": return { arrow: "↙", title: pick("Curva forte à esquerda", "Sharp left", "Giro cerrado a la izquierda", "Scharf links", "Virage serré à gauche") };
-    case "SlightRight": return { arrow: "↗", title: pick("Mantenha à direita", "Keep right", "Mantente a la derecha", "Rechts halten", "Restez à droite") };
-    case "Right": return { arrow: "→", title: pick("Vire à direita", "Turn right", "Gira a la derecha", "Rechts abbiegen", "Tournez à droite") };
-    case "SharpRight": return { arrow: "↘", title: pick("Curva forte à direita", "Sharp right", "Giro cerrado a la derecha", "Scharf rechts", "Virage serré à droite") };
-    case "RejoinRoute": return { arrow: "↺", title: pick("Retorne para a rota", "Rejoin the route", "Vuelve a la ruta", "Zur Route zurückkehren", "Rejoignez l’itinéraire") };
-    default: return { arrow: "↑", title: pick("Siga em frente", "Continue straight", "Sigue recto", "Geradeaus weiter", "Continuez tout droit") };
+    case "SlightLeft": return { icon: "slightLeft", title: pick("Mantenha à esquerda", "Keep left", "Mantente a la izquierda", "Links halten", "Restez à gauche") };
+    case "Left": return { icon: "turnLeft", title: pick("Vire à esquerda", "Turn left", "Gira a la izquierda", "Links abbiegen", "Tournez à gauche") };
+    case "SharpLeft": return { icon: "sharpLeft", title: pick("Curva forte à esquerda", "Sharp left", "Giro cerrado a la izquierda", "Scharf links", "Virage serré à gauche") };
+    case "SlightRight": return { icon: "slightRight", title: pick("Mantenha à direita", "Keep right", "Mantente a la derecha", "Rechts halten", "Restez à droite") };
+    case "Right": return { icon: "turnRight", title: pick("Vire à direita", "Turn right", "Gira a la derecha", "Rechts abbiegen", "Tournez à droite") };
+    case "SharpRight": return { icon: "sharpRight", title: pick("Curva forte à direita", "Sharp right", "Giro cerrado a la derecha", "Scharf rechts", "Virage serré à droite") };
+    case "RejoinRoute": return { icon: "rejoin", title: pick("Retorne para a rota", "Rejoin the route", "Vuelve a la ruta", "Zur Route zurückkehren", "Rejoignez l’itinéraire") };
+    default: return { icon: "straight", title: pick("Siga em frente", "Continue straight", "Sigue recto", "Geradeaus weiter", "Continuez tout droit") };
   }
 };
 
@@ -877,7 +877,7 @@ function Navigation({
           <article className={`card maneuver-card ${navigation.maneuver === "RejoinRoute" ? "warning" : ""}`}>
             <span className="eyebrow">{navigation.maneuver === "RejoinRoute" ? pick("CORREÇÃO DE ROTA", "ROUTE CORRECTION", "CORRECCIÓN DE RUTA", "ROUTENKORREKTUR", "CORRECTION D’ITINÉRAIRE") : pick("PRÓXIMA MANOBRA", "NEXT MANEUVER", "PRÓXIMA MANIOBRA", "NÄCHSTES MANÖVER", "PROCHAINE MANŒUVRE")}</span>
             <div className="maneuver-main">
-              <strong>{maneuver.arrow}</strong>
+              <strong><NavBrIcon name={maneuver.icon} size={34} /></strong>
               <div>
                 <h3>{maneuver.title}</h3>
                 <p>
@@ -2953,7 +2953,7 @@ function RoleplayPanel({
                   disabled={roleplay.active || !character.isActiveDriver}
                   onClick={() => sendCommand("selectRoleplayCharacter", { characterId: character.id })}
                 >
-                  <span className="rp-character-avatar">♙</span>
+                  <span className="rp-character-avatar"><NavBrIcon name="character" size={18} /></span>
                   <span>
                     <strong>{character.displayName}</strong>
                     <small>{character.isActiveDriver ? pick("Motorista ativo do mapa", "Active map driver", "Conductor activo del mapa", "Aktiver Kartenfahrer", "Conducteur actif de la carte") : character.sourceValue}</small>
@@ -3024,7 +3024,7 @@ function RoleplayPanel({
                     disabled={!roleplay.canInteractWithBus}
                     onClick={() => sendCommand("triggerRoleplayVehicle", { triggerName: interaction.name })}
                   >
-                    <span className="rp-character-avatar">↯</span>
+                    <span className="rp-character-avatar"><NavBrIcon name="action" size={18} /></span>
                     <span>
                       <strong>{interaction.name}</strong>
                       <small>{pick("Evento real declarado pelo addon", "Real event declared by the addon", "Evento real declarado por el addon", "Vom Add-on deklariertes echtes Ereignis", "Événement réel déclaré par l’addon")}</small>
@@ -3618,7 +3618,7 @@ function Multiplayer({
                       <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
                         {pick("Entrar", "Join", "Entrar", "Beitreten", "Rejoindre")}
                       </button>
-                      <button className="button ghost" onClick={pasteInvite}>📥 {pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
+                      <button className="button ghost icon-button" onClick={pasteInvite}><NavBrIcon name="clipboardPaste" size={16} />{pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
                     </div>
                   </>
                 )
@@ -3631,7 +3631,7 @@ function Multiplayer({
                     </div>
                   </div>
                   <div className="room-connected-actions">
-                    <button className="button ghost" onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
+                    <button className="button ghost icon-button" onClick={copyInvite}><NavBrIcon name="clipboardCopy" size={16} />{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
                     <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
                       {multiplayer.hostRunning ? pick("Encerrar servidor", "Stop server", "Detener servidor", "Server stoppen", "Arrêter le serveur") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
                     </button>
@@ -3721,7 +3721,7 @@ function Multiplayer({
                     onClick={() => sendCommand("toggleRoomFavorite", { roomId: room.roomId })}
                     title={room.favorite ? pick("Remover dos favoritos", "Remove from favorites", "Quitar de favoritos", "Aus Favoriten entfernen", "Retirer des favoris") : pick("Adicionar aos favoritos", "Add to favorites", "Añadir a favoritos", "Zu Favoriten hinzufügen", "Ajouter aux favoris")}
                   >
-                    {room.favorite ? "★" : "☆"}
+                    <NavBrIcon name="star" size={16} fill={room.favorite ? "currentColor" : "none"} />
                   </button>
                   <button
                     className="public-room-main"
@@ -4305,14 +4305,14 @@ function GhostReplay({
               disabled={!canRecord}
               onClick={() => sendCommand("startGhostRecording", { name: recordName })}
             >
-              ● {t("ghost.recordTrip")}
+              <NavBrIcon name="record" size={14} />{t("ghost.recordTrip")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.recording}
               onClick={() => sendCommand("stopGhostRecording")}
             >
-              ■ {t("ghost.stopSave")}
+              <NavBrIcon name="stop" size={14} />{t("ghost.stopSave")}
             </button>
             <button
               className="button ghost danger"
@@ -4402,14 +4402,14 @@ function GhostReplay({
               disabled={!canPlay}
               onClick={() => sendCommand("playGhost", { playbackSpeed, loop })}
             >
-              ▶ {t("ghost.play")}
+              <NavBrIcon name="play" size={14} />{t("ghost.play")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.playing}
               onClick={() => sendCommand("stopGhostPlayback")}
             >
-              ■ {t("ghost.stopPlayback")}
+              <NavBrIcon name="stop" size={14} />{t("ghost.stopPlayback")}
             </button>
           </div>
 

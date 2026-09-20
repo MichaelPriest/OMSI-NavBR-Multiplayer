@@ -7,7 +7,10 @@ export type NavBrIconName =
   | "users" | "map" | "chat" | "microphone" | "volume" | "network"
   | "firewall" | "plugin" | "download" | "logs" | "route"
   | "destination" | "door" | "light" | "turnLeft" | "turnRight"
-  | "hazard" | "brake" | "reverse" | "engine" | "test" | "info";
+  | "hazard" | "brake" | "reverse" | "engine" | "test" | "info"
+  | "clipboardCopy" | "clipboardPaste" | "star" | "record" | "stop"
+  | "character" | "action" | "straight" | "slightLeft" | "slightRight"
+  | "sharpLeft" | "sharpRight" | "rejoin";
 
 type Props = SVGProps<SVGSVGElement> & {
   name: NavBrIconName;
@@ -67,6 +70,19 @@ export function NavBrIcon({ name, size = 20, className, ...props }: Props) {
       case "engine": return <><path d="M5 9h3l2-3h5l2 3h2v8h-3l-1.5 2h-6L7 17H5V9Z"/><path d="M10 11h4v4h-4z"/></>;
       case "test": return <><path d="M9 3h6v4l4 11a2 2 0 0 1-1.9 3H6.9A2 2 0 0 1 5 18L9 7V3Z"/><path d="M8 15h8"/></>;
       case "info": return <><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-10h.01"/></>;
+      case "clipboardCopy": return <><rect x="8" y="7" width="11" height="13" rx="2"/><path d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h1"/><path d="M11 11h5m-5 3h5m-5 3h3"/></>;
+      case "clipboardPaste": return <><path d="M9 5h6"/><path d="M10 3h4a2 2 0 0 1 2 2v1H8V5a2 2 0 0 1 2-2Z"/><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M12 10v7m-3-3 3 3 3-3"/></>;
+      case "star": return <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>;
+      case "record": return <circle cx="12" cy="12" r="6.5" fill="currentColor" stroke="none"/>;
+      case "stop": return <rect x="6" y="6" width="12" height="12" rx="1.8" fill="currentColor" stroke="none"/>;
+      case "character": return <><circle cx="12" cy="6.3" r="2.4"/><path d="M8.5 20v-5.5c0-2.1 1.6-3.8 3.5-3.8s3.5 1.7 3.5 3.8V20"/><path d="M8.5 14.5 6 17m9.5-2.5L18 17M10.2 20l-.8 2m4.4-2 .8 2"/></>;
+      case "action": return <><path d="M13.5 2.8 7.8 12h4l-1.3 9.2 5.7-9.2h-4l1.3-9.2Z"/><path d="M4 6h3m10 12h3"/></>;
+      case "straight": return <><path d="M12 20V5"/><path d="m7.5 9.5 4.5-4.5 4.5 4.5"/></>;
+      case "slightLeft": return <><path d="M15.5 20v-5.8c0-2.1-.8-3.7-2.5-5L8 5.5"/><path d="M8 10V5.5h4.5"/></>;
+      case "slightRight": return <><path d="M8.5 20v-5.8c0-2.1.8-3.7 2.5-5l5-3.7"/><path d="M16 10V5.5h-4.5"/></>;
+      case "sharpLeft": return <><path d="M17 20v-8H8"/><path d="m11.5 8.5-3.5 3.5 3.5 3.5"/></>;
+      case "sharpRight": return <><path d="M7 20v-8h9"/><path d="m12.5 8.5 3.5 3.5-3.5 3.5"/></>;
+      case "rejoin": return <><path d="M18 8a7 7 0 1 0 1 8"/><path d="M18 3v5h-5"/><path d="M12 17v-5m0 0 3 3m-3-3-3 3"/></>;
     }
   })();
 
