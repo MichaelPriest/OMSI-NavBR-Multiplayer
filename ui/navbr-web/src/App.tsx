@@ -2419,6 +2419,33 @@ function Settings({
 
           <article className="card discovery-card">
             <div className="section-heading">
+              <div>
+                <span className="eyebrow">MOBILE COMPANION</span>
+                <h3>{pick("Celular como GPS / IBIS", "Phone as GPS / IBIS", "Móvil como GPS / IBIS", "Smartphone als GPS / IBIS", "Téléphone comme GPS / IBIS")}</h3>
+              </div>
+              <span className={`compatibility-badge ${system.mobileCompanion.running ? "compatible" : "blocked"}`}>
+                {system.mobileCompanion.running ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
+            <p>{pick("Abra um dos endereços abaixo no celular conectado à mesma rede do PC. O código muda a cada abertura do NavBR.", "Open one of the addresses below on a phone connected to the same network as the PC. The code changes each time NavBR starts.", "Abre una de las direcciones en un móvil conectado a la misma red del PC. El código cambia cada vez que inicia NavBR.", "Öffne eine der Adressen auf einem Smartphone im selben Netzwerk wie der PC. Der Code ändert sich bei jedem NavBR-Start.", "Ouvrez l'une des adresses ci-dessous sur un téléphone connecté au même réseau que le PC. Le code change à chaque démarrage de NavBR.")}</p>
+            <div className="details-grid">
+              <div><small>{pick("PORTA", "PORT", "PUERTO", "PORT", "PORT")}</small><strong>{system.mobileCompanion.port}</strong></div>
+              <div><small>{pick("CÓDIGO DE PAREAMENTO", "PAIRING CODE", "CÓDIGO DE EMPAREJAMIENTO", "KOPPLUNGSCODE", "CODE D’APPAIRAGE")}</small><strong>{system.mobileCompanion.pairingCode || "—"}</strong></div>
+            </div>
+            <div className="plugin-file-verification">
+              {system.mobileCompanion.urls.length === 0
+                ? <span className="mismatch">{pick("Nenhum endereço LAN disponível", "No LAN address available", "Sin dirección LAN disponible", "Keine LAN-Adresse verfügbar", "Aucune adresse LAN disponible")}</span>
+                : system.mobileCompanion.urls.map(url => (
+                    <span key={url} className="verified" onClick={() => void navigator.clipboard?.writeText(url)} title={pick("Clique para copiar", "Click to copy", "Haz clic para copiar", "Zum Kopieren klicken", "Cliquer pour copier")}>
+                      <NavBrIcon name="network" size={13} />{url}
+                    </span>
+                  ))}
+            </div>
+            <small className="plugin-update-hint">{pick("Alpha 1: GPS, estado do OMSI e IBIS em leitura real. Escrita IBIS fica bloqueada até existir capacidade nativa no Plugin Bridge.", "Alpha 1: real GPS, OMSI status and read-only IBIS. IBIS writes stay blocked until the Plugin Bridge exposes a native capability.", "Alpha 1: GPS real, estado de OMSI e IBIS de solo lectura. La escritura IBIS queda bloqueada hasta que el Plugin Bridge exponga una capacidad nativa.", "Alpha 1: echtes GPS, OMSI-Status und IBIS nur lesend. IBIS-Schreibzugriffe bleiben gesperrt, bis der Plugin Bridge eine native Fähigkeit bereitstellt.", "Alpha 1 : GPS réel, état OMSI et IBIS en lecture seule. L’écriture IBIS reste bloquée jusqu’à une capacité native du Plugin Bridge.")}</small>
+          </article>
+
+          <article className="card discovery-card">
+            <div className="section-heading">
               <div><span className="eyebrow">{pick("DESCOBERTA", "DISCOVERY", "DESCUBRIMIENTO", "ERKENNUNG", "DÉTECTION")}</span><h3>{pick("Encontrar OMSI 2", "Find OMSI 2", "Encontrar OMSI 2", "OMSI 2 finden", "Trouver OMSI 2")}</h3></div>
               <div className="settings-action-row">
                 <button className="button ghost" onClick={() => sendCommand("selectOmsiExecutable")}>{pick("Selecionar Omsi.exe / atalho", "Select Omsi.exe / shortcut", "Seleccionar Omsi.exe / acceso directo", "Omsi.exe / Verknüpfung wählen", "Sélectionner Omsi.exe / raccourci")}</button>

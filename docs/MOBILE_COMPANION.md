@@ -1,87 +1,65 @@
-# NavBR Mobile Companion — roadmap futuro
+# NavBR Mobile Companion — Alpha 1
 
 ## Estado
 
-**Planejado para uma etapa futura. Não faz parte do escopo atual de correção/validação da Alpha.14.**
+**Em desenvolvimento ativo na branch `feature/mobile-companion-alpha1`.**
 
-O foco imediato do projeto continua sendo estabilizar e validar as funções já existentes no desktop/OMSI antes de adicionar novas superfícies.
+Arquitetura:
 
-## Prioridade atual
+`Smartphone/PWA -> NavBR Client no PC -> C# authority -> Plugin Bridge/OMSI`
 
-Antes de iniciar qualquer desenvolvimento para smartphone, devem ser corrigidos e validados no OMSI real:
+O celular nunca acessa memória do OMSI diretamente.
 
-- materialização do ônibus remoto físico no mapa;
-- atualização/movimentação correta do ônibus remoto físico;
-- carregamento automático do roadmap real do mapa ativo;
-- navegação e retorno à rota usando a malha/splines reais quando o veículo sair da rota;
-- modo Personagem/RP físico, incluindo sair e retornar ao ônibus;
-- criação, entrada e gerenciamento de salas com interface simples e clara;
-- estabilidade do Plugin Bridge, telemetria, multiplayer e interface React/WebView2.
+## Alpha 1
 
-Nenhuma dessas correções deve ser substituída por mock, simulação de interface ou dado inventado em produção.
+A primeira versão funcional inclui:
 
-## Visão futura
+- PWA responsiva servida pelo próprio NavBR no PC;
+- acesso pela LAN na porta TCP **27731**;
+- código de pareamento novo a cada abertura do NavBR;
+- bloqueio de clientes fora da rede local/loopback;
+- atualização periódica de estado real;
+- aba **GPS** com posição, rota real, retorno à rota e próximas paradas quando disponíveis;
+- aba **IBIS** separada do GPS;
+- IBIS exibindo linha, rota/curso, destino, HOF, próxima parada e atraso reais;
+- aba **Status** com estado do OMSI, Plugin Bridge e telemetria;
+- card no desktop com endereços LAN e código de pareamento.
 
-Depois que o núcleo estiver estável, o projeto poderá receber um **NavBR Mobile Companion**, inicialmente como PWA responsiva e, se fizer sentido, posteriormente empacotada para Android/iOS.
+## Segurança
 
-Possibilidades documentadas para essa etapa futura:
+A API mobile exige o código de pareamento gerado nesta execução. O host rejeita endereços remotos que não sejam loopback ou rede privada local.
 
-- segundo monitor de navegação/GPS;
-- mapa, rota, próxima parada, distância, atraso e caminho de retorno à rota;
-- visualização de jogadores próximos e estado multiplayer;
-- criar/entrar em salas e pareamento por QR Code;
-- chat, rádio/PTT e canais de comunicação;
-- painel CCO/Dispatcher;
-- painel do motorista;
-- comandos auxiliares validados pelo cliente C# e Plugin Bridge;
-- controles relacionados ao modo RP;
-- diagnóstico do OMSI, Plugin Bridge, servidor, ping e ônibus físico;
-- modo painel de bordo para usar o smartphone como tela auxiliar enquanto o OMSI permanece em tela cheia.
+## IBIS
 
-## IBIS Mobile / terminal operacional
+O IBIS permanece separado do GPS.
 
-O modo **IBIS Mobile** será diferente do GPS. Ele deverá funcionar como um terminal de operação do ônibus e permitir configurar a viagem usando somente dados reais disponíveis no OMSI/NavBR.
+Nesta Alpha 1 ele é **somente leitura real** porque o Plugin Bridge ainda não possui uma capacidade nativa segura para escrever linha/rota/destino/HOF no ônibus do jogador.
 
-Funções previstas:
+Nenhum comando fake é enviado. A UI indica leitura até existir capacidade explícita no bridge.
 
-- selecionar a **linha**;
-- selecionar a **rota/curso**;
-- escolher o **sentido**;
-- selecionar ou confirmar o **destino**;
-- carregar/usar o **HOF** compatível;
-- selecionar a **viagem/serviço** quando essa informação estiver disponível;
-- iniciar, alterar e encerrar a operação;
-- acompanhar a próxima parada e o estado operacional;
-- futuramente comandar anúncios e informações de destino quando houver integração real suportada.
+Próxima etapa do IBIS:
 
-A interface poderá oferecer dois modos: uma visualização inspirada em IBIS físico, com teclado/campos operacionais, e uma visualização moderna simplificada.
+1. definir comandos do Plugin Bridge para operação local;
+2. validar suporte por veículo/mapa/HOF;
+3. listar somente linhas/rotas/destinos reais;
+4. aplicar no thread correto do OMSI;
+5. confirmar resultado antes de refletir a alteração no celular.
 
-Fluxo pretendido:
+## Como testar
 
-`IBIS no smartphone -> NavBR Client/Server -> C# valida mapa/HOF/ônibus -> Plugin Bridge/OMSI`
+1. abra o NavBR no PC;
+2. em **Configurações > Instalações**, localize **Mobile Companion**;
+3. conecte o celular à mesma rede Wi-Fi/LAN;
+4. abra um dos endereços mostrados, por exemplo `http://192.168.0.10:27731`;
+5. informe o código de pareamento;
+6. com o OMSI aberto e o ônibus carregado, teste GPS, IBIS e Status.
 
-O smartphone não deverá escrever diretamente na memória do OMSI. Linha, rota, destino, curso e demais opções deverão vir do estado real do mapa/HOF/ônibus carregado; quando uma informação real não estiver disponível, a interface deverá indicar indisponibilidade em vez de inventar valores.
+## Portas
 
-O **GPS/segundo monitor** permanece uma função separada: ele é responsável por navegação e acompanhamento da rota, enquanto o **IBIS Mobile** é responsável pela configuração operacional da viagem.
+- multiplayer local: 27730;
+- Mobile Companion: **27731**;
+- Company Node: 27740.
 
-## Arquitetura pretendida
+## Sem mocks em produção
 
-O smartphone não deve acessar diretamente a memória do OMSI.
-
-A arquitetura prevista é:
-
-`Smartphone/PWA -> NavBR Client/Server -> C# authority -> Plugin Bridge/OMSI`
-
-O C# continua sendo a autoridade sobre telemetria, estado do OMSI, multiplayer, escrita física, RP, hardware e comandos. A interface mobile deve consumir apenas estado real e apresentar indisponibilidade quando a fonte real não estiver disponível.
-
-## Fora do escopo atual
-
-Durante a correção da Alpha.14:
-
-- não criar PWA mobile;
-- não criar APK/IPA;
-- não adicionar novas APIs apenas para o Companion;
-- não alterar o protocolo multiplayer por causa do mobile;
-- não atrasar correções atuais para implementar recursos de smartphone.
-
-Este documento existe somente para preservar a ideia e o direcionamento futuro sem ampliar o escopo da validação atual.
+Quando OMSI, rota, HOF ou Plugin Bridge não fornecerem um dado real, a PWA mostra indisponível/aguardando. Não são geradas linhas, rotas, destinos, paradas ou posições artificiais.

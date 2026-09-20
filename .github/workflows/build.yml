@@ -58,6 +58,27 @@ jobs:
             throw "React WebView2 UI output is incomplete."
           }
 
+      - name: Build Mobile Companion PWA
+        shell: pwsh
+        run: |
+          Push-Location mobile/navbr-mobile
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR Mobile dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR Mobile build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "mobile/navbr-mobile/dist/index.html")) {
+            throw "NavBR Mobile PWA was not generated."
+          }
+          if (-not (Test-Path "mobile/navbr-mobile/dist/manifest.webmanifest")) {
+            throw "NavBR Mobile manifest was not generated."
+          }
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -266,7 +287,9 @@ jobs:
 
           foreach ($required in @(
             "artifacts/NavBR.Client/OMSI.NavBR.Multiplayer.exe",
-            "artifacts/NavBR.Client/WebUI/dist/index.html"
+            "artifacts/NavBR.Client/WebUI/dist/index.html",
+            "artifacts/NavBR.Client/MobileUI/dist/index.html",
+            "artifacts/NavBR.Client/MobileUI/dist/manifest.webmanifest"
           )) {
             if (-not (Test-Path $required)) {
               throw "Complete client output missing: $required"

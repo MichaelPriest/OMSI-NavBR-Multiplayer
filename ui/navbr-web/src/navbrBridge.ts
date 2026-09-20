@@ -477,6 +477,13 @@ export interface NavBrHudState {
 
 export interface NavBrSystemState {
   installationsNotice?: string | null;
+  mobileCompanion: {
+    running: boolean;
+    port: number;
+    pairingCode?: string | null;
+    urls: string[];
+    mode: string;
+  };
   pluginInstallation: {
     state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
     requiredFilesFound: number;
