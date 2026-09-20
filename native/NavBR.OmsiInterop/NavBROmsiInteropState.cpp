@@ -1073,7 +1073,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 12;
+    return 13;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -1189,6 +1189,126 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleMaterialization
     }
 
     return flags;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnostics(
+    int vehiclePointer,
+    int* visibleLogical,
+    int* visibleLogicalRenderThread,
+    int* roadVehicleDefinitionPointer,
+    int* complObjPointer,
+    int* modelStringPointer,
+    int* kachelPointer,
+    int* mapTileIndex,
+    float* renderX,
+    float* renderY,
+    float* renderZ,
+    float* hostDistance)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        visibleLogical == nullptr ||
+        visibleLogicalRenderThread == nullptr ||
+        roadVehicleDefinitionPointer == nullptr ||
+        complObjPointer == nullptr ||
+        modelStringPointer == nullptr ||
+        kachelPointer == nullptr ||
+        mapTileIndex == nullptr ||
+        renderX == nullptr ||
+        renderY == nullptr ||
+        renderZ == nullptr ||
+        hostDistance == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + VisibleLogicalOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + VisibleLogicalRenderThreadOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + RoadVehicleDefinitionOffset, sizeof(int)) ||
+        !IsReadableRange(base + ComplMapObjDefinitionOffset, sizeof(int)) ||
+        !IsReadableRange(base + ComplObjInstanceOffset, sizeof(int)) ||
+        !IsReadableRange(base + KachelOffset, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int roadVehicleDefinition =
+        *reinterpret_cast<const int*>(base + RoadVehicleDefinitionOffset);
+    const int complMapObjDefinition =
+        *reinterpret_cast<const int*>(base + ComplMapObjDefinitionOffset);
+    const int complObj =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    const int tilePointer =
+        *reinterpret_cast<const int*>(base + KachelOffset);
+
+    int modelString = 0;
+    if (complMapObjDefinition != 0 &&
+        IsReadableRange(
+            static_cast<std::uintptr_t>(complMapObjDefinition) +
+                ComplMapObjModelStringOffset,
+            sizeof(int)))
+    {
+        modelString =
+            *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(complMapObjDefinition) +
+                ComplMapObjModelStringOffset);
+    }
+
+    Matrix4 renderMatrix{};
+    if (!TryReadMatrix(
+            vehiclePointer,
+            OutsideMatrixThreadFreeOffset,
+            renderMatrix))
+    {
+        return 0;
+    }
+
+    int tileIndex = -1;
+    if (tilePointer != 0)
+    {
+        (void)TryGetMapTileIndexByPointer(tilePointer, tileIndex);
+    }
+
+    float distanceToHost = -1.0f;
+    const int hostVehiclePointer = GetPlayerVehiclePointer();
+    if (hostVehiclePointer != 0 &&
+        hostVehiclePointer != vehiclePointer &&
+        IsRoadVehiclePointer(hostVehiclePointer))
+    {
+        Matrix4 hostRenderMatrix{};
+        if (TryReadMatrix(
+                hostVehiclePointer,
+                OutsideMatrixThreadFreeOffset,
+                hostRenderMatrix))
+        {
+            const float dx = renderMatrix.m30 - hostRenderMatrix.m30;
+            const float dy = renderMatrix.m31 - hostRenderMatrix.m31;
+            const float dz = renderMatrix.m32 - hostRenderMatrix.m32;
+            const float distance =
+                std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (std::isfinite(distance))
+            {
+                distanceToHost = distance;
+            }
+        }
+    }
+
+    *visibleLogical =
+        *reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalOffset) != 0 ? 1 : 0;
+    *visibleLogicalRenderThread =
+        *reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalRenderThreadOffset) != 0 ? 1 : 0;
+    *roadVehicleDefinitionPointer = roadVehicleDefinition;
+    *complObjPointer = complObj;
+    *modelStringPointer = modelString;
+    *kachelPointer = tilePointer;
+    *mapTileIndex = tileIndex;
+    *renderX = renderMatrix.m30;
+    *renderY = renderMatrix.m31;
+    *renderZ = renderMatrix.m32;
+    *hostDistance = distanceToHost;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)

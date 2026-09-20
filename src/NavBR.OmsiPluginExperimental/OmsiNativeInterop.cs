@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 12;
+    private const int ExpectedStateInteropVersion = 13;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -213,6 +213,63 @@ internal static class OmsiNativeInterop
             }
 
             vehiclePointers = pointers;
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool TryReadRoadVehicleRenderDiagnostics(
+        int vehiclePointer,
+        out RoadVehicleRenderDiagnostics diagnostics)
+    {
+        diagnostics = default;
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (ReadRoadVehicleRenderDiagnostics(
+                    vehiclePointer,
+                    out var visibleLogical,
+                    out var visibleLogicalRenderThread,
+                    out var roadVehicleDefinitionPointer,
+                    out var complObjPointer,
+                    out var modelStringPointer,
+                    out var kachelPointer,
+                    out var mapTileIndex,
+                    out var renderX,
+                    out var renderY,
+                    out var renderZ,
+                    out var hostDistance) != 1)
+            {
+                return false;
+            }
+
+            diagnostics = new RoadVehicleRenderDiagnostics(
+                visibleLogical,
+                visibleLogicalRenderThread,
+                roadVehicleDefinitionPointer,
+                complObjPointer,
+                modelStringPointer,
+                kachelPointer,
+                mapTileIndex,
+                renderX,
+                renderY,
+                renderZ,
+                hostDistance);
             return true;
         }
         catch (DllNotFoundException)
@@ -593,6 +650,21 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleMaterializationFlags")]
     internal static extern int GetRoadVehicleMaterializationFlags(int vehiclePointer);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleRenderDiagnostics")]
+    private static extern int ReadRoadVehicleRenderDiagnostics(
+        int vehiclePointer,
+        out int visibleLogical,
+        out int visibleLogicalRenderThread,
+        out int roadVehicleDefinitionPointer,
+        out int complObjPointer,
+        out int modelStringPointer,
+        out int kachelPointer,
+        out int mapTileIndex,
+        out float renderX,
+        out float renderY,
+        out float renderZ,
+        out float hostDistance);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
     internal static extern int IsRoadVehiclePointer(int vehiclePointer);
 
@@ -799,6 +871,19 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MarkVehicleForKilling")]
     internal static extern int MarkVehicleForKilling(int vehiclePointer);
+
+    internal readonly record struct RoadVehicleRenderDiagnostics(
+        int VisibleLogical,
+        int VisibleLogicalRenderThread,
+        int RoadVehicleDefinitionPointer,
+        int ComplObjPointer,
+        int ModelStringPointer,
+        int KachelPointer,
+        int MapTileIndex,
+        float RenderX,
+        float RenderY,
+        float RenderZ,
+        float HostDistance);
 
     internal sealed record RandomBusProbeResult(
         bool Invoked,

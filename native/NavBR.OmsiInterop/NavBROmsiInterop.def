@@ -13,6 +13,7 @@ EXPORTS
     NavBR_GetTempRoadVehicleCount
     NavBR_GetTempRoadVehicleAt
     NavBR_GetRoadVehicleMaterializationFlags
+    NavBR_ReadRoadVehicleRenderDiagnostics
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
     NavBR_ResolveMapTileIndex
