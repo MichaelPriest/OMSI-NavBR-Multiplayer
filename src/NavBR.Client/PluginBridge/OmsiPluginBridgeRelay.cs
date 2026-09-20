@@ -206,6 +206,20 @@ public static class OmsiPluginBridgeRelay
                 CharacterActive: false),
             cancellationToken);
 
+    public static Task<PluginBridgeMessage?> SetLocalVehicleTriggerAsync(
+        string? playerId,
+        string triggerName,
+        bool active,
+        CancellationToken cancellationToken = default) =>
+        SendCommandBestEffortAsync(
+            new PluginBridgeMessage(
+                PluginBridgeProtocol.TriggerLocalVehicle,
+                PluginBridgeProtocol.Version,
+                PlayerId: playerId,
+                TriggerName: triggerName,
+                TriggerActive: active),
+            cancellationToken);
+
     public static Task<PluginBridgeMessage?> SetRoleplayVehicleTriggerAsync(
         string characterInstanceId,
         string? playerId,

@@ -319,7 +319,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.UpdateRoleplayCharacter, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal);
+        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.TriggerRoleplayVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.TriggerLocalVehicle, StringComparison.Ordinal);
 
     private static bool TryParseMessage(string? json, out PluginBridgeMessage? message)
     {

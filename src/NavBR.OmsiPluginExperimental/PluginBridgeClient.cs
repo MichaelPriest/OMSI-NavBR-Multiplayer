@@ -158,7 +158,8 @@ internal static class PluginBridgeClient
             MapTileIndex: physicalMapTileIndex,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
-                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
+                RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
+                LocalVehicleCommandProcessor.ExperimentalWritesEnabled,
             Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
 
         lock (StatusSync)
@@ -423,6 +424,28 @@ internal static class PluginBridgeClient
                     message,
                     GetLocalState());
             }
+            return null;
+        }
+
+        if (LocalVehicleCommandProcessor.IsCommandType(message.Type))
+        {
+            if (LocalVehicleCommandProcessor.TryRejectBeforeOmsiThread(message, out var rejection))
+            {
+                return rejection;
+            }
+
+            if (!OmsiThreadCommandQueue.TryEnqueue(message))
+            {
+                return LocalVehicleCommandProcessor.Result(
+                    message,
+                    false,
+                    "command-queue-full",
+                    "The OMSI local vehicle command queue is full.");
+            }
+
+            Log(
+                $"local-vehicle-command queued trigger={message.TriggerName ?? "-"} " +
+                $"pending={OmsiThreadCommandQueue.Count}");
             return null;
         }
 

@@ -213,9 +213,11 @@ internal static class OmsiThreadCommandQueue
         PluginBridgeMessage command,
         Action<PluginBridgeMessage> resultSink)
     {
-        var result = RoleplayCharacterCommandProcessor.IsCharacterCommandType(command.Type)
-            ? RoleplayCharacterCommandProcessor.ProcessOnOmsiThread(command)
-            : ExperimentalVehicleCommandProcessor.ProcessOnOmsiThread(command);
+        var result = LocalVehicleCommandProcessor.IsCommandType(command.Type)
+            ? LocalVehicleCommandProcessor.ProcessOnOmsiThread(command)
+            : RoleplayCharacterCommandProcessor.IsCharacterCommandType(command.Type)
+                ? RoleplayCharacterCommandProcessor.ProcessOnOmsiThread(command)
+                : ExperimentalVehicleCommandProcessor.ProcessOnOmsiThread(command);
         resultSink(result);
     }
 
