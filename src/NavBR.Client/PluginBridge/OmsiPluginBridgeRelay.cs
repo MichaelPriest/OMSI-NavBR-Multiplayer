@@ -334,7 +334,7 @@ public static class OmsiPluginBridgeRelay
 
             var result = await app.PluginBridge.SendCommandAsync(
                 normalized,
-                TimeSpan.FromSeconds(5),
+                ResolveCommandTimeout(normalized.Type),
                 cancellationToken);
 
             if (trace || result.Success != true)
@@ -366,6 +366,29 @@ public static class OmsiPluginBridgeRelay
                 $"exception={ex.GetType().Name} detail={SanitizeBridgeDetail(ex.Message)}");
             return null;
         }
+    }
+
+    private static TimeSpan ResolveCommandTimeout(string type)
+    {
+        // MakeVehicle can return only after OMSI has performed deferred model
+        // work, and physical spawns are deliberately serialized while that
+        // graph materializes. A five-second bridge timeout caused false
+        // TaskCanceledException/no-result retries when several buses joined at
+        // once even though the same commands later completed successfully.
+        //
+        // Keep updates/despawns/RP commands responsive, but give creation
+        // commands enough room for a cold vehicle load. The caller-provided
+        // cancellation token still aborts immediately on session shutdown.
+        return string.Equals(
+                   type,
+                   PluginBridgeProtocol.SpawnRemoteVehicle,
+                   StringComparison.Ordinal) ||
+               string.Equals(
+                   type,
+                   PluginBridgeProtocol.SpawnGhostVehicle,
+                   StringComparison.Ordinal)
+            ? TimeSpan.FromSeconds(20)
+            : TimeSpan.FromSeconds(5);
     }
 
     private static bool ShouldTraceCommand(string type) =>
