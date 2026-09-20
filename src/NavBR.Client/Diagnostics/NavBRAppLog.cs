@@ -18,6 +18,7 @@ internal static class NavBRAppLog
         Write("session-start", string.Join(
             " ",
             $"version={GetVersion()}",
+            $"build={GetBuildVersion()}",
             $"pid={Environment.ProcessId}",
             $"arch={(Environment.Is64BitProcess ? "x64" : "x86")}",
             $"os={Sanitize(Environment.OSVersion.VersionString)}"));
@@ -74,6 +75,17 @@ internal static class NavBRAppLog
 
     private static string GetVersion() =>
         Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "unknown";
+
+    private static string GetBuildVersion()
+    {
+        var assembly = Assembly.GetEntryAssembly();
+        return Sanitize(
+            assembly?
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion
+            ?? assembly?.GetName().Version?.ToString()
+            ?? "unknown");
+    }
 
     private static string Sanitize(string value) =>
         value.Replace('\r', ' ').Replace('\n', ' ').Trim();
