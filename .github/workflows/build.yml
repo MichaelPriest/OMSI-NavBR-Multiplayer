@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/mobile-companion-alpha1 ]
     paths-ignore:
       - 'docs/**'
       - 'site/**'
