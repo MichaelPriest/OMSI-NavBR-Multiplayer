@@ -397,8 +397,19 @@ jobs:
           $testRoot = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke"
           if (Test-Path $testRoot) { Remove-Item $testRoot -Recurse -Force }
 
-          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$testRoot"
-          if ($LASTEXITCODE -ne 0) { throw "Silent installer smoke test failed." }
+          $installLog = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke-install.log"
+          $installArgs = @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/DIR=$testRoot",
+            "/LOG=$installLog"
+          )
+          $installProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installArgs -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            if (Test-Path $installLog) { Get-Content $installLog | Write-Host }
+            throw "Silent installer smoke test failed with exit code $($installProcess.ExitCode)."
+          }
 
           foreach ($required in @(
             (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe"),
@@ -407,15 +418,25 @@ jobs:
             (Join-Path $testRoot "unins000.exe")
           )) {
             if (-not (Test-Path $required)) {
+              if (Test-Path $installLog) { Get-Content $installLog | Write-Host }
               throw "Installed package is missing: $required"
             }
           }
 
           $uninstaller = Join-Path $testRoot "unins000.exe"
-          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-          if ($LASTEXITCODE -ne 0) { throw "Silent uninstaller smoke test failed." }
+          $uninstallLog = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke-uninstall.log"
+          $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/LOG=$uninstallLog"
+          ) -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            if (Test-Path $uninstallLog) { Get-Content $uninstallLog | Write-Host }
+            throw "Silent uninstaller smoke test failed with exit code $($uninstallProcess.ExitCode)."
+          }
 
-          Start-Sleep -Seconds 1
+          Start-Sleep -Seconds 2
           if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe")) {
             throw "Uninstaller left the main NavBR executable behind."
           }
