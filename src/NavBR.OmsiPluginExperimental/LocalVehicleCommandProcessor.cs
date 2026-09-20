@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 
@@ -6,6 +5,10 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class LocalVehicleCommandProcessor
 {
+    private const int MaxRetainedTriggerStrings = 256;
+    private static readonly object Sync = new();
+    private static readonly Dictionary<string, int> RetainedTriggerStrings =
+        new(StringComparer.Ordinal);
     public static bool ExperimentalWritesEnabled =>
         ExperimentalFeatureFlags.MobileVehicleControlsEnabled;
 
@@ -58,24 +61,29 @@ internal static class LocalVehicleCommandProcessor
                     "A bounded trigger name and boolean state are required.");
             }
 
-            var triggerPointer = Marshal.StringToHGlobalAnsi(triggerName);
-            try
+            int triggerPointer;
+            lock (Sync)
             {
-                if (OmsiNativeInterop.TriggerRoadVehicle(
-                        vehicle,
-                        triggerPointer,
-                        active ? 1 : 0) != 1)
+                if (!TryGetRetainedTriggerString(triggerName, out triggerPointer))
                 {
                     return Result(
                         command,
                         false,
-                        "local-trigger-rejected",
-                        "OMSI rejected the guarded local vehicle trigger.");
+                        "local-trigger-allocation-failed",
+                        "Could not allocate or retain the OMSI trigger name safely.");
                 }
             }
-            finally
+
+            if (OmsiNativeInterop.TriggerRoadVehicle(
+                    vehicle,
+                    triggerPointer,
+                    active ? 1 : 0) != 1)
             {
-                Marshal.FreeHGlobal(triggerPointer);
+                return Result(
+                    command,
+                    false,
+                    "local-trigger-rejected",
+                    "OMSI rejected the guarded local vehicle trigger.");
             }
 
             return Result(command, true);
@@ -140,6 +148,35 @@ internal static class LocalVehicleCommandProcessor
         }
 
         return null;
+    }
+
+    private static bool TryGetRetainedTriggerString(
+        string triggerName,
+        out int triggerPointer)
+    {
+        if (RetainedTriggerStrings.TryGetValue(triggerName, out triggerPointer))
+        {
+            return triggerPointer > 0;
+        }
+
+        if (RetainedTriggerStrings.Count >= MaxRetainedTriggerStrings)
+        {
+            triggerPointer = 0;
+            return false;
+        }
+
+        triggerPointer = OmsiNativeInterop.AllocateAnsiString(triggerName);
+        if (triggerPointer <= 0)
+        {
+            triggerPointer = 0;
+            return false;
+        }
+
+        // RVTriggerXML may retain the Delphi string pointer after the native
+        // call. Keep a bounded/deduplicated set alive for Omsi.exe lifetime,
+        // matching the proven roleplay interaction strategy.
+        RetainedTriggerStrings.Add(triggerName, triggerPointer);
+        return true;
     }
 
     private static bool TryNormalizeTriggerName(
