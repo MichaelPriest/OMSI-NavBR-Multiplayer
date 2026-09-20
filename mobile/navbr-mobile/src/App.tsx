@@ -121,7 +121,13 @@ export default function App() {
   useEffect(() => {
     if (!native || serverBase || pairing) return;
     void autoDiscover();
-  }, []);
+    const timer = window.setInterval(() => {
+      if (!serverBase && !pairing) {
+        void autoDiscover();
+      }
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [native, serverBase, pairing]);
 
   useEffect(() => {
     if (!pairing || !serverBase) return;
