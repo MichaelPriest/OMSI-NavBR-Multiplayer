@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -13,8 +15,13 @@ namespace NavBR.Client.Mobile;
 internal sealed class MobileCompanionHostService : IAsyncDisposable
 {
     public const int DefaultPort = 27731;
+    public const int DiscoveryPort = 27732;
+    private const string DiscoveryRequest = "NAVBR_DISCOVER_V1";
+
     private readonly Func<Task<object>> _stateProvider;
     private WebApplication? _app;
+    private CancellationTokenSource? _discoveryCts;
+    private Task? _discoveryTask;
 
     public MobileCompanionHostService(Func<Task<object>> stateProvider, int port = DefaultPort)
     {
@@ -103,6 +110,82 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
 
         await app.StartAsync(cancellationToken);
         _app = app;
+
+        _discoveryCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _discoveryTask = RunDiscoveryResponderAsync(_discoveryCts.Token);
+    }
+
+    private async Task RunDiscoveryResponderAsync(CancellationToken cancellationToken)
+    {
+        using var udp = new UdpClient(AddressFamily.InterNetwork);
+        udp.EnableBroadcast = true;
+        udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        udp.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            UdpReceiveResult received;
+            try
+            {
+                received = await udp.ReceiveAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            catch
+            {
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(250, cancellationToken);
+                }
+
+                continue;
+            }
+
+            var remote = received.RemoteEndPoint.Address;
+            if (remote.IsIPv4MappedToIPv6)
+            {
+                remote = remote.MapToIPv4();
+            }
+
+            if (remote.AddressFamily != AddressFamily.InterNetwork ||
+                !IsPrivateOrLoopbackIpv4(remote))
+            {
+                continue;
+            }
+
+            var request = Encoding.ASCII.GetString(received.Buffer).Trim();
+            if (!string.Equals(request, DiscoveryRequest, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var payload = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                service = "NavBR.MobileCompanion",
+                version = 1,
+                httpPort = Port,
+                pairingCode = PairingCode
+            });
+
+            try
+            {
+                await udp.SendAsync(payload, received.RemoteEndPoint, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch
+            {
+                // Discovery is best-effort. Manual IP/code pairing remains available.
+            }
+        }
     }
 
     private bool IsAuthorized(HttpContext context)
@@ -172,8 +255,34 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
                 b[0] == 172 && b[1] >= 16 && b[1] <= 31);
     }
 
+    private static bool IsPrivateOrLoopbackIpv4(IPAddress address)
+    {
+        if (IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+
+        return IsPrivateIpv4(address);
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _discoveryCts?.Cancel();
+        if (_discoveryTask is not null)
+        {
+            try
+            {
+                await _discoveryTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        _discoveryCts?.Dispose();
+        _discoveryCts = null;
+        _discoveryTask = null;
+
         if (_app is null) return;
         var app = _app;
         _app = null;
