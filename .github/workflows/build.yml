@@ -344,6 +344,83 @@ jobs:
             'pause'
           ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-local.cmd" -Encoding ASCII
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+
+      - name: Build Windows test installer
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $prefix = [string]$group.VersionPrefix
+          $suffix = [string]$group.VersionSuffix
+          $version = if ([string]::IsNullOrWhiteSpace($suffix)) { $prefix } else { "$prefix-$suffix" }
+
+          $output = Join-Path (Resolve-Path "artifacts").Path "NavBR.Installer"
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+
+          $isccCandidates = @(
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+            (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+          )
+          $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+
+          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client").Path
+          $simulatorRoot = (Resolve-Path "artifacts/NavBR.MultiplayerSimulator").Path
+          $pluginRoot = (Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental").Path
+          $setupIcon = (Resolve-Path "src/NavBR.Client/Assets/NavBR.ico").Path
+
+          & $iscc `
+            "/DMyAppVersion=$version" `
+            "/DSourceRoot=$sourceRoot" `
+            "/DSimulatorRoot=$simulatorRoot" `
+            "/DPluginRoot=$pluginRoot" `
+            "/DSetupIcon=$setupIcon" `
+            "/DOutputDir=$output" `
+            "installer/NavBR.Multiplayer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "NavBR installer compilation failed." }
+
+          $installer = Get-ChildItem $output -File -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          if (-not $installer) { throw "NavBR installer EXE was not generated." }
+          Write-Host "Installer generated: $($installer.FullName)"
+
+      - name: Smoke-test installer and uninstaller
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "artifacts/NavBR.Installer" -File -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer artifact missing." }
+
+          $testRoot = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke"
+          if (Test-Path $testRoot) { Remove-Item $testRoot -Recurse -Force }
+
+          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$testRoot"
+          if ($LASTEXITCODE -ne 0) { throw "Silent installer smoke test failed." }
+
+          foreach ($required in @(
+            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $testRoot "Simulator\NavBR.MultiplayerSimulator.exe"),
+            (Join-Path $testRoot "Plugin\NavBR.OmsiPlugin.dll"),
+            (Join-Path $testRoot "unins000.exe")
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Installed package is missing: $required"
+            }
+          }
+
+          $uninstaller = Join-Path $testRoot "unins000.exe"
+          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          if ($LASTEXITCODE -ne 0) { throw "Silent uninstaller smoke test failed." }
+
+          Start-Sleep -Seconds 1
+          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe")) {
+            throw "Uninstaller left the main NavBR executable behind."
+          }
+          Write-Host "Installer/uninstaller smoke test passed."
+
       - name: Validate standalone EXE icon resource
         shell: pwsh
         run: |
@@ -442,5 +519,13 @@ jobs:
         with:
           name: OMSI-NavBR-integration-test-win-x86
           path: artifacts/NavBR.IntegrationTest
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Multiplayer-Setup-win-x86
+          path: artifacts/NavBR.Installer/*-Setup-win-x86.exe
           if-no-files-found: error
           retention-days: 14
