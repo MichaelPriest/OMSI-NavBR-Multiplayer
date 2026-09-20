@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { I18nProvider, useI18n } from "./i18n";
+import { NavBrIcon, type NavBrIconName } from "./NavBrIcon";
 import {
   type NavBrCompanyMember,
   type NavBrGhostState,
@@ -118,57 +119,52 @@ function Sidebar({
   appVersion?: string | null;
 }) {
   const { t, pick, cultureName, languages, setLanguage } = useI18n();
+  const navItems: Array<{ screen: Screen; icon: NavBrIconName; label: string }> = [
+    { screen: "home", icon: "home", label: t("nav.home") },
+    { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
+    { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
+    { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
+    { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
+    { screen: "operations", icon: "operations", label: t("nav.operations") },
+    { screen: "companyNetwork", icon: "company", label: t("nav.company") },
+    { screen: "hardware", icon: "hardware", label: t("nav.hardware") },
+    { screen: "settings", icon: "settings", label: t("nav.settings") },
+    { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+  ];
+
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark">N</div>
         <div><strong>NavBR</strong><span>OMSI Multiplayer</span></div>
       </div>
+
       <nav className="nav">
-        <button className={`nav-item ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
-          <b>⌂</b><span>{t("nav.home")}</span>
-        </button>
-        <button className={`nav-item ${screen === "navigation" ? "active" : ""}`} onClick={() => setScreen("navigation")}>
-          <b>⌖</b><span>{t("nav.navigation")}</span>
-        </button>
-        <button className={`nav-item ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
-          <b>◉</b><span>{t("nav.multiplayer")}</span>
-        </button>
-        <button className={`nav-item ${screen === "roleplay" ? "active" : ""}`} onClick={() => setScreen("roleplay")}>
-          <b>♙</b><span>{t("nav.roleplay")}</span>
-        </button>
-        <button className={`nav-item ${screen === "ghost" ? "active" : ""}`} onClick={() => setScreen("ghost")}>
-          <b>◈</b><span>{t("nav.ghost")}</span>
-        </button>
-        <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
-          <b>▣</b><span>{t("nav.operations")}</span>
-        </button>
-        <button className={`nav-item ${screen === "companyNetwork" ? "active" : ""}`} onClick={() => setScreen("companyNetwork")}>
-          <b>◎</b><span>{t("nav.company")}</span>
-        </button>
-        <button className={`nav-item ${screen === "hardware" ? "active" : ""}`} onClick={() => setScreen("hardware")}>
-          <b>⚡</b><span>{t("nav.hardware")}</span>
-        </button>
-        <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
-          <b>⚙</b><span>{t("nav.settings")}</span>
-        </button>
-        <button className={`nav-item ${screen === "help" ? "active" : ""}`} onClick={() => setScreen("help")}>
-          <b>?</b><span>{pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide")}</span>
-        </button>
+        {navItems.map(item => (
+          <button
+            key={item.screen}
+            className={`nav-item ${screen === item.screen ? "active" : ""}`}
+            onClick={() => setScreen(item.screen)}
+          >
+            <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
+
       <div className="sidebar-footer">
-        <i />
-        <div className="sidebar-footer-main">
-          <div><strong>{buildVersionLabel(appVersion)}</strong><small>React + WebView2</small></div>
-          <label className="sidebar-language">
-            <span>{t("common.language")}</span>
-            <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
-              {languages.map(language => (
-                <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
-              ))}
-            </select>
-          </label>
+        <div className="version-panel" aria-label={pick("Versão do NavBR", "NavBR version", "Versión de NavBR", "NavBR-Version", "Version de NavBR")}>
+          <span>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</span>
+          <strong>{buildVersionLabel(appVersion)}</strong>
         </div>
+        <label className="sidebar-language">
+          <span>{t("common.language")}</span>
+          <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
+            {languages.map(language => (
+              <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
+            ))}
+          </select>
+        </label>
       </div>
     </aside>
   );
@@ -189,9 +185,9 @@ function Home({ state }: { state: NavBrState | null }) {
           <p>{t("home.subtitle")}</p>
         </div>
         <div className="top-actions">
-          <button className="button ghost" onClick={() => sendCommand("refreshOmsiDetection")}>{t("common.refresh")}</button>
-          <button className="button primary" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
-            {omsi?.running ? t("home.open") : t("home.launch")}
+          <button className="button ghost icon-button" onClick={() => sendCommand("refreshOmsiDetection")}><NavBrIcon name="refresh" size={16} />{t("common.refresh")}</button>
+          <button className="button primary icon-button" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
+            <NavBrIcon name="play" size={16} />{omsi?.running ? t("home.open") : t("home.launch")}
           </button>
         </div>
       </header>
@@ -1643,7 +1639,7 @@ function CompanyNetwork({
   return (
     <>
       <header className="topbar company-network-header">
-        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Empresa online peer-hosted, identidade assinada e equipe administrada pelo backend nativo.", "Peer-hosted online company with signed identity and team managed by the native backend.", "Empresa online peer-hosted, identidad firmada y equipo gestionado por el backend nativo.", "Peer-gehostetes Online-Unternehmen mit signierter Identität und Teamverwaltung im nativen Backend.", "Entreprise en ligne peer-hosted avec identité signée et équipe gérée par le backend natif.")}</p></div>
+        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Gerencie sua empresa, equipe e convites online em um só lugar.", "Manage your company, team and online invites in one place.", "Gestiona tu empresa, equipo e invitaciones online en un solo lugar.", "Verwalte Unternehmen, Team und Online-Einladungen an einem Ort.", "Gérez votre entreprise, votre équipe et vos invitations en ligne au même endroit.")}</p></div>
         <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
       </header>
       {error && <div className="command-error">{error}</div>}
@@ -1656,7 +1652,7 @@ function CompanyNetwork({
       <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>{pick("Equipe", "Team", "Equipo", "Team", "Équipe")}</button></div>
       {tab === "network" && (
         <section className="company-network-layout">
-          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("A chave privada permanece protegida no Windows e nunca é enviada ao React.", "The private key remains protected in Windows and is never sent to React.", "La clave privada permanece protegida en Windows y nunca se envía a React.", "Der private Schlüssel bleibt in Windows geschützt und wird nie an React gesendet.", "La clé privée reste protégée dans Windows et n’est jamais envoyée à React.")}</p></article>
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("Sua identidade fica protegida neste computador.", "Your identity stays protected on this computer.", "Tu identidad permanece protegida en este equipo.", "Deine Identität bleibt auf diesem Computer geschützt.", "Votre identité reste protégée sur cet ordinateur.")}</p></article>
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
           <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
           <article className="card company-invite-card"><span className="eyebrow">{pick("CONVIDAR", "INVITE", "INVITAR", "EINLADEN", "INVITER")}</span><h3>{pick("Novo membro", "New member", "Nuevo miembro", "Neues Mitglied", "Nouveau membre")}</h3><p>{pick("Convites expiram em 7 dias e são criados para um único uso.", "Invites expire in 7 days and are created for one-time use.", "Las invitaciones caducan en 7 días y son de un solo uso.", "Einladungen laufen nach 7 Tagen ab und sind einmalig.", "Les invitations expirent après 7 jours et sont à usage unique.")}</p><label><span>{pick("Cargo inicial", "Initial role", "Cargo inicial", "Anfangsrolle", "Rôle initial")}</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabel(role, pick)}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>{pick("Criar convite", "Create invite", "Crear invitación", "Einladung erstellen", "Créer une invitation")}</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button></div>}</article>
@@ -2642,13 +2638,13 @@ function Settings({
               />
               <span>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</span>
             </label>
-            <p>{pick("Estas opções usam o mesmo arquivo de preferências da interface Alpha.12, preservando o comportamento existente durante a migração.", "These options use the same Alpha.12 preference file, preserving existing behavior during migration.", "Estas opciones usan el mismo archivo de preferencias de Alpha.12 y preservan el comportamiento existente.", "Diese Optionen verwenden dieselbe Alpha.12-Einstellungsdatei und erhalten das bestehende Verhalten.", "Ces options utilisent le même fichier de préférences Alpha.12 et préservent le comportement existant.")}</p>
+            <p>{pick("Essas preferências são salvas automaticamente para os próximos usos.", "These preferences are saved automatically for future sessions.", "Estas preferencias se guardan automáticamente para próximos usos.", "Diese Einstellungen werden automatisch für kommende Sitzungen gespeichert.", "Ces préférences sont enregistrées automatiquement pour les prochaines utilisations.")}</p>
           </article>
 
           <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
             <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
-            <p>{pick("Firewall, NAT e UPnP ficam na aba Rede. Relay, atalhos e ônibus físicos são configurados diretamente na interface React usando o mesmo estado real do C#.", "Firewall, NAT and UPnP are in the Network tab. Relay, hotkeys and physical buses are configured directly in the React interface using the same real C# state.", "Firewall, NAT y UPnP están en la pestaña Red. Relay, atajos y autobuses físicos se configuran directamente en la interfaz React usando el mismo estado real de C#.", "Firewall, NAT und UPnP befinden sich im Netzwerktab. Relay, Hotkeys und physische Busse werden direkt in der React-Oberfläche mit demselben echten C#-Status konfiguriert.", "Pare-feu, NAT et UPnP se trouvent dans l’onglet Réseau. Relay, raccourcis et bus physiques se configurent directement dans l’interface React à partir du même état C# réel.")}</p>
+            <p>{pick("Ajuste conexão, atalhos, voz e ônibus físicos na área de Rede.", "Configure connection, shortcuts, voice and physical buses in Network.", "Configura conexión, atajos, voz y autobuses físicos en Red.", "Verbindung, Tastenkürzel, Sprache und physische Busse findest du unter Netzwerk.", "Réglez la connexion, les raccourcis, la voix et les bus physiques dans Réseau.")}</p>
             <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
           </article>
           <article className="card compact-card">
@@ -2937,7 +2933,7 @@ function RoleplayPanel({
 
           {!roleplay.enabled && <p className="migration-note">{pick("O modo Personagem / RP está desativado nas configurações experimentais.", "Character / RP mode is disabled in experimental settings.", "El modo Personaje / RP está desactivado en la configuración experimental.", "Charakter-/RP-Modus ist in den experimentellen Einstellungen deaktiviert.", "Le mode Personnage / RP est désactivé dans les paramètres expérimentaux.")}</p>}
           {roleplay.enabled && !roleplay.mapReady && <p className="migration-note">{pick("Entre em um mapa do OMSI para carregar os personagens reais de Map.Drivers.", "Enter an OMSI map to load real Map.Drivers characters.", "Entra en un mapa de OMSI para cargar los personajes reales de Map.Drivers.", "Öffne eine OMSI-Karte, um echte Map.Drivers-Charaktere zu laden.", "Entrez dans une carte OMSI pour charger les personnages réels de Map.Drivers.")}</p>}
-          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.", "Plugin Bridge must advertise character possession and transform capabilities.", "Plugin Bridge debe anunciar las capacidades de posesión y transformación del personaje.", "Plugin Bridge muss Fähigkeiten für Charakterübernahme und Transformation melden.", "Plugin Bridge doit annoncer les capacités de possession et de transformation du personnage.")}</p>}
+          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("Atualize a integração do OMSI para usar o modo Personagem / RP neste mapa.", "Update the OMSI integration to use Character / RP mode on this map.", "Actualiza la integración de OMSI para usar el modo Personaje / RP en este mapa.", "Aktualisiere die OMSI-Integration, um den Charakter-/RP-Modus auf dieser Karte zu verwenden.", "Mettez à jour l’intégration OMSI pour utiliser le mode Personnage / RP sur cette carte.")}</p>}
         </article>
 
         <article className="card rp-character-card rp-character-selection-card">
@@ -3448,7 +3444,7 @@ function Multiplayer({
             </div>
             <div className="room-header-actions">
               <span className={"connection-pill " + (multiplayer.connected ? "connected" : "")}><i /> {statusLabel}</span>
-              <button className="button ghost" onClick={onOpenNetwork}>{pick("Rede / Firewall", "Network / Firewall", "Red / Firewall", "Netzwerk / Firewall", "Réseau / Pare-feu")}</button>
+              <button className="button ghost icon-button" onClick={onOpenNetwork}><NavBrIcon name="network" size={16} />{pick("Rede / Firewall", "Network / Firewall", "Red / Firewall", "Netzwerk / Firewall", "Réseau / Pare-feu")}</button>
             </div>
           </div>
 
@@ -3460,14 +3456,14 @@ function Multiplayer({
                   onClick={() => setRoomIntent("create")}
                   disabled={multiplayer.connected}
                 >
-                  {pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer une salle")}
+                  <NavBrIcon name="roomAdd" size={16} />{pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer une salle")}
                 </button>
                 <button
                   className={roomIntent === "join" ? "active" : ""}
                   onClick={() => setRoomIntent("join")}
                   disabled={multiplayer.connected}
                 >
-                  {pick("Entrar em sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre une salle")}
+                  <NavBrIcon name="roomJoin" size={16} />{pick("Entrar em sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre une salle")}
                 </button>
               </div>
 
@@ -3737,7 +3733,7 @@ function Multiplayer({
                   >
                     <strong>{room.roomId}</strong>
                     <span>{room.mapName || pick("Mapa não informado", "Map not provided", "Mapa no informado", "Karte nicht angegeben", "Carte non renseignée")} · {room.playerCount} {pick("jogador(es)", "player(s)", "jugador(es)", "Spieler", "joueur(s)")}</span>
-                    <small>NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"} · Plugin {room.pluginProtocolVersion || "—"}</small>
+                    <small>NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"}</small>
                     <em className={"compatibility-badge " + room.compatibility}>
                       {room.compatibility === "compatible" ? pick("Compatível", "Compatible", "Compatible", "Kompatibel", "Compatible") : room.compatibility === "warning" ? pick("Compatibilidade parcial", "Partial compatibility", "Compatibilidad parcial", "Teilweise kompatibel", "Compatibilité partielle") : pick("Requer ajuste local", "Requires local adjustment", "Requiere ajuste local", "Lokale Anpassung erforderlich", "Nécessite un ajustement local")}
                     </em>

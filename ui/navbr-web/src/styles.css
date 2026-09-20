@@ -1654,3 +1654,63 @@ h3 { margin:6px 0 16px; font-size:19px; }
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+
+
+/* NavBR icon system — original vector language inspired by transit dashboards. */
+.navbr-icon { flex:0 0 auto; display:block; }
+.nav-icon-frame {
+  width:30px;
+  height:30px;
+  border:1px solid transparent;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  color:#718ea3;
+  transition:.16s ease;
+}
+.nav-item:hover .nav-icon-frame { color:#a9dfff; border-color:#203b4d; background:#0b1c28; }
+.nav-item.active .nav-icon-frame {
+  color:#8ad8ff;
+  border-color:#31566f;
+  background:linear-gradient(180deg,#123249,#0b2232);
+  box-shadow:inset 0 1px rgba(255,255,255,.04);
+}
+.icon-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.room-intent-switch button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+
+.sidebar-footer {
+  display:grid;
+  gap:10px;
+  align-items:stretch;
+}
+.version-panel {
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:end;
+  gap:4px 10px;
+  padding:10px 11px;
+  border:1px solid #203545;
+  border-radius:10px;
+  background:linear-gradient(180deg,#0b1b27,#08151f);
+}
+.version-panel span {
+  grid-column:1 / -1;
+  color:#5f7c90;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.14em;
+}
+.version-panel strong {
+  color:#cfeeff;
+  font-size:13px;
+  letter-spacing:.01em;
+}
+.sidebar-language { width:100%; }
+.sidebar-language select { width:100%; }
+
+@media (max-width:1080px) {
+  .nav-item .nav-icon-frame { width:34px; height:34px; }
+  .version-panel span { display:none; }
+  .version-panel { grid-template-columns:1fr; text-align:center; padding:8px 5px; }
+  .version-panel strong { font-size:10px; }
+}
