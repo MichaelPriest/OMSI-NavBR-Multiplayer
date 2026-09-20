@@ -35,7 +35,11 @@ export function MultiplayerSection() {
     <section id="multiplayer" className="section shell v2-multiplayer">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Multiplayer</span><h2>Três formas de jogar em conjunto.</h2></div>
-        <p>Cada modo tem um objetivo claro. Diagnósticos de rede, firewall, NAT/CGNAT e UPnP permanecem separados para evitar mensagens enganosas.</p>
+        <p>Cada modo tem um objetivo claro. Na Alpha.18, LAN/local e os modos online ainda estão em validação pública e não devem ser tratados como comprovados ponta a ponta.</p>
+      </div>
+      <div className="v2-public-alpha-warning">
+        <strong>Estado de validação</strong>
+        <span>Implementação disponível para testes. Ainda faltam testes reproduzíveis com dois computadores reais para validar LAN, Servidor NavBR, Host pela Internet e ônibus remoto físico.</span>
       </div>
       <div className="v2-mode-grid">
         {modes.map(([title, text, badge], index) => (
@@ -109,8 +113,8 @@ export function RoadmapSection() {
 
 export function DocumentationSection() {
   const links = [
-    ["Alpha.14", "Roteiro de testes e visão geral", GITHUB_URL + "/blob/main/docs/ALPHA14_COMMUNITY.md"],
-    ["Escopo técnico", "Decisões e limites da Alpha.14", GITHUB_URL + "/blob/main/docs/ALPHA14_MASTER_SCOPE.md"],
+    ["Alpha.18", "Notas, limitações e estado da versão pública", GITHUB_URL + "/blob/main/docs/ALPHA18_RELEASE_NOTES.md"],
+    ["Validação Alpha.18", "Roteiro para testar LAN, online, plugin e ônibus físico", GITHUB_URL + "/blob/main/docs/ALPHA18_COMMUNITY.md"],
     ["Plugin OMSI", "Integração experimental e diagnóstico", GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
     ["Mobile Companion", "Roadmap do smartphone e IBIS", GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"]
   ];

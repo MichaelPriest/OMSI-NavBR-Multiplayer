@@ -1,5 +1,5 @@
 export const REPO = "MichaelPriest/OMSI-NavBR-Multiplayer";
-export const CURRENT_TAG = "v0.3.0-alpha.15";
+export const CURRENT_TAG = "v0.3.0-alpha.18";
 export const GITHUB_URL = `https://github.com/${REPO}`;
 export const RELEASES_PAGE = `${GITHUB_URL}/releases`;
 
@@ -70,7 +70,8 @@ export function calculateAllAlphaDownloads(releases) {
 }
 
 export function assetLabel(name = "") {
-  if (/win-x86\.exe$/i.test(name)) return "Cliente recomendado — EXE standalone";
+  if (/Setup-win-x86\.exe$/i.test(name)) return "Instalador Windows — recomendado";
+  if (/win-x86\.exe$/i.test(name)) return "Cliente standalone — alternativa";
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Cliente ZIP — alternativa";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado — opcional";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin OMSI x86";
@@ -79,7 +80,8 @@ export function assetLabel(name = "") {
 }
 
 export function assetHelp(name = "") {
-  if (/win-x86\.exe$/i.test(name)) return "Cliente standalone para jogar e testar.";
+  if (/Setup-win-x86\.exe$/i.test(name)) return "Instala o NavBR, inclui desinstalador e leva o pacote necessário para os testes.";
+  if (/win-x86\.exe$/i.test(name)) return "Cliente standalone sem assistente de instalação.";
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Mesmo cliente em pacote ZIP.";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado opcional.";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin Native AOT x86 + interop OMSI.";

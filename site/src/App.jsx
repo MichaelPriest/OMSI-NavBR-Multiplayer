@@ -20,8 +20,14 @@ export default function App() {
   );
   const currentAlphaKey = alphaKey(CURRENT_TAG);
   const currentAlphaDownloads = Number(catalog.alphaDownloads?.[currentAlphaKey]) || 0;
-  const currentAssets = (current?.assets || []).filter(asset => /\.(exe|zip)$/i.test(asset.name || ""));
-  const standalone = currentAssets.find(asset => /win-x86\.exe$/i.test(asset.name || ""));
+  const currentAssets = (current?.assets || [])
+    .filter(asset => /\.(exe|zip)$/i.test(asset.name || ""))
+    .sort((a, b) => {
+      const rank = asset => /Setup-win-x86\.exe$/i.test(asset?.name || "") ? 0 : /win-x86\.exe$/i.test(asset?.name || "") ? 1 : 2;
+      return rank(a) - rank(b);
+    });
+  const standalone = currentAssets.find(asset => /Setup-win-x86\.exe$/i.test(asset.name || ""))
+    || currentAssets.find(asset => /win-x86\.exe$/i.test(asset.name || ""));
 
   useEffect(() => {
     document.body.classList.add("navbr-support-enabled");
