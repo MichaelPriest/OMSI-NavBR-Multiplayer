@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Point = { x: number; y: number };
@@ -31,6 +31,18 @@ type MobileState = {
 };
 
 type Tab = "gps" | "ibis" | "status";
+
+type DiscoveryResult = {
+  host: string;
+  httpPort: number;
+  pairingCode: string;
+};
+
+interface NavBrDiscoveryPlugin {
+  discover(options?: { timeoutMs?: number }): Promise<DiscoveryResult>;
+}
+
+const NavBrDiscovery = registerPlugin<NavBrDiscoveryPlugin>("NavBrDiscovery");
 const fmtDistance = (v?: number | null) => v == null ? "—" : v >= 1000 ? `${(v/1000).toFixed(1)} km` : `${Math.round(v)} m`;
 const fmtEta = (v?: number | null) => v == null ? "—" : `${Math.max(0,Math.round(v/60))} min`;
 
@@ -79,6 +91,37 @@ export default function App() {
   const [state,setState] = useState<MobileState|null>(null);
   const [tab,setTab] = useState<Tab>("gps");
   const [error,setError] = useState<string|null>(null);
+  const [discovering,setDiscovering] = useState(false);
+
+  const autoDiscover = async () => {
+    if (!native) return;
+    setDiscovering(true);
+    setError(null);
+    try {
+      const found = await NavBrDiscovery.discover({ timeoutMs: 3500 });
+      const resolved = `http://${found.host}:${found.httpPort || 27731}`;
+      const code = (found.pairingCode || "").trim().toUpperCase();
+      if (!found.host || !code) {
+        throw new Error("Resposta de descoberta inválida.");
+      }
+
+      localStorage.setItem("navbr-mobile-server", resolved);
+      localStorage.setItem("navbr-mobile-pairing", code);
+      setServerBase(resolved);
+      setServerDraft(resolved);
+      setPairing(code);
+      setDraft(code);
+    } catch {
+      setError("NavBR não encontrado automaticamente na rede. Você ainda pode informar o IP e o código manualmente.");
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!native || serverBase || pairing) return;
+    void autoDiscover();
+  }, []);
 
   useEffect(() => {
     if (!pairing || !serverBase) return;
@@ -129,11 +172,14 @@ export default function App() {
       <div className="brand-mark">N</div>
       <span className="eyebrow">NAVBR MOBILE COMPANION</span>
       <h1>Parear com o PC</h1>
-      <p>{native ? "Informe o IP/endereço do PC e o código mostrados no card " : "Digite o código mostrado no card "}<strong>Mobile Companion</strong> das Configurações do NavBR.</p>
+      <p>{native ? "O app procura o NavBR automaticamente na mesma rede. Se a descoberta não funcionar, use o modo manual abaixo." : "Digite o código mostrado no card "}<strong>{native ? "" : "Mobile Companion"}</strong></p>
+      {native && <button type="button" className="auto-discover" disabled={discovering} onClick={() => void autoDiscover()}>
+        {discovering ? "Procurando NavBR na rede…" : "Procurar automaticamente"}
+      </button>}
       <form onSubmit={pair}>
-        {native && <input value={serverDraft} onChange={e=>setServerDraft(e.target.value)} placeholder="IP do PC · ex.: 192.168.0.10" inputMode="url" />}
-        <input autoFocus={!native} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Código · A1B2C3D4" maxLength={8}/>
-        <button>Conectar</button>
+        {native && <input value={serverDraft} onChange={e=>setServerDraft(e.target.value)} placeholder="Fallback: IP do PC · 192.168.0.10" inputMode="url" />}
+        <input autoFocus={!native} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Fallback: código · A1B2C3D4" maxLength={8}/>
+        <button>Conectar manualmente</button>
       </form>
       {error && <div className="error">{error}</div>}
     </main>;
