@@ -343,12 +343,13 @@ internal static class PhysicalVehicleBackend
                 line: 0,
                 paintScheme: -1,
                 scheduled: 0,
-                // Remote multiplayer buses should enter OMSI through the same
-                // RoadVehicle initialization class used for AI traffic. NavBR
-                // disables PAI immediately when it takes transform ownership,
-                // so OMSI initializes the full vehicle/model graph without
-                // being allowed to drive the remote bus afterward.
-                aiRoadVehicle: IsRemoteCommand(command.Type) ? 1 : 0,
+                // Keep exact remote buses on the proven MakeVehicle path
+                // used by Omsi-Extensions. AIRoadVehicle changes OMSI's AI
+                // ownership semantics and can defer/bypass the supplied temp
+                // list, which prevents NavBR from safely identifying the exact
+                // object created for this remote player. NavBR owns movement
+                // after creation through its guarded transform controller.
+                aiRoadVehicle: 0,
                 randomLicensePlate: 0,
                 randomPaintScheme: 0,
                 filenameAnsiString: filename);
