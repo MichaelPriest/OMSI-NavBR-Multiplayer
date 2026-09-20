@@ -1,66 +1,42 @@
 # Releases
 
-O OMSI NavBR Multiplayer usa SemVer e GitHub Actions para publicar prereleases e releases.
-
 ## Estado atual / Current state
 
-```text
-v0.3.0-alpha.15
-```
+`v0.3.0-alpha.18`
 
-Release:
+> **Alpha pública de teste.** O multiplayer LAN/local e online (Servidor NavBR e Host pela Internet) ainda **não foi validado ponta a ponta entre dois PCs/duas sessões reais do OMSI**. Esta publicação amplia os testes públicos; não é uma declaração de estabilidade ou de multiplayer físico concluído.
 
-https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.15
+### Alpha.18
 
-### Português (pt-BR)
+- instalador Windows com desinstalador;
+- pacote autoral de ícones NavBR;
+- verificador do plugin por SHA-256 arquivo a arquivo;
+- atualização/reparo automático do plugin;
+- atualização pendente automática enquanto OMSI estiver aberto;
+- diagnóstico reforçado de ônibus físico remoto e exclusão do ponteiro do ônibus local;
+- diagnóstico de render/materialização física;
+- simulador multiplayer incluído.
 
-A Alpha.15 consolida:
-- React/WebView2 como interface principal;
-- multiplayer Servidor NavBR, LAN e Online através do Host;
-- navegação 2D/3D com roadmap real;
-- Plugin Bridge v3 + state interop ABI v7;
-- ônibus remoto físico com Kachel resolvida localmente por GridX/GridY;
-- RP com restauração confirmada do motorista;
-- updater do plugin por fingerprint SHA-256;
-- Portal V2 no GitHub Pages.
+### Ainda não validado
 
-O ônibus físico e o RP físico continuam experimentais até validação ampla no OMSI real.
+- LAN/local entre dois PCs reais;
+- Servidor NavBR online entre dois PCs reais;
+- Host pela Internet em redes reais distintas;
+- ônibus remoto físico visível/móvel de forma consistente;
+- RP físico remoto.
 
-### English (en)
+Release: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.18
 
-Alpha.15 consolidates:
-- React/WebView2 as the main desktop UI;
-- NavBR Server, LAN and Internet Host multiplayer modes;
-- 2D/3D navigation using the real roadmap;
-- Plugin Bridge v3 + state interop ABI v7;
-- experimental remote physical buses resolving the local Kachel from GridX/GridY;
-- Character/RP with confirmed driver restoration;
-- SHA-256 based plugin bundle update detection;
-- Portal V2 on GitHub Pages.
+## English
 
-Physical bus injection and physical Character/RP remain experimental until broader real-OMSI validation.
+Alpha.18 is a public test prerelease. LAN/local and online multiplayer have **not yet been end-to-end validated with two real PCs/two OMSI sessions**. Automated and simulator validation do not replace real multiplayer testing.
 
 ## Pacotes / Packages
 
-O workflow geral publica:
-- `OMSI-NavBR-Multiplayer-v0.3.0-alpha.15-win-x86.exe`;
-- `OMSI-NavBR-Multiplayer-v0.3.0-alpha.15-win-x86.zip`;
-- `OMSI-NavBR-Server-v0.3.0-alpha.15-win-x64.zip`.
-
-O EXE standalone x86 é a opção recomendada para a maioria dos usuários.
-
-## Histórico recente / Recent history
-
-- `v0.3.0-alpha.15` — consolidação de runtime físico, RP, plugin updater e Portal V2;
-- `v0.3.0-alpha.14-test.6` — última Test da série Alpha.14;
-- `v0.3.0-alpha.14` — Alpha.14 pública;
-- `v0.3.0-alpha.13-test.1` — testes físicos iniciais.
-
-## Portal
-
-https://michaelpriest.github.io/OMSI-NavBR-Multiplayer/
-
-## Créditos / Credits
-
-**Desenvolvedor / Developer:** MichaelPriest  
-**Apoio ao desenvolvimento / Development assistance:** IA ChatGPT
+- instalador Windows x86 — recomendado;
+- EXE standalone Windows x86;
+- ZIP do cliente;
+- servidor dedicado Windows x64;
+- plugin OMSI x86;
+- simulador multiplayer;
+- documentação e SHA256SUMS.

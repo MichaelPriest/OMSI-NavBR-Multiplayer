@@ -1,5 +1,13 @@
 # Documentação do OMSI NavBR Multiplayer
 
+## Alpha.18 pública de teste
+
+- [ALPHA18_RELEASE_NOTES.md](ALPHA18_RELEASE_NOTES.md) — notas da versão e limitações conhecidas;
+- [ALPHA18_COMMUNITY.md](ALPHA18_COMMUNITY.md) — roteiro de validação pública;
+- [MULTIPLAYER_STATUS.md](MULTIPLAYER_STATUS.md) — estado real do multiplayer;
+- [PLUGIN_UPDATE_VERIFIER.md](PLUGIN_UPDATE_VERIFIER.md) — verificação/atualização automática do plugin.
+
+
 ## Desenvolvimento atual — Alpha.15
 
 A versão de desenvolvimento e publicação atual é **`0.3.0-alpha.15`**.
