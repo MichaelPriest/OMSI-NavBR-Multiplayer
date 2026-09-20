@@ -153,6 +153,14 @@ internal static class ExperimentalVehicleCommandProcessor
 internal static class PhysicalVehicleBackend
 {
     private const int MaxRetainedVehiclePathStrings = 256;
+    private const int RequiredMaterializationFlags =
+        (1 << 0) |
+        (1 << 1) |
+        (1 << 2) |
+        (1 << 3) |
+        (1 << 5);
+    private static readonly TimeSpan MaterializationTimeout =
+        TimeSpan.FromSeconds(15);
     private static int _retainedVehiclePathStrings;
 
     public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
@@ -207,9 +215,21 @@ internal static class PhysicalVehicleBackend
 
         if (PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var existing))
         {
-            return IsRemoteCommand(command.Type)
+            // A MakeVehicle result can enter RoadVehicles one OMSI callback
+            // before its ComplObj/model graph is fully attached. Keep driving
+            // the exact NavBR-owned pointer onto the requested loaded Kachel
+            // while OMSI finishes materializing it, but do not report a
+            // physical bus as active until the model itself is confirmed.
+            var existingApplied = IsRemoteCommand(command.Type)
                 ? ApplyRemoteTarget(command, existing)
                 : ApplyState(command, existing);
+            if (existingApplied.Success != true)
+            {
+                return existingApplied;
+            }
+
+            return GetMaterializationPendingResult(command, existing)
+                ?? existingApplied;
         }
 
         if (IsRemoteCommand(command.Type) &&
@@ -409,33 +429,6 @@ internal static class PhysicalVehicleBackend
 
         var vehiclePointer = createdVehiclePointers[0];
 
-        // Do not call a pointer "physical" until OMSI has attached the
-        // exact RoadVehicle definition, complex-object runtime instance and model.
-        // A partially created pointer can accept position writes yet remain
-        // completely invisible in the renderer.
-        const int requiredMaterializationFlags =
-            (1 << 0) |
-            (1 << 1) |
-            (1 << 2) |
-            (1 << 3) |
-            (1 << 5);
-        var materializationFlags =
-            OmsiNativeInterop.GetRoadVehicleMaterializationFlags(
-                vehiclePointer);
-        if ((materializationFlags & requiredMaterializationFlags) !=
-            requiredMaterializationFlags)
-        {
-            if (OmsiNativeInterop.IsRoadVehiclePointer(vehiclePointer) == 1)
-            {
-                _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
-            }
-
-            return Fail(
-                command,
-                "spawn-model-unconfirmed",
-                $"OMSI exposed RoadVehicle 0x{vehiclePointer:X8}, but its visual model is not fully materialized (flags=0x{materializationFlags:X2}, required=0x{requiredMaterializationFlags:X2}, tempCount={tempVehiclePointers.Length}).");
-        }
-
         var instance = new PhysicalVehicleInstance(
             instanceId,
             vehiclePointer,
@@ -448,6 +441,11 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "instance-registry-full", "Could not register the newly created NavBR vehicle safely.");
         }
 
+        // Position the exact MakeVehicle result on the real loaded Kachel
+        // before demanding a complete render model. Some OMSI vehicle add-ons
+        // finish attaching ComplObj/model state on the callback after the temp
+        // list is copied into RoadVehicles; killing the pointer immediately
+        // prevented that materialization from ever completing.
         var applied = IsRemoteCommand(command.Type)
             ? InitializeRemoteMotion(command, instance)
             : ApplyState(command, instance);
@@ -456,9 +454,51 @@ internal static class PhysicalVehicleBackend
             PhysicalVehicleMotionController.Remove(instanceId);
             PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
             _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+            return applied;
         }
 
-        return applied;
+        return GetMaterializationPendingResult(command, instance)
+            ?? applied;
+    }
+
+    private static PluginBridgeMessage? GetMaterializationPendingResult(
+        PluginBridgeMessage command,
+        PhysicalVehicleInstance instance)
+    {
+        if (OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+        {
+            PhysicalVehicleMotionController.Remove(instance.InstanceId);
+            PhysicalVehicleInstanceRegistry.TryRemove(instance.InstanceId, out _);
+            return Fail(
+                command,
+                "vehicle-pointer-stale",
+                "The OMSI vehicle instance disappeared while its visual model was materializing.");
+        }
+
+        var flags = OmsiNativeInterop.GetRoadVehicleMaterializationFlags(
+            instance.VehiclePointer);
+        if ((flags & RequiredMaterializationFlags) ==
+            RequiredMaterializationFlags)
+        {
+            return null;
+        }
+
+        var age = DateTimeOffset.UtcNow - instance.CreatedAtUtc;
+        if (age >= MaterializationTimeout)
+        {
+            PhysicalVehicleMotionController.Remove(instance.InstanceId);
+            PhysicalVehicleInstanceRegistry.TryRemove(instance.InstanceId, out _);
+            _ = OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer);
+            return Fail(
+                command,
+                "spawn-model-timeout",
+                $"OMSI kept RoadVehicle 0x{instance.VehiclePointer:X8} alive for {age.TotalSeconds:F1}s, but its visual model never completed materialization (flags=0x{flags:X2}, required=0x{RequiredMaterializationFlags:X2}).");
+        }
+
+        return Fail(
+            command,
+            "spawn-model-pending",
+            $"OMSI created and positioned RoadVehicle 0x{instance.VehiclePointer:X8}; its visual model is still materializing (flags=0x{flags:X2}, required=0x{RequiredMaterializationFlags:X2}, age={age.TotalMilliseconds:F0}ms).");
     }
 
     private static PluginBridgeMessage Update(PluginBridgeMessage command)
