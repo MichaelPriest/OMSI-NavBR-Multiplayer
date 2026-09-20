@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, feature/mobile-companion-alpha1 ]
+    branches: [ main, feature/mobile-companion-alpha1, feature/mobile-companion-alpha2 ]
     paths-ignore:
       - 'docs/**'
       - 'site/**'
@@ -130,7 +130,7 @@ jobs:
             $apk = "android/app/build/outputs/apk/debug/app-debug.apk"
             if (-not (Test-Path $apk)) { throw "Android APK was not generated." }
             New-Item -ItemType Directory -Path "../../artifacts/NavBR.Mobile" -Force | Out-Null
-            Copy-Item $apk "../../artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha1-debug.apk" -Force
+            Copy-Item $apk "../../artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha2-debug.apk" -Force
           }
           finally {
             Pop-Location
@@ -586,8 +586,8 @@ jobs:
       - name: Upload Mobile Companion Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-Mobile-Android-Alpha1
-          path: artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha1-debug.apk
+          name: OMSI-NavBR-Mobile-Android-Alpha2
+          path: artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha2-debug.apk
           if-no-files-found: error
           retention-days: 14
 
