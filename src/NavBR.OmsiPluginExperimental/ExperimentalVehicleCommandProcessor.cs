@@ -737,6 +737,32 @@ internal static class PhysicalVehicleBackend
         errorCode = string.Empty;
         errorMessage = string.Empty;
 
+        // Simulator validation runs inside the same local OMSI process as the
+        // real reference player. Its synthetic offsets are intentionally
+        // placed around that player, so the authoritative physical Kachel is
+        // the host RoadVehicle's live tile, not the navigation GridX/GridY
+        // copied through multiplayer telemetry. Using the live tile here also
+        // avoids false tile-grid-unavailable failures when the read-only
+        // telemetry profile cannot reconstruct KachelInfo grid coordinates.
+        if (command.PlayerId?.StartsWith(
+                "sim-",
+                StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var hostVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
+            var hostTileIndex = hostVehicle != 0
+                ? OmsiNativeInterop.ReadRoadVehicleTileIndex(hostVehicle)
+                : -1;
+            if (hostTileIndex >= 0 &&
+                OmsiNativeInterop.IsMapTileIndexValid(hostTileIndex) == 1)
+            {
+                localizedCommand = command with
+                {
+                    MapTileIndex = hostTileIndex
+                };
+                return true;
+            }
+        }
+
         if (command.GridX is not int gridX ||
             command.GridY is not int gridY)
         {

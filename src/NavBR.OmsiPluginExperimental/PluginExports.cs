@@ -247,6 +247,20 @@ public static class PluginExports
                 ? (Volatile.Read(ref _stopRequested) != 0 ? "1" : "0")
                 : "unsupported/stale";
 
+            var hostVehiclePointer = OmsiNativeInterop.GetPlayerVehiclePointer();
+            var hostTileIndex = hostVehiclePointer != 0
+                ? OmsiNativeInterop.ReadRoadVehicleTileIndex(hostVehiclePointer)
+                : -1;
+            var hostGridSummary = "hostPhysicalGrid=unavailable";
+            if (OmsiNativeInterop.ReadPlayerVehicleGrid(
+                    out var hostGridX,
+                    out var hostGridY,
+                    out var hostGridTileIndex) == 1)
+            {
+                hostGridSummary =
+                    $"hostPhysicalGrid={hostGridX},{hostGridY} hostGridKachel={hostGridTileIndex}";
+            }
+
             Log(
                 $"heartbeat systemVar={variableIndex} omsiTime={omsiTime:F3} " +
                 $"callbacks={callbacks} " +
@@ -257,6 +271,7 @@ public static class PluginExports
                 $"trafficAuthority={PluginBridgeClient.TrafficAuthorityPlayerId ?? "-"} " +
                 $"physicalQueue={OmsiThreadCommandQueue.Count} " +
                 $"physicalLifecycle={PhysicalVehicleLifecycleSupervisor.Summary} " +
+                $"hostKachel={hostTileIndex} {hostGridSummary} " +
                 $"staleRemoved={staleRemoved} {remoteSummary}");
         }
         catch (Exception ex)
