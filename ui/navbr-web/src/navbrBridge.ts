@@ -481,12 +481,21 @@ export interface NavBrSystemState {
     state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
     requiredFilesFound: number;
     requiredFilesTotal: number;
+    verifiedFiles: number;
     manifestPresent: boolean;
     pluginsDirectory: string;
     omsiRoot?: string | null;
     embeddedPackageAvailable: boolean;
     installAvailable: boolean;
     installBlockReason?: "package-missing" | "omsi-not-found" | "omsi-running" | null;
+    verificationAvailable: boolean;
+    updateRequired: boolean;
+    autoUpdatePending: boolean;
+    expectedVersion?: string | null;
+    installedVersion?: string | null;
+    checkedAtUtc: string;
+    message?: string | null;
+    files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
     omsiRunning: boolean;
   };
   installations: NavBrOmsiInstallation[];
@@ -917,6 +926,7 @@ export type NavBrCommand =
   | "selectDriverProfileImport"
   | "applyDriverProfileImport"
   | "cancelDriverProfileImport"
+  | "verifyOmsiPlugin"
   | "installOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"

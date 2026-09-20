@@ -2380,18 +2380,32 @@ function Settings({
             <p>{pick("Ao abrir o NavBR, o app localiza o OMSI e verifica os 3 arquivos necessários. Se estiverem ausentes ou desatualizados e for seguro substituir, o pacote oficial embutido é instalado automaticamente.", "When NavBR starts, it locates OMSI and checks the 3 required files. If they are missing or outdated and replacement is safe, the embedded official package is installed automatically.", "Al iniciar NavBR, la app localiza OMSI y verifica los 3 archivos necesarios. Si faltan o están desactualizados y es seguro reemplazarlos, instala automáticamente el paquete oficial integrado.", "Beim Start sucht NavBR OMSI und prüft die 3 erforderlichen Dateien. Fehlen sie oder sind sie veraltet und ein Austausch ist sicher, wird das eingebettete offizielle Paket automatisch installiert.", "Au démarrage, NavBR localise OMSI et vérifie les 3 fichiers requis. S'ils manquent ou sont obsolètes et que le remplacement est sûr, le paquet officiel intégré est installé automatiquement.")}</p>
             <div className="details-grid">
               <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.pluginInstallation.requiredFilesFound}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("SHA-256 OK", "SHA-256 OK", "SHA-256 OK", "SHA-256 OK", "SHA-256 OK")}</small><strong>{system.pluginInstallation.verifiedFiles}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("VERSÃO INSTALADA", "INSTALLED VERSION", "VERSIÓN INSTALADA", "INSTALLIERTE VERSION", "VERSION INSTALLÉE")}</small><strong>{system.pluginInstallation.installedVersion || "—"}</strong></div>
+              <div><small>{pick("VERSÃO ESPERADA", "EXPECTED VERSION", "VERSIÓN ESPERADA", "ERWARTETE VERSION", "VERSION ATTENDUE")}</small><strong>{system.pluginInstallation.expectedVersion || "—"}</strong></div>
               <div><small>{pick("MANIFESTO", "MANIFEST", "MANIFIESTO", "MANIFEST", "MANIFESTE")}</small><strong>{system.pluginInstallation.manifestPresent ? "OK" : "—"}</strong></div>
               <div><small>{pick("PACOTE EMBUTIDO", "EMBEDDED PACKAGE", "PAQUETE INTEGRADO", "EINGEBETTETES PAKET", "PAQUET INTÉGRÉ")}</small><strong>{system.pluginInstallation.embeddedPackageAvailable ? "OK" : "—"}</strong></div>
+              <div><small>{pick("ATUALIZAÇÃO", "UPDATE", "ACTUALIZACIÓN", "UPDATE", "MISE À JOUR")}</small><strong>{system.pluginInstallation.updateRequired ? pick("Necessária", "Required", "Necesaria", "Erforderlich", "Requise") : pick("Em dia", "Current", "Al día", "Aktuell", "À jour")}</strong></div>
               <div><small>OMSI</small><strong>{system.pluginInstallation.omsiRunning ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
             </div>
-            {system.pluginInstallation.state !== "installed" && (
-              <div className="plugin-update-actions">
-                <div className="discovery-actions">
-                  <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
-                    {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
-                  </button>
-                </div>
-                {!system.pluginInstallation.installAvailable && system.pluginInstallation.installBlockReason && (
+            <div className="plugin-file-verification">
+              {system.pluginInstallation.files.map(file => (
+                <span key={file.name} className={file.exists && file.hashMatches ? "verified" : "mismatch"}>
+                  <NavBrIcon name={file.exists && file.hashMatches ? "info" : "hazard"} size={13} />
+                  {file.name}
+                </span>
+              ))}
+            </div>
+            <div className="plugin-update-actions">
+              <div className="discovery-actions">
+                <button className="button ghost icon-button" disabled={!system.pluginInstallation.verificationAvailable} onClick={() => sendCommand("verifyOmsiPlugin")}>
+                  <NavBrIcon name="plugin" size={16} />{pick("Verificar e atualizar agora", "Verify and update now", "Verificar y actualizar ahora", "Jetzt prüfen und aktualisieren", "Vérifier et mettre à jour")}
+                </button>
+              </div>
+              {system.pluginInstallation.autoUpdatePending && (
+                <small className="plugin-update-hint">{pick("Atualização pendente: será aplicada automaticamente quando o OMSI fechar.", "Update pending: it will be applied automatically when OMSI closes.", "Actualización pendiente: se aplicará automáticamente al cerrar OMSI.", "Update ausstehend: es wird automatisch nach dem Schließen von OMSI angewendet.", "Mise à jour en attente : elle sera appliquée automatiquement à la fermeture d’OMSI.")}</small>
+              )}
+              {!system.pluginInstallation.installAvailable && system.pluginInstallation.installBlockReason && (
                   <small className="plugin-update-hint">
                     {system.pluginInstallation.installBlockReason === "omsi-running"
                       ? pick("Feche o OMSI para liberar a atualização do plugin.", "Close OMSI to enable the plugin update.", "Cierra OMSI para habilitar la actualización del plugin.", "OMSI schließen, um das Plugin-Update freizugeben.", "Fermez OMSI pour autoriser la mise à jour du plugin.")
@@ -2401,7 +2415,6 @@ function Settings({
                   </small>
                 )}
               </div>
-            )}
           </article>
 
           <article className="card discovery-card">

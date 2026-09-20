@@ -690,6 +690,10 @@ public partial class MainWindow
                 CancelDriverProfileImportFromWeb();
                 break;
 
+            case "verifyOmsiPlugin":
+                VerifyAndUpdateOmsiPluginFromWeb();
+                break;
+
             case "installOmsiPlugin":
                 InstallOmsiPluginFromWeb();
                 break;

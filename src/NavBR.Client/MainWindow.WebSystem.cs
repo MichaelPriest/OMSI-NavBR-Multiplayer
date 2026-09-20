@@ -55,12 +55,30 @@ public partial class MainWindow
                 state = pluginInstall.State.ToLowerInvariant(),
                 requiredFilesFound = pluginInstall.RequiredFilesFound,
                 requiredFilesTotal = 3,
+                verifiedFiles = pluginInstall.VerifiedFiles,
                 manifestPresent = string.Equals(pluginInstall.Manifest, "YES", StringComparison.OrdinalIgnoreCase),
                 pluginsDirectory = pluginInstall.DisplayPath,
                 omsiRoot = pluginOmsiRoot,
                 embeddedPackageAvailable = OmsiPluginInstallationService.HasEmbeddedPackage,
                 installAvailable = pluginInstallBlockReason is null,
                 installBlockReason = pluginInstallBlockReason,
+                verificationAvailable =
+                    OmsiPluginInstallationService.HasEmbeddedPackage &&
+                    !string.IsNullOrWhiteSpace(pluginOmsiRoot),
+                updateRequired = pluginInstall.UpdateRequired,
+                autoUpdatePending =
+                    omsiRunningForPluginUpdate &&
+                    pluginInstall.UpdateRequired,
+                expectedVersion = pluginInstall.ExpectedVersion,
+                installedVersion = pluginInstall.InstalledVersion,
+                checkedAtUtc = pluginInstall.CheckedAtUtc,
+                message = pluginInstall.Message,
+                files = pluginInstall.Files.Select(file => new
+                {
+                    name = file.Name,
+                    exists = file.Exists,
+                    hashMatches = file.HashMatches
+                }).ToArray(),
                 omsiRunning = omsiRunningForPluginUpdate
             },
             installations = profiles
@@ -158,6 +176,48 @@ public partial class MainWindow
                 showDrivingTips = alpha12Preferences.ShowDrivingTips
             }
         };
+    }
+
+    private void VerifyAndUpdateOmsiPluginFromWeb()
+    {
+        var root = ResolveConfiguredOmsiRootForPlugin();
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            throw new InvalidOperationException(
+                "Nenhuma instalação válida do OMSI 2 foi encontrada. Cadastre a pasta, o Omsi.exe ou um atalho .lnk/.url válido em Configurações primeiro.");
+        }
+
+        var result = OmsiPluginInstallationService.EnsureInstalledAtStartup(root);
+        switch (result.Status)
+        {
+            case "ready":
+                _webOmsiLaunchNotice =
+                    "Verificação concluída: os arquivos do plugin NavBR estão atualizados e conferem com o pacote desta versão.";
+                return;
+            case "installed":
+                _webOmsiLaunchNotice =
+                    "Plugin NavBR verificado e atualizado automaticamente. Inicie o OMSI para carregar os arquivos novos.";
+                return;
+            case "omsi-running":
+                if (Application.Current is App app)
+                {
+                    app.SchedulePluginUpdateWhenOmsiCloses(root);
+                }
+
+                _webOmsiLaunchNotice =
+                    "O plugin precisa de atualização, mas o OMSI está aberto. A atualização foi agendada e será aplicada automaticamente assim que o OMSI fechar.";
+                return;
+            case "untracked":
+            case "conflict":
+                _webOmsiLaunchNotice =
+                    result.Message ??
+                    "Há arquivos do plugin que não podem ser substituídos automaticamente porque não são rastreados pelo NavBR.";
+                return;
+            default:
+                _webOmsiLaunchNotice =
+                    $"A verificação do plugin retornou '{result.Status}': {result.Message ?? "sem detalhes"}.";
+                return;
+        }
     }
 
     private void InstallOmsiPluginFromWeb()

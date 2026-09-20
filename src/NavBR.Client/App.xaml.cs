@@ -54,10 +54,7 @@ public partial class App : Application
             if (pluginBootstrap.Status == "omsi-running" &&
                 !string.IsNullOrWhiteSpace(pluginBootstrap.OmsiRoot))
             {
-                _deferredPluginUpdateCts = new CancellationTokenSource();
-                _ = InstallPluginWhenOmsiClosesAsync(
-                    pluginBootstrap.OmsiRoot,
-                    _deferredPluginUpdateCts.Token);
+                SchedulePluginUpdateWhenOmsiCloses(pluginBootstrap.OmsiRoot);
                 NavBRAppLog.Info("plugin-bootstrap deferred-until-omsi-exit");
             }
         }
@@ -152,6 +149,21 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    internal void SchedulePluginUpdateWhenOmsiCloses(string omsiRoot)
+    {
+        if (string.IsNullOrWhiteSpace(omsiRoot))
+        {
+            return;
+        }
+
+        _deferredPluginUpdateCts?.Cancel();
+        _deferredPluginUpdateCts?.Dispose();
+        _deferredPluginUpdateCts = new CancellationTokenSource();
+        _ = InstallPluginWhenOmsiClosesAsync(
+            omsiRoot,
+            _deferredPluginUpdateCts.Token);
+    }
+
     private static async Task InstallPluginWhenOmsiClosesAsync(
         string omsiRoot,
         CancellationToken cancellationToken)
@@ -189,13 +201,14 @@ public partial class App : Application
 
                 if (!omsiRunning)
                 {
-                    var installed = OmsiPluginInstallationService.InstallOrUpdate(omsiRoot);
+                    var result =
+                        OmsiPluginInstallationService.EnsureInstalledAtStartup(omsiRoot);
                     NavBRAppLog.Info(
-                        $"plugin-bootstrap deferred-install-complete root={installed.OmsiRoot} files={installed.InstalledFiles}");
+                        $"plugin-bootstrap deferred-install-complete status={result.Status} changed={result.Changed} root={result.OmsiRoot ?? omsiRoot} message={result.Message ?? "-"}");
                     RemoteDiagnosticsService.Record(
                         "plugin-bootstrap",
-                        "info",
-                        "status=deferred-installed restart-omsi-required");
+                        result.Status is "ready" or "installed" ? "info" : "warning",
+                        $"status=deferred-{result.Status} changed={result.Changed}");
                     return;
                 }
 
