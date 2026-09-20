@@ -30,6 +30,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         TimeSpan.FromSeconds(3);
 
     private readonly ConcurrentDictionary<string, byte> _spawned = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _spawnPending = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _playerGates =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _spawnLifecycleGate = new(1, 1);
@@ -47,6 +48,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
+    private readonly object _spawnMaterializationSync = new();
+    private string? _materializingPlayerId;
     private string _lastPublishedPhysicalSetSignature = string.Empty;
 
     public event Action<IReadOnlyList<string>>? PhysicalVehicleSetChanged;
@@ -386,10 +389,20 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 remoteManifest,
                 resolvedVehiclePath);
 
-            // MakeVehicle is extremely sensitive to lifecycle races even
-            // though the plugin itself executes on OMSI's callback thread.
-            // Serialize create ownership across remote players, while leaving
-            // steady-state transform updates independent.
+            // MakeVehicle returning does not mean the RoadVehicle model graph
+            // has finished materializing. Keep one player as the global
+            // materialization owner until OMSI confirms its ComplObj/model (or
+            // the plugin times it out) so a second MakeVehicle cannot race the
+            // first bus through OMSI's deferred loader callbacks.
+            if (!TryAcquireSpawnMaterializationSlot(playerId))
+            {
+                SetStatus(playerId, "waiting-materialization-slot");
+                return;
+            }
+
+            // The lifecycle semaphore still protects the actual bridge command.
+            // The materialization slot above deliberately survives a
+            // spawn-model-pending reply across later telemetry frames.
             await _spawnLifecycleGate.WaitAsync(cancellationToken);
             try
             {
@@ -402,6 +415,28 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     if (spawn?.Success != true)
                     {
                         _spawned.TryRemove(playerId, out _);
+
+                        if (string.Equals(
+                                spawn?.ErrorCode,
+                                "spawn-model-pending",
+                                StringComparison.Ordinal))
+                        {
+                            _spawnPending[playerId] = 0;
+                            _spawnRetryAfterByPlayer[playerId] =
+                                DateTimeOffset.UtcNow +
+                                TimeSpan.FromMilliseconds(250);
+                            SetStatus(
+                                playerId,
+                                "materializing",
+                                spawn.ErrorCode,
+                                spawn.ErrorMessage,
+                                spawn.RemoteVehicleCount,
+                                consistInfo?.ExpectedPartCount);
+                            return;
+                        }
+
+                        _spawnPending.TryRemove(playerId, out _);
+                        ReleaseSpawnMaterializationSlot(playerId);
                         _spawnRetryAfterByPlayer[playerId] =
                             DateTimeOffset.UtcNow +
                             (IsTileAvailabilityError(spawn?.ErrorCode)
@@ -416,6 +451,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         return;
                     }
 
+                    _spawnPending.TryRemove(playerId, out _);
+                    ReleaseSpawnMaterializationSlot(playerId);
                     _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
 
                     _spawnedCompatibilityByPlayer[frame.Player.PlayerId] =
@@ -436,6 +473,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     // immediately send a duplicate UpdateRemoteVehicle command.
                     return;
                 }
+
+                // A concurrent state change prevented this frame from reserving
+                // the active slot. Do not strand the global materialization
+                // owner in that case.
+                ReleaseSpawnMaterializationSlot(playerId);
+            }
+            catch
+            {
+                _spawnPending.TryRemove(playerId, out _);
+                ReleaseSpawnMaterializationSlot(playerId);
+                throw;
             }
             finally
             {
@@ -528,10 +576,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string playerId,
         CancellationToken cancellationToken)
     {
-        if (!_spawned.TryRemove(playerId, out _))
+        var hadActiveOwnership = _spawned.TryRemove(playerId, out _);
+        var hadPendingOwnership = _spawnPending.TryRemove(playerId, out _);
+        if (!hadActiveOwnership && !hadPendingOwnership)
         {
             _spawnedCompatibilityByPlayer.TryRemove(playerId, out _);
             _resolvedVehiclePathByPlayer.TryRemove(playerId, out _);
+            ReleaseSpawnMaterializationSlot(playerId);
             return;
         }
 
@@ -552,7 +603,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
             // A missing Plugin Bridge reply is not proof that the OMSI-owned
             // vehicle disappeared. Preserve NavBR ownership metadata so a
             // later frame/cleanup can retry instead of orphaning the bus.
-            _spawned.TryAdd(playerId, 0);
+            if (hadActiveOwnership)
+            {
+                _spawned.TryAdd(playerId, 0);
+            }
+            if (hadPendingOwnership)
+            {
+                _spawnPending.TryAdd(playerId, 0);
+            }
             if (!string.IsNullOrWhiteSpace(previousCompatibilityId))
             {
                 _spawnedCompatibilityByPlayer[playerId] =
@@ -568,6 +626,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        ReleaseSpawnMaterializationSlot(playerId);
         _lastFailureByPlayer.TryRemove(playerId, out _);
         PublishPhysicalVehicleSetIfChanged();
         RemoteDiagnosticsService.Record(
@@ -579,6 +638,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
         var players = _spawned.Keys
+            .Concat(_spawnPending.Keys)
             .Concat(_playerGates.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -588,6 +648,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
             await DespawnAsync(playerId, cancellationToken);
         }
 
+        _spawnPending.Clear();
+        lock (_spawnMaterializationSync)
+        {
+            _materializingPlayerId = null;
+        }
         _spawnedCompatibilityByPlayer.Clear();
         _resolvedVehiclePathByPlayer.Clear();
         _consecutiveUpdateFailuresByPlayer.Clear();
@@ -598,6 +663,37 @@ internal sealed class RemotePhysicalVehicleCoordinator
         _lastPhysicalUpdateAtByPlayer.Clear();
         _statusByPlayer.Clear();
         PublishPhysicalVehicleSetIfChanged(force: true);
+    }
+
+    private bool TryAcquireSpawnMaterializationSlot(string playerId)
+    {
+        lock (_spawnMaterializationSync)
+        {
+            if (string.IsNullOrWhiteSpace(_materializingPlayerId))
+            {
+                _materializingPlayerId = playerId;
+                return true;
+            }
+
+            return string.Equals(
+                _materializingPlayerId,
+                playerId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private void ReleaseSpawnMaterializationSlot(string playerId)
+    {
+        lock (_spawnMaterializationSync)
+        {
+            if (string.Equals(
+                    _materializingPlayerId,
+                    playerId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                _materializingPlayerId = null;
+            }
+        }
     }
 
     private void PublishPhysicalVehicleSetIfChanged(bool force = false)
