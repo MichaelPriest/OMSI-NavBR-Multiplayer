@@ -181,6 +181,11 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
         run: |
+          # Publishing the server for win-x64 refreshes its project.assets.json.
+          # Restore the client graph for win-x86 again before the x86 build.
+          dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          if ($LASTEXITCODE -ne 0) { throw "Client win-x86 restore failed." }
+
           dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
           if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
