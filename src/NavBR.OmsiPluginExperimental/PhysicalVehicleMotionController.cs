@@ -243,7 +243,8 @@ internal static class PhysicalVehicleMotionController
                 // If the desktop app, SignalR connection or named pipe dies
                 // without a clean despawn, never leave an orphan NavBR bus in
                 // OMSI indefinitely.
-                if (OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) == 1)
+                if (PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out _) &&
+                    OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) == 1)
                 {
                     PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
                     States.Remove(instanceId);
@@ -339,6 +340,7 @@ internal static class PhysicalVehicleMotionController
         PhysicalVehicleInstance instance,
         MotionSnapshot snapshot,
         bool writeTileIndex) =>
+        PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out _) &&
         OmsiNativeInterop.SetVehicleTransform(
             instance.VehiclePointer,
             snapshot.X,
@@ -420,10 +422,11 @@ internal static class PhysicalVehicleMotionController
             lightFlags |= (int)VehicleLightFlags.Brake;
         }
 
-        return OmsiNativeInterop.SetVehicleVisualState(
-            instance.VehiclePointer,
-            lightFlags,
-            command.TurnSignal ?? 0) == 1;
+        return PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out _) &&
+               OmsiNativeInterop.SetVehicleVisualState(
+                   instance.VehiclePointer,
+                   lightFlags,
+                   command.TurnSignal ?? 0) == 1;
     }
 
     private static bool TryReadSnapshot(

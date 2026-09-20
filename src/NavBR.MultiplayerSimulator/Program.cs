@@ -153,6 +153,10 @@ var expectedPhysicalBots = bots
 var connected = false;
 var physicalVerificationAnnounced = false;
 var interactiveVerificationStopRequested = false;
+var visualInspectionMode =
+    options.VerifyPhysical &&
+    options.DurationSeconds <= 0 &&
+    !Console.IsInputRedirected;
 
 try
 {
@@ -168,7 +172,7 @@ try
     var started = DateTimeOffset.UtcNow;
     var effectiveDurationSeconds = options.DurationSeconds > 0
         ? options.DurationSeconds
-        : options.VerifyPhysical && !interactiveLaunch
+        : options.VerifyPhysical && !visualInspectionMode
             ? 60
             : 0;
 
@@ -190,23 +194,21 @@ try
                 Console.WriteLine(
                     $"Physical verification observed {expectedPhysicalBots.Length} simulator bus(es) owned and updating in the host OMSI.");
 
-                if (interactiveLaunch && options.DurationSeconds <= 0)
+                if (visualInspectionMode)
                 {
                     Console.WriteLine(
                         "Os ônibus permanecerão ativos para inspeção visual no OMSI. Pressione qualquer tecla ou Ctrl+C para encerrar e removê-los.");
                 }
             }
 
-            if (!interactiveLaunch)
+            if (!visualInspectionMode)
             {
                 break;
             }
         }
 
         if (physicalVerificationAnnounced &&
-            interactiveLaunch &&
-            options.DurationSeconds <= 0 &&
-            !Console.IsInputRedirected &&
+            visualInspectionMode &&
             Console.KeyAvailable)
         {
             _ = Console.ReadKey(intercept: true);
@@ -660,8 +662,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
         {
             var missing = expectedPlayerIds
                 .Where(id => !_samples.TryGetValue(id, out var sample) ||
-                             sample.Count < 2 ||
-                             sample.DistanceMeters < 0.25d)
+                             !IsVerifiableSample(sample))
                 .ToArray();
 
             if (missing.Length > 0)
@@ -767,8 +768,27 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 : string.Empty;
             return new VerificationResult(
                 true,
-                $"{expectedPlayerIds.Count} players forwarded movement; minimum displacement {minimum:F2} m; {rpSummary}{physicalSummary}.");
+                $"{expectedPlayerIds.Count} players forwarded verifiable state; minimum displacement {minimum:F2} m; {rpSummary}{physicalSummary}.");
         }
+    }
+
+    private static bool IsVerifiableSample(MovementSample sample)
+    {
+        if (sample.Count < 2)
+        {
+            return false;
+        }
+
+        if (sample.DistanceMeters >= 0.25d)
+        {
+            return true;
+        }
+
+        // In Mixed mode an RP player may legitimately be Idle during the
+        // short physical-bus confirmation window. Presence plus repeated Idle
+        // frames is valid RP state and must not tear down physical buses.
+        return sample.Kind == MovementKind.Roleplay &&
+               sample.Activities.Contains(RoleplayCharacterActivity.Idle);
     }
 
     private void RecordPresence(PlayerPresence player)
