@@ -26,7 +26,9 @@ O celular nunca acessa memória do OMSI diretamente.
 A primeira versão funcional inclui:
 
 - APK Android instalável;
-- pareamento informando **IP/endereço do PC + código de pareamento**;
+- **descoberta automática do NavBR na mesma rede Wi-Fi/LAN**;
+- conexão automática sem digitar IP ou código quando o broadcast UDP estiver disponível;
+- pareamento manual por **IP/endereço do PC + código** mantido como fallback;
 - código novo a cada abertura do NavBR;
 - comunicação LAN pela porta TCP **27731**;
 - API protegida por código e limitada a rede local/loopback;
@@ -42,14 +44,12 @@ A primeira versão funcional inclui:
 
 1. instale o APK no Android;
 2. abra o NavBR no PC;
-3. em **Configurações > Instalações > Mobile Companion**, copie um IP/endereço LAN e o código;
-4. no APK, informe o IP do PC, por exemplo `192.168.0.10`;
-5. informe o código de pareamento;
-6. mantenha celular e PC na mesma rede Wi-Fi/LAN;
-7. abra o OMSI e carregue ônibus/mapa/rota;
-8. use GPS, IBIS e Status no celular.
+3. mantenha celular e PC na mesma rede Wi-Fi/LAN;
+4. abra o APK: ele procura automaticamente o NavBR e conecta sozinho;
+5. abra o OMSI e carregue ônibus/mapa/rota;
+6. use GPS, IBIS e Status no celular.
 
-Se a porta não for informada, o APK usa **27731** automaticamente.
+A descoberta automática usa UDP **27732** e o estado usa HTTP **27731**. Se o roteador, isolamento de Wi-Fi ou firewall bloquear broadcast, o APK mantém o modo manual por IP + código.
 
 ## Segurança
 
@@ -77,7 +77,8 @@ Próxima etapa:
 ## Portas
 
 - multiplayer local: 27730;
-- Mobile Companion: **27731**;
+- Mobile Companion HTTP: **27731**;
+- descoberta automática Mobile Companion UDP: **27732**;
 - Company Node: 27740.
 
 ## Build Android
