@@ -892,6 +892,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             !_statusByPlayer.TryGetValue(playerId, out var previous) ||
             !string.Equals(previous.State, next.State, StringComparison.Ordinal) ||
             !string.Equals(previous.ErrorCode, next.ErrorCode, StringComparison.Ordinal) ||
+            !string.Equals(previous.ErrorMessage, next.ErrorMessage, StringComparison.Ordinal) ||
             previous.PartCount != next.PartCount ||
             previous.ExpectedPartCount != next.ExpectedPartCount;
 
@@ -901,7 +902,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
             NavBRAppLog.Info(
                 $"physical-vehicle player={playerId} state={next.State} " +
                 $"error={next.ErrorCode ?? "-"} parts={next.PartCount?.ToString() ?? "-"} " +
-                $"expected-parts={next.ExpectedPartCount?.ToString() ?? "-"}");
+                $"expected-parts={next.ExpectedPartCount?.ToString() ?? "-"} " +
+                $"detail={next.ErrorMessage ?? "-"}");
         }
     }
 
