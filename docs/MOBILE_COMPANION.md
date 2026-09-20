@@ -94,3 +94,23 @@ O APK é publicado como artifact:
 ## Sem mocks
 
 Quando OMSI, rota, HOF, posição ou Plugin Bridge não fornecerem um dado real, o APK mostra indisponível/aguardando. Não são geradas linhas, rotas, destinos, paradas ou posições artificiais.
+
+
+## Alpha 2 em desenvolvimento
+
+A branch `feature/mobile-companion-alpha2` amplia o app sem substituir a Alpha 1 de teste.
+
+Incluído nesta etapa:
+
+- painel **Ônibus** com telemetria real de combustível, acelerador, freio, direção, aceleração, portas, luzes, setas, limpador, freio de estacionamento, ré, pedido de parada e buzina;
+- estado multiplayer real reutilizado da Central Multiplayer;
+- mapa relativo dos players compatíveis na mesma sessão;
+- lista de players com linha, rota, ônibus, destino, velocidade, distância e atividade de voz;
+- painel **Voz** com liga/desliga, canal, recepção/deafen e mixer remoto;
+- **PTT acionado pelo celular**, usando nesta etapa o microfone configurado no PC;
+- lease de PTT com liberação automática caso o celular perca a conexão;
+- endpoint mobile de comandos autenticado pelo token da sessão;
+- catálogo de mouse events reais detectados no veículo exposto para o futuro painel personalizável;
+- IBIS continua em leitura até existir uma capacidade nativa específica de escrita no Plugin Bridge.
+
+O app não envia comandos genéricos/falsos ao ônibus local.
