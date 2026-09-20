@@ -23,6 +23,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         new(StringComparer.OrdinalIgnoreCase);
 
     private static int _resetRequested;
+    private static int _randomBusControlProbeAttempted;
     private static long _internalCommandSequence;
 
     public static int DesiredCount
@@ -218,6 +219,21 @@ internal static class PhysicalVehicleLifecycleSupervisor
             entry.State = "retry";
             entry.NextAttemptTickMs = now + GetRetryDelay(result.ErrorCode);
         }
+
+        if (string.Equals(
+                result.ErrorCode,
+                "spawn-pointer-unresolved",
+                StringComparison.Ordinal) &&
+            instanceId.StartsWith(
+                "sim-",
+                StringComparison.OrdinalIgnoreCase) &&
+            Interlocked.CompareExchange(
+                ref _randomBusControlProbeAttempted,
+                1,
+                0) == 0)
+        {
+            RunRandomBusControlProbe(instanceId);
+        }
     }
 
     public static void RequestReset() =>
@@ -232,6 +248,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         Interlocked.Exchange(ref _resetRequested, 0);
+        Interlocked.Exchange(ref _randomBusControlProbeAttempted, 0);
     }
 
     /// <summary>
@@ -463,6 +480,17 @@ internal static class PhysicalVehicleLifecycleSupervisor
             command.PlayerId ??
             string.Empty).Trim();
         return instanceId.Length is > 0 and <= 128;
+    }
+
+    private static void RunRandomBusControlProbe(string instanceId)
+    {
+        var invoked = OmsiNativeInterop.TryRunPlaceRandomBusProbe(
+            out var probe);
+        PluginLogWriter.Enqueue(
+            $"physical-control-probe id={instanceId} " +
+            $"invoked={invoked} raw={probe.RawReturn} " +
+            $"before={probe.BeforeCount} after={probe.AfterCount} " +
+            $"delta={probe.DeltaCount} detail={probe.Detail}");
     }
 
     private static long GetRetryDelay(string? errorCode) =>

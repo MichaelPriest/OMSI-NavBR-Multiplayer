@@ -64,6 +64,10 @@ internal static class OmsiNativeInterop
         }
     }
 
+    // Compatibility is runtime/ABI based, never Steam-authentication based.
+    // A non-Steam or repacked installation is not rejected for its source.
+    // We still require the OMSI 2.3.004 ABI/version evidence before enabling
+    // native writes because using these offsets on another build is unsafe.
     private static bool IsOmsi23004Version(string? version) =>
         !string.IsNullOrWhiteSpace(version) &&
         (version.Contains("2.3.004", StringComparison.OrdinalIgnoreCase) ||
@@ -309,6 +313,83 @@ internal static class OmsiNativeInterop
             }
 
             humanPointers = pointers.ToArray();
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool TryRunPlaceRandomBusProbe(
+        out RandomBusProbeResult result)
+    {
+        result = new RandomBusProbeResult(
+            false,
+            int.MinValue,
+            -1,
+            -1,
+            0,
+            "probe-unavailable");
+
+        if (!IsShimReady ||
+            !TrySnapshotRoadVehicles(out var before))
+        {
+            return false;
+        }
+
+        try
+        {
+            var rawReturn = PlaceRandomBusProbe(
+                aiType: 0,
+                group: 1,
+                vehicleType: -1,
+                scheduled: 0,
+                tour: 0,
+                line: 0);
+
+            if (!TrySnapshotRoadVehicles(out var after))
+            {
+                result = result with
+                {
+                    RawReturn = rawReturn,
+                    BeforeCount = before.Length,
+                    Detail = "after-snapshot-unavailable"
+                };
+                return false;
+            }
+
+            var known = new HashSet<int>(before);
+            var added = after
+                .Where(pointer => pointer != 0 && !known.Contains(pointer))
+                .Distinct()
+                .ToArray();
+
+            foreach (var pointer in added)
+            {
+                if (IsRoadVehiclePointer(pointer) == 1)
+                {
+                    _ = MarkVehicleForKilling(pointer);
+                }
+            }
+
+            result = new RandomBusProbeResult(
+                true,
+                rawReturn,
+                before.Length,
+                after.Length,
+                added.Length,
+                added.Length > 0
+                    ? "roadvehicles-delta-observed"
+                    : "no-roadvehicles-delta");
             return true;
         }
         catch (DllNotFoundException)
@@ -623,6 +704,15 @@ internal static class OmsiNativeInterop
         float sollSpeed,
         float actSpeed);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_PlaceRandomBusProbe")]
+    private static extern int PlaceRandomBusProbe(
+        int aiType,
+        int group,
+        int vehicleType,
+        int scheduled,
+        int tour,
+        int line);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetMem")]
     internal static extern int GetMem(int bytes);
 
@@ -706,4 +796,12 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MarkVehicleForKilling")]
     internal static extern int MarkVehicleForKilling(int vehiclePointer);
+
+    internal sealed record RandomBusProbeResult(
+        bool Invoked,
+        int RawReturn,
+        int BeforeCount,
+        int AfterCount,
+        int DeltaCount,
+        string Detail);
 }

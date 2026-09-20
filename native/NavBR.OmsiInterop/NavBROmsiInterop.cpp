@@ -18,6 +18,7 @@ namespace
     constexpr std::uintptr_t RvaMakeVehicle = 0x0070A250u - PreferredImageBase;
     constexpr std::uintptr_t RvaTempRvListCreate = 0x0074A0E0u - PreferredImageBase;
     constexpr std::uintptr_t RvaCopyTempListIntoMainList = 0x0074A240u - PreferredImageBase;
+    constexpr std::uintptr_t RvaPlaceRandomBus = 0x00708F8Cu - PreferredImageBase;
     // OmsiHook documents RVTriggerXML at 0x007E9338 for OMSI 2.3.004.
     constexpr std::uintptr_t RvaRoadVehicleTrigger = 0x007E9338u - PreferredImageBase;
 
@@ -29,8 +30,8 @@ namespace
 
     constexpr int ProgramManagerMakeVehicleCriticalSectionOffset = 0x1B4;
     constexpr int RoadVehicleListItemsOffset = 0x28;
-    constexpr int RoadVehicleListCountOffset = 0x2C;
     constexpr int ObjectListItemsPointerOffset = 0x04;
+    constexpr int ObjectListCountOffset = 0x08;
     constexpr int MaxReasonableRoadVehicles = 4096;
 
     std::uintptr_t ImageBase()
@@ -129,18 +130,28 @@ namespace
         if (mainList == 0 ||
             !IsReadableRange(
                 static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset,
-                sizeof(int)) ||
-            !IsReadableRange(
-                static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset,
                 sizeof(int)))
         {
             return false;
         }
 
-        const int currentCount = *reinterpret_cast<const int*>(
-            static_cast<std::uintptr_t>(mainList) + RoadVehicleListCountOffset);
+        // TMyOmsiList +0x28 points to its MemArrayList wrapper. The live
+        // collection data and count belong to that wrapper (+0x04/+0x08).
+        // Do not treat mainList+0x2C as the authoritative array length.
         const int objectList = *reinterpret_cast<const int*>(
             static_cast<std::uintptr_t>(mainList) + RoadVehicleListItemsOffset);
+        if (objectList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(objectList),
+                ObjectListCountOffset + sizeof(int)))
+        {
+            return false;
+        }
+
+        const int currentCount = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(objectList) + ObjectListCountOffset);
+        const int items = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset);
 
         if (currentCount < 0 || currentCount > MaxReasonableRoadVehicles)
         {
@@ -154,16 +165,6 @@ namespace
             return true;
         }
 
-        if (objectList == 0 ||
-            !IsReadableRange(
-                static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset,
-                sizeof(int)))
-        {
-            return false;
-        }
-
-        const int items = *reinterpret_cast<const int*>(
-            static_cast<std::uintptr_t>(objectList) + ObjectListItemsPointerOffset);
         if (items == 0 ||
             !IsReadableRange(
                 static_cast<std::uintptr_t>(items),
@@ -189,23 +190,31 @@ namespace
             !IsReadableRange(
                 static_cast<std::uintptr_t>(tempList) +
                     RoadVehicleListItemsOffset,
-                sizeof(int)) ||
-            !IsReadableRange(
-                static_cast<std::uintptr_t>(tempList) +
-                    RoadVehicleListCountOffset,
                 sizeof(int)))
+        {
+            return false;
+        }
+
+        const int objectList =
+            *reinterpret_cast<const int*>(
+                static_cast<std::uintptr_t>(tempList) +
+                RoadVehicleListItemsOffset);
+        if (objectList == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(objectList),
+                ObjectListCountOffset + sizeof(int)))
         {
             return false;
         }
 
         const int currentCount =
             *reinterpret_cast<const int*>(
-                static_cast<std::uintptr_t>(tempList) +
-                RoadVehicleListCountOffset);
-        const int objectList =
+                static_cast<std::uintptr_t>(objectList) +
+                ObjectListCountOffset);
+        const int items =
             *reinterpret_cast<const int*>(
-                static_cast<std::uintptr_t>(tempList) +
-                RoadVehicleListItemsOffset);
+                static_cast<std::uintptr_t>(objectList) +
+                ObjectListItemsPointerOffset);
 
         if (currentCount < 0 || currentCount > 32)
         {
@@ -217,19 +226,6 @@ namespace
             return true;
         }
 
-        if (objectList == 0 ||
-            !IsReadableRange(
-                static_cast<std::uintptr_t>(objectList) +
-                    ObjectListItemsPointerOffset,
-                sizeof(int)))
-        {
-            return false;
-        }
-
-        const int items =
-            *reinterpret_cast<const int*>(
-                static_cast<std::uintptr_t>(objectList) +
-                ObjectListItemsPointerOffset);
         if (items == 0 ||
             !IsReadableRange(
                 static_cast<std::uintptr_t>(items),
@@ -503,6 +499,56 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_TriggerRoadVehicle(
     }
 
     return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_PlaceRandomBusProbe(
+    int aiType,
+    int group,
+    int vehicleType,
+    int scheduled,
+    int tour,
+    int line)
+{
+    const auto target = Resolve(RvaPlaceRandomBus);
+    const int programManager = ReadPointerAtRva(RvaProgramManagerPointer);
+    if (!IsExecutableAddress(target) || programManager == 0)
+    {
+        return INT32_MIN;
+    }
+
+    int result = 0;
+    int restoreEsp = 0;
+    __asm
+    {
+        push ebx
+        push esi
+        push edi
+        mov restoreEsp, esp
+
+        // TProgMan.PlaceRandomBus(progMan, aiType, group, 0, 0, 1,
+        //                         vehicleType, scheduled, 0, tour, line)
+        push line
+        push tour
+        push 0
+        push scheduled
+        push vehicleType
+        push 1
+        push 0
+        push 0
+        mov eax, programManager
+        mov edx, aiType
+        mov ecx, group
+        mov esi, target
+        call esi
+        mov result, eax
+
+        mov esp, restoreEsp
+        pop edi
+        pop esi
+        pop ebx
+    }
+
+    return result;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetMem(int bytes)
