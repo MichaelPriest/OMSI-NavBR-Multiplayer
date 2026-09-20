@@ -733,12 +733,16 @@ public partial class MultiplayerWindow
         var localManifest = OmsiCompatibilityManifestFactory.Create(
             _telemetrySource(),
             _activeMapSource());
-        var requirePhysicalVehicle = _settings.ExperimentalPhysicalVehiclesEnabled;
+        // Remote drivers may use different buses and HOFs. Physical
+        // rendering resolves each remote vehicle by its own content fingerprint,
+        // so the React/WebView room summary must follow the same rule as the
+        // physical coordinator and the WPF fallback summary.
+        const bool requireSameVehicleDefinition = false;
         var reports = remotes
             .Select(player => OmsiCompatibilityEvaluator.Compare(
                 localManifest,
                 player.Compatibility,
-                requirePhysicalVehicle))
+                requireSameVehicleDefinition))
             .ToArray();
 
         var blocking = reports.Count(report => report.HasBlockingIssues);
