@@ -1,4 +1,5 @@
 using System.Windows;
+using NavBR.Client.Diagnostics;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
@@ -302,26 +303,90 @@ public static class OmsiPluginBridgeRelay
         PluginBridgeMessage command,
         CancellationToken cancellationToken)
     {
+        var commandId = string.IsNullOrWhiteSpace(command.CommandId)
+            ? Guid.NewGuid().ToString("N")
+            : command.CommandId;
+        var normalized = command with { CommandId = commandId };
+        var instanceId =
+            normalized.VehicleInstanceId ??
+            normalized.CharacterInstanceId ??
+            normalized.PlayerId ??
+            "-";
+        var trace = ShouldTraceCommand(normalized.Type);
+
         if (Application.Current is not App app || !app.PluginBridge.IsConnected)
         {
+            if (trace)
+            {
+                NavBRAppLog.Info(
+                    "plugin-bridge-command-skipped",
+                    $"type={normalized.Type} id={instanceId} command={commandId} reason=disconnected");
+            }
             return null;
         }
 
         try
         {
-            return await app.PluginBridge.SendCommandAsync(
-                command,
+            if (trace)
+            {
+                NavBRAppLog.Info(
+                    "plugin-bridge-command-send",
+                    $"type={normalized.Type} id={instanceId} command={commandId}");
+            }
+
+            var result = await app.PluginBridge.SendCommandAsync(
+                normalized,
                 TimeSpan.FromSeconds(5),
                 cancellationToken);
+
+            if (trace || result.Success != true)
+            {
+                NavBRAppLog.Info(
+                    "plugin-bridge-command-result",
+                    $"type={normalized.Type} id={instanceId} command={commandId} " +
+                    $"success={result.Success?.ToString() ?? "-"} error={result.ErrorCode ?? "-"} " +
+                    $"parts={result.RemoteVehicleCount?.ToString() ?? "-"} detail={SanitizeBridgeDetail(result.ErrorMessage)}");
+            }
+
+            return result;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
+            if (trace)
+            {
+                NavBRAppLog.Info(
+                    "plugin-bridge-command-cancelled",
+                    $"type={normalized.Type} id={instanceId} command={commandId} detail={SanitizeBridgeDetail(ex.Message)}");
+            }
             return null;
         }
-        catch
+        catch (Exception ex)
         {
+            NavBRAppLog.Info(
+                "plugin-bridge-command-exception",
+                $"type={normalized.Type} id={instanceId} command={commandId} " +
+                $"exception={ex.GetType().Name} detail={SanitizeBridgeDetail(ex.Message)}");
             return null;
         }
+    }
+
+    private static bool ShouldTraceCommand(string type) =>
+        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.ReleaseRoleplayCharacter, StringComparison.Ordinal);
+
+    private static string SanitizeBridgeDetail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        var detail = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return detail.Length <= 320 ? detail : detail[..320];
     }
 
     private static async Task SendBestEffortAsync(
