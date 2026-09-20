@@ -1630,7 +1630,7 @@ function CompanyNetwork({
     if (!companyNetwork.assignableRoles.includes(inviteRole)) setInviteRole(companyNetwork.assignableRoles.includes("Driver") ? "Driver" : companyNetwork.assignableRoles[0] || "Driver");
   }, [companyNetwork?.membership?.nodeUrl, companyNetwork?.assignableRoles]);
 
-  if (!companyNetwork?.available) return <div className="card empty-state">{pick("Aguardando o runtime da Rede da Empresa…", "Waiting for Company Network runtime…", "Esperando el runtime de la Red de Empresa…", "Warte auf Company-Network-Runtime…", "En attente du runtime Réseau Entreprise…")}</div>;
+  if (!companyNetwork?.available) return <div className="card empty-state">{pick("Carregando Rede da Empresa…", "Loading Company Network…", "Cargando Red de Empresa…", "Unternehmensnetz wird geladen…", "Chargement du Réseau Entreprise…")}</div>;
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
@@ -1640,7 +1640,7 @@ function CompanyNetwork({
     <>
       <header className="topbar company-network-header">
         <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Gerencie sua empresa, equipe e convites online em um só lugar.", "Manage your company, team and online invites in one place.", "Gestiona tu empresa, equipo e invitaciones online en un solo lugar.", "Verwalte Unternehmen, Team und Online-Einladungen an einem Ort.", "Gérez votre entreprise, votre équipe et vos invitations en ligne au même endroit.")}</p></div>
-        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
+        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? pick("Empresa online", "Company online", "Empresa online", "Unternehmen online", "Entreprise en ligne") : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
       </header>
       {error && <div className="command-error">{error}</div>}
       <section className="company-network-metrics">
@@ -2659,7 +2659,7 @@ function Settings({
           <article className="card compact-card">
             <span className="eyebrow">ROADMAP</span>
             <h3>Roadmap Studio</h3>
-            <p>{pick("Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.", "Analysis, tile assembly and vector generation from splines already use native services through the React interface.", "El análisis, montaje por tiles y generación vectorial por splines ya usan los servicios nativos desde la interfaz React.", "Analyse, Tile-Zusammenbau und Vektorerzeugung aus Splines verwenden bereits native Dienste über die React-Oberfläche.", "L’analyse, l’assemblage des tiles et la génération vectorielle par splines utilisent déjà les services natifs via l’interface React.")}</p>
+            <p>{pick("Analise mapas, monte o roadmap e gere a visão vetorial das ruas em um só lugar.", "Analyze maps, assemble the roadmap and generate the vector road view in one place.", "Analiza mapas, monta el roadmap y genera la vista vectorial de las calles en un solo lugar.", "Analysiere Karten, erstelle die Roadmap und erzeuge die Vektoransicht der Straßen an einem Ort.", "Analysez les cartes, assemblez la roadmap et générez la vue vectorielle des routes au même endroit.")}</p>
             <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
           </article>
         </section>
@@ -2822,7 +2822,7 @@ function RoleplayPanel({
               <h3>{roleplay.active ? current?.characterName || roleplay.selected?.displayName || pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif") : roleplay.selected?.displayName || pick("Nenhum personagem selecionado", "No character selected", "Ningún personaje seleccionado", "Kein Charakter ausgewählt", "Aucun personnage sélectionné")}</h3>
             </div>
             <span className={`hardware-state-pill ${roleplay.runtimeAvailable ? "connected" : ""}`}>
-              {roleplay.runtimeAvailable ? pick("Bridge RP disponível", "RP Bridge available", "Bridge RP disponible", "RP-Bridge verfügbar", "Bridge RP disponible") : pick("Bridge RP indisponível", "RP Bridge unavailable", "Bridge RP no disponible", "RP-Bridge nicht verfügbar", "Bridge RP indisponible")}
+              {roleplay.runtimeAvailable ? pick("Integração disponível", "Integration available", "Integración disponible", "Integration verfügbar", "Intégration disponible") : pick("Integração indisponível", "Integration unavailable", "Integración no disponible", "Integration nicht verfügbar", "Intégration indisponible")}
             </span>
           </div>
 
@@ -3276,7 +3276,7 @@ function Multiplayer({
         <div>
           <span className="eyebrow">{pick("CENTRAL MULTIPLAYER", "MULTIPLAYER CENTER", "CENTRAL MULTIJUGADOR", "MULTIPLAYER-ZENTRALE", "CENTRALE MULTIJOUEUR")}</span>
           <h1>{pick("Sessão NavBR", "NavBR session", "Sesión NavBR", "NavBR-Sitzung", "Session NavBR")}</h1>
-          <p>{pick("Estado real da sala, jogadores, chat, voz e personagem vindo do controlador C#.", "Real room, players, chat, voice and character state from the C# controller.", "Estado real de sala, jugadores, chat, voz y personaje desde el controlador C#.", "Echter Raum-, Spieler-, Chat-, Sprach- und Charakterstatus aus dem C#-Controller.", "État réel de la salle, des joueurs, du chat, de la voix et du personnage depuis le contrôleur C#.")}</p>
+          <p>{pick("Gerencie sala, jogadores, chat, voz e personagem em tempo real.", "Manage room, players, chat, voice and character in real time.", "Gestiona sala, jugadores, chat, voz y personaje en tiempo real.", "Verwalte Raum, Spieler, Chat, Sprache und Charakter in Echtzeit.", "Gérez la salle, les joueurs, le chat, la voix et le personnage en temps réel.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${multiplayer.connected ? "connected" : ""}`}>
@@ -4081,7 +4081,7 @@ function Multiplayer({
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
             <h3>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</h3>
-            <p>{pick("Presets, tema, escala, opacidade e módulos são configurados na interface React.", "Presets, theme, scale, opacity and modules are configured in the React interface.", "Presets, tema, escala, opacidad y módulos se configuran en la interfaz React.", "Presets, Thema, Skalierung, Deckkraft und Module werden in der React-Oberfläche konfiguriert.", "Les presets, le thème, l’échelle, l’opacité et les modules se configurent dans l’interface React.")}</p>
+            <p>{pick("Ajuste presets, tema, escala, opacidade e módulos do HUD.", "Adjust HUD presets, theme, scale, opacity and modules.", "Ajusta presets, tema, escala, opacidad y módulos del HUD.", "Passe HUD-Presets, Thema, Skalierung, Deckkraft und Module an.", "Réglez les préréglages, le thème, l’échelle, l’opacité et les modules du HUD.")}</p>
             <button className="button ghost" onClick={onOpenHud}>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</button>
           </article>
           <article className="card compact-card">
@@ -4667,11 +4667,11 @@ function Help({ state }: { state: NavBrState | null }) {
             </div>
           </div>
           <p>{pick(
-            "Escolha o idioma no seletor da barra lateral, leia os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto. A interface principal agora é React/WebView2; o WPF antigo não é aberto como tela de uso.",
-            "Choose your language from the sidebar selector, review the essential steps below, and complete first run when ready. The primary interface is now React/WebView2; the retired WPF UI is not opened as a user-facing screen.",
-            "Elige el idioma en el selector lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo. La interfaz principal ahora es React/WebView2.",
-            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab. Die primäre Oberfläche ist jetzt React/WebView2.",
-            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage. L’interface principale est désormais React/WebView2."
+            "Escolha o idioma na barra lateral, confira os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto.",
+            "Choose your language from the sidebar, review the essential steps below, and complete first run when ready.",
+            "Elige el idioma en la barra lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo.",
+            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab.",
+            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage."
           )}</p>
           <div className="room-actions">
             <button className="button primary" onClick={() => sendCommand("completeFirstRun")}>
