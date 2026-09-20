@@ -159,8 +159,11 @@ internal static class PhysicalVehicleBackend
         (1 << 2) |
         (1 << 3) |
         (1 << 5);
+    // Busweave/OmsiHook's guarded spawn bridge allows up to 20 seconds for
+    // OMSI to register/materialize a road vehicle. Match that proven window
+    // before declaring a remote bus visually dead.
     private static readonly TimeSpan MaterializationTimeout =
-        TimeSpan.FromSeconds(15);
+        TimeSpan.FromSeconds(20);
     private static int _retainedVehiclePathStrings;
 
     public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
@@ -497,13 +500,27 @@ internal static class PhysicalVehicleBackend
             return Fail(
                 command,
                 "spawn-model-timeout",
-                $"OMSI kept RoadVehicle 0x{instance.VehiclePointer:X8} alive for {age.TotalSeconds:F1}s, but its visual model never completed materialization (flags=0x{flags:X2}, required=0x{RequiredMaterializationFlags:X2}).");
+                $"OMSI kept RoadVehicle 0x{instance.VehiclePointer:X8} alive for {age.TotalSeconds:F1}s, but its visual model never completed materialization (flags=0x{flags:X2} [{DescribeMaterializationFlags(flags)}], required=0x{RequiredMaterializationFlags:X2}).");
         }
 
         return Fail(
             command,
             "spawn-model-pending",
-            $"OMSI created and positioned RoadVehicle 0x{instance.VehiclePointer:X8}; its visual model is still materializing (flags=0x{flags:X2}, required=0x{RequiredMaterializationFlags:X2}, age={age.TotalMilliseconds:F0}ms).");
+            $"OMSI created and positioned RoadVehicle 0x{instance.VehiclePointer:X8}; its visual model is still materializing (flags=0x{flags:X2} [{DescribeMaterializationFlags(flags)}], required=0x{RequiredMaterializationFlags:X2}, age={age.TotalMilliseconds:F0}ms).");
+    }
+
+    private static string DescribeMaterializationFlags(int flags)
+    {
+        var names = new List<string>(8);
+        if ((flags & (1 << 0)) != 0) names.Add("definition");
+        if ((flags & (1 << 1)) != 0) names.Add("complObj");
+        if ((flags & (1 << 2)) != 0) names.Add("fileObject");
+        if ((flags & (1 << 3)) != 0) names.Add("complMapObjDefinition");
+        if ((flags & (1 << 4)) != 0) names.Add("kachel");
+        if ((flags & (1 << 5)) != 0) names.Add("model");
+        if ((flags & (1 << 6)) != 0) names.Add("onLoadedKachel");
+        if ((flags & (1 << 7)) != 0) names.Add("wasCalculated");
+        return names.Count == 0 ? "none" : string.Join(",", names);
     }
 
     private static PluginBridgeMessage Update(PluginBridgeMessage command)
