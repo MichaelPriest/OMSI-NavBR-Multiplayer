@@ -29,7 +29,13 @@ type MobileState = {
     doors: string; lights: string; turnSignal: string; hornActive: boolean; wipersActive: boolean;
     parkingBrakeActive: boolean; reverseGear: boolean; stopRequested: boolean; isInGame: boolean;
   } | null;
-  vehicleControls: { writable: boolean; writeReason?: string | null; detectedEvents: string[] };
+  vehicleControls: {
+    writable: boolean;
+    enabled: boolean;
+    capabilityAvailable: boolean;
+    writeReason?: string | null;
+    detectedEvents: string[];
+  };
   navigation: {
     available: boolean; mapName?: string | null; line?: string | null; route?: string | null;
     destinationName?: string | null; nextStopName?: string | null; currentStreetName?: string | null;
@@ -62,6 +68,12 @@ const fmtDistance = (v?: number | null) => v == null ? "—" : v >= 1000 ? `${(v
 const fmtEta = (v?: number | null) => v == null ? "—" : `${Math.max(0, Math.round(v / 60))} min`;
 const fmtPercent = (v?: number | null) => v == null ? "—" : `${Math.round(v)}%`;
 const clampPct = (v?: number | null) => Math.max(0, Math.min(100, v ?? 0));
+const friendlyControlName = (value: string) =>
+  value
+    .replace(/^bus_/i, "")
+    .replace(/^cockpit_/i, "")
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
 
 function RouteMap({ state }: { state: MobileState["navigation"] }) {
   const points = state.routePoints || [], rejoin = state.rejoinPoints || [], vehicle = state.vehicle;
@@ -136,6 +148,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
+  const [controlFilter, setControlFilter] = useState("");
+  const [controlFavorites, setControlFavorites] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("navbr-mobile-control-favorites") || "[]");
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string").slice(0, 32) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const autoDiscover = async () => {
     if (!native) return;
@@ -207,6 +228,16 @@ export default function App() {
     };
   }, [pttHeld, serverBase, pairing]);
 
+  const toggleControlFavorite = (eventName: string) => {
+    setControlFavorites(current => {
+      const next = current.includes(eventName)
+        ? current.filter(item => item !== eventName)
+        : [...current, eventName].slice(-32);
+      localStorage.setItem("navbr-mobile-control-favorites", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const pair = (e: FormEvent) => {
     e.preventDefault();
     const value = draft.trim().toUpperCase();
@@ -234,6 +265,13 @@ export default function App() {
   }
 
   const nav = state?.navigation, vehicle = state?.vehicle, mp = state?.multiplayer;
+  const availableControls = (state?.vehicleControls.detectedEvents || [])
+    .filter(name => !controlFilter.trim() || name.toLowerCase().includes(controlFilter.trim().toLowerCase()))
+    .sort((a, b) => {
+      const favoriteOrder = Number(controlFavorites.includes(b)) - Number(controlFavorites.includes(a));
+      return favoriteOrder || a.localeCompare(b);
+    });
+
   return <main className="app-shell">
     <header className="mobile-header">
       <div><span className="eyebrow">NAVBR MOBILE · ALPHA 2</span><strong>{vehicle?.line || "—"} <i>·</i> {vehicle?.route || "—"}</strong></div>
@@ -269,7 +307,47 @@ export default function App() {
           <StatusChip label="BUZINA" value={vehicle?.hornActive ? "ATIVA" : "NÃO"} active={!!vehicle?.hornActive} />
         </div>
         <div className="telemetry-card"><StatusRow label="Aceleração" value={vehicle?.accelerationMps2 == null ? "—" : `${vehicle.accelerationMps2.toFixed(2)} m/s²`} /><StatusRow label="Rumo" value={vehicle?.headingDegrees == null ? "—" : `${Math.round(vehicle.headingDegrees)}°`} /><StatusRow label="Atraso" value={vehicle?.delaySeconds == null ? "—" : `${vehicle.delaySeconds > 0 ? "+" : ""}${vehicle.delaySeconds}s`} /><StatusRow label="Eventos reais detectados" value={String(state?.vehicleControls.detectedEvents.length || 0)} /></div>
-        {!state?.vehicleControls.writable && <div className="ibis-warning">O painel já lê o ônibus real. Botões de escrita só serão liberados quando o Plugin Bridge tiver uma capacidade segura para o veículo local.</div>}
+
+        <div className="vehicle-controls-card">
+          <div className="section-title">
+            <div><small>CONTROLES REAIS</small><h2>Painel do veículo</h2></div>
+            <b className={state?.vehicleControls.writable ? "good" : "bad"}>{state?.vehicleControls.writable ? "LIBERADO" : "BLOQUEADO"}</b>
+          </div>
+          <input className="control-search" value={controlFilter} onChange={e => setControlFilter(e.target.value)} placeholder="Buscar evento do ônibus…" />
+          {availableControls.length === 0
+            ? <div className="map-empty compact-empty">Nenhum mouse event real encontrado para este veículo.</div>
+            : <div className="vehicle-control-grid">
+                {availableControls.map(eventName => {
+                  const favorite = controlFavorites.includes(eventName);
+                  return <div className={`vehicle-control-item ${favorite ? "favorite" : ""}`} key={eventName}>
+                    <button className="favorite-button" onClick={() => toggleControlFavorite(eventName)} aria-label="Favoritar controle">{favorite ? "★" : "☆"}</button>
+                    <button
+                      className="vehicle-trigger-button"
+                      disabled={!state?.vehicleControls.writable}
+                      onPointerDown={e => {
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        navigator.vibrate?.(12);
+                        void sendCommand("vehicle-trigger", { triggerName: eventName, active: true });
+                      }}
+                      onPointerUp={() => void sendCommand("vehicle-trigger", { triggerName: eventName, active: false })}
+                      onPointerCancel={() => void sendCommand("vehicle-trigger", { triggerName: eventName, active: false })}
+                      onLostPointerCapture={() => void sendCommand("vehicle-trigger", { triggerName: eventName, active: false })}
+                    >
+                      <strong>{friendlyControlName(eventName)}</strong>
+                      <small>{eventName}</small>
+                    </button>
+                  </div>;
+                })}
+              </div>}
+        </div>
+
+        {!state?.vehicleControls.writable && <div className="ibis-warning">
+          {!state?.vehicleControls.enabled
+            ? "Ative “Controles do ônibus pelo celular (EXPERIMENTAL)” no NavBR do PC."
+            : !state?.vehicleControls.capabilityAvailable
+              ? "A autorização está ligada, mas o Plugin Bridge ainda não informou a capacidade local-vehicle-trigger."
+              : "O NavBR ainda não confirmou eventos reais utilizáveis para este ônibus."}
+        </div>}
       </div>}
 
       {tab === "ibis" && <div><div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable ? "OPERACIONAL" : "LEITURA"}</b></div><div className="ibis-display"><label>LINHA<strong>{state?.ibis.line || "—"}</strong></label><label>ROTA / CURSO<strong>{state?.ibis.route || "—"}</strong></label><label>DESTINO<strong>{state?.ibis.destination || "—"}</strong></label><label>HOF<strong>{state?.ibis.hof || "—"}</strong></label><label>PRÓXIMA PARADA<strong>{state?.ibis.nextStop || "—"}</strong></label><label>ATRASO<strong>{state?.ibis.delaySeconds == null ? "—" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</strong></label></div>{!state?.ibis.writable && <div className="ibis-warning">IBIS continua usando somente dados reais. A escrita será ligada quando existir capacidade nativa específica no Plugin Bridge.</div>}</div>}
