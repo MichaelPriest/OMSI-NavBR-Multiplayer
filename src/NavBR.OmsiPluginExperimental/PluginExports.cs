@@ -32,6 +32,7 @@ public static class PluginExports
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
             PhysicalVehicleMotionController.Clear();
+            PhysicalVehicleLifecycleSupervisor.ClearManagedState();
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
             PluginBridgeClient.Start(Log);
         }
@@ -48,6 +49,7 @@ public static class PluginExports
         {
             RoleplayCharacterBackend.ReleaseAllBestEffort();
             PhysicalVehicleBackend.MarkAllOwnedVehiclesForRemoval();
+            PhysicalVehicleLifecycleSupervisor.ClearManagedState();
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -158,6 +160,11 @@ public static class PluginExports
                     maxCommands,
                     PluginBridgeClient.QueueCommandResult);
 
+                // Keep physical ownership alive inside the OMSI callback even
+                // if the desktop misses a response or a pointer has to be
+                // recreated. At most one native retry is performed per tick.
+                PhysicalVehicleLifecycleSupervisor.Tick();
+
                 // Remote buses receive network targets at a lower cadence than
                 // OMSI's callback loop. The motion controller has its own
                 // adaptive rate and skips settled vehicles entirely.
@@ -249,6 +256,7 @@ public static class PluginExports
                 $"trafficCount={PluginBridgeClient.TrafficVehicleCount} " +
                 $"trafficAuthority={PluginBridgeClient.TrafficAuthorityPlayerId ?? "-"} " +
                 $"physicalQueue={OmsiThreadCommandQueue.Count} " +
+                $"physicalLifecycle={PhysicalVehicleLifecycleSupervisor.Summary} " +
                 $"staleRemoved={staleRemoved} {remoteSummary}");
         }
         catch (Exception ex)

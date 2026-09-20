@@ -66,11 +66,16 @@ internal static class ExperimentalVehicleCommandProcessor
 
         try
         {
-            return PhysicalVehicleBackend.Execute(command);
+            PhysicalVehicleLifecycleSupervisor.ObserveCommand(command);
+            var result = PhysicalVehicleBackend.Execute(command);
+            PhysicalVehicleLifecycleSupervisor.ObserveResult(command, result);
+            return result;
         }
         catch (Exception ex)
         {
-            return Result(command, false, "backend-error", ex.Message);
+            var result = Result(command, false, "backend-error", ex.Message);
+            PhysicalVehicleLifecycleSupervisor.ObserveResult(command, result);
+            return result;
         }
     }
 

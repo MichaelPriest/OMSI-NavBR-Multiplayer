@@ -27,6 +27,28 @@ internal static class OmsiThreadCommandQueue
     {
         lock (Sync)
         {
+            // Network movement updates are superseding state, not an event
+            // stream. Keep only the newest queued update for each physical
+            // instance so a temporary FPS/network stall cannot make OMSI
+            // replay seconds of stale positions.
+            if (IsLightweightUpdate(command.Type) &&
+                TryGetTargetId(command, out var targetId))
+            {
+                var existing = Pending.ToArray();
+                Pending.Clear();
+                foreach (var candidate in existing)
+                {
+                    if (IsLightweightUpdate(candidate.Type) &&
+                        TryGetTargetId(candidate, out var candidateId) &&
+                        string.Equals(candidateId, targetId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    Pending.Enqueue(candidate);
+                }
+            }
+
             if (Pending.Count >= MaxPendingCommands)
             {
                 return false;
@@ -73,15 +95,54 @@ internal static class OmsiThreadCommandQueue
     {
         lock (Sync)
         {
-            if (Pending.TryDequeue(out var candidate))
+            var count = Pending.Count;
+            if (count == 0)
             {
-                command = candidate;
-                return true;
+                command = null!;
+                return false;
             }
-        }
 
-        command = null!;
-        return false;
+            // Spawn/despawn changes OMSI object ownership and must not sit
+            // behind a burst of position updates. Preserve FIFO order inside
+            // the lifecycle class while prioritising it over superseding
+            // movement messages.
+            PluginBridgeMessage? selected = null;
+            List<PluginBridgeMessage>? deferred = null;
+            for (var index = 0; index < count; index++)
+            {
+                var candidate = Pending.Dequeue();
+                if (selected is null && IsLifecycleCommand(candidate.Type))
+                {
+                    selected = candidate;
+                    continue;
+                }
+
+                (deferred ??= new List<PluginBridgeMessage>()).Add(candidate);
+            }
+
+            if (selected is null && deferred is { Count: > 0 })
+            {
+                selected = deferred[0];
+                deferred.RemoveAt(0);
+            }
+
+            if (deferred is not null)
+            {
+                foreach (var candidate in deferred)
+                {
+                    Pending.Enqueue(candidate);
+                }
+            }
+
+            if (selected is null)
+            {
+                command = null!;
+                return false;
+            }
+
+            command = selected;
+            return true;
+        }
     }
 
     private static bool TryDequeueLightweightUpdate(out PluginBridgeMessage command)
@@ -130,6 +191,23 @@ internal static class OmsiThreadCommandQueue
     private static bool IsLightweightUpdate(string type) =>
         string.Equals(type, PluginBridgeProtocol.UpdateRemoteVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal);
+
+    private static bool IsLifecycleCommand(string type) =>
+        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
+
+    private static bool TryGetTargetId(
+        PluginBridgeMessage command,
+        out string targetId)
+    {
+        targetId = (
+            command.VehicleInstanceId ??
+            command.PlayerId ??
+            string.Empty).Trim();
+        return targetId.Length is > 0 and <= 128;
+    }
 
     private static void Process(
         PluginBridgeMessage command,

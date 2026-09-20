@@ -494,6 +494,9 @@ internal static class PluginBridgeClient
         RemoteVehicles.Clear();
         TrafficVehicles.Clear();
         OmsiThreadCommandQueue.Clear();
+        // The pipe worker cannot touch OMSI objects directly. Ask the callback
+        // thread to clean up plugin-owned physical lifecycle state safely.
+        PhysicalVehicleLifecycleSupervisor.RequestReset();
     }
 
     private static bool IsValidLocalState(PluginBridgeMessage message)
