@@ -1635,6 +1635,34 @@ h3 { margin:6px 0 16px; font-size:19px; }
 }
 
 
+.plugin-file-verification {
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin:12px 0;
+}
+.plugin-file-verification span {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 8px;
+  border:1px solid #253b49;
+  border-radius:8px;
+  background:#081721;
+  color:#8fa6b5;
+  font:600 10px/1.2 Consolas,monospace;
+}
+.plugin-file-verification span.verified {
+  border-color:#28543f;
+  background:#0b2018;
+  color:#7bd7a5;
+}
+.plugin-file-verification span.mismatch {
+  border-color:#614529;
+  background:#241a0e;
+  color:#f4bd74;
+}
+
 .plugin-update-actions {
   display: grid;
   gap: 8px;

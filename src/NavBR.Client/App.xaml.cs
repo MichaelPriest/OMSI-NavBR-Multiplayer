@@ -25,6 +25,7 @@ public partial class App : Application
     internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
 
     private CancellationTokenSource? _deferredPluginUpdateCts;
+    private string? _deferredPluginUpdateRoot;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -106,6 +107,9 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _deferredPluginUpdateCts?.Cancel();
+        _deferredPluginUpdateCts?.Dispose();
+        _deferredPluginUpdateCts = null;
+        _deferredPluginUpdateRoot = null;
         TrayIcon.PrepareForSystemExit();
         TrayIcon.Dispose();
 
@@ -149,6 +153,29 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    internal bool IsPluginUpdateScheduledFor(string? omsiRoot)
+    {
+        if (string.IsNullOrWhiteSpace(omsiRoot) ||
+            string.IsNullOrWhiteSpace(_deferredPluginUpdateRoot) ||
+            _deferredPluginUpdateCts is null ||
+            _deferredPluginUpdateCts.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(omsiRoot)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(_deferredPluginUpdateRoot)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     internal void SchedulePluginUpdateWhenOmsiCloses(string omsiRoot)
     {
         if (string.IsNullOrWhiteSpace(omsiRoot))
@@ -156,15 +183,23 @@ public partial class App : Application
             return;
         }
 
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(omsiRoot));
+        if (IsPluginUpdateScheduledFor(normalizedRoot))
+        {
+            return;
+        }
+
         _deferredPluginUpdateCts?.Cancel();
         _deferredPluginUpdateCts?.Dispose();
         _deferredPluginUpdateCts = new CancellationTokenSource();
+        _deferredPluginUpdateRoot = normalizedRoot;
         _ = InstallPluginWhenOmsiClosesAsync(
-            omsiRoot,
+            normalizedRoot,
             _deferredPluginUpdateCts.Token);
     }
 
-    private static async Task InstallPluginWhenOmsiClosesAsync(
+    private async Task InstallPluginWhenOmsiClosesAsync(
         string omsiRoot,
         CancellationToken cancellationToken)
     {
@@ -225,6 +260,16 @@ public partial class App : Application
                 "plugin-bootstrap",
                 "warning",
                 $"status=deferred-failed type={ex.GetType().Name}");
+        }
+        finally
+        {
+            if (_deferredPluginUpdateCts is not null &&
+                _deferredPluginUpdateCts.Token == cancellationToken)
+            {
+                _deferredPluginUpdateCts.Dispose();
+                _deferredPluginUpdateCts = null;
+                _deferredPluginUpdateRoot = null;
+            }
         }
     }
 

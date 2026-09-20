@@ -67,8 +67,8 @@ public partial class MainWindow
                     !string.IsNullOrWhiteSpace(pluginOmsiRoot),
                 updateRequired = pluginInstall.UpdateRequired,
                 autoUpdatePending =
-                    omsiRunningForPluginUpdate &&
-                    pluginInstall.UpdateRequired,
+                    Application.Current is App app &&
+                    app.IsPluginUpdateScheduledFor(pluginOmsiRoot),
                 expectedVersion = pluginInstall.ExpectedVersion,
                 installedVersion = pluginInstall.InstalledVersion,
                 checkedAtUtc = pluginInstall.CheckedAtUtc,
