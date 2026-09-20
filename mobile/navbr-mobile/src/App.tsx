@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Point = { x: number; y: number };
@@ -59,7 +60,20 @@ function RouteMap({ state }: { state: MobileState["navigation"] }) {
   </svg>;
 }
 
+const normalizeServer = (value:string) => {
+  const raw=value.trim();
+  if (!raw) return "";
+  const withScheme=/^https?:\/\//i.test(raw)?raw:`http://${raw}`;
+  const url=new URL(withScheme);
+  if (!url.port) url.port="27731";
+  return url.origin;
+};
+
 export default function App() {
+  const native=Capacitor.isNativePlatform();
+  const browserOrigin=typeof window!=="undefined" && /^https?:$/i.test(window.location.protocol) ? window.location.origin : "";
+  const [serverBase,setServerBase] = useState(() => localStorage.getItem("navbr-mobile-server") || (native ? "" : browserOrigin));
+  const [serverDraft,setServerDraft] = useState(serverBase);
   const [pairing,setPairing] = useState(() => localStorage.getItem("navbr-mobile-pairing") || "");
   const [draft,setDraft] = useState(pairing);
   const [state,setState] = useState<MobileState|null>(null);
@@ -67,11 +81,15 @@ export default function App() {
   const [error,setError] = useState<string|null>(null);
 
   useEffect(() => {
-    if (!pairing) return;
+    if (!pairing || !serverBase) return;
     let active = true;
     const read = async () => {
       try {
-        const response = await fetch("./api/mobile/state",{headers:{"X-NavBR-Mobile-Code":pairing},cache:"no-store"});
+        const response = await fetch(`${serverBase}/api/mobile/state`,{
+          headers:{"X-NavBR-Mobile-Code":pairing},
+          cache:"no-store",
+          mode:"cors"
+        });
         if (response.status === 401) throw new Error("Código de pareamento inválido.");
         if (!response.ok) throw new Error(`NavBR respondeu HTTP ${response.status}.`);
         const next = await response.json() as MobileState;
@@ -83,22 +101,40 @@ export default function App() {
     void read();
     const timer = window.setInterval(read,700);
     return () => { active=false; window.clearInterval(timer); };
-  },[pairing]);
+  },[pairing,serverBase]);
 
   const pair = (e:FormEvent) => {
     e.preventDefault();
     const value=draft.trim().toUpperCase();
+    let resolved="";
+    try {
+      resolved=normalizeServer(serverDraft || browserOrigin);
+    } catch {
+      setError("Endereço do PC inválido. Use algo como 192.168.0.10 ou http://192.168.0.10:27731.");
+      return;
+    }
+    if (!resolved) {
+      setError("Informe o endereço do PC onde o NavBR está aberto.");
+      return;
+    }
+    localStorage.setItem("navbr-mobile-server",resolved);
     localStorage.setItem("navbr-mobile-pairing",value);
+    setServerBase(resolved);
     setPairing(value);
+    setError(null);
   };
 
-  if (!pairing || (!state && error?.includes("pareamento"))) {
+  if (!pairing || !serverBase || (!state && error?.includes("pareamento"))) {
     return <main className="pair-shell">
       <div className="brand-mark">N</div>
       <span className="eyebrow">NAVBR MOBILE COMPANION</span>
       <h1>Parear com o PC</h1>
-      <p>Digite o código mostrado no card <strong>Mobile Companion</strong> das Configurações do NavBR.</p>
-      <form onSubmit={pair}><input autoFocus value={draft} onChange={e=>setDraft(e.target.value)} placeholder="A1B2C3D4" maxLength={8}/><button>Conectar</button></form>
+      <p>{native ? "Informe o IP/endereço do PC e o código mostrados no card " : "Digite o código mostrado no card "}<strong>Mobile Companion</strong> das Configurações do NavBR.</p>
+      <form onSubmit={pair}>
+        {native && <input value={serverDraft} onChange={e=>setServerDraft(e.target.value)} placeholder="IP do PC · ex.: 192.168.0.10" inputMode="url" />}
+        <input autoFocus={!native} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Código · A1B2C3D4" maxLength={8}/>
+        <button>Conectar</button>
+      </form>
       {error && <div className="error">{error}</div>}
     </main>;
   }
@@ -119,7 +155,7 @@ export default function App() {
         {!!nav?.stopSequence?.upcomingStops?.length && <div className="stops-card"><small>PRÓXIMAS PARADAS</small>{nav.stopSequence.upcomingStops.map((s,i)=><div key={s+i}><b>{i+1}</b><span>{s}</span></div>)}</div>}
       </div>}
       {tab==="ibis" && <div><div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable?"OPERACIONAL":"LEITURA"}</b></div><div className="ibis-display"><label>LINHA<strong>{state?.ibis.line||"—"}</strong></label><label>ROTA / CURSO<strong>{state?.ibis.route||"—"}</strong></label><label>DESTINO<strong>{state?.ibis.destination||"—"}</strong></label><label>HOF<strong>{state?.ibis.hof||"—"}</strong></label><label>PRÓXIMA PARADA<strong>{state?.ibis.nextStop||"—"}</strong></label><label>ATRASO<strong>{state?.ibis.delaySeconds==null?"—":`${state.ibis.delaySeconds>0?"+":""}${state.ibis.delaySeconds}s`}</strong></label></div>{!state?.ibis.writable&&<div className="ibis-warning">Dados reais do OMSI. Escrita bloqueada até existir capacidade IBIS nativa segura no Plugin Bridge.</div>}</div>}
-      {tab==="status" && <div className="status-page"><StatusRow label="OMSI detectado" value={state?.omsi.detected?"SIM":"NÃO"} ok={!!state?.omsi.detected}/><StatusRow label="Dentro do mapa" value={state?.omsi.inGame?"SIM":"NÃO"} ok={!!state?.omsi.inGame}/><StatusRow label="Plugin Bridge" value={state?.plugin.connected?"CONECTADO":"DESCONECTADO"} ok={!!state?.plugin.connected}/><StatusRow label="Plugin" value={state?.plugin.version||"—"}/><StatusRow label="Mapa" value={state?.omsi.mapName||"—"}/><StatusRow label="Ônibus" value={vehicle?.vehicleName||"—"}/><StatusRow label="HOF" value={vehicle?.hofName||"—"}/><button className="forget" onClick={()=>{localStorage.removeItem("navbr-mobile-pairing");setPairing("");setState(null)}}>Desparear este celular</button></div>}
+      {tab==="status" && <div className="status-page"><StatusRow label="OMSI detectado" value={state?.omsi.detected?"SIM":"NÃO"} ok={!!state?.omsi.detected}/><StatusRow label="Dentro do mapa" value={state?.omsi.inGame?"SIM":"NÃO"} ok={!!state?.omsi.inGame}/><StatusRow label="Plugin Bridge" value={state?.plugin.connected?"CONECTADO":"DESCONECTADO"} ok={!!state?.plugin.connected}/><StatusRow label="Plugin" value={state?.plugin.version||"—"}/><StatusRow label="Mapa" value={state?.omsi.mapName||"—"}/><StatusRow label="Ônibus" value={vehicle?.vehicleName||"—"}/><StatusRow label="HOF" value={vehicle?.hofName||"—"}/><button className="forget" onClick={()=>{localStorage.removeItem("navbr-mobile-pairing");localStorage.removeItem("navbr-mobile-server");setPairing("");setServerBase("");setServerDraft("");setState(null)}}>Desparear este celular</button></div>}
     </section>
     <nav className="bottom-nav"><button className={tab==="gps"?"active":""} onClick={()=>setTab("gps")}><span>⌖</span>GPS</button><button className={tab==="ibis"?"active":""} onClick={()=>setTab("ibis")}><span>▣</span>IBIS</button><button className={tab==="status"?"active":""} onClick={()=>setTab("status")}><span>●</span>Status</button></nav>
   </main>;
