@@ -70,6 +70,16 @@ public partial class MultiplayerWindow
                     physicalVehiclePartCount = physicalVehicleStatus?.PartCount,
                     physicalVehicleExpectedPartCount = physicalVehicleStatus?.ExpectedPartCount,
                     physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
+                    physicalTelemetryGridX = !isLocal ? telemetry?.PhysicalGridX : null,
+                    physicalTelemetryGridY = !isLocal ? telemetry?.PhysicalGridY : null,
+                    physicalTelemetryNavigationGridX = !isLocal ? telemetry?.GridX : null,
+                    physicalTelemetryNavigationGridY = !isLocal ? telemetry?.GridY : null,
+                    physicalTelemetryTileX = !isLocal ? telemetry?.TileX : null,
+                    physicalTelemetryTileY = !isLocal ? telemetry?.TileY : null,
+                    physicalTelemetryLocalX = !isLocal ? telemetry?.LocalX : null,
+                    physicalTelemetryLocalY = !isLocal ? telemetry?.LocalY : null,
+                    physicalTelemetryLocalZ = !isLocal ? telemetry?.LocalZ : null,
+                    physicalTelemetryRemoteTileIndex = !isLocal ? telemetry?.MapTileIndex : null,
                     speaking,
                     isLocal,
                     line = telemetry?.Line,
@@ -723,12 +733,16 @@ public partial class MultiplayerWindow
         var localManifest = OmsiCompatibilityManifestFactory.Create(
             _telemetrySource(),
             _activeMapSource());
-        var requirePhysicalVehicle = _settings.ExperimentalPhysicalVehiclesEnabled;
+        // Remote drivers may use different buses and HOFs. Physical
+        // rendering resolves each remote vehicle by its own content fingerprint,
+        // so the React/WebView room summary must follow the same rule as the
+        // physical coordinator and the WPF fallback summary.
+        const bool requireSameVehicleDefinition = false;
         var reports = remotes
             .Select(player => OmsiCompatibilityEvaluator.Compare(
                 localManifest,
                 player.Compatibility,
-                requirePhysicalVehicle))
+                requireSameVehicleDefinition))
             .ToArray();
 
         var blocking = reports.Count(report => report.HasBlockingIssues);

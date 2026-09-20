@@ -44,7 +44,10 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double WalkSpeedMps = 1.45d;
     private const double RunSpeedMps = 3.25d;
     private const double BackwardSpeedMps = 1.05d;
-    private const double TurnSpeedDegreesPerSecond = 105d;
+    private const double StandingTurnSpeedDegreesPerSecond = 120d;
+    private const double MovingTurnSpeedDegreesPerSecond = 96d;
+    private const double MovementAccelerationMps2 = 4.25d;
+    private const double MovementBrakingMps2 = 6.5d;
     private const double MaxDistanceFromBusMeters = 85d;
     private const double EnterBusDistanceMeters = 8d;
     private const double MaxVerticalFollowSpeedMps = 2.75d;
@@ -85,6 +88,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private double? _lastGroundHeight;
     private string? _lastErrorCode;
     private string? _lastErrorMessage;
+    private double _signedMovementSpeedMps;
+    private bool _focusStopApplied;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -370,11 +375,28 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return false;
         }
 
-        if (!IsRuntimeAvailable)
+        if (Application.Current is not App app || !app.PluginBridge.IsConnected)
         {
             SetStatus(
-                "roleplay-plugin-unavailable",
-                "Plugin Bridge is disconnected or does not expose character-possession and character-transform.",
+                "roleplay-plugin-disconnected",
+                "Plugin Bridge is disconnected. Confirm the NavBR OMSI plugin is loaded by OMSI and restart OMSI after any plugin update.",
+                isError: true);
+            return false;
+        }
+
+        if (!app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterPossession) ||
+            !app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform))
+        {
+            var connection = app.PluginBridge.GetConnectionInfo();
+            var capabilities = connection.LastCapabilities?.Capabilities ??
+                               connection.LastStatus?.Capabilities ??
+                               Array.Empty<string>();
+            var component = string.IsNullOrWhiteSpace(connection.PluginComponentVersion)
+                ? "unknown"
+                : connection.PluginComponentVersion;
+            SetStatus(
+                "roleplay-plugin-capability-unavailable",
+                $"Plugin Bridge connected (plugin {component}) but RP capabilities are missing. Reported capabilities: {(capabilities.Length == 0 ? "none" : string.Join(", ", capabilities))}.",
                 isError: true);
             return false;
         }
@@ -484,6 +506,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
+        _signedMovementSpeedMps = 0d;
+        _focusStopApplied = false;
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
         InstallKeyboardHook();
@@ -517,6 +541,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _nativeAnimationDiagnostics = null;
             ResetNativeActivityObservation();
             _consecutiveFailures = 0;
+            _signedMovementSpeedMps = 0d;
+            _focusStopApplied = false;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -618,7 +644,75 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
             if (!RoleplayKeyboardHook.IsOmsiForeground())
             {
+                _signedMovementSpeedMps = 0d;
+                _lastTickUtc = DateTimeOffset.UtcNow;
+
+                // Key-up messages may happen after OMSI loses focus and are then
+                // intentionally ignored by the keyboard hook. Clear the entire
+                // RP key set so returning to OMSI can never resume stale motion.
+                lock (_inputSync)
+                {
+                    _pressedKeys.Clear();
+                }
+
+                if (!_focusStopApplied)
+                {
+                    var stopped = current with
+                    {
+                        Timestamp = DateTimeOffset.UtcNow,
+                        SpeedMps = 0d,
+                        Activity = RoleplayCharacterActivity.Idle
+                    };
+
+                    var stopResult = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
+                        instanceId,
+                        stopped,
+                        MultiplayerSettingsStore.Load().DisplayName);
+
+                    if (sessionGeneration != Volatile.Read(ref _sessionGeneration) ||
+                        !string.Equals(instanceId, _instanceId, StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
+                    if (stopResult?.Success != true)
+                    {
+                        _consecutiveFailures++;
+                        if (_consecutiveFailures >= 3)
+                        {
+                            await StopAsync(
+                                stopResult?.ErrorCode ??
+                                "roleplay-focus-stop-failed");
+                        }
+
+                        return;
+                    }
+
+                    _focusStopApplied = true;
+                    _consecutiveFailures = 0;
+                    UpdateNativeAnimationDiagnostics(stopResult, commandedSpeedMps: 0d);
+                    _state = stopped with
+                    {
+                        LocalX = stopResult.LocalX ?? stopped.LocalX,
+                        LocalY = stopResult.LocalY ?? stopped.LocalY,
+                        LocalZ = stopResult.LocalZ ?? stopped.LocalZ,
+                        HeadingDegrees = stopResult.HeadingDegrees ?? stopped.HeadingDegrees,
+                        SpeedMps = 0d,
+                        Activity = RoleplayCharacterActivity.Idle
+                    };
+
+                    StateChanged?.Invoke(_state);
+                    EmitNetworkState(_state);
+                    SetStatus("roleplay-paused-focus-loss");
+                }
+
                 return;
+            }
+
+            if (_focusStopApplied)
+            {
+                _focusStopApplied = false;
+                SetStatus("roleplay-active");
             }
 
             var now = DateTimeOffset.UtcNow;
@@ -644,29 +738,75 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                           _pressedKeys.Contains(VkRightShift);
             }
 
+            // Low-level hooks can be blocked by overlays, privilege boundaries
+            // or another hook in the chain. Poll the real keyboard state while
+            // OMSI owns focus so RP movement still works even if no hook event
+            // reached NavBR. Hook state remains useful for consuming the keys.
+            forward |= RoleplayKeyboardHook.IsKeyDown(VkW);
+            backward |= RoleplayKeyboardHook.IsKeyDown(VkS);
+            left |= RoleplayKeyboardHook.IsKeyDown(VkA);
+            right |= RoleplayKeyboardHook.IsKeyDown(VkD);
+            running |= RoleplayKeyboardHook.IsKeyDown(VkShift) ||
+                       RoleplayKeyboardHook.IsKeyDown(VkLeftShift) ||
+                       RoleplayKeyboardHook.IsKeyDown(VkRightShift);
+
+            var direction = forward == backward ? 0d : forward ? 1d : -1d;
+            var targetVelocity = direction switch
+            {
+                > 0d => running ? RunSpeedMps : WalkSpeedMps,
+                < 0d => -BackwardSpeedMps,
+                _ => 0d
+            };
+
+            var changingDirection =
+                Math.Abs(_signedMovementSpeedMps) > 0.01d &&
+                Math.Abs(targetVelocity) > 0.01d &&
+                Math.Sign(_signedMovementSpeedMps) != Math.Sign(targetVelocity);
+            var slowingDown =
+                Math.Abs(targetVelocity) < Math.Abs(_signedMovementSpeedMps) ||
+                changingDirection;
+            var acceleration = slowingDown
+                ? MovementBrakingMps2
+                : MovementAccelerationMps2;
+
+            _signedMovementSpeedMps = MoveTowards(
+                _signedMovementSpeedMps,
+                changingDirection ? 0d : targetVelocity,
+                acceleration * deltaSeconds);
+
+            if (!changingDirection &&
+                Math.Abs(_signedMovementSpeedMps - targetVelocity) > 0.0001d)
+            {
+                _signedMovementSpeedMps = MoveTowards(
+                    _signedMovementSpeedMps,
+                    targetVelocity,
+                    MovementAccelerationMps2 * deltaSeconds);
+            }
+
+            if (Math.Abs(_signedMovementSpeedMps) < 0.005d)
+            {
+                _signedMovementSpeedMps = 0d;
+            }
+
+            var speed = Math.Abs(_signedMovementSpeedMps);
             var heading = current.HeadingDegrees;
             if (left ^ right)
             {
+                var turnSpeed = speed > 0.15d
+                    ? MovingTurnSpeedDegreesPerSecond
+                    : StandingTurnSpeedDegreesPerSecond;
                 heading += (right ? 1d : -1d) *
-                           TurnSpeedDegreesPerSecond *
+                           turnSpeed *
                            deltaSeconds;
                 heading = NormalizeHeading(heading);
             }
 
-            var direction = forward == backward ? 0d : forward ? 1d : -1d;
-            var speed = direction switch
-            {
-                > 0d => running ? RunSpeedMps : WalkSpeedMps,
-                < 0d => BackwardSpeedMps,
-                _ => 0d
-            };
-
             var x = current.LocalX;
             var y = current.LocalY;
-            if (direction != 0d && speed > 0d)
+            if (speed > 0.005d)
             {
                 var radians = heading * Math.PI / 180d;
-                var signedDistance = direction * speed * deltaSeconds;
+                var signedDistance = _signedMovementSpeedMps * deltaSeconds;
                 x += Math.Sin(radians) * signedDistance;
                 y += Math.Cos(radians) * signedDistance;
 
@@ -680,6 +820,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                     var scale = MaxDistanceFromBusMeters / fromOrigin;
                     x = _originX + fromOriginX * scale;
                     y = _originY + fromOriginY * scale;
+                    _signedMovementSpeedMps = 0d;
+                    speed = 0d;
                 }
             }
 
@@ -696,9 +838,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 z = followedZ;
             }
 
-            var activity = speed <= 0.01d
+            var activity = speed <= 0.05d
                 ? RoleplayCharacterActivity.Idle
-                : running && direction > 0d
+                : _signedMovementSpeedMps > WalkSpeedMps * 1.15d
                     ? RoleplayCharacterActivity.Running
                     : RoleplayCharacterActivity.Walking;
 
@@ -870,6 +1012,28 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _nativeActivityLastTransitionAtUtc = null;
     }
 
+    private static double MoveTowards(
+        double current,
+        double target,
+        double maxDelta)
+    {
+        if (!double.IsFinite(current) ||
+            !double.IsFinite(target) ||
+            !double.IsFinite(maxDelta) ||
+            maxDelta <= 0d)
+        {
+            return target;
+        }
+
+        var delta = target - current;
+        if (Math.Abs(delta) <= maxDelta)
+        {
+            return target;
+        }
+
+        return current + Math.Sign(delta) * maxDelta;
+    }
+
     private static int? NormalizeOptionalByte(int? value) =>
         value is >= byte.MinValue and <= byte.MaxValue
             ? value
@@ -969,6 +1133,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         catch
         {
             _keyboardHook = null;
+            SetStatus("roleplay-active-keyboard-polling");
         }
     }
 

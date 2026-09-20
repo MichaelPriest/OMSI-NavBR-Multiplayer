@@ -21,13 +21,16 @@ internal sealed class OmsiRouteRejoinPathfinder
     private const int MaxSamplesPerSpline = 128;
     private const double EndpointJoinMeters = 8d;
     private const double EndpointJoinVerticalMeters = 3d;
-    private const double MaxSnapToRoadMeters = 18d;
+    private const double MaxSnapToRoadMeters = 65d;
     private const double MaxRejoinSearchMeters = 2200d;
+    private const double RejoinAheadMeters = 90d;
+    private const int MaxTileSearchMargin = 3;
     private const int MaxTilesPerSearch = 100;
     private const int MaxOutputPoints = 260;
 
     private string? _mapKey;
     private string? _lastSearchKey;
+    private string? _lastDiagnosticSignature;
     private OmsiRouteRejoinPath? _lastResult;
     private Dictionary<(int X, int Y), string> _tileCatalog = new();
     private readonly Dictionary<string, CachedTile> _tileCache =
@@ -47,12 +50,40 @@ internal sealed class OmsiRouteRejoinPathfinder
             telemetry.TileX is not double vehicleTileX ||
             telemetry.TileY is not double vehicleTileY)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "input-missing",
+                telemetry.GridX,
+                telemetry.GridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
         EnsureMap(map);
         if (_tileCatalog.Count == 0)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "tile-catalog-empty",
+                vehicleGridX,
+                vehicleGridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -61,12 +92,30 @@ internal sealed class OmsiRouteRejoinPathfinder
             vehicleGridY * tileSize + vehicleTileY,
             0d);
 
-        var targetTrace = FindNearestRoutePoint(
+        // Rejoin slightly ahead of the closest route position instead of
+        // steering back to a point the bus has effectively already passed.
+        // The .ttr trace is ordered, so this keeps the recovery path aligned
+        // with the active route direction without inventing road geometry.
+        var targetTrace = FindRejoinTarget(
             vehicle,
             routeTrace,
             tileSize);
         if (targetTrace is null)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "target-missing",
+                vehicleGridX,
+                vehicleGridY,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -79,6 +128,20 @@ internal sealed class OmsiRouteRejoinPathfinder
             directDistance < 1d ||
             directDistance > MaxRejoinSearchMeters)
         {
+            WriteRejoinDiagnostics(
+                map,
+                "direct-distance-invalid",
+                vehicleGridX,
+                vehicleGridY,
+                targetTrace.GridX,
+                targetTrace.GridY,
+                directDistance,
+                0,
+                0,
+                0,
+                0,
+                null,
+                null);
             return null;
         }
 
@@ -94,91 +157,171 @@ internal sealed class OmsiRouteRejoinPathfinder
         _lastSearchKey = searchKey;
         _lastResult = null;
 
-        var minGridX = Math.Min(vehicleGridX, targetTrace.GridX) - 1;
-        var maxGridX = Math.Max(vehicleGridX, targetTrace.GridX) + 1;
-        var minGridY = Math.Min(vehicleGridY, targetTrace.GridY) - 1;
-        var maxGridY = Math.Max(vehicleGridY, targetTrace.GridY) + 1;
+        var lastReason = "search-exhausted";
+        var lastMargin = 0;
+        var lastTileCount = 0;
+        var lastSegmentCount = 0;
+        var lastNodeCount = 0;
+        double? lastStartSnap = null;
+        double? lastTargetSnap = null;
 
-        var selectedTiles = _tileCatalog
-            .Where(pair =>
-                pair.Key.X >= minGridX &&
-                pair.Key.X <= maxGridX &&
-                pair.Key.Y >= minGridY &&
-                pair.Key.Y <= maxGridY)
-            .Take(MaxTilesPerSearch + 1)
-            .ToArray();
-        if (selectedTiles.Length == 0 ||
-            selectedTiles.Length > MaxTilesPerSearch)
+        // A valid road return can legitimately leave the immediately adjacent
+        // tile rectangle (one-way layouts, terminals, bridges and large urban
+        // blocks). Expand the real .map search progressively instead of failing
+        // after the first narrow graph.
+        for (var margin = 1; margin <= MaxTileSearchMargin; margin++)
         {
-            return null;
-        }
+            var minGridX = Math.Min(vehicleGridX, targetTrace.GridX) - margin;
+            var maxGridX = Math.Max(vehicleGridX, targetTrace.GridX) + margin;
+            var minGridY = Math.Min(vehicleGridY, targetTrace.GridY) - margin;
+            var maxGridY = Math.Max(vehicleGridY, targetTrace.GridY) + margin;
 
-        var segments = new List<RoadSegment>();
-        foreach (var tile in selectedTiles)
-        {
-            foreach (var segment in ReadTile(tile.Key.X, tile.Key.Y, tile.Value, tileSize))
+            var selectedTiles = _tileCatalog
+                .Where(pair =>
+                    pair.Key.X >= minGridX &&
+                    pair.Key.X <= maxGridX &&
+                    pair.Key.Y >= minGridY &&
+                    pair.Key.Y <= maxGridY)
+                .Take(MaxTilesPerSearch + 1)
+                .ToArray();
+            lastMargin = margin;
+            lastTileCount = selectedTiles.Length;
+            if (selectedTiles.Length == 0)
             {
-                segments.Add(segment);
+                lastReason = "no-tiles";
+                continue;
             }
+
+            // Do not turn recovery into a full-map path search. If an expanded
+            // window exceeds the guard, a smaller window has already been
+            // attempted and failed closed.
+            if (selectedTiles.Length > MaxTilesPerSearch)
+            {
+                lastReason = "too-many-tiles";
+                break;
+            }
+
+            var segments = new List<RoadSegment>();
+            foreach (var tile in selectedTiles)
+            {
+                foreach (var segment in ReadTile(
+                             map.DirectoryPath,
+                             tile.Key.X,
+                             tile.Key.Y,
+                             tile.Value,
+                             tileSize))
+                {
+                    segments.Add(segment);
+                }
+            }
+
+            lastSegmentCount = segments.Count;
+            if (segments.Count == 0)
+            {
+                lastReason = "no-segments";
+                continue;
+            }
+
+            var graph = BuildGraph(segments);
+            lastNodeCount = graph.Nodes.Count;
+            if (graph.Nodes.Count < 2)
+            {
+                lastReason = "graph-too-small";
+                continue;
+            }
+
+            var startNode = FindNearestNode(graph.Nodes, vehicle);
+            var targetNode = FindNearestNode(graph.Nodes, target);
+            if (startNode is null || targetNode is null)
+            {
+                lastReason = "snap-unavailable";
+                lastStartSnap = null;
+                lastTargetSnap = null;
+                continue;
+            }
+
+            lastStartSnap = Distance2D(startNode.Point, vehicle);
+            lastTargetSnap = Distance2D(targetNode.Point, target);
+            if (lastStartSnap > MaxSnapToRoadMeters ||
+                lastTargetSnap > MaxSnapToRoadMeters)
+            {
+                lastReason = "snap-too-far";
+                continue;
+            }
+
+            var nodePath = FindShortestPath(graph, startNode.Id, targetNode.Id);
+            if (nodePath.Count == 0)
+            {
+                lastReason = "no-path";
+                continue;
+            }
+
+            var output = new List<OmsiRouteRejoinPoint>(nodePath.Count + 2)
+            {
+                new(vehicle.X, vehicle.Y)
+            };
+            foreach (var nodeId in nodePath)
+            {
+                var point = graph.Nodes[nodeId].Point;
+                AppendIfDistinct(
+                    output,
+                    new OmsiRouteRejoinPoint(point.X, point.Y));
+            }
+            AppendIfDistinct(
+                output,
+                new OmsiRouteRejoinPoint(target.X, target.Y));
+
+            output = Decimate(output, MaxOutputPoints);
+            if (output.Count < 2)
+            {
+                lastReason = "output-too-small";
+                continue;
+            }
+
+            var distance = 0d;
+            for (var index = 1; index < output.Count; index++)
+            {
+                var dx = output[index].X - output[index - 1].X;
+                var dy = output[index].Y - output[index - 1].Y;
+                distance += Math.Sqrt(dx * dx + dy * dy);
+            }
+
+            _lastResult = new OmsiRouteRejoinPath(
+                output,
+                distance,
+                new OmsiRouteRejoinPoint(target.X, target.Y));
+            WriteRejoinDiagnostics(
+                map,
+                "success",
+                vehicleGridX,
+                vehicleGridY,
+                targetTrace.GridX,
+                targetTrace.GridY,
+                directDistance,
+                margin,
+                selectedTiles.Length,
+                segments.Count,
+                graph.Nodes.Count,
+                lastStartSnap,
+                lastTargetSnap);
+            return _lastResult;
         }
 
-        if (segments.Count == 0)
-        {
-            return null;
-        }
-
-        var graph = BuildGraph(segments);
-        if (graph.Nodes.Count < 2)
-        {
-            return null;
-        }
-
-        var startNode = FindNearestNode(graph.Nodes, vehicle);
-        var targetNode = FindNearestNode(graph.Nodes, target);
-        if (startNode is null ||
-            targetNode is null ||
-            Distance2D(startNode.Point, vehicle) > MaxSnapToRoadMeters ||
-            Distance2D(targetNode.Point, target) > MaxSnapToRoadMeters)
-        {
-            return null;
-        }
-
-        var nodePath = FindShortestPath(graph, startNode.Id, targetNode.Id);
-        if (nodePath.Count < 2)
-        {
-            return null;
-        }
-
-        var output = new List<OmsiRouteRejoinPoint>(nodePath.Count + 2)
-        {
-            new(vehicle.X, vehicle.Y)
-        };
-        foreach (var nodeId in nodePath)
-        {
-            var point = graph.Nodes[nodeId].Point;
-            AppendIfDistinct(output, new OmsiRouteRejoinPoint(point.X, point.Y));
-        }
-        AppendIfDistinct(output, new OmsiRouteRejoinPoint(target.X, target.Y));
-
-        output = Decimate(output, MaxOutputPoints);
-        if (output.Count < 2)
-        {
-            return null;
-        }
-
-        var distance = 0d;
-        for (var index = 1; index < output.Count; index++)
-        {
-            var dx = output[index].X - output[index - 1].X;
-            var dy = output[index].Y - output[index - 1].Y;
-            distance += Math.Sqrt(dx * dx + dy * dy);
-        }
-
-        _lastResult = new OmsiRouteRejoinPath(
-            output,
-            distance,
-            new OmsiRouteRejoinPoint(target.X, target.Y));
-        return _lastResult;
+        WriteRejoinDiagnostics(
+            map,
+            lastReason,
+            vehicleGridX,
+            vehicleGridY,
+            targetTrace.GridX,
+            targetTrace.GridY,
+            directDistance,
+            lastMargin,
+            lastTileCount,
+            lastSegmentCount,
+            lastNodeCount,
+            lastStartSnap,
+            lastTargetSnap);
+        return null;
     }
 
     private void EnsureMap(OmsiMapInfo map)
@@ -191,6 +334,7 @@ internal sealed class OmsiRouteRejoinPathfinder
 
         _mapKey = key;
         _lastSearchKey = null;
+        _lastDiagnosticSignature = null;
         _lastResult = null;
         _tileCache.Clear();
         _tileCatalog = ReadTileCatalog(
@@ -199,6 +343,7 @@ internal sealed class OmsiRouteRejoinPathfinder
     }
 
     private IReadOnlyList<RoadSegment> ReadTile(
+        string mapDirectory,
         int gridX,
         int gridY,
         string tilePath,
@@ -221,6 +366,7 @@ internal sealed class OmsiRouteRejoinPathfinder
         }
 
         var segments = ParseTile(
+            mapDirectory,
             gridX,
             gridY,
             tilePath,
@@ -230,6 +376,7 @@ internal sealed class OmsiRouteRejoinPathfinder
     }
 
     private static IReadOnlyList<RoadSegment> ParseTile(
+        string mapDirectory,
         int gridX,
         int gridY,
         string tilePath,
@@ -307,7 +454,127 @@ internal sealed class OmsiRouteRejoinPathfinder
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            foreach (var sceneryPath in OmsiRouteSceneryPathGeometryReader.ReadAllRoadPaths(
+                         mapDirectory,
+                         tilePath))
+            {
+                var points = sceneryPath
+                    .Select(point => new RoadPoint3(
+                        gridX * tileSize + point.TileX,
+                        gridY * tileSize + point.TileY,
+                        point.Z))
+                    .ToArray();
+                if (points.Length >= 2)
+                {
+                    result.Add(new RoadSegment(points));
+                }
+            }
+        }
+
         return result;
+    }
+
+    private void WriteRejoinDiagnostics(
+        OmsiMapInfo map,
+        string result,
+        int? vehicleGridX,
+        int? vehicleGridY,
+        int? targetGridX,
+        int? targetGridY,
+        double? directDistance,
+        int margin,
+        int tileCount,
+        int segmentCount,
+        int nodeCount,
+        double? startSnap,
+        double? targetSnap)
+    {
+        var signature = string.Join(
+            "|",
+            map.FolderName,
+            result,
+            vehicleGridX?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            vehicleGridY?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            targetGridX?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            targetGridY?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            margin.ToString(CultureInfo.InvariantCulture),
+            tileCount.ToString(CultureInfo.InvariantCulture),
+            segmentCount.ToString(CultureInfo.InvariantCulture),
+            nodeCount.ToString(CultureInfo.InvariantCulture),
+            startSnap?.ToString("F1", CultureInfo.InvariantCulture) ?? "-",
+            targetSnap?.ToString("F1", CultureInfo.InvariantCulture) ?? "-");
+
+        if (string.Equals(_lastDiagnosticSignature, signature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastDiagnosticSignature = signature;
+
+        try
+        {
+            var localAppData = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localAppData))
+            {
+                return;
+            }
+
+            var directory = Path.Combine(
+                localAppData,
+                "OMSI NavBR Multiplayer");
+            Directory.CreateDirectory(directory);
+            var logPath = Path.Combine(directory, "navbr-route.log");
+            var line = string.Join(
+                " ",
+                $"[{DateTimeOffset.Now:O}]",
+                "kind=rejoin",
+                $"map={ToLogValue(map.FolderName)}",
+                $"result={result}",
+                $"vehicleGrid={FormatGrid(vehicleGridX, vehicleGridY)}",
+                $"targetGrid={FormatGrid(targetGridX, targetGridY)}",
+                $"direct={FormatNumber(directDistance)}",
+                $"margin={margin.ToString(CultureInfo.InvariantCulture)}",
+                $"tiles={tileCount.ToString(CultureInfo.InvariantCulture)}",
+                $"segments={segmentCount.ToString(CultureInfo.InvariantCulture)}",
+                $"nodes={nodeCount.ToString(CultureInfo.InvariantCulture)}",
+                $"startSnap={FormatNumber(startSnap)}",
+                $"targetSnap={FormatNumber(targetSnap)}");
+
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string FormatGrid(int? x, int? y) =>
+        x is int gridX && y is int gridY
+            ? $"{gridX.ToString(CultureInfo.InvariantCulture)},{gridY.ToString(CultureInfo.InvariantCulture)}"
+            : "-";
+
+    private static string FormatNumber(double? value) =>
+        value is double number && double.IsFinite(number)
+            ? number.ToString("F1", CultureInfo.InvariantCulture)
+            : "-";
+
+    private static string ToLogValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        return value
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim()
+            .Replace(' ', '_');
     }
 
     private static RoadGraph BuildGraph(IReadOnlyList<RoadSegment> segments)
@@ -491,15 +758,21 @@ internal sealed class OmsiRouteRejoinPathfinder
         return best;
     }
 
-    private static OmsiRouteTracePoint? FindNearestRoutePoint(
+    private static OmsiRouteTracePoint? FindRejoinTarget(
         RoadPoint3 vehicle,
         IReadOnlyList<OmsiRouteTracePoint> routeTrace,
         double tileSize)
     {
-        OmsiRouteTracePoint? best = null;
-        var bestDistanceSquared = double.PositiveInfinity;
-        foreach (var point in routeTrace)
+        if (routeTrace.Count == 0)
         {
+            return null;
+        }
+
+        var nearestIndex = -1;
+        var bestDistanceSquared = double.PositiveInfinity;
+        for (var index = 0; index < routeTrace.Count; index++)
+        {
+            var point = routeTrace[index];
             var worldX = point.GridX * tileSize + point.TileX;
             var worldY = point.GridY * tileSize + point.TileY;
             var dx = worldX - vehicle.X;
@@ -508,11 +781,41 @@ internal sealed class OmsiRouteRejoinPathfinder
             if (distanceSquared < bestDistanceSquared)
             {
                 bestDistanceSquared = distanceSquared;
-                best = point;
+                nearestIndex = index;
             }
         }
 
-        return best;
+        if (nearestIndex < 0)
+        {
+            return null;
+        }
+
+        var travelled = 0d;
+        var previous = routeTrace[nearestIndex];
+        for (var index = nearestIndex + 1; index < routeTrace.Count; index++)
+        {
+            var current = routeTrace[index];
+            var previousWorld = new RoadPoint3(
+                previous.GridX * tileSize + previous.TileX,
+                previous.GridY * tileSize + previous.TileY,
+                0d);
+            var currentWorld = new RoadPoint3(
+                current.GridX * tileSize + current.TileX,
+                current.GridY * tileSize + current.TileY,
+                0d);
+            travelled += Distance2D(previousWorld, currentWorld);
+            if (travelled >= RejoinAheadMeters)
+            {
+                return current;
+            }
+
+            previous = current;
+        }
+
+        // Near the end of the trip there may be less than the normal look-ahead
+        // remaining. Rejoin the last trustworthy .ttr point rather than
+        // suppressing recovery altogether.
+        return routeTrace[^1];
     }
 
     private static Dictionary<(int X, int Y), string> ReadTileCatalog(

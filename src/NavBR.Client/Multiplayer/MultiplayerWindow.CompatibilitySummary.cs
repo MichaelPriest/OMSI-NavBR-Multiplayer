@@ -155,14 +155,18 @@ public partial class MultiplayerWindow
         var localManifest = OmsiCompatibilityManifestFactory.Create(
             _telemetrySource(),
             _activeMapSource());
-        var requirePhysicalVehicle = _settings.ExperimentalPhysicalVehiclesEnabled;
+        // Different players are allowed to drive different buses/HOFs.
+        // Physical rendering resolves the remote vehicle asset by its own
+        // fingerprint, so enabling Remote 3D must not turn a legitimate
+        // vehicle/HOF difference into a room-level blocker.
+        const bool requireSameVehicleDefinition = false;
         var reports = remotes
             .Select(player => new PlayerCompatibility(
                 player,
                 OmsiCompatibilityEvaluator.Compare(
                     localManifest,
                     player.Compatibility,
-                    requirePhysicalVehicle)))
+                    requireSameVehicleDefinition)))
             .ToArray();
 
         var blocking = reports.Count(item => item.Report.HasBlockingIssues);

@@ -280,7 +280,8 @@ public partial class MainWindow
             : "-";
 
         _pluginDiagnosticsStatusText.Text =
-            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  deployment=NATIVE-AOT-X86  install={install.State}  files={install.RequiredFilesFound}/3  manifest={install.Manifest}\n" +
+            $"package={(OmsiPluginInstallationService.HasEmbeddedPackage ? "EMBEDDED" : "MISSING")}  deployment=NATIVE-AOT-X86  install={install.State}  files={install.RequiredFilesFound}/3  verified={install.VerifiedFiles}/3  manifest={install.Manifest}\n" +
+            $"expected={install.ExpectedVersion ?? "-"}  installed={install.InstalledVersion ?? "-"}  update-required={install.UpdateRequired}\n" +
             $"runtime=BUILT-IN  status={status}  protocol=v1\n" +
             $"plugin-pid={pluginPid}  process-match={processMatch}  version={pluginVersion}\n" +
             $"connected-since={since}\n" +
@@ -293,7 +294,7 @@ public partial class MainWindow
 
         var healthy = bridge.IsConnected &&
                       heartbeatState != "STALE" &&
-                      install.State is "INSTALLED" or "UNTRACKED";
+                      install.State == "INSTALLED";
 
         _pluginDiagnosticsStatusText.Foreground = healthy
             ? TryFindResource("NavAccentBrush") as Brush ?? Brushes.LightGreen
@@ -305,47 +306,67 @@ public partial class MainWindow
         var installDirectory = ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(installDirectory))
         {
-            return new PluginInstallDiagnostics("UNKNOWN", 0, "UNKNOWN", "-");
+            return new PluginInstallDiagnostics(
+                "UNKNOWN",
+                0,
+                0,
+                "UNKNOWN",
+                "-",
+                null,
+                null,
+                UpdateRequired: false,
+                DateTimeOffset.UtcNow,
+                Array.Empty<PluginFileVerification>(),
+                null);
         }
 
         try
         {
-            var pluginsDirectory = Path.Combine(installDirectory, "plugins");
-            var requiredFiles = new[]
-            {
-                "NavBR.OmsiPlugin.dll",
-                "NavBR.OmsiInterop.dll",
-                "NavBR.OmsiPlugin.opl"
-            };
-
-            var found = requiredFiles.Count(file =>
-                File.Exists(Path.Combine(pluginsDirectory, file)));
+            var verification =
+                OmsiPluginInstallationService.VerifyInstallation(installDirectory);
             var manifestPath = Path.Combine(
-                pluginsDirectory,
+                installDirectory,
+                "plugins",
                 "NavBR.OmsiPlugin.install-manifest.txt");
-            var hasManifest = File.Exists(manifestPath);
-            var manifestCurrent =
-                hasManifest &&
-                OmsiPluginInstallationService.IsManifestCurrent(manifestPath);
-
-            var state = found switch
+            var state = verification.Status switch
             {
-                0 => "MISSING",
-                3 when manifestCurrent => "INSTALLED",
-                3 when hasManifest => "OUTDATED",
-                3 => "UNTRACKED",
-                _ => "PARTIAL"
+                "ready" => "INSTALLED",
+                "missing" => "MISSING",
+                "partial" => "PARTIAL",
+                "outdated" => "OUTDATED",
+                "untracked" => "UNTRACKED",
+                "package-missing" => "PACKAGE-MISSING",
+                "omsi-not-found" => "UNKNOWN",
+                _ => "ERROR"
             };
 
             return new PluginInstallDiagnostics(
                 state,
-                found,
-                hasManifest ? "YES" : "NO",
-                pluginsDirectory);
+                verification.RequiredFilesFound,
+                verification.VerifiedFiles,
+                File.Exists(manifestPath) ? "YES" : "NO",
+                verification.PluginsDirectory ?? Path.Combine(installDirectory, "plugins"),
+                verification.ExpectedVersion,
+                verification.InstalledVersion,
+                verification.UpdateRequired,
+                verification.CheckedAtUtc,
+                verification.Files,
+                verification.Message);
         }
-        catch
+        catch (Exception ex)
         {
-            return new PluginInstallDiagnostics("ERROR", 0, "UNKNOWN", "-");
+            return new PluginInstallDiagnostics(
+                "ERROR",
+                0,
+                0,
+                "UNKNOWN",
+                "-",
+                null,
+                null,
+                UpdateRequired: false,
+                DateTimeOffset.UtcNow,
+                Array.Empty<PluginFileVerification>(),
+                ex.Message);
         }
     }
 
@@ -392,6 +413,13 @@ public partial class MainWindow
     private sealed record PluginInstallDiagnostics(
         string State,
         int RequiredFilesFound,
+        int VerifiedFiles,
         string Manifest,
-        string DisplayPath);
+        string DisplayPath,
+        string? ExpectedVersion,
+        string? InstalledVersion,
+        bool UpdateRequired,
+        DateTimeOffset CheckedAtUtc,
+        IReadOnlyList<PluginFileVerification> Files,
+        string? Message);
 }

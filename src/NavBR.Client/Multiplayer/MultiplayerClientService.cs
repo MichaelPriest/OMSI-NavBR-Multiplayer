@@ -10,6 +10,8 @@ namespace NavBR.Client.Multiplayer;
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
     private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
+    private readonly SemaphoreSlim _physicalVehicleStatusPublishGate = new(1, 1);
+    private long _physicalVehicleStatusRevision;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
 
@@ -18,8 +20,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
             omsiInstallDirectorySource);
-        _physicalVehicles.PhysicalVehicleSetChanged += playerIds =>
-            _ = PublishPhysicalVehicleSetAsync(playerIds);
+        _physicalVehicles.PhysicalVehicleSetChanged += QueuePhysicalVehicleSetPublish;
     }
 
     public event Action<HubConnectionState>? ConnectionStateChanged;
@@ -77,6 +78,17 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await DisconnectAsync();
+
+        // The WebView controller can exist without ever rendering the retired
+        // WPF window. Re-apply the persisted physical-bus preference at the
+        // actual connection boundary so a partial/hidden UI initialization
+        // can never leave settings=true while the runtime marker remains off.
+        if (ExperimentalFeatureFlags.PhysicalVehiclesEnabled !=
+            settings.ExperimentalPhysicalVehiclesEnabled)
+        {
+            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
+                settings.ExperimentalPhysicalVehiclesEnabled);
+        }
 
         string hubUrl;
         try
@@ -173,6 +185,33 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             MapCompatibilityId = compatibilityId
         };
 
+        // The in-process OMSI plugin is the authoritative fallback for the
+        // physical RoadVehicle.Kachel identity. External memory telemetry can
+        // legitimately miss the dynamic Kacheln index on some maps while the
+        // plugin, running inside Omsi.exe, can still resolve the live tile.
+        if (System.Windows.Application.Current is App app)
+        {
+            var pluginStatus = app.PluginBridge.GetConnectionInfo().LastStatus;
+            if (pluginStatus?.TimestampUnixMilliseconds is long statusTimestamp &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - statusTimestamp <= 5_000)
+            {
+                outgoing = outgoing with
+                {
+                    MapTileIndex = outgoing.MapTileIndex ?? pluginStatus.MapTileIndex
+                };
+
+                if (pluginStatus.GridX is int physicalGridX &&
+                    pluginStatus.GridY is int physicalGridY)
+                {
+                    outgoing = outgoing with
+                    {
+                        PhysicalGridX = outgoing.PhysicalGridX ?? physicalGridX,
+                        PhysicalGridY = outgoing.PhysicalGridY ?? physicalGridY
+                    };
+                }
+            }
+        }
+
         // Keep physical rendering compatibility synchronized with the actual
         // live OMSI state. Players often connect before the final map/bus/HOF
         // identity is available, and may change vehicles without reconnecting.
@@ -253,31 +292,66 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             cancellationToken);
     }
 
+    private void QueuePhysicalVehicleSetPublish(
+        IReadOnlyList<string> playerIds)
+    {
+        var snapshot = playerIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .Take(32)
+            .ToArray();
+        var revision = Interlocked.Increment(
+            ref _physicalVehicleStatusRevision);
+        _ = PublishPhysicalVehicleSetAsync(snapshot, revision);
+    }
+
     private async Task PublishPhysicalVehicleSetAsync(
         IReadOnlyList<string> playerIds,
+        long revision,
         CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        if (connection is null ||
-            connection.State != HubConnectionState.Connected)
+        try
+        {
+            await _physicalVehicleStatusPublishGate.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
         {
             return;
         }
 
         try
         {
+            // Several physical vehicles can finish spawning almost at the same
+            // time. Never let an older [A,B] snapshot arrive after the newer
+            // [A,B,C] snapshot and overwrite server presence with stale state.
+            if (revision != Volatile.Read(ref _physicalVehicleStatusRevision))
+            {
+                return;
+            }
+
+            var connection = _connection;
+            if (connection is null ||
+                connection.State != HubConnectionState.Connected)
+            {
+                return;
+            }
+
             await connection.SendAsync(
                 "UpdatePhysicalVehicleStatus",
-                playerIds
-                    .Where(id => !string.IsNullOrWhiteSpace(id))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Take(32)
-                    .ToArray(),
+                playerIds,
                 cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch
         {
             // Diagnostic/status publishing must never break multiplayer.
+        }
+        finally
+        {
+            _physicalVehicleStatusPublishGate.Release();
         }
     }
 
@@ -337,6 +411,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync();
+        _physicalVehicleStatusPublishGate.Dispose();
     }
 
     private void RegisterHandlers(HubConnection connection)

@@ -81,4 +81,6 @@ internal readonly record struct PhysicalVehicleInstance(
     string InstanceId,
     int VehiclePointer,
     string VehiclePath,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    int HostVehiclePointerAtSpawn,
+    bool PointerWasAbsentBeforeSpawn);

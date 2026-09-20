@@ -8,7 +8,7 @@ internal static class RoleplayCharacterCommandProcessor
     public static bool ExperimentalWritesEnabled =>
         ExperimentalFeatureFlags.RoleplayCharacterEnabled;
 
-    public static bool IsRuntimeSupported => OmsiNativeInterop.IsShimReady;
+    public static bool IsRuntimeSupported => OmsiNativeInterop.IsRoleplayShimReady;
 
     public static bool IsCharacterCommandType(string type) =>
         string.Equals(type, PluginBridgeProtocol.AcquireRoleplayCharacter, StringComparison.Ordinal) ||
@@ -192,10 +192,17 @@ internal static class RoleplayCharacterBackend
     private const int MaxOwnedCharacters = 24;
     private const double MaxAcquireDistanceMeters = 45d;
     private const double MaxAcquireHeightDifferenceMeters = 4d;
+    private const double MaxAutomaticDriverFallbackDistanceMeters = 8d;
+    private const double MaxAutomaticFreeHumanFallbackDistanceMeters = 500d;
+    private const double MinimumAutomaticDriverSeparationMeters = 0.75d;
+    private const double MinimumFreeHumanSeparationMeters = 1.5d;
     private const float MaxCharacterSpeedMps = 6f;
     private const double MaxInteractionDistanceMeters = 8d;
     private const double MaxInteractionHeightDifferenceMeters = 4d;
     private const int MaxRetainedTriggerStrings = 256;
+    private const long ReassertIntervalMs = 20;
+    private const long MovingTargetFreshnessMs = 400;
+    private static long _lastReassertTickMs;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
@@ -282,14 +289,20 @@ internal static class RoleplayCharacterBackend
             float driverHeading = 0f;
             float driverSpeed = 0f;
 
+            var automaticDriverResolution = definitionPointer == 0;
+            var playerVehicle = automaticDriverResolution
+                ? OmsiNativeInterop.GetPlayerVehiclePointer()
+                : 0;
+            var attachedCandidates = new List<DriverCandidate>();
+            var detachedDriverLikeCandidates = new List<DriverCandidate>();
+            var freeWorldCandidates = new List<DriverCandidate>();
+            var selectedFreeWorldFallback = false;
+
             for (var index = 0; index < humans.Length; index++)
             {
                 var pointer = humans[index];
                 if (pointer == 0 ||
                     usedPointers.Contains(pointer) ||
-                    OmsiNativeInterop.IsPlayerBusDriverHuman(
-                        pointer,
-                        definitionPointer) != 1 ||
                     OmsiNativeInterop.ReadHumanPose(
                         pointer,
                         out var x,
@@ -305,36 +318,175 @@ internal static class RoleplayCharacterBackend
                 var dy = y - anchorY;
                 var dz = z - anchorZ;
                 var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-                if (!double.IsFinite(distance) || distance >= bestDistance)
+                if (!double.IsFinite(distance))
                 {
                     continue;
                 }
 
-                driverPointer = pointer;
-                driverIndex = index;
-                bestDistance = distance;
-                driverX = x;
-                driverY = y;
-                driverZ = z;
-                driverHeading = heading;
-                driverSpeed = speed;
+                if (OmsiNativeInterop.IsPlayerBusDriverHuman(
+                        pointer,
+                        definitionPointer) == 1)
+                {
+                    if (distance < bestDistance)
+                    {
+                        driverPointer = pointer;
+                        driverIndex = index;
+                        bestDistance = distance;
+                        driverX = x;
+                        driverY = y;
+                        driverZ = z;
+                        driverHeading = heading;
+                        driverSpeed = speed;
+                    }
+
+                    continue;
+                }
+
+                if (!automaticDriverResolution ||
+                    playerVehicle == 0 ||
+                    OmsiNativeInterop.ReadHumanDriverState(
+                        pointer,
+                        out var myBus,
+                        out var fixDriverCandidate,
+                        out _,
+                        out _) != 1)
+                {
+                    continue;
+                }
+
+                var candidate = new DriverCandidate(
+                    pointer,
+                    index,
+                    distance,
+                    x,
+                    y,
+                    z,
+                    heading,
+                    speed);
+
+                if (myBus == playerVehicle)
+                {
+                    attachedCandidates.Add(candidate);
+                    continue;
+                }
+
+                // Some buses/add-ons expose the visible seated driver with the
+                // driver AI flags intact but MyBus=0. Accept that only for
+                // automatic resolution, only when it is very close to the
+                // current player bus, and never when it points at another bus.
+                var detachedDriverLike =
+                    myBus == 0 &&
+                    distance <= MaxAutomaticDriverFallbackDistanceMeters &&
+                    Math.Abs(dz) <= MaxAcquireHeightDifferenceMeters &&
+                    OmsiNativeInterop.ReadHumanAiState(
+                        pointer,
+                        out _,
+                        out var aiModeExCandidate,
+                        out _,
+                        out _,
+                        out _) == 1 &&
+                    (aiModeExCandidate == 9 || fixDriverCandidate != 0);
+                if (detachedDriverLike)
+                {
+                    detachedDriverLikeCandidates.Add(candidate);
+                    continue;
+                }
+
+                // Player-controlled buses often do not instantiate a visible
+                // THuman driver at all. In that case RP would be permanently
+                // unavailable even though real free pedestrians exist in OMSI.
+                // As a final automatic fallback, borrow only a real, detached,
+                // visible/in-world and writable OMSI human near the player bus.
+                // Its original pose/AI state is snapshotted and restored on RP
+                // release; humans attached to any bus are never eligible here.
+                if (myBus == 0 &&
+                    distance <= MaxAutomaticFreeHumanFallbackDistanceMeters &&
+                    Math.Abs(dz) <= MaxAcquireHeightDifferenceMeters &&
+                    OmsiNativeInterop.IsHumanControllable(pointer) == 1)
+                {
+                    freeWorldCandidates.Add(candidate);
+                }
+            }
+
+            if (driverPointer == 0 &&
+                automaticDriverResolution &&
+                attachedCandidates.Count > 0)
+            {
+                TrySelectUnambiguousDriver(
+                    attachedCandidates,
+                    ref driverPointer,
+                    ref driverIndex,
+                    ref bestDistance,
+                    ref driverX,
+                    ref driverY,
+                    ref driverZ,
+                    ref driverHeading,
+                    ref driverSpeed);
+            }
+
+            if (driverPointer == 0 &&
+                automaticDriverResolution &&
+                detachedDriverLikeCandidates.Count > 0)
+            {
+                TrySelectUnambiguousDriver(
+                    detachedDriverLikeCandidates,
+                    ref driverPointer,
+                    ref driverIndex,
+                    ref bestDistance,
+                    ref driverX,
+                    ref driverY,
+                    ref driverZ,
+                    ref driverHeading,
+                    ref driverSpeed);
+            }
+
+            if (driverPointer == 0 &&
+                automaticDriverResolution &&
+                freeWorldCandidates.Count > 0)
+            {
+                // This is not an attempt to identify a specific driver. It is
+                // an explicit RP fallback that borrows the nearest detached,
+                // controllable OMSI human and restores its original state on
+                // release. Therefore clustered pedestrians are not ambiguous.
+                SelectNearestCandidate(
+                    freeWorldCandidates,
+                    ref driverPointer,
+                    ref driverIndex,
+                    ref bestDistance,
+                    ref driverX,
+                    ref driverY,
+                    ref driverZ,
+                    ref driverHeading,
+                    ref driverSpeed);
+                selectedFreeWorldFallback = driverPointer != 0;
             }
 
             if (driverPointer == 0)
             {
+                var detail = automaticDriverResolution
+                    ? $"Automatic driver resolution found {attachedCandidates.Count} attached, {detachedDriverLikeCandidates.Count} nearby driver-like and {freeWorldCandidates.Count} eligible free-world human(s), but none was an unambiguous RP character."
+                    : "The selected character is not the active human driver of the player's bus.";
                 return Fail(
                     command,
-                    "selected-driver-not-active",
-                    "The selected character is not the active human driver of the player's bus.");
+                    automaticDriverResolution &&
+                    attachedCandidates.Count + detachedDriverLikeCandidates.Count > 1
+                        ? "selected-driver-ambiguous"
+                        : "selected-driver-not-active",
+                    detail);
             }
 
-            if (bestDistance > MaxAcquireDistanceMeters ||
+            var maximumAcquireDistance = selectedFreeWorldFallback
+                ? MaxAutomaticFreeHumanFallbackDistanceMeters
+                : MaxAcquireDistanceMeters;
+            if (bestDistance > maximumAcquireDistance ||
                 Math.Abs(driverZ - anchorZ) > MaxAcquireHeightDifferenceMeters)
             {
                 return Fail(
                     command,
                     "selected-driver-too-far",
-                    "The selected driver is not close enough to the current player bus.");
+                    selectedFreeWorldFallback
+                        ? "The nearest detached OMSI human is too far from the player bus for the RP fallback."
+                        : "The selected driver is not close enough to the current player bus.");
             }
 
             if (OmsiNativeInterop.ReadHumanAiState(
@@ -356,6 +508,17 @@ internal static class RoleplayCharacterBackend
                     "driver-state-read-failed",
                     "Could not snapshot the selected driver's OMSI state.");
             }
+
+            // If automatic resolution selected a driver-like human whose
+            // add-on left MyBus=0, remember the actual player vehicle as the
+            // restoration target. We never substitute another arbitrary bus.
+            var restoreBus =
+                automaticDriverResolution &&
+                !selectedFreeWorldFallback &&
+                originalBus == 0 &&
+                playerVehicle != 0
+                    ? playerVehicle
+                    : originalBus;
 
             if (OmsiNativeInterop.DetachHumanForRoleplay(driverPointer) != 1)
             {
@@ -382,7 +545,7 @@ internal static class RoleplayCharacterBackend
             {
                 _ = OmsiNativeInterop.RestoreHumanDriverState(
                     driverPointer,
-                    originalBus,
+                    restoreBus,
                     fixDriver,
                     renderMe,
                     inWorld);
@@ -451,7 +614,7 @@ internal static class RoleplayCharacterBackend
                     Math.Clamp(Math.Abs(driverSpeed), 0f, MaxCharacterSpeedMps));
                 _ = OmsiNativeInterop.RestoreHumanDriverState(
                     driverPointer,
-                    originalBus,
+                    restoreBus,
                     fixDriver,
                     renderMe,
                     inWorld);
@@ -473,12 +636,13 @@ internal static class RoleplayCharacterBackend
                         : "OMSI did not confirm the roleplay character at the requested exit position.");
             }
 
+            var acquiredAt = DateTimeOffset.UtcNow;
             var instance = new RoleplayCharacterInstance(
                 instanceId,
                 driverPointer,
                 driverIndex,
                 definitionPointer,
-                originalBus,
+                restoreBus,
                 fixDriver,
                 renderMe,
                 inWorld,
@@ -492,7 +656,13 @@ internal static class RoleplayCharacterBackend
                 driverZ,
                 NormalizeHeading(driverHeading),
                 driverSpeed,
-                DateTimeOffset.UtcNow);
+                acquiredAt,
+                spawnX,
+                spawnY,
+                spawnZ,
+                spawnHeading,
+                0f,
+                Environment.TickCount64);
 
             Owned[instanceId] = instance;
 
@@ -532,7 +702,10 @@ internal static class RoleplayCharacterBackend
                 return Fail(command, "invalid-character-pose", "Character updates require a finite local pose.");
             }
 
-            if (OmsiNativeInterop.SetHumanTransform(
+            // Reassert ownership every frame because OMSI/add-on AI can restore
+            // MyBus/render state after the acquisition callback.
+            if (OmsiNativeInterop.DetachHumanForRoleplay(instance.HumanPointer) != 1 ||
+                OmsiNativeInterop.SetHumanTransform(
                     instance.HumanPointer,
                     x,
                     y,
@@ -543,14 +716,68 @@ internal static class RoleplayCharacterBackend
                 return Fail(command, "character-transform-failed", "OMSI rejected the guarded human transform.");
             }
 
+            if (OmsiNativeInterop.ReadHumanDriverState(
+                    instance.HumanPointer,
+                    out var actualBus,
+                    out var actualFixDriver,
+                    out var actualRenderMe,
+                    out var actualInWorld) != 1 ||
+                actualBus != 0 ||
+                actualFixDriver != 0 ||
+                actualRenderMe == 0 ||
+                actualInWorld == 0)
+            {
+                return Fail(
+                    command,
+                    "character-world-state-unconfirmed",
+                    "OMSI did not keep the roleplay human detached and visible in the world.");
+            }
+
+            if (OmsiNativeInterop.ReadHumanPose(
+                    instance.HumanPointer,
+                    out var actualX,
+                    out var actualY,
+                    out var actualZ,
+                    out var actualHeading,
+                    out var actualSpeed) != 1)
+            {
+                return Fail(
+                    command,
+                    "character-pose-unconfirmed",
+                    "OMSI did not expose a readable roleplay human pose after the movement write.");
+            }
+
+            var dx = actualX - x;
+            var dy = actualY - y;
+            var dz = actualZ - z;
+            var errorDistance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (!double.IsFinite(errorDistance) || errorDistance > 0.35d)
+            {
+                return Fail(
+                    command,
+                    "character-movement-overridden",
+                    $"OMSI overwrote the RP movement before confirmation (pose error {errorDistance:F2} m).");
+            }
+
+            instance = instance with
+            {
+                CurrentX = actualX,
+                CurrentY = actualY,
+                CurrentZ = actualZ,
+                CurrentHeading = NormalizeHeading(actualHeading),
+                CurrentSpeed = Math.Clamp(Math.Abs(speed), 0f, MaxCharacterSpeedMps),
+                LastTargetTickMs = Environment.TickCount64
+            };
+            Owned[instanceId] = instance;
+
             return BuildSuccessStateResult(
                 command,
                 instance,
-                x,
-                y,
-                z,
-                heading,
-                speed);
+                actualX,
+                actualY,
+                actualZ,
+                actualHeading,
+                actualSpeed);
         }
     }
 
@@ -787,6 +1014,77 @@ internal static class RoleplayCharacterBackend
         return true;
     }
 
+    public static int ActiveCount
+    {
+        get
+        {
+            lock (Sync)
+            {
+                return Owned.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reasserts the last confirmed RP pose directly from OMSI's callback loop.
+    /// Desktop input updates remain authoritative; this only prevents OMSI's
+    /// passenger/driver AI from restoring an older transform between bridge
+    /// commands. A stale moving command is forced to zero speed so a lost
+    /// desktop connection cannot leave walk animation running indefinitely.
+    /// </summary>
+    public static void Tick()
+    {
+        var now = Environment.TickCount64;
+        if (_lastReassertTickMs > 0 &&
+            now >= _lastReassertTickMs &&
+            now - _lastReassertTickMs < ReassertIntervalMs)
+        {
+            return;
+        }
+
+        _lastReassertTickMs = now;
+        lock (Sync)
+        {
+            if (Owned.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var pair in Owned.ToArray())
+            {
+                var instance = pair.Value;
+                if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
+                {
+                    continue;
+                }
+
+                var targetAgeMs = now >= instance.LastTargetTickMs
+                    ? now - instance.LastTargetTickMs
+                    : long.MaxValue;
+                var speed = targetAgeMs <= MovingTargetFreshnessMs
+                    ? instance.CurrentSpeed
+                    : 0f;
+
+                // Reassert both detachment and transform. Some buses/add-ons
+                // restore driver/passenger state after the command callback;
+                // keeping this on the OMSI callback loop makes RP ownership
+                // survive until the next real desktop target arrives.
+                if (OmsiNativeInterop.DetachHumanForRoleplay(instance.HumanPointer) != 1)
+                {
+                    continue;
+                }
+
+                _ = OmsiNativeInterop.SetHumanTransform(
+                    instance.HumanPointer,
+                    instance.CurrentX,
+                    instance.CurrentY,
+                    instance.CurrentZ,
+                    instance.CurrentHeading,
+                    speed);
+            }
+        }
+    }
+
     public static void ReleaseAllBestEffort()
     {
         lock (Sync)
@@ -824,6 +1122,7 @@ internal static class RoleplayCharacterBackend
 
             Owned.Clear();
             ActiveTriggersByInstance.Clear();
+            _lastReassertTickMs = 0;
         }
     }
 
@@ -1058,6 +1357,85 @@ internal static class RoleplayCharacterBackend
         string message) =>
         RoleplayCharacterCommandProcessor.Result(command, false, code, message);
 
+    private static void SelectNearestCandidate(
+        IReadOnlyList<DriverCandidate> candidates,
+        ref int driverPointer,
+        ref int driverIndex,
+        ref double bestDistance,
+        ref float driverX,
+        ref float driverY,
+        ref float driverZ,
+        ref float driverHeading,
+        ref float driverSpeed)
+    {
+        var candidate = candidates
+            .OrderBy(value => value.Distance)
+            .FirstOrDefault();
+        if (candidate is null)
+        {
+            return;
+        }
+
+        driverPointer = candidate.Pointer;
+        driverIndex = candidate.Index;
+        bestDistance = candidate.Distance;
+        driverX = candidate.X;
+        driverY = candidate.Y;
+        driverZ = candidate.Z;
+        driverHeading = candidate.Heading;
+        driverSpeed = candidate.Speed;
+    }
+
+    private static void TrySelectUnambiguousDriver(
+        IReadOnlyList<DriverCandidate> candidates,
+        ref int driverPointer,
+        ref int driverIndex,
+        ref double bestDistance,
+        ref float driverX,
+        ref float driverY,
+        ref float driverZ,
+        ref float driverHeading,
+        ref float driverSpeed,
+        double minimumSeparationMeters = MinimumAutomaticDriverSeparationMeters)
+    {
+        var ordered = candidates
+            .OrderBy(candidate => candidate.Distance)
+            .ToArray();
+        if (ordered.Length == 0)
+        {
+            return;
+        }
+
+        var candidate = ordered[0];
+        var unambiguous =
+            ordered.Length == 1 ||
+            ordered[1].Distance - candidate.Distance >=
+            minimumSeparationMeters;
+        if (!unambiguous)
+        {
+            return;
+        }
+
+        driverPointer = candidate.Pointer;
+        driverIndex = candidate.Index;
+        bestDistance = candidate.Distance;
+        driverX = candidate.X;
+        driverY = candidate.Y;
+        driverZ = candidate.Z;
+        driverHeading = candidate.Heading;
+        driverSpeed = candidate.Speed;
+    }
+
+    private sealed record DriverCandidate(
+        int Pointer,
+        int Index,
+        double Distance,
+        float X,
+        float Y,
+        float Z,
+        float Heading,
+        float Speed);
+
     private sealed record RoleplayCharacterInstance(
         string InstanceId,
         int HumanPointer,
@@ -1077,5 +1455,11 @@ internal static class RoleplayCharacterBackend
         float OriginalZ,
         float OriginalHeading,
         float OriginalSpeed,
-        DateTimeOffset AcquiredAtUtc);
+        DateTimeOffset AcquiredAtUtc,
+        float CurrentX,
+        float CurrentY,
+        float CurrentZ,
+        float CurrentHeading,
+        float CurrentSpeed,
+        long LastTargetTickMs);
 }

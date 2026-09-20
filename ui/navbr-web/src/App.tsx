@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { I18nProvider, useI18n } from "./i18n";
+import { NavBrIcon, type NavBrIconName } from "./NavBrIcon";
 import {
   type NavBrCompanyMember,
   type NavBrGhostState,
@@ -101,65 +102,69 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   chat: []
 };
 
+function buildVersionLabel(version?: string | null) {
+  if (!version) return "Alpha";
+  const clean = version.split("+")[0];
+  const alpha = clean.match(/alpha\.([0-9]+(?:\.[0-9]+)*)/i);
+  return alpha ? `Alpha.${alpha[1]}` : clean;
+}
+
 function Sidebar({
   screen,
-  setScreen
+  setScreen,
+  appVersion
 }: {
   screen: Screen;
   setScreen: (screen: Screen) => void;
+  appVersion?: string | null;
 }) {
   const { t, pick, cultureName, languages, setLanguage } = useI18n();
+  const navItems: Array<{ screen: Screen; icon: NavBrIconName; label: string }> = [
+    { screen: "home", icon: "home", label: t("nav.home") },
+    { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
+    { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
+    { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
+    { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
+    { screen: "operations", icon: "operations", label: t("nav.operations") },
+    { screen: "companyNetwork", icon: "company", label: t("nav.company") },
+    { screen: "hardware", icon: "hardware", label: t("nav.hardware") },
+    { screen: "settings", icon: "settings", label: t("nav.settings") },
+    { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+  ];
+
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark">N</div>
         <div><strong>NavBR</strong><span>OMSI Multiplayer</span></div>
       </div>
+
       <nav className="nav">
-        <button className={`nav-item ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
-          <b>⌂</b><span>{t("nav.home")}</span>
-        </button>
-        <button className={`nav-item ${screen === "navigation" ? "active" : ""}`} onClick={() => setScreen("navigation")}>
-          <b>⌖</b><span>{t("nav.navigation")}</span>
-        </button>
-        <button className={`nav-item ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
-          <b>◉</b><span>{t("nav.multiplayer")}</span>
-        </button>
-        <button className={`nav-item ${screen === "roleplay" ? "active" : ""}`} onClick={() => setScreen("roleplay")}>
-          <b>♙</b><span>{t("nav.roleplay")}</span>
-        </button>
-        <button className={`nav-item ${screen === "ghost" ? "active" : ""}`} onClick={() => setScreen("ghost")}>
-          <b>◈</b><span>{t("nav.ghost")}</span>
-        </button>
-        <button className={`nav-item ${screen === "operations" ? "active" : ""}`} onClick={() => setScreen("operations")}>
-          <b>▣</b><span>{t("nav.operations")}</span>
-        </button>
-        <button className={`nav-item ${screen === "companyNetwork" ? "active" : ""}`} onClick={() => setScreen("companyNetwork")}>
-          <b>◎</b><span>{t("nav.company")}</span>
-        </button>
-        <button className={`nav-item ${screen === "hardware" ? "active" : ""}`} onClick={() => setScreen("hardware")}>
-          <b>⚡</b><span>{t("nav.hardware")}</span>
-        </button>
-        <button className={`nav-item ${screen === "settings" ? "active" : ""}`} onClick={() => setScreen("settings")}>
-          <b>⚙</b><span>{t("nav.settings")}</span>
-        </button>
-        <button className={`nav-item ${screen === "help" ? "active" : ""}`} onClick={() => setScreen("help")}>
-          <b>?</b><span>{pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide")}</span>
-        </button>
+        {navItems.map(item => (
+          <button
+            key={item.screen}
+            className={`nav-item ${screen === item.screen ? "active" : ""}`}
+            onClick={() => setScreen(item.screen)}
+          >
+            <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
+
       <div className="sidebar-footer">
-        <i />
-        <div className="sidebar-footer-main">
-          <div><strong>Alpha.14</strong><small>React + WebView2</small></div>
-          <label className="sidebar-language">
-            <span>{t("common.language")}</span>
-            <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
-              {languages.map(language => (
-                <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
-              ))}
-            </select>
-          </label>
+        <div className="version-panel" aria-label={pick("Versão do NavBR", "NavBR version", "Versión de NavBR", "NavBR-Version", "Version de NavBR")}>
+          <span>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</span>
+          <strong>{buildVersionLabel(appVersion)}</strong>
         </div>
+        <label className="sidebar-language">
+          <span>{t("common.language")}</span>
+          <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
+            {languages.map(language => (
+              <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
+            ))}
+          </select>
+        </label>
       </div>
     </aside>
   );
@@ -180,9 +185,9 @@ function Home({ state }: { state: NavBrState | null }) {
           <p>{t("home.subtitle")}</p>
         </div>
         <div className="top-actions">
-          <button className="button ghost" onClick={() => sendCommand("refreshOmsiDetection")}>{t("common.refresh")}</button>
-          <button className="button primary" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
-            {omsi?.running ? t("home.open") : t("home.launch")}
+          <button className="button ghost icon-button" onClick={() => sendCommand("refreshOmsiDetection")}><NavBrIcon name="refresh" size={16} />{t("common.refresh")}</button>
+          <button className="button primary icon-button" disabled={Boolean(omsi?.running)} onClick={() => sendCommand("launchOmsi")}>
+            <NavBrIcon name="play" size={16} />{omsi?.running ? t("home.open") : t("home.launch")}
           </button>
         </div>
       </header>
@@ -256,20 +261,28 @@ const formatEta = (seconds: number | undefined | null) => {
 const maneuverLabel = (
   maneuver: string,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
-) => {
+): { icon: NavBrIconName; title: string } => {
   switch (maneuver) {
-    case "SlightLeft": return { arrow: "↖", title: pick("Mantenha à esquerda", "Keep left", "Mantente a la izquierda", "Links halten", "Restez à gauche") };
-    case "Left": return { arrow: "←", title: pick("Vire à esquerda", "Turn left", "Gira a la izquierda", "Links abbiegen", "Tournez à gauche") };
-    case "SharpLeft": return { arrow: "↙", title: pick("Curva forte à esquerda", "Sharp left", "Giro cerrado a la izquierda", "Scharf links", "Virage serré à gauche") };
-    case "SlightRight": return { arrow: "↗", title: pick("Mantenha à direita", "Keep right", "Mantente a la derecha", "Rechts halten", "Restez à droite") };
-    case "Right": return { arrow: "→", title: pick("Vire à direita", "Turn right", "Gira a la derecha", "Rechts abbiegen", "Tournez à droite") };
-    case "SharpRight": return { arrow: "↘", title: pick("Curva forte à direita", "Sharp right", "Giro cerrado a la derecha", "Scharf rechts", "Virage serré à droite") };
-    case "RejoinRoute": return { arrow: "↺", title: pick("Retorne para a rota", "Rejoin the route", "Vuelve a la ruta", "Zur Route zurückkehren", "Rejoignez l’itinéraire") };
-    default: return { arrow: "↑", title: pick("Siga em frente", "Continue straight", "Sigue recto", "Geradeaus weiter", "Continuez tout droit") };
+    case "SlightLeft": return { icon: "slightLeft", title: pick("Mantenha à esquerda", "Keep left", "Mantente a la izquierda", "Links halten", "Restez à gauche") };
+    case "Left": return { icon: "turnLeft", title: pick("Vire à esquerda", "Turn left", "Gira a la izquierda", "Links abbiegen", "Tournez à gauche") };
+    case "SharpLeft": return { icon: "sharpLeft", title: pick("Curva forte à esquerda", "Sharp left", "Giro cerrado a la izquierda", "Scharf links", "Virage serré à gauche") };
+    case "SlightRight": return { icon: "slightRight", title: pick("Mantenha à direita", "Keep right", "Mantente a la derecha", "Rechts halten", "Restez à droite") };
+    case "Right": return { icon: "turnRight", title: pick("Vire à direita", "Turn right", "Gira a la derecha", "Rechts abbiegen", "Tournez à droite") };
+    case "SharpRight": return { icon: "sharpRight", title: pick("Curva forte à direita", "Sharp right", "Giro cerrado a la derecha", "Scharf rechts", "Virage serré à droite") };
+    case "RejoinRoute": return { icon: "rejoin", title: pick("Retorne para a rota", "Rejoin the route", "Vuelve a la ruta", "Zur Route zurückkehren", "Rejoignez l’itinéraire") };
+    default: return { icon: "straight", title: pick("Siga em frente", "Continue straight", "Sigue recto", "Geradeaus weiter", "Continuez tout droit") };
   }
 };
 
-function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
+function NavigationMap({
+  navigation,
+  remoteVehicles = [],
+  remoteRoleplayCharacters = []
+}: {
+  navigation: NavBrNavigationState;
+  remoteVehicles?: NavBrState["navigation3D"]["remoteVehicles"];
+  remoteRoleplayCharacters?: NavBrState["navigation3D"]["remoteRoleplayCharacters"];
+}) {
   const { t, pick } = useI18n();
   const [mode, setMode] = useState<"follow" | "full">("follow");
   const [zoom, setZoom] = useState(1);
@@ -285,8 +298,15 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
     const route = navigation.routePoints;
     const rejoin = navigation.rejoinPoints || [];
     const vehicle = navigation.vehicle;
+    const remotePoints = [
+      ...remoteVehicles.map(item => ({ x: item.x, y: item.y })),
+      ...remoteRoleplayCharacters.map(item => ({ x: item.x, y: item.y }))
+    ];
 
-    if (route.length < 2 && !navigation.roadmapAvailable && !vehicle) {
+    if (route.length < 2 &&
+        !navigation.roadmapAvailable &&
+        !vehicle &&
+        remotePoints.length === 0) {
       return null;
     }
 
@@ -301,9 +321,10 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       maxX = vehicle.x + radius;
       minY = -vehicle.y - radius;
       maxY = -vehicle.y + radius;
-    } else if (route.length > 0 || rejoin.length > 0) {
-      const xs = [...route, ...rejoin].map(point => point.x);
-      const ys = [...route, ...rejoin].map(point => -point.y);
+    } else if (route.length > 0 || rejoin.length > 0 || remotePoints.length > 0) {
+      const allPoints = [...route, ...rejoin, ...remotePoints];
+      const xs = allPoints.map(point => point.x);
+      const ys = allPoints.map(point => -point.y);
       minX = Math.min(...xs);
       maxX = Math.max(...xs);
       minY = Math.min(...ys);
@@ -342,7 +363,17 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
       routePoints,
       rejoinPoints
     };
-  }, [navigation.routePoints, navigation.rejoinPoints, navigation.roadmapAvailable, navigation.bounds, navigation.vehicle, mode, zoom]);
+  }, [
+    navigation.routePoints,
+    navigation.rejoinPoints,
+    navigation.roadmapAvailable,
+    navigation.bounds,
+    navigation.vehicle,
+    remoteVehicles,
+    remoteRoleplayCharacters,
+    mode,
+    zoom
+  ]);
 
   return (
     <div className="navigation-map">
@@ -428,14 +459,54 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
             </g>
           ))}
 
+          {remoteVehicles.map(remote => (
+            <g
+              className="nav-remote-bus"
+              key={`bus-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="18" className="nav-remote-bus-outer" />
+              <circle r="13" className="nav-remote-bus-inner" />
+              <polygon className="nav-remote-bus-arrow" points="0,-14 7,9 0,4 -7,9" />
+              <text
+                className="nav-remote-label"
+                x="22"
+                y="-18"
+                transform={`rotate(${-remote.headingDegrees} 22 -18)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
+          {remoteRoleplayCharacters.map(remote => (
+            <g
+              className="nav-remote-roleplay"
+              key={`rp-${remote.playerId}`}
+              transform={`translate(${remote.x} ${-remote.y}) rotate(${remote.headingDegrees})`}
+            >
+              <circle r="16" className="nav-remote-roleplay-outer" />
+              <circle cy="-3" r="5" className="nav-remote-roleplay-head" />
+              <path className="nav-remote-roleplay-body" d="M 0 3 L 0 15 M -6 8 L 6 8 M 0 15 L -5 24 M 0 15 L 5 24" />
+              <text
+                className="nav-remote-label roleplay"
+                x="20"
+                y="-17"
+                transform={`rotate(${-remote.headingDegrees} 20 -17)`}
+              >
+                {remote.displayName}
+              </text>
+            </g>
+          ))}
+
           {navigation.vehicle && (
             <g
               className="nav-vehicle"
               transform={`translate(${navigation.vehicle.x} ${-navigation.vehicle.y}) rotate(${navigation.vehicle.headingDegrees})`}
             >
-              <circle r="23" className="nav-vehicle-halo" />
-              <path d="M -12 -20 L 12 -20 L 14 13 L 0 23 L -14 13 Z" />
-              <path className="nav-vehicle-heading" d="M 0 -32 L -7 -20 L 7 -20 Z" />
+              <circle r="19" className="nav-vehicle-hud-outer" />
+              <circle r="14" className="nav-vehicle-hud-inner" />
+              <polygon className="nav-vehicle-hud-arrow" points="0,-15 8,10 0,4 -8,10" />
             </g>
           )}
         </svg>
@@ -446,6 +517,12 @@ function NavigationMap({ navigation }: { navigation: NavBrNavigationState }) {
         {navigation.rejoinAvailable && <span><i className="rejoin" /> {pick("Retorno à rota", "Route rejoin", "Retorno a la ruta", "Routenrückkehr", "Retour à l’itinéraire")}</span>}
         <span><i className="stop" /> {pick("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts")}</span>
         <span><i className="bus" /> {pick("Seu ônibus", "Your bus", "Tu autobús", "Dein Bus", "Votre bus")}</span>
+        {remoteVehicles.length > 0 && (
+          <span><i className="remote-bus" /> {remoteVehicles.length} {pick("ônibus online", "online bus(es)", "autobús(es) online", "Online-Bus(se)", "bus en ligne")}</span>
+        )}
+        {remoteRoleplayCharacters.length > 0 && (
+          <span><i className="remote-rp" /> {remoteRoleplayCharacters.length} RP</span>
+        )}
       </div>
     </div>
   );
@@ -488,6 +565,10 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
     });
 
     const route = state.routePoints.map(point => project(point.x, point.y));
+    const rejoin = (state.rejoinPoints || []).map(point => project(point.x, point.y));
+    const rejoinTarget = state.rejoinPoint
+      ? project(state.rejoinPoint.x, state.rejoinPoint.y)
+      : null;
     const local = state.localVehicle
       ? { ...state.localVehicle, ...project(state.localVehicle.x, state.localVehicle.y) }
       : null;
@@ -516,7 +597,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
       viewBox = `${minX} ${minY} ${spanX} ${spanY}`;
     }
 
-    return { sceneWidth, sceneHeight, route, local, roleplay, remotes, remoteRoleplay, viewBox };
+    return { sceneWidth, sceneHeight, route, rejoin, rejoinTarget, local, roleplay, remotes, remoteRoleplay, viewBox };
   }, [state, camera, zoom, roadmapSrc]);
 
   if (!state.roadmapAvailable) {
@@ -547,6 +628,7 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
   }
 
   const routePoints = scene.route.map(point => `${point.x},${point.y}`).join(" ");
+  const rejoinPoints = scene.rejoin.map(point => `${point.x},${point.y}`).join(" ");
 
   return (
     <div className="navigation-3d">
@@ -603,6 +685,21 @@ function Navigation3DMap({ state }: { state: NavBrState["navigation3D"] }) {
               <>
                 <polyline className="nav3d-route-shadow" points={routePoints} />
                 <polyline className="nav3d-route-line" points={routePoints} />
+              </>
+            )}
+
+            {state.rejoinAvailable && scene.rejoin.length >= 2 && (
+              <>
+                <polyline className="nav3d-rejoin-shadow" points={rejoinPoints} />
+                <polyline className="nav3d-rejoin-line" points={rejoinPoints} />
+                {scene.rejoinTarget && (
+                  <circle
+                    className="nav3d-rejoin-target"
+                    cx={scene.rejoinTarget.x}
+                    cy={scene.rejoinTarget.y}
+                    r="9"
+                  />
+                )}
               </>
             )}
 
@@ -769,14 +866,18 @@ function Navigation({
           </div>
           {mapView === "3d" && navigation3D
             ? <Navigation3DMap state={navigation3D} />
-            : <NavigationMap navigation={navigation} />}
+            : <NavigationMap
+                navigation={navigation}
+                remoteVehicles={navigation3D?.remoteVehicles}
+                remoteRoleplayCharacters={navigation3D?.remoteRoleplayCharacters}
+              />}
         </article>
 
         <aside className="navigation-side">
           <article className={`card maneuver-card ${navigation.maneuver === "RejoinRoute" ? "warning" : ""}`}>
             <span className="eyebrow">{navigation.maneuver === "RejoinRoute" ? pick("CORREÇÃO DE ROTA", "ROUTE CORRECTION", "CORRECCIÓN DE RUTA", "ROUTENKORREKTUR", "CORRECTION D’ITINÉRAIRE") : pick("PRÓXIMA MANOBRA", "NEXT MANEUVER", "PRÓXIMA MANIOBRA", "NÄCHSTES MANÖVER", "PROCHAINE MANŒUVRE")}</span>
             <div className="maneuver-main">
-              <strong>{maneuver.arrow}</strong>
+              <strong><NavBrIcon name={maneuver.icon} size={34} /></strong>
               <div>
                 <h3>{maneuver.title}</h3>
                 <p>
@@ -1156,12 +1257,18 @@ function Operations({
           <article className="card cco-map-card">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">{pick("SESSÃO OPERACIONAL", "OPERATION SESSION", "SESIÓN OPERACIONAL", "BETRIEBSSITZUNG", "SESSION OPÉRATIONNELLE")}</span>
+                <span className="eyebrow">{pick("MAPA E RETORNO À ROTA", "MAP AND ROUTE REJOIN", "MAPA Y RETORNO A LA RUTA", "KARTE UND ROUTENRÜCKKEHR", "CARTE ET RETOUR À L’ITINÉRAIRE")}</span>
                 <h3>{local?.mapName || state?.telemetry?.mapName || pick("Sem mapa ativo", "No active map", "Sin mapa activo", "Keine aktive Karte", "Aucune carte active")}</h3>
               </div>
               <span className={`live-pill ${operations.connected ? "" : "muted"}`}><span /> {operations.connected ? "LIVE" : "LOCAL"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="cco-side-stack">
@@ -1523,7 +1630,7 @@ function CompanyNetwork({
     if (!companyNetwork.assignableRoles.includes(inviteRole)) setInviteRole(companyNetwork.assignableRoles.includes("Driver") ? "Driver" : companyNetwork.assignableRoles[0] || "Driver");
   }, [companyNetwork?.membership?.nodeUrl, companyNetwork?.assignableRoles]);
 
-  if (!companyNetwork?.available) return <div className="card empty-state">{pick("Aguardando o runtime da Rede da Empresa…", "Waiting for Company Network runtime…", "Esperando el runtime de la Red de Empresa…", "Warte auf Company-Network-Runtime…", "En attente du runtime Réseau Entreprise…")}</div>;
+  if (!companyNetwork?.available) return <div className="card empty-state">{pick("Carregando Rede da Empresa…", "Loading Company Network…", "Cargando Red de Empresa…", "Unternehmensnetz wird geladen…", "Chargement du Réseau Entreprise…")}</div>;
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
@@ -1532,8 +1639,8 @@ function CompanyNetwork({
   return (
     <>
       <header className="topbar company-network-header">
-        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Empresa online peer-hosted, identidade assinada e equipe administrada pelo backend nativo.", "Peer-hosted online company with signed identity and team managed by the native backend.", "Empresa online peer-hosted, identidad firmada y equipo gestionado por el backend nativo.", "Peer-gehostetes Online-Unternehmen mit signierter Identität und Teamverwaltung im nativen Backend.", "Entreprise en ligne peer-hosted avec identité signée et équipe gérée par le backend natif.")}</p></div>
-        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? "Company Node TCP " + node.port : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
+        <div><span className="eyebrow">NAVBR COMPANY NETWORK</span><h1>{pick("Rede da empresa", "Company network", "Red de empresa", "Unternehmensnetz", "Réseau entreprise")}</h1><p>{pick("Gerencie sua empresa, equipe e convites online em um só lugar.", "Manage your company, team and online invites in one place.", "Gestiona tu empresa, equipo e invitaciones online en un solo lugar.", "Verwalte Unternehmen, Team und Online-Einladungen an einem Ort.", "Gérez votre entreprise, votre équipe et vos invitations en ligne au même endroit.")}</p></div>
+        <div className="top-actions"><span className={`connection-pill ${node?.running ? "connected" : ""}`}><i /> {node?.running ? pick("Empresa online", "Company online", "Empresa online", "Unternehmen online", "Entreprise en ligne") : companyNetwork.membership ? pick("Vinculado", "Linked", "Vinculado", "Verknüpft", "Lié") : "Offline"}</span><button className="button ghost" onClick={() => sendCommand("refreshCompanyNetwork")}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button></div>
       </header>
       {error && <div className="command-error">{error}</div>}
       <section className="company-network-metrics">
@@ -1545,7 +1652,7 @@ function CompanyNetwork({
       <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>{pick("Equipe", "Team", "Equipo", "Team", "Équipe")}</button></div>
       {tab === "network" && (
         <section className="company-network-layout">
-          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("A chave privada permanece protegida no Windows e nunca é enviada ao React.", "The private key remains protected in Windows and is never sent to React.", "La clave privada permanece protegida en Windows y nunca se envía a React.", "Der private Schlüssel bleibt in Windows geschützt und wird nie an React gesendet.", "La clé privée reste protégée dans Windows et n’est jamais envoyée à React.")}</p></article>
+          <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("Sua identidade fica protegida neste computador.", "Your identity stays protected on this computer.", "Tu identidad permanece protegida en este equipo.", "Deine Identität bleibt auf diesem Computer geschützt.", "Votre identité reste protégée sur cet ordinateur.")}</p></article>
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
           <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
           <article className="card company-invite-card"><span className="eyebrow">{pick("CONVIDAR", "INVITE", "INVITAR", "EINLADEN", "INVITER")}</span><h3>{pick("Novo membro", "New member", "Nuevo miembro", "Neues Mitglied", "Nouveau membre")}</h3><p>{pick("Convites expiram em 7 dias e são criados para um único uso.", "Invites expire in 7 days and are created for one-time use.", "Las invitaciones caducan en 7 días y son de un solo uso.", "Einladungen laufen nach 7 Tagen ab und sind einmalig.", "Les invitations expirent après 7 jours et sont à usage unique.")}</p><label><span>{pick("Cargo inicial", "Initial role", "Cargo inicial", "Anfangsrolle", "Rôle initial")}</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabel(role, pick)}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>{pick("Criar convite", "Create invite", "Crear invitación", "Einladung erstellen", "Créer une invitation")}</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button></div>}</article>
@@ -2273,18 +2380,32 @@ function Settings({
             <p>{pick("Ao abrir o NavBR, o app localiza o OMSI e verifica os 3 arquivos necessários. Se estiverem ausentes ou desatualizados e for seguro substituir, o pacote oficial embutido é instalado automaticamente.", "When NavBR starts, it locates OMSI and checks the 3 required files. If they are missing or outdated and replacement is safe, the embedded official package is installed automatically.", "Al iniciar NavBR, la app localiza OMSI y verifica los 3 archivos necesarios. Si faltan o están desactualizados y es seguro reemplazarlos, instala automáticamente el paquete oficial integrado.", "Beim Start sucht NavBR OMSI und prüft die 3 erforderlichen Dateien. Fehlen sie oder sind sie veraltet und ein Austausch ist sicher, wird das eingebettete offizielle Paket automatisch installiert.", "Au démarrage, NavBR localise OMSI et vérifie les 3 fichiers requis. S'ils manquent ou sont obsolètes et que le remplacement est sûr, le paquet officiel intégré est installé automatiquement.")}</p>
             <div className="details-grid">
               <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.pluginInstallation.requiredFilesFound}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("SHA-256 OK", "SHA-256 OK", "SHA-256 OK", "SHA-256 OK", "SHA-256 OK")}</small><strong>{system.pluginInstallation.verifiedFiles}/{system.pluginInstallation.requiredFilesTotal}</strong></div>
+              <div><small>{pick("VERSÃO INSTALADA", "INSTALLED VERSION", "VERSIÓN INSTALADA", "INSTALLIERTE VERSION", "VERSION INSTALLÉE")}</small><strong>{system.pluginInstallation.installedVersion || "—"}</strong></div>
+              <div><small>{pick("VERSÃO ESPERADA", "EXPECTED VERSION", "VERSIÓN ESPERADA", "ERWARTETE VERSION", "VERSION ATTENDUE")}</small><strong>{system.pluginInstallation.expectedVersion || "—"}</strong></div>
               <div><small>{pick("MANIFESTO", "MANIFEST", "MANIFIESTO", "MANIFEST", "MANIFESTE")}</small><strong>{system.pluginInstallation.manifestPresent ? "OK" : "—"}</strong></div>
               <div><small>{pick("PACOTE EMBUTIDO", "EMBEDDED PACKAGE", "PAQUETE INTEGRADO", "EINGEBETTETES PAKET", "PAQUET INTÉGRÉ")}</small><strong>{system.pluginInstallation.embeddedPackageAvailable ? "OK" : "—"}</strong></div>
+              <div><small>{pick("ATUALIZAÇÃO", "UPDATE", "ACTUALIZACIÓN", "UPDATE", "MISE À JOUR")}</small><strong>{system.pluginInstallation.updateRequired ? pick("Necessária", "Required", "Necesaria", "Erforderlich", "Requise") : pick("Em dia", "Current", "Al día", "Aktuell", "À jour")}</strong></div>
               <div><small>OMSI</small><strong>{system.pluginInstallation.omsiRunning ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
             </div>
-            {system.pluginInstallation.state !== "installed" && (
-              <div className="plugin-update-actions">
-                <div className="discovery-actions">
-                  <button className="button ghost" disabled={!system.pluginInstallation.installAvailable} onClick={() => sendCommand("installOmsiPlugin")}>
-                    {pick("Instalar / atualizar agora", "Install / update now", "Instalar / actualizar ahora", "Jetzt installieren / aktualisieren", "Installer / mettre à jour maintenant")}
-                  </button>
-                </div>
-                {!system.pluginInstallation.installAvailable && system.pluginInstallation.installBlockReason && (
+            <div className="plugin-file-verification">
+              {system.pluginInstallation.files.map(file => (
+                <span key={file.name} className={file.exists && file.hashMatches ? "verified" : "mismatch"}>
+                  <NavBrIcon name={file.exists && file.hashMatches ? "info" : "hazard"} size={13} />
+                  {file.name}
+                </span>
+              ))}
+            </div>
+            <div className="plugin-update-actions">
+              <div className="discovery-actions">
+                <button className="button ghost icon-button" disabled={!system.pluginInstallation.verificationAvailable} onClick={() => sendCommand("verifyOmsiPlugin")}>
+                  <NavBrIcon name="plugin" size={16} />{pick("Verificar e atualizar agora", "Verify and update now", "Verificar y actualizar ahora", "Jetzt prüfen und aktualisieren", "Vérifier et mettre à jour")}
+                </button>
+              </div>
+              {system.pluginInstallation.autoUpdatePending && (
+                <small className="plugin-update-hint">{pick("Atualização pendente: será aplicada automaticamente quando o OMSI fechar.", "Update pending: it will be applied automatically when OMSI closes.", "Actualización pendiente: se aplicará automáticamente al cerrar OMSI.", "Update ausstehend: es wird automatisch nach dem Schließen von OMSI angewendet.", "Mise à jour en attente : elle sera appliquée automatiquement à la fermeture d’OMSI.")}</small>
+              )}
+              {!system.pluginInstallation.installAvailable && system.pluginInstallation.installBlockReason && (
                   <small className="plugin-update-hint">
                     {system.pluginInstallation.installBlockReason === "omsi-running"
                       ? pick("Feche o OMSI para liberar a atualização do plugin.", "Close OMSI to enable the plugin update.", "Cierra OMSI para habilitar la actualización del plugin.", "OMSI schließen, um das Plugin-Update freizugeben.", "Fermez OMSI pour autoriser la mise à jour du plugin.")
@@ -2294,7 +2415,6 @@ function Settings({
                   </small>
                 )}
               </div>
-            )}
           </article>
 
           <article className="card discovery-card">
@@ -2531,13 +2651,13 @@ function Settings({
               />
               <span>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</span>
             </label>
-            <p>{pick("Estas opções usam o mesmo arquivo de preferências da interface Alpha.12, preservando o comportamento existente durante a migração.", "These options use the same Alpha.12 preference file, preserving existing behavior during migration.", "Estas opciones usan el mismo archivo de preferencias de Alpha.12 y preservan el comportamiento existente.", "Diese Optionen verwenden dieselbe Alpha.12-Einstellungsdatei und erhalten das bestehende Verhalten.", "Ces options utilisent le même fichier de préférences Alpha.12 et préservent le comportement existant.")}</p>
+            <p>{pick("Essas preferências são salvas automaticamente para os próximos usos.", "These preferences are saved automatically for future sessions.", "Estas preferencias se guardan automáticamente para próximos usos.", "Diese Einstellungen werden automatisch für kommende Sitzungen gespeichert.", "Ces préférences sont enregistrées automatiquement pour les prochaines utilisations.")}</p>
           </article>
 
           <article className="card compact-card">
             <span className="eyebrow">MULTIPLAYER</span>
             <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
-            <p>{pick("Firewall, NAT e UPnP ficam na aba Rede. Relay, atalhos e ônibus físicos são configurados diretamente na interface React usando o mesmo estado real do C#.", "Firewall, NAT and UPnP are in the Network tab. Relay, hotkeys and physical buses are configured directly in the React interface using the same real C# state.", "Firewall, NAT y UPnP están en la pestaña Red. Relay, atajos y autobuses físicos se configuran directamente en la interfaz React usando el mismo estado real de C#.", "Firewall, NAT und UPnP befinden sich im Netzwerktab. Relay, Hotkeys und physische Busse werden direkt in der React-Oberfläche mit demselben echten C#-Status konfiguriert.", "Pare-feu, NAT et UPnP se trouvent dans l’onglet Réseau. Relay, raccourcis et bus physiques se configurent directement dans l’interface React à partir du même état C# réel.")}</p>
+            <p>{pick("Ajuste conexão, atalhos, voz e ônibus físicos na área de Rede.", "Configure connection, shortcuts, voice and physical buses in Network.", "Configura conexión, atajos, voz y autobuses físicos en Red.", "Verbindung, Tastenkürzel, Sprache und physische Busse findest du unter Netzwerk.", "Réglez la connexion, les raccourcis, la voix et les bus physiques dans Réseau.")}</p>
             <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
           </article>
           <article className="card compact-card">
@@ -2552,7 +2672,7 @@ function Settings({
           <article className="card compact-card">
             <span className="eyebrow">ROADMAP</span>
             <h3>Roadmap Studio</h3>
-            <p>{pick("Análise, montagem por tiles e geração vetorial pelas splines já usam os serviços nativos pela interface React.", "Analysis, tile assembly and vector generation from splines already use native services through the React interface.", "El análisis, montaje por tiles y generación vectorial por splines ya usan los servicios nativos desde la interfaz React.", "Analyse, Tile-Zusammenbau und Vektorerzeugung aus Splines verwenden bereits native Dienste über die React-Oberfläche.", "L’analyse, l’assemblage des tiles et la génération vectorielle par splines utilisent déjà les services natifs via l’interface React.")}</p>
+            <p>{pick("Analise mapas, monte o roadmap e gere a visão vetorial das ruas em um só lugar.", "Analyze maps, assemble the roadmap and generate the vector road view in one place.", "Analiza mapas, monta el roadmap y genera la vista vectorial de las calles en un solo lugar.", "Analysiere Karten, erstelle die Roadmap und erzeuge die Vektoransicht der Straßen an einem Ort.", "Analysez les cartes, assemblez la roadmap et générez la vue vectorielle des routes au même endroit.")}</p>
             <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
           </article>
         </section>
@@ -2568,11 +2688,15 @@ function roleplayStatusLabel(
 ) {
   switch (status) {
     case "roleplay-active": return pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif");
+    case "roleplay-paused-focus-loss": return pick("RP pausado · OMSI fora de foco", "RP paused · OMSI is out of focus", "RP pausado · OMSI fuera de foco", "RP pausiert · OMSI nicht im Fokus", "RP en pause · OMSI n’est pas au premier plan");
+    case "roleplay-focus-stop-failed": return pick("Falha ao confirmar parada segura do personagem", "Could not confirm the character safe stop", "No se pudo confirmar la parada segura del personaje", "Sicherer Stopp der Figur konnte nicht bestätigt werden", "Impossible de confirmer l’arrêt sécurisé du personnage");
     case "roleplay-returned-to-bus": return pick("Motorista retornou ao ônibus", "Driver returned to the bus", "El conductor volvió al autobús", "Fahrer ist zum Bus zurückgekehrt", "Le conducteur est retourné au bus");
     case "roleplay-character-selected": return pick("Personagem selecionado", "Character selected", "Personaje seleccionado", "Charakter ausgewählt", "Personnage sélectionné");
     case "roleplay-active-driver-auto-selected": return pick("Motorista ativo detectado automaticamente", "Active driver detected automatically", "Conductor activo detectado automáticamente", "Aktiver Fahrer automatisch erkannt", "Conducteur actif détecté automatiquement");
     case "roleplay-active-driver-not-detected": return pick("Aguardando o motorista ativo do ônibus", "Waiting for the active bus driver", "Esperando al conductor activo del autobús", "Warte auf den aktiven Busfahrer", "En attente du conducteur actif du bus");
     case "roleplay-plugin-unavailable": return pick("Plugin Bridge sem suporte RP", "Plugin Bridge has no RP support", "Plugin Bridge sin soporte RP", "Plugin Bridge ohne RP-Unterstützung", "Plugin Bridge sans prise en charge RP");
+    case "roleplay-plugin-disconnected": return pick("Plugin Bridge desconectado", "Plugin Bridge disconnected", "Plugin Bridge desconectado", "Plugin Bridge getrennt", "Plugin Bridge déconnecté");
+    case "roleplay-plugin-capability-unavailable": return pick("Plugin conectado, mas capacidades RP ausentes", "Plugin connected, but RP capabilities are missing", "Plugin conectado, pero faltan capacidades RP", "Plugin verbunden, aber RP-Funktionen fehlen", "Plugin connecté, mais capacités RP absentes");
     case "roleplay-character-required": return pick("Selecione um personagem", "Select a character", "Selecciona un personaje", "Charakter auswählen", "Sélectionnez un personnage");
     case "roleplay-waiting-telemetry": return pick("Aguardando telemetria do OMSI", "Waiting for OMSI telemetry", "Esperando telemetría de OMSI", "Warte auf OMSI-Telemetrie", "En attente de la télémétrie OMSI");
     case "roleplay-map-or-character-changed": return pick("Mapa/personagem alterado", "Map/character changed", "Mapa/personaje cambiado", "Karte/Charakter geändert", "Carte/personnage modifié");
@@ -2593,6 +2717,14 @@ function roleplayStatusLabel(
     case "roleplay-entered-bus": return pick("Retornou ao ônibus", "Returned to the bus", "Volvió al autobús", "Zum Bus zurückgekehrt", "Retour au bus");
     case "roleplay-emergency-return": return pick("RP encerrado pelo retorno de emergência", "RP ended by emergency return", "RP finalizado por retorno de emergencia", "RP durch Notfall-Rückkehr beendet", "RP terminé par retour d’urgence");
     case "roleplay-release-failed": return pick("O RP foi encerrado, mas o plugin não confirmou a restauração do motorista", "RP ended, but the plugin did not confirm driver restoration", "El RP terminó, pero el plugin no confirmó la restauración del conductor", "RP wurde beendet, aber das Plugin bestätigte die Fahrerwiederherstellung nicht", "Le RP est terminé, mais le plugin n’a pas confirmé la restauration du conducteur");
+    case "driver-restore-failed": return pick("O OMSI recusou a restauração do motorista; o NavBR tentou novamente e manteve o erro visível", "OMSI rejected driver restoration; NavBR retried and kept the error visible", "OMSI rechazó la restauración del conductor; NavBR volvió a intentarlo y mantuvo visible el error", "OMSI hat die Fahrerwiederherstellung abgelehnt; NavBR hat erneut versucht und den Fehler sichtbar gehalten", "OMSI a refusé la restauration du conducteur ; NavBR a réessayé et a conservé l’erreur visible");
+    case "driver-restore-unconfirmed": return pick("O motorista foi restaurado, mas o OMSI não confirmou o estado final", "The driver was restored, but OMSI did not confirm the final state", "El conductor fue restaurado, pero OMSI no confirmó el estado final", "Der Fahrer wurde wiederhergestellt, aber OMSI bestätigte den Endzustand nicht", "Le conducteur a été restauré, mais OMSI n’a pas confirmé l’état final");
+    case "driver-pointer-stale": return pick("O personagem do motorista não existe mais na lista ativa do OMSI", "The driver character no longer exists in OMSI's active list", "El personaje del conductor ya no existe en la lista activa de OMSI", "Die Fahrerfigur existiert nicht mehr in der aktiven OMSI-Liste", "Le personnage conducteur n’existe plus dans la liste active d’OMSI");
+    case "driver-detach-failed": return pick("O OMSI recusou retirar o motorista do ônibus", "OMSI rejected detaching the driver from the bus", "OMSI rechazó separar al conductor del autobús", "OMSI hat das Lösen des Fahrers vom Bus abgelehnt", "OMSI a refusé de détacher le conducteur du bus");
+    case "driver-detach-unconfirmed": return pick("O motorista saiu do ônibus, mas o estado não foi confirmado", "The driver left the bus, but the state was not confirmed", "El conductor salió del autobús, pero no se confirmó el estado", "Der Fahrer hat den Bus verlassen, aber der Zustand wurde nicht bestätigt", "Le conducteur a quitté le bus, mais l’état n’a pas été confirmé");
+    case "driver-transform-unconfirmed": return pick("O OMSI não confirmou a posição física do personagem", "OMSI did not confirm the character's physical position", "OMSI no confirmó la posición física del personaje", "OMSI bestätigte die physische Position der Figur nicht", "OMSI n’a pas confirmé la position physique du personnage");
+    case "selected-driver-too-far": return pick("O motorista selecionado está longe demais do ônibus ativo", "The selected driver is too far from the active bus", "El conductor seleccionado está demasiado lejos del autobús activo", "Der ausgewählte Fahrer ist zu weit vom aktiven Bus entfernt", "Le conducteur sélectionné est trop éloigné du bus actif");
+    case "roleplay-writes-disabled": return pick("As escritas experimentais de RP estão desativadas", "Experimental RP writes are disabled", "Las escrituras experimentales de RP están desactivadas", "Experimentelle RP-Schreibzugriffe sind deaktiviert", "Les écritures RP expérimentales sont désactivées");
     case "roleplay-disabled": return pick("Recurso RP desativado", "RP feature disabled", "Función RP desactivada", "RP-Funktion deaktiviert", "Fonction RP désactivée");
     case "roleplay-enabled": return pick("Recurso RP ativado", "RP feature enabled", "Función RP activada", "RP-Funktion aktiviert", "Fonction RP activée");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
@@ -2703,7 +2835,7 @@ function RoleplayPanel({
               <h3>{roleplay.active ? current?.characterName || roleplay.selected?.displayName || pick("Personagem ativo", "Character active", "Personaje activo", "Charakter aktiv", "Personnage actif") : roleplay.selected?.displayName || pick("Nenhum personagem selecionado", "No character selected", "Ningún personaje seleccionado", "Kein Charakter ausgewählt", "Aucun personnage sélectionné")}</h3>
             </div>
             <span className={`hardware-state-pill ${roleplay.runtimeAvailable ? "connected" : ""}`}>
-              {roleplay.runtimeAvailable ? pick("Bridge RP disponível", "RP Bridge available", "Bridge RP disponible", "RP-Bridge verfügbar", "Bridge RP disponible") : pick("Bridge RP indisponível", "RP Bridge unavailable", "Bridge RP no disponible", "RP-Bridge nicht verfügbar", "Bridge RP indisponible")}
+              {roleplay.runtimeAvailable ? pick("Integração disponível", "Integration available", "Integración disponible", "Integration verfügbar", "Intégration disponible") : pick("Integração indisponível", "Integration unavailable", "Integración no disponible", "Integration nicht verfügbar", "Intégration indisponible")}
             </span>
           </div>
 
@@ -2814,10 +2946,10 @@ function RoleplayPanel({
 
           {!roleplay.enabled && <p className="migration-note">{pick("O modo Personagem / RP está desativado nas configurações experimentais.", "Character / RP mode is disabled in experimental settings.", "El modo Personaje / RP está desactivado en la configuración experimental.", "Charakter-/RP-Modus ist in den experimentellen Einstellungen deaktiviert.", "Le mode Personnage / RP est désactivé dans les paramètres expérimentaux.")}</p>}
           {roleplay.enabled && !roleplay.mapReady && <p className="migration-note">{pick("Entre em um mapa do OMSI para carregar os personagens reais de Map.Drivers.", "Enter an OMSI map to load real Map.Drivers characters.", "Entra en un mapa de OMSI para cargar los personajes reales de Map.Drivers.", "Öffne eine OMSI-Karte, um echte Map.Drivers-Charaktere zu laden.", "Entrez dans une carte OMSI pour charger les personnages réels de Map.Drivers.")}</p>}
-          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("O Plugin Bridge precisa anunciar as capacidades de posse e transformação de personagem.", "Plugin Bridge must advertise character possession and transform capabilities.", "Plugin Bridge debe anunciar las capacidades de posesión y transformación del personaje.", "Plugin Bridge muss Fähigkeiten für Charakterübernahme und Transformation melden.", "Plugin Bridge doit annoncer les capacités de possession et de transformation du personnage.")}</p>}
+          {roleplay.mapReady && !roleplay.runtimeAvailable && <p className="migration-note">{pick("Atualize a integração do OMSI para usar o modo Personagem / RP neste mapa.", "Update the OMSI integration to use Character / RP mode on this map.", "Actualiza la integración de OMSI para usar el modo Personaje / RP en este mapa.", "Aktualisiere die OMSI-Integration, um den Charakter-/RP-Modus auf dieser Karte zu verwenden.", "Mettez à jour l’intégration OMSI pour utiliser le mode Personnage / RP sur cette carte.")}</p>}
         </article>
 
-        <article className="card rp-character-card">
+        <article className="card rp-character-card rp-character-selection-card">
           <div className="section-heading">
             <div><span className="eyebrow">MAP.DRIVERS</span><h3>{pick("Personagens disponíveis", "Available characters", "Personajes disponibles", "Verfügbare Charaktere", "Personnages disponibles")}</h3></div>
             <span className="stop-count">{roleplay.characters.length}</span>
@@ -2834,7 +2966,7 @@ function RoleplayPanel({
                   disabled={roleplay.active || !character.isActiveDriver}
                   onClick={() => sendCommand("selectRoleplayCharacter", { characterId: character.id })}
                 >
-                  <span className="rp-character-avatar">♙</span>
+                  <span className="rp-character-avatar"><NavBrIcon name="character" size={18} /></span>
                   <span>
                     <strong>{character.displayName}</strong>
                     <small>{character.isActiveDriver ? pick("Motorista ativo do mapa", "Active map driver", "Conductor activo del mapa", "Aktiver Kartenfahrer", "Conducteur actif de la carte") : character.sourceValue}</small>
@@ -2905,7 +3037,7 @@ function RoleplayPanel({
                     disabled={!roleplay.canInteractWithBus}
                     onClick={() => sendCommand("triggerRoleplayVehicle", { triggerName: interaction.name })}
                   >
-                    <span className="rp-character-avatar">↯</span>
+                    <span className="rp-character-avatar"><NavBrIcon name="action" size={18} /></span>
                     <span>
                       <strong>{interaction.name}</strong>
                       <small>{pick("Evento real declarado pelo addon", "Real event declared by the addon", "Evento real declarado por el addon", "Vom Add-on deklariertes echtes Ereignis", "Événement réel déclaré par l’addon")}</small>
@@ -2956,7 +3088,7 @@ function RoleplayPanel({
             <span><kbd>E</kbd><strong>{pick("Entrar no ônibus quando estiver próximo", "Enter the bus when nearby", "Entrar al autobús cuando esté cerca", "In den Bus einsteigen, wenn er nahe ist", "Entrer dans le bus à proximité")}</strong></span>
             <span><kbd>Esc</kbd><strong>{pick("Retorno de emergência", "Emergency return", "Retorno de emergencia", "Notfall-Rückkehr", "Retour d’urgence")}</strong></span>
           </div>
-          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. E exige proximidade real do ônibus; Esc permanece disponível como retorno de emergência.", "Shortcuts are captured only while OMSI is in the foreground. E requires real bus proximity; Esc remains available as an emergency return.", "Los atajos solo se capturan cuando OMSI está en primer plano. E requiere proximidad real al autobús; Esc sigue disponible como retorno de emergencia.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. E erfordert echte Busnähe; Esc bleibt als Notfall-Rückkehr verfügbar.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. E exige une proximité réelle du bus ; Esc reste disponible comme retour d’urgence.")}</p>
+          <p>{pick("Os atalhos só são capturados quando o OMSI está em primeiro plano. Ao trocar de janela, o NavBR zera o movimento, solta as teclas RP e mantém o personagem parado até um novo comando. E exige proximidade real do ônibus; Esc permanece disponível como retorno de emergência.", "Shortcuts are captured only while OMSI is in the foreground. When focus changes, NavBR zeroes movement, releases RP keys, and keeps the character stopped until a new command. E requires real bus proximity; Esc remains available as an emergency return.", "Los atajos solo se capturan cuando OMSI está en primer plano. Al cambiar de ventana, NavBR detiene el movimiento, libera las teclas RP y mantiene al personaje parado hasta un nuevo comando. E requiere proximidad real al autobús; Esc sigue disponible como retorno de emergencia.", "Tastenkürzel werden nur erfasst, wenn OMSI im Vordergrund ist. Beim Fensterwechsel stoppt NavBR die Bewegung, löst die RP-Tasten und hält die Figur bis zu einer neuen Eingabe an. E erfordert echte Busnähe; Esc bleibt als Notfall-Rückkehr verfügbar.", "Les raccourcis ne sont capturés que lorsque OMSI est au premier plan. Lors d’un changement de fenêtre, NavBR annule le mouvement, libère les touches RP et maintient le personnage à l’arrêt jusqu’à une nouvelle commande. E exige une proximité réelle du bus ; Esc reste disponible comme retour d’urgence.")}</p>
         </section>
       )}
     </>
@@ -3157,7 +3289,7 @@ function Multiplayer({
         <div>
           <span className="eyebrow">{pick("CENTRAL MULTIPLAYER", "MULTIPLAYER CENTER", "CENTRAL MULTIJUGADOR", "MULTIPLAYER-ZENTRALE", "CENTRALE MULTIJOUEUR")}</span>
           <h1>{pick("Sessão NavBR", "NavBR session", "Sesión NavBR", "NavBR-Sitzung", "Session NavBR")}</h1>
-          <p>{pick("Estado real da sala, jogadores, chat, voz e personagem vindo do controlador C#.", "Real room, players, chat, voice and character state from the C# controller.", "Estado real de sala, jugadores, chat, voz y personaje desde el controlador C#.", "Echter Raum-, Spieler-, Chat-, Sprach- und Charakterstatus aus dem C#-Controller.", "État réel de la salle, des joueurs, du chat, de la voix et du personnage depuis le contrôleur C#.")}</p>
+          <p>{pick("Gerencie sala, jogadores, chat, voz e personagem em tempo real.", "Manage room, players, chat, voice and character in real time.", "Gestiona sala, jugadores, chat, voz y personaje en tiempo real.", "Verwalte Raum, Spieler, Chat, Sprache und Charakter in Echtzeit.", "Gérez la salle, les joueurs, le chat, la voix et le personnage en temps réel.")}</p>
         </div>
         <div className="top-actions">
           <span className={`connection-pill ${multiplayer.connected ? "connected" : ""}`}>
@@ -3224,7 +3356,13 @@ function Multiplayer({
               <div><span className="eyebrow">{pick("SESSÃO AO VIVO", "LIVE SESSION", "SESIÓN EN VIVO", "LIVE-SITZUNG", "SESSION EN DIRECT")}</span><h3>{pick("Operação compartilhada", "Shared operation", "Operación compartida", "Gemeinsamer Betrieb", "Opération partagée")}</h3></div>
               <span className={`live-pill ${multiplayer.connected ? "" : "muted"}`}><span /> {multiplayer.connected ? "LIVE" : "OFFLINE"}</span>
             </div>
-            <SessionMap points={multiplayer.sessionPoints} />
+            {state?.navigation?.available || state?.navigation?.roadmapAvailable
+              ? <NavigationMap
+                  navigation={state.navigation}
+                  remoteVehicles={state.navigation3D?.remoteVehicles}
+                  remoteRoleplayCharacters={state.navigation3D?.remoteRoleplayCharacters}
+                />
+              : <SessionMap points={multiplayer.sessionPoints} />}
           </article>
 
           <aside className="mp-side-stack">
@@ -3319,7 +3457,7 @@ function Multiplayer({
             </div>
             <div className="room-header-actions">
               <span className={"connection-pill " + (multiplayer.connected ? "connected" : "")}><i /> {statusLabel}</span>
-              <button className="button ghost" onClick={onOpenNetwork}>{pick("Rede / Firewall", "Network / Firewall", "Red / Firewall", "Netzwerk / Firewall", "Réseau / Pare-feu")}</button>
+              <button className="button ghost icon-button" onClick={onOpenNetwork}><NavBrIcon name="network" size={16} />{pick("Rede / Firewall", "Network / Firewall", "Red / Firewall", "Netzwerk / Firewall", "Réseau / Pare-feu")}</button>
             </div>
           </div>
 
@@ -3331,14 +3469,14 @@ function Multiplayer({
                   onClick={() => setRoomIntent("create")}
                   disabled={multiplayer.connected}
                 >
-                  {pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer une salle")}
+                  <NavBrIcon name="roomAdd" size={16} />{pick("Criar sala", "Create room", "Crear sala", "Raum erstellen", "Créer une salle")}
                 </button>
                 <button
                   className={roomIntent === "join" ? "active" : ""}
                   onClick={() => setRoomIntent("join")}
                   disabled={multiplayer.connected}
                 >
-                  {pick("Entrar em sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre une salle")}
+                  <NavBrIcon name="roomJoin" size={16} />{pick("Entrar em sala", "Join room", "Entrar en sala", "Raum beitreten", "Rejoindre une salle")}
                 </button>
               </div>
 
@@ -3493,7 +3631,7 @@ function Multiplayer({
                       <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
                         {pick("Entrar", "Join", "Entrar", "Beitreten", "Rejoindre")}
                       </button>
-                      <button className="button ghost" onClick={pasteInvite}>📥 {pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
+                      <button className="button ghost icon-button" onClick={pasteInvite}><NavBrIcon name="clipboardPaste" size={16} />{pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
                     </div>
                   </>
                 )
@@ -3506,7 +3644,7 @@ function Multiplayer({
                     </div>
                   </div>
                   <div className="room-connected-actions">
-                    <button className="button ghost" onClick={copyInvite}>📋 {pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
+                    <button className="button ghost icon-button" onClick={copyInvite}><NavBrIcon name="clipboardCopy" size={16} />{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button>
                     <button className="button ghost danger" onClick={() => sendCommand(multiplayer.hostRunning ? "stopLocalHost" : "disconnectRoom")}>
                       {multiplayer.hostRunning ? pick("Encerrar servidor", "Stop server", "Detener servidor", "Server stoppen", "Arrêter le serveur") : pick("Desconectar", "Disconnect", "Desconectar", "Trennen", "Déconnecter")}
                     </button>
@@ -3596,7 +3734,7 @@ function Multiplayer({
                     onClick={() => sendCommand("toggleRoomFavorite", { roomId: room.roomId })}
                     title={room.favorite ? pick("Remover dos favoritos", "Remove from favorites", "Quitar de favoritos", "Aus Favoriten entfernen", "Retirer des favoris") : pick("Adicionar aos favoritos", "Add to favorites", "Añadir a favoritos", "Zu Favoriten hinzufügen", "Ajouter aux favoris")}
                   >
-                    {room.favorite ? "★" : "☆"}
+                    <NavBrIcon name="star" size={16} fill={room.favorite ? "currentColor" : "none"} />
                   </button>
                   <button
                     className="public-room-main"
@@ -3608,7 +3746,7 @@ function Multiplayer({
                   >
                     <strong>{room.roomId}</strong>
                     <span>{room.mapName || pick("Mapa não informado", "Map not provided", "Mapa no informado", "Karte nicht angegeben", "Carte non renseignée")} · {room.playerCount} {pick("jogador(es)", "player(s)", "jugador(es)", "Spieler", "joueur(s)")}</span>
-                    <small>NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"} · Plugin {room.pluginProtocolVersion || "—"}</small>
+                    <small>NavBR {room.navbrVersion || "—"} · OMSI {room.omsiVersion || "—"}</small>
                     <em className={"compatibility-badge " + room.compatibility}>
                       {room.compatibility === "compatible" ? pick("Compatível", "Compatible", "Compatible", "Kompatibel", "Compatible") : room.compatibility === "warning" ? pick("Compatibilidade parcial", "Partial compatibility", "Compatibilidad parcial", "Teilweise kompatibel", "Compatibilité partielle") : pick("Requer ajuste local", "Requires local adjustment", "Requiere ajuste local", "Lokale Anpassung erforderlich", "Nécessite un ajustement local")}
                     </em>
@@ -3697,6 +3835,35 @@ function Multiplayer({
                       player.physicalVehicleState !== "active" && (
                         <small className="physical-error-detail">
                           {player.physicalVehicleErrorMessage}
+                        </small>
+                      )}
+                    {!player.isLocal &&
+                      multiplayer.physicalVehiclesEnabled &&
+                      player.physicalVehicleState !== "active" &&
+                      (player.physicalTelemetryGridX != null ||
+                       player.physicalTelemetryGridY != null ||
+                       player.physicalTelemetryNavigationGridX != null ||
+                       player.physicalTelemetryNavigationGridY != null ||
+                       player.physicalTelemetryLocalX != null ||
+                       player.physicalTelemetryLocalY != null) && (
+                        <small className="physical-runtime-detail">
+                          {[
+                            player.physicalTelemetryGridX != null && player.physicalTelemetryGridY != null
+                              ? `PhysGrid ${player.physicalTelemetryGridX}/${player.physicalTelemetryGridY}`
+                              : pick("PhysGrid indisponível", "PhysGrid unavailable", "PhysGrid no disponible", "PhysGrid nicht verfügbar", "PhysGrid indisponible"),
+                            player.physicalTelemetryNavigationGridX != null && player.physicalTelemetryNavigationGridY != null
+                              ? `NavGrid ${player.physicalTelemetryNavigationGridX}/${player.physicalTelemetryNavigationGridY}`
+                              : null,
+                            player.physicalTelemetryLocalX != null && player.physicalTelemetryLocalY != null
+                              ? `Local ${format(player.physicalTelemetryLocalX, 1)} / ${format(player.physicalTelemetryLocalY, 1)}${player.physicalTelemetryLocalZ != null ? ` / ${format(player.physicalTelemetryLocalZ, 1)}` : ""}`
+                              : null,
+                            player.physicalTelemetryTileX != null && player.physicalTelemetryTileY != null
+                              ? `TileXY ${format(player.physicalTelemetryTileX, 1)} / ${format(player.physicalTelemetryTileY, 1)}`
+                              : null,
+                            player.physicalTelemetryRemoteTileIndex != null
+                              ? `Kachel(remote) #${player.physicalTelemetryRemoteTileIndex}`
+                              : null
+                          ].filter(Boolean).join(" · ")}
                         </small>
                       )}
                   </div>
@@ -3927,7 +4094,7 @@ function Multiplayer({
           <article className="card compact-card">
             <span className="eyebrow">HUD</span>
             <h3>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</h3>
-            <p>{pick("Presets, tema, escala, opacidade e módulos são configurados na interface React.", "Presets, theme, scale, opacity and modules are configured in the React interface.", "Presets, tema, escala, opacidad y módulos se configuran en la interfaz React.", "Presets, Thema, Skalierung, Deckkraft und Module werden in der React-Oberfläche konfiguriert.", "Les presets, le thème, l’échelle, l’opacité et les modules se configurent dans l’interface React.")}</p>
+            <p>{pick("Ajuste presets, tema, escala, opacidade e módulos do HUD.", "Adjust HUD presets, theme, scale, opacity and modules.", "Ajusta presets, tema, escala, opacidad y módulos del HUD.", "Passe HUD-Presets, Thema, Skalierung, Deckkraft und Module an.", "Réglez les préréglages, le thème, l’échelle, l’opacité et les modules du HUD.")}</p>
             <button className="button ghost" onClick={onOpenHud}>{pick("Configurar HUD", "Configure HUD", "Configurar HUD", "HUD konfigurieren", "Configurer le HUD")}</button>
           </article>
           <article className="card compact-card">
@@ -4151,14 +4318,14 @@ function GhostReplay({
               disabled={!canRecord}
               onClick={() => sendCommand("startGhostRecording", { name: recordName })}
             >
-              ● {t("ghost.recordTrip")}
+              <NavBrIcon name="record" size={14} />{t("ghost.recordTrip")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.recording}
               onClick={() => sendCommand("stopGhostRecording")}
             >
-              ■ {t("ghost.stopSave")}
+              <NavBrIcon name="stop" size={14} />{t("ghost.stopSave")}
             </button>
             <button
               className="button ghost danger"
@@ -4248,14 +4415,14 @@ function GhostReplay({
               disabled={!canPlay}
               onClick={() => sendCommand("playGhost", { playbackSpeed, loop })}
             >
-              ▶ {t("ghost.play")}
+              <NavBrIcon name="play" size={14} />{t("ghost.play")}
             </button>
             <button
               className="button ghost"
               disabled={!ghost.playing}
               onClick={() => sendCommand("stopGhostPlayback")}
             >
-              ■ {t("ghost.stopPlayback")}
+              <NavBrIcon name="stop" size={14} />{t("ghost.stopPlayback")}
             </button>
           </div>
 
@@ -4513,11 +4680,11 @@ function Help({ state }: { state: NavBrState | null }) {
             </div>
           </div>
           <p>{pick(
-            "Escolha o idioma no seletor da barra lateral, leia os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto. A interface principal agora é React/WebView2; o WPF antigo não é aberto como tela de uso.",
-            "Choose your language from the sidebar selector, review the essential steps below, and complete first run when ready. The primary interface is now React/WebView2; the retired WPF UI is not opened as a user-facing screen.",
-            "Elige el idioma en el selector lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo. La interfaz principal ahora es React/WebView2.",
-            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab. Die primäre Oberfläche ist jetzt React/WebView2.",
-            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage. L’interface principale est désormais React/WebView2."
+            "Escolha o idioma na barra lateral, confira os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto.",
+            "Choose your language from the sidebar, review the essential steps below, and complete first run when ready.",
+            "Elige el idioma en la barra lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo.",
+            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab.",
+            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage."
           )}</p>
           <div className="room-actions">
             <button className="button primary" onClick={() => sendCommand("completeFirstRun")}>
@@ -4614,7 +4781,15 @@ function PluginStartupPrompt({
       </p>
       {plugin.omsiRunning && (
         <p className="migration-note">
-          {pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
+          {plugin.state === "outdated"
+            ? pick(
+                "Feche o OMSI uma vez. O NavBR aplicará automaticamente o plugin novo assim que Omsi.exe encerrar; depois abra o OMSI novamente para liberar ônibus físicos e RP.",
+                "Close OMSI once. NavBR will automatically apply the new plugin as soon as Omsi.exe exits; then launch OMSI again to enable physical buses and RP.",
+                "Cierra OMSI una vez. NavBR aplicará automáticamente el plugin nuevo cuando Omsi.exe termine; después vuelve a abrir OMSI para habilitar autobuses físicos y RP.",
+                "OMSI einmal schließen. NavBR installiert das neue Plugin automatisch, sobald Omsi.exe beendet ist; danach OMSI erneut starten, um physische Busse und RP zu aktivieren.",
+                "Fermez OMSI une fois. NavBR appliquera automatiquement le nouveau plugin dès l’arrêt de Omsi.exe ; relancez ensuite OMSI pour activer les bus physiques et le RP."
+              )
+            : pick("Feche o OMSI antes de instalar ou atualizar o plugin.", "Close OMSI before installing or updating the plugin.", "Cierra OMSI antes de instalar o actualizar el plugin.", "OMSI vor Installation oder Aktualisierung schließen.", "Fermez OMSI avant d’installer ou mettre à jour le plugin.")}
         </p>
       )}
       {!plugin.installAvailable && !plugin.omsiRunning && (
@@ -4699,7 +4874,7 @@ export default function App() {
   return (
     <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
     <div className="app-shell">
-      <Sidebar screen={screen} setScreen={setScreen} />
+      <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
         <PluginStartupPrompt
           state={state}

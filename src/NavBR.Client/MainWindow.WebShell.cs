@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using NavBR.Client.Localization;
@@ -145,7 +146,11 @@ public partial class MainWindow
         return new
         {
             generatedAtUtc = DateTimeOffset.UtcNow,
-            appVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(),
+            appVersion =
+                typeof(MainWindow).Assembly
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion
+                ?? typeof(MainWindow).Assembly.GetName().Version?.ToString(),
             cultureName = LocalizationService.CurrentCulture.Name,
             supportedLanguages = LocalizationService.SupportedLanguages
                 .Select(language => new
@@ -683,6 +688,10 @@ public partial class MainWindow
 
             case "cancelDriverProfileImport":
                 CancelDriverProfileImportFromWeb();
+                break;
+
+            case "verifyOmsiPlugin":
+                VerifyAndUpdateOmsiPluginFromWeb();
                 break;
 
             case "installOmsiPlugin":

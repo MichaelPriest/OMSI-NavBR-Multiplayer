@@ -2,12 +2,18 @@ LIBRARY "NavBR.OmsiInterop"
 EXPORTS
     NavBR_GetAbiVersion
     NavBR_GetStateInteropVersion
+    NavBR_ProbeRoleplayHumanControl
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
+    NavBR_ProbePhysicalVehicleBackend
     NavBR_GetProgramManager
     NavBR_GetRoadVehicleTypes
     NavBR_GetRoadVehicleCount
     NavBR_GetRoadVehicleAt
+    NavBR_GetTempRoadVehicleCount
+    NavBR_GetTempRoadVehicleAt
+    NavBR_GetRoadVehicleMaterializationFlags
+    NavBR_ReadRoadVehicleRenderDiagnostics
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
     NavBR_ResolveMapTileIndex

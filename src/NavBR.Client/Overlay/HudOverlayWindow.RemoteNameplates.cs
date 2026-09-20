@@ -120,12 +120,14 @@ public partial class HudOverlayWindow
             plate.Measure(new Size(190d, 60d));
 
             var desired = plate.DesiredSize;
+            var maxLeft = Math.Max(viewport.Left, viewport.Right - desired.Width);
+            var maxTop = Math.Max(viewport.Top, viewport.Bottom - desired.Height);
             Canvas.SetLeft(
                 plate,
-                Math.Clamp(position.X - desired.Width / 2d, viewport.Left, viewport.Right - desired.Width));
+                Math.Clamp(position.X - desired.Width / 2d, viewport.Left, maxLeft));
             Canvas.SetTop(
                 plate,
-                Math.Clamp(position.Y - desired.Height, viewport.Top, viewport.Bottom - desired.Height));
+                Math.Clamp(position.Y - desired.Height, viewport.Top, maxTop));
 
             visible.Add(playerId);
         }

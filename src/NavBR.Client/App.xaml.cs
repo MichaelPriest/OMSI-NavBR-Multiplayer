@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -23,6 +24,9 @@ public partial class App : Application
     internal NavBRTrayIconService TrayIcon { get; } = new();
     internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
 
+    private CancellationTokenSource? _deferredPluginUpdateCts;
+    private string? _deferredPluginUpdateRoot;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         NavBRAppLog.StartSession();
@@ -47,6 +51,13 @@ public partial class App : Application
                 "plugin-bootstrap",
                 pluginBootstrap.Status is "failed" or "conflict" ? "warning" : "info",
                 $"status={pluginBootstrap.Status} changed={pluginBootstrap.Changed}");
+
+            if (pluginBootstrap.Status == "omsi-running" &&
+                !string.IsNullOrWhiteSpace(pluginBootstrap.OmsiRoot))
+            {
+                SchedulePluginUpdateWhenOmsiCloses(pluginBootstrap.OmsiRoot);
+                NavBRAppLog.Info("plugin-bootstrap deferred-until-omsi-exit");
+            }
         }
         catch (Exception ex)
         {
@@ -95,6 +106,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _deferredPluginUpdateCts?.Cancel();
+        _deferredPluginUpdateCts?.Dispose();
+        _deferredPluginUpdateCts = null;
+        _deferredPluginUpdateRoot = null;
         TrayIcon.PrepareForSystemExit();
         TrayIcon.Dispose();
 
@@ -136,6 +151,126 @@ public partial class App : Application
 
         NavBRAppLog.EndSession();
         base.OnExit(e);
+    }
+
+    internal bool IsPluginUpdateScheduledFor(string? omsiRoot)
+    {
+        if (string.IsNullOrWhiteSpace(omsiRoot) ||
+            string.IsNullOrWhiteSpace(_deferredPluginUpdateRoot) ||
+            _deferredPluginUpdateCts is null ||
+            _deferredPluginUpdateCts.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(omsiRoot)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(_deferredPluginUpdateRoot)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    internal void SchedulePluginUpdateWhenOmsiCloses(string omsiRoot)
+    {
+        if (string.IsNullOrWhiteSpace(omsiRoot))
+        {
+            return;
+        }
+
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(omsiRoot));
+        if (IsPluginUpdateScheduledFor(normalizedRoot))
+        {
+            return;
+        }
+
+        _deferredPluginUpdateCts?.Cancel();
+        _deferredPluginUpdateCts?.Dispose();
+        _deferredPluginUpdateCts = new CancellationTokenSource();
+        _deferredPluginUpdateRoot = normalizedRoot;
+        _ = InstallPluginWhenOmsiClosesAsync(
+            normalizedRoot,
+            _deferredPluginUpdateCts.Token);
+    }
+
+    private async Task InstallPluginWhenOmsiClosesAsync(
+        string omsiRoot,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var omsiRunning = false;
+                var processes = Process.GetProcessesByName("Omsi");
+                try
+                {
+                    foreach (var process in processes)
+                    {
+                        try
+                        {
+                            if (!process.HasExited)
+                            {
+                                omsiRunning = true;
+                                break;
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+                finally
+                {
+                    foreach (var process in processes)
+                    {
+                        process.Dispose();
+                    }
+                }
+
+                if (!omsiRunning)
+                {
+                    var result =
+                        OmsiPluginInstallationService.EnsureInstalledAtStartup(omsiRoot);
+                    NavBRAppLog.Info(
+                        $"plugin-bootstrap deferred-install-complete status={result.Status} changed={result.Changed} root={result.OmsiRoot ?? omsiRoot} message={result.Message ?? "-"}");
+                    RemoteDiagnosticsService.Record(
+                        "plugin-bootstrap",
+                        result.Status is "ready" or "installed" ? "info" : "warning",
+                        $"status=deferred-{result.Status} changed={result.Changed}");
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("plugin-bootstrap-deferred-install-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-bootstrap",
+                "warning",
+                $"status=deferred-failed type={ex.GetType().Name}");
+        }
+        finally
+        {
+            if (_deferredPluginUpdateCts is not null &&
+                _deferredPluginUpdateCts.Token == cancellationToken)
+            {
+                _deferredPluginUpdateCts.Dispose();
+                _deferredPluginUpdateCts = null;
+                _deferredPluginUpdateRoot = null;
+            }
+        }
     }
 
     private static void PluginBridge_ConnectionStateChanged(bool connected)

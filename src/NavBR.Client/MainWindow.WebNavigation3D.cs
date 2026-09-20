@@ -50,6 +50,39 @@ public partial class MainWindow
             })
             .ToArray();
 
+        var navigation = NavBRNavigationEngine.Evaluate(
+            telemetry,
+            layout,
+            _webNavigationRoute,
+            _webNavigationBusStops);
+        OmsiRouteRejoinPath? rejoinPath = null;
+        if (!navigation.IsOnRoute &&
+            navigation.RouteAvailable &&
+            _webNavigationRoute.Count >= 2)
+        {
+            rejoinPath = _webNavigationRejoinPathfinder.TryFind(
+                map,
+                layout,
+                telemetry,
+                _webNavigationRoute);
+        }
+
+        var rejoinPoints = rejoinPath?.Points
+            .Select(point => new
+            {
+                x = point.X,
+                y = point.Y
+            })
+            .ToArray() ?? [];
+
+        object? rejoinPoint = rejoinPath is null
+            ? null
+            : new
+            {
+                x = rejoinPath.RejoinPoint.X,
+                y = rejoinPath.RejoinPoint.Y
+            };
+
         object? localVehicle = TryGetWebNavigation3DPosition(
             telemetry,
             tileSize,
@@ -210,6 +243,10 @@ public partial class MainWindow
                 maxY = maxWorldY
             },
             routePoints,
+            rejoinAvailable = rejoinPath is not null,
+            rejoinDistanceMeters = rejoinPath?.DistanceMeters,
+            rejoinPoints,
+            rejoinPoint,
             localVehicle,
             localRoleplayCharacter,
             remoteVehicles,
@@ -247,6 +284,10 @@ public partial class MainWindow
             roadmapFallbackUrl,
             bounds = null as object,
             routePoints = Array.Empty<object>(),
+            rejoinAvailable = false,
+            rejoinDistanceMeters = null as double?,
+            rejoinPoints = Array.Empty<object>(),
+            rejoinPoint = null as object,
             localVehicle = null as object,
             localRoleplayCharacter = null as object,
             remoteVehicles = Array.Empty<object>(),
@@ -297,8 +338,17 @@ public partial class MainWindow
         // Chromium/WebView2 support for BMP inside SVG <image> can vary across
         // systems and GPU paths. Prefer a cached PNG generated from the real
         // OMSI roadmap; keep the direct map file as a no-copy fallback.
-        return WebRoadmapCache.TryGetPngUrl(path)
-            ?? TryBuildWebMapResourceUrl(map, path);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            return WebRoadmapCache.TryGetPngUrl(path)
+                ?? TryBuildWebMapResourceUrl(map, path);
+        }
+
+        // Some community maps do not ship whole.roadmap.bmp. Build a read-only
+        // WebView cache from the map's real [spline]/[spline_h] placements and
+        // scenery-object road paths instead of requiring the user to modify the
+        // installed map just to see navigation.
+        return OmsiWebRoadmapFallbackCache.TryGetOrRequestUrl(map);
     }
 
     private static string? ResolveWebNavigationRoadmapFallbackUrl(OmsiMapInfo map)

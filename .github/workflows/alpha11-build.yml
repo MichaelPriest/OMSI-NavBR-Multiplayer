@@ -1,20 +1,9 @@
 name: alpha11-build
 
+# Historical Alpha.11 validation. Kept for explicit regression checks only;
+# current pull requests are validated by build.yml.
 on:
-  push:
-    branches:
-      - feature/alpha11-deep-omsi-integration
-      - feature/alpha11-ui-refresh-hardware
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'native/**'
-      - 'scripts/**'
-      - 'site/**'
-      - 'docs/**'
-      - 'examples/**'
-      - '.github/workflows/alpha11-build.yml'
+  workflow_dispatch:
 
 concurrency:
   group: alpha11-build-${{ github.ref }}

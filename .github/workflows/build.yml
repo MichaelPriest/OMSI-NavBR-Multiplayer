@@ -2,9 +2,21 @@ name: build
 
 on:
   push:
-    branches: [ main, feature/alpha10-roadmap-plugin ]
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - '**/*.md'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - '**/*.md'
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -17,6 +29,34 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build React desktop UI
+        shell: pwsh
+        run: |
+          Push-Location ui/navbr-web
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR React build failed." }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if (-not (Test-Path "ui/navbr-web/dist/index.html")) {
+            throw "React WebView2 UI was not generated."
+          }
+
+          $distFiles = @(Get-ChildItem "ui/navbr-web/dist" -Recurse -File)
+          if ($distFiles.Count -lt 2) {
+            throw "React WebView2 UI output is incomplete."
+          }
 
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
@@ -32,6 +72,7 @@ jobs:
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
+          dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
@@ -41,6 +82,7 @@ jobs:
         run: |
           dotnet build src/NavBR.Shared/NavBR.Shared.csproj -c Release --no-restore
           dotnet build src/NavBR.Server/NavBR.Server.csproj -c Release --no-restore
+          dotnet build src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -c Release --no-restore
 
       - name: Build OMSI native interop x86
         shell: pwsh
@@ -58,8 +100,11 @@ jobs:
           foreach ($name in @(
             'NavBR_GetAbiVersion',
             'NavBR_GetStateInteropVersion',
+            'NavBR_ProbeRoleplayHumanControl',
+            'NavBR_ProbePhysicalVehicleBackend',
             'NavBR_GetRoadVehicleCount',
             'NavBR_GetRoadVehicleAt',
+            'NavBR_ReadRoadVehicleRenderDiagnostics',
             'NavBR_IsRoadVehiclePointer',
             'NavBR_GetHumanCount',
             'NavBR_GetHumanAt',
@@ -214,7 +259,19 @@ jobs:
 
       - name: Publish Windows x86 client
         shell: pwsh
-        run: dotnet publish src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --self-contained true -o artifacts/NavBR.Client
+        run: |
+          dotnet publish src/NavBR.Client/NavBR.Client.csproj `
+            -c Release -r win-x86 --self-contained true --no-restore `
+            -o artifacts/NavBR.Client
+
+          foreach ($required in @(
+            "artifacts/NavBR.Client/OMSI.NavBR.Multiplayer.exe",
+            "artifacts/NavBR.Client/WebUI/dist/index.html"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Complete client output missing: $required"
+            }
+          }
 
       - name: Publish standalone Windows x86 EXE
         shell: pwsh
@@ -230,6 +287,160 @@ jobs:
           -p:DebugType=None
           -p:DebugSymbols=false
           -o artifacts/NavBR.Client.Single
+
+      - name: Publish multiplayer simulator standalone win-x86
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            --no-restore `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/NavBR.MultiplayerSimulator
+
+          dotnet publish src/NavBR.Server/NavBR.Server.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/NavBR.MultiplayerSimulator/server
+
+          foreach ($required in @(
+            "artifacts/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.exe",
+            "artifacts/NavBR.MultiplayerSimulator/server/NavBR.Server.exe",
+            "scripts/run-multiplayer-simulator.ps1",
+            "docs/MULTIPLAYER_SIMULATOR.md"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Simulator package incomplete: $required"
+            }
+          }
+
+          Copy-Item "scripts/run-multiplayer-simulator.ps1" `
+            "artifacts/NavBR.MultiplayerSimulator/run-multiplayer-simulator.ps1" -Force
+          Copy-Item "docs/MULTIPLAYER_SIMULATOR.md" `
+            "artifacts/NavBR.MultiplayerSimulator/README-SIMULATOR.md" -Force
+
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server https://omsi-navbr-multiplayer-server.onrender.com --room navbr-sim --players 6 --mode mixed --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-online.cmd" -Encoding ASCII
+
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server http://127.0.0.1:27730 --room navbr-sim --players 6 --mode mixed --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-local.cmd" -Encoding ASCII
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+
+      - name: Build Windows test installer
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $prefix = [string]$group.VersionPrefix
+          $suffix = [string]$group.VersionSuffix
+          $version = if ([string]::IsNullOrWhiteSpace($suffix)) { $prefix } else { "$prefix-$suffix" }
+
+          $output = Join-Path (Resolve-Path "artifacts").Path "NavBR.Installer"
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+
+          $isccCandidates = @(
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+            (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+          )
+          $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+
+          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client").Path
+          $simulatorRoot = (Resolve-Path "artifacts/NavBR.MultiplayerSimulator").Path
+          $pluginRoot = (Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental").Path
+          $setupIcon = (Resolve-Path "src/NavBR.Client/Assets/NavBR.ico").Path
+
+          & $iscc `
+            "/DMyAppVersion=$version" `
+            "/DSourceRoot=$sourceRoot" `
+            "/DSimulatorRoot=$simulatorRoot" `
+            "/DPluginRoot=$pluginRoot" `
+            "/DSetupIcon=$setupIcon" `
+            "/DOutputDir=$output" `
+            "installer/NavBR.Multiplayer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "NavBR installer compilation failed." }
+
+          $installer = Get-ChildItem $output -File -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          if (-not $installer) { throw "NavBR installer EXE was not generated." }
+          Write-Host "Installer generated: $($installer.FullName)"
+
+      - name: Smoke-test installer and uninstaller
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "artifacts/NavBR.Installer" -File -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer artifact missing." }
+
+          $testRoot = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke"
+          if (Test-Path $testRoot) { Remove-Item $testRoot -Recurse -Force }
+
+          $installLog = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke-install.log"
+          $installArgs = @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/DIR=$testRoot",
+            "/LOG=$installLog"
+          )
+          $installProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installArgs -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            if (Test-Path $installLog) { Get-Content $installLog | Write-Host }
+            throw "Silent installer smoke test failed with exit code $($installProcess.ExitCode)."
+          }
+
+          foreach ($required in @(
+            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $testRoot "Simulator\NavBR.MultiplayerSimulator.exe"),
+            (Join-Path $testRoot "Plugin\NavBR.OmsiPlugin.dll"),
+            (Join-Path $testRoot "unins000.exe")
+          )) {
+            if (-not (Test-Path $required)) {
+              if (Test-Path $installLog) { Get-Content $installLog | Write-Host }
+              throw "Installed package is missing: $required"
+            }
+          }
+
+          $uninstaller = Join-Path $testRoot "unins000.exe"
+          $uninstallLog = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke-uninstall.log"
+          $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/LOG=$uninstallLog"
+          ) -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            if (Test-Path $uninstallLog) { Get-Content $uninstallLog | Write-Host }
+            throw "Silent uninstaller smoke test failed with exit code $($uninstallProcess.ExitCode)."
+          }
+
+          Start-Sleep -Seconds 2
+          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe")) {
+            throw "Uninstaller left the main NavBR executable behind."
+          }
+          Write-Host "Installer/uninstaller smoke test passed."
 
       - name: Validate standalone EXE icon resource
         shell: pwsh
@@ -263,23 +474,33 @@ jobs:
           }
           finally { [NavBRIconResourceCheck]::FreeLibrary($module) | Out-Null }
 
-      - name: Prepare alpha.10 integration test bundle
+      - name: Prepare current integration test bundle
         shell: pwsh
         run: |
-          $bundle = "artifacts/NavBR.Alpha10.IntegrationTest"
+          [xml]$props = Get-Content "Directory.Build.props"
+          $group = @($props.Project.PropertyGroup) | Where-Object { $_.VersionPrefix } | Select-Object -First 1
+          $prefix = [string]$group.VersionPrefix
+          $suffix = [string]$group.VersionSuffix
+          $version = if ([string]::IsNullOrWhiteSpace($suffix)) { $prefix } else { "$prefix-$suffix" }
+
+          $bundle = "artifacts/NavBR.IntegrationTest"
           $pluginBundle = Join-Path $bundle "Plugin"
           if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
           New-Item -ItemType Directory -Path $pluginBundle -Force | Out-Null
+          $simulatorBundle = Join-Path $bundle "Simulator"
+          New-Item -ItemType Directory -Path $simulatorBundle -Force | Out-Null
           Copy-Item "artifacts/NavBR.Client.Single/OMSI.NavBR.Multiplayer.exe" $bundle
           Copy-Item "artifacts/NavBR.OmsiPlugin.Experimental/*" $pluginBundle -Recurse -Force
-          Copy-Item "docs/ALPHA10_PLUGIN_TEST_CHECKLIST.md" (Join-Path $bundle "LEIA-ME-TESTE-ALPHA10.md")
+          Copy-Item "artifacts/NavBR.MultiplayerSimulator/*" $simulatorBundle -Recurse -Force
+          Copy-Item "docs/OMSI_PLUGIN_EXPERIMENTAL.md" (Join-Path $bundle "PLUGIN-TEST.md")
           @(
-            "OMSI NavBR Multiplayer v0.3.0-alpha.10 - integration test build"
+            "OMSI NavBR Multiplayer $version - integration test build"
             "GitHub SHA: $env:GITHUB_SHA"
             "Generated UTC: $([DateTimeOffset]::UtcNow.ToString('O'))"
             ""
-            "Plugin Native AOT x86: nao requer instalacao separada do .NET Runtime x86."
-            "O EXE contem o pacote do plugin e gerencia a instalacao no OMSI."
+            "React/WebView2 UI: built from ui/navbr-web for this commit."
+            "Plugin Native AOT x86: embedded in the client and included separately in Plugin/."
+            "Player simulator: standalone win-x86 included in Simulator/."
           ) | Set-Content -LiteralPath (Join-Path $bundle "BUILD-INFO.txt") -Encoding UTF8
 
       - name: Upload NavBR client test build
@@ -306,10 +527,26 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload alpha.10 integration test bundle
+      - name: Upload multiplayer player simulator
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-alpha10-integration-test-win-x86
-          path: artifacts/NavBR.Alpha10.IntegrationTest
+          name: OMSI-NavBR-Multiplayer-Simulator-win-x86
+          path: artifacts/NavBR.MultiplayerSimulator
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload current integration test bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-integration-test-win-x86
+          path: artifacts/NavBR.IntegrationTest
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Multiplayer-Setup-win-x86
+          path: artifacts/NavBR.Installer/*-Setup-win-x86.exe
           if-no-files-found: error
           retention-days: 14

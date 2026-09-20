@@ -4,18 +4,19 @@ Ferramenta **somente de desenvolvimento/teste** para validar sala, presença, te
 
 Os dados simulados nunca substituem a telemetria da interface de produção.
 
-## Comportamento padrão na Alpha.14
+## Comportamento padrão atual
 
 Quando executado contra uma sala real, o simulador:
 
 1. entra na mesma sala;
 2. detecta um jogador real/autoridade com mapa carregado;
-3. herda MapName e MapCompatibilityId;
+3. herda `MapName`, `MapCompatibilityId` e o protocolo real da sessão;
 4. aguarda telemetria real do host;
-5. usa a posição real como centro;
-6. cria os bots próximos ao host, raio padrão de **18 m**;
-7. herda **linha, rota, destino e próxima parada** da operação ativa;
-8. só então começa a publicar movimento.
+5. herda, quando disponíveis, **caminho e fingerprint SHA-256 do ônibus, HOF e identidade OMSI** do jogador de referência;
+6. usa a posição real como centro;
+7. cria os bots próximos ao host, raio padrão de **18 m**;
+8. herda **linha, rota, destino e próxima parada** da operação ativa;
+9. só então começa a publicar movimento.
 
 Se não houver mapa/posição real e nenhum fallback explícito for informado, o simulador aguarda em vez de criar bots em 0,0 ou em outro mapa. Linha/rota não são obrigatórias para provar o spawn físico.
 
@@ -83,3 +84,26 @@ O modo `--verify-physical` exige `GridX/GridY` reais herdados de um jogador NavB
 ### English (en)
 
 `--verify-physical` requires real `GridX/GridY` inherited from a NavBR player with OMSI loaded. The host's `MapTileIndex` is not reused as a remote identity; each OMSI process resolves its own local Kachel from the grid.
+
+
+## Alpha.16 — identidade física real do simulador / real physical simulator identity
+
+### Português (pt-BR)
+
+Para validação física, o simulador não anuncia mais uma identidade genérica. Quando há um jogador real na sala, ele reutiliza apenas fatos observados da sessão: mapa/fingerprint, protocolo, caminho e fingerprint do veículo e HOF quando disponíveis.
+
+A resolução local do veículo agora prefere o mesmo `.bus`/`.ovh` herdado da sala antes do ônibus padrão de teste. A raiz do OMSI também pode ser descoberta diretamente pelo `Omsi.exe` em execução, incluindo Steam Libraries personalizadas fora de `Program Files`.
+
+Isso mantém o fingerprint usado pelo simulador igual ao calculado pelo cliente real (`sha256:<arquivo .bus/.ovh>`) e permite que o coordenador físico chegue à etapa de `MakeVehicle` sem inventar assets.
+
+Para `--verify-physical`, a identidade herdada só é reutilizada quando a definição é realmente **single-part/rígida**. Se o ônibus atual declarar outro veículo por `[couple_front]` ou `[couple_back]` (por exemplo, articulados), o simulador procura um ônibus rígido padrão realmente instalado. Isso evita um teste falso que seria recusado depois pelo coordenador como `consist-unsupported`.
+
+### English (en)
+
+For physical validation, the simulator no longer advertises a generic identity. When a real player is present in the room, it reuses only observed session facts: map/fingerprint, protocol, vehicle path/fingerprint, and HOF when available.
+
+Local vehicle resolution now prefers the same inherited `.bus`/`.ovh` before the stock test bus. The OMSI root can also be discovered from the currently running `Omsi.exe`, including custom Steam Libraries outside `Program Files`.
+
+This keeps the simulator fingerprint aligned with the real client (`sha256:<.bus/.ovh file>`) so the physical coordinator can reach the guarded `MakeVehicle` stage without inventing assets.
+
+For `--verify-physical`, an inherited identity is reused only when the definition is truly **single-part/rigid**. If the current bus declares another vehicle through `[couple_front]` or `[couple_back]` (for example an articulated bus), the simulator looks for a real installed stock rigid bus instead. This prevents a false test setup that the physical coordinator would later reject as `consist-unsupported`.

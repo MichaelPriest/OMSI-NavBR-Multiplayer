@@ -133,6 +133,14 @@ public static class MultiplayerSettingsStore
                 : settings.ServerUrl.Trim();
         var enableApplicationRelay = legacyLoopbackDefault ||
                                      settings.EnableApplicationRelay;
+
+        // Physical remote buses are a default multiplayer feature now. Keep a
+        // dedicated migration version instead of piggybacking on networking:
+        // older profiles may already have NetworkSettingsVersion=3 for relay
+        // changes while never receiving the physical-bus default. Migrate such
+        // profiles once; subsequent explicit opt-out remains preserved.
+        var enablePhysicalVehiclesByDefault =
+            settings.PhysicalVehiclesSettingsVersion < 1;
         if (stopIconStyle == "custom" && customIconPath is null)
         {
             stopIconStyle = "omsi";
@@ -202,7 +210,10 @@ public static class MultiplayerSettingsStore
                 2d),
             StopIconStyle = stopIconStyle,
             StopCustomIconPath = customIconPath,
-            NetworkSettingsVersion = 2,
+            ExperimentalPhysicalVehiclesEnabled =
+                enablePhysicalVehiclesByDefault || settings.ExperimentalPhysicalVehiclesEnabled,
+            NetworkSettingsVersion = 3,
+            PhysicalVehiclesSettingsVersion = 1,
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
