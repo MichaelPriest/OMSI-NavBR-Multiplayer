@@ -1062,7 +1062,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 10;
+    return 11;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
@@ -1717,17 +1717,55 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
         !std::isfinite(rotationZ) || !std::isfinite(rotationW) ||
         !std::isfinite(groundSpeedMps) ||
-        mapTileIndex < -1)
+        mapTileIndex < -2)
+    {
+        return 0;
+    }
+
+    // -2 is an internal NavBR selector used only by the local multiplayer
+    // simulator. Some OMSI maps keep the player's live RoadVehicle.Kachel
+    // pointer outside the Map.Kacheln index array even though KachelInfos can
+    // resolve its grid. In that case the pointer itself is the authoritative
+    // physical tile identity.
+    const bool usePlayerVehicleTile = mapTileIndex == -2;
+    const bool writeExplicitTile = mapTileIndex >= 0 || usePlayerVehicleTile;
+
+    if (writeExplicitTile &&
+        !IsWritableRange(
+            static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
+            sizeof(int)))
     {
         return 0;
     }
 
     int mapTilePointer = 0;
-    if (mapTileIndex >= 0 &&
-        (!TryGetMapTilePointerByIndex(mapTileIndex, mapTilePointer) ||
-         !IsWritableRange(
-             static_cast<std::uintptr_t>(vehiclePointer) + KachelOffset,
-             sizeof(int))))
+    if (usePlayerVehicleTile)
+    {
+        const int playerVehicle = GetPlayerVehiclePointer();
+        if (!IsRoadVehiclePointer(playerVehicle))
+        {
+            return 0;
+        }
+
+        const auto playerTileAddress =
+            static_cast<std::uintptr_t>(playerVehicle) + KachelOffset;
+        if (!IsReadableRange(playerTileAddress, sizeof(int)))
+        {
+            return 0;
+        }
+
+        mapTilePointer =
+            *reinterpret_cast<const int*>(playerTileAddress);
+        if (mapTilePointer == 0 ||
+            !IsReadableRange(
+                static_cast<std::uintptr_t>(mapTilePointer),
+                sizeof(int)))
+        {
+            return 0;
+        }
+    }
+    else if (mapTileIndex >= 0 &&
+             !TryGetMapTilePointerByIndex(mapTileIndex, mapTilePointer))
     {
         return 0;
     }
@@ -1829,7 +1867,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
            WriteValue(vehiclePointer, TachoOffset, tachoKph) &&
            WriteValue(vehiclePointer, GroundspeedOffset, speedMps) &&
            WriteByte(vehiclePointer, PaiOffset, disabled) &&
-           (mapTileIndex < 0 ||
+           (!writeExplicitTile ||
             (WriteValue(vehiclePointer, KachelOffset, mapTilePointer) &&
              WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled) &&
              WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled) &&

@@ -254,6 +254,7 @@ internal static class PhysicalVehicleBackend
         }
 
         if (command.MapTileIndex is int mapTileIndex &&
+            mapTileIndex != OmsiNativeInterop.HostPlayerTileSentinel &&
             (mapTileIndex < 0 ||
              mapTileIndex > 200_000 ||
              OmsiNativeInterop.IsMapTileIndexValid(mapTileIndex) != 1))
@@ -758,6 +759,25 @@ internal static class PhysicalVehicleBackend
                 localizedCommand = command with
                 {
                     MapTileIndex = hostTileIndex
+                };
+                return true;
+            }
+
+            // Grundorf and some other OMSI maps can expose a perfectly valid
+            // RoadVehicle.Kachel pointer that is absent from Map.Kacheln, so
+            // there is no portable integer Kachel index. ReadPlayerVehicleGrid
+            // succeeding proves the live pointer can be resolved through
+            // KachelInfos; the -2 selector tells the native transform layer to
+            // copy that exact host pointer instead of fabricating an index.
+            if (hostVehicle != 0 &&
+                OmsiNativeInterop.ReadPlayerVehicleGrid(
+                    out _,
+                    out _,
+                    out _) == 1)
+            {
+                localizedCommand = command with
+                {
+                    MapTileIndex = OmsiNativeInterop.HostPlayerTileSentinel
                 };
                 return true;
             }

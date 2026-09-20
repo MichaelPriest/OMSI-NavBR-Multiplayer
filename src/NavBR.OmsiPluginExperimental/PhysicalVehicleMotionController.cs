@@ -347,9 +347,11 @@ internal static class PhysicalVehicleMotionController
             snapshot.RotationZ,
             snapshot.RotationW,
             snapshot.SpeedMps,
-            writeTileIndex && snapshot.MapTileIndex is int mapTileIndex
-                ? mapTileIndex
-                : -1) == 1;
+            snapshot.MapTileIndex == OmsiNativeInterop.HostPlayerTileSentinel
+                ? OmsiNativeInterop.HostPlayerTileSentinel
+                : writeTileIndex && snapshot.MapTileIndex is int mapTileIndex
+                    ? mapTileIndex
+                    : -1) == 1;
 
     private static bool TryConfirmTransform(
         PhysicalVehicleInstance instance,
@@ -386,7 +388,8 @@ internal static class PhysicalVehicleMotionController
         }
 
         if (validateTileIndex &&
-            snapshot.MapTileIndex is int expectedTileIndex)
+            snapshot.MapTileIndex is int expectedTileIndex &&
+            expectedTileIndex >= 0)
         {
             var actualTileIndex =
                 OmsiNativeInterop.ReadRoadVehicleTileIndex(
@@ -458,7 +461,8 @@ internal static class PhysicalVehicleMotionController
             : 0f;
 
         int? mapTileIndex = command.MapTileIndex is int rawTileIndex &&
-                            rawTileIndex is >= 0 and <= 200_000
+                            (rawTileIndex == OmsiNativeInterop.HostPlayerTileSentinel ||
+                             rawTileIndex is >= 0 and <= 200_000)
             ? rawTileIndex
             : null;
 
