@@ -719,10 +719,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
     int restoreEsp = 0;
     __asm
     {
-        // Preserve ESI for the cdecl caller and remember the exact stack state.
-        // We restore ESP explicitly after the Delphi/Borland call so the shim
-        // does not depend on undocumented assumptions about callee cleanup.
+        // Match OmsiHookInvoker's proven BorlandFastCall bridge: preserve all
+        // x86 non-volatile registers around the Delphi call. The OMSI target
+        // uses Borland's register convention, not MSVC cdecl, so our exported
+        // cdecl shim must protect EBX/ESI/EDI itself.
+        push ebx
         push esi
+        push edi
         mov restoreEsp, esp
 
         // Borland register calling convention: EAX, EDX and ECX carry the
@@ -758,7 +761,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MakeVehicle(
         mov result, eax
 
         mov esp, restoreEsp
+        pop edi
         pop esi
+        pop ebx
     }
 
     return result;
