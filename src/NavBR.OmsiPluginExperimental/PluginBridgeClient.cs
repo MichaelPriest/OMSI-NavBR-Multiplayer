@@ -383,6 +383,7 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal))
         {
             RemoteVehicles.Clear();
+            PhysicalVehicleLifecycleSupervisor.RequestClearRemoteVehicles();
             return null;
         }
 
@@ -406,12 +407,22 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
             RemoteVehicles.Remove(message.PlayerId);
+            PhysicalVehicleLifecycleSupervisor.RequestRemoteRemoval(message.PlayerId);
             return null;
         }
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
-            RemoteVehicles.Upsert(message);
+            if (RemoteVehicles.Upsert(message))
+            {
+                // The state stream already contains the exact bus path, local
+                // pose, quaternion and Kachel. Feed it directly into the OMSI-
+                // side lifecycle so physical buses no longer depend on a
+                // separate desktop spawn command successfully crossing WPF.
+                PhysicalVehicleLifecycleSupervisor.ObserveRemoteState(
+                    message,
+                    GetLocalState());
+            }
             return null;
         }
 
