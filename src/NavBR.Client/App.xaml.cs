@@ -6,6 +6,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Driver;
 using NavBR.Client.Hardware;
 using NavBR.Client.Localization;
+using NavBR.Client.Mobile;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Network;
 using NavBR.Client.Omsi;
@@ -23,6 +24,7 @@ public partial class App : Application
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
     internal NavBRTrayIconService TrayIcon { get; } = new();
     internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
+    internal MobileCompanionHostService? MobileCompanion { get; private set; }
 
     private CancellationTokenSource? _deferredPluginUpdateCts;
     private string? _deferredPluginUpdateRoot;
@@ -95,6 +97,21 @@ public partial class App : Application
         nativeHost.InitializeRoleplayForShell();
         TrayIcon.Attach(nativeHost);
         nativeHost.StartNativeRuntimeForReact();
+
+        try
+        {
+            MobileCompanion = new MobileCompanionHostService(
+                nativeHost.BuildMobileCompanionStateAsync);
+            MobileCompanion.StartAsync().GetAwaiter().GetResult();
+            NavBRAppLog.Info(
+                $"mobile-companion-start port={MobileCompanion.Port} urls={string.Join(",", MobileCompanion.AccessUrls)}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("mobile-companion-start-error", ex);
+            MobileCompanion = null;
+        }
+
         nativeHost.OpenPrimaryWebShell();
     }
 
@@ -114,6 +131,23 @@ public partial class App : Application
         TrayIcon.Dispose();
 
         RemoteDiagnosticsService.Record("session", "info", "client-stop");
+
+        if (MobileCompanion is not null)
+        {
+            try
+            {
+                MobileCompanion.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                NavBRAppLog.Info("mobile-companion-stop");
+            }
+            catch (Exception ex)
+            {
+                NavBRAppLog.Error("mobile-companion-stop-error", ex);
+            }
+            finally
+            {
+                MobileCompanion = null;
+            }
+        }
 
         try
         {

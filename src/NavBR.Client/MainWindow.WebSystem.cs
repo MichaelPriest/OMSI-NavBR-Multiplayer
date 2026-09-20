@@ -51,6 +51,7 @@ public partial class MainWindow
         return new
         {
             installationsNotice = _webOmsiLaunchNotice,
+            mobileCompanion = BuildMobileCompanionDesktopState(),
             pluginInstallation = new
             {
                 state = pluginInstall.State.ToLowerInvariant(),

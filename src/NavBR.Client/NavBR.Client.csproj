@@ -38,6 +38,11 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest"
              Condition="Exists('..\..\ui\navbr-web\dist')" />
+    <Content Include="..\..\mobile\navbr-mobile\dist\**\*"
+             Link="MobileUI\dist\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\..\mobile\navbr-mobile\dist')" />
   </ItemGroup>
 
   <Target Name="ValidateNavBRXamlColors" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
