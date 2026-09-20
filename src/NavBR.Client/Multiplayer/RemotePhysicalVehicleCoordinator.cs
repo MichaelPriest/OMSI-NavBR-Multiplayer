@@ -26,6 +26,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
         TimeSpan.FromSeconds(2);
     private static readonly TimeSpan TileUnavailableRetryDelay =
         TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan SpawnFailureRetryDelay =
+        TimeSpan.FromSeconds(2);
     private static readonly TimeSpan LocalTelemetryFreshness =
         TimeSpan.FromSeconds(3);
     private static readonly TimeSpan VehicleIdentityChangeDebounce =
@@ -52,6 +54,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, VehicleIdentityCandidate> _vehicleIdentityCandidateByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
+    private readonly string _coordinatorId = Guid.NewGuid().ToString("N")[..8];
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
     private readonly object _spawnMaterializationSync = new();
@@ -65,6 +68,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
     {
         _vehicleAssetResolver = new OmsiVehicleAssetResolver(
             omsiInstallDirectorySource ?? (() => null));
+        NavBRAppLog.Info(
+            "physical-vehicle-coordinator-created",
+            $"coordinator={_coordinatorId}");
     }
 
     public bool IsPhysicalMultiplayerAvailable
@@ -141,6 +147,26 @@ internal sealed class RemotePhysicalVehicleCoordinator
         try
         {
             await ApplyCoreAsync(frame, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _spawnInFlight.TryRemove(playerId, out _);
+            ReleaseSpawnMaterializationSlot(playerId);
+        }
+        catch (Exception ex)
+        {
+            _spawnInFlight.TryRemove(playerId, out _);
+            ReleaseSpawnMaterializationSlot(playerId);
+            _spawnRetryAfterByPlayer[playerId] =
+                DateTimeOffset.UtcNow + SpawnFailureRetryDelay;
+            SetStatus(
+                playerId,
+                "coordinator-error",
+                ex.GetType().Name,
+                ex.Message);
+            NavBRAppLog.Error(
+                $"physical-vehicle-apply-failed coordinator={_coordinatorId} player={playerId}",
+                ex);
         }
         finally
         {
@@ -487,7 +513,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                             DateTimeOffset.UtcNow +
                             (IsTileAvailabilityError(spawn?.ErrorCode)
                                 ? TileUnavailableRetryDelay
-                                : TimeSpan.FromMilliseconds(750));
+                                : SpawnFailureRetryDelay);
 
                         ReportCommandFailureOnce(
                             playerId,
@@ -1036,7 +1062,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (changed)
         {
             NavBRAppLog.Info(
-                $"physical-vehicle player={playerId} state={next.State} " +
+                $"physical-vehicle coordinator={_coordinatorId} player={playerId} state={next.State} " +
                 $"error={next.ErrorCode ?? "-"} parts={next.PartCount?.ToString() ?? "-"} " +
                 $"expected-parts={next.ExpectedPartCount?.ToString() ?? "-"} " +
                 $"detail={next.ErrorMessage ?? "-"}");
