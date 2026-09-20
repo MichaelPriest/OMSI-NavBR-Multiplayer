@@ -619,6 +619,11 @@ public partial class MainWindow
                 }
                 break;
 
+            case "setMobileVehicleControlsEnabled":
+                ExperimentalFeatureFlags.SetMobileVehicleControlsEnabled(
+                    GetWebPayloadBool(payload, "enabled"));
+                break;
+
             case "submitOperationalReport":
                 OpenMultiplayerCentralForShell(showWindow: false);
                 if (_multiplayerWindow is not null)

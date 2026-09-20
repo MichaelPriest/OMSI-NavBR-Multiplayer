@@ -343,4 +343,5 @@ internal sealed record MobileCompanionCommand(
     bool? Deafened = null,
     string? PlayerId = null,
     bool? Muted = null,
-    double? Gain = null);
+    double? Gain = null,
+    string? TriggerName = null);
