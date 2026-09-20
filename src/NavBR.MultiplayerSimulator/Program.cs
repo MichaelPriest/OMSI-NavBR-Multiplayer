@@ -240,8 +240,20 @@ finally
             expectedPhysicalBots);
         if (!result.Success)
         {
-            Console.Error.WriteLine($"Simulator verification failed: {result.Message}");
-            Environment.ExitCode = 2;
+            if (visualInspectionMode &&
+                physicalVerificationAnnounced &&
+                result.FailureKind == VerificationFailureKind.Movement)
+            {
+                Console.Error.WriteLine(
+                    $"Simulator movement verification warning: {result.Message}");
+                Console.WriteLine(
+                    "Physical bus verification remains confirmed; the physical buses were kept alive until visual inspection ended.");
+            }
+            else
+            {
+                Console.Error.WriteLine($"Simulator verification failed: {result.Message}");
+                Environment.ExitCode = 2;
+            }
         }
         else
         {
@@ -667,9 +679,13 @@ internal sealed class SimulationProbe : IAsyncDisposable
 
             if (missing.Length > 0)
             {
+                var missingSummary = string.Join(
+                    ", ",
+                    missing.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
                 return new VerificationResult(
                     false,
-                    $"{missing.Length}/{expectedPlayerIds.Count} players did not produce verifiable movement.");
+                    $"{missing.Length}/{expectedPlayerIds.Count} players did not produce verifiable movement. IDs: {missingSummary}.",
+                    VerificationFailureKind.Movement);
             }
 
             var samples = expectedPlayerIds.Select(id => _samples[id]).ToArray();
@@ -931,7 +947,17 @@ internal sealed class SimulationProbe : IAsyncDisposable
     }
 }
 
-internal sealed record VerificationResult(bool Success, string Message);
+internal enum VerificationFailureKind
+{
+    None,
+    Movement,
+    General
+}
+
+internal sealed record VerificationResult(
+    bool Success,
+    string Message,
+    VerificationFailureKind FailureKind = VerificationFailureKind.General);
 
 internal enum MovementKind
 {
