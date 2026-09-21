@@ -1890,7 +1890,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "general" | "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
+type SettingsTab = "general" | "installations" | "hud" | "roadmap" | "diagnostics" | "network";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const { pick } = useI18n();
@@ -3055,8 +3055,7 @@ function Settings({
             id: "maintenance",
             label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
             items: [
-              ["diagnostics", t("settings.diagnostics")],
-              ["advanced", t("settings.advanced")]
+              ["diagnostics", t("settings.diagnostics")]
             ]
           }
         ] as Array<{ id: string; label: string; items: [SettingsTab, string][] }>).map(group => (
@@ -3110,7 +3109,57 @@ function Settings({
               <button onClick={() => setTab("roadmap")}><NavBrIcon name="map" size={20} /><span><strong>Mapas & Roadmap</strong><small>{pick("Roadmap Studio, HD e Ultra", "Roadmap Studio, HD and Ultra", "Roadmap Studio, HD y Ultra", "Roadmap Studio, HD und Ultra", "Roadmap Studio, HD et Ultra")}</small></span></button>
               <button onClick={() => setTab("network")}><NavBrIcon name="network" size={20} /><span><strong>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</strong><small>{pick("Portas, conectividade e diagnóstico de rede", "Ports, connectivity and network diagnostics", "Puertos, conectividad y diagnóstico de red", "Ports, Konnektivität und Netzwerkdiagnose", "Ports, connectivité et diagnostic réseau")}</small></span></button>
               <button onClick={() => setTab("diagnostics")}><NavBrIcon name="info" size={20} /><span><strong>{t("settings.diagnostics")}</strong><small>{pick("Logs, privacidade e suporte", "Logs, privacy and support", "Logs, privacidad y soporte", "Logs, Datenschutz und Support", "Logs, confidentialité et support")}</small></span></button>
-              <button onClick={() => setTab("advanced")}><NavBrIcon name="hardware" size={20} /><span><strong>{t("settings.advanced")}</strong><small>{pick("Ações técnicas e opções menos usadas", "Technical actions and less-used options", "Acciones técnicas y opciones menos usadas", "Technische Aktionen und seltene Optionen", "Actions techniques et options moins utilisées")}</small></span></button>
+            </div>
+          </article>
+
+          <article className="card settings-general-card settings-preferences-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("PREFERÊNCIAS", "PREFERENCES", "PREFERENCIAS", "EINSTELLUNGEN", "PRÉFÉRENCES")}</span>
+                <h3>{pick("Comportamento geral", "General behavior", "Comportamiento general", "Allgemeines Verhalten", "Comportement général")}</h3>
+              </div>
+            </div>
+            <div className="settings-preference-list">
+              <label className="diagnostics-toggle">
+                <input
+                  type="checkbox"
+                  checked={system.legacyPreferences.advancedModeEnabled}
+                  onChange={event => sendCommand("saveLegacyPreferences", {
+                    advancedModeEnabled: event.target.checked,
+                    showDrivingTips: system.legacyPreferences.showDrivingTips
+                  })}
+                />
+                <span>
+                  <strong>{pick("Modo avançado", "Advanced mode", "Modo avanzado", "Erweiterter Modus", "Mode avancé")}</strong>
+                  <small>{pick(
+                    "Libera informações e controles técnicos destinados a usuários experientes.",
+                    "Enables technical information and controls intended for experienced users.",
+                    "Activa información y controles técnicos para usuarios experimentados.",
+                    "Aktiviert technische Informationen und Bedienelemente für erfahrene Nutzer.",
+                    "Active les informations et commandes techniques destinées aux utilisateurs expérimentés."
+                  )}</small>
+                </span>
+              </label>
+              <label className="diagnostics-toggle">
+                <input
+                  type="checkbox"
+                  checked={system.legacyPreferences.showDrivingTips}
+                  onChange={event => sendCommand("saveLegacyPreferences", {
+                    advancedModeEnabled: system.legacyPreferences.advancedModeEnabled,
+                    showDrivingTips: event.target.checked
+                  })}
+                />
+                <span>
+                  <strong>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</strong>
+                  <small>{pick(
+                    "Mostra orientações contextuais durante o uso do NavBR.",
+                    "Shows contextual guidance while using NavBR.",
+                    "Muestra orientación contextual durante el uso de NavBR.",
+                    "Zeigt kontextbezogene Hinweise während der Nutzung von NavBR.",
+                    "Affiche des conseils contextuels pendant l’utilisation de NavBR."
+                  )}</small>
+                </span>
+              </label>
             </div>
           </article>
         </section>
@@ -3416,58 +3465,6 @@ function Settings({
         </section>
       )}
 
-      {tab === "advanced" && (
-        <section className="advanced-grid settings-advanced">
-          <article className="card compact-card">
-            <span className="eyebrow">{pick("PREFERÊNCIAS", "PREFERENCES", "PREFERENCIAS", "EINSTELLUNGEN", "PRÉFÉRENCES")}</span>
-            <h3>{pick("Comportamento geral", "General behavior", "Comportamiento general", "Allgemeines Verhalten", "Comportement général")}</h3>
-            <label className="diagnostics-toggle">
-              <input
-                type="checkbox"
-                checked={system.legacyPreferences.advancedModeEnabled}
-                onChange={event => sendCommand("saveLegacyPreferences", {
-                  advancedModeEnabled: event.target.checked,
-                  showDrivingTips: system.legacyPreferences.showDrivingTips
-                })}
-              />
-              <span>{pick("Modo avançado", "Advanced mode", "Modo avanzado", "Erweiterter Modus", "Mode avancé")}</span>
-            </label>
-            <label className="diagnostics-toggle">
-              <input
-                type="checkbox"
-                checked={system.legacyPreferences.showDrivingTips}
-                onChange={event => sendCommand("saveLegacyPreferences", {
-                  advancedModeEnabled: system.legacyPreferences.advancedModeEnabled,
-                  showDrivingTips: event.target.checked
-                })}
-              />
-              <span>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</span>
-            </label>
-            <p>{pick("Essas preferências são salvas automaticamente para os próximos usos.", "These preferences are saved automatically for future sessions.", "Estas preferencias se guardan automáticamente para próximos usos.", "Diese Einstellungen werden automatisch für kommende Sitzungen gespeichert.", "Ces préférences sont enregistrées automatiquement pour les prochaines utilisations.")}</p>
-          </article>
-
-          <article className="card compact-card">
-            <span className="eyebrow">MULTIPLAYER</span>
-            <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
-            <p>{pick("Ajuste conexão, atalhos, voz e ônibus físicos na área de Rede.", "Configure connection, shortcuts, voice and physical buses in Network.", "Configura conexión, atajos, voz y autobuses físicos en Red.", "Verbindung, Tastenkürzel, Sprache und physische Busse findest du unter Netzwerk.", "Réglez la connexion, les raccourcis, la voix et les bus physiques dans Réseau.")}</p>
-            <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">HUD</span>
-            <h3>{pick("Personalização", "Customization", "Personalización", "Anpassung", "Personnalisation")}</h3>
-            <p>{pick("Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.", "Presets, theme, scale, opacity and modules are available in the HUD tab.", "Presets, tema, escala, opacidad y módulos están disponibles en la pestaña HUD.", "Presets, Thema, Skalierung, Deckkraft und Module sind im HUD-Tab verfügbar.", "Préréglages, thème, échelle, opacité et modules sont disponibles dans l’onglet HUD.")}</p>
-            <div className="settings-action-row">
-              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir central do HUD", "Open HUD center", "Abrir centro HUD", "HUD-Zentrale öffnen", "Ouvrir le centre HUD")}</button>
-            </div>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">ROADMAP</span>
-            <h3>Roadmap Studio</h3>
-            <p>{pick("Analise mapas, monte o roadmap e gere a visão vetorial das ruas em um só lugar.", "Analyze maps, assemble the roadmap and generate the vector road view in one place.", "Analiza mapas, monta el roadmap y genera la vista vectorial de las calles en un solo lugar.", "Analysiere Karten, erstelle die Roadmap und erzeuge die Vektoransicht der Straßen an einem Ort.", "Analysez les cartes, assemblez la roadmap et générez la vue vectorielle des routes au même endroit.")}</p>
-            <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
-          </article>
-        </section>
-      )}
     </>
   );
 }
@@ -5662,7 +5659,7 @@ export default function App() {
         const requestedSettingsTab = requested?.startsWith("settings-")
           ? requested.slice("settings-".length) as SettingsTab
           : null;
-        if (requestedSettingsTab && ["installations", "hud", "roadmap", "diagnostics", "network", "advanced"].includes(requestedSettingsTab)) {
+        if (requestedSettingsTab && ["general", "installations", "hud", "roadmap", "diagnostics", "network"].includes(requestedSettingsTab)) {
           setSettingsTabRequest(requestedSettingsTab);
           setScreen("settings");
         } else if (requested === "navigation-3d") {

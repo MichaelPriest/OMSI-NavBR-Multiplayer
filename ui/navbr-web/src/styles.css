@@ -2813,3 +2813,33 @@ h3 { margin:6px 0 16px; font-size:19px; }
 @media (max-width:560px) {
   .multiplayer-nav-group > div { flex-direction:column; }
 }
+
+.settings-preferences-card {
+  grid-column:1 / -1;
+}
+.settings-preference-list {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:12px;
+}
+.settings-preference-list .diagnostics-toggle {
+  align-items:flex-start;
+  min-height:76px;
+}
+.settings-preference-list .diagnostics-toggle > span {
+  display:grid;
+  gap:4px;
+}
+.settings-preference-list .diagnostics-toggle strong {
+  color:#dceaf3;
+  font-size:10px;
+}
+.settings-preference-list .diagnostics-toggle small {
+  color:#728d9e;
+  font-size:8px;
+  line-height:1.4;
+}
+@media (max-width:720px) {
+  .settings-preference-list { grid-template-columns:1fr; }
+}
