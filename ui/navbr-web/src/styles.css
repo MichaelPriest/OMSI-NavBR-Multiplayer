@@ -2604,3 +2604,42 @@ h3 { margin:6px 0 16px; font-size:19px; }
   .hud-preset-category-tabs { grid-template-columns:1fr; }
   .hud-selected-summary { align-items:flex-start; flex-direction:column; }
 }
+
+.home-shortcut-groups {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.home-shortcut-groups > section {
+  display:grid;
+  align-content:start;
+  gap:7px;
+  min-width:0;
+  padding:10px;
+  border:1px solid #173142;
+  border-radius:11px;
+  background:#06141d;
+}
+.home-shortcut-group-label {
+  padding:0 2px;
+  color:#5d8298;
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.12em;
+}
+.home-shortcut-groups .home-shortcut-grid {
+  grid-template-columns:1fr;
+  gap:7px;
+  margin-top:0;
+}
+.home-shortcut-groups .home-shortcut-grid.tools {
+  grid-template-columns:1fr;
+}
+@media (max-width:1050px) {
+  .home-shortcut-groups { grid-template-columns:1fr; }
+  .home-shortcut-groups .home-shortcut-grid { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:620px) {
+  .home-shortcut-groups .home-shortcut-grid { grid-template-columns:1fr; }
+}

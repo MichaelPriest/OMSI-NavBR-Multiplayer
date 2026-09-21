@@ -282,13 +282,31 @@ function Home({
             <h3>{pick("Ir direto ao que você usa", "Go straight to what you use", "Ir directo a lo que usas", "Direkt zu den wichtigsten Bereichen", "Accéder directement à l’essentiel")}</h3>
           </div>
         </div>
-        <div className="home-shortcut-grid">
-          <button onClick={() => onNavigate("navigation")}><NavBrIcon name="navigation" size={21} /><span><strong>{t("nav.navigation")}</strong><small>{pick("Mapa, rota e GPS", "Map, route and GPS", "Mapa, ruta y GPS", "Karte, Route und GPS", "Carte, itinéraire et GPS")}</small></span></button>
-          <button onClick={() => onNavigate("multiplayer")}><NavBrIcon name="multiplayer" size={21} /><span><strong>{t("nav.multiplayer")}</strong><small>{pick("Salas, jogadores e voz", "Rooms, players and voice", "Salas, jugadores y voz", "Räume, Spieler und Sprache", "Salons, joueurs et voix")}</small></span></button>
-          <button onClick={() => onNavigate("operations")}><NavBrIcon name="operations" size={21} /><span><strong>{t("nav.operations")}</strong><small>{pick("Operação e frota", "Operations and fleet", "Operación y flota", "Betrieb und Flotte", "Exploitation et flotte")}</small></span></button>
-          <button onClick={onOpenHud}><NavBrIcon name="settings" size={21} /><span><strong>HUD</strong><small>{pick("Presets, prévia e Move HUD", "Presets, preview and Move HUD", "Presets, vista previa y Move HUD", "Presets, Vorschau und Move HUD", "Presets, aperçu et Move HUD")}</small></span></button>
-          <button onClick={onOpenRoadmap}><NavBrIcon name="map" size={21} /><span><strong>Roadmap Studio</strong><small>{pick("Roadmap e textura HD", "Roadmap and HD texture", "Roadmap y textura HD", "Roadmap und HD-Textur", "Roadmap et texture HD")}</small></span></button>
-          <button onClick={() => onNavigate("hardware")}><NavBrIcon name="hardware" size={21} /><span><strong>{t("nav.hardware")}</strong><small>{pick("Cockpit e dispositivos", "Cockpit and devices", "Cabina y dispositivos", "Cockpit und Geräte", "Cockpit et périphériques")}</small></span></button>
+        <div className="home-shortcut-groups">
+          <section>
+            <span className="home-shortcut-group-label">{pick("VIAGEM", "DRIVING", "VIAJE", "FAHRT", "CONDUITE")}</span>
+            <div className="home-shortcut-grid">
+              <button onClick={() => onNavigate("navigation")}><NavBrIcon name="navigation" size={21} /><span><strong>{t("nav.navigation")}</strong><small>{pick("Mapa, rota e GPS", "Map, route and GPS", "Mapa, ruta y GPS", "Karte, Route und GPS", "Carte, itinéraire et GPS")}</small></span></button>
+              <button onClick={() => onNavigate("operations")}><NavBrIcon name="operations" size={21} /><span><strong>{t("nav.operations")}</strong><small>{pick("Operação e frota", "Operations and fleet", "Operación y flota", "Betrieb und Flotte", "Exploitation et flotte")}</small></span></button>
+            </div>
+          </section>
+
+          <section>
+            <span className="home-shortcut-group-label">{pick("ONLINE & RP", "ONLINE & RP", "ONLINE & RP", "ONLINE & RP", "EN LIGNE & RP")}</span>
+            <div className="home-shortcut-grid">
+              <button onClick={() => onNavigate("multiplayer")}><NavBrIcon name="multiplayer" size={21} /><span><strong>{t("nav.multiplayer")}</strong><small>{pick("Salas, jogadores e voz", "Rooms, players and voice", "Salas, jugadores y voz", "Räume, Spieler und Sprache", "Salons, joueurs et voix")}</small></span></button>
+              <button onClick={() => onNavigate("roleplay")}><NavBrIcon name="roleplay" size={21} /><span><strong>{t("nav.roleplay")}</strong><small>{pick("Personagem e interação RP", "Character and RP interaction", "Personaje e interacción RP", "Charakter und RP-Interaktion", "Personnage et interaction RP")}</small></span></button>
+            </div>
+          </section>
+
+          <section>
+            <span className="home-shortcut-group-label">{pick("FERRAMENTAS", "TOOLS", "HERRAMIENTAS", "WERKZEUGE", "OUTILS")}</span>
+            <div className="home-shortcut-grid tools">
+              <button onClick={onOpenHud}><NavBrIcon name="settings" size={21} /><span><strong>HUD</strong><small>{pick("Presets, prévia e Move HUD", "Presets, preview and Move HUD", "Presets, vista previa y Move HUD", "Presets, Vorschau und Move HUD", "Presets, aperçu et Move HUD")}</small></span></button>
+              <button onClick={onOpenRoadmap}><NavBrIcon name="map" size={21} /><span><strong>Roadmap Studio</strong><small>{pick("Roadmap e textura HD/Ultra", "Roadmap and HD/Ultra texture", "Roadmap y textura HD/Ultra", "Roadmap und HD/Ultra-Textur", "Roadmap et texture HD/Ultra")}</small></span></button>
+              <button onClick={() => onNavigate("hardware")}><NavBrIcon name="hardware" size={21} /><span><strong>{t("nav.hardware")}</strong><small>{pick("Cockpit e dispositivos", "Cockpit and devices", "Cabina y dispositivos", "Cockpit und Geräte", "Cockpit et périphériques")}</small></span></button>
+            </div>
+          </section>
         </div>
       </section>
     </>
