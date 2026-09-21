@@ -843,6 +843,8 @@ public partial class HudOverlayWindow
         _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
         _immersiveFocusPanel.Width = compact ? 360d : 430d;
         _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 10d : 18d);
+        _immersiveFocusPanel.MinHeight = 0d;
+        _immersiveTopBar.MinHeight = 0d;
 
         var mapWidth = compact ? 292d : 342d;
         var mapHeight = compact ? 196d : 226d;
@@ -1035,6 +1037,19 @@ public partial class HudOverlayWindow
         _immersiveMultiplayerPanel.Width = multiplayerWidth * widthFactor;
         _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
+
+        if (_hudSettings.DashboardHeight > 0d)
+        {
+            var requestedHeight = Math.Clamp(_hudSettings.DashboardHeight, 80d, 720d);
+            if (_immersiveFocusPanel.Visibility == Visibility.Visible)
+            {
+                _immersiveFocusPanel.MinHeight = requestedHeight;
+            }
+            else
+            {
+                _immersiveTopBar.MinHeight = requestedHeight;
+            }
+        }
 
         ApplyComposedPresetPalette(presetId);
     }

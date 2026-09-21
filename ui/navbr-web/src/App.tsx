@@ -2185,7 +2185,9 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
               onChange={event => patch({ width: Number(event.target.value) })} />
           </label>
           <label>
-            <span><strong>{t("hud.height")}</strong><em>{draft.height < 1 ? t("hud.auto") : `${Math.round(draft.height)} px`}</em></span>
+            <span><strong>{composedMode
+              ? pick("Altura mínima do painel principal", "Primary panel minimum height", "Altura mínima del panel principal", "Mindesthöhe des Hauptpanels", "Hauteur minimale du panneau principal")
+              : t("hud.height")}</strong><em>{draft.height < 1 ? t("hud.auto") : `${Math.round(draft.height)} px`}</em></span>
             <input type="range" min="0" max="720" step="10" value={draft.height}
               onChange={event => patch({ height: Number(event.target.value) })} />
           </label>

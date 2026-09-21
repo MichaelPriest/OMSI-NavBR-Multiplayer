@@ -174,3 +174,11 @@ Os temas modernos e legados são mapeados para paletas compatíveis, incluindo
 NavBR Modern, Urban Glass, Route Night, Racing Clean, Bus Panel, LCD, Âmbar
 Clássico e Claro. Temas de display também aplicam fonte monoespaçada ao HUD
 composto.
+
+
+## Altura do painel principal
+
+Nos presets compostos, `DashboardHeight = 0` mantém a altura automática.
+Quando o usuário define um valor maior que zero, ele passa a ser a altura mínima
+do painel principal de foco. Nos presets sem painel de foco, a altura mínima é
+aplicada à barra principal. Mapa e multiplayer preservam suas proporções.
