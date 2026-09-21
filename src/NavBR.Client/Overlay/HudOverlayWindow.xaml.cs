@@ -69,6 +69,7 @@ public partial class HudOverlayWindow : Window
         Loaded += (_, _) =>
         {
             InstallConflictFreeHotkeys();
+            InitializeImmersiveOperationHud();
             _positionTimer.Start();
             _presenceTimer.Start();
             FollowOmsiWindow();

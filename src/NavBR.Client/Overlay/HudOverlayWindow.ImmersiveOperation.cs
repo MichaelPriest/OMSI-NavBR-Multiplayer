@@ -1,33 +1,11 @@
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Localization;
 
 namespace NavBR.Client.Overlay;
-
-internal static class ImmersiveOperationHudBootstrap
-{
-    [ModuleInitializer]
-    internal static void Initialize()
-    {
-        EventManager.RegisterClassHandler(
-            typeof(HudOverlayWindow),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(OnHudLoaded));
-    }
-
-    private static void OnHudLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is HudOverlayWindow window)
-        {
-            _ = window.Dispatcher.BeginInvoke(
-                DispatcherPriority.ApplicationIdle,
-                window.InitializeImmersiveOperationHud);
-        }
-    }
-}
 
 public partial class HudOverlayWindow
 {
@@ -49,6 +27,11 @@ public partial class HudOverlayWindow
     private TextBlock? _immersivePlayersText;
     private TextBlock? _immersiveVoiceText;
     private DispatcherTimer? _immersiveOperationTimer;
+    private bool _immersivePresentationApplied;
+    private Visibility _immersiveSavedTopStatusVisibility = Visibility.Visible;
+    private Visibility _immersiveSavedTripInfoVisibility = Visibility.Visible;
+    private double _immersiveSavedMiniMapOpacity = 1d;
+    private bool _immersiveSavedMiniMapHitTest = true;
 
     internal void InitializeImmersiveOperationHud()
     {
@@ -100,14 +83,14 @@ public partial class HudOverlayWindow
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(104d) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(104d) });
 
-        _immersiveLineText = AddMetricCell(root, 0, "LINHA", "—", true);
+        _immersiveLineText = AddMetricCell(root, 0, ImmersiveText("LINHA", "LINE", "LÍNEA", "LINIE", "LIGNE"), "—", true);
         var routeCell = BuildRouteCell();
         Grid.SetColumn(routeCell, 1);
         root.Children.Add(routeCell);
-        _immersiveNextStopText = AddMetricCell(root, 2, "PRÓXIMA PARADA", "—");
-        _immersiveSpeedText = AddMetricCell(root, 3, "VELOCIDADE", "— km/h");
-        _immersiveDelayText = AddMetricCell(root, 4, "ATRASO", "—");
-        _immersiveFuelText = AddMetricCell(root, 5, "COMBUSTÍVEL", "—");
+        _immersiveNextStopText = AddMetricCell(root, 2, ImmersiveText("PRÓXIMA PARADA", "NEXT STOP", "PRÓXIMA PARADA", "NÄCHSTER HALT", "PROCHAIN ARRÊT"), "—");
+        _immersiveSpeedText = AddMetricCell(root, 3, ImmersiveText("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE"), "— km/h");
+        _immersiveDelayText = AddMetricCell(root, 4, ImmersiveText("ATRASO", "DELAY", "RETRASO", "VERSPÄTUNG", "RETARD"), "—");
+        _immersiveFuelText = AddMetricCell(root, 5, ImmersiveText("COMBUSTÍVEL", "FUEL", "COMBUSTIBLE", "KRAFTSTOFF", "CARBURANT"), "—");
 
         return new Border
         {
@@ -134,7 +117,7 @@ public partial class HudOverlayWindow
         };
         _immersiveRouteText = new TextBlock
         {
-            Text = "ROTA —",
+            Text = ImmersiveText("ROTA —", "ROUTE —", "RUTA —", "ROUTE —", "ITINÉRAIRE —"),
             Foreground = new SolidColorBrush(Color.FromRgb(139, 191, 224)),
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 10d,
@@ -143,7 +126,7 @@ public partial class HudOverlayWindow
         };
         _immersiveDestinationText = new TextBlock
         {
-            Text = "Destino não informado",
+            Text = ImmersiveText("Destino não informado", "Destination unavailable", "Destino no disponible", "Ziel nicht verfügbar", "Destination indisponible"),
             Margin = new Thickness(0d, 2d, 0d, 0d),
             Foreground = Brushes.White,
             FontFamily = new FontFamily("Bahnschrift"),
@@ -219,7 +202,7 @@ public partial class HudOverlayWindow
         var header = new DockPanel { Margin = new Thickness(0d, 0d, 0d, 7d) };
         _immersiveMapTitleText = new TextBlock
         {
-            Text = "MAPA",
+            Text = ImmersiveText("MAPA", "MAP", "MAPA", "KARTE", "CARTE"),
             Foreground = Brushes.White,
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 11d,
@@ -290,7 +273,7 @@ public partial class HudOverlayWindow
         var titleRow = new DockPanel { LastChildFill = false };
         titleRow.Children.Add(new TextBlock
         {
-            Text = "MULTIPLAYER",
+            Text = ImmersiveText("MULTIPLAYER", "MULTIPLAYER", "MULTIJUGADOR", "MULTIPLAYER", "MULTIJOUEUR"),
             Foreground = Brushes.White,
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 11d,
@@ -310,7 +293,7 @@ public partial class HudOverlayWindow
 
         _immersiveSessionText = new TextBlock
         {
-            Text = "NavBR offline",
+            Text = ImmersiveText("NavBR offline", "NavBR offline", "NavBR sin conexión", "NavBR offline", "NavBR hors ligne"),
             Margin = new Thickness(0d, 8d, 0d, 0d),
             Foreground = new SolidColorBrush(Color.FromRgb(179, 202, 216)),
             FontSize = 10d,
@@ -336,7 +319,7 @@ public partial class HudOverlayWindow
 
         stack.Children.Add(new TextBlock
         {
-            Text = "F9 CHAT   •   F10 PTT",
+            Text = ImmersiveText("F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT"),
             Margin = new Thickness(0d, 8d, 0d, 0d),
             Foreground = new SolidColorBrush(Color.FromRgb(118, 151, 172)),
             FontSize = 9d,
@@ -412,24 +395,39 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.Visibility = visibility;
         _immersiveMultiplayerPanel.Visibility = visibility;
 
-        TopStatusPanel.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
-        TripInfoPanel.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
-
-        // Keep the real minimap alive as the source for the immersive VisualBrush.
-        // It is made transparent instead of collapsed so route/stop rendering keeps running.
-        MiniMapHudPanel.Opacity = active ? 0d : 1d;
-        MiniMapHudPanel.IsHitTestVisible = !active;
-
-        if (_busDashboardDock is not null)
+        if (active && !_immersivePresentationApplied)
         {
-            if (active)
+            _immersiveSavedTopStatusVisibility = TopStatusPanel.Visibility;
+            _immersiveSavedTripInfoVisibility = TripInfoPanel.Visibility;
+            _immersiveSavedMiniMapOpacity = MiniMapHudPanel.Opacity;
+            _immersiveSavedMiniMapHitTest = MiniMapHudPanel.IsHitTestVisible;
+            _immersivePresentationApplied = true;
+        }
+
+        if (active)
+        {
+            TopStatusPanel.Visibility = Visibility.Collapsed;
+            TripInfoPanel.Visibility = Visibility.Collapsed;
+
+            // Keep the real minimap alive as the source for the immersive VisualBrush.
+            // A tiny opacity keeps WPF rendering the source while making the original panel effectively invisible.
+            MiniMapHudPanel.Visibility = Visibility.Visible;
+            MiniMapHudPanel.Opacity = 0.01d;
+            MiniMapHudPanel.IsHitTestVisible = false;
+
+            if (_busDashboardDock is not null)
             {
                 _busDashboardDock.Visibility = Visibility.Collapsed;
             }
-            else
-            {
-                ApplyDashboardSettings();
-            }
+        }
+        else if (_immersivePresentationApplied)
+        {
+            TopStatusPanel.Visibility = _immersiveSavedTopStatusVisibility;
+            TripInfoPanel.Visibility = _immersiveSavedTripInfoVisibility;
+            MiniMapHudPanel.Opacity = _immersiveSavedMiniMapOpacity;
+            MiniMapHudPanel.IsHitTestVisible = _immersiveSavedMiniMapHitTest;
+            _immersivePresentationApplied = false;
+            ApplyDashboardSettings();
         }
 
         ApplyImmersiveOperationSizing();
@@ -482,15 +480,21 @@ public partial class HudOverlayWindow
         }
         if (_immersiveRouteText is not null)
         {
+            var routeLabel = ImmersiveText("ROTA", "ROUTE", "RUTA", "ROUTE", "ITINÉRAIRE");
             _immersiveRouteText.Text = string.IsNullOrWhiteSpace(telemetry?.Route)
-                ? "ROTA —"
-                : $"ROTA {telemetry.Route}";
+                ? $"{routeLabel} —"
+                : $"{routeLabel} {telemetry.Route}";
         }
         if (_immersiveDestinationText is not null)
         {
             _immersiveDestinationText.Text = !string.IsNullOrWhiteSpace(telemetry?.DestinationName)
                 ? telemetry.DestinationName
-                : "Destino não informado";
+                : ImmersiveText(
+                    "Destino não informado",
+                    "Destination unavailable",
+                    "Destino no disponible",
+                    "Ziel nicht verfügbar",
+                    "Destination indisponible");
         }
         if (_immersiveNextStopText is not null)
         {
@@ -516,9 +520,10 @@ public partial class HudOverlayWindow
         }
         if (_immersiveMapTitleText is not null)
         {
+            var mapLabel = ImmersiveText("MAPA", "MAP", "MAPA", "KARTE", "CARTE");
             _immersiveMapTitleText.Text = string.IsNullOrWhiteSpace(telemetry?.MapName)
-                ? "MAPA"
-                : $"MAPA  •  {telemetry.MapName}";
+                ? mapLabel
+                : $"{mapLabel}  •  {telemetry.MapName}";
         }
         if (_immersiveStreetText is not null)
         {
@@ -532,7 +537,7 @@ public partial class HudOverlayWindow
         }
         if (_immersivePlayersText is not null)
         {
-            _immersivePlayersText.Text = $"{PlayerCountText.Text} online";
+            _immersivePlayersText.Text = $"{PlayerCountText.Text} {ImmersiveText("online", "online", "en línea", "online", "en ligne")}";
         }
         if (_immersiveVoiceText is not null)
         {
@@ -544,7 +549,7 @@ public partial class HudOverlayWindow
     {
         if (_localPushToTalk)
         {
-            return $"{_localDisplayName} • PTT ativo";
+            return $"{_localDisplayName} • {ImmersiveText("PTT ativo", "PTT active", "PTT activo", "PTT aktiv", "PTT actif")}";
         }
 
         var activeSpeakers = _speakers.Values
@@ -554,8 +559,25 @@ public partial class HudOverlayWindow
             .ToArray();
 
         return activeSpeakers.Length > 0
-            ? $"{string.Join(", ", activeSpeakers)} falando"
+            ? $"{string.Join(", ", activeSpeakers)} {ImmersiveText("falando", "speaking", "hablando", "spricht", "parle")}"
             : "PTT • F10";
+    }
+
+    private static string ImmersiveText(
+        string pt,
+        string en,
+        string es,
+        string de,
+        string fr)
+    {
+        return LocalizationService.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "pt" => pt,
+            "es" => es,
+            "de" => de,
+            "fr" => fr,
+            _ => en
+        };
     }
 
     private static string FormatImmersiveDelay(int? seconds)
