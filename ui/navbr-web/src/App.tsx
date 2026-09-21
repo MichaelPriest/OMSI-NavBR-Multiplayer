@@ -119,41 +119,62 @@ function Sidebar({
   appVersion?: string | null;
 }) {
   const { t, pick, cultureName, languages, setLanguage } = useI18n();
-  const navItems: Array<{ screen: Screen; icon: NavBrIconName; label: string }> = [
-    { screen: "home", icon: "home", label: t("nav.home") },
-    { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
-    { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
-    { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
-    { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
-    { screen: "operations", icon: "operations", label: t("nav.operations") },
-    { screen: "companyNetwork", icon: "company", label: t("nav.company") },
-    { screen: "hardware", icon: "hardware", label: t("nav.hardware") },
-    { screen: "settings", icon: "settings", label: t("nav.settings") },
-    { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+  const groups: Array<{ label: string; items: Array<{ screen: Screen; icon: NavBrIconName; label: string }> }> = [
+    {
+      label: pick("OPERAÇÃO", "OPERATION", "OPERACIÓN", "BETRIEB", "EXPLOITATION"),
+      items: [
+        { screen: "home", icon: "home", label: pick("Dashboard", "Dashboard", "Dashboard", "Dashboard", "Tableau de bord") },
+        { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
+        { screen: "operations", icon: "operations", label: t("nav.operations") }
+      ]
+    },
+    {
+      label: pick("ONLINE", "ONLINE", "ONLINE", "ONLINE", "EN LIGNE"),
+      items: [
+        { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
+        { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
+        { screen: "companyNetwork", icon: "company", label: t("nav.company") }
+      ]
+    },
+    {
+      label: pick("FERRAMENTAS", "TOOLS", "HERRAMIENTAS", "WERKZEUGE", "OUTILS"),
+      items: [
+        { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
+        { screen: "hardware", icon: "hardware", label: t("nav.hardware") }
+      ]
+    },
+    {
+      label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+      items: [
+        { screen: "settings", icon: "settings", label: t("nav.settings") },
+        { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+      ]
+    }
   ];
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
+    <aside className="sidebar dashboard-sidebar">
+      <div className="brand dashboard-brand">
         <div className="brand-mark">N</div>
         <div><strong>NavBR</strong><span>OMSI Multiplayer</span></div>
       </div>
-
-      <nav className="nav">
-        {navItems.map(item => (
-          <button
-            key={item.screen}
-            className={`nav-item ${screen === item.screen ? "active" : ""}`}
-            onClick={() => setScreen(item.screen)}
-          >
-            <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
-            <span>{item.label}</span>
-          </button>
+      <div className="dashboard-nav-scroll">
+        {groups.map(group => (
+          <section className="dashboard-nav-group" key={group.label}>
+            <small>{group.label}</small>
+            <nav className="nav">
+              {group.items.map(item => (
+                <button key={item.screen} className={"nav-item " + (screen === item.screen ? "active" : "")} onClick={() => setScreen(item.screen)}>
+                  <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </section>
         ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="version-panel" aria-label={pick("Versão do NavBR", "NavBR version", "Versión de NavBR", "NavBR-Version", "Version de NavBR")}>
+      </div>
+      <div className="sidebar-footer dashboard-sidebar-footer">
+        <div className="version-panel">
           <span>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</span>
           <strong>{buildVersionLabel(appVersion)}</strong>
         </div>
@@ -170,19 +191,36 @@ function Sidebar({
   );
 }
 
-function Home({ state }: { state: NavBrState | null }) {
-  const { t } = useI18n();
+function Home({ state, onNavigate }: { state: NavBrState | null; onNavigate: (screen: Screen) => void }) {
+  const { t, pick } = useI18n();
   const omsi = state?.omsi;
   const telemetry = state?.telemetry;
+  const navigation = state?.navigation;
+  const multiplayer = state?.multiplayer;
+  const system = state?.system;
   const active = Boolean(omsi?.running && telemetry?.inGame);
+  const plugin = system?.pluginInstallation;
+  const mobile = system?.mobileCompanion;
+  const health = system?.sessionHealth;
+  const currentMap = telemetry?.mapName || navigation?.mapName || "—";
+  const currentLine = telemetry?.line || navigation?.line || "—";
+  const currentRoute = telemetry?.route || navigation?.route || "—";
+  const currentDestination = telemetry?.destinationName || navigation?.destinationName || "—";
+  const currentNextStop = telemetry?.nextStopName || navigation?.nextStopName || "—";
 
   return (
-    <>
-      <header className="topbar">
+    <div className="dashboard-page">
+      <header className="topbar dashboard-topbar">
         <div>
-          <span className="eyebrow">{t("home.eyebrow")}</span>
-          <h1>{t("home.title")}</h1>
-          <p>{t("home.subtitle")}</p>
+          <span className="eyebrow">{pick("CENTRAL NAVBR", "NAVBR CONTROL CENTER", "CENTRAL NAVBR", "NAVBR ZENTRALE", "CENTRE NAVBR")}</span>
+          <h1>{pick("Dashboard", "Dashboard", "Dashboard", "Dashboard", "Tableau de bord")}</h1>
+          <p>{pick(
+            "Sua sessão do OMSI, multiplayer e dispositivos em um só lugar.",
+            "Your OMSI session, multiplayer and devices in one place.",
+            "Tu sesión de OMSI, multijugador y dispositivos en un solo lugar.",
+            "OMSI-Sitzung, Multiplayer und Geräte an einem Ort.",
+            "Votre session OMSI, le multijoueur et vos appareils au même endroit."
+          )}</p>
         </div>
         <div className="top-actions">
           <button className="button ghost icon-button" onClick={() => sendCommand("refreshOmsiDetection")}><NavBrIcon name="refresh" size={16} />{t("common.refresh")}</button>
@@ -192,56 +230,120 @@ function Home({ state }: { state: NavBrState | null }) {
         </div>
       </header>
 
-      <section className="hero card">
-        <div>
-          <span className={`badge ${omsi?.running ? "online" : ""}`}>
-            {active ? t("home.operationActive") : omsi?.running ? t("home.omsiDetected") : t("home.waitingOmsi")}
-          </span>
-          <h2>{active ? telemetry?.mapName || t("home.trip") : omsi?.running ? t("home.open") : t("home.noOperation")}</h2>
-          <p>
-            {active
-              ? t("home.telemetryLive")
-              : omsi?.running
-                ? t("home.telemetryWaiting")
-                : t("home.telemetryClosed")}
-          </p>
-          {active && (
-            <div className="operation-strip">
-              <span><small>{t("home.line")}</small><strong>{telemetry?.line || "—"}</strong></span>
-              <span><small>{t("home.route")}</small><strong>{telemetry?.route || "—"}</strong></span>
-              <span><small>{t("home.destination")}</small><strong>{telemetry?.destinationName || "—"}</strong></span>
-              <span><small>{t("home.nextStop")}</small><strong>{telemetry?.nextStopName || "—"}</strong></span>
+      <section className="dashboard-layout">
+        <div className="dashboard-primary">
+          <article className="card dashboard-session">
+            <div className="dashboard-card-title">
+              <div>
+                <span className="card-label">{pick("SESSÃO ATUAL", "CURRENT SESSION", "SESIÓN ACTUAL", "AKTUELLE SITZUNG", "SESSION ACTUELLE")}</span>
+                <h2>{active ? currentMap : omsi?.running ? t("home.open") : pick("OMSI aguardando", "Waiting for OMSI", "Esperando OMSI", "Warte auf OMSI", "En attente d’OMSI")}</h2>
+              </div>
+              <span className={"dashboard-state " + (active ? "online" : omsi?.running ? "standby" : "")}>
+                <i />
+                {active
+                  ? pick("EM OPERAÇÃO", "IN OPERATION", "EN OPERACIÓN", "IM BETRIEB", "EN SERVICE")
+                  : omsi?.running
+                    ? pick("OMSI DETECTADO", "OMSI DETECTED", "OMSI DETECTADO", "OMSI ERKANNT", "OMSI DÉTECTÉ")
+                    : pick("AGUARDANDO", "WAITING", "ESPERANDO", "WARTEN", "EN ATTENTE")}
+              </span>
             </div>
-          )}
-        </div>
-        <div className="speed-panel">
-          <span>{t("home.speed")}</span>
-          <strong>{telemetry ? format(telemetry.speedKph, 0) : "--"}</strong>
-          <small>km/h</small>
-        </div>
-      </section>
 
-      <section className="status-grid">
-        <article className="card status-card">
-          <span className="card-label">OMSI</span>
-          <strong>{omsi?.running ? t("home.running") : t("home.notDetected")}</strong>
-          <small>{omsi?.version ? `${t("home.version")} ${omsi.version}` : `${t("home.version")} —`}</small>
-        </article>
-        <article className="card status-card">
-          <span className="card-label">{t("home.map")}</span>
-          <strong>{telemetry?.mapName || "—"}</strong>
-          <small>{telemetry ? `X ${format(telemetry.x, 2)} · Y ${format(telemetry.y, 2)}` : t("home.positionUnavailable")}</small>
-        </article>
-        <article className="card status-card">
-          <span className="card-label">MULTIPLAYER</span>
-          <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : t("home.disconnected")}</strong>
-          <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : t("home.noRoom")}</small>
-        </article>
+            <div className="dashboard-route">
+              <div><small>{t("home.line")}</small><strong>{currentLine}</strong></div>
+              <b>→</b>
+              <div><small>{t("home.route")}</small><strong>{currentRoute}</strong></div>
+              <b>→</b>
+              <div className="wide"><small>{t("home.destination")}</small><strong>{currentDestination}</strong></div>
+              <div className="dashboard-speed"><small>{t("home.speed")}</small><strong>{telemetry ? format(telemetry.speedKph, 0) : "--"}</strong><span>km/h</span></div>
+            </div>
+
+            <div className="dashboard-session-footer">
+              <div><small>{t("home.nextStop")}</small><strong>{currentNextStop}</strong></div>
+              <div><small>{pick("ROTA", "ROUTE", "RUTA", "ROUTE", "ITINÉRAIRE")}</small><strong className={navigation?.isOnRoute ? "good" : "warning"}>{navigation?.available ? (navigation.isOnRoute ? "OK" : pick("RETORNAR", "REJOIN", "VOLVER", "ZURÜCK", "REJOINDRE")) : "—"}</strong></div>
+              <button type="button" onClick={() => onNavigate("navigation")}><NavBrIcon name="navigation" size={16} />{t("nav.navigation")}</button>
+            </div>
+          </article>
+
+          <div className="dashboard-stats">
+            <article className="card dashboard-stat"><span><NavBrIcon name="navigation" size={18} /></span><div><small>{t("home.map")}</small><strong>{currentMap}</strong><em>{telemetry ? "X " + format(telemetry.x, 0) + " · Y " + format(telemetry.y, 0) : t("home.positionUnavailable")}</em></div></article>
+            <article className="card dashboard-stat"><span><NavBrIcon name="multiplayer" size={18} /></span><div><small>MULTIPLAYER</small><strong>{multiplayer?.connected ? multiplayer.playerCount : 0}</strong><em>{multiplayer?.connected ? multiplayer.roomId : t("home.noRoom")}</em></div></article>
+            <article className="card dashboard-stat"><span><NavBrIcon name="hardware" size={18} /></span><div><small>{pick("REDE", "NETWORK", "RED", "NETZWERK", "RÉSEAU")}</small><strong>{health?.networkLevel || multiplayer?.networkQuality?.level || "—"}</strong><em>{health?.latencyMs != null ? format(health.latencyMs, 0) + " ms" : "—"}</em></div></article>
+          </div>
+
+          <article className="card dashboard-multiplayer">
+            <div className="dashboard-card-title compact">
+              <div><span className="card-label">MULTIPLAYER LIVE</span><h3>{multiplayer?.connected ? pick("Sessão conectada", "Connected session", "Sesión conectada", "Sitzung verbunden", "Session connectée") : pick("Nenhuma sala conectada", "No room connected", "Sin sala conectada", "Kein Raum verbunden", "Aucun salon connecté")}</h3></div>
+              <button className="dashboard-link" type="button" onClick={() => onNavigate("multiplayer")}>{t("nav.multiplayer")} →</button>
+            </div>
+            <div className="dashboard-mp-body">
+              <div className="dashboard-driver-count"><strong>{multiplayer?.playerCount || 0}</strong><span>{pick("motoristas", "drivers", "conductores", "Fahrer", "conducteurs")}</span></div>
+              <div className="dashboard-mp-facts">
+                <span><small>{pick("SALA", "ROOM", "SALA", "RAUM", "SALON")}</small><strong>{multiplayer?.connected ? multiplayer.roomId : "—"}</strong></span>
+                <span><small>{pick("TRANSPORTE", "TRANSPORT", "TRANSPORTE", "TRANSPORT", "TRANSPORT")}</small><strong>{multiplayer?.transportMode || "none"}</strong></span>
+                <span><small>{pick("VOZ", "VOICE", "VOZ", "SPRACHE", "VOIX")}</small><strong>{multiplayer?.voiceEnabled ? "ON" : "OFF"}</strong></span>
+              </div>
+            </div>
+          </article>
+
+          <article className="card dashboard-quick">
+            <span className="card-label">{pick("ACESSO RÁPIDO", "QUICK ACCESS", "ACCESO RÁPIDO", "SCHNELLZUGRIFF", "ACCÈS RAPIDE")}</span>
+            <div className="dashboard-quick-grid">
+              {([
+                ["navigation", "navigation", t("nav.navigation")],
+                ["multiplayer", "multiplayer", t("nav.multiplayer")],
+                ["operations", "operations", t("nav.operations")],
+                ["roleplay", "roleplay", t("nav.roleplay")],
+                ["hardware", "hardware", t("nav.hardware")],
+                ["settings", "settings", t("nav.settings")]
+              ] as Array<[Screen, NavBrIconName, string]>).map(([target, icon, label]) => (
+                <button key={target} type="button" onClick={() => onNavigate(target)}>
+                  <span><NavBrIcon name={icon} size={17} /></span><strong>{label}</strong>
+                </button>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <aside className="dashboard-secondary">
+          <article className={"card dashboard-service " + (omsi?.running ? "ok" : "")}>
+            <span className="service-icon"><NavBrIcon name="play" size={19} /></span>
+            <div><small>OMSI 2</small><strong>{omsi?.running ? t("home.running") : t("home.notDetected")}</strong><em>{omsi?.version ? t("home.version") + " " + omsi.version : pick("Pronto para iniciar", "Ready to launch", "Listo para iniciar", "Startbereit", "Prêt à démarrer")}</em></div><i />
+          </article>
+          <article className={"card dashboard-service " + (plugin?.state === "installed" ? "ok" : plugin?.updateRequired ? "warn" : "")}>
+            <span className="service-icon"><NavBrIcon name="settings" size={19} /></span>
+            <div><small>PLUGIN BRIDGE</small><strong>{plugin?.state || "unknown"}</strong><em>{plugin?.message || plugin?.installedVersion || "—"}</em></div><i />
+          </article>
+          <article className={"card dashboard-service " + (mobile?.running ? "ok" : "")}>
+            <span className="service-icon mobile-icon">▯</span>
+            <div><small>MOBILE COMPANION</small><strong>{mobile?.running ? "ONLINE" : "OFFLINE"}</strong><em>{mobile?.running ? "HTTP " + mobile.port + " · " + mobile.mode : pick("APK na mesma rede", "APK on same network", "APK en la misma red", "APK im selben Netzwerk", "APK sur le même réseau")}</em></div><i />
+          </article>
+
+          <article className="card dashboard-health">
+            <span className="card-label">{pick("SAÚDE DA SESSÃO", "SESSION HEALTH", "SALUD DE SESIÓN", "SITZUNGSSTATUS", "SANTÉ DE SESSION")}</span>
+            <div>
+              <span><small>OMSI</small><strong className={health?.omsiActive ? "good" : ""}>{health?.omsiActive ? "OK" : "—"}</strong></span>
+              <span><small>PLUGIN</small><strong className={health?.pluginConnected ? "good" : ""}>{health?.pluginConnected ? "OK" : "—"}</strong></span>
+              <span><small>MULTI</small><strong className={health?.multiplayerConnected ? "good" : ""}>{health?.multiplayerConnected ? "OK" : "—"}</strong></span>
+              <span><small>HZ</small><strong>{health?.telemetryRateHz != null ? format(health.telemetryRateHz, 0) : "—"}</strong></span>
+            </div>
+          </article>
+
+          <article className="card dashboard-build">
+            <span className="card-label">{pick("VERSÃO ATUAL", "CURRENT BUILD", "VERSIÓN ACTUAL", "AKTUELLE VERSION", "VERSION ACTUELLE")}</span>
+            <strong>{buildVersionLabel(state?.appVersion)}</strong>
+            <p>{pick(
+              "Estado real do C#, Mobile Companion, multiplayer, voz e telemetria integrados.",
+              "Real C# state, Mobile Companion, multiplayer, voice and telemetry integrated.",
+              "Estado real de C#, Mobile Companion, multijugador, voz y telemetría integrados.",
+              "Echter C#-Status, Mobile Companion, Multiplayer, Sprache und Telemetrie integriert.",
+              "État réel C#, Mobile Companion, multijoueur, voix et télémétrie intégrés."
+            )}</p>
+          </article>
+        </aside>
       </section>
-    </>
+    </div>
   );
 }
-
 
 const formatDistance = (meters: number | undefined | null) => {
   if (meters == null || !Number.isFinite(meters)) return "—";
@@ -4914,7 +5016,7 @@ export default function App() {
 
   return (
     <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
-    <div className="app-shell">
+    <div className="app-shell alpha20-shell">
       <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
         <PluginStartupPrompt
@@ -4924,7 +5026,7 @@ export default function App() {
           onOpenInstallations={() => openSettingsTab("installations")}
         />
         {screen === "home"
-          ? <Home state={state} />
+          ? <Home state={state} onNavigate={setScreen} />
           : screen === "navigation"
             ? <Navigation state={state} requestedView={navigationViewRequest} />
             : screen === "roleplay"
