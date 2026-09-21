@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Localization;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Overlay;
 
