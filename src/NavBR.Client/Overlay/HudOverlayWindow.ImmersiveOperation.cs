@@ -1691,9 +1691,10 @@ public partial class HudOverlayWindow
             if (presetId == "minimal-driver")
             {
                 var normalOperation = status.Color == Color.FromRgb(115, 222, 166);
-                _immersiveVehicleStatusText.Visibility = normalOperation
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
+                _immersiveVehicleStatusText.Visibility =
+                    _hudSettings.DashboardShowStatus && !normalOperation
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
             }
         }
         if (_immersiveMapTitleText is not null)
