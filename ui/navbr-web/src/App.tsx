@@ -2120,6 +2120,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
   const [previewing, setPreviewing] = useState(Boolean(hud.previewActive));
+  const [hudSection, setHudSection] = useState<"select" | "appearance" | "modules" | "position">("select");
   const [hudCategory, setHudCategory] = useState<string>(() =>
     HUD_PRESET_GROUPS.find(group => group.ids.includes(hud.preset as never))?.id || "operations"
   );
@@ -2268,7 +2269,27 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
 
   return (
     <section className="hud-settings-layout">
-      <article className="card hud-settings-card">
+      <nav className="hud-workspace-nav" aria-label={pick("Seções do HUD", "HUD sections", "Secciones del HUD", "HUD-Bereiche", "Sections du HUD")}>
+        {([
+          ["select", pick("Escolher HUD", "Choose HUD", "Elegir HUD", "HUD wählen", "Choisir le HUD"), "navigation"],
+          ["appearance", pick("Aparência", "Appearance", "Apariencia", "Darstellung", "Apparence"), "settings"],
+          ["modules", pick("Módulos", "Widgets", "Módulos", "Module", "Modules"), "hardware"],
+          ["position", pick("Posição & ações", "Position & actions", "Posición y acciones", "Position & Aktionen", "Position & actions"), "operations"]
+        ] as const).map(([key, label, icon]) => (
+          <button
+            type="button"
+            key={key}
+            className={hudSection === key ? "active" : ""}
+            onClick={() => setHudSection(key)}
+          >
+            <NavBrIcon name={icon} size={17} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {hudSection === "select" && (
+      <article className="card hud-settings-card hud-selection-card">
         <div className="section-heading">
           <div><span className="eyebrow">HUD</span><h3>{t("hud.identity")}</h3></div>
           <span className={`hardware-state-pill ${draft.enabled ? "connected" : ""}`}>
@@ -2420,31 +2441,6 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
           <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}%</span>
         </div>
 
-        <div className="hud-select-grid">
-          <label className="voice-field">
-            <span>{t("hud.theme")}</span>
-            <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
-              {hud.themes.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
-          <label className="voice-field">
-            <span>{composedMode
-              ? pick("Âncora do painel principal", "Primary panel anchor", "Ancla del panel principal", "Anker des Hauptpanels", "Ancrage du panneau principal")
-              : t("hud.anchor")}</span>
-            <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
-              {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
-          <label className="diagnostics-toggle compact-toggle">
-            <input
-              type="checkbox"
-              checked={draft.autoScale}
-              onChange={event => patch({ autoScale: event.target.checked })}
-            />
-            <span>{t("hud.autoScale")}</span>
-          </label>
-        </div>
-
         <div className="hud-preview-line">
           <strong>{hud.presets.find(item => item.id === draft.preset)?.displayName || draft.preset}</strong>
           <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}% · {Math.round(draft.opacity * 100)}%</span>
@@ -2473,11 +2469,35 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
           </div>
         )}
       </article>
+      )}
 
       {previewing && !omsiRunning && <HudAppScreenPreview hud={draft} />}
 
-      <article className="card hud-settings-card">
-        <span className="eyebrow">{t("hud.size")}</span>
+      {hudSection === "appearance" && (
+      <article className="card hud-settings-card hud-appearance-card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("APARÊNCIA", "APPEARANCE", "APARIENCIA", "DARSTELLUNG", "APPARENCE")}</span>
+            <h3>{pick("Tema e tamanho", "Theme and size", "Tema y tamaño", "Thema und Größe", "Thème et taille")}</h3>
+          </div>
+        </div>
+        <div className="hud-select-grid">
+          <label className="voice-field">
+            <span>{t("hud.theme")}</span>
+            <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
+              {hud.themes.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+            </select>
+          </label>
+          <label className="diagnostics-toggle compact-toggle">
+            <input
+              type="checkbox"
+              checked={draft.autoScale}
+              onChange={event => patch({ autoScale: event.target.checked })}
+            />
+            <span>{t("hud.autoScale")}</span>
+          </label>
+        </div>
+        <span className="eyebrow hud-subsection-label">{t("hud.size")}</span>
         <div className="hud-slider-list">
           <label>
             <span><strong>{t("hud.scale")}</strong><em>{Math.round(draft.scale * 100)}%</em></span>
@@ -2503,7 +2523,10 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
           </label>
         </div>
       </article>
+      )}
 
+      {hudSection === "modules" && (
+      <>
       <article className="card hud-settings-card">
         <span className="eyebrow">{t("hud.visibleModules")}</span>
         <div className="hud-module-grid">
@@ -2549,22 +2572,82 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
           ))}
         </div>
       </article>
+      </>
+      )}
 
-      <div className="hud-settings-actions">
-        <div className="hud-action-group">
-          <span className="hud-action-group-label">{pick("VISUALIZAÇÃO", "PREVIEW", "VISTA", "VORSCHAU", "APERÇU")}</span>
+      {hudSection === "position" && (
+        <article className="card hud-settings-card hud-position-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{pick("POSIÇÃO", "POSITION", "POSICIÓN", "POSITION", "POSITION")}</span>
+              <h3>{pick("Posicionar o HUD", "Position the HUD", "Posicionar el HUD", "HUD positionieren", "Positionner le HUD")}</h3>
+            </div>
+          </div>
+          <div className="hud-position-grid">
+            <label className="voice-field">
+              <span>{composedMode
+                ? pick("Âncora do painel principal", "Primary panel anchor", "Ancla del panel principal", "Anker des Hauptpanels", "Ancrage du panneau principal")
+                : t("hud.anchor")}</span>
+              <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
+                {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+              </select>
+            </label>
+            <div className="hud-position-action">
+              <button
+                className="button primary"
+                disabled={previewing}
+                title={previewing
+                  ? pick(
+                      "Aplique ou oculte a prévia antes de mover o HUD.",
+                      "Apply or hide the preview before moving the HUD.",
+                      "Aplica u oculta la vista previa antes de mover el HUD.",
+                      "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
+                      "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
+                    )
+                  : undefined}
+                onClick={() => sendCommand("toggleHudLayout")}
+              >
+                {t("hud.move")}
+              </button>
+              <small>{pick(
+                "Use Mover HUD para arrastar os módulos livremente na tela do OMSI. A posição personalizada é salva separadamente do preset visual.",
+                "Use Move HUD to freely drag widgets on the OMSI screen. The custom position is saved separately from the visual preset.",
+                "Usa Mover HUD para arrastrar libremente los módulos en OMSI. La posición personalizada se guarda separada del preset visual.",
+                "Mit HUD verschieben können Module frei auf dem OMSI-Bildschirm platziert werden. Die benutzerdefinierte Position wird getrennt vom visuellen Preset gespeichert.",
+                "Utilisez Déplacer le HUD pour positionner librement les modules dans OMSI. La position personnalisée est enregistrée séparément du preset visuel."
+              )}</small>
+            </div>
+          </div>
+          <div className="hud-contextual-note">
+            <strong>{pick("ATALHOS", "HOTKEYS", "ATAJOS", "HOTKEYS", "RACCOURCIS")}</strong>
+            <span>{pick(
+              "Chat e PTT continuam em Multiplayer → Avançado → Atalhos; aqui ficam somente posição e comportamento visual do HUD.",
+              "Chat and PTT remain under Multiplayer → Advanced → Hotkeys; this section only controls HUD position and visual behavior.",
+              "Chat y PTT siguen en Multijugador → Avanzado → Atajos; aquí solo se controla la posición y el comportamiento visual del HUD.",
+              "Chat und PTT bleiben unter Multiplayer → Erweitert → Hotkeys; hier werden nur HUD-Position und visuelles Verhalten gesteuert.",
+              "Chat et PTT restent dans Multijoueur → Avancé → Raccourcis ; cette section contrôle uniquement la position et le comportement visuel du HUD."
+            )}</span>
+          </div>
+        </article>
+      )}
+
+      <div className="hud-savebar">
+        <div className="hud-savebar-status">
+          <span className="eyebrow">{pick("ALTERAÇÕES DO HUD", "HUD CHANGES", "CAMBIOS DEL HUD", "HUD-ÄNDERUNGEN", "MODIFICATIONS DU HUD")}</span>
+          <strong>{selectedPreset?.displayName || draft.preset}</strong>
+          <small>{dirty
+            ? pick("Há alterações ainda não aplicadas.", "There are unapplied changes.", "Hay cambios sin aplicar.", "Es gibt noch nicht angewendete Änderungen.", "Des modifications ne sont pas encore appliquées.")
+            : pick("Configuração aplicada.", "Configuration applied.", "Configuración aplicada.", "Konfiguration angewendet.", "Configuration appliquée.")}</small>
+        </div>
+        <div className="hud-savebar-actions">
           <button
             className={`button ${previewing ? "ghost" : "primary"}`}
             onClick={togglePreview}
           >
             {previewing
               ? pick("Ocultar prévia", "Hide preview", "Ocultar vista previa", "Vorschau ausblenden", "Masquer l’aperçu")
-              : pick("Visualizar prévia", "Preview on screen", "Ver vista previa", "Vorschau anzeigen", "Visualiser l’aperçu")}
+              : pick("Visualizar prévia", "Preview", "Vista previa", "Vorschau", "Aperçu")}
           </button>
-        </div>
-
-        <div className="hud-action-group">
-          <span className="hud-action-group-label">{pick("SALVAR", "SAVE", "GUARDAR", "SPEICHERN", "ENREGISTRER")}</span>
           <button className="button primary" disabled={!dirty} onClick={save}>
             {dirty ? t("hud.apply") : t("hud.applied")}
           </button>
@@ -2573,33 +2656,6 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
             setPreviewing(false);
             setDirty(false);
           }}>{t("common.reset")}</button>
-        </div>
-
-        <div className="hud-action-group hud-action-group-edit">
-          <span className="hud-action-group-label">{pick("EDIÇÃO", "EDITING", "EDICIÓN", "BEARBEITUNG", "ÉDITION")}</span>
-          <button
-            className="button ghost"
-            disabled={previewing}
-            title={previewing
-              ? pick(
-                  "Aplique ou oculte a prévia antes de mover o HUD.",
-                  "Apply or hide the preview before moving the HUD.",
-                  "Aplica u oculta la vista previa antes de mover el HUD.",
-                  "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
-                  "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
-                )
-              : undefined}
-            onClick={() => sendCommand("toggleHudLayout")}
-          >
-            {t("hud.move")}
-          </button>
-          <small>{pick(
-            "Mover HUD serve apenas para posicionar os módulos. Chat e PTT continuam em Multiplayer → Avançado → Atalhos.",
-            "Move HUD only positions widgets. Chat and PTT remain under Multiplayer → Advanced → Hotkeys.",
-            "Mover HUD solo posiciona módulos. Chat y PTT siguen en Multijugador → Avanzado → Atajos.",
-            "HUD verschieben positioniert nur Module. Chat und PTT bleiben unter Multiplayer → Erweitert → Hotkeys.",
-            "Déplacer le HUD sert uniquement à positionner les modules. Chat et PTT restent dans Multijoueur → Avancé → Raccourcis."
-          )}</small>
         </div>
       </div>
     </section>
