@@ -61,9 +61,16 @@ jobs:
 
           if ($releaseExists) {
             "exists=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Release $tag already exists. Nothing to publish."
+            $mobileAsset = "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk"
+            $mobileExists = gh release view $tag --repo "${{ github.repository }}" --json assets --jq ".assets[].name" 2>$null |
+              Where-Object { $_ -eq $mobileAsset } |
+              Select-Object -First 1
+            $mobileMissing = [string]::IsNullOrWhiteSpace([string]$mobileExists)
+            "mobile_missing=$($mobileMissing.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $tag already exists. Mobile missing: $mobileMissing"
           } else {
             "exists=false" >> $env:GITHUB_OUTPUT
+            "mobile_missing=false" >> $env:GITHUB_OUTPUT
             Write-Host "Release $tag will be created from commit $env:GITHUB_SHA."
           }
 
@@ -75,7 +82,7 @@ jobs:
         run: .\scripts\repair-navbr-icon.ps1
 
       - name: Setup Node 22
-        if: steps.version.outputs.exists != 'true'
+        if: steps.version.outputs.exists != 'true' || steps.version.outputs.mobile_missing == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -105,14 +112,14 @@ jobs:
           }
 
       - name: Setup Java 21 for Android
-        if: steps.version.outputs.exists != 'true'
+        if: steps.version.outputs.exists != 'true' || steps.version.outputs.mobile_missing == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Validate preinstalled Android SDK
-        if: steps.version.outputs.exists != 'true'
+        if: steps.version.outputs.exists != 'true' || steps.version.outputs.mobile_missing == 'true'
         shell: pwsh
         run: |
           if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = "C:\Android\android-sdk" }
@@ -124,7 +131,7 @@ jobs:
           "ANDROID_SDK_ROOT=$env:ANDROID_SDK_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build Mobile Companion Android APK
-        if: steps.version.outputs.exists != 'true'
+        if: steps.version.outputs.exists != 'true' || steps.version.outputs.mobile_missing == 'true'
         shell: pwsh
         run: |
           Push-Location mobile/navbr-mobile
@@ -167,6 +174,22 @@ jobs:
           finally {
             Pop-Location
           }
+
+      - name: Repair existing release mobile APK
+        if: steps.version.outputs.exists == 'true' && steps.version.outputs.mobile_missing == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $apk = "artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha2-debug.apk"
+          $asset = "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk"
+          if (-not (Test-Path $apk)) { throw "Mobile repair APK not found: $apk" }
+          Copy-Item $apk $asset -Force
+          gh release upload $tag $asset --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload Mobile Alpha 2 APK to existing release." }
+          gh workflow run pages.yml --repo "${{ github.repository }}" --ref main
+          Write-Host "Repaired public release $tag with $asset"
 
       - name: Restore release projects
         if: steps.version.outputs.exists != 'true'
@@ -414,7 +437,6 @@ jobs:
             $releaseExe,
             $releaseMobileApk,
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
-            "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
             "OMSI-NavBR-Plugin-$tag-win-x86.zip",
             "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
@@ -447,6 +469,7 @@ jobs:
             "OMSI-NavBR-Multiplayer-$tag-Setup-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.exe",
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
+            "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
             "OMSI-NavBR-Plugin-$tag-win-x86.zip",
             "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
