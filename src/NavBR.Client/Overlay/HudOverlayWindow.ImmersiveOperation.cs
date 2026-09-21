@@ -692,6 +692,7 @@ public partial class HudOverlayWindow
         }
 
         var compact = ActualWidth > 1d && ActualWidth < 1280d;
+        var narrow = ActualWidth > 1d && ActualWidth < 1120d;
         var preset = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset);
         var presetId = preset.Id;
         var widthFactor = Math.Clamp(
@@ -875,6 +876,17 @@ public partial class HudOverlayWindow
                 if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 18d;
                 if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
                 break;
+        }
+
+        if (narrow && presetId is "transit-control" or "city-operations")
+        {
+            _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+            _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+            _immersiveFocusPanel.Margin = new Thickness(
+                0d,
+                compact ? 104d : 118d,
+                0d,
+                0d);
         }
 
         if (!double.IsNaN(_immersiveTopBar.Width))

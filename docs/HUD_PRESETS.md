@@ -104,3 +104,10 @@ multiplicadas pela escala geral, preservando os controles independentes.
 interpretado como um fator relativo à largura padrão do preset e ajusta os
 painéis horizontais entre 70% e 135% do desenho original. A altura do mapa e a
 composição vertical permanecem preservadas para evitar distorção.
+
+
+## Layout estreito
+
+Quando a janela do OMSI tem menos de 1120 px de largura, **Transit Control** e
+**City Operations** movem o painel de foco para baixo da barra superior. Isso
+evita sobreposição entre minimapa, painel central e multiplayer no rodapé.
