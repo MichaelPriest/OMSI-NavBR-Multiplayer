@@ -22,6 +22,10 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveSpeedText;
     private TextBlock? _immersiveDelayText;
     private TextBlock? _immersiveFuelText;
+    private Border? _immersiveFuelCell;
+    private Border? _immersiveDelayCell;
+    private Border? _immersiveSpeedCell;
+    private Border? _immersiveNextStopCell;
     private TextBlock? _immersiveVehicleStatusText;
     private TextBlock? _immersiveMapTitleText;
     private TextBlock? _immersiveStreetText;
@@ -94,10 +98,10 @@ public partial class HudOverlayWindow
         var routeCell = BuildRouteCell();
         Grid.SetColumn(routeCell, 1);
         root.Children.Add(routeCell);
-        _immersiveNextStopText = AddMetricCell(root, 2, ImmersiveText("PRÓXIMA PARADA", "NEXT STOP", "PRÓXIMA PARADA", "NÄCHSTER HALT", "PROCHAIN ARRÊT"), "—");
-        _immersiveSpeedText = AddMetricCell(root, 3, ImmersiveText("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE"), "— km/h");
-        _immersiveDelayText = AddMetricCell(root, 4, ImmersiveText("ATRASO", "DELAY", "RETRASO", "VERSPÄTUNG", "RETARD"), "—");
-        _immersiveFuelText = AddMetricCell(root, 5, ImmersiveText("COMBUSTÍVEL", "FUEL", "COMBUSTIBLE", "KRAFTSTOFF", "CARBURANT"), "—");
+        _immersiveNextStopText = AddMetricCell(root, 2, ImmersiveText("PRÓXIMA PARADA", "NEXT STOP", "PRÓXIMA PARADA", "NÄCHSTER HALT", "PROCHAIN ARRÊT"), "—", false, out _immersiveNextStopCell);
+        _immersiveSpeedText = AddMetricCell(root, 3, ImmersiveText("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE"), "— km/h", false, out _immersiveSpeedCell);
+        _immersiveDelayText = AddMetricCell(root, 4, ImmersiveText("ATRASO", "DELAY", "RETRASO", "VERSPÄTUNG", "RETARD"), "—", false, out _immersiveDelayCell);
+        _immersiveFuelText = AddMetricCell(root, 5, ImmersiveText("COMBUSTÍVEL", "FUEL", "COMBUSTIBLE", "KRAFTSTOFF", "CARBURANT"), "—", false, out _immersiveFuelCell);
 
         _immersiveVehicleStatusText = new TextBlock
         {
@@ -180,6 +184,17 @@ public partial class HudOverlayWindow
         string value,
         bool accent = false)
     {
+        return AddMetricCell(grid, column, label, value, accent, out _);
+    }
+
+    private static TextBlock AddMetricCell(
+        Grid grid,
+        int column,
+        string label,
+        string value,
+        bool accent,
+        out Border cell)
+    {
         var stack = new StackPanel
         {
             Margin = new Thickness(9d, 0d, 9d, 0d),
@@ -207,14 +222,14 @@ public partial class HudOverlayWindow
         };
         stack.Children.Add(text);
 
-        var border = new Border
+        cell = new Border
         {
             BorderBrush = new SolidColorBrush(Color.FromArgb(42, 125, 166, 194)),
             BorderThickness = column == 0 ? new Thickness(0d, 0d, 1d, 0d) : new Thickness(0d),
             Child = stack
         };
-        Grid.SetColumn(border, column);
-        grid.Children.Add(border);
+        Grid.SetColumn(cell, column);
+        grid.Children.Add(cell);
         return text;
     }
 
@@ -456,6 +471,30 @@ public partial class HudOverlayWindow
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
+        if (_immersiveFuelCell is not null)
+        {
+            _immersiveFuelCell.Visibility = active && settings.DashboardShowFuel
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_immersiveDelayCell is not null)
+        {
+            _immersiveDelayCell.Visibility = active
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_immersiveSpeedCell is not null)
+        {
+            _immersiveSpeedCell.Visibility = active
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_immersiveNextStopCell is not null)
+        {
+            _immersiveNextStopCell.Visibility = active
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
         _immersiveMiniMapPanel.Visibility = active && settings.DashboardShowMinimap
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -548,6 +587,14 @@ public partial class HudOverlayWindow
         var multiplayerWidth = compact ? 292d : 342d;
         var edge = compact ? 10d : 18d;
 
+        if (_immersiveFuelCell is not null)
+        {
+            _immersiveFuelCell.Visibility = _hudSettings.DashboardShowFuel ? Visibility.Visible : Visibility.Collapsed;
+        }
+        if (_immersiveDelayCell is not null) _immersiveDelayCell.Visibility = Visibility.Visible;
+        if (_immersiveSpeedCell is not null) _immersiveSpeedCell.Visibility = Visibility.Visible;
+        if (_immersiveNextStopCell is not null) _immersiveNextStopCell.Visibility = Visibility.Visible;
+
         if (_immersiveLineText is not null) _immersiveLineText.FontSize = 23d;
         if (_immersiveRouteText is not null) _immersiveRouteText.FontSize = 10d;
         if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 16d;
@@ -595,6 +642,7 @@ public partial class HudOverlayWindow
                 break;
 
             case "minimal-driver":
+                if (_immersiveDelayCell is not null) _immersiveDelayCell.Visibility = Visibility.Collapsed;
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 560d : 660d;
                 _immersiveTopBar.Margin = compact
@@ -640,6 +688,7 @@ public partial class HudOverlayWindow
                 break;
 
             case "driver-assistance":
+                if (_immersiveFuelCell is not null) _immersiveFuelCell.Visibility = Visibility.Collapsed;
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 700d : 880d;
                 mapWidth = compact ? 310d : 380d;
