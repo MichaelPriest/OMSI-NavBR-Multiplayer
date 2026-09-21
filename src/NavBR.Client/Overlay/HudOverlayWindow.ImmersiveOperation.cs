@@ -1265,8 +1265,21 @@ public partial class HudOverlayWindow
             return;
         }
 
+        var effectiveScale = GetImmersiveDashboardEffectiveScale();
+        var minimapScale = Math.Clamp(
+            effectiveScale * _hudSettings.DashboardMinimapScale,
+            0.55d,
+            2.25d);
+        var multiplayerScale = Math.Clamp(
+            effectiveScale * _hudSettings.DashboardMultiplayerScale,
+            0.55d,
+            2.25d);
+        var multiplayerHeight = _immersiveMultiplayerPanel?.ActualHeight > 1d
+            ? Math.Max(178d, _immersiveMultiplayerPanel.ActualHeight)
+            : 178d;
+
         var side = compact ? 12d : 20d;
-        var top = compact ? 104d : 118d;
+        var top = (compact ? 104d : 118d) * Math.Max(1d, effectiveScale);
         var bottom = compact ? 12d : 20d;
 
         switch (anchor)
@@ -1297,7 +1310,7 @@ public partial class HudOverlayWindow
                     0d,
                     0d,
                     _immersiveMiniMapPanel?.Visibility == Visibility.Visible
-                        ? mapHeight + edge + 14d
+                        ? (mapHeight * minimapScale) + edge + 14d
                         : bottom);
                 break;
 
@@ -1315,7 +1328,7 @@ public partial class HudOverlayWindow
                     0d,
                     side,
                     _immersiveMultiplayerPanel?.Visibility == Visibility.Visible
-                        ? Math.Max(bottom, 178d + edge)
+                        ? Math.Max(bottom, (multiplayerHeight * multiplayerScale) + edge)
                         : bottom);
                 break;
         }

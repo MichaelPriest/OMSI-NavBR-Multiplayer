@@ -153,6 +153,9 @@ painel multiplayer à direita quando esses módulos estão visíveis.
 
 A opção `free` preserva o layout desenhado especificamente para cada preset.
 Presets sem painel de foco mantêm suas barras e módulos nas posições próprias.
+As âncoras superiores consideram a escala global do HUD; as âncoras inferiores
+também reservam espaço conforme as escalas individuais de minimapa e multiplayer,
+evitando que uma personalização ampliada volte a sobrepor o painel de foco.
 
 
 ## Arraste do painel principal
