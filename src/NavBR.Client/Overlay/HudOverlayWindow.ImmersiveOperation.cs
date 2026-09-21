@@ -25,6 +25,7 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveStreetText;
     private TextBlock? _immersiveSessionText;
     private TextBlock? _immersivePlayersText;
+    private TextBlock? _immersiveNearbyPlayersText;
     private TextBlock? _immersiveVoiceText;
     private DispatcherTimer? _immersiveOperationTimer;
     private bool _immersivePresentationApplied;
@@ -302,6 +303,24 @@ public partial class HudOverlayWindow
         };
         stack.Children.Add(_immersiveSessionText);
 
+        _immersiveNearbyPlayersText = new TextBlock
+        {
+            Text = ImmersiveText(
+                "Nenhum jogador próximo",
+                "No nearby players",
+                "Ningún jugador cercano",
+                "Keine Spieler in der Nähe",
+                "Aucun joueur à proximité"),
+            Margin = new Thickness(0d, 9d, 0d, 0d),
+            Padding = new Thickness(9d, 8d, 9d, 8d),
+            Background = new SolidColorBrush(Color.FromArgb(92, 17, 36, 49)),
+            Foreground = new SolidColorBrush(Color.FromRgb(216, 231, 239)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 9.5d,
+            TextWrapping = TextWrapping.Wrap
+        };
+        stack.Children.Add(_immersiveNearbyPlayersText);
+
         _immersiveVoiceText = new TextBlock
         {
             Text = "PTT • F10",
@@ -558,10 +577,101 @@ public partial class HudOverlayWindow
         {
             _immersivePlayersText.Text = $"{PlayerCountText.Text} {ImmersiveText("online", "online", "en línea", "online", "en ligne")}";
         }
+        if (_immersiveNearbyPlayersText is not null)
+        {
+            _immersiveNearbyPlayersText.Text = BuildImmersiveNearbyPlayersText();
+        }
         if (_immersiveVoiceText is not null)
         {
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
         }
+    }
+
+    private string BuildImmersiveNearbyPlayersText()
+    {
+        var local = _localTelemetry;
+        if (local is null || _remotePlayers.Count == 0)
+        {
+            return ImmersiveText(
+                "Nenhum jogador próximo",
+                "No nearby players",
+                "Ningún jugador cercano",
+                "Keine Spieler in der Nähe",
+                "Aucun joueur à proximité");
+        }
+
+        var nearby = _remotePlayers.Values
+            .Where(frame => IsSameImmersiveMap(local, frame.Telemetry))
+            .Select(frame => new
+            {
+                Frame = frame,
+                Distance = ImmersiveDistanceMeters(local, frame.Telemetry)
+            })
+            .Where(item => double.IsFinite(item.Distance))
+            .OrderBy(item => item.Distance)
+            .Take(3)
+            .ToArray();
+
+        if (nearby.Length == 0)
+        {
+            return ImmersiveText(
+                "Nenhum jogador neste mapa",
+                "No players on this map",
+                "Ningún jugador en este mapa",
+                "Keine Spieler auf dieser Karte",
+                "Aucun joueur sur cette carte");
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            nearby.Select(item =>
+            {
+                var name = string.IsNullOrWhiteSpace(item.Frame.Player.DisplayName)
+                    ? item.Frame.Player.PlayerId
+                    : item.Frame.Player.DisplayName.Trim();
+                var speed = $"{Math.Clamp(item.Frame.Telemetry.SpeedKph, 0d, 999d):F0} km/h";
+                var distance = FormatImmersiveDistance(item.Distance);
+                var latency = item.Frame.Player.LatencyMs is int latencyMs && latencyMs >= 0
+                    ? $" • {latencyMs} ms"
+                    : string.Empty;
+                return $"{name}  •  {speed}  •  {distance}{latency}";
+            }));
+    }
+
+    private static bool IsSameImmersiveMap(VehicleTelemetry local, VehicleTelemetry remote)
+    {
+        if (!string.IsNullOrWhiteSpace(local.MapCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(remote.MapCompatibilityId))
+        {
+            return string.Equals(
+                local.MapCompatibilityId,
+                remote.MapCompatibilityId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return !string.IsNullOrWhiteSpace(local.MapName) &&
+               !string.IsNullOrWhiteSpace(remote.MapName) &&
+               string.Equals(local.MapName, remote.MapName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static double ImmersiveDistanceMeters(VehicleTelemetry local, VehicleTelemetry remote)
+    {
+        var dx = remote.X - local.X;
+        var dy = remote.Y - local.Y;
+        var dz = remote.Z - local.Z;
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private static string FormatImmersiveDistance(double meters)
+    {
+        if (!double.IsFinite(meters))
+        {
+            return "—";
+        }
+
+        return meters < 1000d
+            ? $"{Math.Max(0d, meters):F0} m"
+            : $"{Math.Max(0d, meters) / 1000d:F1} km";
     }
 
     private string BuildImmersiveVoiceStatus()
