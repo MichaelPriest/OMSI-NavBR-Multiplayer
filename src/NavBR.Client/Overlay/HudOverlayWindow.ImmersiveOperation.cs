@@ -21,6 +21,7 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveSpeedText;
     private TextBlock? _immersiveDelayText;
     private TextBlock? _immersiveFuelText;
+    private TextBlock? _immersiveVehicleStatusText;
     private TextBlock? _immersiveMapTitleText;
     private TextBlock? _immersiveStreetText;
     private TextBlock? _immersiveSessionText;
@@ -79,6 +80,8 @@ public partial class HudOverlayWindow
     private Border BuildImmersiveTopBar()
     {
         var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112d) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.35d, GridUnitType.Star) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
@@ -94,6 +97,25 @@ public partial class HudOverlayWindow
         _immersiveSpeedText = AddMetricCell(root, 3, ImmersiveText("VELOCIDADE", "SPEED", "VELOCIDAD", "GESCHWINDIGKEIT", "VITESSE"), "— km/h");
         _immersiveDelayText = AddMetricCell(root, 4, ImmersiveText("ATRASO", "DELAY", "RETRASO", "VERSPÄTUNG", "RETARD"), "—");
         _immersiveFuelText = AddMetricCell(root, 5, ImmersiveText("COMBUSTÍVEL", "FUEL", "COMBUSTIBLE", "KRAFTSTOFF", "CARBURANT"), "—");
+
+        _immersiveVehicleStatusText = new TextBlock
+        {
+            Text = ImmersiveText(
+                "Operação normal",
+                "Normal operation",
+                "Operación normal",
+                "Normalbetrieb",
+                "Exploitation normale"),
+            Margin = new Thickness(9d, 7d, 9d, 0d),
+            Foreground = new SolidColorBrush(Color.FromRgb(115, 222, 166)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 9d,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetRow(_immersiveVehicleStatusText, 1);
+        Grid.SetColumnSpan(_immersiveVehicleStatusText, 6);
+        root.Children.Add(_immersiveVehicleStatusText);
 
         return new Border
         {
@@ -430,6 +452,12 @@ public partial class HudOverlayWindow
         }
 
         _immersiveTopBar.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        if (_immersiveVehicleStatusText is not null)
+        {
+            _immersiveVehicleStatusText.Visibility = active && settings.DashboardShowStatus
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
         _immersiveMiniMapPanel.Visibility = active && settings.DashboardShowMinimap
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -574,6 +602,12 @@ public partial class HudOverlayWindow
                 ? $"{Math.Clamp(fuel, 0d, 100d):F0}%"
                 : "—";
         }
+        if (_immersiveVehicleStatusText is not null)
+        {
+            var status = BuildImmersiveVehicleStatus(telemetry);
+            _immersiveVehicleStatusText.Text = status.Text;
+            _immersiveVehicleStatusText.Foreground = new SolidColorBrush(status.Color);
+        }
         if (_immersiveMapTitleText is not null)
         {
             var mapLabel = ImmersiveText("MAPA", "MAP", "MAPA", "KARTE", "CARTE");
@@ -607,6 +641,83 @@ public partial class HudOverlayWindow
         {
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
         }
+    }
+
+    private static (string Text, Color Color) BuildImmersiveVehicleStatus(VehicleTelemetry? telemetry)
+    {
+        if (telemetry is null)
+        {
+            return (
+                ImmersiveText(
+                    "Aguardando telemetria",
+                    "Waiting for telemetry",
+                    "Esperando telemetría",
+                    "Warte auf Telemetrie",
+                    "En attente de télémétrie"),
+                Color.FromRgb(150, 177, 195));
+        }
+
+        var states = new List<string>();
+        var warning = false;
+
+        if (telemetry.Doors != VehicleDoorFlags.None)
+        {
+            states.Add(ImmersiveText("PORTAS ABERTAS", "DOORS OPEN", "PUERTAS ABIERTAS", "TÜREN OFFEN", "PORTES OUVERTES"));
+            warning = true;
+        }
+        if (telemetry.StopRequested)
+        {
+            states.Add(ImmersiveText("PARADA SOLICITADA", "STOP REQUESTED", "PARADA SOLICITADA", "HALTEWUNSCH", "ARRÊT DEMANDÉ"));
+        }
+        if (telemetry.ParkingBrakeActive)
+        {
+            states.Add(ImmersiveText("FREIO P", "PARK BRAKE", "FRENO P", "FESTSTELLBREMSE", "FREIN DE PARC"));
+        }
+        if (telemetry.ReverseGear)
+        {
+            states.Add(ImmersiveText("RÉ", "REVERSE", "REVERSA", "RÜCKWÄRTS", "MARCHE ARRIÈRE"));
+            warning = true;
+        }
+
+        switch (telemetry.TurnSignal)
+        {
+            case TurnSignalState.Left:
+                states.Add("← " + ImmersiveText("SETA", "TURN", "GIRO", "BLINKER", "CLIGNOTANT"));
+                break;
+            case TurnSignalState.Right:
+                states.Add(ImmersiveText("SETA", "TURN", "GIRO", "BLINKER", "CLIGNOTANT") + " →");
+                break;
+            case TurnSignalState.Hazard:
+                states.Add(ImmersiveText("PISCA-ALERTA", "HAZARDS", "EMERGENCIA", "WARNBLINKER", "FEUX DE DÉTRESSE"));
+                warning = true;
+                break;
+        }
+
+        if (telemetry.Lights.HasFlag(VehicleLightFlags.LowBeam) ||
+            telemetry.Lights.HasFlag(VehicleLightFlags.HighBeam))
+        {
+            states.Add(ImmersiveText("FARÓIS", "LIGHTS", "LUCES", "LICHT", "FEUX"));
+        }
+        if (telemetry.WipersActive)
+        {
+            states.Add(ImmersiveText("LIMPADOR", "WIPERS", "LIMPIAPARABRISAS", "WISCHER", "ESSUIE-GLACES"));
+        }
+
+        if (states.Count == 0)
+        {
+            return (
+                ImmersiveText(
+                    "Operação normal",
+                    "Normal operation",
+                    "Operación normal",
+                    "Normalbetrieb",
+                    "Exploitation normale"),
+                Color.FromRgb(115, 222, 166));
+        }
+
+        return (
+            string.Join("   •   ", states),
+            warning ? Color.FromRgb(255, 184, 87) : Color.FromRgb(132, 205, 235));
     }
 
     private string BuildImmersiveNearbyPlayersText()
