@@ -4127,16 +4127,47 @@ function Multiplayer({
         }</strong></div>
       </section>
 
-      <div className="mp-tabs" role="tablist">
+      <div className="multiplayer-group-nav" role="tablist">
         {([
-          ["overview", "Visão geral"],
-          ["room", pick("Sala", "Room", "Sala", "Raum", "Salle")],
-          ["players", pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")],
-          ["chat", pick("Chat & Voz", "Chat & Voice", "Chat y Voz", "Chat & Sprache", "Chat & Voix")],
-          ["roleplay", pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP")],
-          ["advanced", pick("Avançado", "Advanced", "Avanzado", "Erweitert", "Avancé")]
-        ] as [MultiplayerTab, string][]).map(([key, label]) => (
-          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+          {
+            id: "session",
+            label: pick("SESSÃO", "SESSION", "SESIÓN", "SITZUNG", "SESSION"),
+            items: [
+              ["overview", pick("Visão geral", "Overview", "Resumen", "Übersicht", "Vue d’ensemble")],
+              ["room", pick("Sala", "Room", "Sala", "Raum", "Salle")],
+              ["players", pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")]
+            ]
+          },
+          {
+            id: "social",
+            label: pick("COMUNICAÇÃO & RP", "COMMUNICATION & RP", "COMUNICACIÓN & RP", "KOMMUNIKATION & RP", "COMMUNICATION & RP"),
+            items: [
+              ["chat", pick("Chat & Voz", "Chat & Voice", "Chat y Voz", "Chat & Sprache", "Chat & Voix")],
+              ["roleplay", pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP")]
+            ]
+          },
+          {
+            id: "system",
+            label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+            items: [
+              ["advanced", pick("Avançado", "Advanced", "Avanzado", "Erweitert", "Avancé")]
+            ]
+          }
+        ] as Array<{ id: string; label: string; items: [MultiplayerTab, string][] }>).map(group => (
+          <section className="multiplayer-nav-group" key={group.id}>
+            <span>{group.label}</span>
+            <div>
+              {group.items.map(([key, label]) => (
+                <button
+                  key={key}
+                  className={tab === key ? "active" : ""}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
