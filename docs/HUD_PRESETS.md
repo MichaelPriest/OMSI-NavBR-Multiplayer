@@ -116,7 +116,9 @@ Abaixo de 920 px, os presets compostos entram em uma faixa ultraestreita:
 métricas secundárias de atraso e combustível cedem espaço para linha, rota,
 próxima parada e velocidade; mapa, multiplayer e painel de foco recebem limites
 mais conservadores. As colunas do topo também deixam de reservar espaço vazio
-quando um módulo está oculto pelo preset ou pelo usuário.
+quando um módulo está oculto pelo preset ou pelo usuário. Nessa faixa, margens
+internas são compactadas e rótulos longos dos cinco idiomas usam truncamento
+seguro para não invadir células vizinhas.
 
 
 ## Alertas e indicadores laterais

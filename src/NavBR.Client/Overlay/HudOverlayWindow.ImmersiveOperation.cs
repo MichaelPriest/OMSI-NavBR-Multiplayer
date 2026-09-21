@@ -238,7 +238,9 @@ public partial class HudOverlayWindow
             Foreground = new SolidColorBrush(Color.FromRgb(126, 155, 175)),
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 8.5d,
-            FontWeight = FontWeights.Bold
+            FontWeight = FontWeights.Bold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.NoWrap
         });
         var text = new TextBlock
         {
@@ -1158,6 +1160,37 @@ public partial class HudOverlayWindow
             _immersiveFuelCell?.Visibility == Visibility.Visible
                 ? new GridLength(metricWidth)
                 : new GridLength(0d);
+
+        foreach (UIElement child in _immersiveTopBarGrid.Children)
+        {
+            if (child is not Border border ||
+                border.Child is not StackPanel stack)
+            {
+                continue;
+            }
+
+            var column = Grid.GetColumn(border);
+            if (column == 1)
+            {
+                border.Margin = ultraNarrow
+                    ? new Thickness(2d, 0d, 2d, 0d)
+                    : new Thickness(4d, 0d, 4d, 0d);
+                border.Padding = ultraNarrow
+                    ? new Thickness(2d, 1d, 2d, 1d)
+                    : new Thickness(5d, 1d, 5d, 1d);
+                stack.Margin = ultraNarrow
+                    ? new Thickness(5d, 1d, 5d, 1d)
+                    : new Thickness(11d, 1d, 11d, 1d);
+                continue;
+            }
+
+            if (column is 0 or 2 or 3 or 4 or 5)
+            {
+                stack.Margin = ultraNarrow
+                    ? new Thickness(5d, 0d, 5d, 0d)
+                    : new Thickness(9d, 0d, 9d, 0d);
+            }
+        }
     }
 
     private void ApplyComposedAuxiliaryPanelLayout(
