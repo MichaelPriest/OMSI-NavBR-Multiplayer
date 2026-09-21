@@ -17,6 +17,10 @@ public partial class HudOverlayWindow
     private Border? _immersiveMiniMapPanel;
     private Border? _immersiveMultiplayerPanel;
     private Border? _immersiveFocusPanel;
+    private Border? _immersiveAlertPanel;
+    private TextBlock? _immersiveAlertText;
+    private Border? _immersiveSideIndicatorPanel;
+    private TextBlock? _immersiveSideIndicatorText;
     private TextBlock? _immersiveFocusEyebrowText;
     private TextBlock? _immersiveFocusPrimaryText;
     private TextBlock? _immersiveFocusSecondaryText;
@@ -84,16 +88,22 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel = BuildImmersiveMiniMap();
         _immersiveMultiplayerPanel = BuildImmersiveMultiplayerPanel();
         _immersiveFocusPanel = BuildImmersiveFocusPanel();
+        _immersiveAlertPanel = BuildImmersiveAlertPanel();
+        _immersiveSideIndicatorPanel = BuildImmersiveSideIndicatorPanel();
 
         Panel.SetZIndex(_immersiveTopBar, 1090);
         Panel.SetZIndex(_immersiveMiniMapPanel, 1090);
         Panel.SetZIndex(_immersiveMultiplayerPanel, 1090);
         Panel.SetZIndex(_immersiveFocusPanel, 1095);
+        Panel.SetZIndex(_immersiveAlertPanel, 1100);
+        Panel.SetZIndex(_immersiveSideIndicatorPanel, 1100);
 
         OverlayRoot.Children.Add(_immersiveTopBar);
         OverlayRoot.Children.Add(_immersiveMiniMapPanel);
         OverlayRoot.Children.Add(_immersiveMultiplayerPanel);
         OverlayRoot.Children.Add(_immersiveFocusPanel);
+        OverlayRoot.Children.Add(_immersiveAlertPanel);
+        OverlayRoot.Children.Add(_immersiveSideIndicatorPanel);
     }
 
     private Border BuildImmersiveTopBar()
@@ -393,6 +403,66 @@ public partial class HudOverlayWindow
         };
     }
 
+    private Border BuildImmersiveAlertPanel()
+    {
+        _immersiveAlertText = new TextBlock
+        {
+            Text = string.Empty,
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 222, 158)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 11d,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        return new Border
+        {
+            MaxWidth = 560d,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0d, 86d, 0d, 0d),
+            Padding = new Thickness(12d, 7d, 12d, 7d),
+            Background = new SolidColorBrush(Color.FromArgb(226, 43, 25, 5)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(210, 255, 177, 73)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(10d),
+            Child = _immersiveAlertText,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed
+        };
+    }
+
+    private Border BuildImmersiveSideIndicatorPanel()
+    {
+        _immersiveSideIndicatorText = new TextBlock
+        {
+            Text = string.Empty,
+            Foreground = Brushes.White,
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 10d,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        return new Border
+        {
+            MaxWidth = 190d,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0d, 0d, 16d, 0d),
+            Padding = new Thickness(9d, 7d, 9d, 7d),
+            Background = new SolidColorBrush(Color.FromArgb(218, 6, 17, 25)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(145, 83, 145, 184)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(9d),
+            Child = _immersiveSideIndicatorText,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed
+        };
+    }
+
     private Border BuildImmersiveMultiplayerPanel()
     {
         var stack = new StackPanel();
@@ -546,7 +616,9 @@ public partial class HudOverlayWindow
         if (_immersiveTopBar is null ||
             _immersiveMiniMapPanel is null ||
             _immersiveMultiplayerPanel is null ||
-            _immersiveFocusPanel is null)
+            _immersiveFocusPanel is null ||
+            _immersiveAlertPanel is null ||
+            _immersiveSideIndicatorPanel is null)
         {
             return;
         }
@@ -598,12 +670,16 @@ public partial class HudOverlayWindow
         _immersiveFocusPanel.Visibility = showFocusPanel
             ? Visibility.Visible
             : Visibility.Collapsed;
+        _immersiveAlertPanel.Visibility = Visibility.Collapsed;
+        _immersiveSideIndicatorPanel.Visibility = Visibility.Collapsed;
 
         var opacity = Math.Clamp(settings.DashboardOpacity, 0.35d, 1d);
         _immersiveTopBar.Opacity = opacity;
         _immersiveMiniMapPanel.Opacity = opacity;
         _immersiveMultiplayerPanel.Opacity = opacity;
         _immersiveFocusPanel.Opacity = opacity;
+        _immersiveAlertPanel.Opacity = opacity;
+        _immersiveSideIndicatorPanel.Opacity = opacity;
 
         var resolutionScale = settings.DashboardAutoScale
             ? GetResolutionScaleFactor()
@@ -635,6 +711,22 @@ public partial class HudOverlayWindow
         _immersiveMultiplayerPanel.LayoutTransform = new ScaleTransform(
             multiplayerScale,
             multiplayerScale);
+
+        var alertsScale = Math.Clamp(
+            effectiveScale * settings.DashboardAlertsScale,
+            0.55d,
+            2.25d);
+        _immersiveAlertPanel.LayoutTransform = new ScaleTransform(
+            alertsScale,
+            alertsScale);
+
+        var sideIndicatorsScale = Math.Clamp(
+            effectiveScale * settings.DashboardSideIndicatorsScale,
+            0.55d,
+            2.25d);
+        _immersiveSideIndicatorPanel.LayoutTransform = new ScaleTransform(
+            sideIndicatorsScale,
+            sideIndicatorsScale);
 
         if (active && !_immersivePresentationApplied)
         {
@@ -884,7 +976,7 @@ public partial class HudOverlayWindow
             _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
             _immersiveFocusPanel.Margin = new Thickness(
                 0d,
-                compact ? 104d : 118d,
+                compact ? 142d : 154d,
                 0d,
                 0d);
         }
@@ -908,7 +1000,8 @@ public partial class HudOverlayWindow
         if (_immersiveTopBar is null ||
             _immersiveMiniMapPanel is null ||
             _immersiveMultiplayerPanel is null ||
-            _immersiveFocusPanel is null)
+            _immersiveFocusPanel is null ||
+            _immersiveSideIndicatorPanel is null)
         {
             return;
         }
@@ -950,7 +1043,7 @@ public partial class HudOverlayWindow
         var accent = new SolidColorBrush(palette.Accent);
         var text = new SolidColorBrush(palette.Text);
 
-        foreach (var panel in new[] { _immersiveTopBar, _immersiveMiniMapPanel, _immersiveMultiplayerPanel, _immersiveFocusPanel })
+        foreach (var panel in new[] { _immersiveTopBar, _immersiveMiniMapPanel, _immersiveMultiplayerPanel, _immersiveFocusPanel, _immersiveSideIndicatorPanel })
         {
             panel.Background = background;
             panel.BorderBrush = border;
@@ -982,7 +1075,7 @@ public partial class HudOverlayWindow
             _immersiveSessionText, _immersivePlayersText, _immersiveNearbyPlayersText,
             _immersiveChatText, _immersiveVoiceText,
             _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText,
-            _immersiveFocusStopsText
+            _immersiveFocusStopsText, _immersiveSideIndicatorText
         })
         {
             if (label is not null)
@@ -1102,7 +1195,134 @@ public partial class HudOverlayWindow
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
         }
 
+        RenderComposedAlertsAndIndicators(telemetry);
         RenderComposedFocusPanel(telemetry);
+    }
+
+    private void RenderComposedAlertsAndIndicators(VehicleTelemetry? telemetry)
+    {
+        if (_immersiveAlertPanel is null ||
+            _immersiveAlertText is null ||
+            _immersiveSideIndicatorPanel is null ||
+            _immersiveSideIndicatorText is null)
+        {
+            return;
+        }
+
+        var alerts = new List<string>();
+        var severe = false;
+        if (telemetry is not null)
+        {
+            if (telemetry.Doors != VehicleDoorFlags.None && telemetry.SpeedKph > 1d)
+            {
+                alerts.Add(ImmersiveText(
+                    "PORTAS ABERTAS EM MOVIMENTO",
+                    "DOORS OPEN WHILE MOVING",
+                    "PUERTAS ABIERTAS EN MOVIMIENTO",
+                    "TÜREN WÄHREND DER FAHRT OFFEN",
+                    "PORTES OUVERTES EN MOUVEMENT"));
+                severe = true;
+            }
+
+            if (telemetry.ParkingBrakeActive && telemetry.SpeedKph > 3d)
+            {
+                alerts.Add(ImmersiveText(
+                    "FREIO DE ESTACIONAMENTO ATIVO",
+                    "PARKING BRAKE ACTIVE",
+                    "FRENO DE ESTACIONAMIENTO ACTIVO",
+                    "FESTSTELLBREMSE AKTIV",
+                    "FREIN DE PARC ACTIF"));
+                severe = true;
+            }
+
+            if (telemetry.ReverseGear)
+            {
+                alerts.Add(ImmersiveText(
+                    "RÉ ATIVA",
+                    "REVERSE ACTIVE",
+                    "REVERSA ACTIVA",
+                    "RÜCKWÄRTSGANG AKTIV",
+                    "MARCHE ARRIÈRE ACTIVE"));
+            }
+
+            var navigation = BuildImmersiveNavigationSnapshot(telemetry);
+            if (navigation.RouteAvailable && !navigation.IsOnRoute)
+            {
+                alerts.Add(
+                    $"{ImmersiveText("FORA DA ROTA", "OFF ROUTE", "FUERA DE RUTA", "ROUTE VERLASSEN", "HORS ITINÉRAIRE")} • " +
+                    $"{FormatNavigationDistance(navigation.OffRouteDistanceMeters)}");
+            }
+        }
+
+        var alertsEnabled = _immersiveOperationActive &&
+                            _hudSettings.DashboardShowAlerts &&
+                            alerts.Count > 0;
+        _immersiveAlertPanel.Visibility = alertsEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (alertsEnabled)
+        {
+            _immersiveAlertText.Text = string.Join("   •   ", alerts.Take(2));
+            _immersiveAlertText.Foreground = new SolidColorBrush(
+                severe ? Color.FromRgb(255, 141, 112) : Color.FromRgb(255, 222, 158));
+            _immersiveAlertPanel.BorderBrush = new SolidColorBrush(
+                severe ? Color.FromArgb(225, 255, 112, 88) : Color.FromArgb(210, 255, 177, 73));
+        }
+
+        var indicators = new List<string>();
+        if (telemetry is not null)
+        {
+            if (telemetry.Doors != VehicleDoorFlags.None)
+            {
+                indicators.Add(ImmersiveText("PORTAS", "DOORS", "PUERTAS", "TÜREN", "PORTES"));
+            }
+
+            switch (telemetry.TurnSignal)
+            {
+                case TurnSignalState.Left:
+                    indicators.Add("◀");
+                    break;
+                case TurnSignalState.Right:
+                    indicators.Add("▶");
+                    break;
+                case TurnSignalState.Hazard:
+                    indicators.Add("⚠");
+                    break;
+            }
+
+            if (telemetry.Lights.HasFlag(VehicleLightFlags.LowBeam) ||
+                telemetry.Lights.HasFlag(VehicleLightFlags.HighBeam))
+            {
+                indicators.Add(ImmersiveText("LUZ", "LIGHTS", "LUCES", "LICHT", "FEUX"));
+            }
+            if (telemetry.ParkingBrakeActive)
+            {
+                indicators.Add("P");
+            }
+            if (telemetry.ReverseGear)
+            {
+                indicators.Add("R");
+            }
+            if (telemetry.WipersActive)
+            {
+                indicators.Add(ImmersiveText("LIMP", "WIP", "LIMP", "WISCH", "ESS"));
+            }
+            if (telemetry.StopRequested)
+            {
+                indicators.Add(ImmersiveText("PARADA", "STOP", "PARADA", "HALT", "ARRÊT"));
+            }
+        }
+
+        var sideEnabled = _immersiveOperationActive &&
+                          _hudSettings.DashboardShowSideIndicators &&
+                          indicators.Count > 0;
+        _immersiveSideIndicatorPanel.Visibility = sideEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (sideEnabled)
+        {
+            _immersiveSideIndicatorText.Text = string.Join(Environment.NewLine, indicators);
+        }
     }
 
     private void RenderComposedFocusPanel(VehicleTelemetry? telemetry)

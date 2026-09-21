@@ -111,3 +111,19 @@ composição vertical permanecem preservadas para evitar distorção.
 Quando a janela do OMSI tem menos de 1120 px de largura, **Transit Control** e
 **City Operations** movem o painel de foco para baixo da barra superior. Isso
 evita sobreposição entre minimapa, painel central e multiplayer no rodapé.
+
+
+## Alertas e indicadores laterais
+
+Os presets compostos usam os controles globais de alertas e indicadores:
+
+- `DashboardShowAlerts` exibe somente alertas derivados de estado real:
+  portas abertas em movimento, freio de estacionamento durante movimento, ré
+  ativa e veículo fora da rota.
+- `DashboardShowSideIndicators` exibe indicadores ativos de portas, setas,
+  pisca-alerta, faróis, freio P, ré, limpador e solicitação de parada.
+- `DashboardAlertsScale` e `DashboardSideIndicatorsScale` controlam as
+  escalas desses dois módulos.
+
+Quando não existe estado ativo, os módulos ficam ocultos em vez de mostrar
+informação artificial.
