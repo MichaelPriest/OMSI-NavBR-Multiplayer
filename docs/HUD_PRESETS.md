@@ -88,3 +88,11 @@ O ETA usa `NavBRNavigationEtaEstimator`: ele só aparece depois de acumular
 amostras confiáveis de progresso real e some quando a rota/ritmo deixam de ser
 confiáveis. **Driver Assistance** também reaproveita a próxima manobra ou aviso
 de retorno à rota como informação secundária.
+
+
+## Escala e resolução
+
+Os presets compostos respeitam a mesma `DashboardScale` do HUD modular.
+Quando `DashboardAutoScale` está ativo, o fator de resolução já existente no
+desktop também é aplicado. As escalas específicas de minimapa e multiplayer são
+multiplicadas pela escala geral, preservando os controles independentes.

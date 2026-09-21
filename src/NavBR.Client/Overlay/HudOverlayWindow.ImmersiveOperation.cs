@@ -605,12 +605,36 @@ public partial class HudOverlayWindow
         _immersiveMultiplayerPanel.Opacity = opacity;
         _immersiveFocusPanel.Opacity = opacity;
 
+        var resolutionScale = settings.DashboardAutoScale
+            ? GetResolutionScaleFactor()
+            : 1d;
+        var effectiveScale = Math.Clamp(
+            settings.DashboardScale * resolutionScale,
+            0.60d,
+            1.80d);
+
+        _immersiveTopBar.LayoutTransform = new ScaleTransform(
+            effectiveScale,
+            effectiveScale);
+        _immersiveFocusPanel.LayoutTransform = new ScaleTransform(
+            effectiveScale,
+            effectiveScale);
+
+        var minimapScale = Math.Clamp(
+            effectiveScale * settings.DashboardMinimapScale,
+            0.55d,
+            2.25d);
         _immersiveMiniMapPanel.LayoutTransform = new ScaleTransform(
-            Math.Clamp(settings.DashboardMinimapScale, 0.55d, 2d),
-            Math.Clamp(settings.DashboardMinimapScale, 0.55d, 2d));
+            minimapScale,
+            minimapScale);
+
+        var multiplayerScale = Math.Clamp(
+            effectiveScale * settings.DashboardMultiplayerScale,
+            0.55d,
+            2.25d);
         _immersiveMultiplayerPanel.LayoutTransform = new ScaleTransform(
-            Math.Clamp(settings.DashboardMultiplayerScale, 0.55d, 2d),
-            Math.Clamp(settings.DashboardMultiplayerScale, 0.55d, 2d));
+            multiplayerScale,
+            multiplayerScale);
 
         if (active && !_immersivePresentationApplied)
         {
