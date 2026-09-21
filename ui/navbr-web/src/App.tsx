@@ -2118,6 +2118,13 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
                         <strong>{preset.displayName}</strong>
                         <small>{preset.inspiration}</small>
                         <em>{preset.description}</em>
+                        <span className="hud-style-tags" aria-hidden="true">
+                          {preset.showMinimap && <i>{pick("Mapa", "Map", "Mapa", "Karte", "Carte")}</i>}
+                          {preset.showMultiplayer && <i>MP</i>}
+                          {preset.showStatus && <i>{pick("Status", "Status", "Estado", "Status", "État")}</i>}
+                          {preset.showAlerts && <i>{pick("Alertas", "Alerts", "Alertas", "Alarme", "Alertes")}</i>}
+                          {preset.showPedals && <i>{pick("Pedais", "Pedals", "Pedales", "Pedale", "Pédales")}</i>}
+                        </span>
                       </span>
                     </button>
                   ))}

@@ -1048,6 +1048,28 @@ h3 { margin:6px 0 16px; font-size:19px; }
   gap:3px;
   min-width:0;
 }
+.hud-style-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:7px;
+}
+.hud-style-tags i {
+  display:inline-flex;
+  align-items:center;
+  min-height:18px;
+  padding:2px 6px;
+  border:1px solid rgba(105,169,207,.22);
+  border-radius:999px;
+  background:rgba(8,28,42,.55);
+  color:#86b9d7;
+  font-size:7px;
+  font-style:normal;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
 .hud-style-copy strong { font-size:11px; }
 .hud-style-copy small {
   color:var(--hud-preview-accent);
