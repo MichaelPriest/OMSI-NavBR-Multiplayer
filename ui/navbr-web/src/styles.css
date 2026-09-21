@@ -684,6 +684,45 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .hud-enabled-toggle {
   margin:12px 0 14px;
 }
+.hud-mode-switch {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:16px;
+  align-items:center;
+  margin:14px 0;
+  padding:14px 15px;
+  border:1px solid rgba(67,157,219,.34);
+  border-radius:12px;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(50,158,231,.13),transparent 42%),
+    rgba(7,24,37,.82);
+}
+.hud-mode-switch > div {
+  display:grid;
+  gap:4px;
+}
+.hud-mode-switch strong {
+  color:#f1f8fc;
+  font-size:15px;
+}
+.hud-mode-switch small {
+  color:#8ea8b9;
+  line-height:1.45;
+  max-width:720px;
+}
+.hud-mode-switch .button {
+  min-width:190px;
+  white-space:nowrap;
+}
+@media (max-width:760px) {
+  .hud-mode-switch {
+    grid-template-columns:1fr;
+  }
+  .hud-mode-switch .button {
+    width:100%;
+  }
+}
+
 .hud-style-gallery {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));

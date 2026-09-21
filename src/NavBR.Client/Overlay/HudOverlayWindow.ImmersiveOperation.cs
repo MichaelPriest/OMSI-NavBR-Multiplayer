@@ -30,6 +30,7 @@ public partial class HudOverlayWindow
     private bool _immersivePresentationApplied;
     private Visibility _immersiveSavedTopStatusVisibility = Visibility.Visible;
     private Visibility _immersiveSavedTripInfoVisibility = Visibility.Visible;
+    private Visibility _immersiveSavedMiniMapVisibility = Visibility.Visible;
     private double _immersiveSavedMiniMapOpacity = 1d;
     private bool _immersiveSavedMiniMapHitTest = true;
 
@@ -376,6 +377,7 @@ public partial class HudOverlayWindow
 
     private void ApplyImmersiveOperationMode(MultiplayerSettings settings)
     {
+        _hudSettings = settings;
         var active = settings.DashboardEnabled &&
                      string.Equals(
                          HudProfileCatalog.ResolvePreset(settings.DashboardPreset).Id,
@@ -390,15 +392,31 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var visibility = active ? Visibility.Visible : Visibility.Collapsed;
-        _immersiveTopBar.Visibility = visibility;
-        _immersiveMiniMapPanel.Visibility = visibility;
-        _immersiveMultiplayerPanel.Visibility = visibility;
+        _immersiveTopBar.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        _immersiveMiniMapPanel.Visibility = active && settings.DashboardShowMinimap
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _immersiveMultiplayerPanel.Visibility = active && settings.DashboardShowMultiplayer
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        var opacity = Math.Clamp(settings.DashboardOpacity, 0.35d, 1d);
+        _immersiveTopBar.Opacity = opacity;
+        _immersiveMiniMapPanel.Opacity = opacity;
+        _immersiveMultiplayerPanel.Opacity = opacity;
+
+        _immersiveMiniMapPanel.LayoutTransform = new ScaleTransform(
+            Math.Clamp(settings.DashboardMinimapScale, 0.55d, 2d),
+            Math.Clamp(settings.DashboardMinimapScale, 0.55d, 2d));
+        _immersiveMultiplayerPanel.LayoutTransform = new ScaleTransform(
+            Math.Clamp(settings.DashboardMultiplayerScale, 0.55d, 2d),
+            Math.Clamp(settings.DashboardMultiplayerScale, 0.55d, 2d));
 
         if (active && !_immersivePresentationApplied)
         {
             _immersiveSavedTopStatusVisibility = TopStatusPanel.Visibility;
             _immersiveSavedTripInfoVisibility = TripInfoPanel.Visibility;
+            _immersiveSavedMiniMapVisibility = MiniMapHudPanel.Visibility;
             _immersiveSavedMiniMapOpacity = MiniMapHudPanel.Opacity;
             _immersiveSavedMiniMapHitTest = MiniMapHudPanel.IsHitTestVisible;
             _immersivePresentationApplied = true;
@@ -424,6 +442,7 @@ public partial class HudOverlayWindow
         {
             TopStatusPanel.Visibility = _immersiveSavedTopStatusVisibility;
             TripInfoPanel.Visibility = _immersiveSavedTripInfoVisibility;
+            MiniMapHudPanel.Visibility = _immersiveSavedMiniMapVisibility;
             MiniMapHudPanel.Opacity = _immersiveSavedMiniMapOpacity;
             MiniMapHudPanel.IsHitTestVisible = _immersiveSavedMiniMapHitTest;
             _immersivePresentationApplied = false;

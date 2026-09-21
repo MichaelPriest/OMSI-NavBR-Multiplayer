@@ -1891,13 +1891,19 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
 
 
 function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
+  const previousClassicPreset = useRef(
+    hud.preset === "immersive-operation" ? "normal" : hud.preset || "normal"
+  );
 
   useEffect(() => {
     if (!dirty) {
       setDraft(hud);
+      if (hud.preset !== "immersive-operation") {
+        previousClassicPreset.current = hud.preset || "normal";
+      }
     }
   }, [hud, dirty]);
 
@@ -1983,6 +1989,46 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           />
           <span>{t("hud.showPanel")}</span>
         </label>
+
+        <div className="hud-mode-switch">
+          <div>
+            <span className="eyebrow">{pick("MODO DE HUD", "HUD MODE", "MODO DE HUD", "HUD-MODUS", "MODE HUD")}</span>
+            <strong>{draft.preset === "immersive-operation"
+              ? pick("Imersivo / Operação", "Immersive / Operation", "Inmersivo / Operación", "Immersiv / Betrieb", "Immersif / Exploitation")
+              : pick("HUD atual", "Current HUD", "HUD actual", "Aktuelles HUD", "HUD actuel")}</strong>
+            <small>{draft.preset === "immersive-operation"
+              ? pick(
+                  "Barra superior + minimapa + multiplayer/voz. O HUD clássico continua disponível.",
+                  "Top bar + minimap + multiplayer/voice. The classic HUD remains available.",
+                  "Barra superior + minimapa + multijugador/voz. El HUD clásico sigue disponible.",
+                  "Obere Leiste + Minikarte + Multiplayer/Sprache. Das klassische HUD bleibt verfügbar.",
+                  "Barre supérieure + mini-carte + multijoueur/voix. Le HUD classique reste disponible."
+                )
+              : pick(
+                  "Mantém o layout atual. Você pode testar o modo imersivo sem substituir este HUD.",
+                  "Keeps the current layout. You can test immersive mode without replacing this HUD.",
+                  "Mantiene el diseño actual. Puedes probar el modo inmersivo sin reemplazar este HUD.",
+                  "Behält das aktuelle Layout. Der immersive Modus kann getestet werden, ohne dieses HUD zu ersetzen.",
+                  "Conserve la disposition actuelle. Vous pouvez tester le mode immersif sans remplacer ce HUD."
+                )}</small>
+          </div>
+          <button
+            type="button"
+            className={`button ${draft.preset === "immersive-operation" ? "ghost" : "primary"}`}
+            onClick={() => {
+              if (draft.preset === "immersive-operation") {
+                applyPreset(previousClassicPreset.current || "normal");
+              } else {
+                previousClassicPreset.current = draft.preset || "normal";
+                applyPreset("immersive-operation");
+              }
+            }}
+          >
+            {draft.preset === "immersive-operation"
+              ? pick("Voltar ao HUD atual", "Back to current HUD", "Volver al HUD actual", "Zum aktuellen HUD", "Revenir au HUD actuel")
+              : pick("Ativar modo imersivo", "Enable immersive mode", "Activar modo inmersivo", "Immersiven Modus aktivieren", "Activer le mode immersif")}
+          </button>
+        </div>
 
         <div className="hud-style-gallery">
           {hud.presets.map(preset => (
