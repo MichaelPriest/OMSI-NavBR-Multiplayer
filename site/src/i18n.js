@@ -3,7 +3,7 @@ export const LANGUAGES = [
   { code: "en", label: "English", short: "EN", flag: "🇺🇸" },
   { code: "de", label: "Deutsch", short: "DE", flag: "🇩🇪" },
   { code: "es", label: "Español", short: "ES", flag: "🇪🇸" },
-  { code: "fr", label: "Français", short: "FR", flag: "🇫🇷" }
+  { code: "pl", label: "Polski", short: "PL", flag: "🇵🇱" }
 ];
 
 export const COPY = {
@@ -58,6 +58,17 @@ export const COPY = {
     docs:{title:"Documentación",text:"Notas Alpha.19, Mobile Companion, multijugador, plugin y material técnico.",alpha:"Notas Alpha.19",mobile:"Mobile Companion",plugin:"Plugin OMSI",github:"Abrir GitHub"},
     footer:{project:"Proyecto independiente y open source para OMSI 2.",notice:"OMSI es una marca de sus respectivos propietarios. NavBR es un proyecto independiente.",languages:"Disponible en 5 idiomas."}
   },
+  pl: {
+    nav:{home:"Start",features:"Funkcje",downloads:"Pobieranie",history:"Historia",contribute:"Wesprzyj",docs:"Dokumentacja",downloadNow:"Pobierz teraz"},
+    hero:{badge:"PUBLICZNA ALFA",title:"OMSI NavBR",subtitle:"Multiplayer & Mobile Companion",lead:"Łączymy kierowców i społeczności.",text:"Multiplayer, telemetria, głos, nawigacja, IBIS i Mobile Companion w jednym darmowym, niezależnym projekcie dla OMSI 2.",primary:"Pobierz v0.3.0-alpha.19",secondary:"Zobacz nowości"},
+    disclaimer:{title:"Grafiki koncepcyjne wygenerowane przez AI",text:"Obrazy, ekrany i urządzenia pokazane na tej stronie są wizualizacjami koncepcyjnymi. Nie przedstawiają dokładnie obecnego stanu, rzeczywistego układu ani wszystkich funkcji aplikacji Windows lub APK."},
+    cards:[["Multiplayer","Pokoje, kierowcy, czat, głos i współdzielona telemetria oparta na realnym stanie."],["Telemetria","Prędkość, RPM, drzwi, sterowanie i dane autobusu w czasie rzeczywistym."],["Mobile Companion","Automatyczne połączenie w tej samej sieci, GPS, IBIS, głos i eksperymentalne sterowanie."],["Zintegrowany głos","Push-to-Talk, kanały, odbiór i mikser głosu."],["Realne sterowanie","Eksperymentalne komendy korzystają wyłącznie z wykrytych i ponownie zweryfikowanych zdarzeń pojazdu."],["Mapa i trasy","Roadmap, trasa, przystanki, powrót na trasę i kompatybilne pozycje kierowców."]],
+    mobile:{eyebrow:"NOWOŚĆ W ALPHA.19",title:"Mobile Companion Alpha 2",intro:"Telefon towarzyszy rozgrywce OMSI w tej samej sieci lokalnej bez wymyślania telemetrii lub stanu.",bullets:["Automatyczne wykrywanie w tej samej sieci","GPS i nawigacja z prawdziwych danych","IBIS w stylu kokpitu","Mapa/lista multiplayer","Głos, mikser i Push-to-Talk","Pełny panel telemetrii","Wyszukiwanie i ulubione realnych zdarzeń","Chronione eksperymentalne sterowanie autobusem"]},
+    downloads:{title:"Pobieranie i wersje",intro:"Użyj aktualnej wersji lub przejrzyj wszystkie wcześniejsze publiczne wydania. Pliki pochodzą bezpośrednio z GitHub Releases.",current:"Aktualna",windows:"Instalator Windows",apk:"APK Mobile",details:"Szczegóły",all:"Wszystkie wersje",search:"Szukaj wersji",empty:"Nie znaleziono wersji.",openRelease:"Otwórz wydanie"},
+    contribute:{eyebrow:"WESPRZYJ",title:"Pomóż utrzymać projekt",text:"NavBR jest darmowy i niezależny. Wsparcie pomaga finansować infrastrukturę, testy, czas rozwoju i przyszłe ulepszenia. Jest dobrowolne i nie odblokowuje ekskluzywnych funkcji.",pix:"Wesprzyj przez PIX",pixHelp:"Użyj oficjalnego klucza PIX projektu.",copy:"Kopiuj klucz PIX",copied:"Skopiowano ✓",stripe:"Wesprzyj przez Stripe",stripeHelp:"Wesprzyj projekt bezpiecznie przez oficjalny link płatności Stripe.",stripeButton:"Wesprzyj przez Stripe",impact:["Serwer i infrastruktura","Więcej testów w realnych warunkach","Ciągłe aktualizacje","Silniejsza społeczność"]},
+    docs:{title:"Dokumentacja",text:"Notatki Alpha.19, Mobile Companion, multiplayer, plugin i materiały techniczne projektu.",alpha:"Notatki Alpha.19",mobile:"Mobile Companion",plugin:"Plugin OMSI",github:"Otwórz GitHub"},
+    footer:{project:"Niezależny projekt open source dla OMSI 2.",notice:"OMSI jest znakiem towarowym odpowiednich właścicieli. NavBR jest projektem niezależnym.",languages:"Dostępne w 5 językach."}
+  },
   fr: {
     nav:{home:"Accueil",features:"Fonctions",downloads:"Téléchargements",history:"Historique",contribute:"Contribuer",docs:"Docs",downloadNow:"Télécharger"},
     hero:{badge:"ALPHA PUBLIQUE",title:"OMSI NavBR",subtitle:"Multiplayer & Mobile Companion",lead:"Connecter les conducteurs, rapprocher les communautés.",text:"Multijoueur, télémétrie, voix, navigation, IBIS et Mobile Companion dans un projet OMSI 2 gratuit et indépendant.",primary:"Télécharger v0.3.0-alpha.19",secondary:"Voir les nouveautés"},
@@ -78,6 +89,7 @@ export function resolveInitialLanguage() {
   if (browser.startsWith("pt")) return "pt-BR";
   if (browser.startsWith("de")) return "de";
   if (browser.startsWith("es")) return "es";
-  if (browser.startsWith("fr")) return "fr";
+  if (browser.startsWith("pl")) return "pl";
+  if (browser.startsWith("fr")) return "en";
   return "en";
 }
