@@ -692,6 +692,7 @@ public partial class HudOverlayWindow
                 break;
 
             case "cockpit-digital":
+                if (_immersiveSpeedCell is not null) _immersiveSpeedCell.Visibility = Visibility.Collapsed;
                 _immersiveFocusPanel.Width = compact ? 370d : 455d;
                 _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 20d);
@@ -709,6 +710,7 @@ public partial class HudOverlayWindow
                 break;
 
             case "navigation-pro":
+                if (_immersiveNextStopCell is not null) _immersiveNextStopCell.Visibility = Visibility.Collapsed;
                 _immersiveFocusPanel.Width = compact ? 320d : 390d;
                 _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
                 _immersiveFocusPanel.Margin = new Thickness(0d, 0d, compact ? 12d : 20d, compact ? 12d : 20d);
@@ -780,6 +782,7 @@ public partial class HudOverlayWindow
                 break;
 
             case "driver-assistance":
+                if (_immersiveNextStopCell is not null) _immersiveNextStopCell.Visibility = Visibility.Collapsed;
                 _immersiveFocusPanel.Width = compact ? 390d : 470d;
                 _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 22d);
