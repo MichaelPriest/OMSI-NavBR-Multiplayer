@@ -23,6 +23,9 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveFocusStopsText;
     private string? _immersiveOrderedStopsKey;
     private OmsiOrderedRouteStops? _immersiveOrderedStops;
+    private readonly NavBRNavigationEtaEstimator _immersiveEtaEstimator = new();
+    private NavBRNavigationEtaEstimate _immersiveEtaEstimate = NavBRNavigationEtaEstimate.Unavailable;
+    private DateTimeOffset _immersiveEtaObservedAtUtc = DateTimeOffset.MinValue;
     private TextBlock? _immersiveLineText;
     private TextBlock? _immersiveRouteText;
     private TextBlock? _immersiveDestinationText;
@@ -1068,6 +1071,8 @@ public partial class HudOverlayWindow
         }
 
         var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        var navigation = BuildImmersiveNavigationSnapshot(telemetry);
+        var eta = ObserveImmersiveEta(navigation);
         if (_immersiveFocusStopsText is not null)
         {
             _immersiveFocusStopsText.Visibility = Visibility.Collapsed;
@@ -1101,15 +1106,43 @@ public partial class HudOverlayWindow
                 _immersiveFocusEyebrowText.Text = ImmersiveText(
                     "NAVEGAÇÃO", "NAVIGATION", "NAVEGACIÓN", "NAVIGATION", "NAVIGATION");
                 _immersiveFocusPrimaryText.FontSize = 22d;
-                _immersiveFocusPrimaryText.Text = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
-                    ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
-                    : telemetry.NextStopName;
-                var street = !string.IsNullOrWhiteSpace(telemetry?.CurrentStreetName)
-                    ? telemetry.CurrentStreetName
-                    : MiniMapStatusText.Text;
-                _immersiveFocusSecondaryText.Text = string.IsNullOrWhiteSpace(street)
-                    ? BuildFocusServiceText(telemetry)
-                    : street + Environment.NewLine + BuildFocusServiceText(telemetry);
+                _immersiveFocusPrimaryText.Text = BuildNavigationPrimaryText(navigation, telemetry);
+
+                var navigationRows = new List<string>();
+                if (navigation.RouteAvailable)
+                {
+                    var routeState = navigation.IsOnRoute
+                        ? $"{navigation.RouteProgressPercent:0}% • {FormatNavigationDistance(navigation.DistanceRemainingMeters)}"
+                        : $"{ImmersiveText("FORA DA ROTA", "OFF ROUTE", "FUERA DE RUTA", "ROUTE VERLASSEN", "HORS ITINÉRAIRE")} • {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}";
+                    navigationRows.Add(routeState);
+
+                    if (!string.IsNullOrWhiteSpace(navigation.NextStopName))
+                    {
+                        var stopDistance = navigation.DistanceToNextStopMeters is double stopMeters
+                            ? $" • {FormatNavigationDistance(stopMeters)}"
+                            : string.Empty;
+                        var stopEta = eta.ToNextStop is TimeSpan nextEta
+                            ? $" • ETA {FormatImmersiveEta(nextEta)}"
+                            : string.Empty;
+                        navigationRows.Add($"{navigation.NextStopName}{stopDistance}{stopEta}");
+                    }
+
+                    if (eta.ToRouteEnd is TimeSpan routeEta)
+                    {
+                        navigationRows.Add($"{ImmersiveText("FIM DA ROTA", "ROUTE END", "FIN DE RUTA", "ROUTENENDE", "FIN DE LIGNE")} • ETA {FormatImmersiveEta(routeEta)}");
+                    }
+                }
+                else
+                {
+                    navigationRows.Add(BuildFocusServiceText(telemetry));
+                }
+
+                if (!string.IsNullOrWhiteSpace(telemetry?.CurrentStreetName))
+                {
+                    navigationRows.Insert(0, telemetry.CurrentStreetName);
+                }
+
+                _immersiveFocusSecondaryText.Text = string.Join(Environment.NewLine, navigationRows);
                 RenderOrderedStopsIntoFocus(telemetry, 3);
                 break;
 
@@ -1160,9 +1193,120 @@ public partial class HudOverlayWindow
                     ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
                     : telemetry.NextStopName;
                 var speed = telemetry is null ? "— km/h" : $"{Math.Clamp(telemetry.SpeedKph, 0d, 999d):F0} km/h";
-                _immersiveFocusSecondaryText.Text = $"{nextStop}   •   {speed}";
+                var assistanceRows = new List<string> { $"{nextStop}   •   {speed}" };
+                if (navigation.RouteAvailable &&
+                    (!navigation.IsOnRoute || navigation.Maneuver != NavBRManeuverKind.None))
+                {
+                    assistanceRows.Add(BuildNavigationPrimaryText(navigation, telemetry));
+                }
+                _immersiveFocusSecondaryText.Text = string.Join(Environment.NewLine, assistanceRows);
                 break;
         }
+    }
+
+    private NavBRNavigationSnapshot BuildImmersiveNavigationSnapshot(VehicleTelemetry? telemetry)
+    {
+        if (telemetry is null || _activeMap is null || _mapLayout is null)
+        {
+            return NavBRNavigationSnapshot.Unavailable(telemetry);
+        }
+
+        EnsureRouteTrace(
+            _activeMap,
+            _mapLayout,
+            telemetry.Line,
+            telemetry.Route,
+            telemetry.DestinationName);
+
+        return NavBRNavigationEngine.Evaluate(
+            telemetry,
+            _mapLayout,
+            _routeTracePoints,
+            _busStops);
+    }
+
+    private NavBRNavigationEtaEstimate ObserveImmersiveEta(NavBRNavigationSnapshot navigation)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!navigation.RouteAvailable || !navigation.IsOnRoute)
+        {
+            _immersiveEtaEstimator.Reset();
+            _immersiveEtaEstimate = NavBRNavigationEtaEstimate.Unavailable;
+            _immersiveEtaObservedAtUtc = now;
+            return _immersiveEtaEstimate;
+        }
+
+        if (now - _immersiveEtaObservedAtUtc < TimeSpan.FromMilliseconds(650d))
+        {
+            return _immersiveEtaEstimate;
+        }
+
+        _immersiveEtaObservedAtUtc = now;
+        _immersiveEtaEstimate = _immersiveEtaEstimator.Observe(navigation, now);
+        return _immersiveEtaEstimate;
+    }
+
+    private static string BuildNavigationPrimaryText(
+        NavBRNavigationSnapshot navigation,
+        VehicleTelemetry? telemetry)
+    {
+        if (!navigation.RouteAvailable)
+        {
+            return string.IsNullOrWhiteSpace(telemetry?.NextStopName)
+                ? ImmersiveText("Rota não resolvida", "Route unavailable", "Ruta no disponible", "Route nicht verfügbar", "Itinéraire indisponible")
+                : telemetry.NextStopName;
+        }
+
+        if (!navigation.IsOnRoute || navigation.Maneuver == NavBRManeuverKind.RejoinRoute)
+        {
+            return $"↺ {ImmersiveText("RETORNE À ROTA", "REJOIN ROUTE", "VOLVER A LA RUTA", "ZUR ROUTE", "REJOINDRE L’ITINÉRAIRE")} • {FormatNavigationDistance(navigation.OffRouteDistanceMeters)}";
+        }
+
+        if (navigation.Maneuver == NavBRManeuverKind.None ||
+            navigation.DistanceToManeuverMeters is not double maneuverDistance)
+        {
+            return string.IsNullOrWhiteSpace(navigation.NextStopName)
+                ? ImmersiveText("Siga em frente", "Continue ahead", "Continúe recto", "Geradeaus weiter", "Continuez tout droit")
+                : navigation.NextStopName;
+        }
+
+        var arrow = navigation.Maneuver switch
+        {
+            NavBRManeuverKind.SlightLeft => "↖",
+            NavBRManeuverKind.Left => "←",
+            NavBRManeuverKind.SharpLeft => "↙",
+            NavBRManeuverKind.SlightRight => "↗",
+            NavBRManeuverKind.Right => "→",
+            NavBRManeuverKind.SharpRight => "↘",
+            _ => "↑"
+        };
+        var direction = navigation.Maneuver switch
+        {
+            NavBRManeuverKind.SlightLeft => ImmersiveText("ESQUERDA SUAVE", "SLIGHT LEFT", "IZQUIERDA SUAVE", "LEICHT LINKS", "LÉGÈREMENT À GAUCHE"),
+            NavBRManeuverKind.Left => ImmersiveText("VIRE À ESQUERDA", "TURN LEFT", "GIRE A LA IZQUIERDA", "LINKS ABBIEGEN", "TOURNEZ À GAUCHE"),
+            NavBRManeuverKind.SharpLeft => ImmersiveText("ESQUERDA FECHADA", "SHARP LEFT", "IZQUIERDA CERRADA", "SCHARF LINKS", "VIRAGE SERRÉ À GAUCHE"),
+            NavBRManeuverKind.SlightRight => ImmersiveText("DIREITA SUAVE", "SLIGHT RIGHT", "DERECHA SUAVE", "LEICHT RECHTS", "LÉGÈREMENT À DROITE"),
+            NavBRManeuverKind.Right => ImmersiveText("VIRE À DIREITA", "TURN RIGHT", "GIRE A LA DERECHA", "RECHTS ABBIEGEN", "TOURNEZ À DROITE"),
+            NavBRManeuverKind.SharpRight => ImmersiveText("DIREITA FECHADA", "SHARP RIGHT", "DERECHA CERRADA", "SCHARF RECHTS", "VIRAGE SERRÉ À DROITE"),
+            _ => ImmersiveText("SIGA", "CONTINUE", "SIGA", "WEITER", "CONTINUEZ")
+        };
+
+        return $"{arrow} {direction} • {FormatNavigationDistance(maneuverDistance)}";
+    }
+
+    private static string FormatImmersiveEta(TimeSpan eta)
+    {
+        if (eta.TotalHours >= 1d)
+        {
+            return $"{(int)eta.TotalHours}h {eta.Minutes:00}m";
+        }
+
+        if (eta.TotalMinutes >= 1d)
+        {
+            return $"{Math.Max(1, (int)Math.Round(eta.TotalMinutes))} min";
+        }
+
+        return $"{Math.Max(1, (int)Math.Round(eta.TotalSeconds))} s";
     }
 
     private void RenderOrderedStopsIntoFocus(VehicleTelemetry? telemetry, int maxStops)
@@ -1523,6 +1667,9 @@ public partial class HudOverlayWindow
         SizeChanged -= ImmersiveOperation_SizeChanged;
         _immersiveOrderedStopsKey = null;
         _immersiveOrderedStops = null;
+        _immersiveEtaEstimator.Reset();
+        _immersiveEtaEstimate = NavBRNavigationEtaEstimate.Unavailable;
+        _immersiveEtaObservedAtUtc = DateTimeOffset.MinValue;
 
         if (_immersiveOperationTimer is not null)
         {

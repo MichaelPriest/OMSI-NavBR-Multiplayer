@@ -71,3 +71,20 @@ o HUD não inventa uma ordem e mantém apenas a próxima parada conhecida.
 - **Minimal Driver** remove combustível e atraso do topo e esconde a faixa de
   estado quando a operação está normal; ela reaparece automaticamente quando
   existir um estado relevante do veículo.
+
+
+## Navegação avançada
+
+**Navigation Pro** reutiliza `NavBRNavigationEngine` para exibir somente quando
+resolvido com dados reais:
+
+- próxima manobra e distância;
+- estado fora da rota e distância para retorno;
+- progresso e distância restante da rota;
+- distância até a próxima parada;
+- ETA para próxima parada e fim da rota.
+
+O ETA usa `NavBRNavigationEtaEstimator`: ele só aparece depois de acumular
+amostras confiáveis de progresso real e some quando a rota/ritmo deixam de ser
+confiáveis. **Driver Assistance** também reaproveita a próxima manobra ou aviso
+de retorno à rota como informação secundária.
