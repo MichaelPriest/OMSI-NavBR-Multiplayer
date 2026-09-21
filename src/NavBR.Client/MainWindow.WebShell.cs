@@ -401,6 +401,14 @@ public partial class MainWindow
                 ToggleHudLayoutForShell();
                 break;
 
+            case "previewHudSettings":
+                PreviewHudSettingsFromWeb(payload);
+                break;
+
+            case "clearHudPreview":
+                ClearHudPreviewFromWeb();
+                break;
+
             case "saveHudSettings":
                 SaveHudSettingsFromWeb(payload);
                 break;

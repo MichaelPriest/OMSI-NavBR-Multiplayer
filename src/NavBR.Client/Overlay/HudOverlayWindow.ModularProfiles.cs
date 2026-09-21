@@ -47,6 +47,8 @@ public partial class HudOverlayWindow
         _busDashboardDock.PreviewMouseWheel += ModularDashboard_PreviewMouseWheel;
         _busDashboardDock.ContextMenuOpening += ModularDashboard_ContextMenuOpening;
         MultiplayerSettingsStore.SettingsSaved += ModularHud_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += ModularHud_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += ModularHud_PreviewCleared;
         Closed += ModularHud_Closed;
 
         ApplyModularHudProfile();
@@ -55,12 +57,33 @@ public partial class HudOverlayWindow
     private void ModularHud_SettingsSaved(MultiplayerSettings settings)
     {
         _hudSettings = settings;
-        _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, ApplyModularHudProfile);
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
+    }
+
+    private void ModularHud_PreviewChanged(MultiplayerSettings settings)
+    {
+        _hudSettings = settings;
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
+    }
+
+    private void ModularHud_PreviewCleared()
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        _hudSettings = settings;
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
     }
 
     private void ModularHud_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ModularHud_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= ModularHud_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= ModularHud_PreviewCleared;
     }
 
     private void ModularDashboard_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -232,14 +255,14 @@ public partial class HudOverlayWindow
         return item;
     }
 
-    private void ApplyModularHudProfile()
+    private void ApplyModularHudProfile(MultiplayerSettings? previewSettings = null)
     {
         if (_busDashboardDock is null || _busDashboardScale is null)
         {
             return;
         }
 
-        var settings = MultiplayerSettingsStore.Load();
+        var settings = previewSettings ?? MultiplayerSettingsStore.Load();
         _hudSettings = settings;
 
         _busDashboardDock.Width = settings.DashboardWidth;

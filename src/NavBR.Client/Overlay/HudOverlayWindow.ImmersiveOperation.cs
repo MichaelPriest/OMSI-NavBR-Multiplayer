@@ -84,6 +84,8 @@ public partial class HudOverlayWindow
         _immersiveOperationTimer.Start();
 
         MultiplayerSettingsStore.SettingsSaved += ImmersiveOperation_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += ImmersiveOperation_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += ImmersiveOperation_PreviewCleared;
         LayoutEditModeChanged += ImmersiveOperation_LayoutEditModeChanged;
         Closed += ImmersiveOperation_Closed;
         SizeChanged += ImmersiveOperation_SizeChanged;
@@ -639,6 +641,21 @@ public partial class HudOverlayWindow
 
     private void ImmersiveOperation_SettingsSaved(MultiplayerSettings settings)
     {
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            () => ApplyImmersiveOperationMode(settings));
+    }
+
+    private void ImmersiveOperation_PreviewChanged(MultiplayerSettings settings)
+    {
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            () => ApplyImmersiveOperationMode(settings));
+    }
+
+    private void ImmersiveOperation_PreviewCleared()
+    {
+        var settings = MultiplayerSettingsStore.Load();
         _ = Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
             () => ApplyImmersiveOperationMode(settings));
@@ -2120,6 +2137,14 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (MultiplayerSettingsStore.IsHudPreviewActive)
+        {
+            // Preview exposes the actual widget footprint without inventing
+            // route or vehicle data. The VisualBrush still uses real OMSI state.
+            _immersiveMiniMapPanel.Visibility = Visibility.Visible;
+            return;
+        }
+
         var navigation = BuildImmersiveNavigationSnapshot(telemetry);
         var needsMap = navigation.RouteAvailable && !navigation.IsOnRoute;
         _immersiveMiniMapPanel.Visibility = needsMap
@@ -2886,6 +2911,8 @@ public partial class HudOverlayWindow
     private void ImmersiveOperation_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ImmersiveOperation_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= ImmersiveOperation_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= ImmersiveOperation_PreviewCleared;
         LayoutEditModeChanged -= ImmersiveOperation_LayoutEditModeChanged;
         SizeChanged -= ImmersiveOperation_SizeChanged;
         _immersiveOrderedStopsKey = null;

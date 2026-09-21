@@ -1936,6 +1936,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
+  const [previewing, setPreviewing] = useState(Boolean(hud.previewActive));
   const previousClassicPreset = useRef(
     isComposedHudPreset(hud.preset) ? "normal" : hud.preset || "normal"
   );
@@ -1987,29 +1988,74 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
     });
   };
 
+  const hudPayload = useMemo(() => ({
+    enabled: draft.enabled,
+    preset: draft.preset,
+    theme: draft.theme,
+    anchor: draft.anchor,
+    scale: draft.scale,
+    width: draft.width,
+    height: draft.height,
+    opacity: draft.opacity,
+    autoScale: draft.autoScale,
+    showFuel: draft.showFuel,
+    showPedals: draft.showPedals,
+    showStatus: draft.showStatus,
+    showMinimap: draft.showMinimap,
+    showMultiplayer: draft.showMultiplayer,
+    showAlerts: draft.showAlerts,
+    showSideIndicators: draft.showSideIndicators,
+    minimapScale: draft.minimapScale,
+    multiplayerScale: draft.multiplayerScale,
+    alertsScale: draft.alertsScale,
+    sideIndicatorsScale: draft.sideIndicatorsScale
+  }), [
+    draft.enabled,
+    draft.preset,
+    draft.theme,
+    draft.anchor,
+    draft.scale,
+    draft.width,
+    draft.height,
+    draft.opacity,
+    draft.autoScale,
+    draft.showFuel,
+    draft.showPedals,
+    draft.showStatus,
+    draft.showMinimap,
+    draft.showMultiplayer,
+    draft.showAlerts,
+    draft.showSideIndicators,
+    draft.minimapScale,
+    draft.multiplayerScale,
+    draft.alertsScale,
+    draft.sideIndicatorsScale
+  ]);
+
+  useEffect(() => {
+    if (!previewing) return;
+    const timer = window.setTimeout(() => {
+      sendCommand("previewHudSettings", hudPayload);
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, [previewing, hudPayload]);
+
+  useEffect(() => () => {
+    sendCommand("clearHudPreview");
+  }, []);
+
+  const togglePreview = () => {
+    if (previewing) {
+      sendCommand("clearHudPreview");
+      setPreviewing(false);
+      return;
+    }
+    setPreviewing(true);
+  };
+
   const save = () => {
-    sendCommand("saveHudSettings", {
-      enabled: draft.enabled,
-      preset: draft.preset,
-      theme: draft.theme,
-      anchor: draft.anchor,
-      scale: draft.scale,
-      width: draft.width,
-      height: draft.height,
-      opacity: draft.opacity,
-      autoScale: draft.autoScale,
-      showFuel: draft.showFuel,
-      showPedals: draft.showPedals,
-      showStatus: draft.showStatus,
-      showMinimap: draft.showMinimap,
-      showMultiplayer: draft.showMultiplayer,
-      showAlerts: draft.showAlerts,
-      showSideIndicators: draft.showSideIndicators,
-      minimapScale: draft.minimapScale,
-      multiplayerScale: draft.multiplayerScale,
-      alertsScale: draft.alertsScale,
-      sideIndicatorsScale: draft.sideIndicatorsScale
-    });
+    sendCommand("saveHudSettings", hudPayload);
+    setPreviewing(false);
     setDirty(false);
   };
 
@@ -2180,6 +2226,19 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           <strong>{hud.presets.find(item => item.id === draft.preset)?.displayName || draft.preset}</strong>
           <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}% · {Math.round(draft.opacity * 100)}%</span>
         </div>
+
+        {previewing && (
+          <div className="hud-contextual-note">
+            <strong>{pick("PRÉVIA AO VIVO", "LIVE PREVIEW", "VISTA PREVIA EN VIVO", "LIVE-VORSCHAU", "APERÇU EN DIRECT")}</strong>
+            <span>{pick(
+              "O preset selecionado está sendo mostrado temporariamente no overlay. Tema, tamanho e módulos atualizam ao vivo e ainda não foram salvos.",
+              "The selected preset is temporarily visible on the overlay. Theme, size and widget changes update live and are not saved yet.",
+              "El preset seleccionado se muestra temporalmente en el overlay. Tema, tamaño y módulos se actualizan en vivo y aún no se guardan.",
+              "Das ausgewählte Preset wird vorübergehend im Overlay angezeigt. Thema, Größe und Module aktualisieren sich live und sind noch nicht gespeichert.",
+              "Le preset sélectionné est affiché temporairement dans l’overlay. Le thème, la taille et les modules se mettent à jour en direct sans être enregistrés."
+            )}</span>
+          </div>
+        )}
       </article>
 
       <article className="card hud-settings-card">
@@ -2257,14 +2316,38 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       </article>
 
       <div className="hud-settings-actions">
+        <button
+          className={`button ${previewing ? "ghost" : "primary"}`}
+          onClick={togglePreview}
+        >
+          {previewing
+            ? pick("Ocultar prévia", "Hide preview", "Ocultar vista previa", "Vorschau ausblenden", "Masquer l’aperçu")
+            : pick("Visualizar prévia", "Preview on screen", "Ver vista previa", "Vorschau anzeigen", "Visualiser l’aperçu")}
+        </button>
         <button className="button primary" disabled={!dirty} onClick={save}>
           {dirty ? t("hud.apply") : t("hud.applied")}
         </button>
         <button className="button ghost" onClick={() => {
           sendCommand("resetHudSettings");
+          setPreviewing(false);
           setDirty(false);
         }}>{t("common.reset")}</button>
-        <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{t("hud.move")}</button>
+        <button
+          className="button ghost"
+          disabled={previewing}
+          title={previewing
+            ? pick(
+                "Aplique ou oculte a prévia antes de mover o HUD.",
+                "Apply or hide the preview before moving the HUD.",
+                "Aplica u oculta la vista previa antes de mover el HUD.",
+                "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
+                "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
+              )
+            : undefined}
+          onClick={() => sendCommand("toggleHudLayout")}
+        >
+          {t("hud.move")}
+        </button>
       </div>
     </section>
   );

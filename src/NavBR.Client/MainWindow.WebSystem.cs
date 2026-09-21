@@ -104,6 +104,7 @@ public partial class MainWindow
             hud = new
             {
                 enabled = hudSettings.DashboardEnabled,
+                previewActive = MultiplayerSettingsStore.IsHudPreviewActive,
                 preset = hudSettings.DashboardPreset,
                 theme = hudSettings.DashboardTheme,
                 anchor = hudSettings.DashboardAnchor,
@@ -542,10 +543,10 @@ public partial class MainWindow
         }
     }
 
-    private static void SaveHudSettingsFromWeb(JsonElement? payload)
+    private static MultiplayerSettings BuildHudSettingsFromWeb(JsonElement? payload)
     {
         var current = MultiplayerSettingsStore.Load();
-        MultiplayerSettingsStore.Save(current with
+        return current with
         {
             DashboardSettingsVersion = 3,
             DashboardEnabled = GetWebPayloadBool(payload, "enabled"),
@@ -595,7 +596,26 @@ public partial class MainWindow
                 GetWebPayloadDouble(payload, "sideIndicatorsScale") ?? current.DashboardSideIndicatorsScale,
                 0.55d,
                 2d)
-        });
+        };
+    }
+
+    private static void PreviewHudSettingsFromWeb(JsonElement? payload)
+    {
+        var preview = BuildHudSettingsFromWeb(payload) with
+        {
+            DashboardEnabled = true
+        };
+        MultiplayerSettingsStore.PreviewHud(preview);
+    }
+
+    private static void ClearHudPreviewFromWeb() =>
+        MultiplayerSettingsStore.ClearHudPreview();
+
+    private static void SaveHudSettingsFromWeb(JsonElement? payload)
+    {
+        var updated = BuildHudSettingsFromWeb(payload);
+        MultiplayerSettingsStore.ClearHudPreview();
+        MultiplayerSettingsStore.Save(updated);
     }
 
     private static void ResetHudSettingsFromWeb()
@@ -615,6 +635,7 @@ public partial class MainWindow
             DashboardAlertsScale = 1d,
             DashboardSideIndicatorsScale = 1d
         };
+        MultiplayerSettingsStore.ClearHudPreview();
         MultiplayerSettingsStore.Save(reset);
     }
 

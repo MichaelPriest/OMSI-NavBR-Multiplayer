@@ -451,6 +451,7 @@ export interface NavBrHudPreset {
 
 export interface NavBrHudState {
   enabled: boolean;
+  previewActive: boolean;
   preset: string;
   theme: string;
   anchor: string;
