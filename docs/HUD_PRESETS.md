@@ -62,3 +62,12 @@ Esse painel usa somente telemetria real já disponível no runtime.
 A lista só aparece quando a viagem é resolvida sem ambiguidade e a próxima
 parada informada pela telemetria é encontrada nessa sequência. Caso contrário,
 o HUD não inventa uma ordem e mantém apenas a próxima parada conhecida.
+
+
+## Refinamentos Classic e Minimal
+
+- **Classic OMSI+** usa um display âmbar dedicado de linha, destino e próxima
+  parada, com fonte monoespaçada e sem alterar a telemetria original.
+- **Minimal Driver** remove combustível e atraso do topo e esconde a faixa de
+  estado quando a operação está normal; ela reaparece automaticamente quando
+  existir um estado relevante do veículo.

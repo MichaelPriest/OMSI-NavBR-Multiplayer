@@ -589,7 +589,8 @@ public partial class HudOverlayWindow
             "cockpit-digital" or
             "navigation-pro" or
             "driver-assistance" or
-            "city-operations";
+            "city-operations" or
+            "classic-omsi-plus";
         _immersiveFocusPanel.Visibility = showFocusPanel
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -758,6 +759,7 @@ public partial class HudOverlayWindow
 
             case "minimal-driver":
                 if (_immersiveDelayCell is not null) _immersiveDelayCell.Visibility = Visibility.Collapsed;
+                if (_immersiveFuelCell is not null) _immersiveFuelCell.Visibility = Visibility.Collapsed;
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 560d : 660d;
                 _immersiveTopBar.Margin = compact
@@ -825,6 +827,9 @@ public partial class HudOverlayWindow
                 break;
 
             case "classic-omsi-plus":
+                _immersiveFocusPanel.Width = compact ? 430d : 520d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 10d : 18d);
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 650d : 790d;
                 _immersiveTopBar.Margin = compact
@@ -1003,6 +1008,15 @@ public partial class HudOverlayWindow
             var status = BuildImmersiveVehicleStatus(telemetry);
             _immersiveVehicleStatusText.Text = status.Text;
             _immersiveVehicleStatusText.Foreground = new SolidColorBrush(status.Color);
+
+            var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+            if (presetId == "minimal-driver")
+            {
+                var normalOperation = status.Color == Color.FromRgb(115, 222, 166);
+                _immersiveVehicleStatusText.Visibility = normalOperation
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+            }
         }
         if (_immersiveMapTitleText is not null)
         {
@@ -1096,6 +1110,24 @@ public partial class HudOverlayWindow
                     ? BuildFocusServiceText(telemetry)
                     : street + Environment.NewLine + BuildFocusServiceText(telemetry);
                 RenderOrderedStopsIntoFocus(telemetry, 3);
+                break;
+
+            case "classic-omsi-plus":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "DISPLAY OMSI", "OMSI DISPLAY", "DISPLAY OMSI", "OMSI-ANZEIGE", "AFFICHEUR OMSI");
+                _immersiveFocusPrimaryText.FontSize = 24d;
+                _immersiveFocusPrimaryText.FontFamily = new FontFamily("Consolas");
+                _immersiveFocusSecondaryText.FontFamily = new FontFamily("Consolas");
+                var classicLine = string.IsNullOrWhiteSpace(telemetry?.Line) ? "—" : telemetry.Line;
+                var classicDestination = string.IsNullOrWhiteSpace(telemetry?.DestinationName)
+                    ? ImmersiveText("DESTINO —", "DESTINATION —", "DESTINO —", "ZIEL —", "DESTINATION —")
+                    : telemetry.DestinationName;
+                _immersiveFocusPrimaryText.Text = $"{classicLine}  {classicDestination}";
+                var classicNext = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
+                    ? ImmersiveText("PRÓXIMA —", "NEXT —", "PRÓXIMA —", "NÄCHSTER —", "PROCHAIN —")
+                    : telemetry.NextStopName;
+                _immersiveFocusSecondaryText.Text =
+                    $"{ImmersiveText("PRÓXIMA", "NEXT", "PRÓXIMA", "NÄCHSTER", "PROCHAIN")}: {classicNext}";
                 break;
 
             case "city-operations":
