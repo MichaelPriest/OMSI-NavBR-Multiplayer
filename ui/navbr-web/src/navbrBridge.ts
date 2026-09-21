@@ -451,6 +451,7 @@ export interface NavBrHudPreset {
 
 export interface NavBrHudState {
   enabled: boolean;
+  previewActive: boolean;
   preset: string;
   theme: string;
   anchor: string;
@@ -548,6 +549,11 @@ export interface NavBrRoadmapStudioState {
     compatibilityId?: string | null;
     roadmapPath?: string | null;
     roadmapExists: boolean;
+    roadmapPreviewUrl?: string | null;
+    hdRoadmapPath?: string | null;
+    hdRoadmapExists: boolean;
+    hdRoadmapPreviewUrl?: string | null;
+    activeUsesHd: boolean;
   }[];
   selectedFolder?: string | null;
   busy: boolean;
@@ -572,7 +578,7 @@ export interface NavBrRoadmapStudioState {
     canBuildFromTiles: boolean;
   } | null;
   result?: {
-    mode: "tiles" | "vector";
+    mode: "tiles" | "vector" | "hd";
     outputPath: string;
     backupPath?: string | null;
     pixelWidth: number;
@@ -583,6 +589,7 @@ export interface NavBrRoadmapStudioState {
     missingTileImages?: number | null;
     tileFilesRead?: number | null;
     splinesDrawn?: number | null;
+    quality?: "hd" | "ultra" | null;
   } | null;
 }
 
@@ -893,11 +900,14 @@ export type NavBrCommand =
   | "stopRoleplay"
   | "openNavigation3D"
   | "toggleHudLayout"
+  | "previewHudSettings"
+  | "clearHudPreview"
   | "saveHudSettings"
   | "resetHudSettings"
   | "analyzeRoadmap"
   | "buildRoadmapTiles"
   | "buildRoadmapVector"
+  | "buildRoadmapHd"
   | "openRoadmapFolder"
   | "startGhostRecording"
   | "stopGhostRecording"

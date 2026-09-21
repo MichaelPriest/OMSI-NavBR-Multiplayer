@@ -1,36 +1,21 @@
 # Documentação do OMSI NavBR Multiplayer
 
-## Alpha.18 pública de teste
+## Alpha.20 pública de teste
 
-- [ALPHA18_RELEASE_NOTES.md](ALPHA18_RELEASE_NOTES.md) — notas da versão e limitações conhecidas;
-- [ALPHA18_COMMUNITY.md](ALPHA18_COMMUNITY.md) — roteiro de validação pública;
+A versão pública atual é **`v0.3.0-alpha.20`**.
+
+- [ALPHA20_RELEASE_NOTES.md](ALPHA20_RELEASE_NOTES.md) — notas da versão e limitações conhecidas;
+- [RELEASES.md](RELEASES.md) — pacotes e estado público atual;
+- [WEB_UI_ARCHITECTURE.md](WEB_UI_ARCHITECTURE.md) — arquitetura React/WebView2 e autoridade nativa;
+- [HUD_PRESETS.md](HUD_PRESETS.md) — presets, módulos e personalização do HUD;
 - [MULTIPLAYER_STATUS.md](MULTIPLAYER_STATUS.md) — estado real do multiplayer;
 - [PLUGIN_UPDATE_VERIFIER.md](PLUGIN_UPDATE_VERIFIER.md) — verificação/atualização automática do plugin.
 
+A Alpha.20 reorganiza a interface por grupos funcionais, move idioma e preferências para Configurações → Geral, refaz a seleção do HUD em um workspace dedicado e adiciona Roadmap Studio com minimapa HD/Ultra. C# e OMSI continuam como autoridades dos dados reais.
 
-## Desenvolvimento atual — Alpha.15
+### English
 
-A versão de desenvolvimento e publicação atual é **`0.3.0-alpha.15`**.
-
-### Português (pt-BR)
-
-- [Alpha.15 — notas da versão](ALPHA15_RELEASE_NOTES.md)
-- [Alpha.15 — escopo mestre](ALPHA15_MASTER_SCOPE.md)
-- [Alpha.15 — roteiro de validação](ALPHA15_COMMUNITY.md)
-- [Roadmap](ROADMAP.md)
-- [Releases](RELEASES.md)
-
-A Alpha.15 consolida a interface React/WebView2, multiplayer, navegação, Plugin Bridge v3, state interop ABI v7, ônibus físico experimental, Personagem/RP e o Portal V2. Escritas nativas no OMSI permanecem experimentais e opt-in.
-
-### English (en)
-
-- [Alpha.15 — release notes / notas da versão](ALPHA15_RELEASE_NOTES.md)
-- [Alpha.15 — master scope / escopo mestre](ALPHA15_MASTER_SCOPE.md)
-- [Alpha.15 — validation guide / roteiro de validação](ALPHA15_COMMUNITY.md)
-- [Roadmap](ROADMAP.md)
-- [Releases](RELEASES.md)
-
-Alpha.15 consolidates the React/WebView2 desktop UI, multiplayer, navigation, Plugin Bridge v3, state interop ABI v7, experimental physical buses, Character/RP and Portal V2. Native OMSI writes remain experimental and opt-in.
+Alpha.20 is the current public test prerelease. It reorganizes the desktop UI by functional groups, moves language and general preferences into Settings → General, introduces a dedicated HUD workspace, and adds HD/Ultra minimap generation and roadmap comparison. C#/OMSI remain authoritative for real runtime data.
 
 ## Uso e testes / Usage and testing
 

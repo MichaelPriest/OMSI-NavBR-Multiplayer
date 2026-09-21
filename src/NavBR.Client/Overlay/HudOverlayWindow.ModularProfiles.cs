@@ -47,6 +47,8 @@ public partial class HudOverlayWindow
         _busDashboardDock.PreviewMouseWheel += ModularDashboard_PreviewMouseWheel;
         _busDashboardDock.ContextMenuOpening += ModularDashboard_ContextMenuOpening;
         MultiplayerSettingsStore.SettingsSaved += ModularHud_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += ModularHud_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += ModularHud_PreviewCleared;
         Closed += ModularHud_Closed;
 
         ApplyModularHudProfile();
@@ -55,12 +57,33 @@ public partial class HudOverlayWindow
     private void ModularHud_SettingsSaved(MultiplayerSettings settings)
     {
         _hudSettings = settings;
-        _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, ApplyModularHudProfile);
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
+    }
+
+    private void ModularHud_PreviewChanged(MultiplayerSettings settings)
+    {
+        _hudSettings = settings;
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
+    }
+
+    private void ModularHud_PreviewCleared()
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        _hudSettings = settings;
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () => ApplyModularHudProfile(settings));
     }
 
     private void ModularHud_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ModularHud_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= ModularHud_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= ModularHud_PreviewCleared;
     }
 
     private void ModularDashboard_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -184,6 +207,7 @@ public partial class HudOverlayWindow
         foreach (var anchor in new[]
                  {
                      (Id: "free", Label: "Livre"),
+                     (Id: "custom", Label: "Personalizada"),
                      (Id: "top-left", Label: "Superior esquerdo"),
                      (Id: "top-center", Label: "Superior centro"),
                      (Id: "top-right", Label: "Superior direito"),
@@ -231,14 +255,14 @@ public partial class HudOverlayWindow
         return item;
     }
 
-    private void ApplyModularHudProfile()
+    private void ApplyModularHudProfile(MultiplayerSettings? previewSettings = null)
     {
         if (_busDashboardDock is null || _busDashboardScale is null)
         {
             return;
         }
 
-        var settings = MultiplayerSettingsStore.Load();
+        var settings = previewSettings ?? MultiplayerSettingsStore.Load();
         _hudSettings = settings;
 
         _busDashboardDock.Width = settings.DashboardWidth;
@@ -303,7 +327,8 @@ public partial class HudOverlayWindow
         }
 
         anchor = HudProfileCatalog.ResolveAnchor(anchor);
-        if (anchor == HudProfileCatalog.DefaultAnchor)
+        if (anchor == HudProfileCatalog.DefaultAnchor ||
+            anchor == "custom")
         {
             ApplyDashboardPosition();
             return;
@@ -344,6 +369,28 @@ public partial class HudOverlayWindow
         var theme = HudProfileCatalog.ResolveTheme(themeId).Id;
         var palette = theme switch
         {
+            "immersive-operation" => new HudPalette(
+                Color.FromRgb(4, 15, 24), Color.FromRgb(46, 110, 154), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250)),
+            "transit-control" => new HudPalette(
+                Color.FromRgb(4, 18, 27), Color.FromRgb(40, 126, 161), Color.FromRgb(54, 211, 152), Color.FromRgb(238, 248, 251)),
+            "cockpit-digital" => new HudPalette(
+                Color.FromRgb(4, 13, 20), Color.FromRgb(38, 116, 153), Color.FromRgb(52, 199, 255), Color.FromRgb(239, 249, 253)),
+            "navigation-pro" => new HudPalette(
+                Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251)),
+            "multiplayer-focus" => new HudPalette(
+                Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255)),
+            "minimal-driver" => new HudPalette(
+                Color.FromRgb(5, 13, 18), Color.FromRgb(47, 79, 96), Color.FromRgb(225, 237, 243), Color.FromRgb(238, 246, 250)),
+            "streamer-broadcast" => new HudPalette(
+                Color.FromRgb(6, 13, 22), Color.FromRgb(61, 105, 139), Color.FromRgb(92, 197, 255), Color.FromRgb(240, 247, 251)),
+            "glass-night" => new HudPalette(
+                Color.FromRgb(3, 9, 17), Color.FromRgb(38, 82, 113), Color.FromRgb(91, 172, 229), Color.FromRgb(210, 230, 243)),
+            "city-operations" => new HudPalette(
+                Color.FromRgb(5, 20, 25), Color.FromRgb(42, 119, 111), Color.FromRgb(68, 224, 179), Color.FromRgb(235, 250, 247)),
+            "driver-assistance" => new HudPalette(
+                Color.FromRgb(7, 15, 22), Color.FromRgb(74, 109, 137), Color.FromRgb(255, 194, 72), Color.FromRgb(246, 249, 251)),
+            "classic-omsi-plus" => new HudPalette(
+                Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126)),
             "bus-panel" => new HudPalette(
                 Color.FromRgb(5, 7, 8), Color.FromRgb(118, 79, 36), Color.FromRgb(255, 174, 67), Colors.White),
             "lcd" => new HudPalette(

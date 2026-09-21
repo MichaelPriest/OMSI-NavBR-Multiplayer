@@ -401,6 +401,14 @@ public partial class MainWindow
                 ToggleHudLayoutForShell();
                 break;
 
+            case "previewHudSettings":
+                PreviewHudSettingsFromWeb(payload);
+                break;
+
+            case "clearHudPreview":
+                ClearHudPreviewFromWeb();
+                break;
+
             case "saveHudSettings":
                 SaveHudSettingsFromWeb(payload);
                 break;
@@ -422,6 +430,12 @@ public partial class MainWindow
             case "buildRoadmapVector":
                 await BuildRoadmapVectorFromWebAsync(
                     GetWebPayloadString(payload, "folderName"));
+                break;
+
+            case "buildRoadmapHd":
+                await BuildRoadmapHdFromWebAsync(
+                    GetWebPayloadString(payload, "folderName"),
+                    GetWebPayloadString(payload, "quality"));
                 break;
 
             case "openRoadmapFolder":

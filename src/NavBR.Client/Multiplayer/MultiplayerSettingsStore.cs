@@ -16,6 +16,32 @@ public static class MultiplayerSettingsStore
         "multiplayer.json");
 
     public static event Action<MultiplayerSettings>? SettingsSaved;
+    public static event Action<MultiplayerSettings>? HudPreviewChanged;
+    public static event Action? HudPreviewCleared;
+
+    private static MultiplayerSettings? _hudPreview;
+
+    public static bool IsHudPreviewActive => _hudPreview is not null;
+
+    public static MultiplayerSettings? GetHudPreview() => _hudPreview;
+
+    public static void PreviewHud(MultiplayerSettings settings)
+    {
+        settings = Normalize(settings);
+        _hudPreview = settings;
+        HudPreviewChanged?.Invoke(settings);
+    }
+
+    public static void ClearHudPreview()
+    {
+        if (_hudPreview is null)
+        {
+            return;
+        }
+
+        _hudPreview = null;
+        HudPreviewCleared?.Invoke();
+    }
 
     public static MultiplayerSettings Load()
     {

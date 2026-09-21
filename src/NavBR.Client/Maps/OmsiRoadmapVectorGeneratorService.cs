@@ -21,6 +21,10 @@ public sealed class OmsiRoadmapVectorGeneratorService
     private const int MaxSamplesPerSpline = 128;
     private const int PreferredPixelsPerTile = 220;
     private const int MaxBitmapDimension = 6144;
+    private const int HdPixelsPerTile = 440;
+    private const int UltraHdPixelsPerTile = 660;
+    private const int HdMaxBitmapDimension = 8192;
+    public const string HdRoadmapFileName = "navbr.roadmap.hd.bmp";
 
     private sealed record SplinePlacement(
         double X,
@@ -34,11 +38,70 @@ public sealed class OmsiRoadmapVectorGeneratorService
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        return Task.Run(() => Build(map, progress, cancellationToken), cancellationToken);
+        return Task.Run(
+            () => Build(
+                map,
+                PreferredPixelsPerTile,
+                MaxBitmapDimension,
+                "whole.roadmap.bmp",
+                "whole.roadmap.navbr.txt",
+                backupExisting: true,
+                progress,
+                cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<OmsiRoadmapVectorBuildResult> BuildHdAsync(
+        OmsiMapInfo map,
+        string? quality = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedQuality = string.Equals(
+            quality,
+            "ultra",
+            StringComparison.OrdinalIgnoreCase)
+            ? "ultra"
+            : "hd";
+        var pixelsPerTile = normalizedQuality == "ultra"
+            ? UltraHdPixelsPerTile
+            : HdPixelsPerTile;
+
+        return Task.Run(
+            () =>
+            {
+                var result = Build(
+                    map,
+                    pixelsPerTile,
+                    HdMaxBitmapDimension,
+                    HdRoadmapFileName,
+                    "navbr.roadmap.hd.txt",
+                    backupExisting: false,
+                    progress,
+                    cancellationToken);
+
+                var metadataPath = Path.Combine(
+                    map.DirectoryPath,
+                    "texture",
+                    "map",
+                    "navbr.roadmap.hd.txt");
+                File.AppendAllText(
+                    metadataPath,
+                    $"Quality: {normalizedQuality}{Environment.NewLine}" +
+                    $"Pixels per tile: {pixelsPerTile}{Environment.NewLine}");
+
+                return result;
+            },
+            cancellationToken);
     }
 
     private static OmsiRoadmapVectorBuildResult Build(
         OmsiMapInfo map,
+        int pixelsPerTile,
+        int maxBitmapDimension,
+        string outputFileName,
+        string metadataFileName,
+        bool backupExisting,
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
@@ -54,9 +117,9 @@ public sealed class OmsiRoadmapVectorGeneratorService
 
         var columns = Math.Max(1, layout.MaxGridX - layout.MinGridX + 1);
         var rows = Math.Max(1, layout.MaxGridY - layout.MinGridY + 1);
-        var rawWidth = Math.Max(256, columns * PreferredPixelsPerTile);
-        var rawHeight = Math.Max(256, rows * PreferredPixelsPerTile);
-        var scale = Math.Min(1d, MaxBitmapDimension / (double)Math.Max(rawWidth, rawHeight));
+        var rawWidth = Math.Max(256, columns * pixelsPerTile);
+        var rawHeight = Math.Max(256, rows * pixelsPerTile);
+        var scale = Math.Min(1d, maxBitmapDimension / (double)Math.Max(rawWidth, rawHeight));
         var width = Math.Max(256, (int)Math.Round(rawWidth * scale));
         var height = Math.Max(256, (int)Math.Round(rawHeight * scale));
 
@@ -71,8 +134,16 @@ public sealed class OmsiRoadmapVectorGeneratorService
                 null,
                 new Rect(0, 0, width, height));
 
-            var shadowPen = new Pen(new SolidColorBrush(Color.FromRgb(24, 31, 37)), 4.2d);
-            var roadPen = new Pen(new SolidColorBrush(Color.FromRgb(120, 134, 145)), 1.65d);
+            var strokeScale = Math.Clamp(
+                pixelsPerTile / (double)PreferredPixelsPerTile,
+                1d,
+                2d);
+            var shadowPen = new Pen(
+                new SolidColorBrush(Color.FromRgb(24, 31, 37)),
+                4.2d * strokeScale);
+            var roadPen = new Pen(
+                new SolidColorBrush(Color.FromRgb(120, 134, 145)),
+                1.65d * strokeScale);
             shadowPen.Freeze();
             roadPen.Freeze();
 
@@ -154,9 +225,9 @@ public sealed class OmsiRoadmapVectorGeneratorService
 
         var outputDirectory = Path.Combine(map.DirectoryPath, "texture", "map");
         Directory.CreateDirectory(outputDirectory);
-        var outputPath = Path.Combine(outputDirectory, "whole.roadmap.bmp");
+        var outputPath = Path.Combine(outputDirectory, outputFileName);
         var temporaryPath = outputPath + ".vector.navbr.tmp";
-        var metadataPath = Path.Combine(outputDirectory, "whole.roadmap.navbr.txt");
+        var metadataPath = Path.Combine(outputDirectory, metadataFileName);
         string? backupPath = null;
 
         try
@@ -168,7 +239,7 @@ public sealed class OmsiRoadmapVectorGeneratorService
                 encoder.Save(stream);
             }
 
-            if (File.Exists(outputPath))
+            if (backupExisting && File.Exists(outputPath))
             {
                 backupPath = Path.Combine(
                     outputDirectory,
@@ -179,7 +250,7 @@ public sealed class OmsiRoadmapVectorGeneratorService
             File.Move(temporaryPath, outputPath, overwrite: true);
             File.WriteAllText(
                 metadataPath,
-                $"NavBR Roadmap Studio - vector roadmap{Environment.NewLine}" +
+                $"NavBR Roadmap Studio - {(backupExisting ? "vector roadmap" : "HD minimap roadmap")}{Environment.NewLine}" +
                 $"Generated: {DateTimeOffset.Now:O}{Environment.NewLine}" +
                 $"Map: {map.DisplayName}{Environment.NewLine}" +
                 $"Tiles: {tileCatalog.Count}{Environment.NewLine}" +

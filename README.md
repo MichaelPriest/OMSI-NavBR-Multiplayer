@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública e atual é **v0.3.0-alpha.19**.
+A versão pública e atual é **v0.3.0-alpha.20**.
 
 - cliente principal: **instalador/EXE Windows x86**;
 - **APK Android NavBR Mobile Companion Alpha 2**;
@@ -14,10 +14,19 @@ A versão pública e atual é **v0.3.0-alpha.19**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> **AVISO DE TESTE DA ALPHA.19:** esta versão foi liberada publicamente para ampliar a validação. O multiplayer **LAN/local** e **online/Servidor NavBR/Host pela Internet ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI**. Sala conectada, telemetria ou confirmação do simulador não devem ser interpretadas como validação completa do multiplayer físico. Use como alpha pública de teste e reporte logs/resultados.
+> **AVISO DE TESTE DA ALPHA.20:** esta versão foi liberada publicamente para ampliar a validação. O multiplayer **LAN/local** e **online/Servidor NavBR/Host pela Internet ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI**. Sala conectada, telemetria ou confirmação do simulador não devem ser interpretadas como validação completa do multiplayer físico. Use como alpha pública de teste e reporte logs/resultados.
 
-## Destaques da Alpha.19
+## Destaques da Alpha.20
 
+- **interface reorganizada por grupos funcionais**, reduzindo telas longas e opções duplicadas;
+- barra lateral separada em Principal, Multiplayer & RP, Operação & Ferramentas e Sistema;
+- idioma movido para **Configurações → Geral**, junto das preferências gerais;
+- Configurações reorganizadas em Interface, OMSI & Mapas, Conectividade e Sistema;
+- seleção de HUD refeita em categorias e workspace com **Escolher HUD, Aparência, Módulos e Posição & ações**;
+- prévia do HUD dentro do app quando o OMSI está fechado e prévia ao vivo no overlay quando o OMSI está aberto;
+- Roadmap Studio com comparação **OMSI × NavBR HD**, hot-reload e geração de minimapa **HD 2× / Ultra 3×**;
+- Home e Multiplayer reorganizados por fluxo de uso;
+- **NavBR Mobile Companion Alpha 2 para Android** continua incluído na release pública;
 - **NavBR Mobile Companion Alpha 2 para Android** incluído na release pública;
 - descoberta automática do PC NavBR na mesma LAN, com fallback manual;
 - GPS, telemetria do ônibus, multiplayer, voz/PTT e estado IBIS reais no celular;
@@ -130,7 +139,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 
 ## Ghost / Replay
 
-A Alpha.19 mantém o fluxo principal de Ghost na interface React.
+A Alpha.20 mantém o fluxo principal de Ghost na interface React.
 
 - grava telemetria local real a cada 100 ms;
 - salva arquivos `.navbrghost` usando o `GhostRecorder` existente;
@@ -152,7 +161,7 @@ A Alpha.19 mantém o fluxo principal de Ghost na interface React.
 
 ## Documentação
 
-- [docs/ALPHA19_RELEASE_NOTES.md](docs/ALPHA19_RELEASE_NOTES.md) — notas e limitações públicas da Alpha.19;
+- [docs/ALPHA20_RELEASE_NOTES.md](docs/ALPHA20_RELEASE_NOTES.md) — notas e limitações públicas da Alpha.20;
 - [docs/ALPHA18_RELEASE_NOTES.md](docs/ALPHA18_RELEASE_NOTES.md) — histórico da Alpha.18;
 - [docs/ALPHA18_COMMUNITY.md](docs/ALPHA18_COMMUNITY.md) — roteiro de validação pública da Alpha.18;
 - [docs/ALPHA15_RELEASE_NOTES.md](docs/ALPHA15_RELEASE_NOTES.md) — histórico da Alpha.15;
@@ -183,7 +192,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.19 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.20 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico em memória** enquanto serviços nativos ainda são desacoplados de sua classe. O app não usa mais `StartupUri="MainWindow.xaml"` e não chama mais `Show()` no host; telemetria, estatísticas, RP e tray são inicializados explicitamente e os antigos installers/renderizadores visuais da Alpha.11/12 não são executados. Fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 

@@ -4,6 +4,7 @@ import { NavBrIcon, type NavBrIconName } from "./NavBrIcon";
 import {
   type NavBrCompanyMember,
   type NavBrGhostState,
+  type NavBrHudPreset,
   type NavBrHudState,
   type NavBrMultiplayerState,
   type NavBrNavigationState,
@@ -118,18 +119,46 @@ function Sidebar({
   setScreen: (screen: Screen) => void;
   appVersion?: string | null;
 }) {
-  const { t, pick, cultureName, languages, setLanguage } = useI18n();
-  const navItems: Array<{ screen: Screen; icon: NavBrIconName; label: string }> = [
-    { screen: "home", icon: "home", label: t("nav.home") },
-    { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
-    { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
-    { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
-    { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
-    { screen: "operations", icon: "operations", label: t("nav.operations") },
-    { screen: "companyNetwork", icon: "company", label: t("nav.company") },
-    { screen: "hardware", icon: "hardware", label: t("nav.hardware") },
-    { screen: "settings", icon: "settings", label: t("nav.settings") },
-    { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+  const { t, pick } = useI18n();
+  const navGroups: Array<{
+    id: string;
+    label: string;
+    items: Array<{ screen: Screen; icon: NavBrIconName; label: string }>;
+  }> = [
+    {
+      id: "main",
+      label: pick("PRINCIPAL", "MAIN", "PRINCIPAL", "HAUPTBEREICH", "PRINCIPAL"),
+      items: [
+        { screen: "home", icon: "home", label: t("nav.home") },
+        { screen: "navigation", icon: "navigation", label: t("nav.navigation") }
+      ]
+    },
+    {
+      id: "social",
+      label: pick("MULTIPLAYER & RP", "MULTIPLAYER & RP", "MULTIJUGADOR & RP", "MULTIPLAYER & RP", "MULTIJOUEUR & RP"),
+      items: [
+        { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
+        { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
+        { screen: "companyNetwork", icon: "company", label: t("nav.company") }
+      ]
+    },
+    {
+      id: "tools",
+      label: pick("OPERAÇÃO & FERRAMENTAS", "OPERATIONS & TOOLS", "OPERACIÓN & HERRAMIENTAS", "BETRIEB & WERKZEUGE", "EXPLOITATION & OUTILS"),
+      items: [
+        { screen: "operations", icon: "operations", label: t("nav.operations") },
+        { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
+        { screen: "hardware", icon: "hardware", label: t("nav.hardware") }
+      ]
+    },
+    {
+      id: "system",
+      label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+      items: [
+        { screen: "settings", icon: "settings", label: t("nav.settings") },
+        { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+      ]
+    }
   ];
 
   return (
@@ -139,16 +168,21 @@ function Sidebar({
         <div><strong>NavBR</strong><span>OMSI Multiplayer</span></div>
       </div>
 
-      <nav className="nav">
-        {navItems.map(item => (
-          <button
-            key={item.screen}
-            className={`nav-item ${screen === item.screen ? "active" : ""}`}
-            onClick={() => setScreen(item.screen)}
-          >
-            <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
-            <span>{item.label}</span>
-          </button>
+      <nav className="nav nav-grouped">
+        {navGroups.map(group => (
+          <section className="nav-group" key={group.id}>
+            <span className="nav-group-label">{group.label}</span>
+            {group.items.map(item => (
+              <button
+                key={item.screen}
+                className={`nav-item ${screen === item.screen ? "active" : ""}`}
+                onClick={() => setScreen(item.screen)}
+              >
+                <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </section>
         ))}
       </nav>
 
@@ -157,21 +191,23 @@ function Sidebar({
           <span>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</span>
           <strong>{buildVersionLabel(appVersion)}</strong>
         </div>
-        <label className="sidebar-language">
-          <span>{t("common.language")}</span>
-          <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
-            {languages.map(language => (
-              <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
-            ))}
-          </select>
-        </label>
       </div>
     </aside>
   );
 }
 
-function Home({ state }: { state: NavBrState | null }) {
-  const { t } = useI18n();
+function Home({
+  state,
+  onNavigate,
+  onOpenHud,
+  onOpenRoadmap
+}: {
+  state: NavBrState | null;
+  onNavigate: (screen: Screen) => void;
+  onOpenHud: () => void;
+  onOpenRoadmap: () => void;
+}) {
+  const { t, pick } = useI18n();
   const omsi = state?.omsi;
   const telemetry = state?.telemetry;
   const active = Boolean(omsi?.running && telemetry?.inGame);
@@ -237,6 +273,41 @@ function Home({ state }: { state: NavBrState | null }) {
           <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : t("home.disconnected")}</strong>
           <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : t("home.noRoom")}</small>
         </article>
+      </section>
+
+      <section className="home-shortcuts card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("ATALHOS RÁPIDOS", "QUICK ACCESS", "ACCESOS RÁPIDOS", "SCHNELLZUGRIFF", "ACCÈS RAPIDE")}</span>
+            <h3>{pick("Ir direto ao que você usa", "Go straight to what you use", "Ir directo a lo que usas", "Direkt zu den wichtigsten Bereichen", "Accéder directement à l’essentiel")}</h3>
+          </div>
+        </div>
+        <div className="home-shortcut-groups">
+          <section>
+            <span className="home-shortcut-group-label">{pick("VIAGEM", "DRIVING", "VIAJE", "FAHRT", "CONDUITE")}</span>
+            <div className="home-shortcut-grid">
+              <button onClick={() => onNavigate("navigation")}><NavBrIcon name="navigation" size={21} /><span><strong>{t("nav.navigation")}</strong><small>{pick("Mapa, rota e GPS", "Map, route and GPS", "Mapa, ruta y GPS", "Karte, Route und GPS", "Carte, itinéraire et GPS")}</small></span></button>
+              <button onClick={() => onNavigate("operations")}><NavBrIcon name="operations" size={21} /><span><strong>{t("nav.operations")}</strong><small>{pick("Operação e frota", "Operations and fleet", "Operación y flota", "Betrieb und Flotte", "Exploitation et flotte")}</small></span></button>
+            </div>
+          </section>
+
+          <section>
+            <span className="home-shortcut-group-label">{pick("ONLINE & RP", "ONLINE & RP", "ONLINE & RP", "ONLINE & RP", "EN LIGNE & RP")}</span>
+            <div className="home-shortcut-grid">
+              <button onClick={() => onNavigate("multiplayer")}><NavBrIcon name="multiplayer" size={21} /><span><strong>{t("nav.multiplayer")}</strong><small>{pick("Salas, jogadores e voz", "Rooms, players and voice", "Salas, jugadores y voz", "Räume, Spieler und Sprache", "Salons, joueurs et voix")}</small></span></button>
+              <button onClick={() => onNavigate("roleplay")}><NavBrIcon name="roleplay" size={21} /><span><strong>{t("nav.roleplay")}</strong><small>{pick("Personagem e interação RP", "Character and RP interaction", "Personaje e interacción RP", "Charakter und RP-Interaktion", "Personnage et interaction RP")}</small></span></button>
+            </div>
+          </section>
+
+          <section>
+            <span className="home-shortcut-group-label">{pick("FERRAMENTAS", "TOOLS", "HERRAMIENTAS", "WERKZEUGE", "OUTILS")}</span>
+            <div className="home-shortcut-grid tools">
+              <button onClick={onOpenHud}><NavBrIcon name="settings" size={21} /><span><strong>HUD</strong><small>{pick("Presets, prévia e Move HUD", "Presets, preview and Move HUD", "Presets, vista previa y Move HUD", "Presets, Vorschau und Move HUD", "Presets, aperçu et Move HUD")}</small></span></button>
+              <button onClick={onOpenRoadmap}><NavBrIcon name="map" size={21} /><span><strong>Roadmap Studio</strong><small>{pick("Roadmap e textura HD/Ultra", "Roadmap and HD/Ultra texture", "Roadmap y textura HD/Ultra", "Roadmap und HD/Ultra-Textur", "Roadmap et texture HD/Ultra")}</small></span></button>
+              <button onClick={() => onNavigate("hardware")}><NavBrIcon name="hardware" size={21} /><span><strong>{t("nav.hardware")}</strong><small>{pick("Cockpit e dispositivos", "Cockpit and devices", "Cabina y dispositivos", "Cockpit und Geräte", "Cockpit et périphériques")}</small></span></button>
+            </div>
+          </section>
+        </div>
       </section>
     </>
   );
@@ -1819,7 +1890,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
+type SettingsTab = "general" | "installations" | "hud" | "roadmap" | "diagnostics" | "network";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const { pick } = useI18n();
@@ -1890,14 +1961,190 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
 }
 
 
-function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
-  const { t } = useI18n();
+const COMPOSED_HUD_PRESETS = new Set([
+  "immersive-operation",
+  "transit-control",
+  "cockpit-digital",
+  "navigation-pro",
+  "multiplayer-focus",
+  "classic-omsi-plus",
+  "minimal-driver",
+  "streamer-broadcast",
+  "glass-night",
+  "city-operations",
+  "driver-assistance"
+]);
+
+function isComposedHudPreset(id: string | null | undefined) {
+  return COMPOSED_HUD_PRESETS.has((id || "").toLowerCase());
+}
+
+const HUD_PRESET_GROUPS = [
+  {
+    id: "operations",
+    ids: ["immersive-operation", "transit-control", "city-operations", "driver-assistance"]
+  },
+  {
+    id: "driving",
+    ids: ["cockpit-digital", "navigation-pro", "minimal-driver"]
+  },
+  {
+    id: "social",
+    ids: ["multiplayer-focus", "streamer-broadcast"]
+  },
+  {
+    id: "classic",
+    ids: ["classic-omsi-plus", "glass-night"]
+  },
+  {
+    id: "current",
+    ids: ["normal", "compact", "full", "rp-urban", "racing-minimal", "lcd-amber", "transparent"]
+  }
+] as const;
+
+
+function HudAppScreenPreview({ hud }: { hud: NavBrHudState }) {
+  const { pick } = useI18n();
+  const presetId = (hud.preset || "normal").toLowerCase();
+  const themeId = hud.theme || "urban-glass";
+  const focusVisible = [
+    "transit-control",
+    "cockpit-digital",
+    "navigation-pro",
+    "classic-omsi-plus",
+    "city-operations",
+    "driver-assistance"
+  ].includes(presetId);
+
+  return (
+    <article className="card hud-app-preview-card">
+      <div className="section-heading hud-app-preview-heading">
+        <div>
+          <span className="eyebrow">{pick("PRÉVIA NO APP", "APP PREVIEW", "VISTA PREVIA EN LA APP", "VORSCHAU IN DER APP", "APERÇU DANS L’APP")}</span>
+          <h3>{hud.presets.find(item => item.id === hud.preset)?.displayName || hud.preset}</h3>
+        </div>
+        <span className="hardware-state-pill">
+          {pick("OMSI FECHADO", "OMSI CLOSED", "OMSI CERRADO", "OMSI GESCHLOSSEN", "OMSI FERMÉ")}
+        </span>
+      </div>
+
+      <p className="hud-app-preview-description">
+        {pick(
+          "Mostra a composição real do preset e a posição dos módulos. Os textos abaixo são apenas estados neutros; nenhuma telemetria é inventada.",
+          "Shows the preset composition and widget placement. The text below uses neutral states only; no telemetry is fabricated.",
+          "Muestra la composición del preset y la posición de los módulos. Los textos usan estados neutros; no se inventa telemetría.",
+          "Zeigt Aufbau und Position der Module. Die Texte verwenden nur neutrale Zustände; es werden keine Telemetriedaten erfunden.",
+          "Affiche la composition du preset et la position des modules. Les textes utilisent uniquement des états neutres ; aucune télémétrie n’est inventée."
+        )}
+      </p>
+
+      <div
+        className="hud-app-preview-stage"
+        data-hud-preset={presetId}
+        data-hud-theme={themeId}
+        style={{ opacity: hud.opacity }}
+      >
+        <div className="hud-app-module hud-app-topbar">
+          <span><small>{pick("LINHA", "LINE", "LÍNEA", "LINIE", "LIGNE")}</small><strong>—</strong></span>
+          <span className="route"><small>{pick("ROTA / DESTINO", "ROUTE / DESTINATION", "RUTA / DESTINO", "ROUTE / ZIEL", "LIGNE / DESTINATION")}</small><strong>{pick("Sem telemetria", "No telemetry", "Sin telemetría", "Keine Telemetrie", "Sans télémétrie")}</strong></span>
+          <span><small>{pick("PRÓXIMA", "NEXT", "PRÓXIMA", "NÄCHSTE", "PROCHAINE")}</small><strong>—</strong></span>
+          <span className="speed"><small>{pick("VELOC.", "SPEED", "VELOC.", "GESCHW.", "VITESSE")}</small><strong>—</strong></span>
+        </div>
+
+        {hud.showMinimap && (
+          <div className="hud-app-module hud-app-map">
+            <span className="hud-app-module-title">{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</span>
+            <i className="hud-app-map-road one" />
+            <i className="hud-app-map-road two" />
+            <i className="hud-app-map-road three" />
+            <b className="hud-app-map-marker" />
+            <small>{pick("Sem rota ativa", "No active route", "Sin ruta activa", "Keine aktive Route", "Aucun itinéraire actif")}</small>
+          </div>
+        )}
+
+        {hud.showMultiplayer && (
+          <div className="hud-app-module hud-app-multiplayer">
+            <span className="hud-app-module-title">MULTIPLAYER</span>
+            <div><i /><span>{pick("Nenhum jogador", "No players", "Sin jugadores", "Keine Spieler", "Aucun joueur")}</span></div>
+            <div><i /><span>PTT —</span></div>
+            <small>{pick("Sem sessão ativa", "No active session", "Sin sesión activa", "Keine aktive Sitzung", "Aucune session active")}</small>
+          </div>
+        )}
+
+        {focusVisible && (
+          <div className="hud-app-module hud-app-focus">
+            <span className="hud-app-module-title">
+              {presetId === "cockpit-digital"
+                ? "CLUSTER"
+                : presetId === "navigation-pro"
+                  ? pick("NAVEGAÇÃO", "NAVIGATION", "NAVEGACIÓN", "NAVIGATION", "NAVIGATION")
+                  : presetId === "transit-control"
+                    ? pick("OPERAÇÃO", "OPERATIONS", "OPERACIÓN", "BETRIEB", "EXPLOITATION")
+                    : presetId === "driver-assistance"
+                      ? pick("ASSISTÊNCIA", "ASSISTANCE", "ASISTENCIA", "ASSISTENZ", "ASSISTANCE")
+                      : presetId === "city-operations"
+                        ? pick("OPERAÇÃO URBANA", "CITY OPERATIONS", "OPERACIÓN URBANA", "STADTBETRIEB", "EXPLOITATION URBAINE")
+                        : "OMSI+"}
+            </span>
+            <strong>{presetId === "cockpit-digital" ? "— km/h" : "—"}</strong>
+            <small>{pick("Aguardando dados reais", "Waiting for real data", "Esperando datos reales", "Warten auf echte Daten", "En attente de données réelles")}</small>
+          </div>
+        )}
+
+        {hud.showPedals && (
+          <div className="hud-app-module hud-app-pedals">
+            <span><small>{pick("ACEL.", "THR.", "ACEL.", "GAS", "ACC.")}</small><i /></span>
+            <span><small>{pick("FREIO", "BRAKE", "FRENO", "BREMSE", "FREIN")}</small><i /></span>
+          </div>
+        )}
+
+        {hud.showAlerts && (
+          <div className="hud-app-module hud-app-alerts"><span>!</span><small>{pick("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes")}</small></div>
+        )}
+
+        {hud.showSideIndicators && (
+          <div className="hud-app-module hud-app-side"><i /><i /><i /></div>
+        )}
+      </div>
+
+      <div className="hud-app-preview-legend">
+        <span>{pick("Prévia estrutural", "Structural preview", "Vista estructural", "Strukturvorschau", "Aperçu structurel")}</span>
+        <strong>{Math.round(hud.width)} px · {Math.round(hud.scale * 100)}% · {Math.round(hud.opacity * 100)}%</strong>
+      </div>
+    </article>
+  );
+}
+
+function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunning: boolean }) {
+  const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
+  const [previewing, setPreviewing] = useState(Boolean(hud.previewActive));
+  const [hudSection, setHudSection] = useState<"select" | "appearance" | "modules" | "position">("select");
+  const [hudCategory, setHudCategory] = useState<string>(() =>
+    HUD_PRESET_GROUPS.find(group => group.ids.includes(hud.preset as never))?.id || "operations"
+  );
+  const previousClassicPreset = useRef(
+    isComposedHudPreset(hud.preset) ? "normal" : hud.preset || "normal"
+  );
+  const composedMode = isComposedHudPreset(draft.preset);
+  const selectedPreset = hud.presets.find(item => item.id === draft.preset);
+  const groupedPresets = HUD_PRESET_GROUPS
+    .map(group => ({
+      ...group,
+      presets: group.ids
+        .map(id => hud.presets.find(item => item.id === id))
+        .filter((item): item is NavBrHudPreset => Boolean(item))
+    }))
+    .filter(group => group.presets.length > 0);
+  const activePresetGroup = groupedPresets.find(group => group.id === hudCategory) || groupedPresets[0];
 
   useEffect(() => {
     if (!dirty) {
       setDraft(hud);
+      if (!isComposedHudPreset(hud.preset)) {
+        previousClassicPreset.current = hud.preset || "normal";
+      }
     }
   }, [hud, dirty]);
 
@@ -1907,6 +2154,10 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   };
 
   const applyPreset = (presetId: string) => {
+    const matchingGroup = HUD_PRESET_GROUPS.find(group => group.ids.includes(presetId as never));
+    if (matchingGroup) {
+      setHudCategory(matchingGroup.id);
+    }
     const preset = hud.presets.find(item => item.id === presetId);
     if (!preset) {
       patch({ preset: presetId });
@@ -1929,29 +2180,80 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
     });
   };
 
+  const hudPayload = useMemo(() => ({
+    enabled: draft.enabled,
+    preset: draft.preset,
+    theme: draft.theme,
+    anchor: draft.anchor,
+    scale: draft.scale,
+    width: draft.width,
+    height: draft.height,
+    opacity: draft.opacity,
+    autoScale: draft.autoScale,
+    showFuel: draft.showFuel,
+    showPedals: draft.showPedals,
+    showStatus: draft.showStatus,
+    showMinimap: draft.showMinimap,
+    showMultiplayer: draft.showMultiplayer,
+    showAlerts: draft.showAlerts,
+    showSideIndicators: draft.showSideIndicators,
+    minimapScale: draft.minimapScale,
+    multiplayerScale: draft.multiplayerScale,
+    alertsScale: draft.alertsScale,
+    sideIndicatorsScale: draft.sideIndicatorsScale
+  }), [
+    draft.enabled,
+    draft.preset,
+    draft.theme,
+    draft.anchor,
+    draft.scale,
+    draft.width,
+    draft.height,
+    draft.opacity,
+    draft.autoScale,
+    draft.showFuel,
+    draft.showPedals,
+    draft.showStatus,
+    draft.showMinimap,
+    draft.showMultiplayer,
+    draft.showAlerts,
+    draft.showSideIndicators,
+    draft.minimapScale,
+    draft.multiplayerScale,
+    draft.alertsScale,
+    draft.sideIndicatorsScale
+  ]);
+
+  useEffect(() => {
+    if (!previewing) return;
+
+    if (!omsiRunning) {
+      sendCommand("clearHudPreview");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      sendCommand("previewHudSettings", hudPayload);
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, [previewing, omsiRunning, hudPayload]);
+
+  useEffect(() => () => {
+    sendCommand("clearHudPreview");
+  }, []);
+
+  const togglePreview = () => {
+    if (previewing) {
+      sendCommand("clearHudPreview");
+      setPreviewing(false);
+      return;
+    }
+    setPreviewing(true);
+  };
+
   const save = () => {
-    sendCommand("saveHudSettings", {
-      enabled: draft.enabled,
-      preset: draft.preset,
-      theme: draft.theme,
-      anchor: draft.anchor,
-      scale: draft.scale,
-      width: draft.width,
-      height: draft.height,
-      opacity: draft.opacity,
-      autoScale: draft.autoScale,
-      showFuel: draft.showFuel,
-      showPedals: draft.showPedals,
-      showStatus: draft.showStatus,
-      showMinimap: draft.showMinimap,
-      showMultiplayer: draft.showMultiplayer,
-      showAlerts: draft.showAlerts,
-      showSideIndicators: draft.showSideIndicators,
-      minimapScale: draft.minimapScale,
-      multiplayerScale: draft.multiplayerScale,
-      alertsScale: draft.alertsScale,
-      sideIndicatorsScale: draft.sideIndicatorsScale
-    });
+    sendCommand("saveHudSettings", hudPayload);
+    setPreviewing(false);
     setDirty(false);
   };
 
@@ -1967,7 +2269,27 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
 
   return (
     <section className="hud-settings-layout">
-      <article className="card hud-settings-card">
+      <nav className="hud-workspace-nav" aria-label={pick("Seções do HUD", "HUD sections", "Secciones del HUD", "HUD-Bereiche", "Sections du HUD")}>
+        {([
+          ["select", pick("Escolher HUD", "Choose HUD", "Elegir HUD", "HUD wählen", "Choisir le HUD"), "navigation"],
+          ["appearance", pick("Aparência", "Appearance", "Apariencia", "Darstellung", "Apparence"), "settings"],
+          ["modules", pick("Módulos", "Widgets", "Módulos", "Module", "Modules"), "hardware"],
+          ["position", pick("Posição & ações", "Position & actions", "Posición y acciones", "Position & Aktionen", "Position & actions"), "operations"]
+        ] as const).map(([key, label, icon]) => (
+          <button
+            type="button"
+            key={key}
+            className={hudSection === key ? "active" : ""}
+            onClick={() => setHudSection(key)}
+          >
+            <NavBrIcon name={icon} size={17} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {hudSection === "select" && (
+      <article className="card hud-settings-card hud-selection-card">
         <div className="section-heading">
           <div><span className="eyebrow">HUD</span><h3>{t("hud.identity")}</h3></div>
           <span className={`hardware-state-pill ${draft.enabled ? "connected" : ""}`}>
@@ -1984,47 +2306,186 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           <span>{t("hud.showPanel")}</span>
         </label>
 
-        <div className="hud-style-gallery">
-          {hud.presets.map(preset => (
-            <button
-              type="button"
-              key={preset.id}
-              className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
-              data-hud-theme={preset.themeId}
-              onClick={() => applyPreset(preset.id)}
-            >
-              <span className="hud-style-preview" aria-hidden="true">
-                <i className="hud-style-route" />
-                <i className="hud-style-speed" />
-                <i className="hud-style-chip first" />
-                <i className="hud-style-chip second" />
-              </span>
-              <span className="hud-style-copy">
-                <strong>{preset.displayName}</strong>
-                <small>{preset.inspiration}</small>
-                <em>{preset.description}</em>
-              </span>
-            </button>
-          ))}
+        <div className="hud-mode-switch">
+          <div>
+            <span className="eyebrow">{pick("MODO DE HUD", "HUD MODE", "MODO DE HUD", "HUD-MODUS", "MODE HUD")}</span>
+            <strong>{composedMode
+              ? selectedPreset?.displayName || pick("HUD composto", "Composed HUD", "HUD compuesto", "Komponiertes HUD", "HUD composé")
+              : pick("HUD atual", "Current HUD", "HUD actual", "Aktuelles HUD", "HUD actuel")}</strong>
+            <small>{composedMode
+              ? pick(
+                  "Preset em tela com composição própria. O HUD clássico continua disponível e pode ser restaurado a qualquer momento.",
+                  "Screen-composed preset with its own layout. The classic HUD remains available and can be restored at any time.",
+                  "Preset compuesto en pantalla con diseño propio. El HUD clásico sigue disponible y se puede restaurar en cualquier momento.",
+                  "Bildschirm-Preset mit eigenem Layout. Das klassische HUD bleibt verfügbar und kann jederzeit wiederhergestellt werden.",
+                  "Preset composé à l’écran avec sa propre disposition. Le HUD classique reste disponible et peut être restauré à tout moment."
+                )
+              : pick(
+                  "Mantém o layout atual. Você pode testar qualquer preset novo sem substituir definitivamente este HUD.",
+                  "Keeps the current layout. You can test any new preset without permanently replacing this HUD.",
+                  "Mantiene el diseño actual. Puedes probar cualquier preset nuevo sin reemplazar definitivamente este HUD.",
+                  "Behält das aktuelle Layout. Neue Presets können getestet werden, ohne dieses HUD dauerhaft zu ersetzen.",
+                  "Conserve la disposition actuelle. Vous pouvez tester les nouveaux presets sans remplacer définitivement ce HUD."
+                )}</small>
+          </div>
+          <button
+            type="button"
+            className={`button ${composedMode ? "ghost" : "primary"}`}
+            onClick={() => {
+              if (composedMode) {
+                applyPreset(previousClassicPreset.current || "normal");
+              } else {
+                previousClassicPreset.current = draft.preset || "normal";
+                applyPreset("immersive-operation");
+              }
+            }}
+          >
+            {composedMode
+              ? pick("Voltar ao HUD atual", "Back to current HUD", "Volver al HUD actual", "Zum aktuellen HUD", "Revenir au HUD actuel")
+              : pick("Explorar novos HUDs", "Explore new HUDs", "Explorar nuevos HUD", "Neue HUDs erkunden", "Explorer les nouveaux HUD")}
+          </button>
         </div>
 
+        <div className="hud-preset-browser">
+          <div className="hud-preset-category-tabs">
+            {groupedPresets.map(group => {
+              const label = group.id === "operations"
+                ? pick("Operação", "Operations", "Operación", "Betrieb", "Exploitation")
+                : group.id === "driving"
+                  ? pick("Direção", "Driving", "Conducción", "Fahren", "Conduite")
+                  : group.id === "social"
+                    ? pick("Multiplayer", "Multiplayer", "Multijugador", "Multiplayer", "Multijoueur")
+                    : group.id === "classic"
+                      ? pick("Clássicos", "Classic", "Clásicos", "Klassisch", "Classiques")
+                      : pick("Legados", "Legacy", "Legado", "Legacy", "Héritage");
+              return (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={hudCategory === group.id ? "active" : ""}
+                  onClick={() => setHudCategory(group.id)}
+                >
+                  <strong>{label}</strong>
+                  <span>{group.presets.length}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activePresetGroup && (
+            <section className="hud-preset-group focused">
+              <div className="hud-preset-group-heading">
+                <div>
+                  <strong>{pick("Escolha um layout", "Choose a layout", "Elige un diseño", "Layout wählen", "Choisir une disposition")}</strong>
+                  <small>{pick(
+                    "Os presets abaixo pertencem somente ao grupo selecionado.",
+                    "Only presets from the selected group are shown below.",
+                    "Abajo se muestran solo los presets del grupo seleccionado.",
+                    "Unten werden nur Presets der gewählten Gruppe angezeigt.",
+                    "Seuls les presets du groupe sélectionné sont affichés ci-dessous."
+                  )}</small>
+                </div>
+                <span>{activePresetGroup.presets.length}</span>
+              </div>
+              <div className="hud-style-gallery">
+                {activePresetGroup.presets.map(preset => (
+                  <button
+                    type="button"
+                    key={preset.id}
+                    className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
+                    data-hud-theme={preset.themeId}
+                    data-hud-badge={
+                      preset.id === "immersive-operation"
+                        ? pick("NOVO", "NEW", "NUEVO", "NEU", "NOUVEAU")
+                        : preset.id === "cockpit-digital"
+                          ? "CLUSTER"
+                          : preset.id === "navigation-pro"
+                            ? "GPS"
+                            : preset.id === "driver-assistance"
+                              ? pick("ASSIST.", "ASSIST", "ASIST.", "ASSIST.", "ASSIST.")
+                              : undefined
+                    }
+                    onClick={() => applyPreset(preset.id)}
+                  >
+                    <span className="hud-style-preview" aria-hidden="true">
+                      <i className="hud-style-route" />
+                      <i className="hud-style-speed" />
+                      <i className="hud-style-chip first" />
+                      <i className="hud-style-chip second" />
+                    </span>
+                    <span className="hud-style-copy">
+                      <strong>{preset.displayName}</strong>
+                      <small>{preset.inspiration}</small>
+                      <em>{preset.description}</em>
+                      <span className="hud-style-tags" aria-hidden="true">
+                        {preset.showMinimap && <i>{pick("Mapa", "Map", "Mapa", "Karte", "Carte")}</i>}
+                        {preset.showMultiplayer && <i>MP</i>}
+                        {preset.showStatus && <i>{pick("Status", "Status", "Estado", "Status", "État")}</i>}
+                        {preset.showAlerts && <i>{pick("Alertas", "Alerts", "Alertas", "Alarme", "Alertes")}</i>}
+                        {preset.showPedals && <i>{pick("Pedais", "Pedals", "Pedales", "Pedale", "Pédales")}</i>}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <div className="hud-selected-summary">
+          <div>
+            <span className="eyebrow">{pick("HUD SELECIONADO", "SELECTED HUD", "HUD SELECCIONADO", "AUSGEWÄHLTES HUD", "HUD SÉLECTIONNÉ")}</span>
+            <strong>{selectedPreset?.displayName || draft.preset}</strong>
+            <small>{selectedPreset?.description || pick("Layout atual", "Current layout", "Diseño actual", "Aktuelles Layout", "Disposition actuelle")}</small>
+          </div>
+          <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}%</span>
+        </div>
+
+        <div className="hud-preview-line">
+          <strong>{hud.presets.find(item => item.id === draft.preset)?.displayName || draft.preset}</strong>
+          <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}% · {Math.round(draft.opacity * 100)}%</span>
+        </div>
+
+        {previewing && (
+          <div className="hud-contextual-note">
+            <strong>{omsiRunning
+              ? pick("PRÉVIA AO VIVO NO OMSI", "LIVE PREVIEW IN OMSI", "VISTA PREVIA EN OMSI", "LIVE-VORSCHAU IN OMSI", "APERÇU EN DIRECT DANS OMSI")
+              : pick("PRÉVIA VISÍVEL NO APP", "PREVIEW VISIBLE IN APP", "VISTA PREVIA EN LA APP", "VORSCHAU IN DER APP", "APERÇU VISIBLE DANS L’APP")}</strong>
+            <span>{omsiRunning
+              ? pick(
+                  "O preset selecionado está sendo mostrado temporariamente no overlay. Tema, tamanho e módulos atualizam ao vivo e ainda não foram salvos.",
+                  "The selected preset is temporarily visible on the overlay. Theme, size and widget changes update live and are not saved yet.",
+                  "El preset seleccionado se muestra temporalmente en el overlay. Tema, tamaño y módulos se actualizan en vivo y aún no se guardan.",
+                  "Das ausgewählte Preset wird vorübergehend im Overlay angezeigt. Thema, Größe und Module aktualisieren sich live und sind noch nicht gespeichert.",
+                  "Le preset sélectionné est affiché temporairement dans l’overlay. Le thème, la taille et les modules se mettent à jour en direct sans être enregistrés."
+                )
+              : pick(
+                  "Como o OMSI está fechado, a composição do HUD aparece abaixo dentro do NavBR. Ao abrir o OMSI, a mesma prévia passa para o overlay real.",
+                  "Because OMSI is closed, the HUD composition appears below inside NavBR. When OMSI opens, the same preview moves to the real overlay.",
+                  "Como OMSI está cerrado, la composición del HUD aparece abajo dentro de NavBR. Al abrir OMSI, la misma vista pasa al overlay real.",
+                  "Da OMSI geschlossen ist, erscheint die HUD-Komposition unten in NavBR. Sobald OMSI geöffnet wird, wechselt dieselbe Vorschau zum echten Overlay.",
+                  "Comme OMSI est fermé, la composition du HUD apparaît ci-dessous dans NavBR. À l’ouverture d’OMSI, le même aperçu passe dans le véritable overlay."
+                )}</span>
+          </div>
+        )}
+      </article>
+      )}
+
+      {previewing && !omsiRunning && <HudAppScreenPreview hud={draft} />}
+
+      {hudSection === "appearance" && (
+      <article className="card hud-settings-card hud-appearance-card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("APARÊNCIA", "APPEARANCE", "APARIENCIA", "DARSTELLUNG", "APPARENCE")}</span>
+            <h3>{pick("Tema e tamanho", "Theme and size", "Tema y tamaño", "Thema und Größe", "Thème et taille")}</h3>
+          </div>
+        </div>
         <div className="hud-select-grid">
-          <label className="voice-field">
-            <span>{t("hud.style")}</span>
-            <select value={draft.preset} onChange={event => applyPreset(event.target.value)}>
-              {hud.presets.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
           <label className="voice-field">
             <span>{t("hud.theme")}</span>
             <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
               {hud.themes.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
-          <label className="voice-field">
-            <span>{t("hud.anchor")}</span>
-            <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
-              {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
             </select>
           </label>
           <label className="diagnostics-toggle compact-toggle">
@@ -2036,15 +2497,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
             <span>{t("hud.autoScale")}</span>
           </label>
         </div>
-
-        <div className="hud-preview-line">
-          <strong>{hud.presets.find(item => item.id === draft.preset)?.displayName || draft.preset}</strong>
-          <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}% · {Math.round(draft.opacity * 100)}%</span>
-        </div>
-      </article>
-
-      <article className="card hud-settings-card">
-        <span className="eyebrow">{t("hud.size")}</span>
+        <span className="eyebrow hud-subsection-label">{t("hud.size")}</span>
         <div className="hud-slider-list">
           <label>
             <span><strong>{t("hud.scale")}</strong><em>{Math.round(draft.scale * 100)}%</em></span>
@@ -2057,7 +2510,9 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
               onChange={event => patch({ width: Number(event.target.value) })} />
           </label>
           <label>
-            <span><strong>{t("hud.height")}</strong><em>{draft.height < 1 ? t("hud.auto") : `${Math.round(draft.height)} px`}</em></span>
+            <span><strong>{composedMode
+              ? pick("Altura mínima do painel principal", "Primary panel minimum height", "Altura mínima del panel principal", "Mindesthöhe des Hauptpanels", "Hauteur minimale du panneau principal")
+              : t("hud.height")}</strong><em>{draft.height < 1 ? t("hud.auto") : `${Math.round(draft.height)} px`}</em></span>
             <input type="range" min="0" max="720" step="10" value={draft.height}
               onChange={event => patch({ height: Number(event.target.value) })} />
           </label>
@@ -2068,7 +2523,10 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           </label>
         </div>
       </article>
+      )}
 
+      {hudSection === "modules" && (
+      <>
       <article className="card hud-settings-card">
         <span className="eyebrow">{t("hud.visibleModules")}</span>
         <div className="hud-module-grid">
@@ -2083,6 +2541,18 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
             </label>
           ))}
         </div>
+        {draft.preset === "minimal-driver" && draft.showMinimap && (
+          <div className="hud-contextual-note">
+            <strong>{pick("Módulo contextual", "Contextual widget", "Módulo contextual", "Kontextmodul", "Module contextuel")}</strong>
+            <span>{pick(
+              "No Minimal Driver, o minimapa fica oculto durante a condução normal e aparece automaticamente apenas quando a rota foi resolvida e o ônibus sai dela.",
+              "In Minimal Driver, the minimap stays hidden during normal driving and appears automatically only when the route is resolved and the bus goes off route.",
+              "En Minimal Driver, el minimapa permanece oculto durante la conducción normal y aparece automáticamente solo cuando la ruta está resuelta y el autobús sale de ella.",
+              "Im Minimal Driver bleibt die Minikarte bei normaler Fahrt verborgen und erscheint automatisch nur bei aufgelöster Route und Verlassen der Route.",
+              "Dans Minimal Driver, la mini-carte reste masquée en conduite normale et apparaît automatiquement uniquement lorsque l’itinéraire est résolu et que le bus le quitte."
+            )}</span>
+          </div>
+        )}
       </article>
 
       <article className="card hud-settings-card">
@@ -2102,16 +2572,91 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           ))}
         </div>
       </article>
+      </>
+      )}
 
-      <div className="hud-settings-actions">
-        <button className="button primary" disabled={!dirty} onClick={save}>
-          {dirty ? t("hud.apply") : t("hud.applied")}
-        </button>
-        <button className="button ghost" onClick={() => {
-          sendCommand("resetHudSettings");
-          setDirty(false);
-        }}>{t("common.reset")}</button>
-        <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{t("hud.move")}</button>
+      {hudSection === "position" && (
+        <article className="card hud-settings-card hud-position-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{pick("POSIÇÃO", "POSITION", "POSICIÓN", "POSITION", "POSITION")}</span>
+              <h3>{pick("Posicionar o HUD", "Position the HUD", "Posicionar el HUD", "HUD positionieren", "Positionner le HUD")}</h3>
+            </div>
+          </div>
+          <div className="hud-position-grid">
+            <label className="voice-field">
+              <span>{composedMode
+                ? pick("Âncora do painel principal", "Primary panel anchor", "Ancla del panel principal", "Anker des Hauptpanels", "Ancrage du panneau principal")
+                : t("hud.anchor")}</span>
+              <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
+                {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+              </select>
+            </label>
+            <div className="hud-position-action">
+              <button
+                className="button primary"
+                disabled={previewing}
+                title={previewing
+                  ? pick(
+                      "Aplique ou oculte a prévia antes de mover o HUD.",
+                      "Apply or hide the preview before moving the HUD.",
+                      "Aplica u oculta la vista previa antes de mover el HUD.",
+                      "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
+                      "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
+                    )
+                  : undefined}
+                onClick={() => sendCommand("toggleHudLayout")}
+              >
+                {t("hud.move")}
+              </button>
+              <small>{pick(
+                "Use Mover HUD para arrastar os módulos livremente na tela do OMSI. A posição personalizada é salva separadamente do preset visual.",
+                "Use Move HUD to freely drag widgets on the OMSI screen. The custom position is saved separately from the visual preset.",
+                "Usa Mover HUD para arrastrar libremente los módulos en OMSI. La posición personalizada se guarda separada del preset visual.",
+                "Mit HUD verschieben können Module frei auf dem OMSI-Bildschirm platziert werden. Die benutzerdefinierte Position wird getrennt vom visuellen Preset gespeichert.",
+                "Utilisez Déplacer le HUD pour positionner librement les modules dans OMSI. La position personnalisée est enregistrée séparément du preset visuel."
+              )}</small>
+            </div>
+          </div>
+          <div className="hud-contextual-note">
+            <strong>{pick("ATALHOS", "HOTKEYS", "ATAJOS", "HOTKEYS", "RACCOURCIS")}</strong>
+            <span>{pick(
+              "Chat e PTT continuam em Multiplayer → Avançado → Atalhos; aqui ficam somente posição e comportamento visual do HUD.",
+              "Chat and PTT remain under Multiplayer → Advanced → Hotkeys; this section only controls HUD position and visual behavior.",
+              "Chat y PTT siguen en Multijugador → Avanzado → Atajos; aquí solo se controla la posición y el comportamiento visual del HUD.",
+              "Chat und PTT bleiben unter Multiplayer → Erweitert → Hotkeys; hier werden nur HUD-Position und visuelles Verhalten gesteuert.",
+              "Chat et PTT restent dans Multijoueur → Avancé → Raccourcis ; cette section contrôle uniquement la position et le comportement visuel du HUD."
+            )}</span>
+          </div>
+        </article>
+      )}
+
+      <div className="hud-savebar">
+        <div className="hud-savebar-status">
+          <span className="eyebrow">{pick("ALTERAÇÕES DO HUD", "HUD CHANGES", "CAMBIOS DEL HUD", "HUD-ÄNDERUNGEN", "MODIFICATIONS DU HUD")}</span>
+          <strong>{selectedPreset?.displayName || draft.preset}</strong>
+          <small>{dirty
+            ? pick("Há alterações ainda não aplicadas.", "There are unapplied changes.", "Hay cambios sin aplicar.", "Es gibt noch nicht angewendete Änderungen.", "Des modifications ne sont pas encore appliquées.")
+            : pick("Configuração aplicada.", "Configuration applied.", "Configuración aplicada.", "Konfiguration angewendet.", "Configuration appliquée.")}</small>
+        </div>
+        <div className="hud-savebar-actions">
+          <button
+            className={`button ${previewing ? "ghost" : "primary"}`}
+            onClick={togglePreview}
+          >
+            {previewing
+              ? pick("Ocultar prévia", "Hide preview", "Ocultar vista previa", "Vorschau ausblenden", "Masquer l’aperçu")
+              : pick("Visualizar prévia", "Preview", "Vista previa", "Vorschau", "Aperçu")}
+          </button>
+          <button className="button primary" disabled={!dirty} onClick={save}>
+            {dirty ? t("hud.apply") : t("hud.applied")}
+          </button>
+          <button className="button ghost" onClick={() => {
+            sendCommand("resetHudSettings");
+            setPreviewing(false);
+            setDirty(false);
+          }}>{t("common.reset")}</button>
+        </div>
       </div>
     </section>
   );
@@ -2136,10 +2681,13 @@ function roadmapStatusLabel(
     case "analysis-failed": return pick("Falha na análise", "Analysis failed", "Falló el análisis", "Analyse fehlgeschlagen", "Échec de l’analyse");
     case "building-tiles": return pick("Montando roadmap por tiles", "Building roadmap from tiles", "Montando roadmap por tiles", "Roadmap aus Tiles wird erstellt", "Construction de la roadmap depuis les tiles");
     case "building-vector": return pick("Gerando roadmap vetorial", "Generating vector roadmap", "Generando roadmap vectorial", "Vektor-Roadmap wird erzeugt", "Génération de la roadmap vectorielle");
+    case "building-hd": return pick("Gerando textura HD do minimapa", "Generating HD minimap texture", "Generando textura HD del minimapa", "HD-Minimap-Textur wird erzeugt", "Génération de la texture HD de la mini-carte");
     case "tiles-built": return pick("Roadmap por tiles concluído", "Tile roadmap completed", "Roadmap por tiles completado", "Tile-Roadmap abgeschlossen", "Roadmap par tiles terminée");
     case "vector-built": return pick("Roadmap vetorial concluído", "Vector roadmap completed", "Roadmap vectorial completado", "Vektor-Roadmap abgeschlossen", "Roadmap vectorielle terminée");
+    case "hd-built": return pick("Textura HD do minimapa concluída", "HD minimap texture completed", "Textura HD del minimapa completada", "HD-Minimap-Textur abgeschlossen", "Texture HD de la mini-carte terminée");
     case "tiles-build-failed": return pick("Falha na geração por tiles", "Tile build failed", "Falló la generación por tiles", "Tile-Erzeugung fehlgeschlagen", "Échec de la génération par tiles");
     case "vector-build-failed": return pick("Falha na geração vetorial", "Vector build failed", "Falló la generación vectorial", "Vektor-Erzeugung fehlgeschlagen", "Échec de la génération vectorielle");
+    case "hd-build-failed": return pick("Falha ao gerar textura HD", "HD texture build failed", "Falló la textura HD", "HD-Textur konnte nicht erzeugt werden", "Échec de la génération HD");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
   }
 }
@@ -2147,6 +2695,7 @@ function roadmapStatusLabel(
 function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
   const { t, pick } = useI18n();
   const [selectedFolder, setSelectedFolder] = useState("");
+  const [hdQuality, setHdQuality] = useState<"hd" | "ultra">("hd");
 
   useEffect(() => {
     setSelectedFolder(current => {
@@ -2165,6 +2714,17 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
   const analysis = selectedMatchesNative ? roadmap.analysis : null;
   const result = selectedMatchesNative ? roadmap.result : null;
   const progress = Math.max(0, Math.min(100, (roadmap.progress ?? 0) * 100));
+  const hdPixelsPerTile = hdQuality === "ultra" ? 660 : 440;
+  const hdEstimatedResolution = analysis
+    ? (() => {
+        const columns = Math.max(1, analysis.maxGridX - analysis.minGridX + 1);
+        const rows = Math.max(1, analysis.maxGridY - analysis.minGridY + 1);
+        const rawWidth = Math.max(256, columns * hdPixelsPerTile);
+        const rawHeight = Math.max(256, rows * hdPixelsPerTile);
+        const scale = Math.min(1, 8192 / Math.max(rawWidth, rawHeight));
+        return `${Math.max(256, Math.round(rawWidth * scale))}×${Math.max(256, Math.round(rawHeight * scale))}`;
+      })()
+    : "—";
 
   return (
     <section className="roadmap-studio-layout">
@@ -2201,8 +2761,43 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 <span><small>{pick("PASTA", "FOLDER", "CARPETA", "ORDNER", "DOSSIER")}</small><strong>{selectedMap.folderName}</strong></span>
                 <span><small>{pick("TILES DO MAPA", "MAP TILES", "TILES DEL MAPA", "KARTEN-TILES", "TILES DE LA CARTE")}</small><strong>{selectedMap.tileCount}</strong></span>
                 <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? pick("Existe", "Exists", "Existe", "Vorhanden", "Présente") : pick("Ausente", "Missing", "Ausente", "Fehlt", "Absente")}</strong></span>
+                <span><small>NAVBR HD</small><strong>{selectedMap.hdRoadmapExists ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Não gerado", "Not generated", "No generado", "Nicht erzeugt", "Non généré")}</strong></span>
               </div>
             )}
+
+            <div className="roadmap-hd-quality">
+              <label className="voice-field">
+                <span>{pick("QUALIDADE DO MINIMAPA", "MINIMAP QUALITY", "CALIDAD DEL MINIMAPA", "MINIMAP-QUALITÄT", "QUALITÉ DE LA MINI-CARTE")}</span>
+                <select
+                  value={hdQuality}
+                  disabled={roadmap.busy}
+                  onChange={event => setHdQuality(event.target.value as "hd" | "ultra")}
+                >
+                  <option value="hd">{pick("HD · 2× · recomendado", "HD · 2× · recommended", "HD · 2× · recomendado", "HD · 2× · empfohlen", "HD · 2× · recommandé")}</option>
+                  <option value="ultra">{pick("Ultra · 3× · mapas pequenos/médios", "Ultra · 3× · small/medium maps", "Ultra · 3× · mapas pequeños/medianos", "Ultra · 3× · kleine/mittlere Karten", "Ultra · 3× · petites/moyennes cartes")}</option>
+                </select>
+              </label>
+              <div className="roadmap-hd-quality-info">
+                <span><small>{pick("DENSIDADE", "DENSITY", "DENSIDAD", "DICHTE", "DENSITÉ")}</small><strong>{hdPixelsPerTile} px/tile</strong></span>
+                <span><small>{pick("RESOLUÇÃO ESTIMADA", "ESTIMATED RESOLUTION", "RESOLUCIÓN ESTIMADA", "GESCHÄTZTE AUFLÖSUNG", "RÉSOLUTION ESTIMÉE")}</small><strong>{hdEstimatedResolution}</strong></span>
+                <span><small>{pick("LIMITE SEGURO", "SAFE LIMIT", "LÍMITE SEGURO", "SICHERES LIMIT", "LIMITE SÛRE")}</small><strong>8192 px</strong></span>
+              </div>
+              <p>{hdQuality === "ultra"
+                ? pick(
+                    "Ultra aumenta a densidade em mapas menores. Em mapas grandes, o limite de 8192 px continua valendo para controlar o uso de memória.",
+                    "Ultra increases density on smaller maps. On large maps, the 8192 px cap still applies to control memory use.",
+                    "Ultra aumenta la densidad en mapas pequeños. En mapas grandes, se mantiene el límite de 8192 px para controlar la memoria.",
+                    "Ultra erhöht die Dichte auf kleineren Karten. Auf großen Karten bleibt das 8192-px-Limit zur Speicherkontrolle bestehen.",
+                    "Ultra augmente la densité sur les petites cartes. Sur les grandes cartes, la limite de 8192 px reste appliquée pour contrôler la mémoire."
+                  )
+                : pick(
+                    "HD é o modo recomendado para uso normal do minimapa.",
+                    "HD is the recommended mode for normal minimap use.",
+                    "HD es el modo recomendado para el uso normal del minimapa.",
+                    "HD ist der empfohlene Modus für die normale Minimap-Nutzung.",
+                    "HD est le mode recommandé pour l’utilisation normale de la mini-carte."
+                  )}</p>
+            </div>
 
             <div className="roadmap-actions">
               <button
@@ -2227,6 +2822,23 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 {t("roadmap.buildVector")}
               </button>
               <button
+                className="button primary"
+                disabled={!selectedFolder || roadmap.busy}
+                onClick={() => sendCommand("buildRoadmapHd", { folderName: selectedFolder, quality: hdQuality })}
+                title={pick(
+                  "Gera uma textura vetorial de alta definição exclusiva do NavBR. O roadmap original do OMSI não é substituído.",
+                  "Generates a high-definition vector texture exclusively for NavBR. The original OMSI roadmap is not replaced.",
+                  "Genera una textura vectorial de alta definición exclusiva de NavBR. No reemplaza el roadmap original de OMSI.",
+                  "Erzeugt eine hochauflösende Vektortextur nur für NavBR. Die originale OMSI-Roadmap wird nicht ersetzt.",
+                  "Génère une texture vectorielle haute définition réservée à NavBR. La roadmap OMSI d’origine n’est pas remplacée."
+                )}
+              >
+                <NavBrIcon name="map" size={15} />
+                {hdQuality === "ultra"
+                  ? pick("Gerar Ultra minimapa", "Generate Ultra minimap", "Generar minimapa Ultra", "Ultra-Minimap erzeugen", "Générer mini-carte Ultra")
+                  : pick("Gerar HD minimapa", "Generate HD minimap", "Generar minimapa HD", "HD-Minimap erzeugen", "Générer mini-carte HD")}
+              </button>
+              <button
                 className="button ghost"
                 disabled={!selectedFolder || roadmap.busy}
                 onClick={() => sendCommand("openRoadmapFolder", { folderName: selectedFolder })}
@@ -2245,6 +2857,59 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         )}
 
         {roadmap.error && <div className="directory-error">{roadmap.error}</div>}
+      </article>
+
+      <article className="card roadmap-preview-card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("COMPARAÇÃO VISUAL", "VISUAL COMPARISON", "COMPARACIÓN VISUAL", "VISUELLER VERGLEICH", "COMPARAISON VISUELLE")}</span>
+            <h3>{pick("Roadmap OMSI × NavBR HD", "OMSI roadmap × NavBR HD", "Roadmap OMSI × NavBR HD", "OMSI-Roadmap × NavBR HD", "Roadmap OMSI × NavBR HD")}</h3>
+          </div>
+          {selectedMap?.hdRoadmapExists && (
+            <span className={`hardware-state-pill ${selectedMap.activeUsesHd ? "connected" : ""}`}>
+              {selectedMap.activeUsesHd
+                ? pick("HD em uso", "HD in use", "HD en uso", "HD aktiv", "HD utilisée")
+                : pick("HD disponível", "HD available", "HD disponible", "HD verfügbar", "HD disponible")}
+            </span>
+          )}
+        </div>
+
+        {!selectedMap || (!selectedMap.roadmapPreviewUrl && !selectedMap.hdRoadmapPreviewUrl) ? (
+          <div className="empty-state">
+            {pick(
+              "Gere um roadmap ou uma textura HD para visualizar aqui.",
+              "Generate a roadmap or HD texture to preview it here.",
+              "Genera un roadmap o una textura HD para verla aquí.",
+              "Erzeuge eine Roadmap oder HD-Textur für die Vorschau.",
+              "Générez une roadmap ou une texture HD pour l’apercevoir ici."
+            )}
+          </div>
+        ) : (
+          <div className="roadmap-preview-grid">
+            <figure>
+              <figcaption>
+                <strong>{pick("Roadmap OMSI", "OMSI roadmap", "Roadmap OMSI", "OMSI-Roadmap", "Roadmap OMSI")}</strong>
+                <small>{selectedMap.roadmapExists ? "whole.roadmap.bmp" : pick("Ausente", "Missing", "Ausente", "Fehlt", "Absente")}</small>
+              </figcaption>
+              <div className="roadmap-preview-frame">
+                {selectedMap.roadmapPreviewUrl
+                  ? <img src={selectedMap.roadmapPreviewUrl} alt="" draggable={false} />
+                  : <span>{pick("Sem imagem", "No image", "Sin imagen", "Kein Bild", "Aucune image")}</span>}
+              </div>
+            </figure>
+            <figure className={selectedMap.activeUsesHd ? "active" : ""}>
+              <figcaption>
+                <strong>NavBR HD</strong>
+                <small>{selectedMap.hdRoadmapExists ? "navbr.roadmap.hd.bmp" : pick("Não gerado", "Not generated", "No generado", "Nicht erzeugt", "Non généré")}</small>
+              </figcaption>
+              <div className="roadmap-preview-frame">
+                {selectedMap.hdRoadmapPreviewUrl
+                  ? <img src={selectedMap.hdRoadmapPreviewUrl} alt="" draggable={false} />
+                  : <span>{pick("Gere o HD para comparar", "Generate HD to compare", "Genera HD para comparar", "HD zum Vergleichen erzeugen", "Générez la HD pour comparer")}</span>}
+              </div>
+            </figure>
+          </div>
+        )}
       </article>
 
       <article className="card roadmap-analysis-card">
@@ -2280,7 +2945,13 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         ) : (
           <>
             <div className="roadmap-analysis-grid">
-              <span><small>{pick("MODO", "MODE", "MODO", "MODUS", "MODE")}</small><strong>{result.mode === "tiles" ? pick("Imagens de tile", "Tile images", "Imágenes de tile", "Tile-Bilder", "Images de tile") : pick("Vetorial / splines", "Vector / splines", "Vectorial / splines", "Vektor / Splines", "Vectoriel / splines")}</strong></span>
+              <span><small>{pick("MODO", "MODE", "MODO", "MODUS", "MODE")}</small><strong>{
+                result.mode === "tiles"
+                  ? pick("Imagens de tile", "Tile images", "Imágenes de tile", "Tile-Bilder", "Images de tile")
+                  : result.mode === "hd"
+                    ? pick("NavBR HD / minimapa", "NavBR HD / minimap", "NavBR HD / minimapa", "NavBR HD / Minimap", "NavBR HD / mini-carte")
+                    : pick("Vetorial / splines", "Vector / splines", "Vectorial / splines", "Vektor / Splines", "Vectoriel / splines")
+              }</strong></span>
               <span><small>{pick("DIMENSÃO", "DIMENSIONS", "DIMENSIÓN", "ABMESSUNGEN", "DIMENSIONS")}</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
               <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
               <span><small>{pick("TEMPO", "TIME", "TIEMPO", "ZEIT", "TEMPS")}</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
@@ -2288,6 +2959,9 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               {result.missingTileImages != null && <span><small>{pick("VAZIOS", "MISSING", "VACÍOS", "FEHLEND", "MANQUANTS")}</small><strong>{result.missingTileImages}</strong></span>}
               {result.tileFilesRead != null && <span><small>{pick("TILES LIDOS", "TILES READ", "TILES LEÍDOS", "GELESENE TILES", "TILES LUS")}</small><strong>{result.tileFilesRead}</strong></span>}
               {result.splinesDrawn != null && <span><small>SPLINES</small><strong>{result.splinesDrawn}</strong></span>}
+              {result.mode === "hd" && result.quality && (
+                <span><small>{pick("QUALIDADE", "QUALITY", "CALIDAD", "QUALITÄT", "QUALITÉ")}</small><strong>{result.quality === "ultra" ? "Ultra · 3×" : "HD · 2×"}</strong></span>
+              )}
             </div>
             <code className="roadmap-output-path">{result.outputPath}</code>
             {result.backupPath && <p className="roadmap-backup">{pick("Backup", "Backup", "Copia de seguridad", "Sicherung", "Sauvegarde")}: <code>{result.backupPath}</code></p>}
@@ -2307,10 +2981,10 @@ function Settings({
   error: string | null;
   requestedTab?: SettingsTab | null;
 }) {
-  const { t, pick } = useI18n();
+  const { t, pick, cultureName, languages, setLanguage } = useI18n();
   const system = state?.system;
   const network = state?.network;
-  const [tab, setTab] = useState<SettingsTab>("installations");
+  const [tab, setTab] = useState<SettingsTab>("general");
   const [manualPath, setManualPath] = useState("");
   const networkRequested = useRef(false);
 
@@ -2352,18 +3026,144 @@ function Settings({
 
       {error && <div className="command-error">{error}</div>}
 
-      <div className="mp-tabs settings-tabs" role="tablist">
+      <div className="settings-group-nav" role="tablist">
         {([
-          ["installations", t("settings.installations")],
-          ["hud", t("settings.hud")],
-          ["roadmap", t("settings.roadmap")],
-          ["diagnostics", t("settings.diagnostics")],
-          ["network", t("settings.network")],
-          ["advanced", t("settings.advanced")]
-        ] as [SettingsTab, string][]).map(([key, label]) => (
-          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+          {
+            id: "personalization",
+            label: pick("INTERFACE", "INTERFACE", "INTERFAZ", "OBERFLÄCHE", "INTERFACE"),
+            items: [
+              ["general", pick("Geral", "General", "General", "Allgemein", "Général")],
+              ["hud", t("settings.hud")]
+            ]
+          },
+          {
+            id: "omsi",
+            label: "OMSI & MAPAS",
+            items: [
+              ["installations", t("settings.installations")],
+              ["roadmap", t("settings.roadmap")]
+            ]
+          },
+          {
+            id: "connectivity",
+            label: pick("CONECTIVIDADE", "CONNECTIVITY", "CONECTIVIDAD", "KONNEKTIVITÄT", "CONNECTIVITÉ"),
+            items: [
+              ["network", t("settings.network")]
+            ]
+          },
+          {
+            id: "maintenance",
+            label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+            items: [
+              ["diagnostics", t("settings.diagnostics")]
+            ]
+          }
+        ] as Array<{ id: string; label: string; items: [SettingsTab, string][] }>).map(group => (
+          <section className="settings-nav-group" key={group.id}>
+            <span>{group.label}</span>
+            <div>
+              {group.items.map(([key, label]) => (
+                <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
+
+      {tab === "general" && (
+        <section className="settings-general-layout">
+          <article className="card settings-general-card settings-language-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("INTERFACE", "INTERFACE", "INTERFAZ", "OBERFLÄCHE", "INTERFACE")}</span>
+                <h3>{pick("Idioma e experiência", "Language & experience", "Idioma y experiencia", "Sprache & Oberfläche", "Langue et expérience")}</h3>
+              </div>
+            </div>
+            <p>{pick(
+              "As preferências gerais do NavBR ficam concentradas aqui. O seletor de idioma saiu da barra lateral para deixar a navegação focada nas funções do simulador.",
+              "General NavBR preferences are concentrated here. Language was moved out of the sidebar so navigation stays focused on simulator functions.",
+              "Las preferencias generales de NavBR se concentran aquí. El idioma salió de la barra lateral para mantener la navegación centrada en el simulador.",
+              "Allgemeine NavBR-Einstellungen sind hier gebündelt. Die Sprache wurde aus der Seitenleiste entfernt, damit die Navigation auf Simulatorfunktionen fokussiert bleibt.",
+              "Les préférences générales de NavBR sont regroupées ici. La langue a quitté la barre latérale afin de garder la navigation centrée sur le simulateur."
+            )}</p>
+            <label className="voice-field settings-language-field">
+              <span>{t("common.language")}</span>
+              <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
+                {languages.map(language => (
+                  <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
+                ))}
+              </select>
+            </label>
+          </article>
+
+          <article className="card settings-general-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("ORGANIZAÇÃO", "ORGANIZATION", "ORGANIZACIÓN", "ORGANISATION", "ORGANISATION")}</span>
+                <h3>{pick("Funções por grupo", "Functions by group", "Funciones por grupo", "Funktionen nach Gruppe", "Fonctions par groupe")}</h3>
+              </div>
+            </div>
+            <div className="settings-category-grid">
+              <button onClick={() => setTab("hud")}><NavBrIcon name="settings" size={20} /><span><strong>HUD & Interface</strong><small>{pick("Presets, prévia, módulos e posicionamento", "Presets, preview, widgets and positioning", "Presets, vista previa, módulos y posición", "Presets, Vorschau, Module und Position", "Presets, aperçu, modules et position")}</small></span></button>
+              <button onClick={() => setTab("installations")}><NavBrIcon name="plugin" size={20} /><span><strong>OMSI</strong><small>{pick("Instalações, plugin e Mobile Companion", "Installations, plugin and Mobile Companion", "Instalaciones, plugin y Mobile Companion", "Installationen, Plugin und Mobile Companion", "Installations, plugin et Mobile Companion")}</small></span></button>
+              <button onClick={() => setTab("roadmap")}><NavBrIcon name="map" size={20} /><span><strong>Mapas & Roadmap</strong><small>{pick("Roadmap Studio, HD e Ultra", "Roadmap Studio, HD and Ultra", "Roadmap Studio, HD y Ultra", "Roadmap Studio, HD und Ultra", "Roadmap Studio, HD et Ultra")}</small></span></button>
+              <button onClick={() => setTab("network")}><NavBrIcon name="network" size={20} /><span><strong>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</strong><small>{pick("Portas, conectividade e diagnóstico de rede", "Ports, connectivity and network diagnostics", "Puertos, conectividad y diagnóstico de red", "Ports, Konnektivität und Netzwerkdiagnose", "Ports, connectivité et diagnostic réseau")}</small></span></button>
+              <button onClick={() => setTab("diagnostics")}><NavBrIcon name="info" size={20} /><span><strong>{t("settings.diagnostics")}</strong><small>{pick("Logs, privacidade e suporte", "Logs, privacy and support", "Logs, privacidad y soporte", "Logs, Datenschutz und Support", "Logs, confidentialité et support")}</small></span></button>
+            </div>
+          </article>
+
+          <article className="card settings-general-card settings-preferences-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("PREFERÊNCIAS", "PREFERENCES", "PREFERENCIAS", "EINSTELLUNGEN", "PRÉFÉRENCES")}</span>
+                <h3>{pick("Comportamento geral", "General behavior", "Comportamiento general", "Allgemeines Verhalten", "Comportement général")}</h3>
+              </div>
+            </div>
+            <div className="settings-preference-list">
+              <label className="diagnostics-toggle">
+                <input
+                  type="checkbox"
+                  checked={system.legacyPreferences.advancedModeEnabled}
+                  onChange={event => sendCommand("saveLegacyPreferences", {
+                    advancedModeEnabled: event.target.checked,
+                    showDrivingTips: system.legacyPreferences.showDrivingTips
+                  })}
+                />
+                <span>
+                  <strong>{pick("Modo avançado", "Advanced mode", "Modo avanzado", "Erweiterter Modus", "Mode avancé")}</strong>
+                  <small>{pick(
+                    "Libera informações e controles técnicos destinados a usuários experientes.",
+                    "Enables technical information and controls intended for experienced users.",
+                    "Activa información y controles técnicos para usuarios experimentados.",
+                    "Aktiviert technische Informationen und Bedienelemente für erfahrene Nutzer.",
+                    "Active les informations et commandes techniques destinées aux utilisateurs expérimentés."
+                  )}</small>
+                </span>
+              </label>
+              <label className="diagnostics-toggle">
+                <input
+                  type="checkbox"
+                  checked={system.legacyPreferences.showDrivingTips}
+                  onChange={event => sendCommand("saveLegacyPreferences", {
+                    advancedModeEnabled: system.legacyPreferences.advancedModeEnabled,
+                    showDrivingTips: event.target.checked
+                  })}
+                />
+                <span>
+                  <strong>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</strong>
+                  <small>{pick(
+                    "Mostra orientações contextuais durante o uso do NavBR.",
+                    "Shows contextual guidance while using NavBR.",
+                    "Muestra orientación contextual durante el uso de NavBR.",
+                    "Zeigt kontextbezogene Hinweise während der Nutzung von NavBR.",
+                    "Affiche des conseils contextuels pendant l’utilisation de NavBR."
+                  )}</small>
+                </span>
+              </label>
+            </div>
+          </article>
+        </section>
+      )}
 
       {tab === "installations" && (
         <section className="settings-installations">
@@ -2489,7 +3289,7 @@ function Settings({
         </section>
       )}
 
-      {tab === "hud" && <HudSettingsPanel hud={system.hud} />}
+      {tab === "hud" && <HudSettingsPanel hud={system.hud} omsiRunning={Boolean(state?.omsi.running)} />}
 
       {tab === "roadmap" && <RoadmapStudioPanel roadmap={state!.roadmapStudio} />}
 
@@ -2665,59 +3465,6 @@ function Settings({
         </section>
       )}
 
-      {tab === "advanced" && (
-        <section className="advanced-grid settings-advanced">
-          <article className="card compact-card">
-            <span className="eyebrow">{pick("PREFERÊNCIAS", "PREFERENCES", "PREFERENCIAS", "EINSTELLUNGEN", "PRÉFÉRENCES")}</span>
-            <h3>{pick("Comportamento geral", "General behavior", "Comportamiento general", "Allgemeines Verhalten", "Comportement général")}</h3>
-            <label className="diagnostics-toggle">
-              <input
-                type="checkbox"
-                checked={system.legacyPreferences.advancedModeEnabled}
-                onChange={event => sendCommand("saveLegacyPreferences", {
-                  advancedModeEnabled: event.target.checked,
-                  showDrivingTips: system.legacyPreferences.showDrivingTips
-                })}
-              />
-              <span>{pick("Modo avançado", "Advanced mode", "Modo avanzado", "Erweiterter Modus", "Mode avancé")}</span>
-            </label>
-            <label className="diagnostics-toggle">
-              <input
-                type="checkbox"
-                checked={system.legacyPreferences.showDrivingTips}
-                onChange={event => sendCommand("saveLegacyPreferences", {
-                  advancedModeEnabled: system.legacyPreferences.advancedModeEnabled,
-                  showDrivingTips: event.target.checked
-                })}
-              />
-              <span>{pick("Dicas de direção", "Driving tips", "Consejos de conducción", "Fahrtipps", "Conseils de conduite")}</span>
-            </label>
-            <p>{pick("Essas preferências são salvas automaticamente para os próximos usos.", "These preferences are saved automatically for future sessions.", "Estas preferencias se guardan automáticamente para próximos usos.", "Diese Einstellungen werden automatisch für kommende Sitzungen gespeichert.", "Ces préférences sont enregistrées automatiquement pour les prochaines utilisations.")}</p>
-          </article>
-
-          <article className="card compact-card">
-            <span className="eyebrow">MULTIPLAYER</span>
-            <h3>{pick("Rede e conectividade", "Network and connectivity", "Red y conectividad", "Netzwerk und Konnektivität", "Réseau et connectivité")}</h3>
-            <p>{pick("Ajuste conexão, atalhos, voz e ônibus físicos na área de Rede.", "Configure connection, shortcuts, voice and physical buses in Network.", "Configura conexión, atajos, voz y autobuses físicos en Red.", "Verbindung, Tastenkürzel, Sprache und physische Busse findest du unter Netzwerk.", "Réglez la connexion, les raccourcis, la voix et les bus physiques dans Réseau.")}</p>
-            <button className="button ghost" onClick={() => setTab("network")}>{pick("Abrir Rede", "Open Network", "Abrir Red", "Netzwerk öffnen", "Ouvrir Réseau")}</button>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">HUD</span>
-            <h3>{pick("Personalização", "Customization", "Personalización", "Anpassung", "Personnalisation")}</h3>
-            <p>{pick("Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.", "Presets, theme, scale, opacity and modules are available in the HUD tab.", "Presets, tema, escala, opacidad y módulos están disponibles en la pestaña HUD.", "Presets, Thema, Skalierung, Deckkraft und Module sind im HUD-Tab verfügbar.", "Préréglages, thème, échelle, opacité et modules sont disponibles dans l’onglet HUD.")}</p>
-            <div className="settings-action-row">
-              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir HUD", "Open HUD", "Abrir HUD", "HUD öffnen", "Ouvrir HUD")}</button>
-              <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
-            </div>
-          </article>
-          <article className="card compact-card">
-            <span className="eyebrow">ROADMAP</span>
-            <h3>Roadmap Studio</h3>
-            <p>{pick("Analise mapas, monte o roadmap e gere a visão vetorial das ruas em um só lugar.", "Analyze maps, assemble the roadmap and generate the vector road view in one place.", "Analiza mapas, monta el roadmap y genera la vista vectorial de las calles en un solo lugar.", "Analysiere Karten, erstelle die Roadmap und erzeuge die Vektoransicht der Straßen an einem Ort.", "Analysez les cartes, assemblez la roadmap et générez la vue vectorielle des routes au même endroit.")}</p>
-            <button className="button ghost" onClick={() => setTab("roadmap")}>{pick("Abrir Roadmap Studio", "Open Roadmap Studio", "Abrir Roadmap Studio", "Roadmap Studio öffnen", "Ouvrir Roadmap Studio")}</button>
-          </article>
-        </section>
-      )}
     </>
   );
 }
@@ -3377,16 +4124,47 @@ function Multiplayer({
         }</strong></div>
       </section>
 
-      <div className="mp-tabs" role="tablist">
+      <div className="multiplayer-group-nav" role="tablist">
         {([
-          ["overview", "Visão geral"],
-          ["room", pick("Sala", "Room", "Sala", "Raum", "Salle")],
-          ["players", pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")],
-          ["chat", pick("Chat & Voz", "Chat & Voice", "Chat y Voz", "Chat & Sprache", "Chat & Voix")],
-          ["roleplay", pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP")],
-          ["advanced", pick("Avançado", "Advanced", "Avanzado", "Erweitert", "Avancé")]
-        ] as [MultiplayerTab, string][]).map(([key, label]) => (
-          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+          {
+            id: "session",
+            label: pick("SESSÃO", "SESSION", "SESIÓN", "SITZUNG", "SESSION"),
+            items: [
+              ["overview", pick("Visão geral", "Overview", "Resumen", "Übersicht", "Vue d’ensemble")],
+              ["room", pick("Sala", "Room", "Sala", "Raum", "Salle")],
+              ["players", pick("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs")]
+            ]
+          },
+          {
+            id: "social",
+            label: pick("COMUNICAÇÃO & RP", "COMMUNICATION & RP", "COMUNICACIÓN & RP", "KOMMUNIKATION & RP", "COMMUNICATION & RP"),
+            items: [
+              ["chat", pick("Chat & Voz", "Chat & Voice", "Chat y Voz", "Chat & Sprache", "Chat & Voix")],
+              ["roleplay", pick("Personagem / RP", "Character / RP", "Personaje / RP", "Charakter / RP", "Personnage / RP")]
+            ]
+          },
+          {
+            id: "system",
+            label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+            items: [
+              ["advanced", pick("Avançado", "Advanced", "Avanzado", "Erweitert", "Avancé")]
+            ]
+          }
+        ] as Array<{ id: string; label: string; items: [MultiplayerTab, string][] }>).map(group => (
+          <section className="multiplayer-nav-group" key={group.id}>
+            <span>{group.label}</span>
+            <div>
+              {group.items.map(([key, label]) => (
+                <button
+                  key={key}
+                  className={tab === key ? "active" : ""}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
@@ -4881,7 +5659,7 @@ export default function App() {
         const requestedSettingsTab = requested?.startsWith("settings-")
           ? requested.slice("settings-".length) as SettingsTab
           : null;
-        if (requestedSettingsTab && ["installations", "hud", "roadmap", "diagnostics", "network", "advanced"].includes(requestedSettingsTab)) {
+        if (requestedSettingsTab && ["general", "installations", "hud", "roadmap", "diagnostics", "network"].includes(requestedSettingsTab)) {
           setSettingsTabRequest(requestedSettingsTab);
           setScreen("settings");
         } else if (requested === "navigation-3d") {
@@ -4924,7 +5702,12 @@ export default function App() {
           onOpenInstallations={() => openSettingsTab("installations")}
         />
         {screen === "home"
-          ? <Home state={state} />
+          ? <Home
+              state={state}
+              onNavigate={setScreen}
+              onOpenHud={() => openSettingsTab("hud")}
+              onOpenRoadmap={() => openSettingsTab("roadmap")}
+            />
           : screen === "navigation"
             ? <Navigation state={state} requestedView={navigationViewRequest} />
             : screen === "roleplay"

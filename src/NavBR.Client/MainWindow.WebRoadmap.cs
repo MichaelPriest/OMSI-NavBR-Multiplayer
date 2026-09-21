@@ -28,6 +28,25 @@ public partial class MainWindow
                         "texture",
                         "map",
                         "whole.roadmap.bmp");
+                    var hdRoadmapPath = Path.Combine(
+                        map.DirectoryPath,
+                        "texture",
+                        "map",
+                        OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
+                    var roadmapExists = File.Exists(roadmapPath);
+                    var hdRoadmapExists = File.Exists(hdRoadmapPath);
+                    var roadmapPreviewUrl = roadmapExists
+                        ? TryBuildWebMapResourceUrl(map, roadmapPath)
+                        : null;
+                    var hdRoadmapPreviewUrl = hdRoadmapExists
+                        ? TryBuildWebMapResourceUrl(map, hdRoadmapPath)
+                        : null;
+                    var activeUsesHd =
+                        hdRoadmapExists &&
+                        string.Equals(
+                            map.RoadmapPath,
+                            hdRoadmapPath,
+                            StringComparison.OrdinalIgnoreCase);
                     return new
                     {
                         folderName = map.FolderName,
@@ -36,7 +55,12 @@ public partial class MainWindow
                         tileCount = map.TileCount,
                         compatibilityId = map.CompatibilityId,
                         roadmapPath,
-                        roadmapExists = File.Exists(roadmapPath)
+                        roadmapExists,
+                        roadmapPreviewUrl,
+                        hdRoadmapPath,
+                        hdRoadmapExists,
+                        hdRoadmapPreviewUrl,
+                        activeUsesHd
                     };
                 })
                 .ToArray(),
@@ -79,7 +103,8 @@ public partial class MainWindow
                     tileImagesUsed = _webRoadmapResult.TileImagesUsed,
                     missingTileImages = _webRoadmapResult.MissingTileImages,
                     tileFilesRead = _webRoadmapResult.TileFilesRead,
-                    splinesDrawn = _webRoadmapResult.SplinesDrawn
+                    splinesDrawn = _webRoadmapResult.SplinesDrawn,
+                    quality = _webRoadmapResult.Quality
                 }
         };
     }
@@ -132,6 +157,7 @@ public partial class MainWindow
                 map,
                 progress);
 
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
             _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
             _webRoadmapResult = new WebRoadmapResult(
                 "tiles",
@@ -144,6 +170,7 @@ public partial class MainWindow
                 result.TileImagesUsed,
                 result.MissingTileImages,
                 null,
+                null,
                 null);
             _webRoadmapProgress = 1d;
             _webRoadmapStatus = "tiles-built";
@@ -151,6 +178,68 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _webRoadmapStatus = "tiles-build-failed";
+            _webRoadmapError = ex.Message;
+            throw;
+        }
+        finally
+        {
+            _webRoadmapBusy = false;
+        }
+    }
+
+    private async Task BuildRoadmapHdFromWebAsync(
+        string? folderName,
+        string? quality)
+    {
+        var map = ResolveWebRoadmapMap(folderName);
+        var normalizedQuality = string.Equals(
+            quality,
+            "ultra",
+            StringComparison.OrdinalIgnoreCase)
+            ? "ultra"
+            : "hd";
+        BeginWebRoadmapBuild(map, "building-hd");
+
+        try
+        {
+            var progress = new Progress<double>(value =>
+            {
+                _webRoadmapProgress = Math.Clamp(
+                    double.IsFinite(value) ? value : 0d,
+                    0d,
+                    1d);
+            });
+            var result = await _webRoadmapVectorGenerator.BuildHdAsync(
+                map,
+                normalizedQuality,
+                progress);
+
+            _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
+            var fileSize = File.Exists(result.OutputPath)
+                ? new FileInfo(result.OutputPath).Length
+                : null as long?;
+
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
+
+            _webRoadmapResult = new WebRoadmapResult(
+                "hd",
+                result.OutputPath,
+                null,
+                result.PixelWidth,
+                result.PixelHeight,
+                result.Elapsed.TotalSeconds,
+                fileSize,
+                null,
+                null,
+                result.TileFilesRead,
+                result.SplinesDrawn,
+                normalizedQuality);
+            _webRoadmapProgress = 1d;
+            _webRoadmapStatus = "hd-built";
+        }
+        catch (Exception ex)
+        {
+            _webRoadmapStatus = "hd-build-failed";
             _webRoadmapError = ex.Message;
             throw;
         }
@@ -178,6 +267,7 @@ public partial class MainWindow
                 map,
                 progress);
 
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
             _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
             var fileSize = File.Exists(result.OutputPath)
                 ? new FileInfo(result.OutputPath).Length
@@ -193,7 +283,8 @@ public partial class MainWindow
                 null,
                 null,
                 result.TileFilesRead,
-                result.SplinesDrawn);
+                result.SplinesDrawn,
+                null);
             _webRoadmapProgress = 1d;
             _webRoadmapStatus = "vector-built";
         }
@@ -206,6 +297,52 @@ public partial class MainWindow
         finally
         {
             _webRoadmapBusy = false;
+        }
+    }
+
+    private void RefreshGeneratedRoadmapConsumers(
+        OmsiMapInfo map,
+        string generatedOutputPath)
+    {
+        var hdPath = Path.Combine(
+            map.DirectoryPath,
+            "texture",
+            "map",
+            OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
+        var preferredPath = File.Exists(hdPath)
+            ? hdPath
+            : generatedOutputPath;
+
+        _installedMaps = _installedMaps
+            .Select(item =>
+                string.Equals(
+                    item.FolderName,
+                    map.FolderName,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? item with { RoadmapPath = preferredPath }
+                    : item)
+            .ToArray();
+
+        // Force the 2D/3D WebView navigation payloads to resolve the new
+        // bitmap and cached PNG on the very next state update.
+        _webNavigationMapKey = null;
+        _webNavigationRouteKey = null;
+
+        // The retired WPF GPS is still used as an internal compatibility host
+        // in a few paths. Drop its bitmap identity too so it cannot pin the
+        // previous roadmap in memory.
+        _loadedRoadmapPath = null;
+        _loadedRoadmapBitmap = null;
+        _loadedRoadmapLayout = null;
+        _roadmapZoomInitialized = false;
+
+        // HUD overlay has its own BitmapImage cache. Push the updated map
+        // immediately rather than waiting for the 200 ms refresh timer.
+        if (_hudOverlay is not null)
+        {
+            _hudOverlay.UpdateLocalTelemetry(
+                _lastTelemetry,
+                GetActiveMapForMultiplayer());
         }
     }
 
@@ -264,5 +401,6 @@ public partial class MainWindow
         int? TileImagesUsed,
         int? MissingTileImages,
         int? TileFilesRead,
-        int? SplinesDrawn);
+        int? SplinesDrawn,
+        string? Quality);
 }

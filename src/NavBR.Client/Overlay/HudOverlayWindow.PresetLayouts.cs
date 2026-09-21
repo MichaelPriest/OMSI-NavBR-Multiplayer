@@ -81,6 +81,9 @@ public partial class HudOverlayWindow
 
         switch (preset)
         {
+            case "immersive-operation":
+                ApplyImmersiveOperationPreset();
+                break;
             case "compact":
                 ApplyCompactPreset();
                 break;
@@ -141,6 +144,46 @@ public partial class HudOverlayWindow
         _busDashboardDock.CornerRadius = new CornerRadius(18d);
         _busDashboardDock.BorderThickness = new Thickness(1.2d);
         _busDashboardDock.Padding = new Thickness(10d);
+    }
+
+    private void ApplyImmersiveOperationPreset()
+    {
+        _dashboardSpeedText!.FontSize = 44d;
+        _dashboardSpeedText.FontWeight = FontWeights.Bold;
+
+        if (_presetSpeedPanel is not null)
+        {
+            _presetSpeedPanel.Width = 124d;
+            _presetSpeedPanel.Height = 104d;
+            _presetSpeedPanel.CornerRadius = new CornerRadius(14d);
+            _presetSpeedPanel.BorderBrush = new SolidColorBrush(Color.FromArgb(150, 80, 170, 235));
+            _presetSpeedPanel.BorderThickness = new Thickness(1d);
+            _presetSpeedPanel.Background = new SolidColorBrush(Color.FromArgb(205, 5, 17, 27));
+            _presetSpeedPanel.Padding = new Thickness(8d);
+        }
+
+        if (_dashboardAccelerationText is not null)
+        {
+            _dashboardAccelerationText.FontSize = 8.5d;
+        }
+
+        if (_alpha12DestinationText is not null)
+        {
+            _alpha12DestinationText.FontSize = 20d;
+            _alpha12DestinationText.FontWeight = FontWeights.Bold;
+        }
+
+        if (_alpha12NextStopText is not null)
+        {
+            _alpha12NextStopText.FontSize = 15.5d;
+            _alpha12NextStopText.FontWeight = FontWeights.SemiBold;
+        }
+
+        _busDashboardDock.CornerRadius = new CornerRadius(13d);
+        _busDashboardDock.BorderThickness = new Thickness(1d);
+        _busDashboardDock.Padding = new Thickness(10d, 8d, 10d, 8d);
+        _busDashboardDock.Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 24));
+        _busDashboardDock.BorderBrush = new SolidColorBrush(Color.FromArgb(145, 61, 139, 194));
     }
 
     private void ApplyCompactPreset()

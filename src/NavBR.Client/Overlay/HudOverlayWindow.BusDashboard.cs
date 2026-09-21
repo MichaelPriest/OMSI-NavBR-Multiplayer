@@ -103,6 +103,8 @@ public partial class HudOverlayWindow
         _busDashboardTimer.Start();
 
         MultiplayerSettingsStore.SettingsSaved += DashboardSettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += DashboardPreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += DashboardPreviewCleared;
         Closed += DashboardWindow_Closed;
 
         InstallMainWindowDashboardButton();
@@ -605,7 +607,7 @@ public partial class HudOverlayWindow
             DashboardX = Math.Clamp((_busDashboardTransform.X - 8d) / maxX, 0d, 1d),
             DashboardY = Math.Clamp((_busDashboardTransform.Y - 8d) / maxY, 0d, 1d)
         };
-        MultiplayerSettingsStore.Save(_hudSettings);
+        SaveDashboardSettings(_hudSettings);
     }
 
     private void ResetDashboard()
@@ -617,7 +619,7 @@ public partial class HudOverlayWindow
             DashboardScale = 1d,
             DashboardOpacity = 0.92d
         };
-        MultiplayerSettingsStore.Save(_hudSettings);
+        SaveDashboardSettings(_hudSettings);
         ApplyDashboardSettings();
     }
 
@@ -703,6 +705,12 @@ public partial class HudOverlayWindow
     private void SaveDashboardSettings(MultiplayerSettings settings)
     {
         _hudSettings = settings;
+        if (MultiplayerSettingsStore.IsHudPreviewActive)
+        {
+            MultiplayerSettingsStore.PreviewHud(_hudSettings);
+            return;
+        }
+
         MultiplayerSettingsStore.Save(_hudSettings);
         ApplyDashboardSettings();
     }
@@ -733,6 +741,18 @@ public partial class HudOverlayWindow
         _ = Dispatcher.BeginInvoke(ApplyDashboardSettings);
     }
 
+    private void DashboardPreviewChanged(MultiplayerSettings settings)
+    {
+        _hudSettings = settings;
+        _ = Dispatcher.BeginInvoke(ApplyDashboardSettings);
+    }
+
+    private void DashboardPreviewCleared()
+    {
+        _hudSettings = MultiplayerSettingsStore.Load();
+        _ = Dispatcher.BeginInvoke(ApplyDashboardSettings);
+    }
+
     private void DashboardWindow_Closed(object? sender, EventArgs e)
     {
         if (_busDashboardTimer is not null)
@@ -742,6 +762,8 @@ public partial class HudOverlayWindow
             _busDashboardTimer = null;
         }
         MultiplayerSettingsStore.SettingsSaved -= DashboardSettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= DashboardPreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= DashboardPreviewCleared;
         CompositionTarget.Rendering -= KeepLocalGpsMarkerHeadingUp;
         Closed -= DashboardWindow_Closed;
     }

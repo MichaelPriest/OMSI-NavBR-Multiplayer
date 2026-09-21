@@ -27,6 +27,7 @@ internal sealed class HudCustomizationWindow : Window
     private readonly CheckBox _multiplayer = new();
     private readonly CheckBox _alerts = new();
     private readonly CheckBox _sideIndicators = new();
+    private readonly TextBlock _moduleHint = new();
     private readonly TextBlock _scaleValue = ValueText();
     private readonly TextBlock _widthValue = ValueText();
     private readonly TextBlock _heightValue = ValueText();
@@ -181,7 +182,17 @@ internal sealed class HudCustomizationWindow : Window
         ConfigureModuleCheck(_multiplayer, T("Multiplayer no painel", "Multiplayer panel", "Multijugador en el panel", "Mehrspieler im Panel", "Multijoueur dans le panneau"), grid, 2, 0);
         ConfigureModuleCheck(_alerts, T("Alertas discretos", "Discrete alerts", "Alertas discretas", "Diskrete Warnungen", "Alertes discrètes"), grid, 2, 1);
         ConfigureModuleCheck(_sideIndicators, T("Indicadores laterais", "Side indicators", "Indicadores laterales", "Seitliche Anzeigen", "Indicateurs latéraux"), grid, 3, 0);
-        return Card(T("Módulos visíveis", "Visible widgets", "Módulos visibles", "Sichtbare Module", "Modules visibles"), grid);
+
+        var stack = new StackPanel();
+        stack.Children.Add(grid);
+        _moduleHint.Margin = new Thickness(0d, 10d, 0d, 0d);
+        _moduleHint.Foreground = Brush(112, 145, 165);
+        _moduleHint.FontSize = 9.5d;
+        _moduleHint.TextWrapping = TextWrapping.Wrap;
+        _moduleHint.Visibility = Visibility.Collapsed;
+        stack.Children.Add(_moduleHint);
+
+        return Card(T("Módulos visíveis", "Visible widgets", "Módulos visibles", "Sichtbare Module", "Modules visibles"), stack);
     }
 
     private Border BuildWidgetScaleCard()
@@ -203,6 +214,7 @@ internal sealed class HudCustomizationWindow : Window
                 return;
             }
             LoadPresetDefaults(HudProfileCatalog.ResolvePreset(id));
+            UpdateModuleHint(id);
         };
 
         _scale.ValueChanged += (_, _) => RefreshValues();
@@ -237,6 +249,7 @@ internal sealed class HudCustomizationWindow : Window
             _anchor.SelectedValue = settings.DashboardAnchor;
 
             SetControls(settings);
+            UpdateModuleHint(settings.DashboardPreset);
         }
         finally
         {
@@ -333,6 +346,26 @@ internal sealed class HudCustomizationWindow : Window
         MultiplayerSettingsStore.Save(updated);
         DialogResult = true;
         Close();
+    }
+
+    private void UpdateModuleHint(string? presetId)
+    {
+        var isMinimal = string.Equals(
+            HudProfileCatalog.NormalizePresetId(presetId),
+            "minimal-driver",
+            StringComparison.OrdinalIgnoreCase);
+
+        _moduleHint.Visibility = isMinimal
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _moduleHint.Text = isMinimal
+            ? T(
+                "Minimapa contextual: fica oculto durante a operação normal e aparece automaticamente somente quando a rota está resolvida e o ônibus sai dela.",
+                "Contextual minimap: stays hidden during normal operation and appears automatically only when the route is resolved and the bus goes off route.",
+                "Minimapa contextual: permanece oculto durante la operación normal y aparece automáticamente solo cuando la ruta está resuelta y el autobús sale de ella.",
+                "Kontext-Minimap: bleibt im Normalbetrieb verborgen und erscheint automatisch nur bei aufgelöster Route und Verlassen der Route.",
+                "Mini-carte contextuelle : reste masquée en fonctionnement normal et apparaît automatiquement uniquement lorsque l’itinéraire est résolu et que le bus le quitte.")
+            : string.Empty;
     }
 
     private void RefreshValues()
@@ -501,6 +534,7 @@ internal sealed class HudCustomizationWindow : Window
     private static IReadOnlyList<Choice> AnchorChoices() =>
     [
         new("free", T("Livre", "Free", "Libre", "Frei", "Libre")),
+        new("custom", T("Personalizada (HUD composto)", "Custom (composed HUD)", "Personalizada (HUD compuesto)", "Benutzerdefiniert (HUD)", "Personnalisée (HUD composé)")),
         new("top-left", T("Superior esquerdo", "Top left", "Superior izquierda", "Oben links", "Haut gauche")),
         new("top-center", T("Superior central", "Top center", "Superior centro", "Oben mittig", "Haut centre")),
         new("top-right", T("Superior direito", "Top right", "Superior derecha", "Oben rechts", "Haut droite")),

@@ -30,6 +30,94 @@ public static class HudProfileCatalog
     public static IReadOnlyList<HudPresetDefinition> Presets { get; } =
     [
         new(
+            "immersive-operation",
+            "Imersivo / Operação",
+            "immersive-operation",
+            "HUD de operação em tela",
+            "Barra superior, minimapa, multiplayer, voz e status usando apenas estado real do NavBR.",
+            820d, 0.88d, 0.86d,
+            true, false, true, true, true, true, true),
+        new(
+            "transit-control",
+            "Transit Control",
+            "transit-control",
+            "Operação profissional",
+            "Painel operacional amplo com rota, próxima parada, atraso, mapa, multiplayer e estados do veículo.",
+            860d, 0.90d, 0.92d,
+            true, false, true, true, true, true, true),
+        new(
+            "cockpit-digital",
+            "Cockpit Digital",
+            "cockpit-digital",
+            "Painel digital moderno",
+            "Cluster central moderno com velocidade e serviço em destaque, minimapa compacto e baixa obstrução da cabine.",
+            780d, 0.90d, 0.94d,
+            true, false, true, true, false, true, true),
+        new(
+            "navigation-pro",
+            "Navigation Pro",
+            "navigation-pro",
+            "GPS / route advisor",
+            "Prioriza navegação, rota, próxima parada e um minimapa maior para linhas e mapas menos conhecidos.",
+            800d, 0.90d, 0.92d,
+            true, false, true, true, false, true, true),
+        new(
+            "multiplayer-focus",
+            "Multiplayer Focus",
+            "multiplayer-focus",
+            "Comboio / RP online",
+            "Destaca jogadores próximos, distância, ping, chat e voz/PTT sem perder mapa, rota e telemetria local.",
+            820d, 0.90d, 0.90d,
+            true, false, true, true, true, true, true),
+        new(
+            "classic-omsi-plus",
+            "Classic OMSI+",
+            "classic-omsi-plus",
+            "OMSI clássico modernizado",
+            "Visual âmbar e compacto inspirado nos displays tradicionais do OMSI, com dados atuais do NavBR.",
+            720d, 0.88d, 0.94d,
+            true, false, true, false, false, true, true),
+        new(
+            "minimal-driver",
+            "Minimal Driver",
+            "minimal-driver",
+            "Direção limpa",
+            "Mostra somente serviço, velocidade, próxima parada e alertas essenciais; o minimapa aparece apenas quando necessário para retorno à rota.",
+            620d, 0.82d, 0.78d,
+            false, false, true, true, false, true, true),
+        new(
+            "streamer-broadcast",
+            "Streamer / Broadcast",
+            "streamer-broadcast",
+            "Live / gravação",
+            "Mantém o centro da tela livre e distribui rota, mapa e multiplayer nas bordas para transmissões e vídeos.",
+            820d, 0.86d, 0.80d,
+            true, false, true, true, true, true, true),
+        new(
+            "glass-night",
+            "Glass / Night HUD",
+            "glass-night",
+            "Condução noturna",
+            "Painéis escuros translúcidos e discretos para dirigir à noite sem esconder a cabine.",
+            780d, 0.84d, 0.64d,
+            true, false, true, true, true, true, true),
+        new(
+            "city-operations",
+            "City Operations",
+            "city-operations",
+            "Gestão urbana",
+            "Composição modular de operação com mapa maior, serviço, estados do veículo e multiplayer simultâneos.",
+            900d, 0.92d, 0.90d,
+            true, true, true, true, true, true, true),
+        new(
+            "driver-assistance",
+            "Driver Assistance",
+            "driver-assistance",
+            "Assistência ao motorista",
+            "Prioriza próxima parada, rota e alertas reais de portas, freio, ré, setas, luzes e saída operacional.",
+            760d, 0.90d, 0.92d,
+            true, false, true, true, false, true, true),
+        new(
             "rp-urban",
             "RP Urbano",
             "urban-glass",
@@ -38,14 +126,6 @@ public static class HudProfileCatalog
             520d, 0.86d, 0.86d,
             true, false, true, true, true, true, true),
         new(
-            "route-advisor",
-            "Route Advisor",
-            "route-night",
-            "Truck / bus simulator",
-            "Prioriza linha, destino, próxima parada e orientação de rota com leitura rápida.",
-            560d, 0.88d, 0.91d,
-            true, false, true, true, false, true, true),
-        new(
             "racing-minimal",
             "Corrida Minimal",
             "racing-clean",
@@ -53,14 +133,6 @@ public static class HudProfileCatalog
             "Velocidade grande, baixa obstrução e indicadores essenciais próximos ao campo de visão.",
             390d, 0.86d, 0.80d,
             false, true, true, false, false, true, true),
-        new(
-            "transit-pro",
-            "Transit Pro",
-            "transit-control",
-            "Transit operations",
-            "Painel operacional para ônibus com atraso, parada solicitada, combustível e estados do veículo.",
-            500d, 0.88d, 0.94d,
-            true, false, true, true, true, true, true),
         new(
             "compact",
             "Compacto",
@@ -86,14 +158,6 @@ public static class HudProfileCatalog
             620d, 0.92d, 0.90d,
             true, true, true, true, true, true, true),
         new(
-            "digital-cluster",
-            "Cluster Digital",
-            "current",
-            "Digital cockpit",
-            "Cluster escuro de alta legibilidade focado em velocidade e indicadores.",
-            540d, 0.88d, 0.94d,
-            true, false, true, false, false, true, true),
-        new(
             "lcd-amber",
             "LCD / Âmbar",
             "current",
@@ -114,10 +178,20 @@ public static class HudProfileCatalog
     public static IReadOnlyList<HudThemeDefinition> Themes { get; } =
     [
         new("current", "Atual / NavBR Clássico"),
+        new("immersive-operation", "Imersivo / Operação"),
+        new("transit-control", "Transit Control"),
+        new("cockpit-digital", "Cockpit Digital"),
+        new("navigation-pro", "Navigation Pro"),
+        new("multiplayer-focus", "Multiplayer Focus"),
+        new("classic-omsi-plus", "Classic OMSI+"),
+        new("minimal-driver", "Minimal Driver"),
+        new("streamer-broadcast", "Streamer / Broadcast"),
+        new("glass-night", "Glass / Night HUD"),
+        new("city-operations", "City Operations"),
+        new("driver-assistance", "Driver Assistance"),
         new("urban-glass", "Urban Glass"),
         new("route-night", "Route Night"),
         new("racing-clean", "Racing Clean"),
-        new("transit-control", "Transit Control"),
         new("navbr-modern", "NavBR Modern"),
         new("bus-panel", "Painel de ônibus"),
         new("lcd", "LCD"),
@@ -128,6 +202,7 @@ public static class HudProfileCatalog
     public static IReadOnlyList<string> Anchors { get; } =
     [
         "free",
+        "custom",
         "top-left",
         "top-center",
         "top-right",
@@ -136,9 +211,35 @@ public static class HudProfileCatalog
         "bottom-right"
     ];
 
-    public static HudPresetDefinition ResolvePreset(string? id) =>
-        Presets.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase))
-        ?? Presets.Single(item => item.Id == DefaultPreset);
+    public static string NormalizePresetId(string? id) =>
+        (id ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "transit-pro" => "transit-control",
+            "route-advisor" => "navigation-pro",
+            "digital-cluster" => "cockpit-digital",
+            _ => (id ?? string.Empty).Trim().ToLowerInvariant()
+        };
+
+    public static bool IsComposedPreset(string? id) =>
+        NormalizePresetId(id) is
+            "immersive-operation" or
+            "transit-control" or
+            "cockpit-digital" or
+            "navigation-pro" or
+            "multiplayer-focus" or
+            "classic-omsi-plus" or
+            "minimal-driver" or
+            "streamer-broadcast" or
+            "glass-night" or
+            "city-operations" or
+            "driver-assistance";
+
+    public static HudPresetDefinition ResolvePreset(string? id)
+    {
+        var normalized = NormalizePresetId(id);
+        return Presets.FirstOrDefault(item => string.Equals(item.Id, normalized, StringComparison.OrdinalIgnoreCase))
+            ?? Presets.Single(item => item.Id == DefaultPreset);
+    }
 
     public static HudThemeDefinition ResolveTheme(string? id) =>
         Themes.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase))

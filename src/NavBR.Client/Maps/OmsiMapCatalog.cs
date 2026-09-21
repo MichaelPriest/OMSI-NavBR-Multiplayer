@@ -150,6 +150,7 @@ public sealed class OmsiMapCatalog
         var textureMapDirectory = Path.Combine(directory, "texture", "map");
         var exactCandidates = new[]
         {
+            Path.Combine(textureMapDirectory, OmsiRoadmapVectorGeneratorService.HdRoadmapFileName),
             Path.Combine(textureMapDirectory, "whole.roadmap.bmp"),
             Path.Combine(textureMapDirectory, "roadmap.bmp"),
             Path.Combine(directory, "whole.roadmap.bmp"),
