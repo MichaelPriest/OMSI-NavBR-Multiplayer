@@ -4,6 +4,7 @@ import { NavBrIcon, type NavBrIconName } from "./NavBrIcon";
 import {
   type NavBrCompanyMember,
   type NavBrGhostState,
+  type NavBrHudPreset,
   type NavBrHudState,
   type NavBrMultiplayerState,
   type NavBrNavigationState,
@@ -1945,7 +1946,7 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       ...group,
       presets: group.ids
         .map(id => hud.presets.find(item => item.id === id))
-        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+        .filter((item): item is NavBrHudPreset => Boolean(item))
     }))
     .filter(group => group.presets.length > 0);
 
