@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Multiplayer;
@@ -17,6 +18,10 @@ public partial class HudOverlayWindow
     private Border? _immersiveMiniMapPanel;
     private Border? _immersiveMultiplayerPanel;
     private Border? _immersiveFocusPanel;
+    private Border? _immersiveFocusMoveHandle;
+    private bool _immersiveFocusDragging;
+    private Point _immersiveFocusDragStartMouse;
+    private Point _immersiveFocusDragStartPosition;
     private Border? _immersiveAlertPanel;
     private TextBlock? _immersiveAlertText;
     private Border? _immersiveSideIndicatorPanel;
@@ -75,6 +80,7 @@ public partial class HudOverlayWindow
         _immersiveOperationTimer.Start();
 
         MultiplayerSettingsStore.SettingsSaved += ImmersiveOperation_SettingsSaved;
+        LayoutEditModeChanged += ImmersiveOperation_LayoutEditModeChanged;
         Closed += ImmersiveOperation_Closed;
         SizeChanged += ImmersiveOperation_SizeChanged;
 
@@ -334,6 +340,36 @@ public partial class HudOverlayWindow
     private Border BuildImmersiveFocusPanel()
     {
         var stack = new StackPanel();
+
+        _immersiveFocusMoveHandle = new Border
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+            Padding = new Thickness(8d, 5d, 8d, 5d),
+            Background = new SolidColorBrush(Color.FromArgb(225, 18, 38, 51)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(145, 90, 176, 226)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(7d),
+            Cursor = Cursors.SizeAll,
+            Visibility = Visibility.Collapsed,
+            Child = new TextBlock
+            {
+                Text = ImmersiveText(
+                    "▦ ARRASTE O PAINEL • DUPLO CLIQUE = RESET",
+                    "▦ DRAG PANEL • DOUBLE CLICK = RESET",
+                    "▦ ARRASTRA EL PANEL • DOBLE CLIC = RESET",
+                    "▦ PANEL ZIEHEN • DOPPELKLICK = RESET",
+                    "▦ GLISSER LE PANNEAU • DOUBLE-CLIC = RESET"),
+                Foreground = new SolidColorBrush(Color.FromRgb(151, 211, 244)),
+                FontFamily = new FontFamily("Bahnschrift"),
+                FontSize = 8.5d,
+                FontWeight = FontWeights.Bold,
+                TextAlignment = TextAlignment.Center
+            }
+        };
+        _immersiveFocusMoveHandle.MouseLeftButtonDown += ImmersiveFocusHandle_MouseLeftButtonDown;
+        _immersiveFocusMoveHandle.MouseMove += ImmersiveFocusHandle_MouseMove;
+        _immersiveFocusMoveHandle.MouseLeftButtonUp += ImmersiveFocusHandle_MouseLeftButtonUp;
+        stack.Children.Add(_immersiveFocusMoveHandle);
 
         _immersiveFocusEyebrowText = new TextBlock
         {
@@ -670,6 +706,7 @@ public partial class HudOverlayWindow
         _immersiveFocusPanel.Visibility = showFocusPanel
             ? Visibility.Visible
             : Visibility.Collapsed;
+        UpdateImmersiveFocusEditState();
         _immersiveAlertPanel.Visibility = Visibility.Collapsed;
         _immersiveSideIndicatorPanel.Visibility = Visibility.Collapsed;
 
@@ -1010,8 +1047,18 @@ public partial class HudOverlayWindow
         double edge)
     {
         if (_immersiveFocusPanel is null ||
-            anchor == HudProfileCatalog.DefaultAnchor ||
             _immersiveFocusPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        if (anchor == "custom")
+        {
+            ApplyImmersiveFocusCustomPosition();
+            return;
+        }
+
+        if (anchor == HudProfileCatalog.DefaultAnchor)
         {
             return;
         }
@@ -1070,6 +1117,190 @@ public partial class HudOverlayWindow
                         : bottom);
                 break;
         }
+    }
+
+    private void ImmersiveOperation_LayoutEditModeChanged(bool enabled)
+    {
+        UpdateImmersiveFocusEditState();
+    }
+
+    private void UpdateImmersiveFocusEditState()
+    {
+        if (_immersiveFocusPanel is null || _immersiveFocusMoveHandle is null)
+        {
+            return;
+        }
+
+        var enabled = _hudLayoutEditMode &&
+                      _immersiveOperationActive &&
+                      _immersiveFocusPanel.Visibility == Visibility.Visible;
+        _immersiveFocusPanel.IsHitTestVisible = enabled;
+        _immersiveFocusMoveHandle.Visibility = enabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!enabled && _immersiveFocusDragging)
+        {
+            EndImmersiveFocusDrag(save: true);
+        }
+    }
+
+    private void ImmersiveFocusHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_hudLayoutEditMode ||
+            _immersiveFocusPanel is null ||
+            _immersiveFocusMoveHandle is null)
+        {
+            return;
+        }
+
+        if (e.ClickCount >= 2)
+        {
+            _hudSettings = _hudSettings with
+            {
+                DashboardAnchor = HudProfileCatalog.DefaultAnchor
+            };
+            MultiplayerSettingsStore.Save(_hudSettings);
+            ApplyImmersiveOperationSizing();
+            e.Handled = true;
+            return;
+        }
+
+        var topLeft = _immersiveFocusPanel.TranslatePoint(new Point(0d, 0d), OverlayRoot);
+        _immersiveFocusDragging = true;
+        _immersiveFocusDragStartMouse = e.GetPosition(OverlayRoot);
+        _immersiveFocusDragStartPosition = topLeft;
+        _hudSettings = _hudSettings with { DashboardAnchor = "custom" };
+
+        SetImmersiveFocusPosition(topLeft.X, topLeft.Y);
+        _immersiveFocusMoveHandle.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ImmersiveFocusHandle_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_immersiveFocusDragging ||
+            e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(OverlayRoot);
+        SetImmersiveFocusPosition(
+            _immersiveFocusDragStartPosition.X + current.X - _immersiveFocusDragStartMouse.X,
+            _immersiveFocusDragStartPosition.Y + current.Y - _immersiveFocusDragStartMouse.Y);
+        e.Handled = true;
+    }
+
+    private void ImmersiveFocusHandle_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_immersiveFocusDragging)
+        {
+            return;
+        }
+
+        EndImmersiveFocusDrag(save: true);
+        e.Handled = true;
+    }
+
+    private void EndImmersiveFocusDrag(bool save)
+    {
+        _immersiveFocusDragging = false;
+        _immersiveFocusMoveHandle?.ReleaseMouseCapture();
+
+        if (!save || _immersiveFocusPanel is null)
+        {
+            return;
+        }
+
+        var scale = GetImmersiveDashboardEffectiveScale();
+        var width = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualWidth > 1d
+                ? _immersiveFocusPanel.ActualWidth
+                : _immersiveFocusPanel.Width) * scale);
+        var height = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualHeight > 1d
+                ? _immersiveFocusPanel.ActualHeight
+                : 120d) * scale);
+        var maxX = Math.Max(1d, ActualWidth - width - 16d);
+        var maxY = Math.Max(1d, ActualHeight - height - 16d);
+
+        _hudSettings = _hudSettings with
+        {
+            DashboardAnchor = "custom",
+            DashboardX = Math.Clamp((_immersiveFocusPanel.Margin.Left - 8d) / maxX, 0d, 1d),
+            DashboardY = Math.Clamp((_immersiveFocusPanel.Margin.Top - 8d) / maxY, 0d, 1d)
+        };
+        MultiplayerSettingsStore.Save(_hudSettings);
+    }
+
+    private void ApplyImmersiveFocusCustomPosition()
+    {
+        if (_immersiveFocusPanel is null ||
+            ActualWidth <= 1d ||
+            ActualHeight <= 1d)
+        {
+            return;
+        }
+
+        var scale = GetImmersiveDashboardEffectiveScale();
+        var width = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualWidth > 1d
+                ? _immersiveFocusPanel.ActualWidth
+                : _immersiveFocusPanel.Width) * scale);
+        var height = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualHeight > 1d
+                ? _immersiveFocusPanel.ActualHeight
+                : 120d) * scale);
+        var maxX = Math.Max(1d, ActualWidth - width - 16d);
+        var maxY = Math.Max(1d, ActualHeight - height - 16d);
+
+        SetImmersiveFocusPosition(
+            8d + Math.Clamp(_hudSettings.DashboardX, 0d, 1d) * maxX,
+            8d + Math.Clamp(_hudSettings.DashboardY, 0d, 1d) * maxY);
+    }
+
+    private void SetImmersiveFocusPosition(double x, double y)
+    {
+        if (_immersiveFocusPanel is null)
+        {
+            return;
+        }
+
+        var scale = GetImmersiveDashboardEffectiveScale();
+        var width = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualWidth > 1d
+                ? _immersiveFocusPanel.ActualWidth
+                : _immersiveFocusPanel.Width) * scale);
+        var height = Math.Max(
+            1d,
+            (_immersiveFocusPanel.ActualHeight > 1d
+                ? _immersiveFocusPanel.ActualHeight
+                : 120d) * scale);
+
+        _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Left;
+        _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+        _immersiveFocusPanel.Margin = new Thickness(
+            Math.Clamp(x, 8d, Math.Max(8d, ActualWidth - width - 8d)),
+            Math.Clamp(y, 8d, Math.Max(8d, ActualHeight - height - 8d)),
+            0d,
+            0d);
+    }
+
+    private double GetImmersiveDashboardEffectiveScale()
+    {
+        var resolutionScale = _hudSettings.DashboardAutoScale
+            ? GetResolutionScaleFactor()
+            : 1d;
+        return Math.Clamp(
+            _hudSettings.DashboardScale * resolutionScale,
+            0.60d,
+            1.80d);
     }
 
     private void ApplyComposedPresetPalette(string presetId)
@@ -2038,6 +2269,7 @@ public partial class HudOverlayWindow
     private void ImmersiveOperation_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ImmersiveOperation_SettingsSaved;
+        LayoutEditModeChanged -= ImmersiveOperation_LayoutEditModeChanged;
         SizeChanged -= ImmersiveOperation_SizeChanged;
         _immersiveOrderedStopsKey = null;
         _immersiveOrderedStops = null;

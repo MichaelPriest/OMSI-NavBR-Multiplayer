@@ -153,6 +153,7 @@ public partial class MainWindow
                 anchors = new[]
                 {
                     new { id = "free", displayName = "Livre" },
+                    new { id = "custom", displayName = "Personalizada" },
                     new { id = "top-left", displayName = "Superior esquerdo" },
                     new { id = "top-center", displayName = "Superior centro" },
                     new { id = "top-right", displayName = "Superior direito" },

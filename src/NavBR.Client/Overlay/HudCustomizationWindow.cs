@@ -501,6 +501,7 @@ internal sealed class HudCustomizationWindow : Window
     private static IReadOnlyList<Choice> AnchorChoices() =>
     [
         new("free", T("Livre", "Free", "Libre", "Frei", "Libre")),
+        new("custom", T("Personalizada (HUD composto)", "Custom (composed HUD)", "Personalizada (HUD compuesto)", "Benutzerdefiniert (HUD)", "Personnalisée (HUD composé)")),
         new("top-left", T("Superior esquerdo", "Top left", "Superior izquierda", "Oben links", "Haut gauche")),
         new("top-center", T("Superior central", "Top center", "Superior centro", "Oben mittig", "Haut centre")),
         new("top-right", T("Superior direito", "Top right", "Superior derecha", "Oben rechts", "Haut droite")),

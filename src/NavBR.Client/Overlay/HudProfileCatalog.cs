@@ -202,6 +202,7 @@ public static class HudProfileCatalog
     public static IReadOnlyList<string> Anchors { get; } =
     [
         "free",
+        "custom",
         "top-left",
         "top-center",
         "top-right",

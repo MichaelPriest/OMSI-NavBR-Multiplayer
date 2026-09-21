@@ -147,3 +147,18 @@ painel multiplayer à direita quando esses módulos estão visíveis.
 
 A opção `free` preserva o layout desenhado especificamente para cada preset.
 Presets sem painel de foco mantêm suas barras e módulos nas posições próprias.
+
+
+## Arraste do painel principal
+
+O modo global **Mover HUD** também controla o painel principal dos presets
+compostos que possuem painel de foco.
+
+- o handle aparece somente durante o modo de edição;
+- arrastar grava `DashboardX` e `DashboardY`;
+- o arraste muda a âncora para `custom`;
+- duplo clique no handle retorna para o layout livre/original do preset;
+- sair do modo de edição encerra e salva qualquer arraste em andamento.
+
+A âncora **Personalizada** também fica disponível no editor para preservar uma
+posição criada por arraste.
