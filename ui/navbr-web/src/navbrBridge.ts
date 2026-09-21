@@ -894,6 +894,8 @@ export type NavBrCommand =
   | "stopRoleplay"
   | "openNavigation3D"
   | "toggleHudLayout"
+  | "previewHudSettings"
+  | "clearHudPreview"
   | "saveHudSettings"
   | "resetHudSettings"
   | "analyzeRoadmap"
