@@ -1314,34 +1314,57 @@ public partial class HudOverlayWindow
             return;
         }
 
-        var palette = presetId switch
+        var selectedTheme = HudProfileCatalog.ResolveTheme(_hudSettings.DashboardTheme).Id;
+        var paletteId = selectedTheme switch
+        {
+            "current" => presetId,
+            "navbr-modern" => "immersive-operation",
+            "urban-glass" => "urban-glass",
+            "route-night" => "route-night",
+            "racing-clean" => "racing-clean",
+            "bus-panel" => "bus-panel",
+            "lcd" => "lcd",
+            "amber-classic" => "amber-classic",
+            "light" => "light",
+            _ => selectedTheme
+        };
+
+        var palette = paletteId switch
         {
             "transit-control" => new ComposedHudPalette(
                 Color.FromRgb(4, 18, 27), Color.FromRgb(40, 126, 161), Color.FromRgb(54, 211, 152), Color.FromRgb(238, 248, 251), 10d),
             "cockpit-digital" => new ComposedHudPalette(
                 Color.FromRgb(4, 13, 20), Color.FromRgb(38, 116, 153), Color.FromRgb(52, 199, 255), Color.FromRgb(239, 249, 253), 16d),
-            "navigation-pro" => new ComposedHudPalette(
+            "navigation-pro" or "route-night" => new ComposedHudPalette(
                 Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251), 12d),
             "multiplayer-focus" => new ComposedHudPalette(
                 Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255), 12d),
-            "minimal-driver" => new ComposedHudPalette(
+            "minimal-driver" or "racing-clean" => new ComposedHudPalette(
                 Color.FromRgb(5, 13, 18), Color.FromRgb(47, 79, 96), Color.FromRgb(225, 237, 243), Color.FromRgb(238, 246, 250), 8d),
             "streamer-broadcast" => new ComposedHudPalette(
                 Color.FromRgb(6, 13, 22), Color.FromRgb(61, 105, 139), Color.FromRgb(92, 197, 255), Color.FromRgb(240, 247, 251), 14d),
             "glass-night" => new ComposedHudPalette(
                 Color.FromRgb(3, 9, 17), Color.FromRgb(38, 82, 113), Color.FromRgb(91, 172, 229), Color.FromRgb(210, 230, 243), 16d),
+            "urban-glass" => new ComposedHudPalette(
+                Color.FromRgb(4, 15, 20), Color.FromRgb(69, 124, 132), Color.FromRgb(82, 230, 166), Color.FromRgb(233, 248, 246), 17d),
             "city-operations" => new ComposedHudPalette(
                 Color.FromRgb(5, 20, 25), Color.FromRgb(42, 119, 111), Color.FromRgb(68, 224, 179), Color.FromRgb(235, 250, 247), 10d),
             "driver-assistance" => new ComposedHudPalette(
                 Color.FromRgb(7, 15, 22), Color.FromRgb(74, 109, 137), Color.FromRgb(255, 194, 72), Color.FromRgb(246, 249, 251), 11d),
-            "classic-omsi-plus" => new ComposedHudPalette(
+            "classic-omsi-plus" or "bus-panel" => new ComposedHudPalette(
                 Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126), 4d),
+            "lcd" => new ComposedHudPalette(
+                Color.FromRgb(5, 16, 19), Color.FromRgb(93, 116, 121), Color.FromRgb(211, 231, 235), Color.FromRgb(223, 239, 241), 6d),
+            "amber-classic" => new ComposedHudPalette(
+                Color.FromRgb(18, 10, 2), Color.FromRgb(135, 78, 8), Color.FromRgb(255, 171, 31), Color.FromRgb(255, 205, 111), 5d),
+            "light" => new ComposedHudPalette(
+                Color.FromRgb(231, 238, 244), Color.FromRgb(140, 164, 183), Color.FromRgb(26, 111, 176), Color.FromRgb(19, 38, 54), 14d),
             _ => new ComposedHudPalette(
                 Color.FromRgb(4, 15, 24), Color.FromRgb(54, 121, 166), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250), 12d)
         };
 
         var requestedOpacity = Math.Clamp(_hudSettings.DashboardOpacity, 0.35d, 1d);
-        if (presetId == "glass-night")
+        if (paletteId == "glass-night")
         {
             requestedOpacity = Math.Min(requestedOpacity, 0.72d);
         }
@@ -1370,8 +1393,10 @@ public partial class HudOverlayWindow
         if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.Foreground = accent;
         if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.Foreground = text;
         if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
+        if (_immersiveSideIndicatorText is not null) _immersiveSideIndicatorText.Foreground = text;
 
-        var font = presetId == "classic-omsi-plus"
+        var monospaced = paletteId is "classic-omsi-plus" or "bus-panel" or "lcd" or "amber-classic";
+        var font = monospaced
             ? new FontFamily("Consolas")
             : new FontFamily("Bahnschrift");
 

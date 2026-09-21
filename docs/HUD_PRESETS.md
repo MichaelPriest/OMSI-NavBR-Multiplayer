@@ -162,3 +162,15 @@ compostos que possuem painel de foco.
 
 A âncora **Personalizada** também fica disponível no editor para preservar uma
 posição criada por arraste.
+
+
+## Tema independente do preset
+
+O seletor de tema passa a funcionar também nos HUDs compostos. O preset continua
+definindo o tema inicial, mas o usuário pode trocar a paleta depois sem alterar a
+composição ou os módulos.
+
+Os temas modernos e legados são mapeados para paletas compatíveis, incluindo
+NavBR Modern, Urban Glass, Route Night, Racing Clean, Bus Panel, LCD, Âmbar
+Clássico e Claro. Temas de display também aplicam fonte monoespaçada ao HUD
+composto.
