@@ -53,3 +53,12 @@ multiplayer:
 - **City Operations:** acelerador, freio, estado operacional e serviço atual.
 
 Esse painel usa somente telemetria real já disponível no runtime.
+
+
+## Próximas paradas
+
+**Transit Control** e **Navigation Pro** usam
+`OmsiOrderedRouteStopReader` para ler as paradas ordenadas do `.ttp`.
+A lista só aparece quando a viagem é resolvida sem ambiguidade e a próxima
+parada informada pela telemetria é encontrada nessa sequência. Caso contrário,
+o HUD não inventa uma ordem e mantém apenas a próxima parada conhecida.

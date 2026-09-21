@@ -19,6 +19,9 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveFocusEyebrowText;
     private TextBlock? _immersiveFocusPrimaryText;
     private TextBlock? _immersiveFocusSecondaryText;
+    private TextBlock? _immersiveFocusStopsText;
+    private string? _immersiveOrderedStopsKey;
+    private OmsiOrderedRouteStops? _immersiveOrderedStops;
     private TextBlock? _immersiveLineText;
     private TextBlock? _immersiveRouteText;
     private TextBlock? _immersiveDestinationText;
@@ -355,6 +358,20 @@ public partial class HudOverlayWindow
         };
         stack.Children.Add(_immersiveFocusSecondaryText);
 
+        _immersiveFocusStopsText = new TextBlock
+        {
+            Text = string.Empty,
+            Margin = new Thickness(0d, 8d, 0d, 0d),
+            Foreground = new SolidColorBrush(Color.FromRgb(154, 184, 202)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 9.5d,
+            FontWeight = FontWeights.SemiBold,
+            TextAlignment = TextAlignment.Left,
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed
+        };
+        stack.Children.Add(_immersiveFocusStopsText);
+
         return new Border
         {
             Width = 430d,
@@ -568,6 +585,7 @@ public partial class HudOverlayWindow
             ? Visibility.Visible
             : Visibility.Collapsed;
         var showFocusPanel = active && preset.Id is
+            "transit-control" or
             "cockpit-digital" or
             "navigation-pro" or
             "driver-assistance" or
@@ -667,6 +685,12 @@ public partial class HudOverlayWindow
         var multiplayerWidth = compact ? 292d : 342d;
         var edge = compact ? 10d : 18d;
 
+        if (_immersiveFocusStopsText is not null)
+        {
+            _immersiveFocusStopsText.Visibility = Visibility.Collapsed;
+            _immersiveFocusStopsText.Text = string.Empty;
+        }
+
         if (_immersiveFuelCell is not null)
         {
             _immersiveFuelCell.Visibility = _hudSettings.DashboardShowFuel ? Visibility.Visible : Visibility.Collapsed;
@@ -684,6 +708,9 @@ public partial class HudOverlayWindow
         switch (presetId)
         {
             case "transit-control":
+                _immersiveFocusPanel.Width = compact ? 310d : 380d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 10d : 18d);
                 mapWidth = compact ? 320d : 390d;
                 mapHeight = compact ? 210d : 258d;
                 multiplayerWidth = compact ? 320d : 370d;
@@ -899,7 +926,8 @@ public partial class HudOverlayWindow
             _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
             _immersiveSessionText, _immersivePlayersText, _immersiveNearbyPlayersText,
             _immersiveChatText, _immersiveVoiceText,
-            _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText
+            _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText,
+            _immersiveFocusStopsText
         })
         {
             if (label is not null)
@@ -1025,8 +1053,25 @@ public partial class HudOverlayWindow
         }
 
         var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        if (_immersiveFocusStopsText is not null)
+        {
+            _immersiveFocusStopsText.Visibility = Visibility.Collapsed;
+            _immersiveFocusStopsText.Text = string.Empty;
+        }
+
         switch (presetId)
         {
+            case "transit-control":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "PRÓXIMAS PARADAS", "UPCOMING STOPS", "PRÓXIMAS PARADAS", "NÄCHSTE HALTE", "PROCHAINS ARRÊTS");
+                _immersiveFocusPrimaryText.FontSize = 20d;
+                _immersiveFocusPrimaryText.Text = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
+                    ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
+                    : telemetry.NextStopName;
+                _immersiveFocusSecondaryText.Text = BuildFocusServiceText(telemetry);
+                RenderOrderedStopsIntoFocus(telemetry, 4);
+                break;
+
             case "cockpit-digital":
                 _immersiveFocusEyebrowText.Text = ImmersiveText(
                     "COCKPIT DIGITAL", "DIGITAL COCKPIT", "CABINA DIGITAL", "DIGITALES COCKPIT", "COCKPIT NUMÉRIQUE");
@@ -1050,6 +1095,7 @@ public partial class HudOverlayWindow
                 _immersiveFocusSecondaryText.Text = string.IsNullOrWhiteSpace(street)
                     ? BuildFocusServiceText(telemetry)
                     : street + Environment.NewLine + BuildFocusServiceText(telemetry);
+                RenderOrderedStopsIntoFocus(telemetry, 3);
                 break;
 
             case "city-operations":
@@ -1084,6 +1130,78 @@ public partial class HudOverlayWindow
                 _immersiveFocusSecondaryText.Text = $"{nextStop}   •   {speed}";
                 break;
         }
+    }
+
+    private void RenderOrderedStopsIntoFocus(VehicleTelemetry? telemetry, int maxStops)
+    {
+        if (_immersiveFocusStopsText is null ||
+            telemetry is null ||
+            _activeMap is null ||
+            string.IsNullOrWhiteSpace(telemetry.NextStopName))
+        {
+            return;
+        }
+
+        var routeKey = string.Join(
+            "|",
+            _activeMap.DirectoryPath,
+            telemetry.Line ?? string.Empty,
+            telemetry.Route ?? string.Empty,
+            telemetry.DestinationName ?? string.Empty);
+
+        if (!string.Equals(routeKey, _immersiveOrderedStopsKey, StringComparison.OrdinalIgnoreCase))
+        {
+            _immersiveOrderedStopsKey = routeKey;
+            _immersiveOrderedStops = OmsiOrderedRouteStopReader.TryRead(
+                _activeMap,
+                telemetry.Route,
+                telemetry.Line,
+                telemetry.DestinationName);
+        }
+
+        if (_immersiveOrderedStops is not { RouteResolved: true } ordered ||
+            ordered.StopNames.Count == 0)
+        {
+            return;
+        }
+
+        var nextKey = OmsiOrderedRouteStopReader.Normalize(telemetry.NextStopName);
+        if (nextKey.Length == 0)
+        {
+            return;
+        }
+
+        var nextIndex = -1;
+        for (var index = 0; index < ordered.StopNames.Count; index++)
+        {
+            if (string.Equals(
+                    OmsiOrderedRouteStopReader.Normalize(ordered.StopNames[index]),
+                    nextKey,
+                    StringComparison.Ordinal))
+            {
+                nextIndex = index;
+                break;
+            }
+        }
+
+        if (nextIndex < 0)
+        {
+            return;
+        }
+
+        var rows = ordered.StopNames
+            .Skip(nextIndex)
+            .Take(Math.Max(1, maxStops))
+            .Select((name, offset) => offset == 0 ? $"● {name}" : $"○ {name}")
+            .ToArray();
+
+        if (rows.Length == 0)
+        {
+            return;
+        }
+
+        _immersiveFocusStopsText.Text = string.Join(Environment.NewLine, rows);
+        _immersiveFocusStopsText.Visibility = Visibility.Visible;
     }
 
     private static string BuildFocusServiceText(VehicleTelemetry? telemetry)
@@ -1352,6 +1470,8 @@ public partial class HudOverlayWindow
     {
         MultiplayerSettingsStore.SettingsSaved -= ImmersiveOperation_SettingsSaved;
         SizeChanged -= ImmersiveOperation_SizeChanged;
+        _immersiveOrderedStopsKey = null;
+        _immersiveOrderedStops = null;
 
         if (_immersiveOperationTimer is not null)
         {
