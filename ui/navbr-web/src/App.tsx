@@ -1908,6 +1908,29 @@ function isComposedHudPreset(id: string | null | undefined) {
   return COMPOSED_HUD_PRESETS.has((id || "").toLowerCase());
 }
 
+const HUD_PRESET_GROUPS = [
+  {
+    id: "operations",
+    ids: ["immersive-operation", "transit-control", "city-operations", "driver-assistance"]
+  },
+  {
+    id: "driving",
+    ids: ["cockpit-digital", "navigation-pro", "minimal-driver"]
+  },
+  {
+    id: "social",
+    ids: ["multiplayer-focus", "streamer-broadcast"]
+  },
+  {
+    id: "classic",
+    ids: ["classic-omsi-plus", "glass-night"]
+  },
+  {
+    id: "current",
+    ids: ["normal", "compact", "full", "rp-urban", "racing-minimal", "lcd-amber", "transparent"]
+  }
+] as const;
+
 function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
@@ -1917,6 +1940,14 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   );
   const composedMode = isComposedHudPreset(draft.preset);
   const selectedPreset = hud.presets.find(item => item.id === draft.preset);
+  const groupedPresets = HUD_PRESET_GROUPS
+    .map(group => ({
+      ...group,
+      presets: group.ids
+        .map(id => hud.presets.find(item => item.id === id))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    }))
+    .filter(group => group.presets.length > 0);
 
   useEffect(() => {
     if (!dirty) {
@@ -2050,28 +2081,49 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
           </button>
         </div>
 
-        <div className="hud-style-gallery">
-          {hud.presets.map(preset => (
-            <button
-              type="button"
-              key={preset.id}
-              className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
-              data-hud-theme={preset.themeId}
-              onClick={() => applyPreset(preset.id)}
-            >
-              <span className="hud-style-preview" aria-hidden="true">
-                <i className="hud-style-route" />
-                <i className="hud-style-speed" />
-                <i className="hud-style-chip first" />
-                <i className="hud-style-chip second" />
-              </span>
-              <span className="hud-style-copy">
-                <strong>{preset.displayName}</strong>
-                <small>{preset.inspiration}</small>
-                <em>{preset.description}</em>
-              </span>
-            </button>
-          ))}
+        <div className="hud-preset-groups">
+          {groupedPresets.map(group => {
+            const label = group.id === "operations"
+              ? pick("Operação", "Operations", "Operación", "Betrieb", "Exploitation")
+              : group.id === "driving"
+                ? pick("Direção e navegação", "Driving & navigation", "Conducción y navegación", "Fahren & Navigation", "Conduite et navigation")
+                : group.id === "social"
+                  ? pick("Multiplayer e streaming", "Multiplayer & streaming", "Multijugador y streaming", "Multiplayer & Streaming", "Multijoueur et streaming")
+                  : group.id === "classic"
+                    ? pick("Clássicos e discretos", "Classic & subtle", "Clásicos y discretos", "Klassisch & dezent", "Classiques et discrets")
+                    : pick("HUD atual", "Current HUD", "HUD actual", "Aktuelles HUD", "HUD actuel");
+            return (
+              <section className="hud-preset-group" key={group.id}>
+                <div className="hud-preset-group-heading">
+                  <strong>{label}</strong>
+                  <span>{group.presets.length}</span>
+                </div>
+                <div className="hud-style-gallery">
+                  {group.presets.map(preset => (
+                    <button
+                      type="button"
+                      key={preset.id}
+                      className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
+                      data-hud-theme={preset.themeId}
+                      onClick={() => applyPreset(preset.id)}
+                    >
+                      <span className="hud-style-preview" aria-hidden="true">
+                        <i className="hud-style-route" />
+                        <i className="hud-style-speed" />
+                        <i className="hud-style-chip first" />
+                        <i className="hud-style-chip second" />
+                      </span>
+                      <span className="hud-style-copy">
+                        <strong>{preset.displayName}</strong>
+                        <small>{preset.inspiration}</small>
+                        <em>{preset.description}</em>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         <div className="hud-select-grid">
