@@ -136,3 +136,14 @@ capacidade, mas o esconde durante operação normal. Quando o motor de navegaç�
 resolve a rota e detecta que o ônibus está fora dela, o minimapa aparece
 automaticamente para ajudar no retorno. Se o usuário desligar o minimapa nas
 configurações, essa abertura contextual também é desativada.
+
+
+## Âncora do painel principal
+
+Nos presets compostos, `DashboardAnchor` posiciona o painel principal de foco
+quando o preset possui esse módulo. As posições superiores ficam abaixo da
+barra de serviço; as posições inferiores evitam o minimapa à esquerda e o
+painel multiplayer à direita quando esses módulos estão visíveis.
+
+A opção `free` preserva o layout desenhado especificamente para cada preset.
+Presets sem painel de foco mantêm suas barras e módulos nas posições próprias.

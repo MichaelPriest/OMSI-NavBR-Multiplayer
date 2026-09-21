@@ -2148,7 +2148,9 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
             </select>
           </label>
           <label className="voice-field">
-            <span>{t("hud.anchor")}</span>
+            <span>{composedMode
+              ? pick("Âncora do painel principal", "Primary panel anchor", "Ancla del panel principal", "Anker des Hauptpanels", "Ancrage du panneau principal")
+              : t("hud.anchor")}</span>
             <select value={draft.anchor} onChange={event => patch({ anchor: event.target.value })}>
               {hud.anchors.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
             </select>

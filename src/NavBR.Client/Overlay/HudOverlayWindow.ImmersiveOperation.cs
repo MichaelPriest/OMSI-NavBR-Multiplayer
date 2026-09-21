@@ -981,6 +981,13 @@ public partial class HudOverlayWindow
                 0d);
         }
 
+        ApplyComposedFocusAnchor(
+            HudProfileCatalog.ResolveAnchor(_hudSettings.DashboardAnchor),
+            compact,
+            mapHeight,
+            multiplayerWidth,
+            edge);
+
         if (!double.IsNaN(_immersiveTopBar.Width))
         {
             _immersiveTopBar.Width *= widthFactor;
@@ -993,6 +1000,76 @@ public partial class HudOverlayWindow
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
 
         ApplyComposedPresetPalette(presetId);
+    }
+
+    private void ApplyComposedFocusAnchor(
+        string anchor,
+        bool compact,
+        double mapHeight,
+        double multiplayerWidth,
+        double edge)
+    {
+        if (_immersiveFocusPanel is null ||
+            anchor == HudProfileCatalog.DefaultAnchor ||
+            _immersiveFocusPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var side = compact ? 12d : 20d;
+        var top = compact ? 104d : 118d;
+        var bottom = compact ? 12d : 20d;
+
+        switch (anchor)
+        {
+            case "top-left":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveFocusPanel.Margin = new Thickness(side, top, 0d, 0d);
+                break;
+
+            case "top-center":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveFocusPanel.Margin = new Thickness(0d, top, 0d, 0d);
+                break;
+
+            case "top-right":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveFocusPanel.Margin = new Thickness(0d, top, side, 0d);
+                break;
+
+            case "bottom-left":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveFocusPanel.Margin = new Thickness(
+                    side,
+                    0d,
+                    0d,
+                    _immersiveMiniMapPanel?.Visibility == Visibility.Visible
+                        ? mapHeight + edge + 14d
+                        : bottom);
+                break;
+
+            case "bottom-center":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, bottom);
+                break;
+
+            case "bottom-right":
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveFocusPanel.Margin = new Thickness(
+                    0d,
+                    0d,
+                    side,
+                    _immersiveMultiplayerPanel?.Visibility == Visibility.Visible
+                        ? Math.Max(bottom, 178d + edge)
+                        : bottom);
+                break;
+        }
     }
 
     private void ApplyComposedPresetPalette(string presetId)
