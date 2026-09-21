@@ -1896,7 +1896,12 @@ const COMPOSED_HUD_PRESETS = new Set([
   "cockpit-digital",
   "navigation-pro",
   "multiplayer-focus",
-  "classic-omsi-plus"
+  "classic-omsi-plus",
+  "minimal-driver",
+  "streamer-broadcast",
+  "glass-night",
+  "city-operations",
+  "driver-assistance"
 ]);
 
 function isComposedHudPreset(id: string | null | undefined) {

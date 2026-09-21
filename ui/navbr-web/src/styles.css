@@ -861,6 +861,52 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .hud-style-card[data-hud-theme="classic-omsi-plus"] .hud-style-preview {
   border-radius:3px;
 }
+.hud-style-card[data-hud-theme="minimal-driver"] {
+  --hud-preview-bg:#050d12;
+  --hud-preview-panel:#0b151c;
+  --hud-preview-accent:#e1edf3;
+  --hud-preview-secondary:#7da8bd;
+}
+.hud-style-card[data-hud-theme="minimal-driver"] .hud-style-chip.second { opacity:.18; }
+.hud-style-card[data-hud-theme="streamer-broadcast"] {
+  --hud-preview-bg:#060d16;
+  --hud-preview-panel:#0d1e2c;
+  --hud-preview-accent:#5cc5ff;
+  --hud-preview-secondary:#91e1ff;
+}
+.hud-style-card[data-hud-theme="streamer-broadcast"] .hud-style-preview {
+  background:
+    linear-gradient(90deg,var(--hud-preview-panel) 0 18%,transparent 18% 79%,var(--hud-preview-panel) 79%),
+    var(--hud-preview-bg);
+}
+.hud-style-card[data-hud-theme="glass-night"] {
+  --hud-preview-bg:#030911;
+  --hud-preview-panel:#07131f;
+  --hud-preview-accent:#5bace5;
+  --hud-preview-secondary:#84c9f4;
+}
+.hud-style-card[data-hud-theme="glass-night"] .hud-style-preview { opacity:.74; }
+.hud-style-card[data-hud-theme="city-operations"] {
+  --hud-preview-bg:#051419;
+  --hud-preview-panel:#0b2728;
+  --hud-preview-accent:#44e0b3;
+  --hud-preview-secondary:#5bc7d9;
+}
+.hud-style-card[data-hud-theme="city-operations"] .hud-style-chip {
+  width:30px;
+  height:9px;
+  border-radius:3px;
+}
+.hud-style-card[data-hud-theme="driver-assistance"] {
+  --hud-preview-bg:#070f16;
+  --hud-preview-panel:#17212a;
+  --hud-preview-accent:#ffc248;
+  --hud-preview-secondary:#68c9ff;
+}
+.hud-style-card[data-hud-theme="driver-assistance"] .hud-style-route {
+  height:9px;
+  box-shadow:0 15px 0 color-mix(in srgb,var(--hud-preview-accent) 48%,transparent);
+}
 .hud-style-card[data-hud-theme="urban-glass"] {
   --hud-preview-bg:#071319;
   --hud-preview-panel:#10242b;

@@ -17,6 +17,16 @@ multiplayer, chat e voz. Nenhum preset cria dados sintéticos.
   primeiro plano.
 - **Classic OMSI+** (`classic-omsi-plus`) — visual âmbar compacto inspirado em
   displays clássicos do OMSI.
+- **Minimal Driver** (`minimal-driver`) — mínimo de elementos para manter a
+  cabine livre.
+- **Streamer / Broadcast** (`streamer-broadcast`) — composição nas bordas para
+  gravação e transmissão.
+- **Glass / Night HUD** (`glass-night`) — transparência e contraste reduzidos
+  para condução noturna.
+- **City Operations** (`city-operations`) — visão operacional mais densa com
+  mapa e multiplayer simultâneos.
+- **Driver Assistance** (`driver-assistance`) — próxima parada e alertas reais
+  do veículo em destaque.
 
 ## Compatibilidade
 

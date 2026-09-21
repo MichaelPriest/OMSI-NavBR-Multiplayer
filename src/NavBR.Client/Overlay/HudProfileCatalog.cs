@@ -78,6 +78,46 @@ public static class HudProfileCatalog
             720d, 0.88d, 0.94d,
             true, false, true, false, false, true, true),
         new(
+            "minimal-driver",
+            "Minimal Driver",
+            "minimal-driver",
+            "Direção limpa",
+            "Mostra somente serviço, velocidade, próxima parada e alertas essenciais, preservando o máximo da cabine.",
+            620d, 0.82d, 0.78d,
+            false, false, true, false, false, true, true),
+        new(
+            "streamer-broadcast",
+            "Streamer / Broadcast",
+            "streamer-broadcast",
+            "Live / gravação",
+            "Mantém o centro da tela livre e distribui rota, mapa e multiplayer nas bordas para transmissões e vídeos.",
+            820d, 0.86d, 0.80d,
+            true, false, true, true, true, true, true),
+        new(
+            "glass-night",
+            "Glass / Night HUD",
+            "glass-night",
+            "Condução noturna",
+            "Painéis escuros translúcidos e discretos para dirigir à noite sem esconder a cabine.",
+            780d, 0.84d, 0.64d,
+            true, false, true, true, true, true, true),
+        new(
+            "city-operations",
+            "City Operations",
+            "city-operations",
+            "Gestão urbana",
+            "Composição modular de operação com mapa maior, serviço, estados do veículo e multiplayer simultâneos.",
+            900d, 0.92d, 0.90d,
+            true, true, true, true, true, true, true),
+        new(
+            "driver-assistance",
+            "Driver Assistance",
+            "driver-assistance",
+            "Assistência ao motorista",
+            "Prioriza próxima parada, rota e alertas reais de portas, freio, ré, setas, luzes e saída operacional.",
+            760d, 0.90d, 0.92d,
+            true, false, true, true, false, true, true),
+        new(
             "rp-urban",
             "RP Urbano",
             "urban-glass",
@@ -144,6 +184,11 @@ public static class HudProfileCatalog
         new("navigation-pro", "Navigation Pro"),
         new("multiplayer-focus", "Multiplayer Focus"),
         new("classic-omsi-plus", "Classic OMSI+"),
+        new("minimal-driver", "Minimal Driver"),
+        new("streamer-broadcast", "Streamer / Broadcast"),
+        new("glass-night", "Glass / Night HUD"),
+        new("city-operations", "City Operations"),
+        new("driver-assistance", "Driver Assistance"),
         new("urban-glass", "Urban Glass"),
         new("route-night", "Route Night"),
         new("racing-clean", "Racing Clean"),
@@ -181,7 +226,12 @@ public static class HudProfileCatalog
             "cockpit-digital" or
             "navigation-pro" or
             "multiplayer-focus" or
-            "classic-omsi-plus";
+            "classic-omsi-plus" or
+            "minimal-driver" or
+            "streamer-broadcast" or
+            "glass-night" or
+            "city-operations" or
+            "driver-assistance";
 
     public static HudPresetDefinition ResolvePreset(string? id)
     {

@@ -354,6 +354,16 @@ public partial class HudOverlayWindow
                 Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251)),
             "multiplayer-focus" => new HudPalette(
                 Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255)),
+            "minimal-driver" => new HudPalette(
+                Color.FromRgb(5, 13, 18), Color.FromRgb(47, 79, 96), Color.FromRgb(225, 237, 243), Color.FromRgb(238, 246, 250)),
+            "streamer-broadcast" => new HudPalette(
+                Color.FromRgb(6, 13, 22), Color.FromRgb(61, 105, 139), Color.FromRgb(92, 197, 255), Color.FromRgb(240, 247, 251)),
+            "glass-night" => new HudPalette(
+                Color.FromRgb(3, 9, 17), Color.FromRgb(38, 82, 113), Color.FromRgb(91, 172, 229), Color.FromRgb(210, 230, 243)),
+            "city-operations" => new HudPalette(
+                Color.FromRgb(5, 20, 25), Color.FromRgb(42, 119, 111), Color.FromRgb(68, 224, 179), Color.FromRgb(235, 250, 247)),
+            "driver-assistance" => new HudPalette(
+                Color.FromRgb(7, 15, 22), Color.FromRgb(74, 109, 137), Color.FromRgb(255, 194, 72), Color.FromRgb(246, 249, 251)),
             "classic-omsi-plus" => new HudPalette(
                 Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126)),
             "bus-panel" => new HudPalette(

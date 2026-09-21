@@ -594,6 +594,62 @@ public partial class HudOverlayWindow
                 if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
                 break;
 
+            case "minimal-driver":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 560d : 660d;
+                _immersiveTopBar.Margin = compact
+                    ? new Thickness(0d, 8d, 0d, 0d)
+                    : new Thickness(0d, 12d, 0d, 0d);
+                mapWidth = compact ? 210d : 240d;
+                mapHeight = compact ? 145d : 165d;
+                multiplayerWidth = compact ? 230d : 260d;
+                if (_immersiveLineText is not null) _immersiveLineText.FontSize = 21d;
+                if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 23d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 14d;
+                if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 16d;
+                break;
+
+            case "streamer-broadcast":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Stretch;
+                _immersiveTopBar.Margin = compact
+                    ? new Thickness(12d, 10d, 12d, 0d)
+                    : new Thickness(24d, 18d, 24d, 0d);
+                mapWidth = compact ? 250d : 300d;
+                mapHeight = compact ? 170d : 195d;
+                multiplayerWidth = compact ? 310d : 360d;
+                edge = compact ? 14d : 28d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
+                break;
+
+            case "glass-night":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 690d : 860d;
+                mapWidth = compact ? 260d : 305d;
+                mapHeight = compact ? 175d : 205d;
+                multiplayerWidth = compact ? 285d : 320d;
+                if (_immersiveLineText is not null) _immersiveLineText.FontSize = 22d;
+                if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 20d;
+                break;
+
+            case "city-operations":
+                mapWidth = compact ? 360d : 440d;
+                mapHeight = compact ? 230d : 285d;
+                multiplayerWidth = compact ? 360d : 430d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 17d;
+                if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 16d;
+                break;
+
+            case "driver-assistance":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 700d : 880d;
+                mapWidth = compact ? 310d : 380d;
+                mapHeight = compact ? 205d : 245d;
+                multiplayerWidth = compact ? 250d : 285d;
+                if (_immersiveLineText is not null) _immersiveLineText.FontSize = 22d;
+                if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 19d;
+                if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 22d;
+                break;
+
             case "classic-omsi-plus":
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 650d : 790d;
@@ -637,13 +693,28 @@ public partial class HudOverlayWindow
                 Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251), 12d),
             "multiplayer-focus" => new ComposedHudPalette(
                 Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255), 12d),
+            "minimal-driver" => new ComposedHudPalette(
+                Color.FromRgb(5, 13, 18), Color.FromRgb(47, 79, 96), Color.FromRgb(225, 237, 243), Color.FromRgb(238, 246, 250), 8d),
+            "streamer-broadcast" => new ComposedHudPalette(
+                Color.FromRgb(6, 13, 22), Color.FromRgb(61, 105, 139), Color.FromRgb(92, 197, 255), Color.FromRgb(240, 247, 251), 14d),
+            "glass-night" => new ComposedHudPalette(
+                Color.FromRgb(3, 9, 17), Color.FromRgb(38, 82, 113), Color.FromRgb(91, 172, 229), Color.FromRgb(210, 230, 243), 16d),
+            "city-operations" => new ComposedHudPalette(
+                Color.FromRgb(5, 20, 25), Color.FromRgb(42, 119, 111), Color.FromRgb(68, 224, 179), Color.FromRgb(235, 250, 247), 10d),
+            "driver-assistance" => new ComposedHudPalette(
+                Color.FromRgb(7, 15, 22), Color.FromRgb(74, 109, 137), Color.FromRgb(255, 194, 72), Color.FromRgb(246, 249, 251), 11d),
             "classic-omsi-plus" => new ComposedHudPalette(
                 Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126), 4d),
             _ => new ComposedHudPalette(
                 Color.FromRgb(4, 15, 24), Color.FromRgb(54, 121, 166), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250), 12d)
         };
 
-        var opacity = (byte)Math.Clamp((int)Math.Round(Math.Clamp(_hudSettings.DashboardOpacity, 0.35d, 1d) * 255d), 0, 255);
+        var requestedOpacity = Math.Clamp(_hudSettings.DashboardOpacity, 0.35d, 1d);
+        if (presetId == "glass-night")
+        {
+            requestedOpacity = Math.Min(requestedOpacity, 0.72d);
+        }
+        var opacity = (byte)Math.Clamp((int)Math.Round(requestedOpacity * 255d), 0, 255);
         var background = new SolidColorBrush(Color.FromArgb(opacity, palette.Background.R, palette.Background.G, palette.Background.B));
         var border = new SolidColorBrush(palette.Border);
         var accent = new SolidColorBrush(palette.Accent);
