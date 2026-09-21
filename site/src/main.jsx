@@ -5,6 +5,7 @@ import "../styles.css";
 import "../omsi-theme.css";
 import "../modern.css";
 import "./react.css";
+import "./v3.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

@@ -1,5 +1,5 @@
 export const REPO = "MichaelPriest/OMSI-NavBR-Multiplayer";
-export const CURRENT_TAG = "v0.3.0-alpha.18";
+export const CURRENT_TAG = "v0.3.0-alpha.19";
 export const GITHUB_URL = `https://github.com/${REPO}`;
 export const RELEASES_PAGE = `${GITHUB_URL}/releases`;
 
@@ -56,7 +56,7 @@ export function alphaLabel(tagOrKey = "") {
 export function releaseDownloadCount(release) {
   if (Number.isFinite(Number(release?.download_count))) return Number(release.download_count);
   return (release?.assets || [])
-    .filter(asset => /\.(exe|zip)$/i.test(asset.name || ""))
+    .filter(asset => /\.(exe|zip|apk)$/i.test(asset.name || ""))
     .reduce((total, asset) => total + (Number(asset.download_count) || 0), 0);
 }
 
@@ -75,7 +75,7 @@ export function assetLabel(name = "") {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Cliente ZIP — alternativa";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado — opcional";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin OMSI x86";
-  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Simulador Multiplayer — dev/test";
+  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "Mobile Companion Android APK";\n  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Simulador Multiplayer — dev/test";
   return name;
 }
 
@@ -85,7 +85,7 @@ export function assetHelp(name = "") {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Mesmo cliente em pacote ZIP.";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado opcional.";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin Native AOT x86 + interop OMSI.";
-  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Ferramenta exclusiva de desenvolvimento/teste.";
+  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "APK Android do Mobile Companion Alpha 2.";\n  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Ferramenta exclusiva de desenvolvimento/teste.";
   return "";
 }
 
