@@ -112,6 +112,12 @@ Quando a janela do OMSI tem menos de 1120 px de largura, **Transit Control** e
 **City Operations** movem o painel de foco para baixo da barra superior. Isso
 evita sobreposição entre minimapa, painel central e multiplayer no rodapé.
 
+Abaixo de 920 px, os presets compostos entram em uma faixa ultraestreita:
+métricas secundárias de atraso e combustível cedem espaço para linha, rota,
+próxima parada e velocidade; mapa, multiplayer e painel de foco recebem limites
+mais conservadores. As colunas do topo também deixam de reservar espaço vazio
+quando um módulo está oculto pelo preset ou pelo usuário.
+
 
 ## Alertas e indicadores laterais
 

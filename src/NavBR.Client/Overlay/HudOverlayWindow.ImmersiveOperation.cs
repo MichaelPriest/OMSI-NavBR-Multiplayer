@@ -15,6 +15,7 @@ public partial class HudOverlayWindow
     private bool _immersiveOperationInitialized;
     private bool _immersiveOperationActive;
     private Border? _immersiveTopBar;
+    private Grid? _immersiveTopBarGrid;
     private Border? _immersiveMiniMapPanel;
     private Border? _immersiveMultiplayerPanel;
     private Border? _immersiveFocusPanel;
@@ -115,6 +116,7 @@ public partial class HudOverlayWindow
     private Border BuildImmersiveTopBar()
     {
         var root = new Grid();
+        _immersiveTopBarGrid = root;
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112d) });
@@ -822,6 +824,7 @@ public partial class HudOverlayWindow
 
         var compact = ActualWidth > 1d && ActualWidth < 1280d;
         var narrow = ActualWidth > 1d && ActualWidth < 1120d;
+        var ultraNarrow = ActualWidth > 1d && ActualWidth < 920d;
         var preset = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset);
         var presetId = preset.Id;
         var widthFactor = Math.Clamp(
@@ -1009,6 +1012,71 @@ public partial class HudOverlayWindow
                 break;
         }
 
+        if (ultraNarrow)
+        {
+            // Keep the composed HUD usable on narrow OMSI windowed resolutions.
+            // Lower-priority metrics give their space back to route, next stop and speed.
+            widthFactor = Math.Min(widthFactor, 1d);
+            edge = 8d;
+
+            if (_immersiveDelayCell is not null)
+            {
+                _immersiveDelayCell.Visibility = Visibility.Collapsed;
+            }
+            if (_immersiveFuelCell is not null)
+            {
+                _immersiveFuelCell.Visibility = Visibility.Collapsed;
+            }
+
+            _immersiveFocusPanel.Width = Math.Min(_immersiveFocusPanel.Width, 300d);
+            mapHeight = Math.Min(mapHeight, 178d);
+
+            switch (presetId)
+            {
+                case "navigation-pro":
+                    mapWidth = Math.Min(mapWidth, 280d);
+                    multiplayerWidth = Math.Min(multiplayerWidth, 190d);
+                    break;
+                case "multiplayer-focus":
+                    mapWidth = Math.Min(mapWidth, 190d);
+                    multiplayerWidth = Math.Min(multiplayerWidth, 280d);
+                    break;
+                case "city-operations":
+                    mapWidth = Math.Min(mapWidth, 240d);
+                    multiplayerWidth = Math.Min(multiplayerWidth, 220d);
+                    break;
+                default:
+                    mapWidth = Math.Min(mapWidth, 220d);
+                    multiplayerWidth = Math.Min(multiplayerWidth, 220d);
+                    break;
+            }
+
+            if (!double.IsNaN(_immersiveTopBar.Width))
+            {
+                _immersiveTopBar.Width = Math.Min(_immersiveTopBar.Width, 700d);
+            }
+            _immersiveTopBar.Margin = new Thickness(6d, 6d, 6d, 0d);
+
+            if (_immersiveLineText is not null)
+            {
+                _immersiveLineText.FontSize = Math.Min(_immersiveLineText.FontSize, 20d);
+            }
+            if (_immersiveDestinationText is not null)
+            {
+                _immersiveDestinationText.FontSize = Math.Min(_immersiveDestinationText.FontSize, 14d);
+            }
+            if (_immersiveNextStopText is not null)
+            {
+                _immersiveNextStopText.FontSize = Math.Min(_immersiveNextStopText.FontSize, 14d);
+            }
+            if (_immersiveSpeedText is not null)
+            {
+                _immersiveSpeedText.FontSize = Math.Min(_immersiveSpeedText.FontSize, 18d);
+            }
+        }
+
+        ApplyImmersiveTopBarColumnLayout(ultraNarrow);
+
         if (narrow && presetId is "transit-control" or "city-operations")
         {
             _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
@@ -1059,6 +1127,37 @@ public partial class HudOverlayWindow
         }
 
         ApplyComposedPresetPalette(presetId);
+    }
+
+    private void ApplyImmersiveTopBarColumnLayout(bool ultraNarrow)
+    {
+        if (_immersiveTopBarGrid is null ||
+            _immersiveTopBarGrid.ColumnDefinitions.Count < 6)
+        {
+            return;
+        }
+
+        var lineWidth = ultraNarrow ? 92d : 112d;
+        var metricWidth = ultraNarrow ? 86d : 104d;
+
+        _immersiveTopBarGrid.ColumnDefinitions[0].Width = new GridLength(lineWidth);
+        _immersiveTopBarGrid.ColumnDefinitions[1].Width = new GridLength(1.35d, GridUnitType.Star);
+        _immersiveTopBarGrid.ColumnDefinitions[2].Width =
+            _immersiveNextStopCell?.Visibility == Visibility.Visible
+                ? new GridLength(1d, GridUnitType.Star)
+                : new GridLength(0d);
+        _immersiveTopBarGrid.ColumnDefinitions[3].Width =
+            _immersiveSpeedCell?.Visibility == Visibility.Visible
+                ? new GridLength(metricWidth)
+                : new GridLength(0d);
+        _immersiveTopBarGrid.ColumnDefinitions[4].Width =
+            _immersiveDelayCell?.Visibility == Visibility.Visible
+                ? new GridLength(metricWidth)
+                : new GridLength(0d);
+        _immersiveTopBarGrid.ColumnDefinitions[5].Width =
+            _immersiveFuelCell?.Visibility == Visibility.Visible
+                ? new GridLength(metricWidth)
+                : new GridLength(0d);
     }
 
     private void ApplyComposedAuxiliaryPanelLayout(
