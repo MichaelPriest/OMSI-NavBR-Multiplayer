@@ -752,7 +752,7 @@ public partial class HudOverlayWindow
             case "multiplayer-focus":
                 mapWidth = compact ? 270d : 315d;
                 mapHeight = compact ? 185d : 210d;
-                multiplayerWidth = compact ? 390d : 455d;
+                multiplayerWidth = compact ? 420d : 490d;
                 if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
                 break;
 
@@ -1313,6 +1313,15 @@ public partial class HudOverlayWindow
                 "Aucun joueur à proximité");
         }
 
+        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        var playerLimit = presetId switch
+        {
+            "multiplayer-focus" => 6,
+            "city-operations" => 4,
+            "streamer-broadcast" => 3,
+            _ => 3
+        };
+
         var nearby = _remotePlayers.Values
             .Where(frame => IsSameImmersiveMap(local, frame.Telemetry))
             .Select(frame => new
@@ -1322,7 +1331,7 @@ public partial class HudOverlayWindow
             })
             .Where(item => double.IsFinite(item.Distance))
             .OrderBy(item => item.Distance)
-            .Take(3)
+            .Take(playerLimit)
             .ToArray();
 
         if (nearby.Length == 0)
@@ -1399,8 +1408,17 @@ public partial class HudOverlayWindow
                 "CHAT • aucun message récent");
         }
 
+        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        var chatLimit = presetId switch
+        {
+            "multiplayer-focus" => 4,
+            "city-operations" => 3,
+            "streamer-broadcast" => 2,
+            _ => 2
+        };
+
         var recent = _chatMessages
-            .TakeLast(2)
+            .TakeLast(chatLimit)
             .Select(message =>
             {
                 var name = string.IsNullOrWhiteSpace(message.DisplayName)
