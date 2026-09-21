@@ -252,7 +252,7 @@ function Support({ t }) {
 
 function Documentation({ t }) {
   const items = [
-    [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA19_RELEASE_NOTES.md"],
+    [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA20_RELEASE_NOTES.md"],
     [t.docs.mobile, GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"],
     [t.docs.plugin, GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
     [t.docs.github, GITHUB_URL]

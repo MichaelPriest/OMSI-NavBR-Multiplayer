@@ -209,3 +209,15 @@ Os módulos auxiliares também seguem a intenção visual de cada preset:
 - **Navigation Pro:** alertas acompanham o lado da orientação.
 - **Multiplayer Focus:** indicadores laterais são deslocados para não competir
   com o painel multiplayer.
+
+
+## Editor do HUD na Alpha.20
+
+A configuração do HUD foi reorganizada para reduzir rolagem e opções misturadas.
+
+- **Escolher HUD:** presets agrupados por Operação, Direção, Multiplayer, Clássicos e Legados;
+- **Aparência:** tema, autoescala, escala geral, largura, altura e opacidade;
+- **Módulos:** visibilidade e escalas individuais de minimapa, multiplayer, alertas e indicadores;
+- **Posição & ações:** âncora e modo Mover HUD.
+
+A barra de ações permanece visível com **Visualizar prévia**, **Aplicar** e **Reset**. A prévia não grava configurações até o usuário aplicar. Se o OMSI estiver fechado, o app mostra uma composição estrutural com estados neutros; nenhum dado de rota, veículo ou jogador é inventado.

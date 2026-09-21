@@ -26,7 +26,7 @@ React owns visual composition and sends only explicit feature commands through t
 
 ## Localization bridge
 
-React uses the same native `LocalizationService` owned by the .NET/WPF host. The WebView state exposes the current culture and the five supported cultures (pt-BR, en-US, es-ES, de-DE and fr-FR). Changing language in the React sidebar calls the native `setLanguage` command, so the existing `language.txt` preference remains the single persisted source of truth.
+React uses the same native `LocalizationService` owned by the .NET/WPF host. The WebView state exposes the current culture and the five supported cultures (pt-BR, en-US, es-ES, de-DE and fr-FR). Changing language in **Settings → General** calls the native `setLanguage` command, so the existing `language.txt` preference remains the single persisted source of truth.
 
 New React surfaces use the shared translation provider and fall back to English when a key is unavailable; raw OMSI/runtime values are never translated or replaced with synthetic data.
 
@@ -143,3 +143,19 @@ Roadmap Studio uses the real `_installedMaps` catalog and delegates all work to 
 - `OmsiRoadmapVectorGeneratorService` for spline-based generation.
 
 The WebView receives analysis, progress and build results while the C# services own file I/O, backup creation and safety limits. No roadmap geometry or output file is synthesized in JavaScript.
+
+
+## Alpha.20 information architecture
+
+The desktop shell groups features by workflow instead of exposing one long flat navigation list:
+
+- **Main**: Home and Navigation;
+- **Multiplayer & RP**: Multiplayer, Character/RP and Company;
+- **Operations & Tools**: Operations/CCO, Ghost/Replay and Hardware;
+- **System**: Settings and Help.
+
+Settings are grouped into **Interface**, **OMSI & Maps**, **Connectivity** and **System**. Language and the remaining general legacy preferences live under **Settings → General**.
+
+The HUD editor is a focused workspace with four sections: **Choose HUD**, **Appearance**, **Widgets**, and **Position & actions**. Preview is non-persistent until Apply: with OMSI open it uses the real overlay; with OMSI closed it renders a structural preview inside the app without inventing route, vehicle or multiplayer data.
+
+Roadmap Studio can build a NavBR-only high-resolution roadmap without replacing OMSI's original `whole.roadmap.bmp`. HD uses 440 px/tile and Ultra uses 660 px/tile, both capped at 8192 px. Generated roadmaps hot-reload into HUD and 2D/3D navigation.
