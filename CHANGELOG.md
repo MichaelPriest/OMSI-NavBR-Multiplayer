@@ -2,6 +2,32 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.20] — reorganização da interface, HUD por workflow e minimapa HD/Ultra
+
+### Adicionado
+
+- seleção de HUD em categorias por finalidade;
+- workspace do HUD com seções **Escolher HUD**, **Aparência**, **Módulos** e **Posição & ações**;
+- prévia não persistente do HUD no app quando o OMSI está fechado e no overlay real quando está aberto;
+- Roadmap Studio com comparação visual do roadmap OMSI e da textura NavBR HD;
+- geração de minimapa NavBR em **HD 2× (440 px/tile)** e **Ultra 3× (660 px/tile)**, limitada a 8192 px;
+- hot-reload do roadmap gerado para HUD e navegação 2D/3D;
+- atalhos da Home agrupados por Viagem, Online & RP e Ferramentas.
+
+### Melhorado
+
+- barra lateral reorganizada em grupos funcionais;
+- idioma movido para **Configurações → Geral**;
+- Configurações divididas por Interface, OMSI & Mapas, Conectividade e Sistema;
+- Multiplayer dividido em Sessão, Comunicação & RP e Sistema;
+- preferências reais da antiga aba Avançado foram consolidadas em Geral e a aba duplicada foi removida;
+- HUDs compostos preservam dados reais do C#/OMSI e continuam sem mocks de produção.
+
+### Mantido como alpha pública
+
+- multiplayer LAN/online ainda requer validação real mais ampla entre dois PCs/duas sessões OMSI;
+- ônibus remoto físico, RP físico, controles locais e integrações de IBIS continuam experimentais e opt-in quando aplicável.
+
 ## [0.3.0-alpha.15] — Kachel local, ABI v7, RP seguro e consolidação do Portal V2
 
 ### Corrigido
