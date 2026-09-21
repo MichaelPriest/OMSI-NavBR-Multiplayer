@@ -2213,6 +2213,18 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
             </label>
           ))}
         </div>
+        {draft.preset === "minimal-driver" && draft.showMinimap && (
+          <div className="hud-contextual-note">
+            <strong>{pick("Módulo contextual", "Contextual widget", "Módulo contextual", "Kontextmodul", "Module contextuel")}</strong>
+            <span>{pick(
+              "No Minimal Driver, o minimapa fica oculto durante a condução normal e aparece automaticamente apenas quando a rota foi resolvida e o ônibus sai dela.",
+              "In Minimal Driver, the minimap stays hidden during normal driving and appears automatically only when the route is resolved and the bus goes off route.",
+              "En Minimal Driver, el minimapa permanece oculto durante la conducción normal y aparece automáticamente solo cuando la ruta está resuelta y el autobús sale de ella.",
+              "Im Minimal Driver bleibt die Minikarte bei normaler Fahrt verborgen und erscheint automatisch nur bei aufgelöster Route und Verlassen der Route.",
+              "Dans Minimal Driver, la mini-carte reste masquée en conduite normale et apparaît automatiquement uniquement lorsque l’itinéraire est résolu et que le bus le quitte."
+            )}</span>
+          </div>
+        )}
       </article>
 
       <article className="card hud-settings-card">

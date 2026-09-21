@@ -1138,6 +1138,27 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .hud-slider-list input[type="range"] {
   width:100%;
 }
+.hud-contextual-note {
+  display:grid;
+  gap:4px;
+  margin-top:12px;
+  padding:10px 12px;
+  border:1px solid rgba(91,166,216,.22);
+  border-radius:10px;
+  background:rgba(8,28,42,.48);
+}
+.hud-contextual-note strong {
+  color:#b9dff5;
+  font-size:9px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.hud-contextual-note span {
+  color:#8faebe;
+  font-size:9px;
+  line-height:1.45;
+}
+
 .hud-module-grid {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
