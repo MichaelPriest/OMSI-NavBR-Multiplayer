@@ -83,7 +83,7 @@ jobs:
           jq '
               ([.[] | select(.draft != true)] | sort_by(.published_at // .created_at) | reverse) as $all
               | {
-                  total_downloads: ([$all[] | .assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
+                  total_downloads: ([$all[] | .assets[] | select(.name | test("\\.(exe|zip|apk)$"; "i")) | .download_count] | add // 0),
                   alpha_downloads: (
                     [
                       $all[] as $release
@@ -91,7 +91,7 @@ jobs:
                       | select($alpha != null)
                       | {
                           key: ("alpha." + $alpha.number),
-                          value: ([$release.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0)
+                          value: ([$release.assets[] | select(.name | test("\\.(exe|zip|apk)$"; "i")) | .download_count] | add // 0)
                         }
                     ]
                     | group_by(.key)
@@ -105,8 +105,8 @@ jobs:
                     published_at,
                     html_url,
                     body,
-                    download_count: ([.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | .download_count] | add // 0),
-                    assets: [.assets[] | select(.name | test("\\.(exe|zip)$"; "i")) | {name, browser_download_url, size, download_count}]
+                    download_count: ([.assets[] | select(.name | test("\\.(exe|zip|apk)$"; "i")) | .download_count] | add // 0),
+                    assets: [.assets[] | select(.name | test("\\.(exe|zip|apk)$"; "i")) | {name, browser_download_url, size, download_count}]
                   }))
                 }
             ' \
