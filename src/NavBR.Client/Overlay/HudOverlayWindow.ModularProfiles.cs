@@ -344,6 +344,8 @@ public partial class HudOverlayWindow
         var theme = HudProfileCatalog.ResolveTheme(themeId).Id;
         var palette = theme switch
         {
+            "immersive-operation" => new HudPalette(
+                Color.FromRgb(4, 15, 24), Color.FromRgb(46, 110, 154), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250)),
             "bus-panel" => new HudPalette(
                 Color.FromRgb(5, 7, 8), Color.FromRgb(118, 79, 36), Color.FromRgb(255, 174, 67), Colors.White),
             "lcd" => new HudPalette(

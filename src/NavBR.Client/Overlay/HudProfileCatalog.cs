@@ -30,6 +30,14 @@ public static class HudProfileCatalog
     public static IReadOnlyList<HudPresetDefinition> Presets { get; } =
     [
         new(
+            "immersive-operation",
+            "Imersivo / Operação",
+            "immersive-operation",
+            "HUD de operação em tela",
+            "Modo opcional inspirado em interfaces de condução modernas: rota, próxima parada, minimapa, multiplayer, voz e status em um painel amplo sem substituir o HUD atual.",
+            820d, 0.88d, 0.86d,
+            true, false, true, true, true, true, true),
+        new(
             "rp-urban",
             "RP Urbano",
             "urban-glass",
@@ -114,6 +122,7 @@ public static class HudProfileCatalog
     public static IReadOnlyList<HudThemeDefinition> Themes { get; } =
     [
         new("current", "Atual / NavBR Clássico"),
+        new("immersive-operation", "Imersivo / Operação"),
         new("urban-glass", "Urban Glass"),
         new("route-night", "Route Night"),
         new("racing-clean", "Racing Clean"),
