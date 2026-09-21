@@ -75,7 +75,8 @@ export function assetLabel(name = "") {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Cliente ZIP — alternativa";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado — opcional";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin OMSI x86";
-  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "Mobile Companion Android APK";\n  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Simulador Multiplayer — dev/test";
+  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "Mobile Companion Android APK";
+  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Simulador Multiplayer — dev/test";
   return name;
 }
 
@@ -85,7 +86,8 @@ export function assetHelp(name = "") {
   if (/NavBR-Multiplayer.*win-x86\.zip$/i.test(name)) return "Mesmo cliente em pacote ZIP.";
   if (/NavBR-Server.*win-x64\.zip$/i.test(name)) return "Servidor dedicado opcional.";
   if (/NavBR-Plugin.*win-x86\.zip$/i.test(name)) return "Plugin Native AOT x86 + interop OMSI.";
-  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "APK Android do Mobile Companion Alpha 2.";\n  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Ferramenta exclusiva de desenvolvimento/teste.";
+  if (/NavBR-Mobile.*\.apk$/i.test(name)) return "APK Android do Mobile Companion Alpha 2.";
+  if (/NavBR-Multiplayer-Simulator.*win-x64.*\.zip$/i.test(name)) return "Ferramenta exclusiva de desenvolvimento/teste.";
   return "";
 }
 
