@@ -139,6 +139,7 @@ public partial class MainWindow
                 map,
                 progress);
 
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
             _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
             _webRoadmapResult = new WebRoadmapResult(
                 "tiles",
@@ -190,17 +191,7 @@ public partial class MainWindow
                 ? new FileInfo(result.OutputPath).Length
                 : null as long?;
 
-            _installedMaps = _installedMaps
-                .Select(item =>
-                    string.Equals(
-                        item.FolderName,
-                        map.FolderName,
-                        StringComparison.OrdinalIgnoreCase)
-                        ? item with { RoadmapPath = result.OutputPath }
-                        : item)
-                .ToArray();
-            _webNavigationMapKey = null;
-            _loadedRoadmapPath = null;
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
 
             _webRoadmapResult = new WebRoadmapResult(
                 "hd",
@@ -247,6 +238,7 @@ public partial class MainWindow
                 map,
                 progress);
 
+            RefreshGeneratedRoadmapConsumers(map, result.OutputPath);
             _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
             var fileSize = File.Exists(result.OutputPath)
                 ? new FileInfo(result.OutputPath).Length
@@ -275,6 +267,52 @@ public partial class MainWindow
         finally
         {
             _webRoadmapBusy = false;
+        }
+    }
+
+    private void RefreshGeneratedRoadmapConsumers(
+        OmsiMapInfo map,
+        string generatedOutputPath)
+    {
+        var hdPath = Path.Combine(
+            map.DirectoryPath,
+            "texture",
+            "map",
+            OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
+        var preferredPath = File.Exists(hdPath)
+            ? hdPath
+            : generatedOutputPath;
+
+        _installedMaps = _installedMaps
+            .Select(item =>
+                string.Equals(
+                    item.FolderName,
+                    map.FolderName,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? item with { RoadmapPath = preferredPath }
+                    : item)
+            .ToArray();
+
+        // Force the 2D/3D WebView navigation payloads to resolve the new
+        // bitmap and cached PNG on the very next state update.
+        _webNavigationMapKey = null;
+        _webNavigationRouteKey = null;
+
+        // The retired WPF GPS is still used as an internal compatibility host
+        // in a few paths. Drop its bitmap identity too so it cannot pin the
+        // previous roadmap in memory.
+        _loadedRoadmapPath = null;
+        _loadedRoadmapBitmap = null;
+        _loadedRoadmapLayout = null;
+        _roadmapZoomInitialized = false;
+
+        // HUD overlay has its own BitmapImage cache. Push the updated map
+        // immediately rather than waiting for the 200 ms refresh timer.
+        if (_hudOverlay is not null)
+        {
+            _hudOverlay.UpdateLocalTelemetry(
+                _lastTelemetry,
+                GetActiveMapForMultiplayer());
         }
     }
 
