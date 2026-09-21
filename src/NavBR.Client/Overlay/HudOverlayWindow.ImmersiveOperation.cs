@@ -51,10 +51,13 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveMapTitleText;
     private TextBlock? _immersiveStreetText;
     private TextBlock? _immersiveSessionText;
+    private TextBlock? _immersiveMultiplayerTitleText;
     private TextBlock? _immersivePlayersText;
     private TextBlock? _immersiveNearbyPlayersText;
     private TextBlock? _immersiveChatText;
     private TextBlock? _immersiveVoiceText;
+    private Border? _immersiveVoiceStatusCell;
+    private TextBlock? _immersiveMultiplayerShortcutText;
     private DispatcherTimer? _immersiveOperationTimer;
     private bool _immersivePresentationApplied;
     private Visibility _immersiveSavedTopStatusVisibility = Visibility.Visible;
@@ -508,14 +511,15 @@ public partial class HudOverlayWindow
         var stack = new StackPanel();
 
         var titleRow = new DockPanel { LastChildFill = false };
-        titleRow.Children.Add(new TextBlock
+        _immersiveMultiplayerTitleText = new TextBlock
         {
             Text = ImmersiveText("MULTIPLAYER", "MULTIPLAYER", "MULTIJUGADOR", "MULTIPLAYER", "MULTIJOUEUR"),
             Foreground = Brushes.White,
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 11d,
             FontWeight = FontWeights.Bold
-        });
+        };
+        titleRow.Children.Add(_immersiveMultiplayerTitleText);
         _immersivePlayersText = new TextBlock
         {
             Text = "—",
@@ -580,23 +584,25 @@ public partial class HudOverlayWindow
             FontSize = 10d,
             FontWeight = FontWeights.SemiBold
         };
-        stack.Children.Add(new Border
+        _immersiveVoiceStatusCell = new Border
         {
             Margin = new Thickness(0d, 8d, 0d, 0d),
             Padding = new Thickness(9d, 7d, 9d, 7d),
             Background = new SolidColorBrush(Color.FromArgb(120, 12, 47, 36)),
             CornerRadius = new CornerRadius(7d),
             Child = _immersiveVoiceText
-        });
+        };
+        stack.Children.Add(_immersiveVoiceStatusCell);
 
-        stack.Children.Add(new TextBlock
+        _immersiveMultiplayerShortcutText = new TextBlock
         {
             Text = ImmersiveText("F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT"),
             Margin = new Thickness(0d, 8d, 0d, 0d),
             Foreground = new SolidColorBrush(Color.FromRgb(118, 151, 172)),
             FontSize = 9d,
             FontWeight = FontWeights.SemiBold
-        });
+        };
+        stack.Children.Add(_immersiveMultiplayerShortcutText);
 
         return new Border
         {
@@ -1637,11 +1643,40 @@ public partial class HudOverlayWindow
         if (_immersiveDelayText is not null) _immersiveDelayText.Foreground = text;
         if (_immersiveFuelText is not null) _immersiveFuelText.Foreground = text;
         if (_immersiveMapTitleText is not null) _immersiveMapTitleText.Foreground = accent;
+        if (_immersiveStreetText is not null) _immersiveStreetText.Foreground = new SolidColorBrush(Color.FromArgb(205, palette.Text.R, palette.Text.G, palette.Text.B));
+        if (_immersiveMultiplayerTitleText is not null) _immersiveMultiplayerTitleText.Foreground = text;
         if (_immersivePlayersText is not null) _immersivePlayersText.Foreground = accent;
+        if (_immersiveSessionText is not null) _immersiveSessionText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
+        if (_immersiveNearbyPlayersText is not null)
+        {
+            _immersiveNearbyPlayersText.Foreground = text;
+            _immersiveNearbyPlayersText.Background = new SolidColorBrush(
+                Color.FromArgb(72, palette.Border.R, palette.Border.G, palette.Border.B));
+        }
+        if (_immersiveChatText is not null) _immersiveChatText.Foreground = new SolidColorBrush(Color.FromArgb(205, palette.Text.R, palette.Text.G, palette.Text.B));
+        if (_immersiveVoiceText is not null) _immersiveVoiceText.Foreground = accent;
+        if (_immersiveVoiceStatusCell is not null)
+        {
+            _immersiveVoiceStatusCell.Background = new SolidColorBrush(
+                Color.FromArgb(64, palette.Accent.R, palette.Accent.G, palette.Accent.B));
+            _immersiveVoiceStatusCell.CornerRadius = new CornerRadius(Math.Max(5d, palette.CornerRadius * 0.55d));
+        }
+        if (_immersiveMultiplayerShortcutText is not null) _immersiveMultiplayerShortcutText.Foreground = new SolidColorBrush(Color.FromArgb(180, palette.Text.R, palette.Text.G, palette.Text.B));
         if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.Foreground = accent;
         if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.Foreground = text;
         if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
+        if (_immersiveFocusStopsText is not null) _immersiveFocusStopsText.Foreground = new SolidColorBrush(Color.FromArgb(205, palette.Text.R, palette.Text.G, palette.Text.B));
         if (_immersiveSideIndicatorText is not null) _immersiveSideIndicatorText.Foreground = text;
+        if (_immersiveFocusMoveHandle is not null)
+        {
+            _immersiveFocusMoveHandle.Background = new SolidColorBrush(
+                Color.FromArgb(218, palette.Background.R, palette.Background.G, palette.Background.B));
+            _immersiveFocusMoveHandle.BorderBrush = border;
+            if (_immersiveFocusMoveHandle.Child is TextBlock handleText)
+            {
+                handleText.Foreground = accent;
+            }
+        }
 
         var monospaced = paletteId is "classic-omsi-plus" or "bus-panel" or "lcd" or "amber-classic";
         var font = monospaced
@@ -1653,8 +1688,8 @@ public partial class HudOverlayWindow
             _immersiveLineText, _immersiveRouteText, _immersiveDestinationText,
             _immersiveNextStopText, _immersiveSpeedText, _immersiveDelayText,
             _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
-            _immersiveSessionText, _immersivePlayersText, _immersiveNearbyPlayersText,
-            _immersiveChatText, _immersiveVoiceText,
+            _immersiveSessionText, _immersiveMultiplayerTitleText, _immersivePlayersText, _immersiveNearbyPlayersText,
+            _immersiveChatText, _immersiveVoiceText, _immersiveMultiplayerShortcutText,
             _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText,
             _immersiveFocusStopsText, _immersiveSideIndicatorText
         })

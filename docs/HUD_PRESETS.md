@@ -184,7 +184,10 @@ composição ou os módulos.
 Os temas modernos e legados são mapeados para paletas compatíveis, incluindo
 NavBR Modern, Urban Glass, Route Night, Racing Clean, Bus Panel, LCD, Âmbar
 Clássico e Claro. Temas de display também aplicam fonte monoespaçada ao HUD
-composto.
+composto. A paleta também alcança as superfícies internas do multiplayer,
+atalhos, voz/PTT, lista de jogadores, rua atual, próximas paradas e o handle do
+modo **Mover HUD**, evitando blocos de cor fixa incompatíveis com temas claros
+ou clássicos.
 
 
 ## Altura do painel principal
