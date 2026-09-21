@@ -26,6 +26,7 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveSessionText;
     private TextBlock? _immersivePlayersText;
     private TextBlock? _immersiveNearbyPlayersText;
+    private TextBlock? _immersiveChatText;
     private TextBlock? _immersiveVoiceText;
     private DispatcherTimer? _immersiveOperationTimer;
     private bool _immersivePresentationApplied;
@@ -321,6 +322,23 @@ public partial class HudOverlayWindow
         };
         stack.Children.Add(_immersiveNearbyPlayersText);
 
+        _immersiveChatText = new TextBlock
+        {
+            Text = ImmersiveText(
+                "CHAT • sem mensagens recentes",
+                "CHAT • no recent messages",
+                "CHAT • sin mensajes recientes",
+                "CHAT • keine neuen Nachrichten",
+                "CHAT • aucun message récent"),
+            Margin = new Thickness(0d, 8d, 0d, 0d),
+            Foreground = new SolidColorBrush(Color.FromRgb(157, 184, 201)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 9d,
+            TextWrapping = TextWrapping.Wrap,
+            MaxHeight = 48d
+        };
+        stack.Children.Add(_immersiveChatText);
+
         _immersiveVoiceText = new TextBlock
         {
             Text = "PTT • F10",
@@ -581,6 +599,10 @@ public partial class HudOverlayWindow
         {
             _immersiveNearbyPlayersText.Text = BuildImmersiveNearbyPlayersText();
         }
+        if (_immersiveChatText is not null)
+        {
+            _immersiveChatText.Text = BuildImmersiveChatText();
+        }
         if (_immersiveVoiceText is not null)
         {
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
@@ -672,6 +694,34 @@ public partial class HudOverlayWindow
         return meters < 1000d
             ? $"{Math.Max(0d, meters):F0} m"
             : $"{Math.Max(0d, meters) / 1000d:F1} km";
+    }
+
+    private string BuildImmersiveChatText()
+    {
+        if (_chatMessages.Count == 0)
+        {
+            return ImmersiveText(
+                "CHAT • sem mensagens recentes",
+                "CHAT • no recent messages",
+                "CHAT • sin mensajes recientes",
+                "CHAT • keine neuen Nachrichten",
+                "CHAT • aucun message récent");
+        }
+
+        var recent = _chatMessages
+            .TakeLast(2)
+            .Select(message =>
+            {
+                var name = string.IsNullOrWhiteSpace(message.DisplayName)
+                    ? "Driver"
+                    : message.DisplayName.Trim();
+                var text = string.IsNullOrWhiteSpace(message.Text)
+                    ? "…"
+                    : message.Text.Trim();
+                return $"{name}: {text}";
+            });
+
+        return "CHAT" + Environment.NewLine + string.Join(Environment.NewLine, recent);
     }
 
     private string BuildImmersiveVoiceStatus()
