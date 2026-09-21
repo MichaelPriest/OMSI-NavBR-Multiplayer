@@ -287,7 +287,7 @@ public partial class HudOverlayWindow
     {
         var stack = new StackPanel();
 
-        var titleRow = new DockPanel();
+        var titleRow = new DockPanel { LastChildFill = false };
         titleRow.Children.Add(new TextBlock
         {
             Text = "MULTIPLAYER",
@@ -321,14 +321,18 @@ public partial class HudOverlayWindow
         _immersiveVoiceText = new TextBlock
         {
             Text = "PTT • F10",
-            Margin = new Thickness(0d, 8d, 0d, 0d),
-            Padding = new Thickness(9d, 7d, 9d, 7d),
-            Background = new SolidColorBrush(Color.FromArgb(120, 12, 47, 36)),
             Foreground = new SolidColorBrush(Color.FromRgb(111, 234, 168)),
             FontSize = 10d,
             FontWeight = FontWeights.SemiBold
         };
-        stack.Children.Add(_immersiveVoiceText);
+        stack.Children.Add(new Border
+        {
+            Margin = new Thickness(0d, 8d, 0d, 0d),
+            Padding = new Thickness(9d, 7d, 9d, 7d),
+            Background = new SolidColorBrush(Color.FromArgb(120, 12, 47, 36)),
+            CornerRadius = new CornerRadius(7d),
+            Child = _immersiveVoiceText
+        });
 
         stack.Children.Add(new TextBlock
         {
