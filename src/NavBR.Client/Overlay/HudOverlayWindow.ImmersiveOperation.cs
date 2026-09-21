@@ -1038,6 +1038,11 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
 
+        // Always clear stale fixed heights before applying the current setting.
+        // This makes 0 = automatic truly reversible when changing presets/settings.
+        _immersiveFocusPanel.MinHeight = 0d;
+        _immersiveTopBar.MinHeight = 0d;
+
         if (_hudSettings.DashboardHeight > 0d)
         {
             var requestedHeight = Math.Clamp(_hudSettings.DashboardHeight, 80d, 720d);
