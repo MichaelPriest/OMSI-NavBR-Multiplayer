@@ -1114,6 +1114,7 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
 
+        ApplyComposedPresetGeometry(presetId, compact, ultraNarrow, edge);
         ApplyComposedAuxiliaryPanelLayout(presetId, compact, edge);
 
         // Always clear stale fixed heights before applying the current setting.
@@ -1135,6 +1136,285 @@ public partial class HudOverlayWindow
         }
 
         ApplyComposedPresetPalette(presetId);
+    }
+
+    private void ApplyComposedPresetGeometry(
+        string presetId,
+        bool compact,
+        bool ultraNarrow,
+        double edge)
+    {
+        if (_immersiveTopBar is null ||
+            _immersiveMiniMapPanel is null ||
+            _immersiveMultiplayerPanel is null ||
+            _immersiveFocusPanel is null)
+        {
+            return;
+        }
+
+        // Reset shared geometry before applying the selected preset. The composed
+        // HUDs deliberately reuse the same real telemetry sources, but they must
+        // not look like the same panel with a different palette.
+        _immersiveTopBar.CornerRadius = new CornerRadius(12d);
+        _immersiveTopBar.Padding = new Thickness(10d, 8d, 10d, 8d);
+        _immersiveMiniMapPanel.CornerRadius = new CornerRadius(12d);
+        _immersiveMiniMapPanel.Padding = new Thickness(10d);
+        _immersiveMultiplayerPanel.CornerRadius = new CornerRadius(12d);
+        _immersiveMultiplayerPanel.Padding = new Thickness(10d);
+        _immersiveFocusPanel.CornerRadius = new CornerRadius(14d);
+        _immersiveFocusPanel.Padding = new Thickness(15d, 11d, 15d, 11d);
+
+        _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Left;
+        _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+        _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
+        _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Right;
+        _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+        _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
+
+        if (_immersiveFocusEyebrowText is not null)
+        {
+            _immersiveFocusEyebrowText.TextAlignment = TextAlignment.Center;
+        }
+        if (_immersiveFocusPrimaryText is not null)
+        {
+            _immersiveFocusPrimaryText.TextAlignment = TextAlignment.Center;
+        }
+        if (_immersiveFocusSecondaryText is not null)
+        {
+            _immersiveFocusSecondaryText.TextAlignment = TextAlignment.Center;
+        }
+
+        // Ultra-narrow OMSI windows keep the collision-safe baseline layout.
+        if (ultraNarrow)
+        {
+            return;
+        }
+
+        var freeAnchor = string.Equals(
+            HudProfileCatalog.ResolveAnchor(_hudSettings.DashboardAnchor),
+            HudProfileCatalog.DefaultAnchor,
+            StringComparison.OrdinalIgnoreCase);
+        var topGap = compact ? 112d : 132d;
+        var sideGap = compact ? 12d : 20d;
+
+        switch (presetId)
+        {
+            case "transit-control":
+                _immersiveTopBar.CornerRadius = new CornerRadius(6d);
+                _immersiveTopBar.Padding = new Thickness(12d, 9d, 12d, 9d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, topGap * 0.45d, sideGap, 0d);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(7d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMultiplayerPanel.Margin = new Thickness(sideGap, 0d, 0d, sideGap);
+                _immersiveMultiplayerPanel.CornerRadius = new CornerRadius(7d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Center;
+                    _immersiveFocusPanel.Margin = new Thickness(sideGap, topGap * 0.35d, 0d, 0d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(7d);
+                if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.TextAlignment = TextAlignment.Left;
+                break;
+
+            case "cockpit-digital":
+                _immersiveTopBar.CornerRadius = new CornerRadius(18d);
+                _immersiveTopBar.Padding = new Thickness(14d, 7d, 14d, 7d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMiniMapPanel.Margin = new Thickness(sideGap, 0d, 0d, sideGap * 1.15d);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(18d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveMultiplayerPanel.Margin = new Thickness(0d, topGap, sideGap, 0d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 14d : 24d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(34d);
+                _immersiveFocusPanel.Padding = new Thickness(24d, 12d, 24d, 12d);
+                break;
+
+            case "navigation-pro":
+                _immersiveTopBar.CornerRadius = new CornerRadius(8d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, topGap * 0.35d, sideGap, 0d);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(8d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMultiplayerPanel.Margin = new Thickness(sideGap, 0d, 0d, sideGap);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+                    _immersiveFocusPanel.Margin = new Thickness(sideGap, topGap, 0d, 0d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(8d);
+                _immersiveFocusPanel.Padding = new Thickness(18d, 13d, 18d, 13d);
+                if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.TextAlignment = TextAlignment.Left;
+                break;
+
+            case "multiplayer-focus":
+                _immersiveTopBar.CornerRadius = new CornerRadius(10d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveMultiplayerPanel.Margin = new Thickness(sideGap, topGap * 0.35d, 0d, 0d);
+                _immersiveMultiplayerPanel.CornerRadius = new CornerRadius(10d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, topGap, sideGap, 0d);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(10d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, sideGap, sideGap);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(10d);
+                break;
+
+            case "classic-omsi-plus":
+                _immersiveTopBar.CornerRadius = new CornerRadius(2d);
+                _immersiveTopBar.Padding = new Thickness(12d, 8d, 12d, 8d);
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(2d);
+                _immersiveFocusPanel.Padding = new Thickness(18d, 12d, 18d, 12d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 14d : 24d);
+                }
+                if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.TextAlignment = TextAlignment.Left;
+                if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.TextAlignment = TextAlignment.Left;
+                break;
+
+            case "minimal-driver":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveTopBar.Margin = new Thickness(sideGap, compact ? 8d : 12d, 0d, 0d);
+                _immersiveTopBar.CornerRadius = new CornerRadius(9d);
+                _immersiveTopBar.Padding = new Thickness(10d, 6d, 10d, 6d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, 0d, sideGap, sideGap);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(10d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 18d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(18d);
+                _immersiveFocusPanel.Padding = new Thickness(14d, 8d, 14d, 8d);
+                break;
+
+            case "streamer-broadcast":
+                _immersiveTopBar.CornerRadius = new CornerRadius(10d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Top;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, topGap, sideGap, 0d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMultiplayerPanel.Margin = new Thickness(sideGap, 0d, 0d, sideGap);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, sideGap, sideGap);
+                }
+                // The center of the windshield intentionally remains clear.
+                break;
+
+            case "glass-night":
+                _immersiveTopBar.CornerRadius = new CornerRadius(22d);
+                _immersiveTopBar.Padding = new Thickness(14d, 7d, 14d, 7d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMiniMapPanel.Margin = new Thickness(sideGap, 0d, 0d, sideGap);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(22d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, sideGap, sideGap);
+                _immersiveMultiplayerPanel.CornerRadius = new CornerRadius(22d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 20d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(24d);
+                break;
+
+            case "city-operations":
+                _immersiveTopBar.CornerRadius = new CornerRadius(7d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, topGap * 0.32d, sideGap, 0d);
+                _immersiveMiniMapPanel.CornerRadius = new CornerRadius(8d);
+
+                _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveMultiplayerPanel.Margin = new Thickness(sideGap, topGap * 0.32d, 0d, 0d);
+                _immersiveMultiplayerPanel.CornerRadius = new CornerRadius(8d);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 14d : 22d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(8d);
+                break;
+
+            case "driver-assistance":
+                _immersiveTopBar.CornerRadius = new CornerRadius(12d);
+
+                _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveMiniMapPanel.Margin = new Thickness(0d, 0d, sideGap, sideGap);
+
+                if (freeAnchor)
+                {
+                    _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                    _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Top;
+                    _immersiveFocusPanel.Margin = new Thickness(0d, topGap, 0d, 0d);
+                }
+                _immersiveFocusPanel.CornerRadius = new CornerRadius(16d);
+                _immersiveFocusPanel.Padding = new Thickness(20d, 12d, 20d, 12d);
+                break;
+        }
     }
 
     private void ApplyImmersiveTopBarColumnLayout(bool ultraNarrow)
