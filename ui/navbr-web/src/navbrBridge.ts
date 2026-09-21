@@ -549,6 +549,8 @@ export interface NavBrRoadmapStudioState {
     compatibilityId?: string | null;
     roadmapPath?: string | null;
     roadmapExists: boolean;
+    hdRoadmapPath?: string | null;
+    hdRoadmapExists: boolean;
   }[];
   selectedFolder?: string | null;
   busy: boolean;
@@ -573,7 +575,7 @@ export interface NavBrRoadmapStudioState {
     canBuildFromTiles: boolean;
   } | null;
   result?: {
-    mode: "tiles" | "vector";
+    mode: "tiles" | "vector" | "hd";
     outputPath: string;
     backupPath?: string | null;
     pixelWidth: number;
@@ -901,6 +903,7 @@ export type NavBrCommand =
   | "analyzeRoadmap"
   | "buildRoadmapTiles"
   | "buildRoadmapVector"
+  | "buildRoadmapHd"
   | "openRoadmapFolder"
   | "startGhostRecording"
   | "stopGhostRecording"

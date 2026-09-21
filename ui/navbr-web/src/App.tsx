@@ -171,8 +171,18 @@ function Sidebar({
   );
 }
 
-function Home({ state }: { state: NavBrState | null }) {
-  const { t } = useI18n();
+function Home({
+  state,
+  onNavigate,
+  onOpenHud,
+  onOpenRoadmap
+}: {
+  state: NavBrState | null;
+  onNavigate: (screen: Screen) => void;
+  onOpenHud: () => void;
+  onOpenRoadmap: () => void;
+}) {
+  const { t, pick } = useI18n();
   const omsi = state?.omsi;
   const telemetry = state?.telemetry;
   const active = Boolean(omsi?.running && telemetry?.inGame);
@@ -238,6 +248,23 @@ function Home({ state }: { state: NavBrState | null }) {
           <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : t("home.disconnected")}</strong>
           <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : t("home.noRoom")}</small>
         </article>
+      </section>
+
+      <section className="home-shortcuts card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("ATALHOS RÁPIDOS", "QUICK ACCESS", "ACCESOS RÁPIDOS", "SCHNELLZUGRIFF", "ACCÈS RAPIDE")}</span>
+            <h3>{pick("Ir direto ao que você usa", "Go straight to what you use", "Ir directo a lo que usas", "Direkt zu den wichtigsten Bereichen", "Accéder directement à l’essentiel")}</h3>
+          </div>
+        </div>
+        <div className="home-shortcut-grid">
+          <button onClick={() => onNavigate("navigation")}><NavBrIcon name="navigation" size={21} /><span><strong>{t("nav.navigation")}</strong><small>{pick("Mapa, rota e GPS", "Map, route and GPS", "Mapa, ruta y GPS", "Karte, Route und GPS", "Carte, itinéraire et GPS")}</small></span></button>
+          <button onClick={() => onNavigate("multiplayer")}><NavBrIcon name="multiplayer" size={21} /><span><strong>{t("nav.multiplayer")}</strong><small>{pick("Salas, jogadores e voz", "Rooms, players and voice", "Salas, jugadores y voz", "Räume, Spieler und Sprache", "Salons, joueurs et voix")}</small></span></button>
+          <button onClick={() => onNavigate("operations")}><NavBrIcon name="operations" size={21} /><span><strong>{t("nav.operations")}</strong><small>{pick("Operação e frota", "Operations and fleet", "Operación y flota", "Betrieb und Flotte", "Exploitation et flotte")}</small></span></button>
+          <button onClick={onOpenHud}><NavBrIcon name="settings" size={21} /><span><strong>HUD</strong><small>{pick("Presets, prévia e Move HUD", "Presets, preview and Move HUD", "Presets, vista previa y Move HUD", "Presets, Vorschau und Move HUD", "Presets, aperçu et Move HUD")}</small></span></button>
+          <button onClick={onOpenRoadmap}><NavBrIcon name="map" size={21} /><span><strong>Roadmap Studio</strong><small>{pick("Roadmap e textura HD", "Roadmap and HD texture", "Roadmap y textura HD", "Roadmap und HD-Textur", "Roadmap et texture HD")}</small></span></button>
+          <button onClick={() => onNavigate("hardware")}><NavBrIcon name="hardware" size={21} /><span><strong>{t("nav.hardware")}</strong><small>{pick("Cockpit e dispositivos", "Cockpit and devices", "Cabina y dispositivos", "Cockpit und Geräte", "Cockpit et périphériques")}</small></span></button>
+        </div>
       </section>
     </>
   );
@@ -2521,10 +2548,13 @@ function roadmapStatusLabel(
     case "analysis-failed": return pick("Falha na análise", "Analysis failed", "Falló el análisis", "Analyse fehlgeschlagen", "Échec de l’analyse");
     case "building-tiles": return pick("Montando roadmap por tiles", "Building roadmap from tiles", "Montando roadmap por tiles", "Roadmap aus Tiles wird erstellt", "Construction de la roadmap depuis les tiles");
     case "building-vector": return pick("Gerando roadmap vetorial", "Generating vector roadmap", "Generando roadmap vectorial", "Vektor-Roadmap wird erzeugt", "Génération de la roadmap vectorielle");
+    case "building-hd": return pick("Gerando textura HD do minimapa", "Generating HD minimap texture", "Generando textura HD del minimapa", "HD-Minimap-Textur wird erzeugt", "Génération de la texture HD de la mini-carte");
     case "tiles-built": return pick("Roadmap por tiles concluído", "Tile roadmap completed", "Roadmap por tiles completado", "Tile-Roadmap abgeschlossen", "Roadmap par tiles terminée");
     case "vector-built": return pick("Roadmap vetorial concluído", "Vector roadmap completed", "Roadmap vectorial completado", "Vektor-Roadmap abgeschlossen", "Roadmap vectorielle terminée");
+    case "hd-built": return pick("Textura HD do minimapa concluída", "HD minimap texture completed", "Textura HD del minimapa completada", "HD-Minimap-Textur abgeschlossen", "Texture HD de la mini-carte terminée");
     case "tiles-build-failed": return pick("Falha na geração por tiles", "Tile build failed", "Falló la generación por tiles", "Tile-Erzeugung fehlgeschlagen", "Échec de la génération par tiles");
     case "vector-build-failed": return pick("Falha na geração vetorial", "Vector build failed", "Falló la generación vectorial", "Vektor-Erzeugung fehlgeschlagen", "Échec de la génération vectorielle");
+    case "hd-build-failed": return pick("Falha ao gerar textura HD", "HD texture build failed", "Falló la textura HD", "HD-Textur konnte nicht erzeugt werden", "Échec de la génération HD");
     default: return status || pick("Pronto", "Ready", "Listo", "Bereit", "Prêt");
   }
 }
@@ -2586,6 +2616,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 <span><small>{pick("PASTA", "FOLDER", "CARPETA", "ORDNER", "DOSSIER")}</small><strong>{selectedMap.folderName}</strong></span>
                 <span><small>{pick("TILES DO MAPA", "MAP TILES", "TILES DEL MAPA", "KARTEN-TILES", "TILES DE LA CARTE")}</small><strong>{selectedMap.tileCount}</strong></span>
                 <span><small>WHOLE ROADMAP</small><strong>{selectedMap.roadmapExists ? pick("Existe", "Exists", "Existe", "Vorhanden", "Présente") : pick("Ausente", "Missing", "Ausente", "Fehlt", "Absente")}</strong></span>
+                <span><small>NAVBR HD</small><strong>{selectedMap.hdRoadmapExists ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Não gerado", "Not generated", "No generado", "Nicht erzeugt", "Non généré")}</strong></span>
               </div>
             )}
 
@@ -2610,6 +2641,21 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 onClick={() => sendCommand("buildRoadmapVector", { folderName: selectedFolder })}
               >
                 {t("roadmap.buildVector")}
+              </button>
+              <button
+                className="button primary"
+                disabled={!selectedFolder || roadmap.busy}
+                onClick={() => sendCommand("buildRoadmapHd", { folderName: selectedFolder })}
+                title={pick(
+                  "Gera uma textura vetorial de alta definição exclusiva do NavBR. O roadmap original do OMSI não é substituído.",
+                  "Generates a high-definition vector texture exclusively for NavBR. The original OMSI roadmap is not replaced.",
+                  "Genera una textura vectorial de alta definición exclusiva de NavBR. No reemplaza el roadmap original de OMSI.",
+                  "Erzeugt eine hochauflösende Vektortextur nur für NavBR. Die originale OMSI-Roadmap wird nicht ersetzt.",
+                  "Génère une texture vectorielle haute définition réservée à NavBR. La roadmap OMSI d’origine n’est pas remplacée."
+                )}
+              >
+                <NavBrIcon name="map" size={15} />
+                {pick("Gerar HD minimapa", "Generate HD minimap", "Generar minimapa HD", "HD-Minimap erzeugen", "Générer mini-carte HD")}
               </button>
               <button
                 className="button ghost"
@@ -2665,7 +2711,13 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         ) : (
           <>
             <div className="roadmap-analysis-grid">
-              <span><small>{pick("MODO", "MODE", "MODO", "MODUS", "MODE")}</small><strong>{result.mode === "tiles" ? pick("Imagens de tile", "Tile images", "Imágenes de tile", "Tile-Bilder", "Images de tile") : pick("Vetorial / splines", "Vector / splines", "Vectorial / splines", "Vektor / Splines", "Vectoriel / splines")}</strong></span>
+              <span><small>{pick("MODO", "MODE", "MODO", "MODUS", "MODE")}</small><strong>{
+                result.mode === "tiles"
+                  ? pick("Imagens de tile", "Tile images", "Imágenes de tile", "Tile-Bilder", "Images de tile")
+                  : result.mode === "hd"
+                    ? pick("NavBR HD / minimapa", "NavBR HD / minimap", "NavBR HD / minimapa", "NavBR HD / Minimap", "NavBR HD / mini-carte")
+                    : pick("Vetorial / splines", "Vector / splines", "Vectorial / splines", "Vektor / Splines", "Vectoriel / splines")
+              }</strong></span>
               <span><small>{pick("DIMENSÃO", "DIMENSIONS", "DIMENSIÓN", "ABMESSUNGEN", "DIMENSIONS")}</small><strong>{result.pixelWidth}×{result.pixelHeight}</strong></span>
               <span><small>{pick("TAMANHO", "SIZE", "TAMAÑO", "GRÖSSE", "TAILLE")}</small><strong>{formatFileSize(result.fileSizeBytes)}</strong></span>
               <span><small>{pick("TEMPO", "TIME", "TIEMPO", "ZEIT", "TEMPS")}</small><strong>{result.elapsedSeconds.toFixed(1)} s</strong></span>
@@ -5308,7 +5360,12 @@ export default function App() {
           onOpenInstallations={() => openSettingsTab("installations")}
         />
         {screen === "home"
-          ? <Home state={state} />
+          ? <Home
+              state={state}
+              onNavigate={setScreen}
+              onOpenHud={() => openSettingsTab("hud")}
+              onOpenRoadmap={() => openSettingsTab("roadmap")}
+            />
           : screen === "navigation"
             ? <Navigation state={state} requestedView={navigationViewRequest} />
             : screen === "roleplay"

@@ -432,6 +432,11 @@ public partial class MainWindow
                     GetWebPayloadString(payload, "folderName"));
                 break;
 
+            case "buildRoadmapHd":
+                await BuildRoadmapHdFromWebAsync(
+                    GetWebPayloadString(payload, "folderName"));
+                break;
+
             case "openRoadmapFolder":
                 OpenRoadmapFolderFromWeb(
                     GetWebPayloadString(payload, "folderName"));

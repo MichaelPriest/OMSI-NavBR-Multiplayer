@@ -28,6 +28,11 @@ public partial class MainWindow
                         "texture",
                         "map",
                         "whole.roadmap.bmp");
+                    var hdRoadmapPath = Path.Combine(
+                        map.DirectoryPath,
+                        "texture",
+                        "map",
+                        OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
                     return new
                     {
                         folderName = map.FolderName,
@@ -36,7 +41,9 @@ public partial class MainWindow
                         tileCount = map.TileCount,
                         compatibilityId = map.CompatibilityId,
                         roadmapPath,
-                        roadmapExists = File.Exists(roadmapPath)
+                        roadmapExists = File.Exists(roadmapPath),
+                        hdRoadmapPath,
+                        hdRoadmapExists = File.Exists(hdRoadmapPath)
                     };
                 })
                 .ToArray(),
@@ -151,6 +158,68 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _webRoadmapStatus = "tiles-build-failed";
+            _webRoadmapError = ex.Message;
+            throw;
+        }
+        finally
+        {
+            _webRoadmapBusy = false;
+        }
+    }
+
+    private async Task BuildRoadmapHdFromWebAsync(string? folderName)
+    {
+        var map = ResolveWebRoadmapMap(folderName);
+        BeginWebRoadmapBuild(map, "building-hd");
+
+        try
+        {
+            var progress = new Progress<double>(value =>
+            {
+                _webRoadmapProgress = Math.Clamp(
+                    double.IsFinite(value) ? value : 0d,
+                    0d,
+                    1d);
+            });
+            var result = await _webRoadmapVectorGenerator.BuildHdAsync(
+                map,
+                progress);
+
+            _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
+            var fileSize = File.Exists(result.OutputPath)
+                ? new FileInfo(result.OutputPath).Length
+                : null as long?;
+
+            _installedMaps = _installedMaps
+                .Select(item =>
+                    string.Equals(
+                        item.FolderName,
+                        map.FolderName,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? item with { RoadmapPath = result.OutputPath }
+                        : item)
+                .ToArray();
+            _webNavigationMapKey = null;
+            _loadedRoadmapPath = null;
+
+            _webRoadmapResult = new WebRoadmapResult(
+                "hd",
+                result.OutputPath,
+                null,
+                result.PixelWidth,
+                result.PixelHeight,
+                result.Elapsed.TotalSeconds,
+                fileSize,
+                null,
+                null,
+                result.TileFilesRead,
+                result.SplinesDrawn);
+            _webRoadmapProgress = 1d;
+            _webRoadmapStatus = "hd-built";
+        }
+        catch (Exception ex)
+        {
+            _webRoadmapStatus = "hd-build-failed";
             _webRoadmapError = ex.Message;
             throw;
         }
