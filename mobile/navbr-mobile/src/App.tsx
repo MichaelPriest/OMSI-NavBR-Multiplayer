@@ -90,28 +90,32 @@ type IbisKeyDefinition = {
   wide?: boolean;
 };
 
-const IBIS_KEYS: IbisKeyDefinition[] = [
-  { id: "line", label: "LINIE", secondary: "LINE", aliases: ["linie", "line"] },
-  { id: "route", label: "KURS", secondary: "ROUTE", aliases: ["kurs", "route", "course"] },
-  { id: "destination", label: "ZIEL", secondary: "DEST", aliases: ["ziel", "destination", "dest"] },
-  { id: "announce", label: "ANS", secondary: "ANN", aliases: ["ansage", "announce", "announcement"] },
+const IBIS_FUNCTION_KEYS: IbisKeyDefinition[] = [
+  { id: "language", label: "Sprache", secondary: "Wunsch", aliases: ["sprache", "wunsch", "language", "request"] },
+  { id: "clock", label: "Uhrzeit", aliases: ["uhrzeit", "clock", "time"] },
+  { id: "route", label: "Route", aliases: ["route", "kurs route"] },
+  { id: "line", label: "Linie", secondary: "Kurs", aliases: ["linie", "line", "kurs"] },
+  { id: "destination", label: "Ziel", aliases: ["ziel", "destination", "dest"] },
+  { id: "forward-mute", label: "Vor", secondary: "Stumm", aliases: ["vor stumm", "forward mute", "vor", "forward"] },
+  { id: "next-stop", label: "Fortsch.", secondary: "H-Stelle", aliases: ["haltestelle", "next stop", "nextstop", "fortschalt", "advance stop"] },
+  { id: "back-mute", label: "Rück", secondary: "Stumm", aliases: ["rueck stumm", "ruck stumm", "back mute", "rueck", "back"] },
+  { id: "zone", label: "Zone", aliases: ["zone"] },
+  { id: "subzone", label: "Teilzone", secondary: "Richtig", aliases: ["teilzone", "richtig", "subzone"] }
+];
+
+const IBIS_NUMERIC_KEYS: IbisKeyDefinition[] = [
   { id: "1", label: "1", aliases: ["1"] },
   { id: "2", label: "2", aliases: ["2"] },
   { id: "3", label: "3", aliases: ["3"] },
-  { id: "up", label: "▲", aliases: ["up", "hoch", "prev", "previous"] },
   { id: "4", label: "4", aliases: ["4"] },
   { id: "5", label: "5", aliases: ["5"] },
   { id: "6", label: "6", aliases: ["6"] },
-  { id: "down", label: "▼", aliases: ["down", "runter", "next"] },
   { id: "7", label: "7", aliases: ["7"] },
   { id: "8", label: "8", aliases: ["8"] },
-  { id: "9", label: "9", aliases: ["9"] },
-  { id: "delete", label: "C", secondary: "DEL", aliases: ["clear", "clr", "delete", "del", "korrektur", "cancel"] },
-  { id: "left", label: "◀", aliases: ["left", "links"] },
-  { id: "0", label: "0", aliases: ["0"] },
-  { id: "right", label: "▶", aliases: ["right", "rechts"] },
-  { id: "enter", label: "E", secondary: "ENTER", aliases: ["enter", "eingabe", "ok", "confirm", "bestaetigen"], wide: true }
-];
+  { id: "9", label: "9", secondary: "Kanal", aliases: ["9"] },
+  { id: "delete", label: "Löschen", secondary: "DEL", aliases: ["loeschen", "loschen", "clear", "clr", "delete", "del", "korrektur", "cancel"] },
+  { id: "0", label: "0", secondary: "Uhrzeit/Datum", aliases: ["0", "uhrzeit datum", "time date"] },
+  { id: "enter", label: "Eingabe", secondary: "Quitt.", aliases: ["eingabe", "quitt", "enter", "ok", "confirm", "bestaetigen"] }
 
 const ibisTokens = (value: string) =>
   value.toLowerCase()
@@ -350,11 +354,17 @@ export default function App() {
     .sort((a, b) => a.localeCompare(b));
 
   const ibisProfile = detectIbisProfile(state?.ibis.detectedEvents || []);
-  const ibisKeys = IBIS_KEYS.map(definition => ({
+  const ibisFunctionKeys = IBIS_FUNCTION_KEYS.map(definition => ({
     ...definition,
     eventName: resolveIbisEvent(state?.ibis.detectedEvents || [], definition)
   }));
-  const mappedIbisEvents = new Set(ibisKeys.flatMap(key => key.eventName ? [key.eventName] : []));
+  const ibisNumericKeys = IBIS_NUMERIC_KEYS.map(definition => ({
+    ...definition,
+    eventName: resolveIbisEvent(state?.ibis.detectedEvents || [], definition)
+  }));
+  const mappedIbisEvents = new Set(
+    [...ibisFunctionKeys, ...ibisNumericKeys].flatMap(key => key.eventName ? [key.eventName] : [])
+  );
   const unmappedIbisControls = availableIbisControls.filter(eventName => !mappedIbisEvents.has(eventName));
 
   return <main className="app-shell">
@@ -447,40 +457,67 @@ export default function App() {
             <div className={`ibis-led ${state?.ibis.writable ? "on" : ""}`}><i />{state?.ibis.writable ? "BEREIT" : "READ"}</div>
           </div>
 
-          <div className="ibis-lcd" role="status" aria-label="Visor do IBIS">
-            <div className="ibis-lcd-row ibis-lcd-primary">
-              <span>LIN {state?.ibis.line || "----"}</span>
-              <span>KRS {state?.ibis.route || "--"}</span>
-            </div>
-            <div className="ibis-lcd-destination">{state?.ibis.destination || "KEIN ZIEL / SEM DESTINO"}</div>
-            <div className="ibis-lcd-row">
-              <span>{state?.ibis.nextStop || "Aguardando próxima parada"}</span>
-              <span>{state?.ibis.delaySeconds == null ? "--:--" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</span>
-            </div>
-            <div className="ibis-lcd-footer">HOF {state?.ibis.hof || "—"} · EVENTOS {state?.ibis.detectedEvents.length || 0}</div>
-          </div>
+          <div className="ibis-device-grid">
+            <div className="ibis-main-panel">
+              <div className="ibis-lcd" role="status" aria-label="Visor do IBIS">
+                <div className="ibis-lcd-row ibis-lcd-primary">
+                  <span>LIN {state?.ibis.line || "----"}</span>
+                  <span>KRS {state?.ibis.route || "--"}</span>
+                </div>
+                <div className="ibis-lcd-destination">{state?.ibis.destination || "KEIN ZIEL / SEM DESTINO"}</div>
+                <div className="ibis-lcd-row">
+                  <span>{state?.ibis.nextStop || "Aguardando próxima parada"}</span>
+                  <span>{state?.ibis.delaySeconds == null ? "--:--" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</span>
+                </div>
+                <div className="ibis-lcd-footer">HOF {state?.ibis.hof || "—"} · EVENTOS {state?.ibis.detectedEvents.length || 0}</div>
+              </div>
 
-          <div className="ibis-keypad">
-            {ibisKeys.map(key => <button
-              key={key.id}
-              type="button"
-              className={`ibis-key ${key.wide ? "wide" : ""} ${key.eventName ? "mapped" : "unmapped"}`}
-              disabled={!state?.ibis.writable || !key.eventName}
-              title={key.eventName || "Função não exposta por este ônibus"}
-              onPointerDown={e => {
-                if (!key.eventName) return;
-                e.currentTarget.setPointerCapture(e.pointerId);
-                navigator.vibrate?.(12);
-                void sendCommand("ibis-trigger", { triggerName: key.eventName, active: true });
-              }}
-              onPointerUp={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
-              onPointerCancel={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
-              onLostPointerCapture={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
-            >
-              <strong>{key.label}</strong>
-              {key.secondary && <small>{key.secondary}</small>}
-              <em>{key.eventName ? "●" : "×"}</em>
-            </button>)}
+              <div className="ibis-function-pad">
+                {ibisFunctionKeys.map((key, index) => <button
+                  key={key.id}
+                  type="button"
+                  className={`ibis-key ibis-function-key function-${index + 1} ${key.eventName ? "mapped" : "unmapped"}`}
+                  disabled={!state?.ibis.writable || !key.eventName}
+                  title={key.eventName || "Função não exposta por este ônibus"}
+                  onPointerDown={e => {
+                    if (!key.eventName) return;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    navigator.vibrate?.(12);
+                    void sendCommand("ibis-trigger", { triggerName: key.eventName, active: true });
+                  }}
+                  onPointerUp={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+                  onPointerCancel={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+                  onLostPointerCapture={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+                >
+                  <strong>{key.label}</strong>
+                  {key.secondary && <small>{key.secondary}</small>}
+                  <em>{key.eventName ? "●" : "×"}</em>
+                </button>)}
+              </div>
+            </div>
+
+            <div className="ibis-number-pad">
+              {ibisNumericKeys.map(key => <button
+                key={key.id}
+                type="button"
+                className={`ibis-key ibis-number-key key-${key.id} ${key.eventName ? "mapped" : "unmapped"}`}
+                disabled={!state?.ibis.writable || !key.eventName}
+                title={key.eventName || "Função não exposta por este ônibus"}
+                onPointerDown={e => {
+                  if (!key.eventName) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  navigator.vibrate?.(12);
+                  void sendCommand("ibis-trigger", { triggerName: key.eventName, active: true });
+                }}
+                onPointerUp={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+                onPointerCancel={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+                onLostPointerCapture={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+              >
+                <strong>{key.label}</strong>
+                {key.secondary && <small>{key.secondary}</small>}
+                <em>{key.eventName ? "●" : "×"}</em>
+              </button>)}
+            </div>
           </div>
 
           <div className="ibis-console-legend">

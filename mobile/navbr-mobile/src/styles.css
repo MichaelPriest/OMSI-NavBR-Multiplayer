@@ -20,3 +20,29 @@
 .ibis-technical-toggle{width:100%;border:1px solid #243c47;border-radius:11px;padding:10px 12px;background:#09161d;color:#7895a3;font-size:10px;font-weight:800;letter-spacing:.04em}.ibis-technical-panel{margin-top:0}.ibis-technical-panel .section-title b{font-size:9px;color:#8ea1aa}
 @media(max-width:380px){.ibis-console{padding:13px 10px}.ibis-keypad{gap:6px}.ibis-key{min-height:55px;padding:7px 3px}.ibis-key strong{font-size:16px}.ibis-lcd{min-height:138px}.ibis-lcd-destination{font-size:17px}.ibis-brand-main{font-size:19px}}
 @media(min-width:700px){.ibis-console{max-width:520px;margin:0 auto;padding:20px}.ibis-key{min-height:70px}.ibis-live-strip{max-width:520px;margin:0 auto;width:100%}.ibis-technical-toggle{max-width:520px;margin:0 auto}}
+/* Classic OMSI IBIS geometry: display/function bank on the left, numeric bank on the right. */
+.ibis-device-grid{display:grid;grid-template-columns:minmax(0,1.72fr) minmax(104px,.9fr);gap:9px;align-items:stretch}
+.ibis-main-panel{display:grid;grid-template-rows:auto 1fr;gap:8px;min-width:0}
+.ibis-device-grid .ibis-lcd{margin:0;min-height:116px;padding:9px 9px 7px;border-width:4px}
+.ibis-device-grid .ibis-lcd-primary{font-size:12px}
+.ibis-device-grid .ibis-lcd-destination{min-height:38px;padding:9px 0 6px;font-size:16px}
+.ibis-device-grid .ibis-lcd-row{font-size:9px}
+.ibis-device-grid .ibis-lcd-footer{font-size:7px;margin-top:5px}
+.ibis-function-pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,minmax(48px,1fr));gap:5px;align-self:end}
+.ibis-number-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(4,minmax(48px,1fr));gap:6px;align-self:stretch}
+.ibis-function-key,.ibis-number-key{min-height:48px;border-radius:4px;padding:5px 3px}
+.ibis-function-key strong{font-size:8px;line-height:1.05;text-transform:none}.ibis-function-key small{font-size:6px;line-height:1.05;margin-top:2px}.ibis-function-key em{right:3px;bottom:2px;font-size:5px}
+.ibis-number-key strong{font-size:17px}.ibis-number-key small{font-size:5.5px;line-height:1.05;margin-top:3px}.ibis-number-key em{right:3px;bottom:2px;font-size:5px}
+.ibis-function-key.function-1{background:linear-gradient(#b87535,#7a451f 68%,#4a2915);border-color:#bd8353}
+.ibis-function-key.function-2{background:linear-gradient(#ad583b,#753421 68%,#462016);border-color:#b46a51}
+.ibis-function-key.function-3,.ibis-function-key.function-4,.ibis-function-key.function-5,.ibis-function-key.function-9,.ibis-function-key.function-10{background:linear-gradient(#b9a94f,#736829 68%,#423c18);border-color:#b9aa66;color:#fff8c6}
+.ibis-function-key.function-6{background:linear-gradient(#7f98a5,#465864 68%,#29343a);border-color:#829aa5}
+.ibis-function-key.function-7{background:linear-gradient(#3f91a2,#285866 68%,#19363d);border-color:#5c9dac}
+.ibis-function-key.function-8{background:linear-gradient(#777a78,#474b48 68%,#292c2a);border-color:#858985}
+.ibis-number-key{background:linear-gradient(#a7a9a3,#70736f 58%,#494c49);border-color:#b3b5af;color:#151716;text-shadow:0 1px rgba(255,255,255,.28)}
+.ibis-number-key small{color:#252925}.ibis-number-key.mapped em{color:#355d31}.ibis-number-key.unmapped em{color:#5f625f}
+.ibis-number-key.key-delete{background:linear-gradient(#b2a35d,#756b35 62%,#49421f)}
+.ibis-number-key.key-enter{background:linear-gradient(#b1a858,#756e32 62%,#47431e)}
+.ibis-number-key.key-0{background:linear-gradient(#aba88a,#706f5d 62%,#45453a)}
+@media(max-width:380px){.ibis-device-grid{grid-template-columns:minmax(0,1.65fr) minmax(96px,.9fr);gap:6px}.ibis-function-pad{gap:3px}.ibis-number-pad{gap:4px}.ibis-function-key,.ibis-number-key{min-height:44px;padding:4px 2px}.ibis-function-key strong{font-size:7px}.ibis-function-key small{font-size:5px}.ibis-number-key strong{font-size:15px}.ibis-device-grid .ibis-lcd{min-height:105px}.ibis-device-grid .ibis-lcd-destination{font-size:14px}}
+@media(min-width:700px){.ibis-device-grid{grid-template-columns:minmax(0,1.8fr) minmax(150px,.9fr);gap:12px}.ibis-function-pad{gap:7px}.ibis-number-pad{gap:8px}.ibis-function-key,.ibis-number-key{min-height:62px}.ibis-function-key strong{font-size:10px}.ibis-function-key small{font-size:7px}.ibis-number-key strong{font-size:20px}.ibis-number-key small{font-size:7px}.ibis-device-grid .ibis-lcd{min-height:145px}.ibis-device-grid .ibis-lcd-destination{font-size:19px}}
