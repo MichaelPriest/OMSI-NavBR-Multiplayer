@@ -45,6 +45,16 @@ internal static class OmsiVehicleInteractionCatalog
         return events;
     }
 
+    public static IReadOnlyList<string> ReadIbisEvents(
+        string? omsiInstallDirectory,
+        string? vehiclePath)
+    {
+        return Read(omsiInstallDirectory, vehiclePath)
+            .Where(IsLikelyIbisEvent)
+            .Take(64)
+            .ToArray();
+    }
+
     private static string[] ReadCore(
         string definitionPath,
         string vehicleRoot)
@@ -324,6 +334,25 @@ internal static class OmsiVehicleInteractionCatalog
 
     private static string NormalizeValue(string value) =>
         value.Trim().Trim('"');
+
+    private static bool IsLikelyIbisEvent(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+
+        // Conservative families used by real OMSI IBIS/AFR/ticket-printer/matrix controls.
+        // The event must already have been parsed from [mouseevent] in the loaded vehicle.
+        return normalized.Contains("ibis", StringComparison.Ordinal) ||
+               normalized.Contains("efad", StringComparison.Ordinal) ||
+               normalized.Contains("atron", StringComparison.Ordinal) ||
+               normalized.Contains("almex", StringComparison.Ordinal) ||
+               normalized.Contains("fahrscheindrucker", StringComparison.Ordinal) ||
+               normalized.Contains("ticketprinter", StringComparison.Ordinal) ||
+               normalized.Contains("ticket_printer", StringComparison.Ordinal) ||
+               normalized.Contains("farebox", StringComparison.Ordinal) ||
+               normalized.Contains("lawo", StringComparison.Ordinal) ||
+               normalized.Contains("krueger", StringComparison.Ordinal) ||
+               normalized.Contains("matrix", StringComparison.Ordinal);
+    }
 
     private static bool IsValidEventName(string? value)
     {

@@ -483,6 +483,8 @@ export interface NavBrSystemState {
     pairingCode?: string | null;
     urls: string[];
     mode: string;
+    vehicleControlsEnabled: boolean;
+    vehicleControlsAvailable: boolean;
   };
   pluginInstallation: {
     state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
@@ -921,6 +923,7 @@ export type NavBrCommand =
   | "configureMultiplayerHotkeys"
   | "configureRelay"
   | "setPhysicalVehiclesEnabled"
+  | "setMobileVehicleControlsEnabled"
   | "submitOperationalReport"
   | "resolveMyOperationalReports"
   | "acknowledgeOperationalReport"

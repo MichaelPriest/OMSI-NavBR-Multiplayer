@@ -101,7 +101,8 @@ public partial class App : Application
         try
         {
             MobileCompanion = new MobileCompanionHostService(
-                nativeHost.BuildMobileCompanionStateAsync);
+                nativeHost.BuildMobileCompanionStateAsync,
+                nativeHost.ExecuteMobileCompanionCommandAsync);
             MobileCompanion.StartAsync().GetAwaiter().GetResult();
             NavBRAppLog.Info(
                 $"mobile-companion-start port={MobileCompanion.Port} urls={string.Join(",", MobileCompanion.AccessUrls)}");

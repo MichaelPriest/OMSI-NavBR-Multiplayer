@@ -1,24 +1,75 @@
 using System.Windows;
+using System.Windows.Threading;
+using NavBR.Client.Mobile;
+using NavBR.Client.Multiplayer;
+using NavBR.Client.PluginBridge;
+using NavBR.Shared.Multiplayer;
+using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client;
 
 public partial class MainWindow
 {
+    private DispatcherTimer? _mobilePttLeaseTimer;
+
     internal Task<object> BuildMobileCompanionStateAsync()
     {
-        if (Dispatcher.CheckAccess()) return Task.FromResult(BuildMobileCompanionState());
+        if (Dispatcher.CheckAccess())
+        {
+            return Task.FromResult(BuildMobileCompanionState());
+        }
+
         return Dispatcher.InvokeAsync(BuildMobileCompanionState).Task;
+    }
+
+    internal async Task<object> ExecuteMobileCompanionCommandAsync(
+        MobileCompanionCommand command)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            var operation = Dispatcher.InvokeAsync(
+                () => ExecuteMobileCompanionCommandAsync(command));
+            return await await operation.Task;
+        }
+
+        return await ExecuteMobileCompanionCommandCoreAsync(command);
     }
 
     private object BuildMobileCompanionState()
     {
         var telemetry = _lastTelemetry;
-        var plugin = (Application.Current as App)?.PluginBridge.GetConnectionInfo();
+        var app = Application.Current as App;
+        var plugin = app?.PluginBridge.GetConnectionInfo();
+        var capabilities = plugin?.LastCapabilities?.Capabilities
+            ?? plugin?.LastStatus?.Capabilities
+            ?? Array.Empty<string>();
+        var localVehicleTriggerAvailable =
+            app?.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityLocalVehicleTrigger) == true;
+        var localVehicleControlsEnabled =
+            ExperimentalFeatureFlags.MobileVehicleControlsEnabled;
+
+        var detectedVehicleEvents = telemetry is null
+            ? Array.Empty<string>()
+            : OmsiVehicleInteractionCatalog.Read(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath)
+                .Take(128)
+                .ToArray();
+
+        var detectedIbisEvents = telemetry is null
+            ? Array.Empty<string>()
+            : OmsiVehicleInteractionCatalog.ReadIbisEvents(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath)
+                .Take(64)
+                .ToArray();
 
         object? vehicle = telemetry is null ? null : new
         {
             telemetry.MapName,
             telemetry.VehicleName,
+            telemetry.VehiclePath,
             telemetry.Line,
             telemetry.Route,
             telemetry.DestinationName,
@@ -31,16 +82,34 @@ public partial class MainWindow
             telemetry.CurrentStopIndex,
             telemetry.IsInGame,
             telemetry.FuelPercent,
-            telemetry.Doors,
-            telemetry.Lights,
-            telemetry.TurnSignal,
+            telemetry.AccelerationMps2,
+            telemetry.ThrottlePercent,
+            telemetry.BrakePercent,
+            telemetry.SteeringDegrees,
+            doors = telemetry.Doors.ToString(),
+            lights = telemetry.Lights.ToString(),
+            turnSignal = telemetry.TurnSignal.ToString(),
+            telemetry.HornActive,
+            telemetry.WipersActive,
+            telemetry.ParkingBrakeActive,
+            telemetry.ReverseGear,
             telemetry.StopRequested
         };
+
+        var controlsWritable =
+            telemetry?.IsInGame == true &&
+            localVehicleControlsEnabled &&
+            localVehicleTriggerAvailable &&
+            detectedVehicleEvents.Length > 0;
+
+        var ibisWritable =
+            controlsWritable &&
+            detectedIbisEvents.Length > 0;
 
         return new
         {
             schema = "navbr-mobile-state",
-            version = 1,
+            version = 2,
             generatedAtUtc = DateTimeOffset.UtcNow,
             omsi = new
             {
@@ -51,15 +120,43 @@ public partial class MainWindow
             plugin = new
             {
                 connected = plugin?.IsConnected == true,
-                version = plugin?.PluginComponentVersion
+                version = plugin?.PluginComponentVersion,
+                capabilities
             },
             vehicle,
+            vehicleControls = new
+            {
+                writable = controlsWritable,
+                enabled = localVehicleControlsEnabled,
+                capabilityAvailable = localVehicleTriggerAvailable,
+                writeReason = controlsWritable
+                    ? null
+                    : !localVehicleControlsEnabled
+                        ? "mobile-local-vehicle-controls-disabled"
+                        : !localVehicleTriggerAvailable
+                            ? "plugin-bridge-local-vehicle-trigger-unavailable"
+                            : detectedVehicleEvents.Length == 0
+                                ? "no-real-vehicle-events-detected"
+                                : "player-vehicle-unavailable",
+                detectedEvents = detectedVehicleEvents
+            },
             navigation = BuildWebNavigationState(),
+            multiplayer = BuildWebMultiplayerState(),
             ibis = new
             {
                 available = telemetry?.IsInGame == true,
-                writable = false,
-                writeReason = "plugin-bridge-ibis-capability-not-implemented",
+                writable = ibisWritable,
+                writeReason = ibisWritable
+                    ? null
+                    : !localVehicleControlsEnabled
+                        ? "mobile-local-vehicle-controls-disabled"
+                        : !localVehicleTriggerAvailable
+                            ? "plugin-bridge-local-vehicle-trigger-unavailable"
+                            : detectedIbisEvents.Length == 0
+                                ? "no-real-ibis-events-detected"
+                                : "player-vehicle-unavailable",
+                controlMode = "real-mouseevent-trigger",
+                detectedEvents = detectedIbisEvents,
                 line = telemetry?.Line,
                 route = telemetry?.Route,
                 destination = telemetry?.DestinationName,
@@ -70,16 +167,194 @@ public partial class MainWindow
         };
     }
 
+    private async Task<object> ExecuteMobileCompanionCommandCoreAsync(
+        MobileCompanionCommand command)
+    {
+        var action = command.Action.Trim().ToLowerInvariant();
+
+        switch (action)
+        {
+            case "voice-enabled":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is null)
+                {
+                    return MobileCommandResult(false, action, "multiplayer-unavailable");
+                }
+
+                _multiplayerWindow.SetVoiceEnabledFromWeb(command.Enabled == true);
+                return MobileCommandResult(true, action);
+
+            case "voice-configure":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is null)
+                {
+                    return MobileCommandResult(false, action, "multiplayer-unavailable");
+                }
+
+                _multiplayerWindow.ConfigureVoiceFromWeb(
+                    command.Channel,
+                    command.ProximityMeters,
+                    command.Deafened == true);
+                return MobileCommandResult(true, action);
+
+            case "voice-remote":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is null ||
+                    string.IsNullOrWhiteSpace(command.PlayerId))
+                {
+                    return MobileCommandResult(false, action, "player-required");
+                }
+
+                _multiplayerWindow.ConfigureRemoteVoiceFromWeb(
+                    command.PlayerId,
+                    command.Muted == true,
+                    command.Gain);
+                return MobileCommandResult(true, action);
+
+            case "voice-ptt":
+                OpenMultiplayerCentralForShell(showWindow: false);
+                if (_multiplayerWindow is null)
+                {
+                    return MobileCommandResult(false, action, "multiplayer-unavailable");
+                }
+
+                ApplyMobilePttLease(command.Active == true);
+                return MobileCommandResult(true, action);
+
+            case "vehicle-trigger":
+                return await ExecuteMobileVehicleTriggerAsync(command, action);
+
+            case "ibis-trigger":
+                return await ExecuteMobileVehicleTriggerAsync(
+                    command,
+                    action,
+                    ibisOnly: true);
+
+            default:
+                return MobileCommandResult(false, action, "unsupported-command");
+        }
+    }
+
+    private async Task<object> ExecuteMobileVehicleTriggerAsync(
+        MobileCompanionCommand command,
+        string action,
+        bool ibisOnly = false)
+    {
+        var telemetry = _lastTelemetry;
+        var triggerName = command.TriggerName?.Trim();
+        if (telemetry?.IsInGame != true ||
+            string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            return MobileCommandResult(false, action, "player-vehicle-unavailable");
+        }
+
+        if (!ExperimentalFeatureFlags.MobileVehicleControlsEnabled)
+        {
+            return MobileCommandResult(false, action, "mobile-local-vehicle-controls-disabled");
+        }
+
+        if (Application.Current is not App app ||
+            !app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityLocalVehicleTrigger))
+        {
+            return MobileCommandResult(false, action, "plugin-bridge-local-vehicle-trigger-unavailable");
+        }
+
+        if (string.IsNullOrWhiteSpace(triggerName) ||
+            triggerName.Length > 128)
+        {
+            return MobileCommandResult(false, action, "invalid-trigger");
+        }
+
+        var detectedEvents = ibisOnly
+            ? OmsiVehicleInteractionCatalog.ReadIbisEvents(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath)
+            : OmsiVehicleInteractionCatalog.Read(
+                ResolveConfiguredOmsiRootForPlugin(),
+                telemetry.VehiclePath);
+        if (!detectedEvents.Contains(triggerName, StringComparer.Ordinal))
+        {
+            return MobileCommandResult(
+                false,
+                action,
+                ibisOnly
+                    ? "ibis-trigger-not-in-real-vehicle-catalog"
+                    : "trigger-not-in-real-vehicle-catalog");
+        }
+
+        var result = await OmsiPluginBridgeRelay.SetLocalVehicleTriggerAsync(
+            telemetry.PlayerId,
+            triggerName,
+            command.Active == true);
+
+        return result?.Success == true
+            ? MobileCommandResult(true, action)
+            : MobileCommandResult(
+                false,
+                action,
+                result?.ErrorCode ?? "local-vehicle-trigger-failed",
+                result?.ErrorMessage);
+    }
+
+    private void ApplyMobilePttLease(bool active)
+    {
+        if (_multiplayerWindow is null)
+        {
+            return;
+        }
+
+        _mobilePttLeaseTimer ??= new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(1600)
+        };
+        _mobilePttLeaseTimer.Tick -= MobilePttLeaseTimer_Tick;
+        _mobilePttLeaseTimer.Tick += MobilePttLeaseTimer_Tick;
+        _mobilePttLeaseTimer.Stop();
+
+        _multiplayerWindow.SetPushToTalk(active);
+        if (active)
+        {
+            _mobilePttLeaseTimer.Start();
+        }
+    }
+
+    private void MobilePttLeaseTimer_Tick(object? sender, EventArgs e)
+    {
+        _mobilePttLeaseTimer?.Stop();
+        _multiplayerWindow?.SetPushToTalk(false);
+    }
+
+    private static object MobileCommandResult(
+        bool success,
+        string action,
+        string? error = null,
+        string? detail = null) =>
+        new
+        {
+            success,
+            action,
+            error,
+            detail,
+            timestampUtc = DateTimeOffset.UtcNow
+        };
+
     private static object BuildMobileCompanionDesktopState()
     {
-        var host = (Application.Current as App)?.MobileCompanion;
+        var app = Application.Current as App;
+        var host = app?.MobileCompanion;
         return new
         {
             running = host?.IsRunning == true,
-            port = host?.Port ?? Mobile.MobileCompanionHostService.DefaultPort,
+            port = host?.Port ?? MobileCompanionHostService.DefaultPort,
+            discoveryPort = MobileCompanionHostService.DiscoveryPort,
             pairingCode = host?.PairingCode,
             urls = host?.AccessUrls ?? Array.Empty<string>(),
-            mode = "lan-pwa"
+            mode = "lan-auto-discovery",
+            vehicleControlsEnabled = ExperimentalFeatureFlags.MobileVehicleControlsEnabled,
+            vehicleControlsAvailable =
+                app?.PluginBridge.SupportsCapability(
+                    PluginBridgeProtocol.CapabilityLocalVehicleTrigger) == true
         };
     }
 }

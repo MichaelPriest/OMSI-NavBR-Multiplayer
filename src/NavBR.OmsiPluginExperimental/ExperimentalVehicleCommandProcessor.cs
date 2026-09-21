@@ -29,6 +29,11 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTileSync);
         }
 
+        if (LocalVehicleCommandProcessor.IsRuntimeSupported)
+        {
+            capabilities.Add(PluginBridgeProtocol.CapabilityLocalVehicleTrigger);
+        }
+
         if (RoleplayCharacterCommandProcessor.IsRuntimeSupported)
         {
             capabilities.Add(PluginBridgeProtocol.CapabilityCharacterPossession);

@@ -7,6 +7,8 @@ public static class ExperimentalFeatureFlags
     private const string BackendEnvironmentVariable = "NAVBR_OMSI_PHYSICAL_BACKEND";
     private const string RoleplayEnableFileName = "experimental-roleplay-character.enabled";
     private const string RoleplayEnvironmentVariable = "NAVBR_OMSI_ROLEPLAY_CHARACTER";
+    private const string MobileVehicleControlsEnableFileName = "experimental-mobile-vehicle-controls.enabled";
+    private const string MobileVehicleControlsEnvironmentVariable = "NAVBR_OMSI_MOBILE_VEHICLE_CONTROLS";
 
     public static string PhysicalVehiclesFlagPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -17,6 +19,11 @@ public static class ExperimentalFeatureFlags
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "OMSI NavBR Multiplayer",
         RoleplayEnableFileName);
+
+    public static string MobileVehicleControlsFlagPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "OMSI NavBR Multiplayer",
+        MobileVehicleControlsEnableFileName);
 
     public static bool PhysicalVehiclesEnabled
     {
@@ -67,6 +74,37 @@ public static class ExperimentalFeatureFlags
     public static bool RoleplayCharacterEnabled =>
         File.Exists(RoleplayCharacterFlagPath) ||
         IsTruthy(Environment.GetEnvironmentVariable(RoleplayEnvironmentVariable));
+
+    public static bool MobileVehicleControlsEnabled =>
+        File.Exists(MobileVehicleControlsFlagPath) ||
+        IsTruthy(Environment.GetEnvironmentVariable(MobileVehicleControlsEnvironmentVariable));
+
+    public static void SetMobileVehicleControlsEnabled(bool enabled)
+    {
+        var value = enabled ? "1" : null;
+        Environment.SetEnvironmentVariable(MobileVehicleControlsEnvironmentVariable, value);
+        TrySetUserEnvironmentVariable(MobileVehicleControlsEnvironmentVariable, value);
+
+        var path = MobileVehicleControlsFlagPath;
+        if (enabled)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(
+                path,
+                $"enabled=1{Environment.NewLine}updatedUtc={DateTimeOffset.UtcNow:O}{Environment.NewLine}");
+            return;
+        }
+
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
 
     public static void SetRoleplayCharacterEnabled(bool enabled)
     {

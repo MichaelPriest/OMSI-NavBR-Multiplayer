@@ -19,13 +19,18 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
     private const string DiscoveryRequest = "NAVBR_DISCOVER_V1";
 
     private readonly Func<Task<object>> _stateProvider;
+    private readonly Func<MobileCompanionCommand, Task<object>> _commandHandler;
     private WebApplication? _app;
     private CancellationTokenSource? _discoveryCts;
     private Task? _discoveryTask;
 
-    public MobileCompanionHostService(Func<Task<object>> stateProvider, int port = DefaultPort)
+    public MobileCompanionHostService(
+        Func<Task<object>> stateProvider,
+        Func<MobileCompanionCommand, Task<object>> commandHandler,
+        int port = DefaultPort)
     {
         _stateProvider = stateProvider;
+        _commandHandler = commandHandler;
         Port = port;
         PairingCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(4));
     }
@@ -91,6 +96,42 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
 
             context.Response.Headers.CacheControl = "no-store";
             return Results.Json(await _stateProvider());
+        });
+
+        app.MapPost("/api/mobile/command", async (HttpContext context) =>
+        {
+            if (!IsLocalNetworkClient(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (!IsAuthorized(context))
+            {
+                return Results.Json(new { error = "pairing_required" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            if (context.Request.ContentLength is > 4096)
+            {
+                return Results.Json(
+                    new { error = "command_too_large" },
+                    statusCode: StatusCodes.Status413PayloadTooLarge);
+            }
+
+            MobileCompanionCommand? command;
+            try
+            {
+                command = await context.Request.ReadFromJsonAsync<MobileCompanionCommand>();
+            }
+            catch
+            {
+                command = null;
+            }
+
+            if (command is null || string.IsNullOrWhiteSpace(command.Action))
+            {
+                return Results.Json(
+                    new { error = "invalid_command" },
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Json(await _commandHandler(command));
         });
 
         if (provider is not null)
@@ -292,3 +333,15 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
         await app.DisposeAsync();
     }
 }
+
+internal sealed record MobileCompanionCommand(
+    string Action,
+    bool? Enabled = null,
+    bool? Active = null,
+    string? Channel = null,
+    double? ProximityMeters = null,
+    bool? Deafened = null,
+    string? PlayerId = null,
+    bool? Muted = null,
+    double? Gain = null,
+    string? TriggerName = null);
