@@ -104,6 +104,70 @@ jobs:
             throw "React WebView2 UI output is incomplete."
           }
 
+      - name: Setup Java 21 for Android
+        if: steps.version.outputs.exists != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate preinstalled Android SDK
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = "C:\Android\android-sdk" }
+          if (-not $env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME }
+          if (-not (Test-Path $env:ANDROID_HOME)) {
+            throw "Android SDK not found at $env:ANDROID_HOME"
+          }
+          "ANDROID_HOME=$env:ANDROID_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$env:ANDROID_SDK_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Mobile Companion Android APK
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          Push-Location mobile/navbr-mobile
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "NavBR Mobile dependency install failed." }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NavBR Mobile build failed." }
+
+            if (Test-Path "android") { Remove-Item "android" -Recurse -Force }
+            npx cap add android
+            if ($LASTEXITCODE -ne 0) { throw "Capacitor Android project creation failed." }
+            npx cap sync android
+            if ($LASTEXITCODE -ne 0) { throw "Capacitor Android sync failed." }
+
+            $javaRoot = "android/app/src/main/java/br/navbr/mobile"
+            New-Item -ItemType Directory -Path $javaRoot -Force | Out-Null
+            Copy-Item "android-patches/MainActivity.java" (Join-Path $javaRoot "MainActivity.java") -Force
+            Copy-Item "android-patches/NavBrDiscoveryPlugin.java" (Join-Path $javaRoot "NavBrDiscoveryPlugin.java") -Force
+
+            $manifest = "android/app/src/main/AndroidManifest.xml"
+            $xml = Get-Content $manifest -Raw
+            $xml = $xml -replace '<application ', '<application android:usesCleartextTraffic="true" '
+            Set-Content -LiteralPath $manifest -Value $xml -Encoding UTF8
+
+            Push-Location android
+            try {
+              .\gradlew.bat assembleDebug --no-daemon
+              if ($LASTEXITCODE -ne 0) { throw "Android APK build failed." }
+            }
+            finally {
+              Pop-Location
+            }
+
+            $apk = "android/app/build/outputs/apk/debug/app-debug.apk"
+            if (-not (Test-Path $apk)) { throw "Android APK was not generated." }
+            New-Item -ItemType Directory -Path "../../artifacts/NavBR.Mobile" -Force | Out-Null
+            Copy-Item $apk "../../artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha2-debug.apk" -Force
+          }
+          finally {
+            Pop-Location
+          }
+
       - name: Restore release projects
         if: steps.version.outputs.exists != 'true'
         shell: pwsh
@@ -326,6 +390,13 @@ jobs:
           $releaseExe = "OMSI-NavBR-Multiplayer-$tag-win-x86.exe"
           Copy-Item $clientExe $releaseExe
 
+          $mobileApk = "artifacts/NavBR.Mobile/OMSI-NavBR-Mobile-Alpha2-debug.apk"
+          if (-not (Test-Path $mobileApk)) {
+            throw "Mobile Alpha 2 APK was not generated."
+          }
+          $releaseMobileApk = "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk"
+          Copy-Item $mobileApk $releaseMobileApk -Force
+
           Compress-Archive -Path artifacts/client/* -DestinationPath "OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
           Compress-Archive -Path artifacts/server/* -DestinationPath "OMSI-NavBR-Server-$tag-win-x64.zip"
           Compress-Archive -Path artifacts/plugin/* -DestinationPath "OMSI-NavBR-Plugin-$tag-win-x86.zip"
@@ -341,7 +412,9 @@ jobs:
           $hashFiles = @(
             $releaseSetup,
             $releaseExe,
+            $releaseMobileApk,
             "OMSI-NavBR-Multiplayer-$tag-win-x86.zip",
+            "OMSI-NavBR-Mobile-Alpha2-$tag-debug.apk",
             "OMSI-NavBR-Server-$tag-win-x64.zip",
             "OMSI-NavBR-Plugin-$tag-win-x86.zip",
             "OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip",
@@ -360,6 +433,7 @@ jobs:
           Write-Host "Release ZIP: OMSI-NavBR-Multiplayer-$tag-win-x86.zip"
           Write-Host "Plugin ZIP: OMSI-NavBR-Plugin-$tag-win-x86.zip"
           Write-Host "Simulator ZIP: OMSI-NavBR-Multiplayer-Simulator-$tag-win-x64-dev.zip"
+          Write-Host "Mobile APK: $releaseMobileApk"
 
       - name: Create GitHub release
         if: steps.version.outputs.exists != 'true'
@@ -387,7 +461,9 @@ jobs:
             "--title", "OMSI NavBR Multiplayer $tag — alpha pública de teste"
           )
 
-          if ($tag -eq "v0.3.0-alpha.18" -and (Test-Path "docs/ALPHA18_RELEASE_NOTES.md")) {
+          if ($tag -eq "v0.3.0-alpha.19" -and (Test-Path "docs/ALPHA19_RELEASE_NOTES.md")) {
+            $args += @("--notes-file", "docs/ALPHA19_RELEASE_NOTES.md")
+          } elseif ($tag -eq "v0.3.0-alpha.18" -and (Test-Path "docs/ALPHA18_RELEASE_NOTES.md")) {
             $args += @("--notes-file", "docs/ALPHA18_RELEASE_NOTES.md")
           } else {
             $args += "--generate-notes"

@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Em desenvolvimento ativo na branch `feature/mobile-companion-alpha2` e PR #34 (DRAFT, sem merge).**
+**Alpha 2 integrada à `main` e distribuída publicamente a partir da v0.3.0-alpha.19. O PR #34 foi concluído e mesclado.**
 
 A entrega principal da Alpha 1 passa a ser um **APK Android**, mantendo a PWA como base visual compartilhada.
 
@@ -114,9 +114,9 @@ O APK é publicado como artifact:
 Quando OMSI, rota, HOF, posição ou Plugin Bridge não fornecerem um dado real, o APK mostra indisponível/aguardando. Não são geradas linhas, rotas, destinos, paradas ou posições artificiais.
 
 
-## Alpha 2 em desenvolvimento
+## Alpha 2 pública
 
-A branch `feature/mobile-companion-alpha2` amplia o app sem substituir a Alpha 1 de teste.
+A Alpha 2 está integrada à `main` e é distribuída junto da release pública do NavBR.
 
 Incluído nesta etapa:
 
