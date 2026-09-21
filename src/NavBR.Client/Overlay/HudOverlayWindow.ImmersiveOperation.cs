@@ -692,7 +692,12 @@ public partial class HudOverlayWindow
         }
 
         var compact = ActualWidth > 1d && ActualWidth < 1280d;
-        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        var preset = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset);
+        var presetId = preset.Id;
+        var widthFactor = Math.Clamp(
+            _hudSettings.DashboardWidth / Math.Max(1d, preset.Width),
+            0.70d,
+            1.35d);
 
         _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Stretch;
         _immersiveTopBar.Width = double.NaN;
@@ -872,9 +877,14 @@ public partial class HudOverlayWindow
                 break;
         }
 
-        _immersiveMiniMapPanel.Width = mapWidth;
+        if (!double.IsNaN(_immersiveTopBar.Width))
+        {
+            _immersiveTopBar.Width *= widthFactor;
+        }
+        _immersiveFocusPanel.Width *= widthFactor;
+        _immersiveMiniMapPanel.Width = mapWidth * widthFactor;
         _immersiveMiniMapPanel.Height = mapHeight;
-        _immersiveMultiplayerPanel.Width = multiplayerWidth;
+        _immersiveMultiplayerPanel.Width = multiplayerWidth * widthFactor;
         _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
 

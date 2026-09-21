@@ -96,3 +96,11 @@ Os presets compostos respeitam a mesma `DashboardScale` do HUD modular.
 Quando `DashboardAutoScale` está ativo, o fator de resolução já existente no
 desktop também é aplicado. As escalas específicas de minimapa e multiplayer são
 multiplicadas pela escala geral, preservando os controles independentes.
+
+
+## Largura
+
+`DashboardWidth` também é respeitado pelos presets compostos. O valor é
+interpretado como um fator relativo à largura padrão do preset e ajusta os
+painéis horizontais entre 70% e 135% do desenho original. A altura do mapa e a
+composição vertical permanecem preservadas para evitar distorção.
