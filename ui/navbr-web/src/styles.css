@@ -842,13 +842,13 @@ h3 { margin:6px 0 16px; font-size:19px; }
   width:31px;
   opacity:.78;
 }
-.hud-style-card[data-hud-theme="immersive-operation"] .hud-style-copy strong::after {
-  content:"NOVO";
-  margin-left:8px;
+.hud-style-card[data-hud-badge] .hud-style-copy strong::after {
+  content:attr(data-hud-badge);
+  margin-left:7px;
   padding:2px 5px;
   border-radius:999px;
-  background:#0b4c77;
-  color:#8ed5ff;
+  background:color-mix(in srgb,var(--hud-preview-accent) 22%,#07131b);
+  color:color-mix(in srgb,var(--hud-preview-accent) 78%,white);
   font-size:7px;
   letter-spacing:.06em;
 }
@@ -858,6 +858,18 @@ h3 { margin:6px 0 16px; font-size:19px; }
   --hud-preview-accent:#36d398;
   --hud-preview-secondary:#4eb7ee;
 }
+.hud-style-card[data-hud-theme="transit-control"] .hud-style-chip.first {
+  width:42px;
+  height:25px;
+  border-radius:5px;
+}
+.hud-style-card[data-hud-theme="transit-control"] .hud-style-chip.second {
+  left:auto;
+  right:8px;
+  width:28px;
+  height:18px;
+  border-radius:4px;
+}
 .hud-style-card[data-hud-theme="cockpit-digital"] {
   --hud-preview-bg:#030d14;
   --hud-preview-panel:#09202e;
@@ -865,36 +877,12 @@ h3 { margin:6px 0 16px; font-size:19px; }
   --hud-preview-secondary:#93ecff;
 }
 .hud-style-card[data-hud-theme="cockpit-digital"] .hud-style-speed {
+  right:50%;
+  bottom:7px;
   width:38px;
   height:38px;
   border-width:5px;
-}
-.hud-style-card[data-hud-theme="cockpit-digital"] .hud-style-copy strong::after {
-  content:"CLUSTER";
-  margin-left:7px;
-  padding:2px 5px;
-  border-radius:999px;
-  background:#0c4260;
-  color:#8fdcff;
-  font-size:7px;
-}
-.hud-style-card[data-hud-theme="navigation-pro"] .hud-style-copy strong::after {
-  content:"GPS";
-  margin-left:7px;
-  padding:2px 5px;
-  border-radius:999px;
-  background:#5b3a10;
-  color:#ffd28d;
-  font-size:7px;
-}
-.hud-style-card[data-hud-theme="driver-assistance"] .hud-style-copy strong::after {
-  content:"ASSIST";
-  margin-left:7px;
-  padding:2px 5px;
-  border-radius:999px;
-  background:#594316;
-  color:#ffe19a;
-  font-size:7px;
+  transform:translateX(50%);
 }
 .hud-style-card[data-hud-theme="navigation-pro"] {
   --hud-preview-bg:#06101d;
@@ -915,8 +903,15 @@ h3 { margin:6px 0 16px; font-size:19px; }
 }
 .hud-style-card[data-hud-theme="multiplayer-focus"] .hud-style-chip {
   height:10px;
-  width:34px;
+  width:26px;
   border-radius:4px;
+}
+.hud-style-card[data-hud-theme="multiplayer-focus"] .hud-style-chip.second {
+  left:auto;
+  right:8px;
+  width:44px;
+  height:28px;
+  opacity:.82;
 }
 .hud-style-card[data-hud-theme="classic-omsi-plus"] {
   --hud-preview-bg:#110a03;
@@ -960,9 +955,15 @@ h3 { margin:6px 0 16px; font-size:19px; }
   --hud-preview-secondary:#5bc7d9;
 }
 .hud-style-card[data-hud-theme="city-operations"] .hud-style-chip {
-  width:30px;
-  height:9px;
-  border-radius:3px;
+  width:35px;
+  height:22px;
+  border-radius:4px;
+}
+.hud-style-card[data-hud-theme="city-operations"] .hud-style-chip.second {
+  left:auto;
+  right:8px;
+  width:35px;
+  opacity:.72;
 }
 .hud-style-card[data-hud-theme="driver-assistance"] {
   --hud-preview-bg:#070f16;

@@ -2106,6 +2106,17 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
                       key={preset.id}
                       className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
                       data-hud-theme={preset.themeId}
+                      data-hud-badge={
+                        preset.id === "immersive-operation"
+                          ? pick("NOVO", "NEW", "NUEVO", "NEU", "NOUVEAU")
+                          : preset.id === "cockpit-digital"
+                            ? "CLUSTER"
+                            : preset.id === "navigation-pro"
+                              ? "GPS"
+                              : preset.id === "driver-assistance"
+                                ? pick("ASSIST.", "ASSIST", "ASIST.", "ASSIST.", "ASSIST.")
+                                : undefined
+                      }
                       onClick={() => applyPreset(preset.id)}
                     >
                       <span className="hud-style-preview" aria-hidden="true">
