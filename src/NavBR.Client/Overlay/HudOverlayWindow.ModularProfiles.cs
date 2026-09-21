@@ -346,6 +346,16 @@ public partial class HudOverlayWindow
         {
             "immersive-operation" => new HudPalette(
                 Color.FromRgb(4, 15, 24), Color.FromRgb(46, 110, 154), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250)),
+            "transit-control" => new HudPalette(
+                Color.FromRgb(4, 18, 27), Color.FromRgb(40, 126, 161), Color.FromRgb(54, 211, 152), Color.FromRgb(238, 248, 251)),
+            "cockpit-digital" => new HudPalette(
+                Color.FromRgb(4, 13, 20), Color.FromRgb(38, 116, 153), Color.FromRgb(52, 199, 255), Color.FromRgb(239, 249, 253)),
+            "navigation-pro" => new HudPalette(
+                Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251)),
+            "multiplayer-focus" => new HudPalette(
+                Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255)),
+            "classic-omsi-plus" => new HudPalette(
+                Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126)),
             "bus-panel" => new HudPalette(
                 Color.FromRgb(5, 7, 8), Color.FromRgb(118, 79, 36), Color.FromRgb(255, 174, 67), Colors.White),
             "lcd" => new HudPalette(

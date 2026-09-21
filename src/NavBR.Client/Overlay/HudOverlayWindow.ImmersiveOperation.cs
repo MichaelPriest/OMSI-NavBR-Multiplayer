@@ -438,11 +438,8 @@ public partial class HudOverlayWindow
     private void ApplyImmersiveOperationMode(MultiplayerSettings settings)
     {
         _hudSettings = settings;
-        var active = settings.DashboardEnabled &&
-                     string.Equals(
-                         HudProfileCatalog.ResolvePreset(settings.DashboardPreset).Id,
-                         "immersive-operation",
-                         StringComparison.OrdinalIgnoreCase);
+        var preset = HudProfileCatalog.ResolvePreset(settings.DashboardPreset);
+        var active = settings.DashboardEnabled && HudProfileCatalog.IsComposedPreset(preset.Id);
 
         _immersiveOperationActive = active;
         if (_immersiveTopBar is null ||
@@ -533,21 +530,168 @@ public partial class HudOverlayWindow
         }
 
         var compact = ActualWidth > 1d && ActualWidth < 1280d;
+        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+
+        _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _immersiveTopBar.Width = double.NaN;
         _immersiveTopBar.Margin = compact
             ? new Thickness(9d, 8d, 9d, 0d)
             : new Thickness(14d, 12d, 14d, 0d);
 
-        var panelWidth = compact ? 292d : 342d;
-        _immersiveMiniMapPanel.Width = panelWidth;
-        _immersiveMiniMapPanel.Height = compact ? 196d : 226d;
-        _immersiveMultiplayerPanel.Width = panelWidth;
-        _immersiveMiniMapPanel.Margin = compact
-            ? new Thickness(10d, 0d, 0d, 10d)
-            : new Thickness(18d, 0d, 0d, 18d);
-        _immersiveMultiplayerPanel.Margin = compact
-            ? new Thickness(0d, 0d, 10d, 10d)
-            : new Thickness(0d, 0d, 18d, 18d);
+        _immersiveMiniMapPanel.HorizontalAlignment = HorizontalAlignment.Left;
+        _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
+        _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Right;
+        _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+
+        var mapWidth = compact ? 292d : 342d;
+        var mapHeight = compact ? 196d : 226d;
+        var multiplayerWidth = compact ? 292d : 342d;
+        var edge = compact ? 10d : 18d;
+
+        if (_immersiveLineText is not null) _immersiveLineText.FontSize = 23d;
+        if (_immersiveRouteText is not null) _immersiveRouteText.FontSize = 10d;
+        if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 16d;
+        if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 15d;
+        if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 15d;
+
+        switch (presetId)
+        {
+            case "transit-control":
+                mapWidth = compact ? 320d : 390d;
+                mapHeight = compact ? 210d : 258d;
+                multiplayerWidth = compact ? 320d : 370d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 17d;
+                if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 16d;
+                break;
+
+            case "cockpit-digital":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 710d : 900d;
+                _immersiveTopBar.Margin = compact
+                    ? new Thickness(0d, 9d, 0d, 0d)
+                    : new Thickness(0d, 14d, 0d, 0d);
+                mapWidth = compact ? 230d : 275d;
+                mapHeight = compact ? 160d : 188d;
+                multiplayerWidth = compact ? 260d : 300d;
+                if (_immersiveLineText is not null) _immersiveLineText.FontSize = 28d;
+                if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 28d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 18d;
+                break;
+
+            case "navigation-pro":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 760d : 980d;
+                mapWidth = compact ? 390d : 500d;
+                mapHeight = compact ? 250d : 320d;
+                multiplayerWidth = compact ? 280d : 320d;
+                if (_immersiveNextStopText is not null) _immersiveNextStopText.FontSize = 17d;
+                break;
+
+            case "multiplayer-focus":
+                mapWidth = compact ? 270d : 315d;
+                mapHeight = compact ? 185d : 210d;
+                multiplayerWidth = compact ? 390d : 455d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
+                break;
+
+            case "classic-omsi-plus":
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveTopBar.Width = compact ? 650d : 790d;
+                _immersiveTopBar.Margin = compact
+                    ? new Thickness(0d, 8d, 0d, 0d)
+                    : new Thickness(0d, 12d, 0d, 0d);
+                mapWidth = compact ? 250d : 290d;
+                mapHeight = compact ? 165d : 195d;
+                multiplayerWidth = compact ? 280d : 320d;
+                if (_immersiveLineText is not null) _immersiveLineText.FontSize = 25d;
+                if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 18d;
+                if (_immersiveDestinationText is not null) _immersiveDestinationText.FontSize = 15d;
+                break;
+        }
+
+        _immersiveMiniMapPanel.Width = mapWidth;
+        _immersiveMiniMapPanel.Height = mapHeight;
+        _immersiveMultiplayerPanel.Width = multiplayerWidth;
+        _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
+        _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
+
+        ApplyComposedPresetPalette(presetId);
     }
+
+    private void ApplyComposedPresetPalette(string presetId)
+    {
+        if (_immersiveTopBar is null ||
+            _immersiveMiniMapPanel is null ||
+            _immersiveMultiplayerPanel is null)
+        {
+            return;
+        }
+
+        var palette = presetId switch
+        {
+            "transit-control" => new ComposedHudPalette(
+                Color.FromRgb(4, 18, 27), Color.FromRgb(40, 126, 161), Color.FromRgb(54, 211, 152), Color.FromRgb(238, 248, 251), 10d),
+            "cockpit-digital" => new ComposedHudPalette(
+                Color.FromRgb(4, 13, 20), Color.FromRgb(38, 116, 153), Color.FromRgb(52, 199, 255), Color.FromRgb(239, 249, 253), 16d),
+            "navigation-pro" => new ComposedHudPalette(
+                Color.FromRgb(6, 14, 24), Color.FromRgb(51, 102, 148), Color.FromRgb(255, 166, 59), Color.FromRgb(241, 247, 251), 12d),
+            "multiplayer-focus" => new ComposedHudPalette(
+                Color.FromRgb(9, 12, 25), Color.FromRgb(91, 77, 158), Color.FromRgb(130, 193, 255), Color.FromRgb(244, 242, 255), 12d),
+            "classic-omsi-plus" => new ComposedHudPalette(
+                Color.FromRgb(17, 10, 3), Color.FromRgb(126, 80, 22), Color.FromRgb(255, 177, 49), Color.FromRgb(255, 209, 126), 4d),
+            _ => new ComposedHudPalette(
+                Color.FromRgb(4, 15, 24), Color.FromRgb(54, 121, 166), Color.FromRgb(58, 169, 255), Color.FromRgb(235, 244, 250), 12d)
+        };
+
+        var opacity = (byte)Math.Clamp((int)Math.Round(Math.Clamp(_hudSettings.DashboardOpacity, 0.35d, 1d) * 255d), 0, 255);
+        var background = new SolidColorBrush(Color.FromArgb(opacity, palette.Background.R, palette.Background.G, palette.Background.B));
+        var border = new SolidColorBrush(palette.Border);
+        var accent = new SolidColorBrush(palette.Accent);
+        var text = new SolidColorBrush(palette.Text);
+
+        foreach (var panel in new[] { _immersiveTopBar, _immersiveMiniMapPanel, _immersiveMultiplayerPanel })
+        {
+            panel.Background = background;
+            panel.BorderBrush = border;
+            panel.CornerRadius = new CornerRadius(palette.CornerRadius);
+        }
+
+        if (_immersiveLineText is not null) _immersiveLineText.Foreground = accent;
+        if (_immersiveRouteText is not null) _immersiveRouteText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Accent.R, palette.Accent.G, palette.Accent.B));
+        if (_immersiveDestinationText is not null) _immersiveDestinationText.Foreground = text;
+        if (_immersiveNextStopText is not null) _immersiveNextStopText.Foreground = text;
+        if (_immersiveSpeedText is not null) _immersiveSpeedText.Foreground = accent;
+        if (_immersiveDelayText is not null) _immersiveDelayText.Foreground = text;
+        if (_immersiveFuelText is not null) _immersiveFuelText.Foreground = text;
+        if (_immersiveMapTitleText is not null) _immersiveMapTitleText.Foreground = accent;
+        if (_immersivePlayersText is not null) _immersivePlayersText.Foreground = accent;
+
+        var font = presetId == "classic-omsi-plus"
+            ? new FontFamily("Consolas")
+            : new FontFamily("Bahnschrift");
+
+        foreach (var label in new[]
+        {
+            _immersiveLineText, _immersiveRouteText, _immersiveDestinationText,
+            _immersiveNextStopText, _immersiveSpeedText, _immersiveDelayText,
+            _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
+            _immersiveSessionText, _immersivePlayersText, _immersiveNearbyPlayersText,
+            _immersiveChatText, _immersiveVoiceText
+        })
+        {
+            if (label is not null)
+            {
+                label.FontFamily = font;
+            }
+        }
+    }
+
+    private readonly record struct ComposedHudPalette(
+        Color Background,
+        Color Border,
+        Color Accent,
+        Color Text,
+        double CornerRadius);
 
     private void RenderImmersiveOperationState()
     {

@@ -1,0 +1,31 @@
+# Presets de HUD do NavBR
+
+Esta família de presets reutiliza o mesmo estado real de telemetria, navegação,
+multiplayer, chat e voz. Nenhum preset cria dados sintéticos.
+
+## Presets compostos
+
+- **Imersivo / Operação** (`immersive-operation`) — referência base com barra
+  superior, minimapa e multiplayer.
+- **Transit Control** (`transit-control`) — operação profissional com mapa e
+  status mais amplos.
+- **Cockpit Digital** (`cockpit-digital`) — cluster central moderno, velocidade
+  em destaque e minimapa compacto.
+- **Navigation Pro** (`navigation-pro`) — mapa maior e foco em rota/próxima
+  parada.
+- **Multiplayer Focus** (`multiplayer-focus`) — jogadores, ping, chat e voz em
+  primeiro plano.
+- **Classic OMSI+** (`classic-omsi-plus`) — visual âmbar compacto inspirado em
+  displays clássicos do OMSI.
+
+## Compatibilidade
+
+Configurações antigas continuam sendo aceitas:
+
+- `transit-pro` -> `transit-control`
+- `route-advisor` -> `navigation-pro`
+- `digital-cluster` -> `cockpit-digital`
+
+O HUD clássico permanece disponível. Trocar para um preset composto não altera
+a fonte dos dados e não remove as configurações globais de escala, opacidade ou
+módulos.

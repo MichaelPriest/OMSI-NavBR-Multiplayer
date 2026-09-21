@@ -1890,18 +1890,33 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
 }
 
 
+const COMPOSED_HUD_PRESETS = new Set([
+  "immersive-operation",
+  "transit-control",
+  "cockpit-digital",
+  "navigation-pro",
+  "multiplayer-focus",
+  "classic-omsi-plus"
+]);
+
+function isComposedHudPreset(id: string | null | undefined) {
+  return COMPOSED_HUD_PRESETS.has((id || "").toLowerCase());
+}
+
 function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
   const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
   const previousClassicPreset = useRef(
-    hud.preset === "immersive-operation" ? "normal" : hud.preset || "normal"
+    isComposedHudPreset(hud.preset) ? "normal" : hud.preset || "normal"
   );
+  const composedMode = isComposedHudPreset(draft.preset);
+  const selectedPreset = hud.presets.find(item => item.id === draft.preset);
 
   useEffect(() => {
     if (!dirty) {
       setDraft(hud);
-      if (hud.preset !== "immersive-operation") {
+      if (!isComposedHudPreset(hud.preset)) {
         previousClassicPreset.current = hud.preset || "normal";
       }
     }
@@ -1993,30 +2008,30 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
         <div className="hud-mode-switch">
           <div>
             <span className="eyebrow">{pick("MODO DE HUD", "HUD MODE", "MODO DE HUD", "HUD-MODUS", "MODE HUD")}</span>
-            <strong>{draft.preset === "immersive-operation"
-              ? pick("Imersivo / Operação", "Immersive / Operation", "Inmersivo / Operación", "Immersiv / Betrieb", "Immersif / Exploitation")
+            <strong>{composedMode
+              ? selectedPreset?.displayName || pick("HUD composto", "Composed HUD", "HUD compuesto", "Komponiertes HUD", "HUD composé")
               : pick("HUD atual", "Current HUD", "HUD actual", "Aktuelles HUD", "HUD actuel")}</strong>
-            <small>{draft.preset === "immersive-operation"
+            <small>{composedMode
               ? pick(
-                  "Barra superior + minimapa + multiplayer/voz. O HUD clássico continua disponível.",
-                  "Top bar + minimap + multiplayer/voice. The classic HUD remains available.",
-                  "Barra superior + minimapa + multijugador/voz. El HUD clásico sigue disponible.",
-                  "Obere Leiste + Minikarte + Multiplayer/Sprache. Das klassische HUD bleibt verfügbar.",
-                  "Barre supérieure + mini-carte + multijoueur/voix. Le HUD classique reste disponible."
+                  "Preset em tela com composição própria. O HUD clássico continua disponível e pode ser restaurado a qualquer momento.",
+                  "Screen-composed preset with its own layout. The classic HUD remains available and can be restored at any time.",
+                  "Preset compuesto en pantalla con diseño propio. El HUD clásico sigue disponible y se puede restaurar en cualquier momento.",
+                  "Bildschirm-Preset mit eigenem Layout. Das klassische HUD bleibt verfügbar und kann jederzeit wiederhergestellt werden.",
+                  "Preset composé à l’écran avec sa propre disposition. Le HUD classique reste disponible et peut être restauré à tout moment."
                 )
               : pick(
-                  "Mantém o layout atual. Você pode testar o modo imersivo sem substituir este HUD.",
-                  "Keeps the current layout. You can test immersive mode without replacing this HUD.",
-                  "Mantiene el diseño actual. Puedes probar el modo inmersivo sin reemplazar este HUD.",
-                  "Behält das aktuelle Layout. Der immersive Modus kann getestet werden, ohne dieses HUD zu ersetzen.",
-                  "Conserve la disposition actuelle. Vous pouvez tester le mode immersif sans remplacer ce HUD."
+                  "Mantém o layout atual. Você pode testar qualquer preset novo sem substituir definitivamente este HUD.",
+                  "Keeps the current layout. You can test any new preset without permanently replacing this HUD.",
+                  "Mantiene el diseño actual. Puedes probar cualquier preset nuevo sin reemplazar definitivamente este HUD.",
+                  "Behält das aktuelle Layout. Neue Presets können getestet werden, ohne dieses HUD dauerhaft zu ersetzen.",
+                  "Conserve la disposition actuelle. Vous pouvez tester les nouveaux presets sans remplacer définitivement ce HUD."
                 )}</small>
           </div>
           <button
             type="button"
-            className={`button ${draft.preset === "immersive-operation" ? "ghost" : "primary"}`}
+            className={`button ${composedMode ? "ghost" : "primary"}`}
             onClick={() => {
-              if (draft.preset === "immersive-operation") {
+              if (composedMode) {
                 applyPreset(previousClassicPreset.current || "normal");
               } else {
                 previousClassicPreset.current = draft.preset || "normal";
@@ -2024,9 +2039,9 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
               }
             }}
           >
-            {draft.preset === "immersive-operation"
+            {composedMode
               ? pick("Voltar ao HUD atual", "Back to current HUD", "Volver al HUD actual", "Zum aktuellen HUD", "Revenir au HUD actuel")
-              : pick("Ativar modo imersivo", "Enable immersive mode", "Activar modo inmersivo", "Immersiven Modus aktivieren", "Activer le mode immersif")}
+              : pick("Explorar novos HUDs", "Explore new HUDs", "Explorar nuevos HUD", "Neue HUDs erkunden", "Explorer les nouveaux HUD")}
           </button>
         </div>
 

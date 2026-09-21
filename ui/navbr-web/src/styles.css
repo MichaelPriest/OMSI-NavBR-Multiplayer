@@ -812,6 +812,55 @@ h3 { margin:6px 0 16px; font-size:19px; }
   font-size:7px;
   letter-spacing:.06em;
 }
+.hud-style-card[data-hud-theme="transit-control"] {
+  --hud-preview-bg:#04121b;
+  --hud-preview-panel:#0b2731;
+  --hud-preview-accent:#36d398;
+  --hud-preview-secondary:#4eb7ee;
+}
+.hud-style-card[data-hud-theme="cockpit-digital"] {
+  --hud-preview-bg:#030d14;
+  --hud-preview-panel:#09202e;
+  --hud-preview-accent:#34c7ff;
+  --hud-preview-secondary:#93ecff;
+}
+.hud-style-card[data-hud-theme="cockpit-digital"] .hud-style-speed {
+  width:38px;
+  height:38px;
+  border-width:5px;
+}
+.hud-style-card[data-hud-theme="navigation-pro"] {
+  --hud-preview-bg:#06101d;
+  --hud-preview-panel:#10243a;
+  --hud-preview-accent:#ffa63b;
+  --hud-preview-secondary:#56bfff;
+}
+.hud-style-card[data-hud-theme="navigation-pro"] .hud-style-preview {
+  background:
+    linear-gradient(135deg,transparent 30%,color-mix(in srgb,var(--hud-preview-accent) 40%,transparent) 31% 34%,transparent 35%),
+    linear-gradient(145deg,var(--hud-preview-panel),var(--hud-preview-bg));
+}
+.hud-style-card[data-hud-theme="multiplayer-focus"] {
+  --hud-preview-bg:#090c19;
+  --hud-preview-panel:#17172c;
+  --hud-preview-accent:#82c1ff;
+  --hud-preview-secondary:#a789ff;
+}
+.hud-style-card[data-hud-theme="multiplayer-focus"] .hud-style-chip {
+  height:10px;
+  width:34px;
+  border-radius:4px;
+}
+.hud-style-card[data-hud-theme="classic-omsi-plus"] {
+  --hud-preview-bg:#110a03;
+  --hud-preview-panel:#241407;
+  --hud-preview-accent:#ffb131;
+  --hud-preview-secondary:#ffd17a;
+  font-family:Consolas,monospace;
+}
+.hud-style-card[data-hud-theme="classic-omsi-plus"] .hud-style-preview {
+  border-radius:3px;
+}
 .hud-style-card[data-hud-theme="urban-glass"] {
   --hud-preview-bg:#071319;
   --hud-preview-panel:#10242b;
@@ -829,12 +878,6 @@ h3 { margin:6px 0 16px; font-size:19px; }
   --hud-preview-panel:#111416;
   --hud-preview-accent:#f2f4f5;
   --hud-preview-secondary:#8fe354;
-}
-.hud-style-card[data-hud-theme="transit-control"] {
-  --hud-preview-bg:#080b0d;
-  --hud-preview-panel:#151a1c;
-  --hud-preview-accent:#ffab43;
-  --hud-preview-secondary:#55c785;
 }
 .hud-style-card[data-hud-theme="amber-classic"],
 .hud-style-card[data-hud-theme="lcd"] {
