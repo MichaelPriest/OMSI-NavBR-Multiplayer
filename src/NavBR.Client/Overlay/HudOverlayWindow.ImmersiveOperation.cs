@@ -1773,18 +1773,37 @@ public partial class HudOverlayWindow
                 _immersiveFocusEyebrowText.Text = ImmersiveText(
                     "OPERAÇÃO", "OPERATIONS", "OPERACIÓN", "BETRIEB", "EXPLOITATION");
                 _immersiveFocusPrimaryText.FontSize = 19d;
-                var throttle = telemetry?.ThrottlePercent is double throttleValue && double.IsFinite(throttleValue)
-                    ? $"{Math.Clamp(throttleValue, 0d, 100d):F0}%"
-                    : "—";
-                var brake = telemetry?.BrakePercent is double brakeValue && double.IsFinite(brakeValue)
-                    ? $"{Math.Clamp(brakeValue, 0d, 100d):F0}%"
-                    : "—";
-                _immersiveFocusPrimaryText.Text =
-                    $"{ImmersiveText("ACEL", "THR", "ACEL", "GAS", "ACC")}: {throttle}   •   " +
-                    $"{ImmersiveText("FREIO", "BRK", "FRENO", "BREMSE", "FREIN")}: {brake}";
                 var operationsStatus = BuildImmersiveVehicleStatus(telemetry);
-                _immersiveFocusSecondaryText.Text =
-                    operationsStatus.Text + Environment.NewLine + BuildFocusServiceText(telemetry);
+                var operationsRows = new List<string>();
+
+                if (_hudSettings.DashboardShowPedals)
+                {
+                    var throttle = telemetry?.ThrottlePercent is double throttleValue && double.IsFinite(throttleValue)
+                        ? $"{Math.Clamp(throttleValue, 0d, 100d):F0}%"
+                        : "—";
+                    var brake = telemetry?.BrakePercent is double brakeValue && double.IsFinite(brakeValue)
+                        ? $"{Math.Clamp(brakeValue, 0d, 100d):F0}%"
+                        : "—";
+                    _immersiveFocusPrimaryText.Text =
+                        $"{ImmersiveText("ACEL", "THR", "ACEL", "GAS", "ACC")}: {throttle}   •   " +
+                        $"{ImmersiveText("FREIO", "BRK", "FRENO", "BREMSE", "FREIN")}: {brake}";
+                    if (_hudSettings.DashboardShowStatus)
+                    {
+                        operationsRows.Add(operationsStatus.Text);
+                    }
+                }
+                else if (_hudSettings.DashboardShowStatus)
+                {
+                    _immersiveFocusPrimaryText.Text = operationsStatus.Text;
+                    _immersiveFocusPrimaryText.Foreground = new SolidColorBrush(operationsStatus.Color);
+                }
+                else
+                {
+                    _immersiveFocusPrimaryText.Text = BuildFocusServiceText(telemetry);
+                }
+
+                operationsRows.Add(BuildFocusServiceText(telemetry));
+                _immersiveFocusSecondaryText.Text = string.Join(Environment.NewLine, operationsRows.Distinct());
                 break;
 
             case "driver-assistance":
@@ -1792,14 +1811,23 @@ public partial class HudOverlayWindow
                     "ASSISTÊNCIA", "DRIVER ASSISTANCE", "ASISTENCIA", "FAHRASSISTENZ", "ASSISTANCE");
                 _immersiveFocusPrimaryText.FontSize = 20d;
                 var status = BuildImmersiveVehicleStatus(telemetry);
-                _immersiveFocusPrimaryText.Text = status.Text;
-                _immersiveFocusPrimaryText.Foreground = new SolidColorBrush(status.Color);
+                if (_hudSettings.DashboardShowStatus)
+                {
+                    _immersiveFocusPrimaryText.Text = status.Text;
+                    _immersiveFocusPrimaryText.Foreground = new SolidColorBrush(status.Color);
+                }
+                else
+                {
+                    _immersiveFocusPrimaryText.Text = BuildNavigationPrimaryText(navigation, telemetry);
+                }
+
                 var nextStop = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
                     ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
                     : telemetry.NextStopName;
                 var speed = telemetry is null ? "— km/h" : $"{Math.Clamp(telemetry.SpeedKph, 0d, 999d):F0} km/h";
                 var assistanceRows = new List<string> { $"{nextStop}   •   {speed}" };
-                if (navigation.RouteAvailable &&
+                if (_hudSettings.DashboardShowStatus &&
+                    navigation.RouteAvailable &&
                     (!navigation.IsOnRoute || navigation.Maneuver != NavBRManeuverKind.None))
                 {
                     assistanceRows.Add(BuildNavigationPrimaryText(navigation, telemetry));
