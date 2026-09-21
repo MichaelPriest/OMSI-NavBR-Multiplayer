@@ -1195,8 +1195,39 @@ public partial class HudOverlayWindow
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
         }
 
+        RenderContextualPresetVisibility(telemetry);
         RenderComposedAlertsAndIndicators(telemetry);
         RenderComposedFocusPanel(telemetry);
+    }
+
+    private void RenderContextualPresetVisibility(VehicleTelemetry? telemetry)
+    {
+        if (_immersiveMiniMapPanel is null ||
+            !_immersiveOperationActive)
+        {
+            return;
+        }
+
+        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        if (presetId != "minimal-driver")
+        {
+            _immersiveMiniMapPanel.Visibility = _hudSettings.DashboardShowMinimap
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            return;
+        }
+
+        if (!_hudSettings.DashboardShowMinimap)
+        {
+            _immersiveMiniMapPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var navigation = BuildImmersiveNavigationSnapshot(telemetry);
+        var needsMap = navigation.RouteAvailable && !navigation.IsOnRoute;
+        _immersiveMiniMapPanel.Visibility = needsMap
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void RenderComposedAlertsAndIndicators(VehicleTelemetry? telemetry)

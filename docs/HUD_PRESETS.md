@@ -127,3 +127,12 @@ Os presets compostos usam os controles globais de alertas e indicadores:
 
 Quando não existe estado ativo, os módulos ficam ocultos em vez de mostrar
 informação artificial.
+
+
+## Minimal Driver contextual
+
+O preset **Minimal Driver** mantém o módulo de minimapa habilitado como
+capacidade, mas o esconde durante operação normal. Quando o motor de navegação
+resolve a rota e detecta que o ônibus está fora dela, o minimapa aparece
+automaticamente para ajudar no retorno. Se o usuário desligar o minimapa nas
+configurações, essa abertura contextual também é desativada.

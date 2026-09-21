@@ -82,9 +82,9 @@ public static class HudProfileCatalog
             "Minimal Driver",
             "minimal-driver",
             "Direção limpa",
-            "Mostra somente serviço, velocidade, próxima parada e alertas essenciais, preservando o máximo da cabine.",
+            "Mostra somente serviço, velocidade, próxima parada e alertas essenciais; o minimapa aparece apenas quando necessário para retorno à rota.",
             620d, 0.82d, 0.78d,
-            false, false, true, false, false, true, true),
+            false, false, true, true, false, true, true),
         new(
             "streamer-broadcast",
             "Streamer / Broadcast",
