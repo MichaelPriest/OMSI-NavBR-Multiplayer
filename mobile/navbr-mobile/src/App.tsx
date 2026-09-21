@@ -116,6 +116,7 @@ const IBIS_NUMERIC_KEYS: IbisKeyDefinition[] = [
   { id: "delete", label: "Löschen", secondary: "DEL", aliases: ["loeschen", "loschen", "clear", "clr", "delete", "del", "korrektur", "cancel"] },
   { id: "0", label: "0", secondary: "Uhrzeit/Datum", aliases: ["0", "uhrzeit datum", "time date"] },
   { id: "enter", label: "Eingabe", secondary: "Quitt.", aliases: ["eingabe", "quitt", "enter", "ok", "confirm", "bestaetigen"] }
+];
 
 const ibisTokens = (value: string) =>
   value.toLowerCase()
