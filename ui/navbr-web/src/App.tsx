@@ -119,18 +119,46 @@ function Sidebar({
   setScreen: (screen: Screen) => void;
   appVersion?: string | null;
 }) {
-  const { t, pick, cultureName, languages, setLanguage } = useI18n();
-  const navItems: Array<{ screen: Screen; icon: NavBrIconName; label: string }> = [
-    { screen: "home", icon: "home", label: t("nav.home") },
-    { screen: "navigation", icon: "navigation", label: t("nav.navigation") },
-    { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
-    { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
-    { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
-    { screen: "operations", icon: "operations", label: t("nav.operations") },
-    { screen: "companyNetwork", icon: "company", label: t("nav.company") },
-    { screen: "hardware", icon: "hardware", label: t("nav.hardware") },
-    { screen: "settings", icon: "settings", label: t("nav.settings") },
-    { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+  const { t, pick } = useI18n();
+  const navGroups: Array<{
+    id: string;
+    label: string;
+    items: Array<{ screen: Screen; icon: NavBrIconName; label: string }>;
+  }> = [
+    {
+      id: "main",
+      label: pick("PRINCIPAL", "MAIN", "PRINCIPAL", "HAUPTBEREICH", "PRINCIPAL"),
+      items: [
+        { screen: "home", icon: "home", label: t("nav.home") },
+        { screen: "navigation", icon: "navigation", label: t("nav.navigation") }
+      ]
+    },
+    {
+      id: "social",
+      label: pick("MULTIPLAYER & RP", "MULTIPLAYER & RP", "MULTIJUGADOR & RP", "MULTIPLAYER & RP", "MULTIJOUEUR & RP"),
+      items: [
+        { screen: "multiplayer", icon: "multiplayer", label: t("nav.multiplayer") },
+        { screen: "roleplay", icon: "roleplay", label: t("nav.roleplay") },
+        { screen: "companyNetwork", icon: "company", label: t("nav.company") }
+      ]
+    },
+    {
+      id: "tools",
+      label: pick("OPERAÇÃO & FERRAMENTAS", "OPERATIONS & TOOLS", "OPERACIÓN & HERRAMIENTAS", "BETRIEB & WERKZEUGE", "EXPLOITATION & OUTILS"),
+      items: [
+        { screen: "operations", icon: "operations", label: t("nav.operations") },
+        { screen: "ghost", icon: "ghost", label: t("nav.ghost") },
+        { screen: "hardware", icon: "hardware", label: t("nav.hardware") }
+      ]
+    },
+    {
+      id: "system",
+      label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+      items: [
+        { screen: "settings", icon: "settings", label: t("nav.settings") },
+        { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
+      ]
+    }
   ];
 
   return (
@@ -140,16 +168,21 @@ function Sidebar({
         <div><strong>NavBR</strong><span>OMSI Multiplayer</span></div>
       </div>
 
-      <nav className="nav">
-        {navItems.map(item => (
-          <button
-            key={item.screen}
-            className={`nav-item ${screen === item.screen ? "active" : ""}`}
-            onClick={() => setScreen(item.screen)}
-          >
-            <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
-            <span>{item.label}</span>
-          </button>
+      <nav className="nav nav-grouped">
+        {navGroups.map(group => (
+          <section className="nav-group" key={group.id}>
+            <span className="nav-group-label">{group.label}</span>
+            {group.items.map(item => (
+              <button
+                key={item.screen}
+                className={`nav-item ${screen === item.screen ? "active" : ""}`}
+                onClick={() => setScreen(item.screen)}
+              >
+                <span className="nav-icon-frame"><NavBrIcon name={item.icon} size={19} /></span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </section>
         ))}
       </nav>
 
@@ -158,14 +191,6 @@ function Sidebar({
           <span>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</span>
           <strong>{buildVersionLabel(appVersion)}</strong>
         </div>
-        <label className="sidebar-language">
-          <span>{t("common.language")}</span>
-          <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
-            {languages.map(language => (
-              <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
-            ))}
-          </select>
-        </label>
       </div>
     </aside>
   );
@@ -1847,7 +1872,7 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
+type SettingsTab = "general" | "installations" | "hud" | "roadmap" | "diagnostics" | "network" | "advanced";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const { pick } = useI18n();
@@ -2077,6 +2102,9 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
   const [previewing, setPreviewing] = useState(Boolean(hud.previewActive));
+  const [hudCategory, setHudCategory] = useState<string>(() =>
+    HUD_PRESET_GROUPS.find(group => group.ids.includes(hud.preset as never))?.id || "operations"
+  );
   const previousClassicPreset = useRef(
     isComposedHudPreset(hud.preset) ? "normal" : hud.preset || "normal"
   );
@@ -2090,6 +2118,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
         .filter((item): item is NavBrHudPreset => Boolean(item))
     }))
     .filter(group => group.presets.length > 0);
+  const activePresetGroup = groupedPresets.find(group => group.id === hudCategory) || groupedPresets[0];
 
   useEffect(() => {
     if (!dirty) {
@@ -2106,6 +2135,10 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
   };
 
   const applyPreset = (presetId: string) => {
+    const matchingGroup = HUD_PRESET_GROUPS.find(group => group.ids.includes(presetId as never));
+    if (matchingGroup) {
+      setHudCategory(matchingGroup.id);
+    }
     const preset = hud.presets.find(item => item.id === presetId);
     if (!preset) {
       patch({ preset: presetId });
@@ -2274,76 +2307,102 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
           </button>
         </div>
 
-        <div className="hud-preset-groups">
-          {groupedPresets.map(group => {
-            const label = group.id === "operations"
-              ? pick("Operação", "Operations", "Operación", "Betrieb", "Exploitation")
-              : group.id === "driving"
-                ? pick("Direção e navegação", "Driving & navigation", "Conducción y navegación", "Fahren & Navigation", "Conduite et navigation")
-                : group.id === "social"
-                  ? pick("Multiplayer e streaming", "Multiplayer & streaming", "Multijugador y streaming", "Multiplayer & Streaming", "Multijoueur et streaming")
-                  : group.id === "classic"
-                    ? pick("Clássicos e discretos", "Classic & subtle", "Clásicos y discretos", "Klassisch & dezent", "Classiques et discrets")
-                    : pick("HUD atual", "Current HUD", "HUD actual", "Aktuelles HUD", "HUD actuel");
-            return (
-              <section className="hud-preset-group" key={group.id}>
-                <div className="hud-preset-group-heading">
+        <div className="hud-preset-browser">
+          <div className="hud-preset-category-tabs">
+            {groupedPresets.map(group => {
+              const label = group.id === "operations"
+                ? pick("Operação", "Operations", "Operación", "Betrieb", "Exploitation")
+                : group.id === "driving"
+                  ? pick("Direção", "Driving", "Conducción", "Fahren", "Conduite")
+                  : group.id === "social"
+                    ? pick("Multiplayer", "Multiplayer", "Multijugador", "Multiplayer", "Multijoueur")
+                    : group.id === "classic"
+                      ? pick("Clássicos", "Classic", "Clásicos", "Klassisch", "Classiques")
+                      : pick("Legados", "Legacy", "Legado", "Legacy", "Héritage");
+              return (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={hudCategory === group.id ? "active" : ""}
+                  onClick={() => setHudCategory(group.id)}
+                >
                   <strong>{label}</strong>
                   <span>{group.presets.length}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activePresetGroup && (
+            <section className="hud-preset-group focused">
+              <div className="hud-preset-group-heading">
+                <div>
+                  <strong>{pick("Escolha um layout", "Choose a layout", "Elige un diseño", "Layout wählen", "Choisir une disposition")}</strong>
+                  <small>{pick(
+                    "Os presets abaixo pertencem somente ao grupo selecionado.",
+                    "Only presets from the selected group are shown below.",
+                    "Abajo se muestran solo los presets del grupo seleccionado.",
+                    "Unten werden nur Presets der gewählten Gruppe angezeigt.",
+                    "Seuls les presets du groupe sélectionné sont affichés ci-dessous."
+                  )}</small>
                 </div>
-                <div className="hud-style-gallery">
-                  {group.presets.map(preset => (
-                    <button
-                      type="button"
-                      key={preset.id}
-                      className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
-                      data-hud-theme={preset.themeId}
-                      data-hud-badge={
-                        preset.id === "immersive-operation"
-                          ? pick("NOVO", "NEW", "NUEVO", "NEU", "NOUVEAU")
-                          : preset.id === "cockpit-digital"
-                            ? "CLUSTER"
-                            : preset.id === "navigation-pro"
-                              ? "GPS"
-                              : preset.id === "driver-assistance"
-                                ? pick("ASSIST.", "ASSIST", "ASIST.", "ASSIST.", "ASSIST.")
-                                : undefined
-                      }
-                      onClick={() => applyPreset(preset.id)}
-                    >
-                      <span className="hud-style-preview" aria-hidden="true">
-                        <i className="hud-style-route" />
-                        <i className="hud-style-speed" />
-                        <i className="hud-style-chip first" />
-                        <i className="hud-style-chip second" />
+                <span>{activePresetGroup.presets.length}</span>
+              </div>
+              <div className="hud-style-gallery">
+                {activePresetGroup.presets.map(preset => (
+                  <button
+                    type="button"
+                    key={preset.id}
+                    className={`hud-style-card ${draft.preset === preset.id ? "selected" : ""}`}
+                    data-hud-theme={preset.themeId}
+                    data-hud-badge={
+                      preset.id === "immersive-operation"
+                        ? pick("NOVO", "NEW", "NUEVO", "NEU", "NOUVEAU")
+                        : preset.id === "cockpit-digital"
+                          ? "CLUSTER"
+                          : preset.id === "navigation-pro"
+                            ? "GPS"
+                            : preset.id === "driver-assistance"
+                              ? pick("ASSIST.", "ASSIST", "ASIST.", "ASSIST.", "ASSIST.")
+                              : undefined
+                    }
+                    onClick={() => applyPreset(preset.id)}
+                  >
+                    <span className="hud-style-preview" aria-hidden="true">
+                      <i className="hud-style-route" />
+                      <i className="hud-style-speed" />
+                      <i className="hud-style-chip first" />
+                      <i className="hud-style-chip second" />
+                    </span>
+                    <span className="hud-style-copy">
+                      <strong>{preset.displayName}</strong>
+                      <small>{preset.inspiration}</small>
+                      <em>{preset.description}</em>
+                      <span className="hud-style-tags" aria-hidden="true">
+                        {preset.showMinimap && <i>{pick("Mapa", "Map", "Mapa", "Karte", "Carte")}</i>}
+                        {preset.showMultiplayer && <i>MP</i>}
+                        {preset.showStatus && <i>{pick("Status", "Status", "Estado", "Status", "État")}</i>}
+                        {preset.showAlerts && <i>{pick("Alertas", "Alerts", "Alertas", "Alarme", "Alertes")}</i>}
+                        {preset.showPedals && <i>{pick("Pedais", "Pedals", "Pedales", "Pedale", "Pédales")}</i>}
                       </span>
-                      <span className="hud-style-copy">
-                        <strong>{preset.displayName}</strong>
-                        <small>{preset.inspiration}</small>
-                        <em>{preset.description}</em>
-                        <span className="hud-style-tags" aria-hidden="true">
-                          {preset.showMinimap && <i>{pick("Mapa", "Map", "Mapa", "Karte", "Carte")}</i>}
-                          {preset.showMultiplayer && <i>MP</i>}
-                          {preset.showStatus && <i>{pick("Status", "Status", "Estado", "Status", "État")}</i>}
-                          {preset.showAlerts && <i>{pick("Alertas", "Alerts", "Alertas", "Alarme", "Alertes")}</i>}
-                          {preset.showPedals && <i>{pick("Pedais", "Pedals", "Pedales", "Pedale", "Pédales")}</i>}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <div className="hud-selected-summary">
+          <div>
+            <span className="eyebrow">{pick("HUD SELECIONADO", "SELECTED HUD", "HUD SELECCIONADO", "AUSGEWÄHLTES HUD", "HUD SÉLECTIONNÉ")}</span>
+            <strong>{selectedPreset?.displayName || draft.preset}</strong>
+            <small>{selectedPreset?.description || pick("Layout atual", "Current layout", "Diseño actual", "Aktuelles Layout", "Disposition actuelle")}</small>
+          </div>
+          <span>{Math.round(draft.width)} px · {Math.round(draft.scale * 100)}%</span>
         </div>
 
         <div className="hud-select-grid">
-          <label className="voice-field">
-            <span>{t("hud.style")}</span>
-            <select value={draft.preset} onChange={event => applyPreset(event.target.value)}>
-              {hud.presets.map(item => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
           <label className="voice-field">
             <span>{t("hud.theme")}</span>
             <select value={draft.theme} onChange={event => patch({ theme: event.target.value })}>
@@ -2848,10 +2907,10 @@ function Settings({
   error: string | null;
   requestedTab?: SettingsTab | null;
 }) {
-  const { t, pick } = useI18n();
+  const { t, pick, cultureName, languages, setLanguage } = useI18n();
   const system = state?.system;
   const network = state?.network;
-  const [tab, setTab] = useState<SettingsTab>("installations");
+  const [tab, setTab] = useState<SettingsTab>("general");
   const [manualPath, setManualPath] = useState("");
   const networkRequested = useRef(false);
 
@@ -2893,18 +2952,95 @@ function Settings({
 
       {error && <div className="command-error">{error}</div>}
 
-      <div className="mp-tabs settings-tabs" role="tablist">
+      <div className="settings-group-nav" role="tablist">
         {([
-          ["installations", t("settings.installations")],
-          ["hud", t("settings.hud")],
-          ["roadmap", t("settings.roadmap")],
-          ["diagnostics", t("settings.diagnostics")],
-          ["network", t("settings.network")],
-          ["advanced", t("settings.advanced")]
-        ] as [SettingsTab, string][]).map(([key, label]) => (
-          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+          {
+            id: "personalization",
+            label: pick("INTERFACE", "INTERFACE", "INTERFAZ", "OBERFLÄCHE", "INTERFACE"),
+            items: [
+              ["general", pick("Geral", "General", "General", "Allgemein", "Général")],
+              ["hud", t("settings.hud")]
+            ]
+          },
+          {
+            id: "omsi",
+            label: "OMSI & MAPAS",
+            items: [
+              ["installations", t("settings.installations")],
+              ["roadmap", t("settings.roadmap")]
+            ]
+          },
+          {
+            id: "connectivity",
+            label: pick("CONECTIVIDADE", "CONNECTIVITY", "CONECTIVIDAD", "KONNEKTIVITÄT", "CONNECTIVITÉ"),
+            items: [
+              ["network", t("settings.network")]
+            ]
+          },
+          {
+            id: "maintenance",
+            label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
+            items: [
+              ["diagnostics", t("settings.diagnostics")],
+              ["advanced", t("settings.advanced")]
+            ]
+          }
+        ] as Array<{ id: string; label: string; items: [SettingsTab, string][] }>).map(group => (
+          <section className="settings-nav-group" key={group.id}>
+            <span>{group.label}</span>
+            <div>
+              {group.items.map(([key, label]) => (
+                <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
+
+      {tab === "general" && (
+        <section className="settings-general-layout">
+          <article className="card settings-general-card settings-language-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("INTERFACE", "INTERFACE", "INTERFAZ", "OBERFLÄCHE", "INTERFACE")}</span>
+                <h3>{pick("Idioma e experiência", "Language & experience", "Idioma y experiencia", "Sprache & Oberfläche", "Langue et expérience")}</h3>
+              </div>
+            </div>
+            <p>{pick(
+              "As preferências gerais do NavBR ficam concentradas aqui. O seletor de idioma saiu da barra lateral para deixar a navegação focada nas funções do simulador.",
+              "General NavBR preferences are concentrated here. Language was moved out of the sidebar so navigation stays focused on simulator functions.",
+              "Las preferencias generales de NavBR se concentran aquí. El idioma salió de la barra lateral para mantener la navegación centrada en el simulador.",
+              "Allgemeine NavBR-Einstellungen sind hier gebündelt. Die Sprache wurde aus der Seitenleiste entfernt, damit die Navigation auf Simulatorfunktionen fokussiert bleibt.",
+              "Les préférences générales de NavBR sont regroupées ici. La langue a quitté la barre latérale afin de garder la navigation centrée sur le simulateur."
+            )}</p>
+            <label className="voice-field settings-language-field">
+              <span>{t("common.language")}</span>
+              <select value={cultureName} onChange={event => setLanguage(event.target.value)}>
+                {languages.map(language => (
+                  <option key={language.cultureName} value={language.cultureName}>{language.displayName}</option>
+                ))}
+              </select>
+            </label>
+          </article>
+
+          <article className="card settings-general-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("ORGANIZAÇÃO", "ORGANIZATION", "ORGANIZACIÓN", "ORGANISATION", "ORGANISATION")}</span>
+                <h3>{pick("Funções por grupo", "Functions by group", "Funciones por grupo", "Funktionen nach Gruppe", "Fonctions par groupe")}</h3>
+              </div>
+            </div>
+            <div className="settings-category-grid">
+              <button onClick={() => setTab("hud")}><NavBrIcon name="settings" size={20} /><span><strong>HUD & Interface</strong><small>{pick("Presets, prévia, módulos e posicionamento", "Presets, preview, widgets and positioning", "Presets, vista previa, módulos y posición", "Presets, Vorschau, Module und Position", "Presets, aperçu, modules et position")}</small></span></button>
+              <button onClick={() => setTab("installations")}><NavBrIcon name="plugin" size={20} /><span><strong>OMSI</strong><small>{pick("Instalações, plugin e Mobile Companion", "Installations, plugin and Mobile Companion", "Instalaciones, plugin y Mobile Companion", "Installationen, Plugin und Mobile Companion", "Installations, plugin et Mobile Companion")}</small></span></button>
+              <button onClick={() => setTab("roadmap")}><NavBrIcon name="map" size={20} /><span><strong>Mapas & Roadmap</strong><small>{pick("Roadmap Studio, HD e Ultra", "Roadmap Studio, HD and Ultra", "Roadmap Studio, HD y Ultra", "Roadmap Studio, HD und Ultra", "Roadmap Studio, HD et Ultra")}</small></span></button>
+              <button onClick={() => setTab("network")}><NavBrIcon name="network" size={20} /><span><strong>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</strong><small>{pick("Portas, conectividade e diagnóstico de rede", "Ports, connectivity and network diagnostics", "Puertos, conectividad y diagnóstico de red", "Ports, Konnektivität und Netzwerkdiagnose", "Ports, connectivité et diagnostic réseau")}</small></span></button>
+              <button onClick={() => setTab("diagnostics")}><NavBrIcon name="info" size={20} /><span><strong>{t("settings.diagnostics")}</strong><small>{pick("Logs, privacidade e suporte", "Logs, privacy and support", "Logs, privacidad y soporte", "Logs, Datenschutz und Support", "Logs, confidentialité et support")}</small></span></button>
+              <button onClick={() => setTab("advanced")}><NavBrIcon name="hardware" size={20} /><span><strong>{t("settings.advanced")}</strong><small>{pick("Ações técnicas e opções menos usadas", "Technical actions and less-used options", "Acciones técnicas y opciones menos usadas", "Technische Aktionen und seltene Optionen", "Actions techniques et options moins utilisées")}</small></span></button>
+            </div>
+          </article>
+        </section>
+      )}
 
       {tab === "installations" && (
         <section className="settings-installations">
