@@ -15,6 +15,10 @@ public partial class HudOverlayWindow
     private Border? _immersiveTopBar;
     private Border? _immersiveMiniMapPanel;
     private Border? _immersiveMultiplayerPanel;
+    private Border? _immersiveFocusPanel;
+    private TextBlock? _immersiveFocusEyebrowText;
+    private TextBlock? _immersiveFocusPrimaryText;
+    private TextBlock? _immersiveFocusSecondaryText;
     private TextBlock? _immersiveLineText;
     private TextBlock? _immersiveRouteText;
     private TextBlock? _immersiveDestinationText;
@@ -72,14 +76,17 @@ public partial class HudOverlayWindow
         _immersiveTopBar = BuildImmersiveTopBar();
         _immersiveMiniMapPanel = BuildImmersiveMiniMap();
         _immersiveMultiplayerPanel = BuildImmersiveMultiplayerPanel();
+        _immersiveFocusPanel = BuildImmersiveFocusPanel();
 
         Panel.SetZIndex(_immersiveTopBar, 1090);
         Panel.SetZIndex(_immersiveMiniMapPanel, 1090);
         Panel.SetZIndex(_immersiveMultiplayerPanel, 1090);
+        Panel.SetZIndex(_immersiveFocusPanel, 1095);
 
         OverlayRoot.Children.Add(_immersiveTopBar);
         OverlayRoot.Children.Add(_immersiveMiniMapPanel);
         OverlayRoot.Children.Add(_immersiveMultiplayerPanel);
+        OverlayRoot.Children.Add(_immersiveFocusPanel);
     }
 
     private Border BuildImmersiveTopBar()
@@ -307,6 +314,64 @@ public partial class HudOverlayWindow
         };
     }
 
+    private Border BuildImmersiveFocusPanel()
+    {
+        var stack = new StackPanel();
+
+        _immersiveFocusEyebrowText = new TextBlock
+        {
+            Text = "NAVBR",
+            Foreground = new SolidColorBrush(Color.FromRgb(122, 174, 208)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 9d,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center
+        };
+        stack.Children.Add(_immersiveFocusEyebrowText);
+
+        _immersiveFocusPrimaryText = new TextBlock
+        {
+            Text = "—",
+            Margin = new Thickness(0d, 4d, 0d, 0d),
+            Foreground = Brushes.White,
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 42d,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        stack.Children.Add(_immersiveFocusPrimaryText);
+
+        _immersiveFocusSecondaryText = new TextBlock
+        {
+            Text = "—",
+            Margin = new Thickness(0d, 3d, 0d, 0d),
+            Foreground = new SolidColorBrush(Color.FromRgb(171, 196, 211)),
+            FontFamily = new FontFamily("Bahnschrift"),
+            FontSize = 10d,
+            FontWeight = FontWeights.SemiBold,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        };
+        stack.Children.Add(_immersiveFocusSecondaryText);
+
+        return new Border
+        {
+            Width = 430d,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0d, 0d, 0d, 18d),
+            Padding = new Thickness(15d, 11d, 15d, 11d),
+            Background = new SolidColorBrush(Color.FromArgb(226, 5, 17, 27)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(150, 60, 130, 176)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(14d),
+            Child = stack,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed
+        };
+    }
+
     private Border BuildImmersiveMultiplayerPanel()
     {
         var stack = new StackPanel();
@@ -459,7 +524,8 @@ public partial class HudOverlayWindow
         _immersiveOperationActive = active;
         if (_immersiveTopBar is null ||
             _immersiveMiniMapPanel is null ||
-            _immersiveMultiplayerPanel is null)
+            _immersiveMultiplayerPanel is null ||
+            _immersiveFocusPanel is null)
         {
             return;
         }
@@ -501,11 +567,19 @@ public partial class HudOverlayWindow
         _immersiveMultiplayerPanel.Visibility = active && settings.DashboardShowMultiplayer
             ? Visibility.Visible
             : Visibility.Collapsed;
+        var showFocusPanel = active && preset.Id is
+            "cockpit-digital" or
+            "navigation-pro" or
+            "driver-assistance";
+        _immersiveFocusPanel.Visibility = showFocusPanel
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         var opacity = Math.Clamp(settings.DashboardOpacity, 0.35d, 1d);
         _immersiveTopBar.Opacity = opacity;
         _immersiveMiniMapPanel.Opacity = opacity;
         _immersiveMultiplayerPanel.Opacity = opacity;
+        _immersiveFocusPanel.Opacity = opacity;
 
         _immersiveMiniMapPanel.LayoutTransform = new ScaleTransform(
             Math.Clamp(settings.DashboardMinimapScale, 0.55d, 2d),
@@ -563,7 +637,8 @@ public partial class HudOverlayWindow
         if (!_immersiveOperationActive ||
             _immersiveTopBar is null ||
             _immersiveMiniMapPanel is null ||
-            _immersiveMultiplayerPanel is null)
+            _immersiveMultiplayerPanel is null ||
+            _immersiveFocusPanel is null)
         {
             return;
         }
@@ -581,6 +656,10 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.VerticalAlignment = VerticalAlignment.Bottom;
         _immersiveMultiplayerPanel.HorizontalAlignment = HorizontalAlignment.Right;
         _immersiveMultiplayerPanel.VerticalAlignment = VerticalAlignment.Bottom;
+        _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        _immersiveFocusPanel.VerticalAlignment = VerticalAlignment.Bottom;
+        _immersiveFocusPanel.Width = compact ? 360d : 430d;
+        _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 10d : 18d);
 
         var mapWidth = compact ? 292d : 342d;
         var mapHeight = compact ? 196d : 226d;
@@ -612,6 +691,9 @@ public partial class HudOverlayWindow
                 break;
 
             case "cockpit-digital":
+                _immersiveFocusPanel.Width = compact ? 370d : 455d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 20d);
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 710d : 900d;
                 _immersiveTopBar.Margin = compact
@@ -626,6 +708,9 @@ public partial class HudOverlayWindow
                 break;
 
             case "navigation-pro":
+                _immersiveFocusPanel.Width = compact ? 320d : 390d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, compact ? 12d : 20d, compact ? 12d : 20d);
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 760d : 980d;
                 mapWidth = compact ? 390d : 500d;
@@ -688,6 +773,9 @@ public partial class HudOverlayWindow
                 break;
 
             case "driver-assistance":
+                _immersiveFocusPanel.Width = compact ? 390d : 470d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 22d);
                 if (_immersiveFuelCell is not null) _immersiveFuelCell.Visibility = Visibility.Collapsed;
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
                 _immersiveTopBar.Width = compact ? 700d : 880d;
@@ -727,7 +815,8 @@ public partial class HudOverlayWindow
     {
         if (_immersiveTopBar is null ||
             _immersiveMiniMapPanel is null ||
-            _immersiveMultiplayerPanel is null)
+            _immersiveMultiplayerPanel is null ||
+            _immersiveFocusPanel is null)
         {
             return;
         }
@@ -769,7 +858,7 @@ public partial class HudOverlayWindow
         var accent = new SolidColorBrush(palette.Accent);
         var text = new SolidColorBrush(palette.Text);
 
-        foreach (var panel in new[] { _immersiveTopBar, _immersiveMiniMapPanel, _immersiveMultiplayerPanel })
+        foreach (var panel in new[] { _immersiveTopBar, _immersiveMiniMapPanel, _immersiveMultiplayerPanel, _immersiveFocusPanel })
         {
             panel.Background = background;
             panel.BorderBrush = border;
@@ -785,6 +874,9 @@ public partial class HudOverlayWindow
         if (_immersiveFuelText is not null) _immersiveFuelText.Foreground = text;
         if (_immersiveMapTitleText is not null) _immersiveMapTitleText.Foreground = accent;
         if (_immersivePlayersText is not null) _immersivePlayersText.Foreground = accent;
+        if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.Foreground = accent;
+        if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.Foreground = text;
+        if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
 
         var font = presetId == "classic-omsi-plus"
             ? new FontFamily("Consolas")
@@ -796,7 +888,8 @@ public partial class HudOverlayWindow
             _immersiveNextStopText, _immersiveSpeedText, _immersiveDelayText,
             _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
             _immersiveSessionText, _immersivePlayersText, _immersiveNearbyPlayersText,
-            _immersiveChatText, _immersiveVoiceText
+            _immersiveChatText, _immersiveVoiceText,
+            _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText
         })
         {
             if (label is not null)
@@ -906,6 +999,82 @@ public partial class HudOverlayWindow
         {
             _immersiveVoiceText.Text = BuildImmersiveVoiceStatus();
         }
+
+        RenderComposedFocusPanel(telemetry);
+    }
+
+    private void RenderComposedFocusPanel(VehicleTelemetry? telemetry)
+    {
+        if (_immersiveFocusPanel is null ||
+            _immersiveFocusEyebrowText is null ||
+            _immersiveFocusPrimaryText is null ||
+            _immersiveFocusSecondaryText is null ||
+            _immersiveFocusPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var presetId = HudProfileCatalog.ResolvePreset(_hudSettings.DashboardPreset).Id;
+        switch (presetId)
+        {
+            case "cockpit-digital":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "COCKPIT DIGITAL", "DIGITAL COCKPIT", "CABINA DIGITAL", "DIGITALES COCKPIT", "COCKPIT NUMÉRIQUE");
+                _immersiveFocusPrimaryText.FontSize = 46d;
+                _immersiveFocusPrimaryText.Text = telemetry is null
+                    ? "— km/h"
+                    : $"{Math.Clamp(telemetry.SpeedKph, 0d, 999d):F0} km/h";
+                _immersiveFocusSecondaryText.Text = BuildFocusServiceText(telemetry);
+                break;
+
+            case "navigation-pro":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "NAVEGAÇÃO", "NAVIGATION", "NAVEGACIÓN", "NAVIGATION", "NAVIGATION");
+                _immersiveFocusPrimaryText.FontSize = 22d;
+                _immersiveFocusPrimaryText.Text = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
+                    ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
+                    : telemetry.NextStopName;
+                var street = !string.IsNullOrWhiteSpace(telemetry?.CurrentStreetName)
+                    ? telemetry.CurrentStreetName
+                    : MiniMapStatusText.Text;
+                _immersiveFocusSecondaryText.Text = string.IsNullOrWhiteSpace(street)
+                    ? BuildFocusServiceText(telemetry)
+                    : street + Environment.NewLine + BuildFocusServiceText(telemetry);
+                break;
+
+            case "driver-assistance":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "ASSISTÊNCIA", "DRIVER ASSISTANCE", "ASISTENCIA", "FAHRASSISTENZ", "ASSISTANCE");
+                _immersiveFocusPrimaryText.FontSize = 20d;
+                var status = BuildImmersiveVehicleStatus(telemetry);
+                _immersiveFocusPrimaryText.Text = status.Text;
+                _immersiveFocusPrimaryText.Foreground = new SolidColorBrush(status.Color);
+                var nextStop = string.IsNullOrWhiteSpace(telemetry?.NextStopName)
+                    ? ImmersiveText("Próxima parada —", "Next stop —", "Próxima parada —", "Nächster Halt —", "Prochain arrêt —")
+                    : telemetry.NextStopName;
+                var speed = telemetry is null ? "— km/h" : $"{Math.Clamp(telemetry.SpeedKph, 0d, 999d):F0} km/h";
+                _immersiveFocusSecondaryText.Text = $"{nextStop}   •   {speed}";
+                break;
+        }
+    }
+
+    private static string BuildFocusServiceText(VehicleTelemetry? telemetry)
+    {
+        if (telemetry is null)
+        {
+            return ImmersiveText(
+                "Aguardando telemetria",
+                "Waiting for telemetry",
+                "Esperando telemetría",
+                "Warte auf Telemetrie",
+                "En attente de télémétrie");
+        }
+
+        var line = string.IsNullOrWhiteSpace(telemetry.Line) ? "—" : telemetry.Line;
+        var destination = string.IsNullOrWhiteSpace(telemetry.DestinationName)
+            ? ImmersiveText("Destino não informado", "Destination unavailable", "Destino no disponible", "Ziel nicht verfügbar", "Destination indisponible")
+            : telemetry.DestinationName;
+        return $"{line}  •  {destination}";
     }
 
     private static (string Text, Color Color) BuildImmersiveVehicleStatus(VehicleTelemetry? telemetry)

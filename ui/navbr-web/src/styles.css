@@ -829,6 +829,33 @@ h3 { margin:6px 0 16px; font-size:19px; }
   height:38px;
   border-width:5px;
 }
+.hud-style-card[data-hud-theme="cockpit-digital"] .hud-style-copy strong::after {
+  content:"CLUSTER";
+  margin-left:7px;
+  padding:2px 5px;
+  border-radius:999px;
+  background:#0c4260;
+  color:#8fdcff;
+  font-size:7px;
+}
+.hud-style-card[data-hud-theme="navigation-pro"] .hud-style-copy strong::after {
+  content:"GPS";
+  margin-left:7px;
+  padding:2px 5px;
+  border-radius:999px;
+  background:#5b3a10;
+  color:#ffd28d;
+  font-size:7px;
+}
+.hud-style-card[data-hud-theme="driver-assistance"] .hud-style-copy strong::after {
+  content:"ASSIST";
+  margin-left:7px;
+  padding:2px 5px;
+  border-radius:999px;
+  background:#594316;
+  color:#ffe19a;
+  font-size:7px;
+}
 .hud-style-card[data-hud-theme="navigation-pro"] {
   --hud-preview-bg:#06101d;
   --hud-preview-panel:#10243a;

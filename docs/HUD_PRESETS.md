@@ -39,3 +39,16 @@ Configurações antigas continuam sendo aceitas:
 O HUD clássico permanece disponível. Trocar para um preset composto não altera
 a fonte dos dados e não remove as configurações globais de escala, opacidade ou
 módulos.
+
+
+## Painel de foco
+
+Alguns presets usam um quarto módulo de foco, além de barra superior, mapa e
+multiplayer:
+
+- **Cockpit Digital:** cluster central com velocidade grande e serviço atual.
+- **Navigation Pro:** próxima parada, rua atual e serviço em destaque ao lado
+  do mapa.
+- **Driver Assistance:** estado real do veículo e próxima parada em destaque.
+
+Esse painel usa somente telemetria real já disponível no runtime.
