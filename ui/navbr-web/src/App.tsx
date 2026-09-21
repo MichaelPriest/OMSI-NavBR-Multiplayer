@@ -1932,7 +1932,120 @@ const HUD_PRESET_GROUPS = [
   }
 ] as const;
 
-function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
+
+function HudAppScreenPreview({ hud }: { hud: NavBrHudState }) {
+  const { pick } = useI18n();
+  const presetId = (hud.preset || "normal").toLowerCase();
+  const themeId = hud.theme || "urban-glass";
+  const focusVisible = [
+    "transit-control",
+    "cockpit-digital",
+    "navigation-pro",
+    "classic-omsi-plus",
+    "city-operations",
+    "driver-assistance"
+  ].includes(presetId);
+
+  return (
+    <article className="card hud-app-preview-card">
+      <div className="section-heading hud-app-preview-heading">
+        <div>
+          <span className="eyebrow">{pick("PRÉVIA NO APP", "APP PREVIEW", "VISTA PREVIA EN LA APP", "VORSCHAU IN DER APP", "APERÇU DANS L’APP")}</span>
+          <h3>{hud.presets.find(item => item.id === hud.preset)?.displayName || hud.preset}</h3>
+        </div>
+        <span className="hardware-state-pill">
+          {pick("OMSI FECHADO", "OMSI CLOSED", "OMSI CERRADO", "OMSI GESCHLOSSEN", "OMSI FERMÉ")}
+        </span>
+      </div>
+
+      <p className="hud-app-preview-description">
+        {pick(
+          "Mostra a composição real do preset e a posição dos módulos. Os textos abaixo são apenas estados neutros; nenhuma telemetria é inventada.",
+          "Shows the preset composition and widget placement. The text below uses neutral states only; no telemetry is fabricated.",
+          "Muestra la composición del preset y la posición de los módulos. Los textos usan estados neutros; no se inventa telemetría.",
+          "Zeigt Aufbau und Position der Module. Die Texte verwenden nur neutrale Zustände; es werden keine Telemetriedaten erfunden.",
+          "Affiche la composition du preset et la position des modules. Les textes utilisent uniquement des états neutres ; aucune télémétrie n’est inventée."
+        )}
+      </p>
+
+      <div
+        className="hud-app-preview-stage"
+        data-hud-preset={presetId}
+        data-hud-theme={themeId}
+        style={{ opacity: hud.opacity }}
+      >
+        <div className="hud-app-module hud-app-topbar">
+          <span><small>{pick("LINHA", "LINE", "LÍNEA", "LINIE", "LIGNE")}</small><strong>—</strong></span>
+          <span className="route"><small>{pick("ROTA / DESTINO", "ROUTE / DESTINATION", "RUTA / DESTINO", "ROUTE / ZIEL", "LIGNE / DESTINATION")}</small><strong>{pick("Sem telemetria", "No telemetry", "Sin telemetría", "Keine Telemetrie", "Sans télémétrie")}</strong></span>
+          <span><small>{pick("PRÓXIMA", "NEXT", "PRÓXIMA", "NÄCHSTE", "PROCHAINE")}</small><strong>—</strong></span>
+          <span className="speed"><small>{pick("VELOC.", "SPEED", "VELOC.", "GESCHW.", "VITESSE")}</small><strong>—</strong></span>
+        </div>
+
+        {hud.showMinimap && (
+          <div className="hud-app-module hud-app-map">
+            <span className="hud-app-module-title">{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</span>
+            <i className="hud-app-map-road one" />
+            <i className="hud-app-map-road two" />
+            <i className="hud-app-map-road three" />
+            <b className="hud-app-map-marker" />
+            <small>{pick("Sem rota ativa", "No active route", "Sin ruta activa", "Keine aktive Route", "Aucun itinéraire actif")}</small>
+          </div>
+        )}
+
+        {hud.showMultiplayer && (
+          <div className="hud-app-module hud-app-multiplayer">
+            <span className="hud-app-module-title">MULTIPLAYER</span>
+            <div><i /><span>{pick("Nenhum jogador", "No players", "Sin jugadores", "Keine Spieler", "Aucun joueur")}</span></div>
+            <div><i /><span>PTT —</span></div>
+            <small>{pick("Sem sessão ativa", "No active session", "Sin sesión activa", "Keine aktive Sitzung", "Aucune session active")}</small>
+          </div>
+        )}
+
+        {focusVisible && (
+          <div className="hud-app-module hud-app-focus">
+            <span className="hud-app-module-title">
+              {presetId === "cockpit-digital"
+                ? "CLUSTER"
+                : presetId === "navigation-pro"
+                  ? pick("NAVEGAÇÃO", "NAVIGATION", "NAVEGACIÓN", "NAVIGATION", "NAVIGATION")
+                  : presetId === "transit-control"
+                    ? pick("OPERAÇÃO", "OPERATIONS", "OPERACIÓN", "BETRIEB", "EXPLOITATION")
+                    : presetId === "driver-assistance"
+                      ? pick("ASSISTÊNCIA", "ASSISTANCE", "ASISTENCIA", "ASSISTENZ", "ASSISTANCE")
+                      : presetId === "city-operations"
+                        ? pick("OPERAÇÃO URBANA", "CITY OPERATIONS", "OPERACIÓN URBANA", "STADTBETRIEB", "EXPLOITATION URBAINE")
+                        : "OMSI+"}
+            </span>
+            <strong>{presetId === "cockpit-digital" ? "— km/h" : "—"}</strong>
+            <small>{pick("Aguardando dados reais", "Waiting for real data", "Esperando datos reales", "Warten auf echte Daten", "En attente de données réelles")}</small>
+          </div>
+        )}
+
+        {hud.showPedals && (
+          <div className="hud-app-module hud-app-pedals">
+            <span><small>{pick("ACEL.", "THR.", "ACEL.", "GAS", "ACC.")}</small><i /></span>
+            <span><small>{pick("FREIO", "BRAKE", "FRENO", "BREMSE", "FREIN")}</small><i /></span>
+          </div>
+        )}
+
+        {hud.showAlerts && (
+          <div className="hud-app-module hud-app-alerts"><span>!</span><small>{pick("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes")}</small></div>
+        )}
+
+        {hud.showSideIndicators && (
+          <div className="hud-app-module hud-app-side"><i /><i /><i /></div>
+        )}
+      </div>
+
+      <div className="hud-app-preview-legend">
+        <span>{pick("Prévia estrutural", "Structural preview", "Vista estructural", "Strukturvorschau", "Aperçu structurel")}</span>
+        <strong>{Math.round(hud.width)} px · {Math.round(hud.scale * 100)}% · {Math.round(hud.opacity * 100)}%</strong>
+      </div>
+    </article>
+  );
+}
+
+function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunning: boolean }) {
   const { t, pick } = useI18n();
   const [draft, setDraft] = useState<NavBrHudState>(hud);
   const [dirty, setDirty] = useState(false);
@@ -2034,11 +2147,17 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
 
   useEffect(() => {
     if (!previewing) return;
+
+    if (!omsiRunning) {
+      sendCommand("clearHudPreview");
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       sendCommand("previewHudSettings", hudPayload);
     }, 90);
     return () => window.clearTimeout(timer);
-  }, [previewing, hudPayload]);
+  }, [previewing, omsiRunning, hudPayload]);
 
   useEffect(() => () => {
     sendCommand("clearHudPreview");
@@ -2229,17 +2348,29 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
 
         {previewing && (
           <div className="hud-contextual-note">
-            <strong>{pick("PRÉVIA AO VIVO", "LIVE PREVIEW", "VISTA PREVIA EN VIVO", "LIVE-VORSCHAU", "APERÇU EN DIRECT")}</strong>
-            <span>{pick(
-              "O preset selecionado está sendo mostrado temporariamente no overlay. Tema, tamanho e módulos atualizam ao vivo e ainda não foram salvos.",
-              "The selected preset is temporarily visible on the overlay. Theme, size and widget changes update live and are not saved yet.",
-              "El preset seleccionado se muestra temporalmente en el overlay. Tema, tamaño y módulos se actualizan en vivo y aún no se guardan.",
-              "Das ausgewählte Preset wird vorübergehend im Overlay angezeigt. Thema, Größe und Module aktualisieren sich live und sind noch nicht gespeichert.",
-              "Le preset sélectionné est affiché temporairement dans l’overlay. Le thème, la taille et les modules se mettent à jour en direct sans être enregistrés."
-            )}</span>
+            <strong>{omsiRunning
+              ? pick("PRÉVIA AO VIVO NO OMSI", "LIVE PREVIEW IN OMSI", "VISTA PREVIA EN OMSI", "LIVE-VORSCHAU IN OMSI", "APERÇU EN DIRECT DANS OMSI")
+              : pick("PRÉVIA VISÍVEL NO APP", "PREVIEW VISIBLE IN APP", "VISTA PREVIA EN LA APP", "VORSCHAU IN DER APP", "APERÇU VISIBLE DANS L’APP")}</strong>
+            <span>{omsiRunning
+              ? pick(
+                  "O preset selecionado está sendo mostrado temporariamente no overlay. Tema, tamanho e módulos atualizam ao vivo e ainda não foram salvos.",
+                  "The selected preset is temporarily visible on the overlay. Theme, size and widget changes update live and are not saved yet.",
+                  "El preset seleccionado se muestra temporalmente en el overlay. Tema, tamaño y módulos se actualizan en vivo y aún no se guardan.",
+                  "Das ausgewählte Preset wird vorübergehend im Overlay angezeigt. Thema, Größe und Module aktualisieren sich live und sind noch nicht gespeichert.",
+                  "Le preset sélectionné est affiché temporairement dans l’overlay. Le thème, la taille et les modules se mettent à jour en direct sans être enregistrés."
+                )
+              : pick(
+                  "Como o OMSI está fechado, a composição do HUD aparece abaixo dentro do NavBR. Ao abrir o OMSI, a mesma prévia passa para o overlay real.",
+                  "Because OMSI is closed, the HUD composition appears below inside NavBR. When OMSI opens, the same preview moves to the real overlay.",
+                  "Como OMSI está cerrado, la composición del HUD aparece abajo dentro de NavBR. Al abrir OMSI, la misma vista pasa al overlay real.",
+                  "Da OMSI geschlossen ist, erscheint die HUD-Komposition unten in NavBR. Sobald OMSI geöffnet wird, wechselt dieselbe Vorschau zum echten Overlay.",
+                  "Comme OMSI est fermé, la composition du HUD apparaît ci-dessous dans NavBR. À l’ouverture d’OMSI, le même aperçu passe dans le véritable overlay."
+                )}</span>
           </div>
         )}
       </article>
+
+      {previewing && !omsiRunning && <HudAppScreenPreview hud={draft} />}
 
       <article className="card hud-settings-card">
         <span className="eyebrow">{t("hud.size")}</span>
@@ -2316,38 +2447,56 @@ function HudSettingsPanel({ hud }: { hud: NavBrHudState }) {
       </article>
 
       <div className="hud-settings-actions">
-        <button
-          className={`button ${previewing ? "ghost" : "primary"}`}
-          onClick={togglePreview}
-        >
-          {previewing
-            ? pick("Ocultar prévia", "Hide preview", "Ocultar vista previa", "Vorschau ausblenden", "Masquer l’aperçu")
-            : pick("Visualizar prévia", "Preview on screen", "Ver vista previa", "Vorschau anzeigen", "Visualiser l’aperçu")}
-        </button>
-        <button className="button primary" disabled={!dirty} onClick={save}>
-          {dirty ? t("hud.apply") : t("hud.applied")}
-        </button>
-        <button className="button ghost" onClick={() => {
-          sendCommand("resetHudSettings");
-          setPreviewing(false);
-          setDirty(false);
-        }}>{t("common.reset")}</button>
-        <button
-          className="button ghost"
-          disabled={previewing}
-          title={previewing
-            ? pick(
-                "Aplique ou oculte a prévia antes de mover o HUD.",
-                "Apply or hide the preview before moving the HUD.",
-                "Aplica u oculta la vista previa antes de mover el HUD.",
-                "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
-                "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
-              )
-            : undefined}
-          onClick={() => sendCommand("toggleHudLayout")}
-        >
-          {t("hud.move")}
-        </button>
+        <div className="hud-action-group">
+          <span className="hud-action-group-label">{pick("VISUALIZAÇÃO", "PREVIEW", "VISTA", "VORSCHAU", "APERÇU")}</span>
+          <button
+            className={`button ${previewing ? "ghost" : "primary"}`}
+            onClick={togglePreview}
+          >
+            {previewing
+              ? pick("Ocultar prévia", "Hide preview", "Ocultar vista previa", "Vorschau ausblenden", "Masquer l’aperçu")
+              : pick("Visualizar prévia", "Preview on screen", "Ver vista previa", "Vorschau anzeigen", "Visualiser l’aperçu")}
+          </button>
+        </div>
+
+        <div className="hud-action-group">
+          <span className="hud-action-group-label">{pick("SALVAR", "SAVE", "GUARDAR", "SPEICHERN", "ENREGISTRER")}</span>
+          <button className="button primary" disabled={!dirty} onClick={save}>
+            {dirty ? t("hud.apply") : t("hud.applied")}
+          </button>
+          <button className="button ghost" onClick={() => {
+            sendCommand("resetHudSettings");
+            setPreviewing(false);
+            setDirty(false);
+          }}>{t("common.reset")}</button>
+        </div>
+
+        <div className="hud-action-group hud-action-group-edit">
+          <span className="hud-action-group-label">{pick("EDIÇÃO", "EDITING", "EDICIÓN", "BEARBEITUNG", "ÉDITION")}</span>
+          <button
+            className="button ghost"
+            disabled={previewing}
+            title={previewing
+              ? pick(
+                  "Aplique ou oculte a prévia antes de mover o HUD.",
+                  "Apply or hide the preview before moving the HUD.",
+                  "Aplica u oculta la vista previa antes de mover el HUD.",
+                  "Übernimm oder schließe die Vorschau, bevor du das HUD verschiebst.",
+                  "Appliquez ou masquez l’aperçu avant de déplacer le HUD."
+                )
+              : undefined}
+            onClick={() => sendCommand("toggleHudLayout")}
+          >
+            {t("hud.move")}
+          </button>
+          <small>{pick(
+            "Mover HUD serve apenas para posicionar os módulos. Chat e PTT continuam em Multiplayer → Avançado → Atalhos.",
+            "Move HUD only positions widgets. Chat and PTT remain under Multiplayer → Advanced → Hotkeys.",
+            "Mover HUD solo posiciona módulos. Chat y PTT siguen en Multijugador → Avanzado → Atajos.",
+            "HUD verschieben positioniert nur Module. Chat und PTT bleiben unter Multiplayer → Erweitert → Hotkeys.",
+            "Déplacer le HUD sert uniquement à positionner les modules. Chat et PTT restent dans Multijoueur → Avancé → Raccourcis."
+          )}</small>
+        </div>
       </div>
     </section>
   );
@@ -2725,7 +2874,7 @@ function Settings({
         </section>
       )}
 
-      {tab === "hud" && <HudSettingsPanel hud={system.hud} />}
+      {tab === "hud" && <HudSettingsPanel hud={system.hud} omsiRunning={Boolean(state?.omsi.running)} />}
 
       {tab === "roadmap" && <RoadmapStudioPanel roadmap={state!.roadmapStudio} />}
 
@@ -2942,8 +3091,7 @@ function Settings({
             <h3>{pick("Personalização", "Customization", "Personalización", "Anpassung", "Personnalisation")}</h3>
             <p>{pick("Presets, tema, escala, opacidade e módulos já estão disponíveis na aba HUD.", "Presets, theme, scale, opacity and modules are available in the HUD tab.", "Presets, tema, escala, opacidad y módulos están disponibles en la pestaña HUD.", "Presets, Thema, Skalierung, Deckkraft und Module sind im HUD-Tab verfügbar.", "Préréglages, thème, échelle, opacité et modules sont disponibles dans l’onglet HUD.")}</p>
             <div className="settings-action-row">
-              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir HUD", "Open HUD", "Abrir HUD", "HUD öffnen", "Ouvrir HUD")}</button>
-              <button className="button ghost" onClick={() => sendCommand("toggleHudLayout")}>{pick("Mover HUD", "Move HUD", "Mover HUD", "HUD verschieben", "Déplacer le HUD")}</button>
+              <button className="button ghost" onClick={() => setTab("hud")}>{pick("Abrir central do HUD", "Open HUD center", "Abrir centro HUD", "HUD-Zentrale öffnen", "Ouvrir le centre HUD")}</button>
             </div>
           </article>
           <article className="card compact-card">
