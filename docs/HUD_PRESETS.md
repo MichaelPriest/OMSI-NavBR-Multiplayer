@@ -50,5 +50,6 @@ multiplayer:
 - **Navigation Pro:** próxima parada, rua atual e serviço em destaque ao lado
   do mapa.
 - **Driver Assistance:** estado real do veículo e próxima parada em destaque.
+- **City Operations:** acelerador, freio, estado operacional e serviço atual.
 
 Esse painel usa somente telemetria real já disponível no runtime.

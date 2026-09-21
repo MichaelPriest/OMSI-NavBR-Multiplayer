@@ -570,7 +570,8 @@ public partial class HudOverlayWindow
         var showFocusPanel = active && preset.Id is
             "cockpit-digital" or
             "navigation-pro" or
-            "driver-assistance";
+            "driver-assistance" or
+            "city-operations";
         _immersiveFocusPanel.Visibility = showFocusPanel
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -743,10 +744,13 @@ public partial class HudOverlayWindow
                 break;
 
             case "streamer-broadcast":
-                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Stretch;
+                if (_immersiveDelayCell is not null) _immersiveDelayCell.Visibility = Visibility.Collapsed;
+                if (_immersiveFuelCell is not null) _immersiveFuelCell.Visibility = Visibility.Collapsed;
+                _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveTopBar.Width = compact ? 610d : 760d;
                 _immersiveTopBar.Margin = compact
-                    ? new Thickness(12d, 10d, 12d, 0d)
-                    : new Thickness(24d, 18d, 24d, 0d);
+                    ? new Thickness(14d, 10d, 0d, 0d)
+                    : new Thickness(28d, 18d, 0d, 0d);
                 mapWidth = compact ? 250d : 300d;
                 mapHeight = compact ? 170d : 195d;
                 multiplayerWidth = compact ? 310d : 360d;
@@ -756,15 +760,18 @@ public partial class HudOverlayWindow
 
             case "glass-night":
                 _immersiveTopBar.HorizontalAlignment = HorizontalAlignment.Center;
-                _immersiveTopBar.Width = compact ? 690d : 860d;
-                mapWidth = compact ? 260d : 305d;
-                mapHeight = compact ? 175d : 205d;
-                multiplayerWidth = compact ? 285d : 320d;
+                _immersiveTopBar.Width = compact ? 640d : 780d;
+                mapWidth = compact ? 235d : 275d;
+                mapHeight = compact ? 155d : 185d;
+                multiplayerWidth = compact ? 255d : 295d;
                 if (_immersiveLineText is not null) _immersiveLineText.FontSize = 22d;
                 if (_immersiveSpeedText is not null) _immersiveSpeedText.FontSize = 20d;
                 break;
 
             case "city-operations":
+                _immersiveFocusPanel.Width = compact ? 330d : 400d;
+                _immersiveFocusPanel.HorizontalAlignment = HorizontalAlignment.Center;
+                _immersiveFocusPanel.Margin = new Thickness(0d, 0d, 0d, compact ? 12d : 20d);
                 mapWidth = compact ? 360d : 440d;
                 mapHeight = compact ? 230d : 285d;
                 multiplayerWidth = compact ? 360d : 430d;
@@ -1040,6 +1047,24 @@ public partial class HudOverlayWindow
                 _immersiveFocusSecondaryText.Text = string.IsNullOrWhiteSpace(street)
                     ? BuildFocusServiceText(telemetry)
                     : street + Environment.NewLine + BuildFocusServiceText(telemetry);
+                break;
+
+            case "city-operations":
+                _immersiveFocusEyebrowText.Text = ImmersiveText(
+                    "OPERAÇÃO", "OPERATIONS", "OPERACIÓN", "BETRIEB", "EXPLOITATION");
+                _immersiveFocusPrimaryText.FontSize = 19d;
+                var throttle = telemetry?.ThrottlePercent is double throttleValue && double.IsFinite(throttleValue)
+                    ? $"{Math.Clamp(throttleValue, 0d, 100d):F0}%"
+                    : "—";
+                var brake = telemetry?.BrakePercent is double brakeValue && double.IsFinite(brakeValue)
+                    ? $"{Math.Clamp(brakeValue, 0d, 100d):F0}%"
+                    : "—";
+                _immersiveFocusPrimaryText.Text =
+                    $"{ImmersiveText("ACEL", "THR", "ACEL", "GAS", "ACC")}: {throttle}   •   " +
+                    $"{ImmersiveText("FREIO", "BRK", "FRENO", "BREMSE", "FREIN")}: {brake}";
+                var operationsStatus = BuildImmersiveVehicleStatus(telemetry);
+                _immersiveFocusSecondaryText.Text =
+                    operationsStatus.Text + Environment.NewLine + BuildFocusServiceText(telemetry);
                 break;
 
             case "driver-assistance":
