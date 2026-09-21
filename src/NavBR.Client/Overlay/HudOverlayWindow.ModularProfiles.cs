@@ -184,6 +184,7 @@ public partial class HudOverlayWindow
         foreach (var anchor in new[]
                  {
                      (Id: "free", Label: "Livre"),
+                     (Id: "custom", Label: "Personalizada"),
                      (Id: "top-left", Label: "Superior esquerdo"),
                      (Id: "top-center", Label: "Superior centro"),
                      (Id: "top-right", Label: "Superior direito"),
@@ -303,7 +304,8 @@ public partial class HudOverlayWindow
         }
 
         anchor = HudProfileCatalog.ResolveAnchor(anchor);
-        if (anchor == HudProfileCatalog.DefaultAnchor)
+        if (anchor == HudProfileCatalog.DefaultAnchor ||
+            anchor == "custom")
         {
             ApplyDashboardPosition();
             return;
