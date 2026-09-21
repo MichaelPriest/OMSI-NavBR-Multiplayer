@@ -5,7 +5,7 @@ import { CURRENT_TAG, GITHUB_URL, RELEASES_PAGE, assetLabel, formatBytes } from 
 import { COPY, LANGUAGES, resolveInitialLanguage } from "./i18n.js";
 
 const PIX_KEY = "b07a9cc9-b10d-48a8-b201-d28bddc4399a";
-const STRIPE_TEST_URL = "https://donate.stripe.com/test_bJecN7ejOf3yf9kaIU43S01";
+const STRIPE_URL = "https://donate.stripe.com/4gM9AUevYgaj9ab4C55wI00";
 
 function formatDate(value, locale) {
   if (!value) return "—";
@@ -58,7 +58,7 @@ function History({ t, releases, language }) {
 function Contribute({ t }) {
   const [copied,setCopied]=useState(false);
   const copy=async()=>{try{await navigator.clipboard.writeText(PIX_KEY);setCopied(true);setTimeout(()=>setCopied(false),1800);}catch{window.prompt(t.contribute.copy,PIX_KEY);}};
-  return <section id="contribua" className="nv3-shell nv3-contribute"><div className="nv3-contribute-main"><span className="nv3-eyebrow">♥ {t.contribute.eyebrow}</span><h2>{t.contribute.title}</h2><p>{t.contribute.text}</p><div className="nv3-impact">{t.contribute.impact.map(x=><span key={x}>✓ {x}</span>)}</div></div><div className="nv3-donate-card pix"><h3>PIX</h3><p>{t.contribute.pixHelp}</p><code>{PIX_KEY}</code><button className="nv3-button nv3-secondary" onClick={copy}>{copied?t.contribute.copied:t.contribute.copy}</button></div><div className="nv3-donate-card stripe"><h3>Stripe</h3><span className="test">TEST MODE</span><p>{t.contribute.stripeHelp}</p><a className="nv3-button nv3-stripe" href={STRIPE_TEST_URL} target="_blank" rel="noreferrer">{t.contribute.stripeButton}</a></div></section>;
+  return <section id="contribua" className="nv3-shell nv3-contribute"><div className="nv3-contribute-main"><span className="nv3-eyebrow">♥ {t.contribute.eyebrow}</span><h2>{t.contribute.title}</h2><p>{t.contribute.text}</p><div className="nv3-impact">{t.contribute.impact.map(x=><span key={x}>✓ {x}</span>)}</div></div><div className="nv3-donate-card pix"><h3>PIX</h3><p>{t.contribute.pixHelp}</p><code>{PIX_KEY}</code><button className="nv3-button nv3-secondary" onClick={copy}>{copied?t.contribute.copied:t.contribute.copy}</button></div><div className="nv3-donate-card stripe"><h3>Stripe</h3><p>{t.contribute.stripeHelp}</p><a className="nv3-button nv3-stripe" href={STRIPE_URL} target="_blank" rel="noreferrer">{t.contribute.stripeButton}</a></div></section>;
 }
 
 function Docs({ t }) {
