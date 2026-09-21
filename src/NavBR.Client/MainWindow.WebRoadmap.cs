@@ -103,7 +103,8 @@ public partial class MainWindow
                     tileImagesUsed = _webRoadmapResult.TileImagesUsed,
                     missingTileImages = _webRoadmapResult.MissingTileImages,
                     tileFilesRead = _webRoadmapResult.TileFilesRead,
-                    splinesDrawn = _webRoadmapResult.SplinesDrawn
+                    splinesDrawn = _webRoadmapResult.SplinesDrawn,
+                    quality = _webRoadmapResult.Quality
                 }
         };
     }
@@ -169,6 +170,7 @@ public partial class MainWindow
                 result.TileImagesUsed,
                 result.MissingTileImages,
                 null,
+                null,
                 null);
             _webRoadmapProgress = 1d;
             _webRoadmapStatus = "tiles-built";
@@ -185,9 +187,17 @@ public partial class MainWindow
         }
     }
 
-    private async Task BuildRoadmapHdFromWebAsync(string? folderName)
+    private async Task BuildRoadmapHdFromWebAsync(
+        string? folderName,
+        string? quality)
     {
         var map = ResolveWebRoadmapMap(folderName);
+        var normalizedQuality = string.Equals(
+            quality,
+            "ultra",
+            StringComparison.OrdinalIgnoreCase)
+            ? "ultra"
+            : "hd";
         BeginWebRoadmapBuild(map, "building-hd");
 
         try
@@ -201,6 +211,7 @@ public partial class MainWindow
             });
             var result = await _webRoadmapVectorGenerator.BuildHdAsync(
                 map,
+                normalizedQuality,
                 progress);
 
             _webRoadmapAnalysis = _webRoadmapGenerator.Analyze(map);
@@ -221,7 +232,8 @@ public partial class MainWindow
                 null,
                 null,
                 result.TileFilesRead,
-                result.SplinesDrawn);
+                result.SplinesDrawn,
+                normalizedQuality);
             _webRoadmapProgress = 1d;
             _webRoadmapStatus = "hd-built";
         }
@@ -271,7 +283,8 @@ public partial class MainWindow
                 null,
                 null,
                 result.TileFilesRead,
-                result.SplinesDrawn);
+                result.SplinesDrawn,
+                null);
             _webRoadmapProgress = 1d;
             _webRoadmapStatus = "vector-built";
         }
@@ -388,5 +401,6 @@ public partial class MainWindow
         int? TileImagesUsed,
         int? MissingTileImages,
         int? TileFilesRead,
-        int? SplinesDrawn);
+        int? SplinesDrawn,
+        string? Quality);
 }

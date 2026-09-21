@@ -2562,6 +2562,7 @@ function roadmapStatusLabel(
 function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
   const { t, pick } = useI18n();
   const [selectedFolder, setSelectedFolder] = useState("");
+  const [hdQuality, setHdQuality] = useState<"hd" | "ultra">("hd");
 
   useEffect(() => {
     setSelectedFolder(current => {
@@ -2580,6 +2581,17 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
   const analysis = selectedMatchesNative ? roadmap.analysis : null;
   const result = selectedMatchesNative ? roadmap.result : null;
   const progress = Math.max(0, Math.min(100, (roadmap.progress ?? 0) * 100));
+  const hdPixelsPerTile = hdQuality === "ultra" ? 660 : 440;
+  const hdEstimatedResolution = analysis
+    ? (() => {
+        const columns = Math.max(1, analysis.maxGridX - analysis.minGridX + 1);
+        const rows = Math.max(1, analysis.maxGridY - analysis.minGridY + 1);
+        const rawWidth = Math.max(256, columns * hdPixelsPerTile);
+        const rawHeight = Math.max(256, rows * hdPixelsPerTile);
+        const scale = Math.min(1, 8192 / Math.max(rawWidth, rawHeight));
+        return `${Math.max(256, Math.round(rawWidth * scale))}×${Math.max(256, Math.round(rawHeight * scale))}`;
+      })()
+    : "—";
 
   return (
     <section className="roadmap-studio-layout">
@@ -2620,6 +2632,40 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               </div>
             )}
 
+            <div className="roadmap-hd-quality">
+              <label className="voice-field">
+                <span>{pick("QUALIDADE DO MINIMAPA", "MINIMAP QUALITY", "CALIDAD DEL MINIMAPA", "MINIMAP-QUALITÄT", "QUALITÉ DE LA MINI-CARTE")}</span>
+                <select
+                  value={hdQuality}
+                  disabled={roadmap.busy}
+                  onChange={event => setHdQuality(event.target.value as "hd" | "ultra")}
+                >
+                  <option value="hd">{pick("HD · 2× · recomendado", "HD · 2× · recommended", "HD · 2× · recomendado", "HD · 2× · empfohlen", "HD · 2× · recommandé")}</option>
+                  <option value="ultra">{pick("Ultra · 3× · mapas pequenos/médios", "Ultra · 3× · small/medium maps", "Ultra · 3× · mapas pequeños/medianos", "Ultra · 3× · kleine/mittlere Karten", "Ultra · 3× · petites/moyennes cartes")}</option>
+                </select>
+              </label>
+              <div className="roadmap-hd-quality-info">
+                <span><small>{pick("DENSIDADE", "DENSITY", "DENSIDAD", "DICHTE", "DENSITÉ")}</small><strong>{hdPixelsPerTile} px/tile</strong></span>
+                <span><small>{pick("RESOLUÇÃO ESTIMADA", "ESTIMATED RESOLUTION", "RESOLUCIÓN ESTIMADA", "GESCHÄTZTE AUFLÖSUNG", "RÉSOLUTION ESTIMÉE")}</small><strong>{hdEstimatedResolution}</strong></span>
+                <span><small>{pick("LIMITE SEGURO", "SAFE LIMIT", "LÍMITE SEGURO", "SICHERES LIMIT", "LIMITE SÛRE")}</small><strong>8192 px</strong></span>
+              </div>
+              <p>{hdQuality === "ultra"
+                ? pick(
+                    "Ultra aumenta a densidade em mapas menores. Em mapas grandes, o limite de 8192 px continua valendo para controlar o uso de memória.",
+                    "Ultra increases density on smaller maps. On large maps, the 8192 px cap still applies to control memory use.",
+                    "Ultra aumenta la densidad en mapas pequeños. En mapas grandes, se mantiene el límite de 8192 px para controlar la memoria.",
+                    "Ultra erhöht die Dichte auf kleineren Karten. Auf großen Karten bleibt das 8192-px-Limit zur Speicherkontrolle bestehen.",
+                    "Ultra augmente la densité sur les petites cartes. Sur les grandes cartes, la limite de 8192 px reste appliquée pour contrôler la mémoire."
+                  )
+                : pick(
+                    "HD é o modo recomendado para uso normal do minimapa.",
+                    "HD is the recommended mode for normal minimap use.",
+                    "HD es el modo recomendado para el uso normal del minimapa.",
+                    "HD ist der empfohlene Modus für die normale Minimap-Nutzung.",
+                    "HD est le mode recommandé pour l’utilisation normale de la mini-carte."
+                  )}</p>
+            </div>
+
             <div className="roadmap-actions">
               <button
                 className="button ghost"
@@ -2645,7 +2691,7 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               <button
                 className="button primary"
                 disabled={!selectedFolder || roadmap.busy}
-                onClick={() => sendCommand("buildRoadmapHd", { folderName: selectedFolder })}
+                onClick={() => sendCommand("buildRoadmapHd", { folderName: selectedFolder, quality: hdQuality })}
                 title={pick(
                   "Gera uma textura vetorial de alta definição exclusiva do NavBR. O roadmap original do OMSI não é substituído.",
                   "Generates a high-definition vector texture exclusively for NavBR. The original OMSI roadmap is not replaced.",
@@ -2655,7 +2701,9 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
                 )}
               >
                 <NavBrIcon name="map" size={15} />
-                {pick("Gerar HD minimapa", "Generate HD minimap", "Generar minimapa HD", "HD-Minimap erzeugen", "Générer mini-carte HD")}
+                {hdQuality === "ultra"
+                  ? pick("Gerar Ultra minimapa", "Generate Ultra minimap", "Generar minimapa Ultra", "Ultra-Minimap erzeugen", "Générer mini-carte Ultra")
+                  : pick("Gerar HD minimapa", "Generate HD minimap", "Generar minimapa HD", "HD-Minimap erzeugen", "Générer mini-carte HD")}
               </button>
               <button
                 className="button ghost"
@@ -2778,6 +2826,9 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
               {result.missingTileImages != null && <span><small>{pick("VAZIOS", "MISSING", "VACÍOS", "FEHLEND", "MANQUANTS")}</small><strong>{result.missingTileImages}</strong></span>}
               {result.tileFilesRead != null && <span><small>{pick("TILES LIDOS", "TILES READ", "TILES LEÍDOS", "GELESENE TILES", "TILES LUS")}</small><strong>{result.tileFilesRead}</strong></span>}
               {result.splinesDrawn != null && <span><small>SPLINES</small><strong>{result.splinesDrawn}</strong></span>}
+              {result.mode === "hd" && result.quality && (
+                <span><small>{pick("QUALIDADE", "QUALITY", "CALIDAD", "QUALITÄT", "QUALITÉ")}</small><strong>{result.quality === "ultra" ? "Ultra · 3×" : "HD · 2×"}</strong></span>
+              )}
             </div>
             <code className="roadmap-output-path">{result.outputPath}</code>
             {result.backupPath && <p className="roadmap-backup">{pick("Backup", "Backup", "Copia de seguridad", "Sicherung", "Sauvegarde")}: <code>{result.backupPath}</code></p>}

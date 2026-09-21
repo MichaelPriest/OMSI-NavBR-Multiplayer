@@ -589,6 +589,7 @@ export interface NavBrRoadmapStudioState {
     missingTileImages?: number | null;
     tileFilesRead?: number | null;
     splinesDrawn?: number | null;
+    quality?: "hd" | "ultra" | null;
   } | null;
 }
 

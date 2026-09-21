@@ -22,6 +22,7 @@ public sealed class OmsiRoadmapVectorGeneratorService
     private const int PreferredPixelsPerTile = 220;
     private const int MaxBitmapDimension = 6144;
     private const int HdPixelsPerTile = 440;
+    private const int UltraHdPixelsPerTile = 660;
     private const int HdMaxBitmapDimension = 8192;
     public const string HdRoadmapFileName = "navbr.roadmap.hd.bmp";
 
@@ -52,19 +53,45 @@ public sealed class OmsiRoadmapVectorGeneratorService
 
     public Task<OmsiRoadmapVectorBuildResult> BuildHdAsync(
         OmsiMapInfo map,
+        string? quality = null,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        var normalizedQuality = string.Equals(
+            quality,
+            "ultra",
+            StringComparison.OrdinalIgnoreCase)
+            ? "ultra"
+            : "hd";
+        var pixelsPerTile = normalizedQuality == "ultra"
+            ? UltraHdPixelsPerTile
+            : HdPixelsPerTile;
+
         return Task.Run(
-            () => Build(
-                map,
-                HdPixelsPerTile,
-                HdMaxBitmapDimension,
-                HdRoadmapFileName,
-                "navbr.roadmap.hd.txt",
-                backupExisting: false,
-                progress,
-                cancellationToken),
+            () =>
+            {
+                var result = Build(
+                    map,
+                    pixelsPerTile,
+                    HdMaxBitmapDimension,
+                    HdRoadmapFileName,
+                    "navbr.roadmap.hd.txt",
+                    backupExisting: false,
+                    progress,
+                    cancellationToken);
+
+                var metadataPath = Path.Combine(
+                    map.DirectoryPath,
+                    "texture",
+                    "map",
+                    "navbr.roadmap.hd.txt");
+                File.AppendAllText(
+                    metadataPath,
+                    $"Quality: {normalizedQuality}{Environment.NewLine}" +
+                    $"Pixels per tile: {pixelsPerTile}{Environment.NewLine}");
+
+                return result;
+            },
             cancellationToken);
     }
 
