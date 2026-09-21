@@ -76,6 +76,76 @@ const friendlyControlName = (value: string) =>
     .replace(/[_\-.]+/g, " ")
     .replace(/\b\w/g, c => c.toUpperCase());
 
+type IbisProfile = {
+  id: "classic" | "atron" | "almex" | "efad" | "matrix";
+  name: string;
+  subtitle: string;
+};
+
+type IbisKeyDefinition = {
+  id: string;
+  label: string;
+  secondary?: string;
+  aliases: string[];
+  wide?: boolean;
+};
+
+const IBIS_KEYS: IbisKeyDefinition[] = [
+  { id: "line", label: "LINIE", secondary: "LINE", aliases: ["linie", "line"] },
+  { id: "route", label: "KURS", secondary: "ROUTE", aliases: ["kurs", "route", "course"] },
+  { id: "destination", label: "ZIEL", secondary: "DEST", aliases: ["ziel", "destination", "dest"] },
+  { id: "announce", label: "ANS", secondary: "ANN", aliases: ["ansage", "announce", "announcement"] },
+  { id: "1", label: "1", aliases: ["1"] },
+  { id: "2", label: "2", aliases: ["2"] },
+  { id: "3", label: "3", aliases: ["3"] },
+  { id: "up", label: "▲", aliases: ["up", "hoch", "prev", "previous"] },
+  { id: "4", label: "4", aliases: ["4"] },
+  { id: "5", label: "5", aliases: ["5"] },
+  { id: "6", label: "6", aliases: ["6"] },
+  { id: "down", label: "▼", aliases: ["down", "runter", "next"] },
+  { id: "7", label: "7", aliases: ["7"] },
+  { id: "8", label: "8", aliases: ["8"] },
+  { id: "9", label: "9", aliases: ["9"] },
+  { id: "delete", label: "C", secondary: "DEL", aliases: ["clear", "clr", "delete", "del", "korrektur", "cancel"] },
+  { id: "left", label: "◀", aliases: ["left", "links"] },
+  { id: "0", label: "0", aliases: ["0"] },
+  { id: "right", label: "▶", aliases: ["right", "rechts"] },
+  { id: "enter", label: "E", secondary: "ENTER", aliases: ["enter", "eingabe", "ok", "confirm", "bestaetigen"], wide: true }
+];
+
+const ibisTokens = (value: string) =>
+  value.toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+const detectIbisProfile = (events: string[]): IbisProfile => {
+  const all = events.join(" ").toLowerCase();
+  if (all.includes("atron")) return { id: "atron", name: "ATRON", subtitle: "perfil detectado" };
+  if (all.includes("almex")) return { id: "almex", name: "ALMEX", subtitle: "perfil detectado" };
+  if (all.includes("efad") || all.includes("fahrscheindrucker")) return { id: "efad", name: "EFAD / AFR", subtitle: "perfil detectado" };
+  if (all.includes("lawo") || all.includes("krueger") || all.includes("matrix")) return { id: "matrix", name: "MATRIX", subtitle: "perfil detectado" };
+  return { id: "classic", name: "IBIS 2", subtitle: "layout clássico OMSI" };
+};
+
+const resolveIbisEvent = (events: string[], definition: IbisKeyDefinition) => {
+  let best: { eventName: string; score: number } | null = null;
+  for (const eventName of events) {
+    const tokens = ibisTokens(eventName);
+    const normalized = tokens.join(" ");
+    for (const alias of definition.aliases) {
+      const aliasTokens = ibisTokens(alias);
+      const exactTokenMatch = aliasTokens.length === 1 && tokens.includes(aliasTokens[0]);
+      const phraseMatch = aliasTokens.length > 1 && normalized.includes(aliasTokens.join(" "));
+      const suffixMatch = normalized.endsWith(aliasTokens.join(" "));
+      const score = suffixMatch ? 30 : phraseMatch ? 24 : exactTokenMatch ? 18 : 0;
+      if (score > 0 && (!best || score > best.score)) best = { eventName, score };
+    }
+  }
+  return best?.eventName || null;
+};
+
 function RouteMap({ state }: { state: MobileState["navigation"] }) {
   const points = state.routePoints || [], rejoin = state.rejoinPoints || [], vehicle = state.vehicle;
   const bounds = useMemo(() => {
@@ -151,6 +221,7 @@ export default function App() {
   const [pttHeld, setPttHeld] = useState(false);
   const [controlFilter, setControlFilter] = useState("");
   const [ibisFilter, setIbisFilter] = useState("");
+  const [ibisTechnicalOpen, setIbisTechnicalOpen] = useState(false);
   const [controlFavorites, setControlFavorites] = useState<string[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem("navbr-mobile-control-favorites") || "[]");
@@ -278,6 +349,14 @@ export default function App() {
     .filter(name => !ibisFilter.trim() || name.toLowerCase().includes(ibisFilter.trim().toLowerCase()))
     .sort((a, b) => a.localeCompare(b));
 
+  const ibisProfile = detectIbisProfile(state?.ibis.detectedEvents || []);
+  const ibisKeys = IBIS_KEYS.map(definition => ({
+    ...definition,
+    eventName: resolveIbisEvent(state?.ibis.detectedEvents || [], definition)
+  }));
+  const mappedIbisEvents = new Set(ibisKeys.flatMap(key => key.eventName ? [key.eventName] : []));
+  const unmappedIbisControls = availableIbisControls.filter(eventName => !mappedIbisEvents.has(eventName));
+
   return <main className="app-shell">
     <header className="mobile-header">
       <div><span className="eyebrow">NAVBR MOBILE · ALPHA 2</span><strong>{vehicle?.line || "—"} <i>·</i> {vehicle?.route || "—"}</strong></div>
@@ -357,15 +436,76 @@ export default function App() {
       </div>}
 
       {tab === "ibis" && <div className="ibis-page">
-        <div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable ? "CONTROLES REAIS" : "LEITURA"}</b></div>
-        <div className="ibis-display"><label>LINHA<strong>{state?.ibis.line || "—"}</strong></label><label>ROTA / CURSO<strong>{state?.ibis.route || "—"}</strong></label><label>DESTINO<strong>{state?.ibis.destination || "—"}</strong></label><label>HOF<strong>{state?.ibis.hof || "—"}</strong></label><label>PRÓXIMA PARADA<strong>{state?.ibis.nextStop || "—"}</strong></label><label>ATRASO<strong>{state?.ibis.delaySeconds == null ? "—" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</strong></label></div>
-        <div className="vehicle-controls-card">
-          <div className="section-title"><div><small>TECLAS REAIS DO VEÍCULO</small><h2>IBIS / AFR / Matrix</h2></div><b className={state?.ibis.writable ? "good" : "bad"}>{state?.ibis.writable ? "LIBERADO" : "BLOQUEADO"}</b></div>
-          <input className="control-search" value={ibisFilter} onChange={e => setIbisFilter(e.target.value)} placeholder="Buscar tecla/evento do IBIS…" />
-          {availableIbisControls.length === 0
-            ? <div className="map-empty compact-empty">Nenhum evento real de IBIS/AFR/Matrix foi identificado neste veículo.</div>
+        <div className="ibis-head"><span>IBIS MOBILE</span><b>{state?.ibis.writable ? "CONECTADO AO VEÍCULO" : "LEITURA"}</b></div>
+
+        <div className={`ibis-console profile-${ibisProfile.id}`}>
+          <div className="ibis-console-top">
+            <div className="ibis-brand">
+              <span className="ibis-brand-main">{ibisProfile.name}</span>
+              <small>{ibisProfile.subtitle}</small>
+            </div>
+            <div className={`ibis-led ${state?.ibis.writable ? "on" : ""}`}><i />{state?.ibis.writable ? "BEREIT" : "READ"}</div>
+          </div>
+
+          <div className="ibis-lcd" role="status" aria-label="Visor do IBIS">
+            <div className="ibis-lcd-row ibis-lcd-primary">
+              <span>LIN {state?.ibis.line || "----"}</span>
+              <span>KRS {state?.ibis.route || "--"}</span>
+            </div>
+            <div className="ibis-lcd-destination">{state?.ibis.destination || "KEIN ZIEL / SEM DESTINO"}</div>
+            <div className="ibis-lcd-row">
+              <span>{state?.ibis.nextStop || "Aguardando próxima parada"}</span>
+              <span>{state?.ibis.delaySeconds == null ? "--:--" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</span>
+            </div>
+            <div className="ibis-lcd-footer">HOF {state?.ibis.hof || "—"} · EVENTOS {state?.ibis.detectedEvents.length || 0}</div>
+          </div>
+
+          <div className="ibis-keypad">
+            {ibisKeys.map(key => <button
+              key={key.id}
+              type="button"
+              className={`ibis-key ${key.wide ? "wide" : ""} ${key.eventName ? "mapped" : "unmapped"}`}
+              disabled={!state?.ibis.writable || !key.eventName}
+              title={key.eventName || "Função não exposta por este ônibus"}
+              onPointerDown={e => {
+                if (!key.eventName) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                navigator.vibrate?.(12);
+                void sendCommand("ibis-trigger", { triggerName: key.eventName, active: true });
+              }}
+              onPointerUp={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+              onPointerCancel={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+              onLostPointerCapture={() => key.eventName && void sendCommand("ibis-trigger", { triggerName: key.eventName, active: false })}
+            >
+              <strong>{key.label}</strong>
+              {key.secondary && <small>{key.secondary}</small>}
+              <em>{key.eventName ? "●" : "×"}</em>
+            </button>)}
+          </div>
+
+          <div className="ibis-console-legend">
+            <span><i className="mapped-dot" /> função real mapeada</span>
+            <span><i className="unmapped-dot" /> não exposta neste ônibus</span>
+          </div>
+        </div>
+
+        <div className="ibis-live-strip">
+          <div><small>LINHA</small><strong>{state?.ibis.line || "—"}</strong></div>
+          <div><small>CURSO</small><strong>{state?.ibis.route || "—"}</strong></div>
+          <div><small>ATRASO</small><strong>{state?.ibis.delaySeconds == null ? "—" : `${state.ibis.delaySeconds > 0 ? "+" : ""}${state.ibis.delaySeconds}s`}</strong></div>
+        </div>
+
+        <button type="button" className="ibis-technical-toggle" onClick={() => setIbisTechnicalOpen(v => !v)}>
+          {ibisTechnicalOpen ? "Ocultar eventos técnicos" : `Eventos técnicos (${unmappedIbisControls.length})`}
+        </button>
+
+        {ibisTechnicalOpen && <div className="vehicle-controls-card ibis-technical-panel">
+          <div className="section-title"><div><small>DIAGNÓSTICO</small><h2>Eventos reais adicionais</h2></div><b>{ibisProfile.name}</b></div>
+          <input className="control-search" value={ibisFilter} onChange={e => setIbisFilter(e.target.value)} placeholder="Filtrar eventos reais…" />
+          {unmappedIbisControls.length === 0
+            ? <div className="map-empty compact-empty">Todos os eventos detectados já estão associados ao painel.</div>
             : <div className="vehicle-control-grid">
-                {availableIbisControls.map(eventName => <div className="vehicle-control-item" key={eventName}>
+                {unmappedIbisControls.map(eventName => <div className="vehicle-control-item" key={eventName}>
                   <button
                     className="vehicle-trigger-button"
                     disabled={!state?.ibis.writable}
@@ -383,13 +523,14 @@ export default function App() {
                   </button>
                 </div>)}
               </div>}
-        </div>
+        </div>}
+
         {!state?.ibis.writable && <div className="ibis-warning">
           {!state?.vehicleControls.enabled
-            ? "Ative “Controles do ônibus pelo celular (EXPERIMENTAL)” no NavBR do PC para liberar as teclas reais do IBIS."
+            ? "Ative “Controles do ônibus pelo celular (EXPERIMENTAL)” no NavBR do PC. O painel permanece em leitura até a autorização ser habilitada."
             : !state?.vehicleControls.capabilityAvailable
               ? "O Plugin Bridge ainda não informou a capacidade local-vehicle-trigger."
-              : "Leitura real ativa, mas este ônibus não expôs eventos reconhecidos de IBIS/AFR/Matrix."}
+              : "O visor continua real, porém este ônibus não expôs teclas IBIS reconhecíveis no catálogo [mouseevent]."}
         </div>}
       </div>}
 

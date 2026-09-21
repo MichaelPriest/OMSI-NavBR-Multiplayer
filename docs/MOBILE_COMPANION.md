@@ -78,6 +78,20 @@ Fluxo dos controles IBIS:
 
 A escrita direta de linha/rota/destino/HOF via variáveis ou stringvars continua **desativada**. Ela só será adicionada quando o NavBR resolver com segurança os arrays de script do veículo atual, como a arquitetura do OmsiHook faz, em vez de assumir nomes/offsets universais.
 
+### Designer IBIS fiel ao cockpit
+
+A interface principal do IBIS no Mobile Companion deixa de ser uma lista técnica de triggers e passa a representar um equipamento físico:
+
+- carcaça, visor LCD e teclado em layout de IBIS usado no OMSI;
+- leitura no visor continua vindo exclusivamente da telemetria real: linha, curso/rota, destino, HOF, próxima parada e atraso;
+- detecção visual de famílias como IBIS clássico, ATRON, ALMEX, EFAD/AFR e matrix quando os nomes reais dos eventos permitem identificar o equipamento;
+- teclas sem correspondência real continuam visíveis para preservar o layout do aparelho, porém ficam bloqueadas;
+- teclas mapeadas executam `press/release` somente no `[mouseevent]` real encontrado e revalidado pelo desktop;
+- eventos reais que não puderem ser associados com segurança a uma tecla ficam disponíveis apenas no painel técnico secundário para diagnóstico.
+
+O objetivo é ter o mesmo fluxo operacional do aparelho no jogo sem criar uma segunda lógica falsa no celular. O OMSI/ônibus continua sendo a autoridade da função.
+
+
 ## Portas
 
 - multiplayer local: 27730;
