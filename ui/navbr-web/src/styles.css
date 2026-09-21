@@ -1432,11 +1432,72 @@ h3 { margin:6px 0 16px; font-size:19px; }
 }
 .roadmap-control-card,
 .roadmap-analysis-card,
-.roadmap-result-card {
+.roadmap-result-card,
+.roadmap-preview-card {
   padding:20px;
 }
-.roadmap-result-card {
+.roadmap-result-card,
+.roadmap-preview-card {
   grid-column:1 / -1;
+}
+.roadmap-preview-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:12px;
+}
+.roadmap-preview-grid figure {
+  margin:0;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid #1b3342;
+  border-radius:11px;
+  background:#07151f;
+}
+.roadmap-preview-grid figure.active {
+  border-color:#2e7254;
+  box-shadow:0 0 0 1px rgba(83,207,146,.12);
+}
+.roadmap-preview-grid figcaption {
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  padding:9px 11px;
+  border-bottom:1px solid #1b3342;
+}
+.roadmap-preview-grid figcaption strong {
+  color:#dceaf3;
+  font-size:10px;
+}
+.roadmap-preview-grid figcaption small {
+  overflow:hidden;
+  color:#718b9d;
+  font-size:8px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.roadmap-preview-frame {
+  display:grid;
+  place-items:center;
+  aspect-ratio:16 / 9;
+  min-height:180px;
+  overflow:hidden;
+  background:
+    linear-gradient(rgba(64,104,128,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(64,104,128,.06) 1px, transparent 1px),
+    #041018;
+  background-size:20px 20px;
+}
+.roadmap-preview-frame img {
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  image-rendering:auto;
+}
+.roadmap-preview-frame span {
+  color:#627e90;
+  font-size:9px;
 }
 .roadmap-map-select {
   margin-top:12px;
@@ -1526,11 +1587,13 @@ h3 { margin:6px 0 16px; font-size:19px; }
 }
 @media (max-width:1050px) {
   .roadmap-studio-layout { grid-template-columns:1fr; }
-  .roadmap-result-card { grid-column:auto; }
+  .roadmap-result-card,
+  .roadmap-preview-card { grid-column:auto; }
 }
 @media (max-width:720px) {
   .roadmap-map-facts,
-  .roadmap-analysis-grid { grid-template-columns:1fr 1fr; }
+  .roadmap-analysis-grid,
+  .roadmap-preview-grid { grid-template-columns:1fr; }
 }
 
 

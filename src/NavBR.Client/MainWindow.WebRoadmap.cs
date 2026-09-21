@@ -33,6 +33,20 @@ public partial class MainWindow
                         "texture",
                         "map",
                         OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
+                    var roadmapExists = File.Exists(roadmapPath);
+                    var hdRoadmapExists = File.Exists(hdRoadmapPath);
+                    var roadmapPreviewUrl = roadmapExists
+                        ? TryBuildWebMapResourceUrl(map, roadmapPath)
+                        : null;
+                    var hdRoadmapPreviewUrl = hdRoadmapExists
+                        ? TryBuildWebMapResourceUrl(map, hdRoadmapPath)
+                        : null;
+                    var activeUsesHd =
+                        hdRoadmapExists &&
+                        string.Equals(
+                            map.RoadmapPath,
+                            hdRoadmapPath,
+                            StringComparison.OrdinalIgnoreCase);
                     return new
                     {
                         folderName = map.FolderName,
@@ -41,9 +55,12 @@ public partial class MainWindow
                         tileCount = map.TileCount,
                         compatibilityId = map.CompatibilityId,
                         roadmapPath,
-                        roadmapExists = File.Exists(roadmapPath),
+                        roadmapExists,
+                        roadmapPreviewUrl,
                         hdRoadmapPath,
-                        hdRoadmapExists = File.Exists(hdRoadmapPath)
+                        hdRoadmapExists,
+                        hdRoadmapPreviewUrl,
+                        activeUsesHd
                     };
                 })
                 .ToArray(),

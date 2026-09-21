@@ -2678,6 +2678,59 @@ function RoadmapStudioPanel({ roadmap }: { roadmap: NavBrRoadmapStudioState }) {
         {roadmap.error && <div className="directory-error">{roadmap.error}</div>}
       </article>
 
+      <article className="card roadmap-preview-card">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{pick("COMPARAÇÃO VISUAL", "VISUAL COMPARISON", "COMPARACIÓN VISUAL", "VISUELLER VERGLEICH", "COMPARAISON VISUELLE")}</span>
+            <h3>{pick("Roadmap OMSI × NavBR HD", "OMSI roadmap × NavBR HD", "Roadmap OMSI × NavBR HD", "OMSI-Roadmap × NavBR HD", "Roadmap OMSI × NavBR HD")}</h3>
+          </div>
+          {selectedMap?.hdRoadmapExists && (
+            <span className={`hardware-state-pill ${selectedMap.activeUsesHd ? "connected" : ""}`}>
+              {selectedMap.activeUsesHd
+                ? pick("HD em uso", "HD in use", "HD en uso", "HD aktiv", "HD utilisée")
+                : pick("HD disponível", "HD available", "HD disponible", "HD verfügbar", "HD disponible")}
+            </span>
+          )}
+        </div>
+
+        {!selectedMap || (!selectedMap.roadmapPreviewUrl && !selectedMap.hdRoadmapPreviewUrl) ? (
+          <div className="empty-state">
+            {pick(
+              "Gere um roadmap ou uma textura HD para visualizar aqui.",
+              "Generate a roadmap or HD texture to preview it here.",
+              "Genera un roadmap o una textura HD para verla aquí.",
+              "Erzeuge eine Roadmap oder HD-Textur für die Vorschau.",
+              "Générez une roadmap ou une texture HD pour l’apercevoir ici."
+            )}
+          </div>
+        ) : (
+          <div className="roadmap-preview-grid">
+            <figure>
+              <figcaption>
+                <strong>{pick("Roadmap OMSI", "OMSI roadmap", "Roadmap OMSI", "OMSI-Roadmap", "Roadmap OMSI")}</strong>
+                <small>{selectedMap.roadmapExists ? "whole.roadmap.bmp" : pick("Ausente", "Missing", "Ausente", "Fehlt", "Absente")}</small>
+              </figcaption>
+              <div className="roadmap-preview-frame">
+                {selectedMap.roadmapPreviewUrl
+                  ? <img src={selectedMap.roadmapPreviewUrl} alt="" draggable={false} />
+                  : <span>{pick("Sem imagem", "No image", "Sin imagen", "Kein Bild", "Aucune image")}</span>}
+              </div>
+            </figure>
+            <figure className={selectedMap.activeUsesHd ? "active" : ""}>
+              <figcaption>
+                <strong>NavBR HD</strong>
+                <small>{selectedMap.hdRoadmapExists ? "navbr.roadmap.hd.bmp" : pick("Não gerado", "Not generated", "No generado", "Nicht erzeugt", "Non généré")}</small>
+              </figcaption>
+              <div className="roadmap-preview-frame">
+                {selectedMap.hdRoadmapPreviewUrl
+                  ? <img src={selectedMap.hdRoadmapPreviewUrl} alt="" draggable={false} />
+                  : <span>{pick("Gere o HD para comparar", "Generate HD to compare", "Genera HD para comparar", "HD zum Vergleichen erzeugen", "Générez la HD pour comparer")}</span>}
+              </div>
+            </figure>
+          </div>
+        )}
+      </article>
+
       <article className="card roadmap-analysis-card">
         <div className="section-heading">
           <div><span className="eyebrow">{t("roadmap.analysis")}</span><h3>{t("roadmap.tilesOutput")}</h3></div>

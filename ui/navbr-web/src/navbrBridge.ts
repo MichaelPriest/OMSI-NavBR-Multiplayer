@@ -549,8 +549,11 @@ export interface NavBrRoadmapStudioState {
     compatibilityId?: string | null;
     roadmapPath?: string | null;
     roadmapExists: boolean;
+    roadmapPreviewUrl?: string | null;
     hdRoadmapPath?: string | null;
     hdRoadmapExists: boolean;
+    hdRoadmapPreviewUrl?: string | null;
+    activeUsesHd: boolean;
   }[];
   selectedFolder?: string | null;
   busy: boolean;
