@@ -182,3 +182,16 @@ Nos presets compostos, `DashboardHeight = 0` mantém a altura automática.
 Quando o usuário define um valor maior que zero, ele passa a ser a altura mínima
 do painel principal de foco. Nos presets sem painel de foco, a altura mínima é
 aplicada à barra principal. Mapa e multiplayer preservam suas proporções.
+
+
+## Posicionamento de alertas e indicadores
+
+Os módulos auxiliares também seguem a intenção visual de cada preset:
+
+- **Streamer / Broadcast:** alertas e indicadores ficam nas bordas, preservando
+  o centro da tela para gravação/transmissão.
+- **Glass / Night:** alertas e indicadores ficam próximos aos cantos e fora do
+  campo visual central.
+- **Navigation Pro:** alertas acompanham o lado da orientação.
+- **Multiplayer Focus:** indicadores laterais são deslocados para não competir
+  com o painel multiplayer.

@@ -1038,6 +1038,8 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.Margin = new Thickness(edge, 0d, 0d, edge);
         _immersiveMultiplayerPanel.Margin = new Thickness(0d, 0d, edge, edge);
 
+        ApplyComposedAuxiliaryPanelLayout(presetId, compact, edge);
+
         // Always clear stale fixed heights before applying the current setting.
         // This makes 0 = automatic truly reversible when changing presets/settings.
         _immersiveFocusPanel.MinHeight = 0d;
@@ -1057,6 +1059,87 @@ public partial class HudOverlayWindow
         }
 
         ApplyComposedPresetPalette(presetId);
+    }
+
+    private void ApplyComposedAuxiliaryPanelLayout(
+        string presetId,
+        bool compact,
+        double edge)
+    {
+        if (_immersiveAlertPanel is null ||
+            _immersiveSideIndicatorPanel is null)
+        {
+            return;
+        }
+
+        _immersiveAlertPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        _immersiveAlertPanel.VerticalAlignment = VerticalAlignment.Top;
+        _immersiveAlertPanel.Margin = new Thickness(
+            0d,
+            compact ? 78d : 86d,
+            0d,
+            0d);
+
+        _immersiveSideIndicatorPanel.HorizontalAlignment = HorizontalAlignment.Right;
+        _immersiveSideIndicatorPanel.VerticalAlignment = VerticalAlignment.Center;
+        _immersiveSideIndicatorPanel.Margin = new Thickness(
+            0d,
+            0d,
+            compact ? 10d : 16d,
+            0d);
+
+        switch (presetId)
+        {
+            case "streamer-broadcast":
+                _immersiveAlertPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveAlertPanel.Margin = new Thickness(
+                    0d,
+                    compact ? 76d : 88d,
+                    edge,
+                    0d);
+                _immersiveSideIndicatorPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveSideIndicatorPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveSideIndicatorPanel.Margin = new Thickness(
+                    0d,
+                    0d,
+                    edge,
+                    compact ? 230d : 250d);
+                break;
+
+            case "glass-night":
+                _immersiveAlertPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveAlertPanel.Margin = new Thickness(
+                    edge,
+                    compact ? 72d : 82d,
+                    0d,
+                    0d);
+                _immersiveSideIndicatorPanel.VerticalAlignment = VerticalAlignment.Bottom;
+                _immersiveSideIndicatorPanel.Margin = new Thickness(
+                    0d,
+                    0d,
+                    edge,
+                    compact ? 200d : 220d);
+                break;
+
+            case "navigation-pro":
+                _immersiveAlertPanel.HorizontalAlignment = HorizontalAlignment.Right;
+                _immersiveAlertPanel.Margin = new Thickness(
+                    0d,
+                    compact ? 80d : 90d,
+                    edge,
+                    0d);
+                break;
+
+            case "multiplayer-focus":
+                _immersiveSideIndicatorPanel.HorizontalAlignment = HorizontalAlignment.Left;
+                _immersiveSideIndicatorPanel.VerticalAlignment = VerticalAlignment.Center;
+                _immersiveSideIndicatorPanel.Margin = new Thickness(
+                    edge,
+                    0d,
+                    0d,
+                    0d);
+                break;
+        }
     }
 
     private void ApplyComposedFocusAnchor(
