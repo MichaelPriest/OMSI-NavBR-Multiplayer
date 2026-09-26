@@ -30,6 +30,107 @@
                 IsHitTestVisible="False"
                 ClipToBounds="True" />
 
+        <Border x:Name="TelematrixConfigPanel"
+                Panel.ZIndex="1200"
+                Width="560"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,86,0,0"
+                Padding="18"
+                Background="#F20A1118"
+                BorderBrush="#CC69E6C0"
+                BorderThickness="1.5"
+                CornerRadius="16"
+                Visibility="Collapsed"
+                Effect="{StaticResource HudShadow}">
+            <StackPanel>
+                <DockPanel>
+                    <TextBlock Text="TELEMATRIX • CONFIGURAR OPERAÇÃO"
+                               Foreground="#FF69E6C0"
+                               FontSize="13"
+                               FontWeight="Bold" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="K / Enter = concluir"
+                               Foreground="#8FFFFFFF"
+                               FontSize="9" />
+                </DockPanel>
+
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="170" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                        <TextBlock Text="NÚMERO DA LINHA"
+                                   Foreground="#AFFFFFFF"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <TextBox x:Name="TelematrixConfigLineBox"
+                                 Margin="0,5,0,0"
+                                 Height="36"
+                                 Padding="9,6"
+                                 Background="#FF101C25"
+                                 Foreground="White"
+                                 BorderBrush="#5569E6C0"
+                                 BorderThickness="1"
+                                 FontSize="14"
+                                 KeyDown="TelematrixConfigInput_KeyDown" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="SENTIDO"
+                                   Foreground="#AFFFFFFF"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                            <RadioButton x:Name="TelematrixTpRadio"
+                                         Content="TP"
+                                         GroupName="TelematrixDirection"
+                                         IsChecked="True"
+                                         Foreground="White"
+                                         Margin="0,0,18,0"
+                                         VerticalAlignment="Center" />
+                            <RadioButton x:Name="TelematrixTsRadio"
+                                         Content="TS"
+                                         GroupName="TelematrixDirection"
+                                         Foreground="White"
+                                         VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <CheckBox x:Name="TelematrixAutoDirectionCheck"
+                          Margin="0,14,0,0"
+                          Content="Acompanhar linha e sentido automaticamente"
+                          Foreground="White"
+                          IsChecked="True" />
+
+                <TextBlock Margin="0,8,0,0"
+                           Text="TP = Terminal Primário • TS = Terminal Secundário. O automático só aprende uma mudança após 1 segundo estável."
+                           Foreground="#9FC9D5DD"
+                           FontSize="9.5"
+                           TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,16,0,0">
+                    <Button Content="Cancelar"
+                            MinWidth="88"
+                            Padding="10,6"
+                            Margin="0,0,8,0"
+                            Click="TelematrixConfigCancelButton_Click" />
+                    <Button Content="Concluído"
+                            MinWidth="100"
+                            Padding="10,6"
+                            Background="#FF1F9F7C"
+                            Foreground="White"
+                            BorderBrush="#FF69E6C0"
+                            Click="TelematrixConfigDoneButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <StackPanel x:Name="HudDock"
                     Panel.ZIndex="1000"
                     HorizontalAlignment="Left"
