@@ -118,7 +118,8 @@ public partial class HudOverlayWindow
         var voiceShortcut = _voiceHotkeyAvailable
             ? $"{_voiceHotkey.Name}: PTT"
             : $"{_voiceHotkey.Name}: OMSI";
-        HudShortcutsText.Text = $"  •  {chatShortcut}  •  {voiceShortcut}";
+        HudShortcutsText.Text =
+            $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;

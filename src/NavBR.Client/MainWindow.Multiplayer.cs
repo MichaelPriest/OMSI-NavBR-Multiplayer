@@ -251,7 +251,19 @@ public partial class MainWindow
     {
         if (_hudOverlay is null)
         {
-            return;
+            if (!_nativeRuntimeStarted)
+            {
+                return;
+            }
+
+            // Self-heal the overlay if it was never created by the retired WPF
+            // surface or if its reference was lost while the React shell kept
+            // the native runtime alive.
+            EnsureHudOverlay();
+            if (_hudOverlay is null)
+            {
+                return;
+            }
         }
 
         var processId = _currentOmsi?.ProcessId;

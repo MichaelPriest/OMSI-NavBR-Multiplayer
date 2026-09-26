@@ -19,6 +19,7 @@ public partial class HudOverlayWindow
     private const int VkF7 = 0x76;
     private const int VkF8 = 0x77;
     private const int VkK = 0x4B;
+    private const int VkH = 0x48;
 
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
@@ -251,6 +252,12 @@ public partial class HudOverlayWindow
             IsOmsiForeground() &&
             IsCtrlAltChordActive())
         {
+            if (virtualKey == VkH)
+            {
+                ToggleHudEnabled();
+                return;
+            }
+
             if (virtualKey == VkF6)
             {
                 ToggleTelematrixWidget();
