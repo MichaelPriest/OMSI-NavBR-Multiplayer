@@ -450,13 +450,13 @@ public partial class HudOverlayWindow : Window
             return existing;
         }
 
-        // Keep the remote player marker visually identical to the local/host
-        // marker: same 38 px bus pointer, same rings and white outline. Only
-        // the bus accent changes from NavBR amber to interaction blue.
+        // Modern navigation marker shared by the new HUDs: layered ring,
+        // soft inner halo and a clean vector pointer. The local player uses
+        // NavBR amber; remote players use interaction blue.
         var marker = new Grid
         {
-            Width = 118d,
-            Height = 38d,
+            Width = 126d,
+            Height = 42d,
             ToolTip = displayName,
             ClipToBounds = false,
             RenderTransformOrigin = new Point(0.5d, 0.5d)
@@ -464,8 +464,8 @@ public partial class HudOverlayWindow : Window
 
         var icon = new Grid
         {
-            Width = 38d,
-            Height = 38d,
+            Width = 42d,
+            Height = 42d,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             RenderTransformOrigin = new Point(0.5d, 0.5d),
@@ -473,28 +473,41 @@ public partial class HudOverlayWindow : Window
         };
         icon.Children.Add(new Ellipse
         {
-            Fill = new SolidColorBrush(Color.FromArgb(209, 0, 0, 0)),
-            Stroke = new SolidColorBrush(Color.FromArgb(244, 255, 255, 255)),
-            StrokeThickness = 2d
+            Fill = new SolidColorBrush(Color.FromArgb(227, 10, 17, 24)),
+            Stroke = new SolidColorBrush(Color.FromArgb(248, 255, 255, 255)),
+            StrokeThickness = 2.1d
         });
         icon.Children.Add(new Ellipse
         {
-            Width = 28d,
-            Height = 28d,
-            Fill = new SolidColorBrush(Color.FromArgb(197, 16, 24, 32))
+            Width = 34d,
+            Height = 34d,
+            Fill = new SolidColorBrush(Color.FromArgb(224, 18, 38, 52)),
+            Stroke = new SolidColorBrush(Color.FromArgb(88, 255, 255, 255)),
+            StrokeThickness = 1d
         });
-        icon.Children.Add(new Polygon
+        icon.Children.Add(new Ellipse
         {
-            Points = new PointCollection
-            {
-                new(19d, 4d),
-                new(27d, 29d),
-                new(19d, 23d),
-                new(11d, 29d)
-            },
+            Width = 27d,
+            Height = 27d,
+            Fill = new SolidColorBrush(Color.FromArgb(54, 113, 198, 255))
+        });
+        icon.Children.Add(new Path
+        {
+            Data = Geometry.Parse("M 21,5 L 31,32 L 21,26.8 L 11,32 Z"),
             Fill = new SolidColorBrush(Color.FromRgb(113, 198, 255)),
             Stroke = Brushes.White,
-            StrokeThickness = 1.4d
+            StrokeThickness = 1.5d,
+            StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round
+        });
+        icon.Children.Add(new Ellipse
+        {
+            Width = 5.5d,
+            Height = 5.5d,
+            Fill = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
         });
         marker.Children.Add(icon);
 
