@@ -244,6 +244,9 @@ public static class MultiplayerSettingsStore
             HudEnabled =
                 settings.HudVisibilitySettingsVersion < 1 ||
                 settings.HudEnabled,
+            TelematrixWidgetEnabled = settings.TelematrixWidgetEnabled,
+            TelematrixTheme = Math.Clamp(settings.TelematrixTheme, 0, 2),
+            TelematrixSize = Math.Clamp(settings.TelematrixSize, 0, 2),
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
