@@ -344,4 +344,9 @@ internal sealed record MobileCompanionCommand(
     string? PlayerId = null,
     bool? Muted = null,
     double? Gain = null,
-    string? TriggerName = null);
+    string? TriggerName = null,
+    int? Theme = null,
+    int? Size = null,
+    bool? AutoDirection = null,
+    string? Line = null,
+    string? Direction = null);
