@@ -352,19 +352,34 @@
                     </Border>
 
                     <Grid x:Name="LocalMarker"
-                          Width="38" Height="38"
+                          Width="42" Height="42"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
-                          RenderTransformOrigin="0.5,0.5">
+                          RenderTransformOrigin="0.5,0.5"
+                          ToolTip="Você">
                         <Grid.RenderTransform>
                             <RotateTransform x:Name="LocalMarkerRotation" Angle="0" />
                         </Grid.RenderTransform>
-                        <Ellipse Fill="#D1000000" Stroke="#F4FFFFFF" StrokeThickness="2" />
-                        <Ellipse Width="28" Height="28" Fill="#C5101820" />
-                        <Polygon Points="19,4 27,29 19,23 11,29"
-                                 Fill="#FFFF9D24"
-                                 Stroke="White"
-                                 StrokeThickness="1.4" />
+                        <Ellipse Fill="#E30A1118"
+                                 Stroke="#F8FFFFFF"
+                                 StrokeThickness="2.1" />
+                        <Ellipse Width="34" Height="34"
+                                 Fill="#E0162633"
+                                 Stroke="#58FFFFFF"
+                                 StrokeThickness="1" />
+                        <Ellipse Width="27" Height="27"
+                                 Fill="#331FCB9A" />
+                        <Path Data="M 21,5 L 31,32 L 21,26.8 L 11,32 Z"
+                              Fill="#FFFFA629"
+                              Stroke="#FFFFFFFF"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                        <Ellipse Width="5.5" Height="5.5"
+                                 Fill="#FFFFFFFF"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Center" />
                     </Grid>
 
                     <Border HorizontalAlignment="Right"
