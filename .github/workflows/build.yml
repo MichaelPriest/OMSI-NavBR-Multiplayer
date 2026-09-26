@@ -425,6 +425,30 @@ jobs:
             'pause'
           ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-local.cmd" -Encoding ASCII
 
+      - name: Smoke-test local multiplayer simulator relay
+        shell: pwsh
+        run: |
+          & "artifacts/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.exe" `
+            --server http://127.0.0.1:27731 `
+            --room ci-simulator-smoke `
+            --players 4 `
+            --mode mixed `
+            --map "CI Simulator Map" `
+            --map-id "ci-simulator-map" `
+            --x 100 `
+            --y 100 `
+            --z 0 `
+            --grid-x 0 `
+            --grid-y 0 `
+            --tile-x 150 `
+            --tile-y 150 `
+            --radius 20 `
+            --duration 6 `
+            --verify
+          if ($LASTEXITCODE -ne 0) {
+            throw "Local multiplayer simulator relay smoke test failed."
+          }
+
       - name: Install Inno Setup
         shell: pwsh
         run: |

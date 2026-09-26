@@ -61,6 +61,10 @@ O modo --verify cria um probe na mesma sala e falha se:
 - um bot publicar em mapa diferente do mapa resolvido;
 - no modo mixed não houver frames de veículo e RP.
 
+O CI também executa esse caminho sem OMSI usando um NavBR.Server local empacotado, quatro bots e modo `mixed`. Isso valida automaticamente servidor, SignalR, sala, presença e telemetria antes do teste físico.
+
+No modo `--verify-physical`, a validação agora cobre o ciclo completo do ônibus remoto: o host só publica o bot como físico depois que `MakeVehicle` e a materialização visual do OMSI foram confirmados; quando os bots saem da sala, o simulador também exige que os respectivos IDs desapareçam do conjunto físico do host em até 8 segundos. Assim, um ônibus órfão/fantasma após desconexão também reprova o teste.
+
 ## Limites
 
 - até 32 bots por execução;
