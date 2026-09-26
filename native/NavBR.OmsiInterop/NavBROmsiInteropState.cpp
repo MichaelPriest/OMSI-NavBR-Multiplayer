@@ -1117,7 +1117,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 13;
+    return 14;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -1241,6 +1241,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
     int* visibleLogicalRenderThread,
     int* roadVehicleDefinitionPointer,
     int* complObjPointer,
+    int* complObjVisible,
+    int* complObjRenderMe,
     int* modelStringPointer,
     int* kachelPointer,
     int* mapTileIndex,
@@ -1254,6 +1256,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
         visibleLogicalRenderThread == nullptr ||
         roadVehicleDefinitionPointer == nullptr ||
         complObjPointer == nullptr ||
+        complObjVisible == nullptr ||
+        complObjRenderMe == nullptr ||
         modelStringPointer == nullptr ||
         kachelPointer == nullptr ||
         mapTileIndex == nullptr ||
@@ -1284,6 +1288,30 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
         *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
     const int tilePointer =
         *reinterpret_cast<const int*>(base + KachelOffset);
+
+    *complObjVisible = -1;
+    *complObjRenderMe = -1;
+    if (complObj != 0)
+    {
+        const auto complObjBase = static_cast<std::uintptr_t>(complObj);
+        if (IsReadableRange(
+                complObjBase + ComplObjInstanceVisibleOffset,
+                sizeof(unsigned char)))
+        {
+            *complObjVisible =
+                *reinterpret_cast<const unsigned char*>(
+                    complObjBase + ComplObjInstanceVisibleOffset) != 0 ? 1 : 0;
+        }
+
+        if (IsReadableRange(
+                complObjBase + ComplObjInstanceRenderMeOffset,
+                sizeof(unsigned char)))
+        {
+            *complObjRenderMe =
+                *reinterpret_cast<const unsigned char*>(
+                    complObjBase + ComplObjInstanceRenderMeOffset) != 0 ? 1 : 0;
+        }
+    }
 
     int modelString = 0;
     if (complMapObjDefinition != 0 &&

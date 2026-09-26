@@ -597,6 +597,8 @@ internal static class PhysicalVehicleBackend
             render.VisibleLogicalRenderThread == 1 &&
             render.RoadVehicleDefinitionPointer != 0 &&
             render.ComplObjPointer != 0 &&
+            render.ComplObjVisible == 1 &&
+            render.ComplObjRenderMe == 1 &&
             render.ModelStringPointer != 0 &&
             render.KachelPointer != 0 &&
             float.IsFinite(render.RenderX) &&
@@ -606,7 +608,7 @@ internal static class PhysicalVehicleBackend
         if (flagsReady && renderReady)
         {
             PluginLogWriter.Enqueue(
-                $"physical-render-confirm id={instance.InstanceId} pointer={FormatPointer(instance.VehiclePointer)} hostVehiclePointer={FormatPointer(OmsiNativeInterop.GetPlayerVehiclePointer())} vehiclePath={instance.VehiclePath} definition={FormatPointer(render.RoadVehicleDefinitionPointer)} complObj={FormatPointer(render.ComplObjPointer)} model={FormatPointer(render.ModelStringPointer)} kachelPtr={FormatPointer(render.KachelPointer)} kachel={render.MapTileIndex} visibleLogical={render.VisibleLogical} visibleRenderThread={render.VisibleLogicalRenderThread} matrix=({render.RenderX:F2},{render.RenderY:F2},{render.RenderZ:F2}) hostDistance={(render.HostDistance >= 0f ? render.HostDistance.ToString("F2") : "n/a")}");
+                $"physical-render-confirm id={instance.InstanceId} pointer={FormatPointer(instance.VehiclePointer)} hostVehiclePointer={FormatPointer(OmsiNativeInterop.GetPlayerVehiclePointer())} vehiclePath={instance.VehiclePath} definition={FormatPointer(render.RoadVehicleDefinitionPointer)} complObj={FormatPointer(render.ComplObjPointer)} complObjVisible={render.ComplObjVisible} complObjRenderMe={render.ComplObjRenderMe} model={FormatPointer(render.ModelStringPointer)} kachelPtr={FormatPointer(render.KachelPointer)} kachel={render.MapTileIndex} visibleLogical={render.VisibleLogical} visibleRenderThread={render.VisibleLogicalRenderThread} matrix=({render.RenderX:F2},{render.RenderY:F2},{render.RenderZ:F2}) hostDistance={(render.HostDistance >= 0f ? render.HostDistance.ToString("F2") : "n/a")}");
             return null;
         }
 
@@ -669,6 +671,7 @@ internal static class PhysicalVehicleBackend
         OmsiNativeInterop.RoadVehicleRenderDiagnostics render) =>
         $"visibleLogical={render.VisibleLogical},visibleRenderThread={render.VisibleLogicalRenderThread}," +
         $"definition={FormatPointer(render.RoadVehicleDefinitionPointer)},complObj={FormatPointer(render.ComplObjPointer)}," +
+        $"complObjVisible={render.ComplObjVisible},complObjRenderMe={render.ComplObjRenderMe}," +
         $"model={FormatPointer(render.ModelStringPointer)},kachelPtr={FormatPointer(render.KachelPointer)},kachel={render.MapTileIndex}," +
         $"matrix=({render.RenderX:F2},{render.RenderY:F2},{render.RenderZ:F2})," +
         $"hostDistance={(render.HostDistance >= 0f ? render.HostDistance.ToString("F2") : "n/a")}";

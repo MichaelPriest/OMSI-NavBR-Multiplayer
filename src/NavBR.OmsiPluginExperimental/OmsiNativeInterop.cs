@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 13;
+    private const int ExpectedStateInteropVersion = 14;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -247,6 +247,8 @@ internal static class OmsiNativeInterop
                     out var visibleLogicalRenderThread,
                     out var roadVehicleDefinitionPointer,
                     out var complObjPointer,
+                    out var complObjVisible,
+                    out var complObjRenderMe,
                     out var modelStringPointer,
                     out var kachelPointer,
                     out var mapTileIndex,
@@ -263,6 +265,8 @@ internal static class OmsiNativeInterop
                 visibleLogicalRenderThread,
                 roadVehicleDefinitionPointer,
                 complObjPointer,
+                complObjVisible,
+                complObjRenderMe,
                 modelStringPointer,
                 kachelPointer,
                 mapTileIndex,
@@ -657,6 +661,8 @@ internal static class OmsiNativeInterop
         out int visibleLogicalRenderThread,
         out int roadVehicleDefinitionPointer,
         out int complObjPointer,
+        out int complObjVisible,
+        out int complObjRenderMe,
         out int modelStringPointer,
         out int kachelPointer,
         out int mapTileIndex,
@@ -877,6 +883,8 @@ internal static class OmsiNativeInterop
         int VisibleLogicalRenderThread,
         int RoadVehicleDefinitionPointer,
         int ComplObjPointer,
+        int ComplObjVisible,
+        int ComplObjRenderMe,
         int ModelStringPointer,
         int KachelPointer,
         int MapTileIndex,
