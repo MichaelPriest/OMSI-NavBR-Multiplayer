@@ -39,6 +39,12 @@ public partial class HudOverlayWindow
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
 
+        // Single owner for HUD startup. The constructor no longer installs a
+        // second keyboard hook/timer set through an anonymous Loaded handler.
+        InitializeImmersiveOperationHud();
+        _presenceTimer.Start();
+        FollowOmsiWindow();
+
         var hudSettings = NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
         _hudEnabled = hudSettings.HudEnabled;
         ApplyTelematrixSettings(hudSettings);
@@ -70,12 +76,16 @@ public partial class HudOverlayWindow
 
     private void FinalizeHudLifecycleInitialization()
     {
-        _positionTimer.Stop();
         InstallConflictFreeHotkeys();
     }
 
     private void HudOverlayWindow_LifecycleClosed(object? sender, EventArgs e)
     {
+        _positionTimer.Stop();
+        _presenceTimer.Stop();
+        _keyboardHook?.Dispose();
+        _keyboardHook = null;
+
         UnsubscribeHotkeySettings();
         if (_hudVisibilitySettingsHooked)
         {

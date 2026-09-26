@@ -66,21 +66,6 @@ public partial class HudOverlayWindow : Window
         };
 
         SourceInitialized += (_, _) => SetInteractive(false);
-        Loaded += (_, _) =>
-        {
-            InstallConflictFreeHotkeys();
-            InitializeImmersiveOperationHud();
-            _positionTimer.Start();
-            _presenceTimer.Start();
-            FollowOmsiWindow();
-        };
-        Closed += (_, _) =>
-        {
-            _positionTimer.Stop();
-            _presenceTimer.Stop();
-            _keyboardHook?.Dispose();
-            _keyboardHook = null;
-        };
     }
 
     public void AttachOmsiProcess(int? processId)
