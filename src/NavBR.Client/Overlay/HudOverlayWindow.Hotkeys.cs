@@ -18,6 +18,7 @@ public partial class HudOverlayWindow
     private const int VkF6 = 0x75;
     private const int VkF7 = 0x76;
     private const int VkF8 = 0x77;
+    private const int VkK = 0x4B;
 
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
@@ -226,6 +227,24 @@ public partial class HudOverlayWindow
         }
 
         var modifierMask = GetCurrentOmsiModifierMask();
+
+        if (isDown && virtualKey == VkK)
+        {
+            if (TelematrixConfigPanel.Visibility == System.Windows.Visibility.Visible)
+            {
+                if (!TelematrixConfigLineBox.IsKeyboardFocusWithin)
+                {
+                    CloseTelematrixConfig(save: true);
+                }
+                return;
+            }
+
+            if (!_chatInteractive && IsOmsiForeground())
+            {
+                OpenTelematrixConfig();
+                return;
+            }
+        }
 
         if (isDown &&
             !_chatInteractive &&
