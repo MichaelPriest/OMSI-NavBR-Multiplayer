@@ -64,7 +64,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             Content = "Reproduzir no mapa",
             Height = 38d,
             MinWidth = 152d,
-            CanvasPadding = new Thickness(14d, 6d, 14d, 6d),
+            Padding = new Thickness(14d, 6d, 14d, 6d),
             Background = Brush(61, 137, 196),
             Foreground = Brushes.White,
             BorderBrush = Brush(113, 198, 255),
@@ -90,7 +90,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            CanvasPadding = new Thickness(14d)
+            Padding = new Thickness(14d)
         };
 
         var container = new Grid();
@@ -159,7 +159,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            CanvasPadding = new Thickness(16d),
+            Padding = new Thickness(16d),
             ToolTip = $"{_sourcePath}\nDistância estimada pela integração da velocidade registrada entre os frames válidos.",
             Child = grid
         };

@@ -101,7 +101,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            CanvasPadding = new Thickness(14d),
+            Padding = new Thickness(14d),
             Margin = new Thickness(0d, 0d, 0d, 16d)
         };
         var controls = new Grid();
@@ -134,7 +134,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            CanvasPadding = new Thickness(14d)
+            Padding = new Thickness(14d)
         };
         var playbackGrid = new Grid();
         playbackGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
@@ -366,7 +366,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             Content = text,
             MinWidth = 112d,
             Height = 36d,
-            CanvasPadding = new Thickness(14d, 6d, 14d, 6d),
+            Padding = new Thickness(14d, 6d, 14d, 6d),
             Background = primary ? Brush(61, 137, 196) : Brush(13, 26, 36),
             Foreground = Brushes.White,
             BorderBrush = primary ? Brush(113, 198, 255) : Brush(28, 42, 51),
