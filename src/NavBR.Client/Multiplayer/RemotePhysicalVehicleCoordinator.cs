@@ -483,11 +483,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
             }
 
             var usedEntrypointBootstrap = false;
+
+            // A convoy bot must be born where its trailing target actually is.
+            // If we already resolved a nearby road spline, spawning first on an
+            // entrypoint can visibly create the bus hundreds of metres away and
+            // only then teleport it behind the host. Use the spline pose directly.
+            //
+            // Entrypoints are now a strict fallback for maps/tiles where no
+            // nearby spline could be resolved, and even then only when the
+            // entrypoint is close enough to avoid an obvious distant spawn.
             if (isSimulatorPlayer &&
+                !hasRoadTarget &&
                 _physicalRoadAnchorResolver.TryResolveEntrypointAnchor(
                     frame.Telemetry,
                     out var entrypointAnchor) &&
-                entrypointAnchor.DistanceMeters <= 250d)
+                entrypointAnchor.DistanceMeters <= 45d)
             {
                 spawnFrame = ApplyPhysicalRoadAnchor(
                     BuildPhysicalFrame(
@@ -498,7 +508,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     alignHeadingToRoad: true);
                 usedEntrypointBootstrap = true;
                 NavBRAppLog.Info(
-                    "physical-entrypoint-bootstrap",
+                    "physical-entrypoint-fallback",
                     $"player={playerId} name={entrypointAnchor.Name ?? "-"} grid={entrypointAnchor.GridX},{entrypointAnchor.GridY} local=({entrypointAnchor.LocalX:F2},{entrypointAnchor.LocalY:F2},{entrypointAnchor.LocalZ:F2}) distance={entrypointAnchor.DistanceMeters:F2}m");
             }
 
@@ -587,29 +597,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
 
-                    // Bootstrap on a real global.cfg bus entrypoint so OMSI
-                    // receives a road-valid initial pose, then immediately move
-                    // the NavBR-owned exact bus to the nearest real spline pose.
-                    // This avoids fabricating Z while keeping the exact remote
-                    // .bus created by MakeVehicle.
-                    if (usedEntrypointBootstrap && hasRoadTarget)
+                    if (usedEntrypointBootstrap)
                     {
-                        var anchoredUpdate =
-                            await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
-                                targetPhysicalFrame,
-                                cancellationToken);
-                        if (anchoredUpdate?.Success == true)
-                        {
-                            NavBRAppLog.Info(
-                                "physical-entrypoint-road-transition",
-                                $"player={playerId} result=success");
-                        }
-                        else
-                        {
-                            NavBRAppLog.Info(
-                                "physical-entrypoint-road-transition",
-                                $"player={playerId} result=pending error={anchoredUpdate?.ErrorCode ?? "no-result"}");
-                        }
+                        NavBRAppLog.Info(
+                            "physical-entrypoint-fallback-active",
+                            $"player={playerId} result=spawned-without-nearby-spline");
                     }
 
                     SetStatus(playerId, "active");
