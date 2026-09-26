@@ -197,7 +197,7 @@ try
                 if (visualInspectionMode)
                 {
                     Console.WriteLine(
-                        "Os ônibus permanecerão ativos para inspeção visual no OMSI. Pressione qualquer tecla ou Ctrl+C para encerrar e removê-los.");
+                        "Os ônibus permanecerão ativos para inspeção visual no OMSI. Pressione Q ou Ctrl+C para encerrar e removê-los.");
                 }
             }
 
@@ -211,10 +211,13 @@ try
             visualInspectionMode &&
             Console.KeyAvailable)
         {
-            _ = Console.ReadKey(intercept: true);
-            interactiveVerificationStopRequested = true;
-            shutdown.Cancel();
-            continue;
+            var key = Console.ReadKey(intercept: true);
+            if (key.Key == ConsoleKey.Q)
+            {
+                interactiveVerificationStopRequested = true;
+                shutdown.Cancel();
+                continue;
+            }
         }
 
         await Task.Delay(options.IntervalMilliseconds, shutdown.Token);

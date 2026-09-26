@@ -704,12 +704,16 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (update?.Success != true)
         {
             var errorCode = update?.ErrorCode ?? "no-result";
+            var recoverableReadback =
+                IsRecoverableMotionReadbackFailure(errorCode);
             var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
                 playerId,
                 1,
                 static (_, previous) => Math.Min(previous + 1, 10));
 
-            if (IsFatalUpdateFailure(errorCode) || failureCount >= 3)
+            if (IsFatalUpdateFailure(errorCode) ||
+                (!recoverableReadback && failureCount >= 3) ||
+                (recoverableReadback && failureCount >= 5))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
                 ReportCommandFailureOnce(playerId, "update", update);
@@ -718,8 +722,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
             SetStatus(
                 playerId,
-                "update-retrying",
-                errorCode);
+                recoverableReadback
+                    ? "motion-resyncing"
+                    : "update-retrying",
+                errorCode,
+                update?.ErrorMessage);
             return;
         }
 
@@ -1072,7 +1079,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
         string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
         string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal);
+
+    private static bool IsRecoverableMotionReadbackFailure(string? errorCode) =>
         string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
         string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
         string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
