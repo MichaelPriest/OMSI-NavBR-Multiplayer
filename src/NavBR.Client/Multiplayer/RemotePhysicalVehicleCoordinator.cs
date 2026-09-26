@@ -686,14 +686,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 static (_, previous) => Math.Min(previous + 1, 10));
 
             if (IsFatalUpdateFailure(errorCode) ||
-                (!recoverableReadback && failureCount >= 3) ||
-                (recoverableReadback && failureCount >= 5))
+                (!recoverableReadback && failureCount >= 3))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
                 ReportCommandFailureOnce(playerId, "update", update);
                 return;
             }
 
+            // Readback/tile mismatches are recoverable observations, not proof
+            // that ownership is invalid. Keep the physical RoadVehicle alive
+            // and retry on later telemetry instead of entering a despawn/spawn
+            // loop that is visually worse and can race OMSI model callbacks.
             SetStatus(
                 playerId,
                 recoverableReadback
@@ -701,6 +704,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     : "update-retrying",
                 errorCode,
                 update?.ErrorMessage);
+            if (recoverableReadback)
+            {
+                _lastPhysicalUpdateAtByPlayer[playerId] =
+                    DateTimeOffset.UtcNow;
+            }
             return;
         }
 
