@@ -181,7 +181,8 @@ O celular também pode enviar comandos autenticados para:
 - mostrar/ocultar o painel operacional;
 - alternar tema do painel;
 - alternar tamanho do painel;
-- alternar TP/TS automático/manual.
+- alternar TP/TS automático/manual;
+- informar linha manual e selecionar TP ou TS diretamente pelo celular.
 
 Esses comandos alteram somente preferências do NavBR no PC. Eles não escrevem diretamente na memória do OMSI.
 
