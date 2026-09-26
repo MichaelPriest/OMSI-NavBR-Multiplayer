@@ -519,16 +519,18 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             if (hasPhysicalGrid &&
                 float.IsFinite(localPosition.X) &&
-                float.IsFinite(localPosition.Y) &&
+                float.IsFinite(localPosition.Z) &&
                 Math.Abs(localPosition.X) <= 1_200f &&
-                Math.Abs(localPosition.Y) <= 1_200f)
+                Math.Abs(localPosition.Z) <= 1_200f)
             {
                 gridX = vehicleGridX;
                 gridY = vehicleGridY;
                 physicalGridX = vehicleGridX;
                 physicalGridY = vehicleGridY;
+                // OMSI/D3D Position is X,Y,Z with Y vertical. Navigation
+                // TileX/TileY is the ground plane, therefore use X/Z.
                 tileX = localPosition.X;
-                tileY = localPosition.Y;
+                tileY = localPosition.Z;
             }
 
             string? line = null;

@@ -23,6 +23,8 @@ public partial class HudOverlayWindow
     private bool _hudLifecycleInitialized;
     private bool _restoreOmsiFocusOnChatClose = true;
     private bool _hudVisibleForOmsi;
+    private bool _hudEnabled = true;
+    private bool _hudVisibilitySettingsHooked;
     private DateTimeOffset _lastOmsiForegroundUtc = DateTimeOffset.MinValue;
     private IntPtr _lastTopmostReferenceHandle;
     private string? _lastHudRoomId;
@@ -36,6 +38,22 @@ public partial class HudOverlayWindow
 
         _hudLifecycleInitialized = true;
         ChatInputPanel.IsVisibleChanged += ChatInputPanel_IsVisibleChanged;
+
+        // Single owner for HUD startup. The constructor no longer installs a
+        // second keyboard hook/timer set through an anonymous Loaded handler.
+        InitializeImmersiveOperationHud();
+        _presenceTimer.Start();
+        FollowOmsiWindow();
+
+        var hudSettings = NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
+        _hudEnabled = hudSettings.HudEnabled;
+        ApplyTelematrixSettings(hudSettings);
+        if (!_hudVisibilitySettingsHooked)
+        {
+            _hudVisibilitySettingsHooked = true;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved +=
+                OnHudVisibilitySettingsSaved;
+        }
 
         OverlayRoot.Visibility = Visibility.Collapsed;
         _hudVisibleForOmsi = false;
@@ -52,18 +70,29 @@ public partial class HudOverlayWindow
         RefreshHudChrome();
         RefreshHudVisibility();
         RefreshRoleplayButtonInteraction();
+        RefreshTelematrixPanel();
         RenderEnhancedMiniMap();
     }
 
     private void FinalizeHudLifecycleInitialization()
     {
-        _positionTimer.Stop();
         InstallConflictFreeHotkeys();
     }
 
     private void HudOverlayWindow_LifecycleClosed(object? sender, EventArgs e)
     {
+        _positionTimer.Stop();
+        _presenceTimer.Stop();
+        _keyboardHook?.Dispose();
+        _keyboardHook = null;
+
         UnsubscribeHotkeySettings();
+        if (_hudVisibilitySettingsHooked)
+        {
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved -=
+                OnHudVisibilitySettingsSaved;
+            _hudVisibilitySettingsHooked = false;
+        }
 
         if (_hudVisibilityTimer is null)
         {
@@ -99,7 +128,8 @@ public partial class HudOverlayWindow
         var voiceShortcut = _voiceHotkeyAvailable
             ? $"{_voiceHotkey.Name}: PTT"
             : $"{_voiceHotkey.Name}: OMSI";
-        HudShortcutsText.Text = $"  •  {chatShortcut}  •  {voiceShortcut}";
+        HudShortcutsText.Text =
+            $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
@@ -136,8 +166,45 @@ public partial class HudOverlayWindow
         }
     }
 
+    private void OnHudVisibilitySettingsSaved(
+        NavBR.Client.Multiplayer.MultiplayerSettings settings)
+    {
+        _hudEnabled = settings.HudEnabled;
+        ApplyTelematrixSettings(settings);
+        RefreshHudVisibility();
+        RefreshTelematrixPanel();
+    }
+
+    public void SetHudEnabled(bool enabled)
+    {
+        var current =
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
+        if (current.HudEnabled == enabled &&
+            current.HudVisibilitySettingsVersion >= 1)
+        {
+            _hudEnabled = enabled;
+            RefreshHudVisibility();
+            return;
+        }
+
+        NavBR.Client.Multiplayer.MultiplayerSettingsStore.Save(
+            current with
+            {
+                HudVisibilitySettingsVersion = 1,
+                HudEnabled = enabled
+            });
+    }
+
+    public void ToggleHudEnabled() => SetHudEnabled(!_hudEnabled);
+
     private void RefreshHudVisibility()
     {
+        if (!_hudEnabled)
+        {
+            HideHudForOmsiState();
+            return;
+        }
+
         if (_omsiProcessId is not int processId)
         {
             HideHudForOmsiState();

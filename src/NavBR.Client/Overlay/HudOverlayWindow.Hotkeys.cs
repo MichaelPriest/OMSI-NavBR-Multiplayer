@@ -12,6 +12,14 @@ public partial class HudOverlayWindow
     private const int VkRightShift = 0xA1;
     private const int VkLeftControl = 0xA2;
     private const int VkRightControl = 0xA3;
+    private const int VkMenu = 0x12;
+    private const int VkLeftMenu = 0xA4;
+    private const int VkRightMenu = 0xA5;
+    private const int VkF6 = 0x75;
+    private const int VkF7 = 0x76;
+    private const int VkF8 = 0x77;
+    private const int VkK = 0x4B;
+    private const int VkH = 0x48;
 
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
@@ -221,6 +229,54 @@ public partial class HudOverlayWindow
 
         var modifierMask = GetCurrentOmsiModifierMask();
 
+        if (isDown && virtualKey == VkK)
+        {
+            if (TelematrixConfigPanel.Visibility == System.Windows.Visibility.Visible)
+            {
+                if (!TelematrixConfigLineBox.IsKeyboardFocusWithin)
+                {
+                    CloseTelematrixConfig(save: true);
+                }
+                return;
+            }
+
+            if (!_chatInteractive && IsOmsiForeground())
+            {
+                OpenTelematrixConfig();
+                return;
+            }
+        }
+
+        if (isDown &&
+            !_chatInteractive &&
+            IsOmsiForeground() &&
+            IsCtrlAltChordActive())
+        {
+            if (virtualKey == VkH)
+            {
+                ToggleHudEnabled();
+                return;
+            }
+
+            if (virtualKey == VkF6)
+            {
+                ToggleTelematrixWidget();
+                return;
+            }
+
+            if (virtualKey == VkF7)
+            {
+                CycleTelematrixTheme();
+                return;
+            }
+
+            if (virtualKey == VkF8)
+            {
+                CycleTelematrixSize();
+                return;
+            }
+        }
+
         if (virtualKey == _voiceHotkey.VirtualKey)
         {
             if (!isDown && _localPushToTalk)
@@ -249,6 +305,19 @@ public partial class HudOverlayWindow
         {
             OpenChatInput();
         }
+    }
+
+    private bool IsCtrlAltChordActive()
+    {
+        var ctrl =
+            _pressedKeys.Contains(VkControl) ||
+            _pressedKeys.Contains(VkLeftControl) ||
+            _pressedKeys.Contains(VkRightControl);
+        var alt =
+            _pressedKeys.Contains(VkMenu) ||
+            _pressedKeys.Contains(VkLeftMenu) ||
+            _pressedKeys.Contains(VkRightMenu);
+        return ctrl && alt;
     }
 
     private int GetCurrentOmsiModifierMask()

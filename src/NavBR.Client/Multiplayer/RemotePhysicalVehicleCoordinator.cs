@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Windows;
 using NavBR.Client.Diagnostics;
+using NavBR.Client.Maps;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -54,6 +55,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, VehicleIdentityCandidate> _vehicleIdentityCandidateByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
+    private readonly OmsiPhysicalRoadAnchorResolver _physicalRoadAnchorResolver;
     private readonly string _coordinatorId = Guid.NewGuid().ToString("N")[..8];
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -66,8 +68,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public RemotePhysicalVehicleCoordinator(
         Func<string?>? omsiInstallDirectorySource = null)
     {
+        var installDirectorySource =
+            omsiInstallDirectorySource ?? (() => null);
         _vehicleAssetResolver = new OmsiVehicleAssetResolver(
-            omsiInstallDirectorySource ?? (() => null));
+            installDirectorySource);
+        _physicalRoadAnchorResolver =
+            new OmsiPhysicalRoadAnchorResolver(
+                installDirectorySource);
         NavBRAppLog.Info(
             "physical-vehicle-coordinator-created",
             $"coordinator={_coordinatorId}");
@@ -449,10 +456,41 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 return;
             }
 
-            var spawnFrame = BuildPhysicalFrame(
+            var targetPhysicalFrame = BuildPhysicalFrame(
                 frame,
                 remoteManifest,
                 resolvedVehiclePath);
+            var spawnFrame = targetPhysicalFrame;
+            var isSimulatorPlayer =
+                playerId.StartsWith(
+                    "sim-",
+                    StringComparison.OrdinalIgnoreCase);
+            var hasRoadTarget = false;
+            if (isSimulatorPlayer &&
+                _physicalRoadAnchorResolver.TryResolveRoadAnchor(
+                    targetPhysicalFrame.Telemetry,
+                    out var roadAnchor))
+            {
+                targetPhysicalFrame = ApplyPhysicalRoadAnchor(
+                    targetPhysicalFrame,
+                    roadAnchor,
+                    alignHeadingToRoad: false);
+                spawnFrame = targetPhysicalFrame;
+                hasRoadTarget = true;
+                NavBRAppLog.Info(
+                    "physical-road-target",
+                    $"player={playerId} source={roadAnchor.Source} grid={roadAnchor.GridX},{roadAnchor.GridY} local=({roadAnchor.LocalX:F2},{roadAnchor.LocalY:F2},{roadAnchor.LocalZ:F2}) distance={roadAnchor.DistanceMeters:F2}m");
+            }
+
+            if (isSimulatorPlayer && !hasRoadTarget)
+            {
+                SetStatus(
+                    playerId,
+                    "waiting-road-anchor",
+                    "road-anchor-unavailable",
+                    "The simulator convoy is waiting for a nearby real spline behind the host.");
+                return;
+            }
 
             // MakeVehicle returning does not mean the RoadVehicle model graph
             // has finished materializing. Keep one player as the global
@@ -538,6 +576,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
+
                     SetStatus(playerId, "active");
                     PublishPhysicalVehicleSetIfChanged();
                     RemoteDiagnosticsService.Record(
@@ -545,8 +584,6 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         "info",
                         "spawn-success");
 
-                    // Spawn already applies and confirms this exact frame. Do not
-                    // immediately send a duplicate UpdateRemoteVehicle command.
                     return;
                 }
 
@@ -613,28 +650,65 @@ internal sealed class RemotePhysicalVehicleCoordinator
             frame,
             remoteManifest,
             localVehiclePath);
+        if (playerId.StartsWith(
+                "sim-",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_physicalRoadAnchorResolver.TryResolveRoadAnchor(
+                    physicalFrame.Telemetry,
+                    out var updateRoadAnchor))
+            {
+                SetStatus(
+                    playerId,
+                    "waiting-road-anchor",
+                    "road-anchor-unavailable",
+                    "Holding the last physical pose until a nearby spline is resolved.");
+                return;
+            }
+
+            physicalFrame = ApplyPhysicalRoadAnchor(
+                physicalFrame,
+                updateRoadAnchor,
+                alignHeadingToRoad: false);
+        }
+
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
             physicalFrame,
             cancellationToken);
         if (update?.Success != true)
         {
             var errorCode = update?.ErrorCode ?? "no-result";
+            var recoverableReadback =
+                IsRecoverableMotionReadbackFailure(errorCode);
             var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
                 playerId,
                 1,
                 static (_, previous) => Math.Min(previous + 1, 10));
 
-            if (IsFatalUpdateFailure(errorCode) || failureCount >= 3)
+            if (IsFatalUpdateFailure(errorCode) ||
+                (!recoverableReadback && failureCount >= 3))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
                 ReportCommandFailureOnce(playerId, "update", update);
                 return;
             }
 
+            // Readback/tile mismatches are recoverable observations, not proof
+            // that ownership is invalid. Keep the physical RoadVehicle alive
+            // and retry on later telemetry instead of entering a despawn/spawn
+            // loop that is visually worse and can race OMSI model callbacks.
             SetStatus(
                 playerId,
-                "update-retrying",
-                errorCode);
+                recoverableReadback
+                    ? "motion-resyncing"
+                    : "update-retrying",
+                errorCode,
+                update?.ErrorMessage);
+            if (recoverableReadback)
+            {
+                _lastPhysicalUpdateAtByPlayer[playerId] =
+                    DateTimeOffset.UtcNow;
+            }
             return;
         }
 
@@ -987,7 +1061,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string.Equals(errorCode, "invalid-instance-id", StringComparison.Ordinal) ||
         string.Equals(errorCode, "backend-unavailable", StringComparison.Ordinal) ||
         string.Equals(errorCode, "writes-disabled", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal);
+
+    private static bool IsRecoverableMotionReadbackFailure(string? errorCode) =>
         string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
         string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
         string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
@@ -1117,6 +1193,61 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
+    }
+
+    private static PlayerTelemetryFrame ApplyPhysicalRoadAnchor(
+        PlayerTelemetryFrame frame,
+        OmsiPhysicalRoadAnchor anchor,
+        bool alignHeadingToRoad)
+    {
+        var telemetry = frame.Telemetry;
+        var sourceGridX =
+            telemetry.PhysicalGridX ?? telemetry.GridX;
+        var sourceGridY =
+            telemetry.PhysicalGridY ?? telemetry.GridY;
+        var keepMapTileIndex =
+            sourceGridX == anchor.GridX &&
+            sourceGridY == anchor.GridY;
+
+        return frame with
+        {
+            Telemetry = telemetry with
+            {
+                GridX = anchor.GridX,
+                GridY = anchor.GridY,
+                PhysicalGridX = anchor.GridX,
+                PhysicalGridY = anchor.GridY,
+                TileX = anchor.LocalX,
+                TileY = anchor.LocalZ,
+                LocalX = anchor.LocalX,
+                LocalY = anchor.LocalY,
+                LocalZ = anchor.LocalZ,
+                MapTileIndex =
+                    keepMapTileIndex
+                        ? telemetry.MapTileIndex
+                        : null,
+                HeadingDegrees =
+                    alignHeadingToRoad
+                        ? anchor.HeadingDegrees
+                        : telemetry.HeadingDegrees,
+                RotationX =
+                    alignHeadingToRoad
+                        ? anchor.RotationX
+                        : telemetry.RotationX,
+                RotationY =
+                    alignHeadingToRoad
+                        ? anchor.RotationY
+                        : telemetry.RotationY,
+                RotationZ =
+                    alignHeadingToRoad
+                        ? anchor.RotationZ
+                        : telemetry.RotationZ,
+                RotationW =
+                    alignHeadingToRoad
+                        ? anchor.RotationW
+                        : telemetry.RotationW
             }
         };
     }

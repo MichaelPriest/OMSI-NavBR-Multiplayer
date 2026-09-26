@@ -30,6 +30,107 @@
                 IsHitTestVisible="False"
                 ClipToBounds="True" />
 
+        <Border x:Name="TelematrixConfigPanel"
+                Panel.ZIndex="1200"
+                Width="560"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,86,0,0"
+                Padding="18"
+                Background="#F20A1118"
+                BorderBrush="#CC69E6C0"
+                BorderThickness="1.5"
+                CornerRadius="16"
+                Visibility="Collapsed"
+                Effect="{StaticResource HudShadow}">
+            <StackPanel>
+                <DockPanel>
+                    <TextBlock Text="TELEMATRIX • CONFIGURAR OPERAÇÃO"
+                               Foreground="#FF69E6C0"
+                               FontSize="13"
+                               FontWeight="Bold" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="K / Enter = concluir"
+                               Foreground="#8FFFFFFF"
+                               FontSize="9" />
+                </DockPanel>
+
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="170" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                        <TextBlock Text="NÚMERO DA LINHA"
+                                   Foreground="#AFFFFFFF"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <TextBox x:Name="TelematrixConfigLineBox"
+                                 Margin="0,5,0,0"
+                                 Height="36"
+                                 Padding="9,6"
+                                 Background="#FF101C25"
+                                 Foreground="White"
+                                 BorderBrush="#5569E6C0"
+                                 BorderThickness="1"
+                                 FontSize="14"
+                                 KeyDown="TelematrixConfigInput_KeyDown" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="SENTIDO"
+                                   Foreground="#AFFFFFFF"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                            <RadioButton x:Name="TelematrixTpRadio"
+                                         Content="TP"
+                                         GroupName="TelematrixDirection"
+                                         IsChecked="True"
+                                         Foreground="White"
+                                         Margin="0,0,18,0"
+                                         VerticalAlignment="Center" />
+                            <RadioButton x:Name="TelematrixTsRadio"
+                                         Content="TS"
+                                         GroupName="TelematrixDirection"
+                                         Foreground="White"
+                                         VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <CheckBox x:Name="TelematrixAutoDirectionCheck"
+                          Margin="0,14,0,0"
+                          Content="Acompanhar linha e sentido automaticamente"
+                          Foreground="White"
+                          IsChecked="True" />
+
+                <TextBlock Margin="0,8,0,0"
+                           Text="TP = Terminal Primário • TS = Terminal Secundário. O automático só aprende uma mudança após 1 segundo estável."
+                           Foreground="#9FC9D5DD"
+                           FontSize="9.5"
+                           TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,16,0,0">
+                    <Button Content="Cancelar"
+                            MinWidth="88"
+                            Padding="10,6"
+                            Margin="0,0,8,0"
+                            Click="TelematrixConfigCancelButton_Click" />
+                    <Button Content="Concluído"
+                            MinWidth="100"
+                            Padding="10,6"
+                            Background="#FF1F9F7C"
+                            Foreground="White"
+                            BorderBrush="#FF69E6C0"
+                            Click="TelematrixConfigDoneButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <StackPanel x:Name="HudDock"
                     Panel.ZIndex="1000"
                     HorizontalAlignment="Left"
@@ -214,6 +315,89 @@
                 </Grid>
             </Border>
 
+            <Border x:Name="TelematrixPanel"
+                    Width="680"
+                    Height="92"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,8"
+                    Padding="12,9"
+                    CornerRadius="14"
+                    BorderBrush="#664FD9B4"
+                    BorderThickness="1"
+                    Background="#EC0A171A"
+                    Effect="{StaticResource HudShadow}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="118" />
+                        <ColumnDefinition Width="106" />
+                        <ColumnDefinition Width="94" />
+                        <ColumnDefinition Width="94" />
+                        <ColumnDefinition Width="112" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TelematrixBrandText"
+                                   Text="NAVBR • OPERAÇÃO"
+                                   Foreground="#FF69E6C0"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                            <TextBlock x:Name="TelematrixLineText"
+                                       Text="—"
+                                       Foreground="White"
+                                       FontSize="24"
+                                       FontWeight="Black" />
+                            <Border Margin="8,2,0,0"
+                                    Padding="6,2"
+                                    CornerRadius="5"
+                                    Background="#334FD9B4"
+                                    VerticalAlignment="Center">
+                                <TextBlock x:Name="TelematrixDirectionText"
+                                           Text="?"
+                                           Foreground="#FF69E6C0"
+                                           FontSize="11"
+                                           FontWeight="Bold" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="HORA / DATA" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixClockText" Text="--:--" Foreground="White" FontSize="17" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixDateText" Text="--/--/----" Foreground="#CFFFFFFF" FontSize="9.5" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="TEMP. INTERNA" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixTempText" Text="— °C" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                        <TextBlock Text="PASSAGEIROS" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixPassengersText" Text="—" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                        <TextBlock Text="PONTUALIDADE" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixDelayText" Text="SEM HORÁRIO" Foreground="White" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TelematrixMonitorText"
+                                   Text="Monitoramento local"
+                                   Foreground="#8FFFFFFF"
+                                   FontSize="8.5"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="5" VerticalAlignment="Center">
+                        <TextBlock Text="VELOCIDADE" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TelematrixSpeedText" Text="0" Foreground="White" FontSize="22" FontWeight="Black" />
+                            <TextBlock Text=" km/h" Foreground="#CFFFFFFF" FontSize="9" VerticalAlignment="Bottom" Margin="2,0,0,4" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <Border x:Name="TripInfoPanel"
                     Width="680"
                     HorizontalAlignment="Left"
@@ -352,19 +536,34 @@
                     </Border>
 
                     <Grid x:Name="LocalMarker"
-                          Width="38" Height="38"
+                          Width="42" Height="42"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
-                          RenderTransformOrigin="0.5,0.5">
+                          RenderTransformOrigin="0.5,0.5"
+                          ToolTip="Você">
                         <Grid.RenderTransform>
                             <RotateTransform x:Name="LocalMarkerRotation" Angle="0" />
                         </Grid.RenderTransform>
-                        <Ellipse Fill="#D1000000" Stroke="#F4FFFFFF" StrokeThickness="2" />
-                        <Ellipse Width="28" Height="28" Fill="#C5101820" />
-                        <Polygon Points="19,4 27,29 19,23 11,29"
-                                 Fill="#FFFF9D24"
-                                 Stroke="White"
-                                 StrokeThickness="1.4" />
+                        <Ellipse Fill="#E30A1118"
+                                 Stroke="#F8FFFFFF"
+                                 StrokeThickness="2.1" />
+                        <Ellipse Width="34" Height="34"
+                                 Fill="#E0162633"
+                                 Stroke="#58FFFFFF"
+                                 StrokeThickness="1" />
+                        <Ellipse Width="27" Height="27"
+                                 Fill="#331FCB9A" />
+                        <Path Data="M 21,5 L 31,32 L 21,26.8 L 11,32 Z"
+                              Fill="#FFFFA629"
+                              Stroke="#FFFFFFFF"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                        <Ellipse Width="5.5" Height="5.5"
+                                 Fill="#FFFFFFFF"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Center" />
                     </Grid>
 
                     <Border HorizontalAlignment="Right"

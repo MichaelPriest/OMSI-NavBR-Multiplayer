@@ -166,6 +166,14 @@ public partial class MainWindow : Window
         }
 
         _nativeRuntimeStarted = true;
+
+        // The historical WPF MainWindow is an invisible service host in the
+        // React shell. Its Loaded events therefore never fire reliably, so the
+        // base HUD must be started explicitly with the native runtime instead
+        // of depending on MultiplayerButton_Loaded.
+        HookHudLifetimeToMainWindow();
+        EnsureHudOverlay();
+
         _ = RefreshOmsiStatusAsync();
     }
 

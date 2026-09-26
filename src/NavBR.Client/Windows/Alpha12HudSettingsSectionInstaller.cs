@@ -100,6 +100,30 @@ internal static class Alpha12HudSettingsSectionInstaller
         anchorCombo.SelectedValuePath = nameof(Choice.Id);
         anchorCombo.SelectedValue = settings.DashboardAnchor;
 
+        var telematrixThemeChoices = new[]
+        {
+            new Choice("0", "Menta"),
+            new Choice("1", "Âmbar"),
+            new Choice("2", "Gelo")
+        };
+        var telematrixThemeCombo = NewCombo();
+        telematrixThemeCombo.ItemsSource = telematrixThemeChoices;
+        telematrixThemeCombo.DisplayMemberPath = nameof(Choice.Label);
+        telematrixThemeCombo.SelectedValuePath = nameof(Choice.Id);
+        telematrixThemeCombo.SelectedValue = settings.TelematrixTheme.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        var telematrixSizeChoices = new[]
+        {
+            new Choice("0", T("Normal", "Normal", "Normal", "Normal", "Normal")),
+            new Choice("1", T("Grande", "Large", "Grande", "Groß", "Grand")),
+            new Choice("2", T("Compacto", "Compact", "Compacto", "Kompakt", "Compact"))
+        };
+        var telematrixSizeCombo = NewCombo();
+        telematrixSizeCombo.ItemsSource = telematrixSizeChoices;
+        telematrixSizeCombo.DisplayMemberPath = nameof(Choice.Label);
+        telematrixSizeCombo.SelectedValuePath = nameof(Choice.Id);
+        telematrixSizeCombo.SelectedValue = settings.TelematrixSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         var scaleSlider = NewSlider(0.60d, 1.80d, settings.DashboardScale, 0.05d);
         var widthSlider = NewSlider(280d, 960d, settings.DashboardWidth, 10d);
         var heightSlider = NewSlider(160d, 720d, settings.DashboardHeight > 0d ? settings.DashboardHeight : 360d, 10d);
@@ -147,6 +171,16 @@ internal static class Alpha12HudSettingsSectionInstaller
         automaticHeightCheck.Checked += (_, _) => heightSlider.IsEnabled = false;
         automaticHeightCheck.Unchecked += (_, _) => heightSlider.IsEnabled = true;
 
+        var hudEnabledCheck = NewCheck(
+            T("Exibir HUD completo", "Show complete HUD", "Mostrar HUD completo", "Komplettes HUD anzeigen", "Afficher le HUD complet"),
+            settings.HudEnabled);
+        hudEnabledCheck.ToolTip = T(
+            "Liga/desliga toda a sobreposição do NavBR sem desconectar o multiplayer.",
+            "Turns the entire NavBR overlay on/off without disconnecting multiplayer.",
+            "Activa/desactiva toda la superposición de NavBR sin desconectar el multijugador.",
+            "Schaltet das gesamte NavBR-Overlay ein/aus, ohne den Multiplayer zu trennen.",
+            "Active/désactive toute la superposition NavBR sans déconnecter le multijoueur.");
+
         var autoScaleCheck = NewCheck(
             T("Adaptar escala à resolução", "Adapt scale to resolution", "Adaptar escala a la resolución", "Skalierung an Auflösung anpassen", "Adapter l’échelle à la résolution"),
             settings.DashboardAutoScale);
@@ -160,6 +194,9 @@ internal static class Alpha12HudSettingsSectionInstaller
         var multiplayerCheck = NewCheck(T("Multiplayer no painel", "Multiplayer panel", "Multijugador en panel", "Mehrspieler im Dashboard", "Multijoueur dans le tableau"), settings.DashboardShowMultiplayer);
         var alertsCheck = NewCheck(T("Alertas discretos", "Discrete alerts", "Alertas discretas", "Dezente Warnungen", "Alertes discrètes"), settings.DashboardShowAlerts);
         var sideIndicatorsCheck = NewCheck(T("Indicadores laterais", "Side indicators", "Indicadores laterales", "Seitenanzeigen", "Indicateurs latéraux"), settings.DashboardShowSideIndicators);
+        var telematrixCheck = NewCheck(
+            T("Painel operacional (Telematrix)", "Operational panel (Telematrix)", "Panel operativo (Telematrix)", "Betriebspanel (Telematrix)", "Panneau d’exploitation (Telematrix)"),
+            settings.TelematrixWidgetEnabled);
 
         presetCombo.SelectionChanged += (_, _) =>
         {
@@ -222,7 +259,11 @@ internal static class Alpha12HudSettingsSectionInstaller
             BuildField(T("Tema", "Theme", "Tema", "Design", "Thème"), themeCombo))));
         root.Children.Add(NewCard(BuildTwoColumn(
             BuildField(T("Ancoragem", "Anchor", "Anclaje", "Verankerung", "Ancrage"), anchorCombo),
-            BuildCheckGroup(enabledCheck, autoScaleCheck, automaticHeightCheck))));
+            BuildCheckGroup(hudEnabledCheck, enabledCheck, autoScaleCheck, automaticHeightCheck))));
+
+        root.Children.Add(NewCard(BuildTwoColumn(
+            BuildField(T("Tema do painel operacional", "Operational panel theme", "Tema del panel operativo", "Betriebspanel-Design", "Thème du panneau d’exploitation"), telematrixThemeCombo),
+            BuildField(T("Tamanho do painel operacional", "Operational panel size", "Tamaño del panel operativo", "Größe des Betriebspanels", "Taille du panneau d’exploitation"), telematrixSizeCombo))));
 
         root.Children.Add(NewCard(BuildSliderGrid(new[]
         {
@@ -235,7 +276,7 @@ internal static class Alpha12HudSettingsSectionInstaller
         root.Children.Add(NewCard(BuildWidgetGrid(new[]
         {
             fuelCheck, pedalsCheck, statusCheck, minimapCheck,
-            multiplayerCheck, alertsCheck, sideIndicatorsCheck
+            multiplayerCheck, alertsCheck, sideIndicatorsCheck, telematrixCheck
         })));
 
         root.Children.Add(NewCard(BuildSliderGrid(new[]
@@ -282,6 +323,19 @@ internal static class Alpha12HudSettingsSectionInstaller
             MultiplayerSettingsStore.Save(current with
             {
                 DashboardSettingsVersion = 3,
+                HudVisibilitySettingsVersion = 1,
+                HudEnabled = hudEnabledCheck.IsChecked == true,
+                TelematrixWidgetEnabled = telematrixCheck.IsChecked == true,
+                TelematrixTheme = int.TryParse(
+                    telematrixThemeCombo.SelectedValue as string,
+                    out var telematrixTheme)
+                        ? Math.Clamp(telematrixTheme, 0, 2)
+                        : current.TelematrixTheme,
+                TelematrixSize = int.TryParse(
+                    telematrixSizeCombo.SelectedValue as string,
+                    out var telematrixSize)
+                        ? Math.Clamp(telematrixSize, 0, 2)
+                        : current.TelematrixSize,
                 DashboardEnabled = enabledCheck.IsChecked == true,
                 DashboardPreset = presetCombo.SelectedValue as string ?? HudProfileCatalog.DefaultPreset,
                 DashboardTheme = themeCombo.SelectedValue as string ?? HudProfileCatalog.DefaultTheme,

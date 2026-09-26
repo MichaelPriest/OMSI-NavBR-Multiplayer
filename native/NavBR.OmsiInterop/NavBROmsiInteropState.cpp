@@ -50,6 +50,14 @@ namespace
     constexpr int ComplMapObjMyFileObjectOffset = 0x1E8;
     constexpr int ComplMapObjDefinitionOffset = 0x210;
     constexpr int ComplObjInstanceOffset = 0x214;
+    // Verified against OmsiHook 2.5.3 (OmsiComplObjInst): the render child
+    // has its own visibility flags and transform. A RoadVehicle can be alive
+    // in RoadVehicles with Visible_Logical=true while this render instance is
+    // still hidden/stale, which makes a successfully spawned remote bus appear
+    // invisible.
+    constexpr int ComplObjInstanceVisibleOffset = 0x019;
+    constexpr int ComplObjInstancePositionOffset = 0x05C;
+    constexpr int ComplObjInstanceRenderMeOffset = 0x09C;
     constexpr int ComplMapObjModelStringOffset = 0x1A4;
     constexpr int RoadVehicleDefinitionOffset = 0x710;
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
@@ -990,31 +998,67 @@ namespace
         const Matrix4 worldMatrix =
             BuildTransformMatrix(rotation, worldPosition);
 
-        return
-            WriteValue(
+        if (!WriteValue(
                 objectPointer,
                 PositionMatrixOffset,
-                localMatrix) &&
-            WriteValue(
+                localMatrix) ||
+            !WriteValue(
                 objectPointer,
                 AbsolutePositionOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 AbsolutePositionThreadFreeOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 RelativeMatrixVarOffset,
-                localMatrix) &&
-            WriteValue(
+                localMatrix) ||
+            !WriteValue(
                 objectPointer,
                 OutsideMatrixOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 OutsideMatrixThreadFreeOffset,
-                worldMatrix);
+                worldMatrix))
+        {
+            return false;
+        }
+
+        // OmsiHook exposes a second render object at ComplObjInst. OMSI may
+        // create the RoadVehicle first and attach this object a callback later.
+        // When it exists, keep its render matrix and both render flags in sync
+        // with the authoritative NavBR-owned RoadVehicle. If it does not exist
+        // yet, leave the root transform valid and let the next multiplayer
+        // update complete the visual materialization.
+        const auto base = static_cast<std::uintptr_t>(objectPointer);
+        if (!IsReadableRange(base + ComplObjInstanceOffset, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int complObjInstance =
+            *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+        if (complObjInstance == 0)
+        {
+            return true;
+        }
+
+        const unsigned char enabled = 1;
+        return
+            WriteValue(
+                complObjInstance,
+                ComplObjInstancePositionOffset,
+                worldMatrix) &&
+            WriteValue(
+                complObjInstance,
+                ComplObjInstanceVisibleOffset,
+                enabled) &&
+            WriteValue(
+                complObjInstance,
+                ComplObjInstanceRenderMeOffset,
+                enabled);
     }
 
     bool IsRoadVehiclePointer(int vehiclePointer)
@@ -1073,7 +1117,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 13;
+    return 15;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -1197,6 +1241,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
     int* visibleLogicalRenderThread,
     int* roadVehicleDefinitionPointer,
     int* complObjPointer,
+    int* complObjVisible,
+    int* complObjRenderMe,
     int* modelStringPointer,
     int* kachelPointer,
     int* mapTileIndex,
@@ -1210,6 +1256,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
         visibleLogicalRenderThread == nullptr ||
         roadVehicleDefinitionPointer == nullptr ||
         complObjPointer == nullptr ||
+        complObjVisible == nullptr ||
+        complObjRenderMe == nullptr ||
         modelStringPointer == nullptr ||
         kachelPointer == nullptr ||
         mapTileIndex == nullptr ||
@@ -1240,6 +1288,30 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
         *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
     const int tilePointer =
         *reinterpret_cast<const int*>(base + KachelOffset);
+
+    *complObjVisible = -1;
+    *complObjRenderMe = -1;
+    if (complObj != 0)
+    {
+        const auto complObjBase = static_cast<std::uintptr_t>(complObj);
+        if (IsReadableRange(
+                complObjBase + ComplObjInstanceVisibleOffset,
+                sizeof(unsigned char)))
+        {
+            *complObjVisible =
+                *reinterpret_cast<const unsigned char*>(
+                    complObjBase + ComplObjInstanceVisibleOffset) != 0 ? 1 : 0;
+        }
+
+        if (IsReadableRange(
+                complObjBase + ComplObjInstanceRenderMeOffset,
+                sizeof(unsigned char)))
+        {
+            *complObjRenderMe =
+                *reinterpret_cast<const unsigned char*>(
+                    complObjBase + ComplObjInstanceRenderMeOffset) != 0 ? 1 : 0;
+        }
+    }
 
     int modelString = 0;
     if (complMapObjDefinition != 0 &&
@@ -1361,6 +1433,55 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_RestorePlayerVehiclePointer(
+    int expectedVehiclePointer)
+{
+    if (expectedVehiclePointer <= 0)
+    {
+        return 0;
+    }
+
+    int count = 0;
+    int items = 0;
+    if (!TryGetRoadVehicleItems(count, items) ||
+        count <= 0 ||
+        count > MaxReasonableRoadVehicles)
+    {
+        return 0;
+    }
+
+    int expectedIndex = -1;
+    for (int index = 0; index < count; ++index)
+    {
+        const int current = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(items) +
+            static_cast<std::uintptr_t>(index) * sizeof(int));
+        if (current == expectedVehiclePointer)
+        {
+            expectedIndex = index;
+            break;
+        }
+    }
+
+    if (expectedIndex < 0)
+    {
+        return 0;
+    }
+
+    const auto indexAddress = Resolve(RvaPlayerVehicleIndex);
+    if (!IsWritableRange(indexAddress, sizeof(int)))
+    {
+        return 0;
+    }
+
+    std::memcpy(
+        reinterpret_cast<void*>(indexAddress),
+        &expectedIndex,
+        sizeof(expectedIndex));
+
+    return GetPlayerVehiclePointer() == expectedVehiclePointer ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadPlayerVehicleGrid(
@@ -1863,6 +1984,15 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return FailVehicleTransform(1);
     }
 
+    // Defense in depth: a remote multiplayer write must never target the
+    // RoadVehicle currently selected by OMSI as the player's own bus.
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return FailVehicleTransform(8);
+    }
+
     // -2 is an internal NavBR selector used only by the local multiplayer
     // simulator. Some OMSI maps keep the player's live RoadVehicle.Kachel
     // pointer outside the Map.Kacheln index array even though KachelInfos can
@@ -2033,6 +2163,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
         return 0;
     }
 
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
     const bool externalLights = (lightFlags & 0x0F) != 0;
     const bool brakeLights = (lightFlags & (1 << 4)) != 0;
     const bool interiorLights = (lightFlags & (1 << 6)) != 0;
@@ -2060,6 +2197,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
 extern "C" __declspec(dllexport) int __cdecl NavBR_MarkVehicleForKilling(int vehiclePointer)
 {
     if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
     {
         return 0;
     }

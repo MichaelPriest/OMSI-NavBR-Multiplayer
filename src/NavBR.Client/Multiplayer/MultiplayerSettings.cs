@@ -50,6 +50,14 @@ public sealed record MultiplayerSettings(
     bool ExperimentalRoleplayCharacterEnabled = false,
     int NetworkSettingsVersion = 0,
     int PhysicalVehiclesSettingsVersion = 0,
+    int HudVisibilitySettingsVersion = 0,
+    bool HudEnabled = true,
+    bool TelematrixWidgetEnabled = true,
+    int TelematrixTheme = 0,
+    int TelematrixSize = 0,
+    bool TelematrixAutoDirection = true,
+    string? TelematrixManualLine = null,
+    string TelematrixManualDirection = "TP",
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {

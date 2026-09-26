@@ -20,6 +20,17 @@ type MobileState = {
   generatedAtUtc: string;
   omsi: { detected: boolean; inGame: boolean; mapName?: string | null };
   plugin: { connected: boolean; version?: string | null; capabilities: string[] };
+  hud?: {
+    enabled: boolean; telematrixEnabled: boolean; telematrixTheme: number; telematrixSize: number;
+    telematrixAutoDirection: boolean; telematrixManualLine?: string | null; telematrixManualDirection: string;
+  };
+  operation?: {
+    available: boolean; capturedAtUtc?: string | null; cabinTemperatureC?: number | null; passengerCount?: number | null;
+    scheduleActive?: boolean | null; simulationTime?: number | null; simulationDay?: number | null;
+    simulationMonth?: number | null; simulationYear?: number | null; simulationPaused?: boolean | null;
+    ibisLineCourse?: string | null; ibisRouteCode?: string | null; ibisTerminusName?: string | null;
+    ibisDelayMinutes?: string | null; ibisDelaySeconds?: string | null; ibisDelayState?: string | null;
+  };
   vehicle?: {
     mapName?: string | null; vehicleName?: string | null; vehiclePath?: string | null; line?: string | null; route?: string | null;
     destinationName?: string | null; nextStopName?: string | null; hofName?: string | null;
@@ -60,7 +71,7 @@ type MobileState = {
   };
 };
 
-type Tab = "gps" | "bus" | "ibis" | "multi" | "voice" | "status";
+type Tab = "gps" | "bus" | "ibis" | "ops" | "multi" | "voice" | "status";
 type DiscoveryResult = { host: string; httpPort: number; pairingCode: string };
 interface NavBrDiscoveryPlugin { discover(options?: { timeoutMs?: number }): Promise<DiscoveryResult> }
 const NavBrDiscovery = registerPlugin<NavBrDiscoveryPlugin>("NavBrDiscovery");
@@ -68,6 +79,24 @@ const NavBrDiscovery = registerPlugin<NavBrDiscoveryPlugin>("NavBrDiscovery");
 const fmtDistance = (v?: number | null) => v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)} km` : `${Math.round(v)} m`;
 const fmtEta = (v?: number | null) => v == null ? "—" : `${Math.max(0, Math.round(v / 60))} min`;
 const fmtPercent = (v?: number | null) => v == null ? "—" : `${Math.round(v)}%`;
+const fmtSimulationTime = (v?: number | null) => {
+  if (v == null || !Number.isFinite(v) || v < 0) return "—";
+  const totalMinutes = v <= 24.5 ? v * 60 : v <= 86400 ? v / 60 : NaN;
+  if (!Number.isFinite(totalMinutes)) return "—";
+  const normalized = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+};
+const fmtOperationalDelay = (op?: MobileState["operation"], fallbackSeconds?: number | null) => {
+  if (op?.scheduleActive === false) return "SEM HORÁRIO";
+  if (op?.ibisDelayMinutes) {
+    const sec = op.ibisDelaySeconds ? `:${op.ibisDelaySeconds.padStart(2, "0")}` : "";
+    return `${op.ibisDelayMinutes}${sec}${op.ibisDelayState ? ` · ${op.ibisDelayState}` : ""}`;
+  }
+  if (fallbackSeconds == null) return op?.scheduleActive ? "SEM DADOS" : "—";
+  if (Math.abs(fallbackSeconds) < 3) return "NO HORÁRIO";
+  const min = fallbackSeconds / 60;
+  return `${min > 0 ? "+" : ""}${min.toFixed(1)} min`;
+};
 const clampPct = (v?: number | null) => Math.max(0, Math.min(100, v ?? 0));
 const friendlyControlName = (value: string) =>
   value
@@ -191,10 +220,12 @@ function SessionMap({ points }: { points: SessionPoint[] }) {
   return <svg className="session-map" viewBox="0 0 1000 600">
     <rect x="0" y="0" width="1000" height="600" rx="28" className="session-bg" />
     {projected.map(p => <g key={p.playerId} transform={`translate(${p.sx} ${p.sy})`}>
-      <circle r={p.isLocal ? 18 : 14} className={p.isLocal ? "session-local" : p.kind === "roleplay" ? "session-rp" : "session-remote"} />
-      <path d="M0 -14 L8 9 L0 5 L-8 9 Z" className="session-arrow" transform={`rotate(${p.headingDegrees || 0})`} />
-      <text y="-24" textAnchor="middle" className="session-name">{p.displayName}</text>
-      <text y="32" textAnchor="middle" className="session-detail">{p.line || p.activity || ""}</text>
+      <circle r={p.isLocal ? 20 : 16} className={p.isLocal ? "session-local" : p.kind === "roleplay" ? "session-rp" : "session-remote"} />
+      <circle r={p.isLocal ? 13 : 10} className="session-halo" />
+      <path d="M0 -14 L8 10 L0 6 L-8 10 Z" className="session-arrow" transform={`rotate(${p.headingDegrees || 0})`} />
+      <circle r="2.6" className="session-center" />
+      <text y="-26" textAnchor="middle" className="session-name">{p.displayName}</text>
+      <text y="34" textAnchor="middle" className="session-detail">{p.line || p.activity || ""}</text>
     </g>)}
   </svg>;
 }
@@ -221,6 +252,7 @@ export default function App() {
   const [draft, setDraft] = useState(pairing);
   const [state, setState] = useState<MobileState | null>(null);
   const [tab, setTab] = useState<Tab>("gps");
+  const [operationLineDraft, setOperationLineDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
@@ -297,6 +329,10 @@ export default function App() {
   }, [pairing, serverBase]);
 
   useEffect(() => {
+    setOperationLineDraft(state?.hud?.telematrixManualLine || "");
+  }, [state?.hud?.telematrixManualLine]);
+
+  useEffect(() => {
     if (!pttHeld) return;
     void sendCommand("voice-ptt", { active: true });
     const timer = window.setInterval(() => void sendCommand("voice-ptt", { active: true }), 700);
@@ -343,6 +379,8 @@ export default function App() {
   }
 
   const nav = state?.navigation, vehicle = state?.vehicle, mp = state?.multiplayer;
+  const op = state?.operation;
+  const hud = state?.hud;
   const availableControls = (state?.vehicleControls.detectedEvents || [])
     .filter(name => !controlFilter.trim() || name.toLowerCase().includes(controlFilter.trim().toLowerCase()))
     .sort((a, b) => {
@@ -572,6 +610,49 @@ export default function App() {
         </div>}
       </div>}
 
+      {tab === "ops" && <div className="ops-page">
+        <div className="ops-hero">
+          <div><small>OPERAÇÃO AO VIVO</small><h2>{op?.ibisLineCourse || vehicle?.line || "—"}</h2><span>{op?.ibisTerminusName || vehicle?.destinationName || "Sem destino"}</span></div>
+          <div className="ops-speed"><strong>{Math.round(vehicle?.speedKph || 0)}</strong><span>km/h</span></div>
+        </div>
+
+        <div className="ops-grid">
+          <div><small>HORA</small><strong>{fmtSimulationTime(op?.simulationTime)}</strong><span>{op?.simulationDay && op?.simulationMonth && op?.simulationYear ? `${String(op.simulationDay).padStart(2, "0")}/${String(op.simulationMonth).padStart(2, "0")}/${op.simulationYear}` : "—"}</span></div>
+          <div><small>TEMP. INTERNA</small><strong>{op?.cabinTemperatureC == null ? "—" : `${op.cabinTemperatureC.toFixed(1)} °C`}</strong><span>{op?.available ? "OMSI" : "sem dados"}</span></div>
+          <div><small>PASSAGEIROS</small><strong>{op?.passengerCount ?? "—"}</strong><span>{op?.scheduleActive === false ? "sem horário" : "em operação"}</span></div>
+          <div><small>PONTUALIDADE</small><strong>{fmtOperationalDelay(op, vehicle?.delaySeconds)}</strong><span>{op?.simulationPaused ? "SIMULAÇÃO PAUSADA" : op?.ibisDelayState || "monitorando"}</span></div>
+        </div>
+
+        <div className="ops-control-card">
+          <div className="section-title"><div><small>HUD DO PC</small><h2>Sobreposição NavBR</h2></div><b className={hud?.enabled ? "good" : "bad"}>{hud?.enabled ? "ATIVO" : "OCULTO"}</b></div>
+          <div className="ops-actions">
+            <button className={hud?.enabled ? "active-control" : ""} onClick={() => void sendCommand("hud-enabled", { enabled: !hud?.enabled })}>{hud?.enabled ? "Ocultar HUD" : "Mostrar HUD"}</button>
+            <button className={hud?.telematrixEnabled ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { enabled: !hud?.telematrixEnabled })}>{hud?.telematrixEnabled ? "Ocultar painel operação" : "Mostrar painel operação"}</button>
+          </div>
+          <div className="ops-actions three">
+            <button onClick={() => void sendCommand("telematrix-configure", { theme: ((hud?.telematrixTheme || 0) + 1) % 3 })}>Tema {["Menta","Âmbar","Gelo"][hud?.telematrixTheme || 0]}</button>
+            <button onClick={() => void sendCommand("telematrix-configure", { size: ((hud?.telematrixSize || 0) + 1) % 3 })}>Tamanho {["Normal","Grande","Compacto"][hud?.telematrixSize || 0]}</button>
+            <button className={hud?.telematrixAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: !hud?.telematrixAutoDirection })}>{hud?.telematrixAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
+          </div>
+          <div className="ops-manual">
+            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => setOperationLineDraft(e.target.value.slice(0, 24))} placeholder={vehicle?.line || "Ex.: 76"} /></label>
+            <div className="ops-direction">
+              <button className={hud?.telematrixManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
+              <button className={hud?.telematrixManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
+              <button onClick={() => void sendCommand("telematrix-configure", { line: operationLineDraft || undefined, direction: hud?.telematrixManualDirection || "TP", autoDirection: !!hud?.telematrixAutoDirection })}>Salvar</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="telemetry-card ops-status">
+          <StatusRow label="Telemetria operacional" value={op?.available ? "ATUAL" : "AGUARDANDO"} ok={!!op?.available} />
+          <StatusRow label="Linha / curso" value={op?.ibisLineCourse || state?.ibis.line || "—"} />
+          <StatusRow label="Rota IBIS" value={op?.ibisRouteCode || state?.ibis.route || "—"} />
+          <StatusRow label="Terminal" value={op?.ibisTerminusName || state?.ibis.destination || "—"} />
+          <StatusRow label="Horário ativo" value={op?.scheduleActive == null ? "—" : op.scheduleActive ? "SIM" : "NÃO"} ok={op?.scheduleActive ?? undefined} />
+        </div>
+      </div>}
+
       {tab === "multi" && <div className="multi-page">
         <div className="section-title"><div><small>MULTIPLAYER</small><h2>{mp?.roomId || "Sem sala"}</h2></div><b className={mp?.connected ? "good" : "bad"}>{mp?.connected ? `${mp.playerCount} ONLINE` : "OFFLINE"}</b></div>
         <div className="multiplayer-map-card"><SessionMap points={mp?.sessionPoints || []} /></div>
@@ -599,6 +680,9 @@ export default function App() {
         <StatusRow label="Dentro do mapa" value={state?.omsi.inGame ? "SIM" : "NÃO"} ok={!!state?.omsi.inGame} />
         <StatusRow label="Plugin Bridge" value={state?.plugin.connected ? "CONECTADO" : "DESCONECTADO"} ok={!!state?.plugin.connected} />
         <StatusRow label="Plugin" value={state?.plugin.version || "—"} />
+        <StatusRow label="Contrato mobile" value={`v${state?.version || 0}`} ok={(state?.version || 0) >= 3} />
+        <StatusRow label="HUD do PC" value={hud?.enabled ? "ATIVO" : "OCULTO"} ok={!!hud?.enabled} />
+        <StatusRow label="Operação OMSI" value={op?.available ? "ATUAL" : "AGUARDANDO"} ok={!!op?.available} />
         <StatusRow label="Capacidades plugin" value={String(state?.plugin.capabilities.length || 0)} />
         <StatusRow label="Mapa" value={state?.omsi.mapName || "—"} />
         <StatusRow label="Ônibus" value={vehicle?.vehicleName || "—"} />
@@ -612,6 +696,7 @@ export default function App() {
       <button className={tab === "gps" ? "active" : ""} onClick={() => setTab("gps")}><span>⌖</span>GPS</button>
       <button className={tab === "bus" ? "active" : ""} onClick={() => setTab("bus")}><span>▰</span>Ônibus</button>
       <button className={tab === "ibis" ? "active" : ""} onClick={() => setTab("ibis")}><span>▣</span>IBIS</button>
+      <button className={tab === "ops" ? "active" : ""} onClick={() => setTab("ops")}><span>◫</span>Operação</button>
       <button className={tab === "multi" ? "active" : ""} onClick={() => setTab("multi")}><span>◎</span>Multi</button>
       <button className={tab === "voice" ? "active" : ""} onClick={() => setTab("voice")}><span>◉</span>Voz</button>
       <button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}><span>●</span>Status</button>
