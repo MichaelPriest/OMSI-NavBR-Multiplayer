@@ -91,6 +91,7 @@ public partial class HudOverlayWindow
             telemetry?.DelaySeconds);
 
         if (operationalFresh &&
+            operational is not null &&
             TryFormatSimulationClock(operational, out var clock))
         {
             TelematrixClockText.Text = clock;

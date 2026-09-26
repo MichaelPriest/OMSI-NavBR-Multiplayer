@@ -10,7 +10,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
 {
     private const double CanvasWidth = 1000d;
     private const double CanvasHeight = 620d;
-    private const double Padding = 42d;
+    private const double CanvasPadding = 42d;
 
     private readonly GhostReplayFrame[] _frames;
     private readonly Canvas _canvas = new();
@@ -101,7 +101,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            Padding = new Thickness(14d),
+            CanvasPadding = new Thickness(14d),
             Margin = new Thickness(0d, 0d, 0d, 16d)
         };
         var controls = new Grid();
@@ -134,7 +134,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            Padding = new Thickness(14d)
+            CanvasPadding = new Thickness(14d)
         };
         var playbackGrid = new Grid();
         playbackGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1d, GridUnitType.Star) });
@@ -187,8 +187,8 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
         var spanX = Math.Max(1d, maxX - _minX);
         var spanZ = Math.Max(1d, maxZ - _minZ);
         _scale = Math.Min(
-            (CanvasWidth - (Padding * 2d)) / spanX,
-            (CanvasHeight - (Padding * 2d)) / spanZ);
+            (CanvasWidth - (CanvasPadding * 2d)) / spanX,
+            (CanvasHeight - (CanvasPadding * 2d)) / spanZ);
         _offsetX = (CanvasWidth - (spanX * _scale)) / 2d;
         _offsetY = (CanvasHeight - (spanZ * _scale)) / 2d;
 
@@ -366,7 +366,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
             Content = text,
             MinWidth = 112d,
             Height = 36d,
-            Padding = new Thickness(14d, 6d, 14d, 6d),
+            CanvasPadding = new Thickness(14d, 6d, 14d, 6d),
             Background = primary ? Brush(61, 137, 196) : Brush(13, 26, 36),
             Foreground = Brushes.White,
             BorderBrush = primary ? Brush(113, 198, 255) : Brush(28, 42, 51),

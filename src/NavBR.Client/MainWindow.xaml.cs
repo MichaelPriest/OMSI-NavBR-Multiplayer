@@ -15,7 +15,7 @@ namespace NavBR.Client;
 
 public partial class MainWindow : Window
 {
-    private const bool RetiredWpfVisualsEnabled = false;
+    private static readonly bool RetiredWpfVisualsEnabled = false;
     private const double MinimumRoadmapZoom = 0.02d;
     private const double MaximumRoadmapZoom = 8d;
 

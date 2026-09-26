@@ -538,7 +538,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                             SetStatus(
                                 playerId,
                                 "materializing",
-                                spawn.ErrorCode,
+                                spawn!.ErrorCode,
                                 spawn.ErrorMessage,
                                 spawn.RemoteVehicleCount,
                                 consistInfo?.ExpectedPartCount);

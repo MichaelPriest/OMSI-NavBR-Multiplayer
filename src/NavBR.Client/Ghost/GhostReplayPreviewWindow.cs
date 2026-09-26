@@ -9,7 +9,7 @@ internal sealed class GhostReplayPreviewWindow : Window
 {
     private const double CanvasWidth = 1000d;
     private const double CanvasHeight = 620d;
-    private const double Padding = 42d;
+    private const double CanvasPadding = 42d;
 
     private readonly GhostReplayDocument _document;
     private readonly string _sourcePath;
@@ -64,7 +64,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             Content = "Reproduzir no mapa",
             Height = 38d,
             MinWidth = 152d,
-            Padding = new Thickness(14d, 6d, 14d, 6d),
+            CanvasPadding = new Thickness(14d, 6d, 14d, 6d),
             Background = Brush(61, 137, 196),
             Foreground = Brushes.White,
             BorderBrush = Brush(113, 198, 255),
@@ -90,7 +90,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            Padding = new Thickness(14d)
+            CanvasPadding = new Thickness(14d)
         };
 
         var container = new Grid();
@@ -159,7 +159,7 @@ internal sealed class GhostReplayPreviewWindow : Window
             BorderBrush = Brush(28, 42, 51),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
-            Padding = new Thickness(16d),
+            CanvasPadding = new Thickness(16d),
             ToolTip = $"{_sourcePath}\nDistância estimada pela integração da velocidade registrada entre os frames válidos.",
             Child = grid
         };
@@ -218,8 +218,8 @@ internal sealed class GhostReplayPreviewWindow : Window
         var spanX = Math.Max(1d, maxX - minX);
         var spanZ = Math.Max(1d, maxZ - minZ);
 
-        var drawableWidth = CanvasWidth - (Padding * 2d);
-        var drawableHeight = CanvasHeight - (Padding * 2d);
+        var drawableWidth = CanvasWidth - (CanvasPadding * 2d);
+        var drawableHeight = CanvasHeight - (CanvasPadding * 2d);
         var scale = Math.Min(drawableWidth / spanX, drawableHeight / spanZ);
         var routeWidth = spanX * scale;
         var routeHeight = spanZ * scale;
