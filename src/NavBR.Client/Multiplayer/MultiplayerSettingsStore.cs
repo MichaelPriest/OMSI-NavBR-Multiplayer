@@ -247,6 +247,13 @@ public static class MultiplayerSettingsStore
             TelematrixWidgetEnabled = settings.TelematrixWidgetEnabled,
             TelematrixTheme = Math.Clamp(settings.TelematrixTheme, 0, 2),
             TelematrixSize = Math.Clamp(settings.TelematrixSize, 0, 2),
+            TelematrixManualLine = string.IsNullOrWhiteSpace(settings.TelematrixManualLine)
+                ? null
+                : settings.TelematrixManualLine.Trim(),
+            TelematrixManualDirection =
+                string.Equals(settings.TelematrixManualDirection, "TS", StringComparison.OrdinalIgnoreCase)
+                    ? "TS"
+                    : "TP",
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
