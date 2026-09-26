@@ -30,6 +30,13 @@ Para sala privada:
 
     .\run-multiplayer-simulator.ps1 -Room SUA-SALA -RoomPassword SUA-SENHA -Players 6
 
+Para validar especificamente os ônibus físicos com apenas **um OMSI real**, o pacote de teste também inclui:
+
+- `run-physical-online.cmd`: usa o servidor oficial NavBR e cria 3 ônibus simulados;
+- `run-physical-local.cmd`: usa/abre o servidor local e cria 3 ônibus simulados.
+
+Fluxo recomendado: abra o OMSI e o NavBR, entre na sala `navbr-physical-test`, mantenha o mapa e um ônibus rígido carregados e então execute um desses atalhos. O teste só aprova quando os três bots forem materializados fisicamente no OMSI e, ao final, também forem removidos corretamente.
+
 Não é necessário informar --map quando existe um host real na sala. O mapa da sala tem prioridade.
 
 ## Servidor local automático
