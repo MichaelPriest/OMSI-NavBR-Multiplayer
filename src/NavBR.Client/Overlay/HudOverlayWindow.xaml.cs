@@ -113,6 +113,7 @@ public partial class HudOverlayWindow : Window
         _activeMap = activeMap;
         EnsureRoadmapLoaded(activeMap);
         RenderMiniMap();
+        RefreshTelematrixPanel();
     }
 
     public void UpdateRemotePlayer(PlayerTelemetryFrame frame)
