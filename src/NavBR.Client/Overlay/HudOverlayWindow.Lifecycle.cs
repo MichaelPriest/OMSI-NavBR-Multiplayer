@@ -41,6 +41,7 @@ public partial class HudOverlayWindow
 
         var hudSettings = NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
         _hudEnabled = hudSettings.HudEnabled;
+        ApplyTelematrixSettings(hudSettings);
         if (!_hudVisibilitySettingsHooked)
         {
             _hudVisibilitySettingsHooked = true;
@@ -63,6 +64,7 @@ public partial class HudOverlayWindow
         RefreshHudChrome();
         RefreshHudVisibility();
         RefreshRoleplayButtonInteraction();
+        RefreshTelematrixPanel();
         RenderEnhancedMiniMap();
     }
 
@@ -157,7 +159,9 @@ public partial class HudOverlayWindow
         NavBR.Client.Multiplayer.MultiplayerSettings settings)
     {
         _hudEnabled = settings.HudEnabled;
+        ApplyTelematrixSettings(settings);
         RefreshHudVisibility();
+        RefreshTelematrixPanel();
     }
 
     public void SetHudEnabled(bool enabled)
