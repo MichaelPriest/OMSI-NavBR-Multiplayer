@@ -252,6 +252,7 @@ export default function App() {
   const [draft, setDraft] = useState(pairing);
   const [state, setState] = useState<MobileState | null>(null);
   const [tab, setTab] = useState<Tab>("gps");
+  const [operationLineDraft, setOperationLineDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
@@ -326,6 +327,10 @@ export default function App() {
     const timer = window.setInterval(read, 700);
     return () => { active = false; window.clearInterval(timer); };
   }, [pairing, serverBase]);
+
+  useEffect(() => {
+    setOperationLineDraft(state?.hud?.telematrixManualLine || "");
+  }, [state?.hud?.telematrixManualLine]);
 
   useEffect(() => {
     if (!pttHeld) return;
@@ -628,6 +633,14 @@ export default function App() {
             <button onClick={() => void sendCommand("telematrix-configure", { theme: ((hud?.telematrixTheme || 0) + 1) % 3 })}>Tema {["Menta","Âmbar","Gelo"][hud?.telematrixTheme || 0]}</button>
             <button onClick={() => void sendCommand("telematrix-configure", { size: ((hud?.telematrixSize || 0) + 1) % 3 })}>Tamanho {["Normal","Grande","Compacto"][hud?.telematrixSize || 0]}</button>
             <button className={hud?.telematrixAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: !hud?.telematrixAutoDirection })}>{hud?.telematrixAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
+          </div>
+          <div className="ops-manual">
+            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => setOperationLineDraft(e.target.value.slice(0, 24))} placeholder={vehicle?.line || "Ex.: 76"} /></label>
+            <div className="ops-direction">
+              <button className={hud?.telematrixManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
+              <button className={hud?.telematrixManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
+              <button onClick={() => void sendCommand("telematrix-configure", { line: operationLineDraft || undefined, direction: hud?.telematrixManualDirection || "TP", autoDirection: !!hud?.telematrixAutoDirection })}>Salvar</button>
+            </div>
           </div>
         </div>
 
