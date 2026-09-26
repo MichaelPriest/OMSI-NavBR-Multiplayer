@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Windows;
 using NavBR.Client.Diagnostics;
+using NavBR.Client.Maps;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -54,6 +55,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private readonly ConcurrentDictionary<string, VehicleIdentityCandidate> _vehicleIdentityCandidateByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly OmsiVehicleAssetResolver _vehicleAssetResolver;
+    private readonly OmsiPhysicalRoadAnchorResolver _physicalRoadAnchorResolver;
     private readonly string _coordinatorId = Guid.NewGuid().ToString("N")[..8];
     private OmsiCompatibilityManifest? _localManifest;
     private VehicleTelemetry? _localTelemetry;
@@ -66,8 +68,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
     public RemotePhysicalVehicleCoordinator(
         Func<string?>? omsiInstallDirectorySource = null)
     {
+        var installDirectorySource =
+            omsiInstallDirectorySource ?? (() => null);
         _vehicleAssetResolver = new OmsiVehicleAssetResolver(
-            omsiInstallDirectorySource ?? (() => null));
+            installDirectorySource);
+        _physicalRoadAnchorResolver =
+            new OmsiPhysicalRoadAnchorResolver(
+                installDirectorySource);
         NavBRAppLog.Info(
             "physical-vehicle-coordinator-created",
             $"coordinator={_coordinatorId}");
@@ -449,10 +456,51 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 return;
             }
 
-            var spawnFrame = BuildPhysicalFrame(
+            var targetPhysicalFrame = BuildPhysicalFrame(
                 frame,
                 remoteManifest,
                 resolvedVehiclePath);
+            var spawnFrame = targetPhysicalFrame;
+            var isSimulatorPlayer =
+                playerId.StartsWith(
+                    "sim-",
+                    StringComparison.OrdinalIgnoreCase);
+            var hasRoadTarget = false;
+            if (isSimulatorPlayer &&
+                _physicalRoadAnchorResolver.TryResolveRoadAnchor(
+                    targetPhysicalFrame.Telemetry,
+                    out var roadAnchor))
+            {
+                targetPhysicalFrame = ApplyPhysicalRoadAnchor(
+                    targetPhysicalFrame,
+                    roadAnchor,
+                    alignHeadingToRoad: true);
+                spawnFrame = targetPhysicalFrame;
+                hasRoadTarget = true;
+                NavBRAppLog.Info(
+                    "physical-road-target",
+                    $"player={playerId} source={roadAnchor.Source} grid={roadAnchor.GridX},{roadAnchor.GridY} local=({roadAnchor.LocalX:F2},{roadAnchor.LocalY:F2},{roadAnchor.LocalZ:F2}) distance={roadAnchor.DistanceMeters:F2}m");
+            }
+
+            var usedEntrypointBootstrap = false;
+            if (isSimulatorPlayer &&
+                _physicalRoadAnchorResolver.TryResolveEntrypointAnchor(
+                    frame.Telemetry,
+                    out var entrypointAnchor) &&
+                entrypointAnchor.DistanceMeters <= 250d)
+            {
+                spawnFrame = ApplyPhysicalRoadAnchor(
+                    BuildPhysicalFrame(
+                        frame,
+                        remoteManifest,
+                        resolvedVehiclePath),
+                    entrypointAnchor,
+                    alignHeadingToRoad: true);
+                usedEntrypointBootstrap = true;
+                NavBRAppLog.Info(
+                    "physical-entrypoint-bootstrap",
+                    $"player={playerId} name={entrypointAnchor.Name ?? "-"} grid={entrypointAnchor.GridX},{entrypointAnchor.GridY} local=({entrypointAnchor.LocalX:F2},{entrypointAnchor.LocalY:F2},{entrypointAnchor.LocalZ:F2}) distance={entrypointAnchor.DistanceMeters:F2}m");
+            }
 
             // MakeVehicle returning does not mean the RoadVehicle model graph
             // has finished materializing. Keep one player as the global
@@ -538,6 +586,32 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
+
+                    // Bootstrap on a real global.cfg bus entrypoint so OMSI
+                    // receives a road-valid initial pose, then immediately move
+                    // the NavBR-owned exact bus to the nearest real spline pose.
+                    // This avoids fabricating Z while keeping the exact remote
+                    // .bus created by MakeVehicle.
+                    if (usedEntrypointBootstrap && hasRoadTarget)
+                    {
+                        var anchoredUpdate =
+                            await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
+                                targetPhysicalFrame,
+                                cancellationToken);
+                        if (anchoredUpdate?.Success == true)
+                        {
+                            NavBRAppLog.Info(
+                                "physical-entrypoint-road-transition",
+                                $"player={playerId} result=success");
+                        }
+                        else
+                        {
+                            NavBRAppLog.Info(
+                                "physical-entrypoint-road-transition",
+                                $"player={playerId} result=pending error={anchoredUpdate?.ErrorCode ?? "no-result"}");
+                        }
+                    }
+
                     SetStatus(playerId, "active");
                     PublishPhysicalVehicleSetIfChanged();
                     RemoteDiagnosticsService.Record(
@@ -545,8 +619,6 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         "info",
                         "spawn-success");
 
-                    // Spawn already applies and confirms this exact frame. Do not
-                    // immediately send a duplicate UpdateRemoteVehicle command.
                     return;
                 }
 
@@ -613,6 +685,19 @@ internal sealed class RemotePhysicalVehicleCoordinator
             frame,
             remoteManifest,
             localVehiclePath);
+        if (playerId.StartsWith(
+                "sim-",
+                StringComparison.OrdinalIgnoreCase) &&
+            _physicalRoadAnchorResolver.TryResolveRoadAnchor(
+                physicalFrame.Telemetry,
+                out var updateRoadAnchor))
+        {
+            physicalFrame = ApplyPhysicalRoadAnchor(
+                physicalFrame,
+                updateRoadAnchor,
+                alignHeadingToRoad: true);
+        }
+
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
             physicalFrame,
             cancellationToken);
@@ -1117,6 +1202,61 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
+    }
+
+    private static PlayerTelemetryFrame ApplyPhysicalRoadAnchor(
+        PlayerTelemetryFrame frame,
+        OmsiPhysicalRoadAnchor anchor,
+        bool alignHeadingToRoad)
+    {
+        var telemetry = frame.Telemetry;
+        var sourceGridX =
+            telemetry.PhysicalGridX ?? telemetry.GridX;
+        var sourceGridY =
+            telemetry.PhysicalGridY ?? telemetry.GridY;
+        var keepMapTileIndex =
+            sourceGridX == anchor.GridX &&
+            sourceGridY == anchor.GridY;
+
+        return frame with
+        {
+            Telemetry = telemetry with
+            {
+                GridX = anchor.GridX,
+                GridY = anchor.GridY,
+                PhysicalGridX = anchor.GridX,
+                PhysicalGridY = anchor.GridY,
+                TileX = anchor.LocalX,
+                TileY = anchor.LocalZ,
+                LocalX = anchor.LocalX,
+                LocalY = anchor.LocalY,
+                LocalZ = anchor.LocalZ,
+                MapTileIndex =
+                    keepMapTileIndex
+                        ? telemetry.MapTileIndex
+                        : null,
+                HeadingDegrees =
+                    alignHeadingToRoad
+                        ? anchor.HeadingDegrees
+                        : telemetry.HeadingDegrees,
+                RotationX =
+                    alignHeadingToRoad
+                        ? anchor.RotationX
+                        : telemetry.RotationX,
+                RotationY =
+                    alignHeadingToRoad
+                        ? anchor.RotationY
+                        : telemetry.RotationY,
+                RotationZ =
+                    alignHeadingToRoad
+                        ? anchor.RotationZ
+                        : telemetry.RotationZ,
+                RotationW =
+                    alignHeadingToRoad
+                        ? anchor.RotationW
+                        : telemetry.RotationW
             }
         };
     }
