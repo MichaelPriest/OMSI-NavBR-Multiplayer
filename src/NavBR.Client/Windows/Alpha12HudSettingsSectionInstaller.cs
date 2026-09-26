@@ -170,6 +170,9 @@ internal static class Alpha12HudSettingsSectionInstaller
         var multiplayerCheck = NewCheck(T("Multiplayer no painel", "Multiplayer panel", "Multijugador en panel", "Mehrspieler im Dashboard", "Multijoueur dans le tableau"), settings.DashboardShowMultiplayer);
         var alertsCheck = NewCheck(T("Alertas discretos", "Discrete alerts", "Alertas discretas", "Dezente Warnungen", "Alertes discrètes"), settings.DashboardShowAlerts);
         var sideIndicatorsCheck = NewCheck(T("Indicadores laterais", "Side indicators", "Indicadores laterales", "Seitenanzeigen", "Indicateurs latéraux"), settings.DashboardShowSideIndicators);
+        var telematrixCheck = NewCheck(
+            T("Painel operacional (Telematrix)", "Operational panel (Telematrix)", "Panel operativo (Telematrix)", "Betriebspanel (Telematrix)", "Panneau d’exploitation (Telematrix)"),
+            settings.TelematrixWidgetEnabled);
 
         presetCombo.SelectionChanged += (_, _) =>
         {
@@ -245,7 +248,7 @@ internal static class Alpha12HudSettingsSectionInstaller
         root.Children.Add(NewCard(BuildWidgetGrid(new[]
         {
             fuelCheck, pedalsCheck, statusCheck, minimapCheck,
-            multiplayerCheck, alertsCheck, sideIndicatorsCheck
+            multiplayerCheck, alertsCheck, sideIndicatorsCheck, telematrixCheck
         })));
 
         root.Children.Add(NewCard(BuildSliderGrid(new[]
@@ -294,6 +297,7 @@ internal static class Alpha12HudSettingsSectionInstaller
                 DashboardSettingsVersion = 3,
                 HudVisibilitySettingsVersion = 1,
                 HudEnabled = hudEnabledCheck.IsChecked == true,
+                TelematrixWidgetEnabled = telematrixCheck.IsChecked == true,
                 DashboardEnabled = enabledCheck.IsChecked == true,
                 DashboardPreset = presetCombo.SelectedValue as string ?? HudProfileCatalog.DefaultPreset,
                 DashboardTheme = themeCombo.SelectedValue as string ?? HudProfileCatalog.DefaultTheme,
