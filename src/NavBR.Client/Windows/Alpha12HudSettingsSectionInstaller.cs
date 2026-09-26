@@ -100,6 +100,30 @@ internal static class Alpha12HudSettingsSectionInstaller
         anchorCombo.SelectedValuePath = nameof(Choice.Id);
         anchorCombo.SelectedValue = settings.DashboardAnchor;
 
+        var telematrixThemeChoices = new[]
+        {
+            new Choice("0", "Menta"),
+            new Choice("1", "Âmbar"),
+            new Choice("2", "Gelo")
+        };
+        var telematrixThemeCombo = NewCombo();
+        telematrixThemeCombo.ItemsSource = telematrixThemeChoices;
+        telematrixThemeCombo.DisplayMemberPath = nameof(Choice.Label);
+        telematrixThemeCombo.SelectedValuePath = nameof(Choice.Id);
+        telematrixThemeCombo.SelectedValue = settings.TelematrixTheme.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        var telematrixSizeChoices = new[]
+        {
+            new Choice("0", T("Normal", "Normal", "Normal", "Normal", "Normal")),
+            new Choice("1", T("Grande", "Large", "Grande", "Groß", "Grand")),
+            new Choice("2", T("Compacto", "Compact", "Compacto", "Kompakt", "Compact"))
+        };
+        var telematrixSizeCombo = NewCombo();
+        telematrixSizeCombo.ItemsSource = telematrixSizeChoices;
+        telematrixSizeCombo.DisplayMemberPath = nameof(Choice.Label);
+        telematrixSizeCombo.SelectedValuePath = nameof(Choice.Id);
+        telematrixSizeCombo.SelectedValue = settings.TelematrixSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         var scaleSlider = NewSlider(0.60d, 1.80d, settings.DashboardScale, 0.05d);
         var widthSlider = NewSlider(280d, 960d, settings.DashboardWidth, 10d);
         var heightSlider = NewSlider(160d, 720d, settings.DashboardHeight > 0d ? settings.DashboardHeight : 360d, 10d);
@@ -237,6 +261,10 @@ internal static class Alpha12HudSettingsSectionInstaller
             BuildField(T("Ancoragem", "Anchor", "Anclaje", "Verankerung", "Ancrage"), anchorCombo),
             BuildCheckGroup(hudEnabledCheck, enabledCheck, autoScaleCheck, automaticHeightCheck))));
 
+        root.Children.Add(NewCard(BuildTwoColumn(
+            BuildField(T("Tema do painel operacional", "Operational panel theme", "Tema del panel operativo", "Betriebspanel-Design", "Thème du panneau d’exploitation"), telematrixThemeCombo),
+            BuildField(T("Tamanho do painel operacional", "Operational panel size", "Tamaño del panel operativo", "Größe des Betriebspanels", "Taille du panneau d’exploitation"), telematrixSizeCombo))));
+
         root.Children.Add(NewCard(BuildSliderGrid(new[]
         {
             (T("Escala geral", "Overall scale", "Escala general", "Gesamtskalierung", "Échelle générale"), scaleSlider, scaleValue),
@@ -298,6 +326,16 @@ internal static class Alpha12HudSettingsSectionInstaller
                 HudVisibilitySettingsVersion = 1,
                 HudEnabled = hudEnabledCheck.IsChecked == true,
                 TelematrixWidgetEnabled = telematrixCheck.IsChecked == true,
+                TelematrixTheme = int.TryParse(
+                    telematrixThemeCombo.SelectedValue as string,
+                    out var telematrixTheme)
+                        ? Math.Clamp(telematrixTheme, 0, 2)
+                        : current.TelematrixTheme,
+                TelematrixSize = int.TryParse(
+                    telematrixSizeCombo.SelectedValue as string,
+                    out var telematrixSize)
+                        ? Math.Clamp(telematrixSize, 0, 2)
+                        : current.TelematrixSize,
                 DashboardEnabled = enabledCheck.IsChecked == true,
                 DashboardPreset = presetCombo.SelectedValue as string ?? HudProfileCatalog.DefaultPreset,
                 DashboardTheme = themeCombo.SelectedValue as string ?? HudProfileCatalog.DefaultTheme,
