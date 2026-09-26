@@ -153,3 +153,38 @@ Fluxo de segurança:
 No APK, a aba **Ônibus** possui busca, favoritos e botões dinâmicos. O app não inventa nomes como porta/luz/buzina: ele mostra somente os eventos reais encontrados no veículo.
 
 A autorização usa a flag própria `experimental-mobile-vehicle-controls.enabled` e não depende da opção de ônibus físicos remotos.
+
+
+## Atualização operacional — Mobile State v3
+
+O Mobile Companion passa a consumir o contrato `navbr-mobile-state` **v3**, preservando os campos anteriores e adicionando estado do HUD e telemetria operacional local do OMSI.
+
+Novos dados reais expostos pelo desktop:
+
+- HUD principal ativo/oculto;
+- painel operacional ativo/oculto;
+- tema e tamanho do painel operacional;
+- TP/TS automático ou manual;
+- temperatura interna (`Cabinair_Temp`) quando o veículo fornece;
+- quantidade de passageiros (`humans_count`) quando disponível;
+- `schedule_active`;
+- hora/data/pausa da simulação;
+- linha/curso e rota IBIS;
+- terminal atual;
+- estado de atraso/adiantamento publicado pelo veículo.
+
+A nova aba **Operação** do APK/PWA mostra esses dados sem fabricar valores. Quando a variável não existe ou o snapshot está desatualizado, o aplicativo mostra `—`, `SEM DADOS` ou `AGUARDANDO`.
+
+O celular também pode enviar comandos autenticados para:
+
+- mostrar/ocultar o HUD do PC;
+- mostrar/ocultar o painel operacional;
+- alternar tema do painel;
+- alternar tamanho do painel;
+- alternar TP/TS automático/manual.
+
+Esses comandos alteram somente preferências do NavBR no PC. Eles não escrevem diretamente na memória do OMSI.
+
+### Multiplayer no mobile
+
+O mapa de sessão usa o mesmo conceito visual dos novos HUDs desktop: marcador vetorial com aro, halo, ponteiro de direção e nome do jogador. O estado de ônibus físico remoto continua vindo da Central Multiplayer real.
