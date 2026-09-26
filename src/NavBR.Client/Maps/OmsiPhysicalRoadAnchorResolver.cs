@@ -26,7 +26,7 @@ internal readonly record struct OmsiPhysicalRoadAnchor(
 /// </summary>
 internal sealed class OmsiPhysicalRoadAnchorResolver
 {
-    private const double MaxRoadSnapDistanceMeters = 35d;
+    private const double MaxRoadSnapDistanceMeters = 18d;
     private const double MaxEntrypointDistanceMeters = 500d;
 
     private readonly Func<string?> _omsiInstallDirectorySource;
@@ -647,7 +647,9 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                     !TryParseDouble(lines[index + 12], out var gradientStart) ||
                     !TryParseDouble(lines[index + 13], out var gradientEnd) ||
                     length <= 0d ||
-                    length > 10_000d)
+                    length > 10_000d ||
+                    Math.Abs(gradientStart) > 100d ||
+                    Math.Abs(gradientEnd) > 100d)
                 {
                     continue;
                 }

@@ -773,10 +773,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
 
     public VehicleTelemetry? ResolveFollowTelemetry(int vehicleOrdinal)
     {
-        if (vehicleOrdinal <= 0)
-        {
-            vehicleOrdinal = 1;
-        }
+        vehicleOrdinal = Math.Max(1, vehicleOrdinal);
 
         lock (_sync)
         {
@@ -786,31 +783,47 @@ internal sealed class SimulationProbe : IAsyncDisposable
             }
 
             var latest = _referenceTrail[^1];
-            var delay = TimeSpan.FromSeconds(1.65d * vehicleOrdinal);
-            var targetTime = latest.ReceivedAt - delay;
+            var desiredDistanceMeters = 15d * vehicleOrdinal;
+            var accumulatedMeters = 0d;
 
-            for (var index = _referenceTrail.Count - 1; index >= 0; index--)
+            // Follow by travelled distance, not by elapsed time. A time-delay
+            // convoy collapses onto the host when the player waits at a stop;
+            // distance spacing keeps buses physically separated while stopped.
+            for (var index = _referenceTrail.Count - 2; index >= 0; index--)
             {
-                if (_referenceTrail[index].ReceivedAt <= targetTime)
+                var newer = _referenceTrail[index + 1].Telemetry;
+                var older = _referenceTrail[index].Telemetry;
+                var dx = newer.X - older.X;
+                var dz = newer.Z - older.Z;
+                var segmentMeters = Math.Sqrt(dx * dx + dz * dz);
+                if (!double.IsFinite(segmentMeters) ||
+                    segmentMeters > 80d)
                 {
-                    return _referenceTrail[index].Telemetry with
+                    // A huge jump is a tile/load/teleport discontinuity and must
+                    // not count as driven road distance.
+                    continue;
+                }
+
+                accumulatedMeters += segmentMeters;
+                if (accumulatedMeters >= desiredDistanceMeters)
+                {
+                    return older with
                     {
                         Timestamp = DateTimeOffset.UtcNow
                     };
                 }
             }
 
-            // Before enough trail history exists, spawn each simulator bus
-            // behind the current host heading. The client-side road-anchor
-            // resolver then snaps this bootstrap pose onto the real spline.
+            // Not enough travelled history yet. Keep a deterministic initial
+            // spacing behind the live host. This is used only until the player
+            // has driven enough real metres to fill the trail.
             var source = latest.Telemetry;
-            var spacingMeters = 13d * vehicleOrdinal;
             var headingRadians =
                 source.HeadingDegrees * Math.PI / 180d;
             var offsetX =
-                -Math.Sin(headingRadians) * spacingMeters;
+                -Math.Sin(headingRadians) * desiredDistanceMeters;
             var offsetZ =
-                -Math.Cos(headingRadians) * spacingMeters;
+                -Math.Cos(headingRadians) * desiredDistanceMeters;
 
             return source with
             {

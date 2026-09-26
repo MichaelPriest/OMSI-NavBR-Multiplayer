@@ -482,34 +482,14 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     $"player={playerId} source={roadAnchor.Source} grid={roadAnchor.GridX},{roadAnchor.GridY} local=({roadAnchor.LocalX:F2},{roadAnchor.LocalY:F2},{roadAnchor.LocalZ:F2}) distance={roadAnchor.DistanceMeters:F2}m");
             }
 
-            var usedEntrypointBootstrap = false;
-
-            // A convoy bot must be born where its trailing target actually is.
-            // If we already resolved a nearby road spline, spawning first on an
-            // entrypoint can visibly create the bus hundreds of metres away and
-            // only then teleport it behind the host. Use the spline pose directly.
-            //
-            // Entrypoints are now a strict fallback for maps/tiles where no
-            // nearby spline could be resolved, and even then only when the
-            // entrypoint is close enough to avoid an obvious distant spawn.
-            if (isSimulatorPlayer &&
-                !hasRoadTarget &&
-                _physicalRoadAnchorResolver.TryResolveEntrypointAnchor(
-                    frame.Telemetry,
-                    out var entrypointAnchor) &&
-                entrypointAnchor.DistanceMeters <= 45d)
+            if (isSimulatorPlayer && !hasRoadTarget)
             {
-                spawnFrame = ApplyPhysicalRoadAnchor(
-                    BuildPhysicalFrame(
-                        frame,
-                        remoteManifest,
-                        resolvedVehiclePath),
-                    entrypointAnchor,
-                    alignHeadingToRoad: false);
-                usedEntrypointBootstrap = true;
-                NavBRAppLog.Info(
-                    "physical-entrypoint-fallback",
-                    $"player={playerId} name={entrypointAnchor.Name ?? "-"} grid={entrypointAnchor.GridX},{entrypointAnchor.GridY} local=({entrypointAnchor.LocalX:F2},{entrypointAnchor.LocalY:F2},{entrypointAnchor.LocalZ:F2}) distance={entrypointAnchor.DistanceMeters:F2}m");
+                SetStatus(
+                    playerId,
+                    "waiting-road-anchor",
+                    "road-anchor-unavailable",
+                    "The simulator convoy is waiting for a nearby real spline behind the host.");
+                return;
             }
 
             // MakeVehicle returning does not mean the RoadVehicle model graph
@@ -597,13 +577,6 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
 
-                    if (usedEntrypointBootstrap)
-                    {
-                        NavBRAppLog.Info(
-                            "physical-entrypoint-fallback-active",
-                            $"player={playerId} result=spawned-without-nearby-spline");
-                    }
-
                     SetStatus(playerId, "active");
                     PublishPhysicalVehicleSetIfChanged();
                     RemoteDiagnosticsService.Record(
@@ -679,11 +652,20 @@ internal sealed class RemotePhysicalVehicleCoordinator
             localVehiclePath);
         if (playerId.StartsWith(
                 "sim-",
-                StringComparison.OrdinalIgnoreCase) &&
-            _physicalRoadAnchorResolver.TryResolveRoadAnchor(
-                physicalFrame.Telemetry,
-                out var updateRoadAnchor))
+                StringComparison.OrdinalIgnoreCase))
         {
+            if (!_physicalRoadAnchorResolver.TryResolveRoadAnchor(
+                    physicalFrame.Telemetry,
+                    out var updateRoadAnchor))
+            {
+                SetStatus(
+                    playerId,
+                    "waiting-road-anchor",
+                    "road-anchor-unavailable",
+                    "Holding the last physical pose until a nearby spline is resolved.");
+                return;
+            }
+
             physicalFrame = ApplyPhysicalRoadAnchor(
                 physicalFrame,
                 updateRoadAnchor,
