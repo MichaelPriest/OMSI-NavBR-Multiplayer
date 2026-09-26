@@ -342,6 +342,15 @@ internal static class PhysicalVehicleBackend
             }
 
             beforeVehiclePointers = before;
+            if (hostVehiclePointer == 0 ||
+                !beforeVehiclePointers.Contains(hostVehiclePointer))
+            {
+                return Fail(
+                    command,
+                    "player-vehicle-unresolved",
+                    "OMSI did not expose a stable PlayerVehicle pointer before the remote spawn. Physical spawning was stopped to protect the local bus.");
+            }
+
             PluginLogWriter.Enqueue(
                 $"physical-spawn before id={instanceId} hostVehiclePointer={FormatPointer(hostVehiclePointer)} RoadVehicles={FormatPointerList(beforeVehiclePointers)}");
 
@@ -391,6 +400,23 @@ internal static class PhysicalVehicleBackend
             copyTempListResult =
                 OmsiNativeInterop.CopyTempRoadVehicleListIntoMain(tempList);
 
+            // CopyTempListIntoMainList can reorder RoadVehicles. OMSI tracks
+            // the user's active bus by list index, so explicitly restore the
+            // pre-spawn PlayerVehicle pointer before any remote transform or
+            // visual state can be applied. Without this, the camera/controls
+            // may follow a newly inserted remote bus even though its pointer is
+            // otherwise correctly owned by NavBR.
+            if (OmsiNativeInterop.RestorePlayerVehiclePointer(
+                    hostVehiclePointer) != 1)
+            {
+                PluginLogWriter.Enqueue(
+                    $"physical-safety player-vehicle-restore-failed id={instanceId} expectedHost={FormatPointer(hostVehiclePointer)}");
+                return Fail(
+                    command,
+                    "player-vehicle-restore-failed",
+                    "OMSI changed the PlayerVehicle selection while inserting the remote bus and NavBR could not safely restore it.");
+            }
+
             if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var after))
             {
                 return Fail(
@@ -401,6 +427,16 @@ internal static class PhysicalVehicleBackend
 
             afterVehiclePointers = after;
             var currentHostVehiclePointer = OmsiNativeInterop.GetPlayerVehiclePointer();
+            if (currentHostVehiclePointer != hostVehiclePointer)
+            {
+                PluginLogWriter.Enqueue(
+                    $"physical-safety player-vehicle-changed-after-restore id={instanceId} expectedHost={FormatPointer(hostVehiclePointer)} actualHost={FormatPointer(currentHostVehiclePointer)}");
+                return Fail(
+                    command,
+                    "player-vehicle-selection-unstable",
+                    "OMSI PlayerVehicle changed during remote spawn. NavBR stopped physical materialization to protect the local bus.");
+            }
+
             var knownBefore = new HashSet<int>(beforeVehiclePointers);
             var liveAfter = new HashSet<int>(afterVehiclePointers);
             newRoadVehicleCandidates = afterVehiclePointers

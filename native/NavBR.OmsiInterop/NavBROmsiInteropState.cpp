@@ -1117,7 +1117,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 14;
+    return 15;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -1433,6 +1433,55 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_IsHumanControllable(int human
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetPlayerVehiclePointer()
 {
     return GetPlayerVehiclePointer();
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_RestorePlayerVehiclePointer(
+    int expectedVehiclePointer)
+{
+    if (expectedVehiclePointer <= 0)
+    {
+        return 0;
+    }
+
+    int count = 0;
+    int items = 0;
+    if (!TryGetRoadVehicleItems(count, items) ||
+        count <= 0 ||
+        count > MaxReasonableRoadVehicles)
+    {
+        return 0;
+    }
+
+    int expectedIndex = -1;
+    for (int index = 0; index < count; ++index)
+    {
+        const int current = *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(items) +
+            static_cast<std::uintptr_t>(index) * sizeof(int));
+        if (current == expectedVehiclePointer)
+        {
+            expectedIndex = index;
+            break;
+        }
+    }
+
+    if (expectedIndex < 0)
+    {
+        return 0;
+    }
+
+    const auto indexAddress = Resolve(RvaPlayerVehicleIndex);
+    if (!IsWritableRange(indexAddress, sizeof(int)))
+    {
+        return 0;
+    }
+
+    std::memcpy(
+        reinterpret_cast<void*>(indexAddress),
+        &expectedIndex,
+        sizeof(expectedIndex));
+
+    return GetPlayerVehiclePointer() == expectedVehiclePointer ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadPlayerVehicleGrid(
@@ -1935,6 +1984,15 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return FailVehicleTransform(1);
     }
 
+    // Defense in depth: a remote multiplayer write must never target the
+    // RoadVehicle currently selected by OMSI as the player's own bus.
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return FailVehicleTransform(8);
+    }
+
     // -2 is an internal NavBR selector used only by the local multiplayer
     // simulator. Some OMSI maps keep the player's live RoadVehicle.Kachel
     // pointer outside the Map.Kacheln index array even though KachelInfos can
@@ -2105,6 +2163,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
         return 0;
     }
 
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
     const bool externalLights = (lightFlags & 0x0F) != 0;
     const bool brakeLights = (lightFlags & (1 << 4)) != 0;
     const bool interiorLights = (lightFlags & (1 << 6)) != 0;
@@ -2132,6 +2197,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
 extern "C" __declspec(dllexport) int __cdecl NavBR_MarkVehicleForKilling(int vehiclePointer)
 {
     if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
     {
         return 0;
     }
