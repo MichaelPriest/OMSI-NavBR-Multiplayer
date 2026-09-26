@@ -93,10 +93,12 @@ public partial class HudOverlayWindow
                 continue;
             }
 
+            // OMSI/D3D uses Y as the vertical axis. Keep the label directly
+            // above the physical bus instead of offsetting it along road Z.
             var point = new Vector3(
                 (float)remoteX,
-                (float)remoteY,
-                (float)(remoteZ + RemoteBusNameHeightMeters));
+                (float)(remoteY + RemoteBusNameHeightMeters),
+                (float)remoteZ);
 
             if (!TryProjectToViewport(
                     point,

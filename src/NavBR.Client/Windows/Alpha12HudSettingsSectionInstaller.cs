@@ -147,6 +147,16 @@ internal static class Alpha12HudSettingsSectionInstaller
         automaticHeightCheck.Checked += (_, _) => heightSlider.IsEnabled = false;
         automaticHeightCheck.Unchecked += (_, _) => heightSlider.IsEnabled = true;
 
+        var hudEnabledCheck = NewCheck(
+            T("Exibir HUD completo", "Show complete HUD", "Mostrar HUD completo", "Komplettes HUD anzeigen", "Afficher le HUD complet"),
+            settings.HudEnabled);
+        hudEnabledCheck.ToolTip = T(
+            "Liga/desliga toda a sobreposição do NavBR sem desconectar o multiplayer.",
+            "Turns the entire NavBR overlay on/off without disconnecting multiplayer.",
+            "Activa/desactiva toda la superposición de NavBR sin desconectar el multijugador.",
+            "Schaltet das gesamte NavBR-Overlay ein/aus, ohne den Multiplayer zu trennen.",
+            "Active/désactive toute la superposition NavBR sans déconnecter le multijoueur.");
+
         var autoScaleCheck = NewCheck(
             T("Adaptar escala à resolução", "Adapt scale to resolution", "Adaptar escala a la resolución", "Skalierung an Auflösung anpassen", "Adapter l’échelle à la résolution"),
             settings.DashboardAutoScale);
@@ -222,7 +232,7 @@ internal static class Alpha12HudSettingsSectionInstaller
             BuildField(T("Tema", "Theme", "Tema", "Design", "Thème"), themeCombo))));
         root.Children.Add(NewCard(BuildTwoColumn(
             BuildField(T("Ancoragem", "Anchor", "Anclaje", "Verankerung", "Ancrage"), anchorCombo),
-            BuildCheckGroup(enabledCheck, autoScaleCheck, automaticHeightCheck))));
+            BuildCheckGroup(hudEnabledCheck, enabledCheck, autoScaleCheck, automaticHeightCheck))));
 
         root.Children.Add(NewCard(BuildSliderGrid(new[]
         {
@@ -282,6 +292,8 @@ internal static class Alpha12HudSettingsSectionInstaller
             MultiplayerSettingsStore.Save(current with
             {
                 DashboardSettingsVersion = 3,
+                HudVisibilitySettingsVersion = 1,
+                HudEnabled = hudEnabledCheck.IsChecked == true,
                 DashboardEnabled = enabledCheck.IsChecked == true,
                 DashboardPreset = presetCombo.SelectedValue as string ?? HudProfileCatalog.DefaultPreset,
                 DashboardTheme = themeCombo.SelectedValue as string ?? HudProfileCatalog.DefaultTheme,

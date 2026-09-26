@@ -50,6 +50,8 @@ public sealed record MultiplayerSettings(
     bool ExperimentalRoleplayCharacterEnabled = false,
     int NetworkSettingsVersion = 0,
     int PhysicalVehiclesSettingsVersion = 0,
+    int HudVisibilitySettingsVersion = 0,
+    bool HudEnabled = true,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {

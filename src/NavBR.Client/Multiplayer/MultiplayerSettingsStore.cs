@@ -240,6 +240,10 @@ public static class MultiplayerSettingsStore
                 enablePhysicalVehiclesByDefault || settings.ExperimentalPhysicalVehiclesEnabled,
             NetworkSettingsVersion = 3,
             PhysicalVehiclesSettingsVersion = 1,
+            HudVisibilitySettingsVersion = 1,
+            HudEnabled =
+                settings.HudVisibilitySettingsVersion < 1 ||
+                settings.HudEnabled,
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl
