@@ -214,6 +214,89 @@
                 </Grid>
             </Border>
 
+            <Border x:Name="TelematrixPanel"
+                    Width="680"
+                    Height="92"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,8"
+                    Padding="12,9"
+                    CornerRadius="14"
+                    BorderBrush="#664FD9B4"
+                    BorderThickness="1"
+                    Background="#EC0A171A"
+                    Effect="{StaticResource HudShadow}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="118" />
+                        <ColumnDefinition Width="106" />
+                        <ColumnDefinition Width="94" />
+                        <ColumnDefinition Width="94" />
+                        <ColumnDefinition Width="112" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TelematrixBrandText"
+                                   Text="NAVBR • OPERAÇÃO"
+                                   Foreground="#FF69E6C0"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                            <TextBlock x:Name="TelematrixLineText"
+                                       Text="—"
+                                       Foreground="White"
+                                       FontSize="24"
+                                       FontWeight="Black" />
+                            <Border Margin="8,2,0,0"
+                                    Padding="6,2"
+                                    CornerRadius="5"
+                                    Background="#334FD9B4"
+                                    VerticalAlignment="Center">
+                                <TextBlock x:Name="TelematrixDirectionText"
+                                           Text="?"
+                                           Foreground="#FF69E6C0"
+                                           FontSize="11"
+                                           FontWeight="Bold" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="HORA / DATA" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixClockText" Text="--:--" Foreground="White" FontSize="17" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixDateText" Text="--/--/----" Foreground="#CFFFFFFF" FontSize="9.5" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="TEMP. INTERNA" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixTempText" Text="— °C" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                        <TextBlock Text="PASSAGEIROS" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixPassengersText" Text="—" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                        <TextBlock Text="PONTUALIDADE" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <TextBlock x:Name="TelematrixDelayText" Text="SEM HORÁRIO" Foreground="White" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TelematrixMonitorText"
+                                   Text="Monitoramento local"
+                                   Foreground="#8FFFFFFF"
+                                   FontSize="8.5"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="5" VerticalAlignment="Center">
+                        <TextBlock Text="VELOCIDADE" Foreground="#8FFFFFFF" FontSize="8.5" FontWeight="Bold" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TelematrixSpeedText" Text="0" Foreground="White" FontSize="22" FontWeight="Black" />
+                            <TextBlock Text=" km/h" Foreground="#CFFFFFFF" FontSize="9" VerticalAlignment="Bottom" Margin="2,0,0,4" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <Border x:Name="TripInfoPanel"
                     Width="680"
                     HorizontalAlignment="Left"
