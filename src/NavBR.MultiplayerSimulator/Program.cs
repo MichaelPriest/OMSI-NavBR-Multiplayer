@@ -404,15 +404,18 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             _options.RadiusMeters * (0.55d + (_index % 4) * 0.12d));
         var angularSpeed = 0.035d + (_index % 3) * 0.008d;
         var angle = _phase + elapsedSeconds * angularSpeed;
+        // OMSI/D3D uses X/Z as the horizontal road plane and Y as height.
+        // The previous simulator moved bots in X/Y, which literally moved the
+        // remote buses up/down in the air. Keep Y fixed and orbit on X/Z.
         var offsetX = Math.Cos(angle) * radius;
-        var offsetY = Math.Sin(angle) * radius;
+        var offsetZ = Math.Sin(angle) * radius;
 
         var x = _options.CenterX + offsetX;
-        var y = _options.CenterY + offsetY;
-        var z = _options.CenterZ;
+        var y = _options.CenterY;
+        var z = _options.CenterZ + offsetZ;
         var localX = _options.LocalCenterX + offsetX;
-        var localY = _options.LocalCenterY + offsetY;
-        var localZ = _options.LocalCenterZ;
+        var localY = _options.LocalCenterY;
+        var localZ = _options.LocalCenterZ + offsetZ;
         var heading = (angle * 180d / Math.PI + 90d) % 360d;
 
         var roleplayThisFrame =
@@ -523,7 +526,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             GridX: _options.GridX,
             GridY: _options.GridY,
             TileX: OffsetTileCoordinate(_options.TileX, offsetX),
-            TileY: OffsetTileCoordinate(_options.TileY, offsetY),
+            TileY: OffsetTileCoordinate(_options.TileY, offsetZ),
             MapCompatibilityId: _options.MapCompatibilityId,
             NextStopName: _nextStop,
             DestinationName: _destination,
@@ -537,9 +540,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             LocalX: localX,
             LocalY: localY,
             LocalZ: localZ,
+            // Vehicle heading is yaw around the D3D Y (vertical) axis.
             RotationX: 0d,
-            RotationY: 0d,
-            RotationZ: Math.Sin(half),
+            RotationY: Math.Sin(half),
+            RotationZ: 0d,
             RotationW: Math.Cos(half),
             MapTileIndex: _options.MapTileIndex,
             PhysicalGridX: _options.PhysicalGridX,
@@ -558,8 +562,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         }
 
         var candidate = baseValue + offset;
-        // Physical placement uses LocalX/LocalY + Kachel. Keep navigation
-        // coordinates inside the inherited tile instead of fabricating a tile
+        // Physical placement uses LocalX/LocalZ + Kachel. Keep navigation
+        // X/Z coordinates inside the inherited tile instead of fabricating a tile
         // transition the simulator cannot authoritatively resolve.
         return candidate is > 0.5d and < 299.5d
             ? candidate
@@ -618,7 +622,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
             Record(
                 frame.Player.PlayerId,
                 frame.Telemetry.LocalX ?? frame.Telemetry.X,
-                frame.Telemetry.LocalY ?? frame.Telemetry.Y,
+                frame.Telemetry.LocalZ ?? frame.Telemetry.Z,
                 frame.Telemetry.HeadingDegrees,
                 frame.Telemetry.MapName,
                 MovementKind.Vehicle,
