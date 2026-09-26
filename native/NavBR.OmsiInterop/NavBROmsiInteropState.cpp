@@ -50,6 +50,14 @@ namespace
     constexpr int ComplMapObjMyFileObjectOffset = 0x1E8;
     constexpr int ComplMapObjDefinitionOffset = 0x210;
     constexpr int ComplObjInstanceOffset = 0x214;
+    // Verified against OmsiHook 2.5.3 (OmsiComplObjInst): the render child
+    // has its own visibility flags and transform. A RoadVehicle can be alive
+    // in RoadVehicles with Visible_Logical=true while this render instance is
+    // still hidden/stale, which makes a successfully spawned remote bus appear
+    // invisible.
+    constexpr int ComplObjInstanceVisibleOffset = 0x019;
+    constexpr int ComplObjInstancePositionOffset = 0x05C;
+    constexpr int ComplObjInstanceRenderMeOffset = 0x09C;
     constexpr int ComplMapObjModelStringOffset = 0x1A4;
     constexpr int RoadVehicleDefinitionOffset = 0x710;
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
@@ -990,31 +998,67 @@ namespace
         const Matrix4 worldMatrix =
             BuildTransformMatrix(rotation, worldPosition);
 
-        return
-            WriteValue(
+        if (!WriteValue(
                 objectPointer,
                 PositionMatrixOffset,
-                localMatrix) &&
-            WriteValue(
+                localMatrix) ||
+            !WriteValue(
                 objectPointer,
                 AbsolutePositionOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 AbsolutePositionThreadFreeOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 RelativeMatrixVarOffset,
-                localMatrix) &&
-            WriteValue(
+                localMatrix) ||
+            !WriteValue(
                 objectPointer,
                 OutsideMatrixOffset,
-                worldMatrix) &&
-            WriteValue(
+                worldMatrix) ||
+            !WriteValue(
                 objectPointer,
                 OutsideMatrixThreadFreeOffset,
-                worldMatrix);
+                worldMatrix))
+        {
+            return false;
+        }
+
+        // OmsiHook exposes a second render object at ComplObjInst. OMSI may
+        // create the RoadVehicle first and attach this object a callback later.
+        // When it exists, keep its render matrix and both render flags in sync
+        // with the authoritative NavBR-owned RoadVehicle. If it does not exist
+        // yet, leave the root transform valid and let the next multiplayer
+        // update complete the visual materialization.
+        const auto base = static_cast<std::uintptr_t>(objectPointer);
+        if (!IsReadableRange(base + ComplObjInstanceOffset, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int complObjInstance =
+            *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+        if (complObjInstance == 0)
+        {
+            return true;
+        }
+
+        const unsigned char enabled = 1;
+        return
+            WriteValue(
+                complObjInstance,
+                ComplObjInstancePositionOffset,
+                worldMatrix) &&
+            WriteValue(
+                complObjInstance,
+                ComplObjInstanceVisibleOffset,
+                enabled) &&
+            WriteValue(
+                complObjInstance,
+                ComplObjInstanceRenderMeOffset,
+                enabled);
     }
 
     bool IsRoadVehiclePointer(int vehiclePointer)
