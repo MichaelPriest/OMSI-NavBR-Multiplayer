@@ -8,6 +8,8 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
+    private MultiplayerSettings _telematrixSettings =
+        MultiplayerSettingsStore.Load();
     private string? _telematrixPrimaryTerminus;
     private string? _telematrixSecondaryTerminus;
     private string? _telematrixCandidateTerminus;
@@ -16,8 +18,7 @@ public partial class HudOverlayWindow
 
     private void RefreshTelematrixPanel()
     {
-        var settings = MultiplayerSettingsStore.Load();
-        ApplyTelematrixSettings(settings);
+        var settings = _telematrixSettings;
 
         if (!settings.TelematrixWidgetEnabled)
         {
@@ -120,6 +121,7 @@ public partial class HudOverlayWindow
 
     private void ApplyTelematrixSettings(MultiplayerSettings settings)
     {
+        _telematrixSettings = settings;
         TelematrixPanel.Visibility =
             settings.TelematrixWidgetEnabled
                 ? Visibility.Visible
