@@ -261,7 +261,30 @@ finally
         }
     }
 
+    var verifyPhysicalCleanup =
+        options.VerifyPhysical &&
+        probe is not null &&
+        expectedPhysicalBots.Length > 0 &&
+        probe.HasConfirmedPhysicalBots(expectedPhysicalBots);
+
     await Task.WhenAll(bots.Select(bot => bot.DisposeAsync().AsTask()));
+
+    if (verifyPhysicalCleanup && probe is not null)
+    {
+        if (await probe.WaitForPhysicalBotsClearedAsync(
+                expectedPhysicalBots,
+                TimeSpan.FromSeconds(8)))
+        {
+            Console.WriteLine(
+                $"Physical lifecycle verification passed: {expectedPhysicalBots.Length} simulator bus(es) despawned from the host OMSI after leaving the room.");
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                $"Physical lifecycle verification failed: one or more of {expectedPhysicalBots.Length} simulator bus(es) remained materialized in the host OMSI after the simulated players left.");
+            Environment.ExitCode = 2;
+        }
+    }
 
     if (probe is not null)
     {
@@ -664,6 +687,46 @@ internal sealed class SimulationProbe : IAsyncDisposable
 
             return expectedPhysicalPlayerIds.All(physicalIds.Contains);
         }
+    }
+
+    public bool HasClearedPhysicalBots(
+        IReadOnlyList<string> expectedPhysicalPlayerIds)
+    {
+        if (expectedPhysicalPlayerIds.Count == 0)
+        {
+            return true;
+        }
+
+        lock (_sync)
+        {
+            if (string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+                !_physicalSetsByPlayer.TryGetValue(
+                    _options.ReferencePlayerId,
+                    out var physicalIds))
+            {
+                return false;
+            }
+
+            return expectedPhysicalPlayerIds.All(id => !physicalIds.Contains(id));
+        }
+    }
+
+    public async Task<bool> WaitForPhysicalBotsClearedAsync(
+        IReadOnlyList<string> expectedPhysicalPlayerIds,
+        TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (HasClearedPhysicalBots(expectedPhysicalPlayerIds))
+            {
+                return true;
+            }
+
+            await Task.Delay(100);
+        }
+
+        return HasClearedPhysicalBots(expectedPhysicalPlayerIds);
     }
 
     public VerificationResult Verify(
