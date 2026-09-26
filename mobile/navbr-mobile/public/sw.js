@@ -11,7 +11,11 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     Promise.all([
       caches.keys().then(keys =>
-        Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter(key => key.startsWith("navbr-mobile-") && key !== CACHE)
+            .map(key => caches.delete(key))
+        )
       ),
       self.clients.claim()
     ])
