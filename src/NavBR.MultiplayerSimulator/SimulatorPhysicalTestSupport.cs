@@ -403,7 +403,7 @@ internal static class SimulatorPhysicalTestSupport
 
         if (!OperatingSystem.IsWindows())
         {
-            return Array.Empty<string>();
+            yield break;
         }
 
         // The simulator is normally executed beside a live OMSI validation
@@ -463,7 +463,7 @@ internal static class SimulatorPhysicalTestSupport
     {
         if (!OperatingSystem.IsWindows())
         {
-            yield break;
+            return Array.Empty<string>();
         }
 
         var results = new List<string>();
