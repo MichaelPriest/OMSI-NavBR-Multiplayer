@@ -55,6 +55,9 @@ public sealed record MultiplayerSettings(
     bool TelematrixWidgetEnabled = true,
     int TelematrixTheme = 0,
     int TelematrixSize = 0,
+    bool TelematrixAutoDirection = true,
+    string? TelematrixManualLine = null,
+    string TelematrixManualDirection = "TP",
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
