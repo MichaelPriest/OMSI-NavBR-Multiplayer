@@ -492,7 +492,7 @@ public partial class HudOverlayWindow : Window
             Height = 27d,
             Fill = new SolidColorBrush(Color.FromArgb(54, 113, 198, 255))
         });
-        icon.Children.Add(new Path
+        icon.Children.Add(new System.Windows.Shapes.Path
         {
             Data = Geometry.Parse("M 21,5 L 31,32 L 21,26.8 L 11,32 Z"),
             Fill = new SolidColorBrush(Color.FromRgb(113, 198, 255)),
