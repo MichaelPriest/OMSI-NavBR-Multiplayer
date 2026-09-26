@@ -46,40 +46,7 @@ public static class PluginExports
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
-            Volatile.Write(ref _cabinTemperatureC, float.NaN);
-            Volatile.Write(ref _passengerCount, -1);
-            Volatile.Write(ref _scheduleActive, -1);
-            Volatile.Write(ref _simulationTime, float.NaN);
-            Volatile.Write(ref _simulationDay, -1);
-            Volatile.Write(ref _simulationMonth, -1);
-            Volatile.Write(ref _simulationYear, -1);
-            Volatile.Write(ref _simulationPaused, -1);
-            lock (TelematrixStringSync)
-            {
-                _ibisLineCourse = null;
-                _ibisRouteCode = null;
-                _ibisTerminusName = null;
-                _ibisDelayMinutes = null;
-                _ibisDelaySeconds = null;
-                _ibisDelayState = null;
-            }
-            Volatile.Write(ref _cabinTemperatureC, float.NaN);
-            Volatile.Write(ref _passengerCount, -1);
-            Volatile.Write(ref _scheduleActive, -1);
-            Volatile.Write(ref _simulationTime, float.NaN);
-            Volatile.Write(ref _simulationDay, -1);
-            Volatile.Write(ref _simulationMonth, -1);
-            Volatile.Write(ref _simulationYear, -1);
-            Volatile.Write(ref _simulationPaused, -1);
-            lock (TelematrixStringSync)
-            {
-                _ibisLineCourse = null;
-                _ibisRouteCode = null;
-                _ibisTerminusName = null;
-                _ibisDelayMinutes = null;
-                _ibisDelaySeconds = null;
-                _ibisDelayState = null;
-            }
+            ResetTelematrixState();
             PhysicalVehicleMotionController.Clear();
             PhysicalVehicleLifecycleSupervisor.ClearManagedState();
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
@@ -104,6 +71,7 @@ public static class PluginExports
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
+            ResetTelematrixState();
             Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
             PluginLogWriter.Stop();
         }
@@ -453,6 +421,27 @@ public static class PluginExports
         }
     }
 
+    private static void ResetTelematrixState()
+    {
+        Volatile.Write(ref _cabinTemperatureC, float.NaN);
+        Volatile.Write(ref _passengerCount, -1);
+        Volatile.Write(ref _scheduleActive, -1);
+        Volatile.Write(ref _simulationTime, float.NaN);
+        Volatile.Write(ref _simulationDay, -1);
+        Volatile.Write(ref _simulationMonth, -1);
+        Volatile.Write(ref _simulationYear, -1);
+        Volatile.Write(ref _simulationPaused, -1);
+        lock (TelematrixStringSync)
+        {
+            _ibisLineCourse = null;
+            _ibisRouteCode = null;
+            _ibisTerminusName = null;
+            _ibisDelayMinutes = null;
+            _ibisDelaySeconds = null;
+            _ibisDelayState = null;
+        }
+    }
+
     private static string ReadOmsiAnsiString(IntPtr address, int maxChars)
     {
         var bytes = new List<byte>(Math.Min(maxChars, 128));
@@ -468,7 +457,7 @@ public static class PluginExports
 
         return bytes.Count == 0
             ? string.Empty
-            : System.Text.Encoding.Default.GetString(bytes.ToArray()).Trim();
+            : System.Text.Encoding.Latin1.GetString(bytes.ToArray()).Trim();
     }
 
     private static string? NullIfWhiteSpace(string? value) =>
