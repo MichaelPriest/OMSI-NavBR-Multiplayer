@@ -19,6 +19,8 @@ public static class MultiplayerSettingsStore
     public static event Action<MultiplayerSettings>? HudPreviewChanged;
     public static event Action? HudPreviewCleared;
 
+    private static readonly object SettingsSync = new();
+    private static MultiplayerSettings? _cachedSettings;
     private static MultiplayerSettings? _hudPreview;
 
     public static bool IsHudPreviewActive => _hudPreview is not null;
@@ -45,38 +47,54 @@ public static class MultiplayerSettingsStore
 
     public static MultiplayerSettings Load()
     {
-        try
+        lock (SettingsSync)
         {
-            if (!File.Exists(SettingsPath))
+            if (_cachedSettings is not null)
             {
-                return MultiplayerSettings.CreateDefault();
+                return _cachedSettings;
             }
 
-            var settings = JsonSerializer.Deserialize<MultiplayerSettings>(
-                File.ReadAllText(SettingsPath));
-
-            if (settings is null || string.IsNullOrWhiteSpace(settings.PlayerId))
+            try
             {
-                return MultiplayerSettings.CreateDefault();
-            }
+                if (!File.Exists(SettingsPath))
+                {
+                    _cachedSettings = MultiplayerSettings.CreateDefault();
+                    return _cachedSettings;
+                }
 
-            return Normalize(settings);
-        }
-        catch
-        {
-            return MultiplayerSettings.CreateDefault();
+                var settings = JsonSerializer.Deserialize<MultiplayerSettings>(
+                    File.ReadAllText(SettingsPath));
+
+                _cachedSettings =
+                    settings is null ||
+                    string.IsNullOrWhiteSpace(settings.PlayerId)
+                        ? MultiplayerSettings.CreateDefault()
+                        : Normalize(settings);
+
+                return _cachedSettings;
+            }
+            catch
+            {
+                _cachedSettings = MultiplayerSettings.CreateDefault();
+                return _cachedSettings;
+            }
         }
     }
 
     public static void Save(MultiplayerSettings settings)
     {
         settings = Normalize(settings);
-        Directory.CreateDirectory(SettingsDirectory);
-        var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+        lock (SettingsSync)
         {
-            WriteIndented = true
-        });
-        File.WriteAllText(SettingsPath, json);
+            Directory.CreateDirectory(SettingsDirectory);
+            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            File.WriteAllText(SettingsPath, json);
+            _cachedSettings = settings;
+        }
+
         SettingsSaved?.Invoke(settings);
         SynchronizeDriverProfileName(settings.DisplayName);
     }
