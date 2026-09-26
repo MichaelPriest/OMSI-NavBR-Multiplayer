@@ -31,15 +31,34 @@ public partial class HudOverlayWindow
             DateTimeOffset.UtcNow - operational.CapturedAtUtc <= TimeSpan.FromSeconds(2);
 
         TelematrixLineText.Text =
-            FirstNonBlank(
-                telemetry?.Line,
-                operationalFresh ? operational?.IbisLineCourse : null)
-            ?? "—";
+            settings.TelematrixAutoDirection
+                ? FirstNonBlank(
+                    telemetry?.Line,
+                    operationalFresh ? operational?.IbisLineCourse : null,
+                    settings.TelematrixManualLine) ?? "—"
+                : FirstNonBlank(
+                    settings.TelematrixManualLine,
+                    telemetry?.Line,
+                    operationalFresh ? operational?.IbisLineCourse : null) ?? "—";
 
-        var terminus = FirstNonBlank(
-            operationalFresh ? operational?.IbisTerminusName : null,
-            telemetry?.DestinationName);
-        UpdateTelematrixDirection(terminus);
+        if (settings.TelematrixAutoDirection)
+        {
+            var terminus = FirstNonBlank(
+                operationalFresh ? operational?.IbisTerminusName : null,
+                telemetry?.DestinationName);
+            UpdateTelematrixDirection(terminus);
+        }
+        else
+        {
+            _telematrixDirection =
+                string.Equals(
+                    settings.TelematrixManualDirection,
+                    "TS",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "TS"
+                    : "TP";
+        }
+
         TelematrixDirectionText.Text = _telematrixDirection;
 
         TelematrixSpeedText.Text =
@@ -156,6 +175,98 @@ public partial class HudOverlayWindow
                 TelematrixLineText.FontSize = 24d;
                 TelematrixSpeedText.FontSize = 22d;
                 break;
+        }
+    }
+
+    private void OpenTelematrixConfig()
+    {
+        SetLocalPushToTalk(false);
+        if (ChatInputPanel.Visibility == Visibility.Visible)
+        {
+            CloseChatInput();
+        }
+
+        var settings = MultiplayerSettingsStore.Load();
+        TelematrixConfigLineBox.Text =
+            FirstNonBlank(
+                settings.TelematrixManualLine,
+                _localTelemetry?.Line,
+                LocalOmsiOperationalSnapshotStore.Latest?.IbisLineCourse)
+            ?? string.Empty;
+        TelematrixTpRadio.IsChecked =
+            !string.Equals(
+                settings.TelematrixManualDirection,
+                "TS",
+                StringComparison.OrdinalIgnoreCase);
+        TelematrixTsRadio.IsChecked =
+            string.Equals(
+                settings.TelematrixManualDirection,
+                "TS",
+                StringComparison.OrdinalIgnoreCase);
+        TelematrixAutoDirectionCheck.IsChecked =
+            settings.TelematrixAutoDirection;
+
+        _chatInteractive = true;
+        TelematrixConfigPanel.Visibility = Visibility.Visible;
+        SetInteractive(true);
+        Show();
+        Activate();
+        TelematrixConfigLineBox.Focus();
+        TelematrixConfigLineBox.SelectAll();
+    }
+
+    private void CloseTelematrixConfig(bool save)
+    {
+        if (save)
+        {
+            var settings = MultiplayerSettingsStore.Load();
+            var line = NormalizeTelematrixText(
+                TelematrixConfigLineBox.Text);
+            var direction =
+                TelematrixTsRadio.IsChecked == true
+                    ? "TS"
+                    : "TP";
+
+            MultiplayerSettingsStore.Save(
+                settings with
+                {
+                    TelematrixManualLine = line,
+                    TelematrixManualDirection = direction,
+                    TelematrixAutoDirection =
+                        TelematrixAutoDirectionCheck.IsChecked == true
+                });
+        }
+
+        TelematrixConfigPanel.Visibility = Visibility.Collapsed;
+        _chatInteractive = false;
+        SetInteractive(false);
+        RestoreOmsiFocus();
+        RefreshTelematrixPanel();
+    }
+
+    private void TelematrixConfigDoneButton_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        CloseTelematrixConfig(save: true);
+
+    private void TelematrixConfigCancelButton_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        CloseTelematrixConfig(save: false);
+
+    private void TelematrixConfigInput_KeyDown(
+        object sender,
+        System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            CloseTelematrixConfig(save: true);
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.Escape)
+        {
+            CloseTelematrixConfig(save: false);
+            e.Handled = true;
         }
     }
 
