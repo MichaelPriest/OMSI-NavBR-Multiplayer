@@ -97,8 +97,9 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             return false;
         }
 
-        var bestDistanceSquared =
+        var maxDistanceSquared =
             MaxRoadSnapDistanceMeters * MaxRoadSnapDistanceMeters;
+        var bestScore = double.PositiveInfinity;
         var found = false;
         OmsiPhysicalRoadAnchor best = default;
 
@@ -127,7 +128,30 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             out var snappedLocalX,
                             out var snappedLocalZ,
                             out var headingDegrees) ||
-                        distanceSquared >= bestDistanceSquared)
+                        distanceSquared >= maxDistanceSquared)
+                    {
+                        continue;
+                    }
+
+                    // At intersections multiple splines can be equally close.
+                    // Prefer the road axis that agrees with the remote bus
+                    // heading (modulo 180° because spline direction itself may
+                    // be reversed). This prevents hopping to a crossing street.
+                    var axisDeltaDegrees = RoadAxisDeltaDegrees(
+                        telemetry.HeadingDegrees,
+                        headingDegrees);
+                    if (axisDeltaDegrees > 70d)
+                    {
+                        continue;
+                    }
+
+                    var headingPenalty =
+                        axisDeltaDegrees / 15d;
+                    var score =
+                        distanceSquared +
+                        headingPenalty * headingPenalty;
+                    if (!double.IsFinite(score) ||
+                        score >= bestScore)
                     {
                         continue;
                     }
@@ -142,7 +166,7 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                         headingDegrees * Math.PI / 180d;
                     var half = headingRadians * 0.5d;
 
-                    bestDistanceSquared = distanceSquared;
+                    bestScore = score;
                     best = new OmsiPhysicalRoadAnchor(
                         gridX,
                         gridY,
@@ -897,6 +921,24 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         return NormalizeHeading(
             Math.Atan2(sinYaw, cosYaw) *
             (180d / Math.PI));
+    }
+
+    private static double RoadAxisDeltaDegrees(
+        double vehicleHeading,
+        double splineHeading)
+    {
+        var delta =
+            Math.Abs(
+                NormalizeHeading(vehicleHeading) -
+                NormalizeHeading(splineHeading));
+        if (delta > 180d)
+        {
+            delta = 360d - delta;
+        }
+
+        // Geometry has no inherent travel direction: 0° and 180° represent
+        // the same road axis for candidate selection.
+        return Math.Min(delta, Math.Abs(180d - delta));
     }
 
     private static double NormalizeHeading(double heading)
