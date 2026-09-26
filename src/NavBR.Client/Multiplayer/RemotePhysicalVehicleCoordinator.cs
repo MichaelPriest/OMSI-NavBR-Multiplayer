@@ -474,7 +474,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 targetPhysicalFrame = ApplyPhysicalRoadAnchor(
                     targetPhysicalFrame,
                     roadAnchor,
-                    alignHeadingToRoad: true);
+                    alignHeadingToRoad: false);
                 spawnFrame = targetPhysicalFrame;
                 hasRoadTarget = true;
                 NavBRAppLog.Info(
@@ -505,7 +505,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                         remoteManifest,
                         resolvedVehiclePath),
                     entrypointAnchor,
-                    alignHeadingToRoad: true);
+                    alignHeadingToRoad: false);
                 usedEntrypointBootstrap = true;
                 NavBRAppLog.Info(
                     "physical-entrypoint-fallback",
@@ -687,7 +687,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
             physicalFrame = ApplyPhysicalRoadAnchor(
                 physicalFrame,
                 updateRoadAnchor,
-                alignHeadingToRoad: true);
+                alignHeadingToRoad: false);
         }
 
         var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(

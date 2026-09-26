@@ -313,6 +313,7 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     private readonly double _phase;
     private readonly int _vehicleOrdinal;
     private readonly Func<int, VehicleTelemetry?>? _followTelemetryResolver;
+    private VehicleTelemetry? _lastFollowTelemetry;
     private readonly string? _line;
     private readonly string? _route;
     private readonly string? _destination;
@@ -501,12 +502,24 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         var mapTileIndex = _options.MapTileIndex;
         var speedKph = 22d + (_index % 5) * 6d;
 
-        // Physical simulator buses form a convoy behind the real OMSI player.
-        // Once enough live host history exists, each bus replays an older host
-        // sample, so it follows the exact turns and tile transitions instead of
-        // orbiting/cutting across terrain. During the first few seconds the
-        // probe synthesizes a safe trailing pose behind the current host.
-        if (_followTelemetryResolver?.Invoke(_vehicleOrdinal) is VehicleTelemetry follow)
+        // Physical simulator buses are a convoy behind the real OMSI player.
+        // Never fall back to the legacy orbit in --verify-physical mode: before
+        // the first live host sample, publish no physical vehicle frame at all.
+        // If SignalR briefly misses a host update later, hold the last valid
+        // trail pose instead of circling around the seed position.
+        var resolvedFollow = _followTelemetryResolver?.Invoke(_vehicleOrdinal);
+        if (resolvedFollow is not null)
+        {
+            _lastFollowTelemetry = resolvedFollow;
+        }
+
+        var follow = resolvedFollow ?? _lastFollowTelemetry;
+        if (_options.VerifyPhysical && IsVehicleBot && follow is null)
+        {
+            return;
+        }
+
+        if (follow is not null)
         {
             x = follow.X;
             y = follow.Y;
@@ -515,7 +528,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             localY = follow.LocalY ?? follow.Y;
             localZ = follow.LocalZ ?? follow.Z;
             heading = follow.HeadingDegrees;
-            speedKph = Math.Max(0d, follow.SpeedKph);
+            speedKph = resolvedFollow is null
+                ? 0d
+                : Math.Max(0d, follow.SpeedKph);
             gridX = follow.GridX;
             gridY = follow.GridY;
             physicalGridX = follow.PhysicalGridX;
