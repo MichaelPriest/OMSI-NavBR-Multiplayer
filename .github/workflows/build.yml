@@ -425,6 +425,20 @@ jobs:
             'pause'
           ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-local.cmd" -Encoding ASCII
 
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server https://omsi-navbr-multiplayer-server.onrender.com --room navbr-physical-test --players 3 --mode vehicles --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-physical-online.cmd" -Encoding ASCII
+
+          @(
+            '@echo off'
+            'cd /d "%~dp0"'
+            'NavBR.MultiplayerSimulator.exe --server http://127.0.0.1:27730 --room navbr-physical-test --players 3 --mode vehicles --verify-physical'
+            'pause'
+          ) | Set-Content -LiteralPath "artifacts/NavBR.MultiplayerSimulator/run-physical-local.cmd" -Encoding ASCII
+
       - name: Smoke-test local multiplayer simulator relay
         shell: pwsh
         run: |
