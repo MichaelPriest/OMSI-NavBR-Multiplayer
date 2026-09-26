@@ -142,10 +142,13 @@ Console.WriteLine(
         ? $" • Kachel #{tileIndex}"
         : string.Empty));
 
-var bots = Enumerable.Range(1, options.PlayerCount)
-    .Select(index => new SimulatedPlayer(index, options))
-    .ToArray();
 var probe = options.Verify ? new SimulationProbe(options) : null;
+var followResolver = probe is null
+    ? null
+    : new Func<int, VehicleTelemetry?>(probe.ResolveFollowTelemetry);
+var bots = Enumerable.Range(1, options.PlayerCount)
+    .Select(index => new SimulatedPlayer(index, options, followResolver))
+    .ToArray();
 var expectedPhysicalBots = bots
     .Where(bot => bot.IsVehicleBot)
     .Select(bot => bot.PlayerId)
@@ -308,6 +311,8 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
     private readonly string _displayName;
     private readonly HubConnection _connection;
     private readonly double _phase;
+    private readonly int _vehicleOrdinal;
+    private readonly Func<int, VehicleTelemetry?>? _followTelemetryResolver;
     private readonly string? _line;
     private readonly string? _route;
     private readonly string? _destination;
@@ -324,13 +329,20 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
         _options.Mode == SimulatorMode.Vehicles ||
         (_options.Mode == SimulatorMode.Mixed && _index % 2 != 0);
 
-    public SimulatedPlayer(int index, SimulatorOptions options)
+    public SimulatedPlayer(
+        int index,
+        SimulatorOptions options,
+        Func<int, VehicleTelemetry?>? followTelemetryResolver = null)
     {
         _index = index;
         _options = options;
+        _followTelemetryResolver = followTelemetryResolver;
         _playerId = $"sim-{index:00}-{Guid.NewGuid():N}"[..24];
         _displayName = $"{options.NamePrefix} {index:00}";
         _phase = index * Math.PI * 2d / Math.Max(1, options.PlayerCount);
+        _vehicleOrdinal = options.Mode == SimulatorMode.Mixed
+            ? (index + 1) / 2
+            : index;
 
         var hofRoute = IsVehicleBot && options.HofRoutes.Count > 0
             ? options.HofRoutes[(index - 1) % options.HofRoutes.Count]
@@ -480,7 +492,39 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             _roleplayActive = false;
         }
 
+        var gridX = _options.GridX;
+        var gridY = _options.GridY;
+        var physicalGridX = _options.PhysicalGridX;
+        var physicalGridY = _options.PhysicalGridY;
+        var tileX = OffsetTileCoordinate(_options.TileX, offsetX);
+        var tileY = OffsetTileCoordinate(_options.TileY, offsetZ);
+        var mapTileIndex = _options.MapTileIndex;
         var speedKph = 22d + (_index % 5) * 6d;
+
+        // Physical simulator buses form a convoy behind the real OMSI player.
+        // Once enough live host history exists, each bus replays an older host
+        // sample, so it follows the exact turns and tile transitions instead of
+        // orbiting/cutting across terrain. During the first few seconds the
+        // probe synthesizes a safe trailing pose behind the current host.
+        if (_followTelemetryResolver?.Invoke(_vehicleOrdinal) is VehicleTelemetry follow)
+        {
+            x = follow.X;
+            y = follow.Y;
+            z = follow.Z;
+            localX = follow.LocalX ?? follow.X;
+            localY = follow.LocalY ?? follow.Y;
+            localZ = follow.LocalZ ?? follow.Z;
+            heading = follow.HeadingDegrees;
+            speedKph = Math.Max(0d, follow.SpeedKph);
+            gridX = follow.GridX;
+            gridY = follow.GridY;
+            physicalGridX = follow.PhysicalGridX;
+            physicalGridY = follow.PhysicalGridY;
+            tileX = follow.TileX;
+            tileY = follow.TileY;
+            mapTileIndex = follow.MapTileIndex;
+        }
+
         var radians = heading * Math.PI / 180d;
         var half = radians / 2d;
 
@@ -526,10 +570,10 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             HeadingDegrees: heading,
             SpeedKph: speedKph,
             IsInGame: true,
-            GridX: _options.GridX,
-            GridY: _options.GridY,
-            TileX: OffsetTileCoordinate(_options.TileX, offsetX),
-            TileY: OffsetTileCoordinate(_options.TileY, offsetZ),
+            GridX: gridX,
+            GridY: gridY,
+            TileX: tileX,
+            TileY: tileY,
             MapCompatibilityId: _options.MapCompatibilityId,
             NextStopName: _nextStop,
             DestinationName: _destination,
@@ -548,9 +592,9 @@ internal sealed class SimulatedPlayer : IAsyncDisposable
             RotationY: Math.Sin(half),
             RotationZ: 0d,
             RotationW: Math.Cos(half),
-            MapTileIndex: _options.MapTileIndex,
-            PhysicalGridX: _options.PhysicalGridX,
-            PhysicalGridY: _options.PhysicalGridY);
+            MapTileIndex: mapTileIndex,
+            PhysicalGridX: physicalGridX,
+            PhysicalGridY: physicalGridY);
 
         await _connection.SendAsync("PublishTelemetry", telemetry, cancellationToken);
     }
@@ -611,6 +655,7 @@ internal sealed class SimulationProbe : IAsyncDisposable
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _physicalSetsByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<ReferenceTrailSample> _referenceTrail = new();
     private readonly object _sync = new();
     private readonly string _playerId = $"sim-probe-{Guid.NewGuid():N}"[..28];
 
@@ -622,6 +667,8 @@ internal sealed class SimulationProbe : IAsyncDisposable
             .Build();
 
         _connection.On<PlayerTelemetryFrame>("telemetry", frame =>
+        {
+            RecordReferenceTelemetry(frame);
             Record(
                 frame.Player.PlayerId,
                 frame.Telemetry.LocalX ?? frame.Telemetry.X,
@@ -634,7 +681,8 @@ internal sealed class SimulationProbe : IAsyncDisposable
                 frame.Telemetry.BrakePercent,
                 frame.Telemetry.FuelPercent,
                 frame.Telemetry.Lights,
-                frame.Telemetry.TurnSignal));
+                frame.Telemetry.TurnSignal);
+        });
         _connection.On<PlayerPresence>("playerPresenceChanged", RecordPresence);
         _connection.On<PlayerPresence>("playerJoined", RecordPresence);
 
@@ -672,6 +720,98 @@ internal sealed class SimulationProbe : IAsyncDisposable
         foreach (var player in snapshot.Players)
         {
             RecordPresence(player);
+        }
+    }
+
+    private void RecordReferenceTelemetry(PlayerTelemetryFrame frame)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ReferencePlayerId) ||
+            !string.Equals(
+                frame.Player.PlayerId,
+                _options.ReferencePlayerId,
+                StringComparison.OrdinalIgnoreCase) ||
+            !frame.Telemetry.IsInGame)
+        {
+            return;
+        }
+
+        var receivedAt = DateTimeOffset.UtcNow;
+        lock (_sync)
+        {
+            _referenceTrail.Add(
+                new ReferenceTrailSample(receivedAt, frame.Telemetry));
+
+            var cutoff = receivedAt - TimeSpan.FromSeconds(30);
+            var removeCount = 0;
+            while (removeCount < _referenceTrail.Count &&
+                   _referenceTrail[removeCount].ReceivedAt < cutoff)
+            {
+                removeCount++;
+            }
+
+            if (removeCount > 0)
+            {
+                _referenceTrail.RemoveRange(0, removeCount);
+            }
+        }
+    }
+
+    public VehicleTelemetry? ResolveFollowTelemetry(int vehicleOrdinal)
+    {
+        if (vehicleOrdinal <= 0)
+        {
+            vehicleOrdinal = 1;
+        }
+
+        lock (_sync)
+        {
+            if (_referenceTrail.Count == 0)
+            {
+                return null;
+            }
+
+            var latest = _referenceTrail[^1];
+            var delay = TimeSpan.FromSeconds(1.65d * vehicleOrdinal);
+            var targetTime = latest.ReceivedAt - delay;
+
+            for (var index = _referenceTrail.Count - 1; index >= 0; index--)
+            {
+                if (_referenceTrail[index].ReceivedAt <= targetTime)
+                {
+                    return _referenceTrail[index].Telemetry with
+                    {
+                        Timestamp = DateTimeOffset.UtcNow
+                    };
+                }
+            }
+
+            // Before enough trail history exists, spawn each simulator bus
+            // behind the current host heading. The client-side road-anchor
+            // resolver then snaps this bootstrap pose onto the real spline.
+            var source = latest.Telemetry;
+            var spacingMeters = 13d * vehicleOrdinal;
+            var headingRadians =
+                source.HeadingDegrees * Math.PI / 180d;
+            var offsetX =
+                -Math.Sin(headingRadians) * spacingMeters;
+            var offsetZ =
+                -Math.Cos(headingRadians) * spacingMeters;
+
+            return source with
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                X = source.X + offsetX,
+                Z = source.Z + offsetZ,
+                LocalX = (source.LocalX ?? source.X) + offsetX,
+                LocalZ = (source.LocalZ ?? source.Z) + offsetZ,
+                TileX = source.TileX is double tileX
+                    ? tileX + offsetX
+                    : source.TileX,
+                TileY = source.TileY is double tileY
+                    ? tileY + offsetZ
+                    : source.TileY,
+                SpeedKph = 0d
+            };
         }
     }
 
@@ -992,6 +1132,10 @@ internal sealed class SimulationProbe : IAsyncDisposable
             ? value
             : $"{value}/hubs/multiplayer";
     }
+
+    private sealed record ReferenceTrailSample(
+        DateTimeOffset ReceivedAt,
+        VehicleTelemetry Telemetry);
 
     private sealed record MovementSample(
         double FirstX,
