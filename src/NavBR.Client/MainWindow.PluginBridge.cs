@@ -85,7 +85,7 @@ public partial class MainWindow
         };
         parent.Children.Add(_pluginDiagnosticsStatusText);
 
-        _pluginDiagnosticsTimer = new DispatcherTimer
+        _pluginDiagnosticsTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1)
         };
