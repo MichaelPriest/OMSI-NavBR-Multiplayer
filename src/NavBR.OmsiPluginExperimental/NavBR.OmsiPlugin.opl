@@ -2,10 +2,31 @@
 NavBR.OmsiPlugin.dll
 
 [varlist]
-2
+9
 Velocity
 haltewunsch
+Cabinair_Temp
+humans_count
+schedule_active
+avl_calcdelay
+rhlib_delay
+IBIS_LinieKurs
+IBIS_Route
 
 [systemvarlist]
-1
+5
 Time
+Day
+Month
+Year
+Pause
+
+[stringvarlist]
+7
+aep_kurs
+Matrix_Nr
+IBIS_Complex_Line
+IBIS_Delay_min
+IBIS_Delay_sec
+IBIS_Delay_state
+IBIS_terminus_name

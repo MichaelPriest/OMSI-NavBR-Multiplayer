@@ -182,3 +182,8 @@ Os frames Opus usam SignalR/WebSocket nesta fase. A implementação prioriza sim
 - as setas de manobra dependem de geometria suficientemente detalhada; o NavBR prefere não mostrar seta a apresentar uma orientação falsa;
 - mapas que implementem parada funcional com uma estrutura totalmente diferente do objeto OMSI conhecido podem exigir um perfil/parser adicional;
 - o HUD e o GPS mostram jogadores remotos no NavBR, mas ainda não criam ônibus físicos remotos dentro do mundo 3D do OMSI.
+
+
+## NavBR TP/TS
+
+O módulo operacional do HUD chama-se **NavBR TP/TS**. A tecla `K` abre linha/sentido e a lista real de rotas do HOF do ônibus. `Ctrl+Alt+F6/F7/F8` controlam visibilidade, tema e tamanho do módulo. `Ctrl+Alt+H` alterna o HUD completo.

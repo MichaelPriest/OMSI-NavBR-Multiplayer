@@ -10,7 +10,7 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
 {
     private const double CanvasWidth = 1000d;
     private const double CanvasHeight = 620d;
-    private const double Padding = 42d;
+    private const double CanvasPadding = 42d;
 
     private readonly GhostReplayFrame[] _frames;
     private readonly Canvas _canvas = new();
@@ -187,8 +187,8 @@ internal sealed class GhostReplayMapPlaybackWindow : Window
         var spanX = Math.Max(1d, maxX - _minX);
         var spanZ = Math.Max(1d, maxZ - _minZ);
         _scale = Math.Min(
-            (CanvasWidth - (Padding * 2d)) / spanX,
-            (CanvasHeight - (Padding * 2d)) / spanZ);
+            (CanvasWidth - (CanvasPadding * 2d)) / spanX,
+            (CanvasHeight - (CanvasPadding * 2d)) / spanZ);
         _offsetX = (CanvasWidth - (spanX * _scale)) / 2d;
         _offsetY = (CanvasHeight - (spanZ * _scale)) / 2d;
 

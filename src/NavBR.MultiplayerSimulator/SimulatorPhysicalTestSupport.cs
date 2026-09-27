@@ -461,6 +461,11 @@ internal static class SimulatorPhysicalTestSupport
 
     private static IEnumerable<string> ReadRegistryCandidates()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return Array.Empty<string>();
+        }
+
         var results = new List<string>();
         try
         {

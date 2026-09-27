@@ -59,12 +59,23 @@ $argsList = @(
     "--room", $Room,
     "--players", "$Players",
     "--mode", $Mode,
-    "--x", $X.ToString([Globalization.CultureInfo]::InvariantCulture),
-    "--y", $Y.ToString([Globalization.CultureInfo]::InvariantCulture),
-    "--z", $Z.ToString([Globalization.CultureInfo]::InvariantCulture),
     "--radius", $Radius.ToString([Globalization.CultureInfo]::InvariantCulture),
     "--duration", "$Duration"
 )
+
+# Do not force 0,0,0 when the caller did not explicitly request a position.
+# The simulator must inherit the live OMSI host pose from room telemetry.
+$positionExplicit =
+    $PSBoundParameters.ContainsKey("X") -or
+    $PSBoundParameters.ContainsKey("Y") -or
+    $PSBoundParameters.ContainsKey("Z")
+if ($positionExplicit) {
+    $argsList += @(
+        "--x", $X.ToString([Globalization.CultureInfo]::InvariantCulture),
+        "--y", $Y.ToString([Globalization.CultureInfo]::InvariantCulture),
+        "--z", $Z.ToString([Globalization.CultureInfo]::InvariantCulture)
+    )
+}
 
 if (-not [string]::IsNullOrWhiteSpace($RoomPassword)) {
     $argsList += @("--password", $RoomPassword)
@@ -110,6 +121,7 @@ Write-Host "Room   : $Room"
 Write-Host "Players: $Players"
 Write-Host "Mode   : $Mode"
 Write-Host "Physical verify: $($VerifyPhysical.IsPresent)"
+Write-Host "Position source: $(if ($positionExplicit) { 'explicit override' } else { 'inherit live OMSI host' })"
 Write-Host ""
 Write-Host "Os jogadores simulados usam clientes SignalR reais e aparecem na Central Multiplayer."
 if ($VerifyPhysical) {

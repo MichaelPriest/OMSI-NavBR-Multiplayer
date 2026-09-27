@@ -277,6 +277,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             {
                 _lastPluginStatus = message;
             }
+            LocalOmsiOperationalSnapshotStore.Update(message);
             return;
         }
 
@@ -354,6 +355,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             _pluginComponentVersion = pluginComponentVersion;
             _connectedAtUtc = DateTimeOffset.UtcNow;
             _lastPluginStatus = null;
+            LocalOmsiOperationalSnapshotStore.Clear();
             _lastPluginCapabilities = null;
         }
 
@@ -372,6 +374,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _pluginComponentVersion = null;
                 _connectedAtUtc = null;
                 _lastPluginStatus = null;
+            LocalOmsiOperationalSnapshotStore.Clear();
                 _lastPluginCapabilities = null;
                 changed = true;
             }

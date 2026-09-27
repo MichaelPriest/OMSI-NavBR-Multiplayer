@@ -16,6 +16,21 @@ public static class PluginExports
     private static long _lastVelocityTickMs;
     private static long _lastStopRequestTickMs;
     private static long _lastOmsiWorkTickMs;
+    private static float _cabinTemperatureC = float.NaN;
+    private static int _passengerCount = -1;
+    private static int _scheduleActive = -1;
+    private static float _simulationTime = float.NaN;
+    private static int _simulationDay = -1;
+    private static int _simulationMonth = -1;
+    private static int _simulationYear = -1;
+    private static int _simulationPaused = -1;
+    private static readonly object TelematrixStringSync = new();
+    private static string? _ibisLineCourse;
+    private static string? _ibisRouteCode;
+    private static string? _ibisTerminusName;
+    private static string? _ibisDelayMinutes;
+    private static string? _ibisDelaySeconds;
+    private static string? _ibisDelayState;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(PluginStart))]
     public static void PluginStart(IntPtr owner)
@@ -31,6 +46,7 @@ public static class PluginExports
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
+            ResetTelematrixState();
             PhysicalVehicleMotionController.Clear();
             PhysicalVehicleLifecycleSupervisor.ClearManagedState();
             Log($"PluginStart owner=0x{owner.ToInt64():X} arch={RuntimeInformation.ProcessArchitecture} deployment=native-aot");
@@ -55,6 +71,7 @@ public static class PluginExports
             Volatile.Write(ref _stopRequested, 0);
             Interlocked.Exchange(ref _lastVelocityTickMs, 0);
             Interlocked.Exchange(ref _lastStopRequestTickMs, 0);
+            ResetTelematrixState();
             Log($"PluginFinalize callbacks={Interlocked.Read(ref _systemVariableCallbacks)}");
             PluginLogWriter.Stop();
         }
@@ -99,6 +116,35 @@ public static class PluginExports
                     Volatile.Write(ref _stopRequested, variableValue > 0.5f ? 1 : 0);
                     Interlocked.Exchange(ref _lastStopRequestTickMs, tick);
                     break;
+
+                // Telematrix-compatible operational fields.
+                case 2: // Cabinair_Temp
+                    if (variableValue is > -80f and < 120f)
+                    {
+                        Volatile.Write(ref _cabinTemperatureC, variableValue);
+                    }
+                    break;
+                case 3: // humans_count
+                    if (variableValue is >= 0f and <= 2000f)
+                    {
+                        Volatile.Write(ref _passengerCount, (int)MathF.Round(variableValue));
+                    }
+                    break;
+                case 4: // schedule_active
+                    Volatile.Write(ref _scheduleActive, variableValue > 0.5f ? 1 : 0);
+                    break;
+                case 7: // IBIS_LinieKurs
+                    lock (TelematrixStringSync)
+                    {
+                        _ibisLineCourse = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    break;
+                case 8: // IBIS_Route
+                    lock (TelematrixStringSync)
+                    {
+                        _ibisRouteCode = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    break;
             }
         }
         catch
@@ -121,7 +167,30 @@ public static class PluginExports
         IntPtr firstCharacterAddress,
         IntPtr writeValue)
     {
-        // Mantido para cumprir a interface esperada pelo OMSI.
+        if (firstCharacterAddress == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            var text = ReadOmsiAnsiString(firstCharacterAddress, 128);
+            lock (TelematrixStringSync)
+            {
+                switch (variableIndex)
+                {
+                    case 2: _ibisLineCourse = NullIfWhiteSpace(text); break; // IBIS_Complex_Line
+                    case 3: _ibisDelayMinutes = NullIfWhiteSpace(text); break;
+                    case 4: _ibisDelaySeconds = NullIfWhiteSpace(text); break;
+                    case 5: _ibisDelayState = NullIfWhiteSpace(text); break;
+                    case 6: _ibisTerminusName = NullIfWhiteSpace(text); break;
+                }
+            }
+        }
+        catch
+        {
+            // Optional bus string variables must never affect OMSI.
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) }, EntryPoint = nameof(AccessSystemVariable))]
@@ -133,6 +202,39 @@ public static class PluginExports
         try
         {
             Interlocked.Increment(ref _systemVariableCallbacks);
+
+            if (value != IntPtr.Zero)
+            {
+                try
+                {
+                    var systemValue =
+                        BitConverter.Int32BitsToSingle(Marshal.ReadInt32(value));
+                    if (float.IsFinite(systemValue))
+                    {
+                        switch (variableIndex)
+                        {
+                            case 0:
+                                Volatile.Write(ref _simulationTime, systemValue);
+                                break;
+                            case 1:
+                                Volatile.Write(ref _simulationDay, (int)MathF.Round(systemValue));
+                                break;
+                            case 2:
+                                Volatile.Write(ref _simulationMonth, (int)MathF.Round(systemValue));
+                                break;
+                            case 3:
+                                Volatile.Write(ref _simulationYear, (int)MathF.Round(systemValue));
+                                break;
+                            case 4:
+                                Volatile.Write(ref _simulationPaused, systemValue > 0.5f ? 1 : 0);
+                                break;
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
 
             // AccessSystemVariable can be called several times inside one OMSI
             // render/update frame. Never drain the command queue on every
@@ -196,12 +298,51 @@ public static class PluginExports
                     ? Volatile.Read(ref _stopRequested) != 0
                     : null;
 
+                string? ibisLineCourse;
+                string? ibisRouteCode;
+                string? ibisTerminusName;
+                string? ibisDelayMinutes;
+                string? ibisDelaySeconds;
+                string? ibisDelayState;
+                lock (TelematrixStringSync)
+                {
+                    ibisLineCourse = _ibisLineCourse;
+                    ibisRouteCode = _ibisRouteCode;
+                    ibisTerminusName = _ibisTerminusName;
+                    ibisDelayMinutes = _ibisDelayMinutes;
+                    ibisDelaySeconds = _ibisDelaySeconds;
+                    ibisDelayState = _ibisDelayState;
+                }
+
+                var cabinTemperature = Volatile.Read(ref _cabinTemperatureC);
+                var passengers = Volatile.Read(ref _passengerCount);
+                var schedule = Volatile.Read(ref _scheduleActive);
+                var simulationTime = Volatile.Read(ref _simulationTime);
+                var simulationDay = Volatile.Read(ref _simulationDay);
+                var simulationMonth = Volatile.Read(ref _simulationMonth);
+                var simulationYear = Volatile.Read(ref _simulationYear);
+                var simulationPaused = Volatile.Read(ref _simulationPaused);
+
                 PluginBridgeClient.ReportRuntimeStatus(
                     Interlocked.Read(ref _systemVariableCallbacks),
                     variableIndex,
                     staleRemoved,
                     speedKph,
-                    stopRequested);
+                    stopRequested,
+                    float.IsFinite(cabinTemperature) ? cabinTemperature : null,
+                    passengers >= 0 ? passengers : null,
+                    schedule >= 0 ? schedule != 0 : null,
+                    float.IsFinite(simulationTime) ? simulationTime : null,
+                    simulationDay > 0 ? simulationDay : null,
+                    simulationMonth > 0 ? simulationMonth : null,
+                    simulationYear > 0 ? simulationYear : null,
+                    simulationPaused >= 0 ? simulationPaused != 0 : null,
+                    ibisLineCourse,
+                    ibisRouteCode,
+                    ibisTerminusName,
+                    ibisDelayMinutes,
+                    ibisDelaySeconds,
+                    ibisDelayState);
             }
 
             // Keep the verbose file heartbeat sparse. Hardware/status delivery is
@@ -279,6 +420,48 @@ public static class PluginExports
             Log($"AccessSystemVariable erro: {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    private static void ResetTelematrixState()
+    {
+        Volatile.Write(ref _cabinTemperatureC, float.NaN);
+        Volatile.Write(ref _passengerCount, -1);
+        Volatile.Write(ref _scheduleActive, -1);
+        Volatile.Write(ref _simulationTime, float.NaN);
+        Volatile.Write(ref _simulationDay, -1);
+        Volatile.Write(ref _simulationMonth, -1);
+        Volatile.Write(ref _simulationYear, -1);
+        Volatile.Write(ref _simulationPaused, -1);
+        lock (TelematrixStringSync)
+        {
+            _ibisLineCourse = null;
+            _ibisRouteCode = null;
+            _ibisTerminusName = null;
+            _ibisDelayMinutes = null;
+            _ibisDelaySeconds = null;
+            _ibisDelayState = null;
+        }
+    }
+
+    private static string ReadOmsiAnsiString(IntPtr address, int maxChars)
+    {
+        var bytes = new List<byte>(Math.Min(maxChars, 128));
+        for (var index = 0; index < maxChars; index++)
+        {
+            var value = Marshal.ReadByte(address, index);
+            if (value == 0)
+            {
+                break;
+            }
+            bytes.Add(value);
+        }
+
+        return bytes.Count == 0
+            ? string.Empty
+            : System.Text.Encoding.Latin1.GetString(bytes.ToArray()).Trim();
+    }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static bool TryAcquireOmsiWorkSlot(long nowTick, long minimumIntervalMs)
     {

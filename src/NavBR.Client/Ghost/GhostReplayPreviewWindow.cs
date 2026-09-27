@@ -9,7 +9,7 @@ internal sealed class GhostReplayPreviewWindow : Window
 {
     private const double CanvasWidth = 1000d;
     private const double CanvasHeight = 620d;
-    private const double Padding = 42d;
+    private const double CanvasPadding = 42d;
 
     private readonly GhostReplayDocument _document;
     private readonly string _sourcePath;
@@ -218,8 +218,8 @@ internal sealed class GhostReplayPreviewWindow : Window
         var spanX = Math.Max(1d, maxX - minX);
         var spanZ = Math.Max(1d, maxZ - minZ);
 
-        var drawableWidth = CanvasWidth - (Padding * 2d);
-        var drawableHeight = CanvasHeight - (Padding * 2d);
+        var drawableWidth = CanvasWidth - (CanvasPadding * 2d);
+        var drawableHeight = CanvasHeight - (CanvasPadding * 2d);
         var scale = Math.Min(drawableWidth / spanX, drawableHeight / spanZ);
         var routeWidth = spanX * scale;
         var routeHeight = spanZ * scale;

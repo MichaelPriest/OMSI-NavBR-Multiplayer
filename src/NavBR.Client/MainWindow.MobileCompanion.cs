@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Mobile;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -48,6 +49,15 @@ public partial class MainWindow
                 PluginBridgeProtocol.CapabilityLocalVehicleTrigger) == true;
         var localVehicleControlsEnabled =
             ExperimentalFeatureFlags.MobileVehicleControlsEnabled;
+        var operational =
+            LocalOmsiOperationalSnapshotStore.Latest;
+        var operationalFresh =
+            operational is not null &&
+            DateTimeOffset.UtcNow - operational.CapturedAtUtc <=
+                TimeSpan.FromSeconds(2);
+        var hudSettings = MultiplayerSettingsStore.Load();
+        var navBrTpTsRoutes =
+            OmsiHofRouteCatalog.Resolve(telemetry);
 
         var detectedVehicleEvents = telemetry is null
             ? Array.Empty<string>()
@@ -109,7 +119,7 @@ public partial class MainWindow
         return new
         {
             schema = "navbr-mobile-state",
-            version = 2,
+            version = 3,
             generatedAtUtc = DateTimeOffset.UtcNow,
             omsi = new
             {
@@ -122,6 +132,73 @@ public partial class MainWindow
                 connected = plugin?.IsConnected == true,
                 version = plugin?.PluginComponentVersion,
                 capabilities
+            },
+            hud = new
+            {
+                enabled = hudSettings.HudEnabled,
+                navBrTpTsEnabled = hudSettings.TelematrixWidgetEnabled,
+                navBrTpTsTheme = hudSettings.TelematrixTheme,
+                navBrTpTsSize = hudSettings.TelematrixSize,
+                navBrTpTsAutoDirection = hudSettings.TelematrixAutoDirection,
+                navBrTpTsManualLine = hudSettings.TelematrixManualLine,
+                navBrTpTsManualDirection = hudSettings.TelematrixManualDirection
+            },
+            operation = new
+            {
+                available = operationalFresh,
+                capturedAtUtc = operationalFresh
+                    ? operational?.CapturedAtUtc
+                    : null,
+                cabinTemperatureC = operationalFresh
+                    ? operational?.CabinTemperatureC
+                    : null,
+                passengerCount = operationalFresh
+                    ? operational?.PassengerCount
+                    : null,
+                scheduleActive = operationalFresh
+                    ? operational?.ScheduleActive
+                    : null,
+                simulationTime = operationalFresh
+                    ? operational?.SimulationTime
+                    : null,
+                simulationDay = operationalFresh
+                    ? operational?.SimulationDay
+                    : null,
+                simulationMonth = operationalFresh
+                    ? operational?.SimulationMonth
+                    : null,
+                simulationYear = operationalFresh
+                    ? operational?.SimulationYear
+                    : null,
+                simulationPaused = operationalFresh
+                    ? operational?.SimulationPaused
+                    : null,
+                ibisLineCourse = operationalFresh
+                    ? operational?.IbisLineCourse
+                    : null,
+                ibisRouteCode = operationalFresh
+                    ? operational?.IbisRouteCode
+                    : null,
+                ibisTerminusName = operationalFresh
+                    ? operational?.IbisTerminusName
+                    : null,
+                ibisDelayMinutes = operationalFresh
+                    ? operational?.IbisDelayMinutes
+                    : null,
+                ibisDelaySeconds = operationalFresh
+                    ? operational?.IbisDelaySeconds
+                    : null,
+                ibisDelayState = operationalFresh
+                    ? operational?.IbisDelayState
+                    : null,
+                hofRoutes = navBrTpTsRoutes.Select(route => new
+                {
+                    route.Line,
+                    route.Route,
+                    route.Description,
+                    route.DestinationCode,
+                    route.HofFile
+                }).ToArray()
             },
             vehicle,
             vehicleControls = new
@@ -220,6 +297,62 @@ public partial class MainWindow
 
                 ApplyMobilePttLease(command.Active == true);
                 return MobileCommandResult(true, action);
+
+            case "hud-enabled":
+            {
+                var enabled = command.Enabled == true;
+                var current = MultiplayerSettingsStore.Load();
+                MultiplayerSettingsStore.Save(
+                    current with
+                    {
+                        HudVisibilitySettingsVersion = 1,
+                        HudEnabled = enabled
+                    });
+                var hud = EnsureHudOverlay();
+                hud.SetHudEnabled(enabled);
+                return MobileCommandResult(true, action);
+            }
+
+            case "navbr-tpts-configure":
+            case "telematrix-configure":
+            {
+                var current = MultiplayerSettingsStore.Load();
+                var theme = command.Theme is int requestedTheme
+                    ? Math.Clamp(requestedTheme, 0, 2)
+                    : current.TelematrixTheme;
+                var size = command.Size is int requestedSize
+                    ? Math.Clamp(requestedSize, 0, 2)
+                    : current.TelematrixSize;
+                var direction =
+                    string.Equals(
+                        command.Direction,
+                        "TS",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "TS"
+                        : "TP";
+
+                MultiplayerSettingsStore.Save(
+                    current with
+                    {
+                        TelematrixWidgetEnabled =
+                            command.Enabled ?? current.TelematrixWidgetEnabled,
+                        TelematrixTheme = theme,
+                        TelematrixSize = size,
+                        TelematrixAutoDirection =
+                            command.AutoDirection ??
+                            current.TelematrixAutoDirection,
+                        TelematrixManualLine =
+                            string.IsNullOrWhiteSpace(command.Line)
+                                ? current.TelematrixManualLine
+                                : command.Line.Trim(),
+                        TelematrixManualDirection =
+                            string.IsNullOrWhiteSpace(command.Direction)
+                                ? current.TelematrixManualDirection
+                                : direction
+                    });
+                _ = EnsureHudOverlay();
+                return MobileCommandResult(true, action);
+            }
 
             case "vehicle-trigger":
                 return await ExecuteMobileVehicleTriggerAsync(command, action);

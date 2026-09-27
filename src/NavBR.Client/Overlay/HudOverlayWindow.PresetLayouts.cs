@@ -141,9 +141,9 @@ public partial class HudOverlayWindow
             _alpha12NextStopText.FontSize = 14.5d;
         }
 
-        _busDashboardDock.CornerRadius = new CornerRadius(18d);
-        _busDashboardDock.BorderThickness = new Thickness(1.2d);
-        _busDashboardDock.Padding = new Thickness(10d);
+        _busDashboardDock!.CornerRadius = new CornerRadius(18d);
+        _busDashboardDock!.BorderThickness = new Thickness(1.2d);
+        _busDashboardDock!.Padding = new Thickness(10d);
     }
 
     private void ApplyImmersiveOperationPreset()
@@ -179,11 +179,11 @@ public partial class HudOverlayWindow
             _alpha12NextStopText.FontWeight = FontWeights.SemiBold;
         }
 
-        _busDashboardDock.CornerRadius = new CornerRadius(13d);
-        _busDashboardDock.BorderThickness = new Thickness(1d);
-        _busDashboardDock.Padding = new Thickness(10d, 8d, 10d, 8d);
-        _busDashboardDock.Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 24));
-        _busDashboardDock.BorderBrush = new SolidColorBrush(Color.FromArgb(145, 61, 139, 194));
+        _busDashboardDock!.CornerRadius = new CornerRadius(13d);
+        _busDashboardDock!.BorderThickness = new Thickness(1d);
+        _busDashboardDock!.Padding = new Thickness(10d, 8d, 10d, 8d);
+        _busDashboardDock!.Background = new SolidColorBrush(Color.FromArgb(220, 4, 15, 24));
+        _busDashboardDock!.BorderBrush = new SolidColorBrush(Color.FromArgb(145, 61, 139, 194));
     }
 
     private void ApplyCompactPreset()
@@ -200,8 +200,8 @@ public partial class HudOverlayWindow
         }
         if (_alpha12DestinationText is not null) _alpha12DestinationText.FontSize = 14d;
         if (_alpha12NextStopText is not null) _alpha12NextStopText.FontSize = 11.5d;
-        _busDashboardDock.CornerRadius = new CornerRadius(13d);
-        _busDashboardDock.Padding = new Thickness(7d);
+        _busDashboardDock!.CornerRadius = new CornerRadius(13d);
+        _busDashboardDock!.Padding = new Thickness(7d);
     }
 
     private void ApplyNormalPreset()
@@ -238,8 +238,8 @@ public partial class HudOverlayWindow
         {
             _dashboardAccelerationText.FontSize = 8.5d;
         }
-        _busDashboardDock.CornerRadius = new CornerRadius(24d);
-        _busDashboardDock.BorderThickness = new Thickness(1.5d);
+        _busDashboardDock!.CornerRadius = new CornerRadius(24d);
+        _busDashboardDock!.BorderThickness = new Thickness(1.5d);
     }
 
     private void ApplyLcdAmberPreset()
@@ -270,8 +270,8 @@ public partial class HudOverlayWindow
             _presetSpeedPanel.BorderThickness = new Thickness(1d);
             _presetSpeedPanel.Background = new SolidColorBrush(Color.FromRgb(13, 8, 2));
         }
-        _busDashboardDock.CornerRadius = new CornerRadius(5d);
-        _busDashboardDock.BorderBrush = new SolidColorBrush(Color.FromRgb(112, 68, 15));
+        _busDashboardDock!.CornerRadius = new CornerRadius(5d);
+        _busDashboardDock!.BorderBrush = new SolidColorBrush(Color.FromRgb(112, 68, 15));
     }
 
     private void ApplyTransparentPreset()
@@ -283,9 +283,9 @@ public partial class HudOverlayWindow
             _presetSpeedPanel.BorderBrush = new SolidColorBrush(Color.FromArgb(92, 79, 174, 235));
             _presetSpeedPanel.BorderThickness = new Thickness(1d);
         }
-        _busDashboardDock.Background = new SolidColorBrush(Color.FromArgb(105, 4, 20, 31));
-        _busDashboardDock.BorderBrush = new SolidColorBrush(Color.FromArgb(118, 87, 181, 239));
-        _busDashboardDock.BorderThickness = new Thickness(1d);
-        _busDashboardDock.CornerRadius = new CornerRadius(20d);
+        _busDashboardDock!.Background = new SolidColorBrush(Color.FromArgb(105, 4, 20, 31));
+        _busDashboardDock!.BorderBrush = new SolidColorBrush(Color.FromArgb(118, 87, 181, 239));
+        _busDashboardDock!.BorderThickness = new Thickness(1d);
+        _busDashboardDock!.CornerRadius = new CornerRadius(20d);
     }
 }
