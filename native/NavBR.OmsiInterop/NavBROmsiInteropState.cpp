@@ -1410,6 +1410,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePathDiagnostic
     int* wasCalculated,
     int* needPreCalc,
     int* onLoadedKachel,
+    int* pai,
     int* vehType,
     int* freeOrLarge,
     float* pathX,
@@ -1433,6 +1434,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePathDiagnostic
         wasCalculated == nullptr ||
         needPreCalc == nullptr ||
         onLoadedKachel == nullptr ||
+        pai == nullptr ||
         vehType == nullptr ||
         freeOrLarge == nullptr ||
         pathX == nullptr ||
@@ -1460,6 +1462,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePathDiagnostic
         !IsReadableRange(base + RoadVehicleWasCalculatedOffset, sizeof(unsigned char)) ||
         !IsReadableRange(base + RoadVehiclePhysicsNeedPreCalcOffset, sizeof(unsigned char)) ||
         !IsReadableRange(base + RoadVehicleOnLoadedKachelOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + PaiOffset, sizeof(unsigned char)) ||
         !IsReadableRange(pathBase, PathInfoSize) ||
         !IsReadableRange(base + PaiMovingDistanceOffset, sizeof(float)))
     {
@@ -1477,6 +1480,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePathDiagnostic
         *reinterpret_cast<const unsigned char*>(base + RoadVehiclePhysicsNeedPreCalcOffset) != 0 ? 1 : 0;
     *onLoadedKachel =
         *reinterpret_cast<const unsigned char*>(base + RoadVehicleOnLoadedKachelOffset) != 0 ? 1 : 0;
+    *pai =
+        *reinterpret_cast<const unsigned char*>(base + PaiOffset) != 0 ? 1 : 0;
     *vehType =
         static_cast<int>(*reinterpret_cast<const unsigned char*>(pathBase + PathInfoVehTypeOffset));
     *freeOrLarge =
