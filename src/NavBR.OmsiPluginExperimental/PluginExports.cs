@@ -203,6 +203,15 @@ public static class PluginExports
         {
             Interlocked.Increment(ref _systemVariableCallbacks);
 
+            // System variable 0 is requested once in the normal OMSI plugin
+            // callback cycle. Reassert remote RoadVehicle ownership here,
+            // outside the interpolation/work throttle, so an active simulation
+            // frame cannot reclaim a settled NavBR vehicle between pose writes.
+            if (variableIndex == 0)
+            {
+                PhysicalVehicleMotionController.MaintainExternalControl();
+            }
+
             if (value != IntPtr.Zero)
             {
                 try
