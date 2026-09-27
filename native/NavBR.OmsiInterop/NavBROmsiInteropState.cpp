@@ -2666,11 +2666,11 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         }
     }
 
-    const Vec3 accelerationLocal{
-        networkVelocity.x - previousVelocity.x,
-        networkVelocity.y - previousVelocity.y,
-        networkVelocity.z - previousVelocity.z
-    };
+    // The historical multiplayer prototype copied Acc_Local from the source
+    // player. NavBR does not transmit that local-space vector yet, so do not
+    // synthesize it from world-space deltas. Zero is safer than stale/wrong
+    // acceleration feeding OMSI's active RoadVehicle calculation.
+    const Vec3 accelerationLocal{};
 
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
     if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
