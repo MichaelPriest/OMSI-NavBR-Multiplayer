@@ -1117,7 +1117,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 15;
+    return 16;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -2145,11 +2145,61 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     {
         if (!WriteValue(vehiclePointer, KachelOffset, mapTilePointer)) return FailVehicleTransform(24);
         if (!WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled)) return FailVehicleTransform(25);
-        if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, disabled)) return FailVehicleTransform(26);
-        if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, enabled)) return FailVehicleTransform(27);
     }
 
+    // NavBR owns this remote RoadVehicle's world transform. Leaving
+    // WasCalculated=false / PH_NeedPreCalc=true hands it back to OMSI's
+    // RoadVehicle calculation later in the active frame, which can overwrite
+    // the network pose. Mark the externally supplied state as complete instead.
+    if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled)) return FailVehicleTransform(26);
+    if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
+
     InterlockedExchange(&LastVehicleTransformFailureStage, 0);
+    return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalControl(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    const unsigned char disabled = 0;
+    const unsigned char enabled = 1;
+    if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
+        !WriteByte(vehiclePointer, PaiOffset, disabled) ||
+        !WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled) ||
+        !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled))
+    {
+        return 0;
+    }
+
+    // Keep the loaded-tile marker coherent whenever the owned RoadVehicle
+    // already has a live Kachel. Do not invent or replace PathInfo here.
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (IsReadableRange(base + KachelOffset, sizeof(int)))
+    {
+        const int tilePointer =
+            *reinterpret_cast<const int*>(base + KachelOffset);
+        if (tilePointer != 0 &&
+            !WriteByte(
+                vehiclePointer,
+                RoadVehicleOnLoadedKachelOffset,
+                enabled))
+        {
+            return 0;
+        }
+    }
+
     return 1;
 }
 
