@@ -568,6 +568,8 @@ internal static class PhysicalVehicleBackend
             return Fail(command, "instance-registry-full", "Could not register the newly created NavBR vehicle safely.");
         }
 
+        LogRoadVehiclePathState("spawn-before-transform", instanceId, vehiclePointer);
+
         // Position the exact MakeVehicle result on the real loaded Kachel
         // before demanding a complete render model. Some OMSI vehicle add-ons
         // finish attaching ComplObj/model state on the callback after the temp
@@ -600,8 +602,33 @@ internal static class PhysicalVehicleBackend
             return applied;
         }
 
+        LogRoadVehiclePathState("spawn-after-transform", instanceId, vehiclePointer);
+
         return GetMaterializationPendingResult(command, instance)
             ?? applied;
+    }
+
+    private static void LogRoadVehiclePathState(
+        string stage,
+        string instanceId,
+        int vehiclePointer)
+    {
+        if (!OmsiNativeInterop.TryReadRoadVehiclePathDiagnostics(
+                vehiclePointer,
+                out var path))
+        {
+            PluginLogWriter.Enqueue(
+                $"physical-path-state stage={stage} id={instanceId} pointer={FormatPointer(vehiclePointer)} unavailable=1");
+            return;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-path-state stage={stage} id={instanceId} pointer={FormatPointer(vehiclePointer)} " +
+            $"pathFixed={path.PathFixed} pai={path.Pai} calc={path.WasCalculated} preCalc={path.NeedPreCalc} " +
+            $"loadedTile={path.OnLoadedKachel} path={path.PathKachel}:{path.PathIndex}:{path.SubPath} " +
+            $"reverse={path.Reverse} pathPos={path.PathX:F2},{path.PathY:F2},{path.PathZ:F2} " +
+            $"pathVel={path.Velocity:F2} moving={path.PaiMovingDistance:F2} " +
+            $"track={path.Track}:{path.TrackEntry} crossing={path.OnCrossing}");
     }
 
     private static PluginBridgeMessage? GetMaterializationPendingResult(
