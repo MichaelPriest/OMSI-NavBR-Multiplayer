@@ -120,3 +120,36 @@ Reporte:
 - se houve crash ou queda de FPS.
 
 Checklist público: [ALPHA14_COMMUNITY.md](ALPHA14_COMMUNITY.md).
+
+
+## NavBR TP/TS
+
+O **NavBR TP/TS** é o painel operacional integrado ao HUD. Ele substitui a nomenclatura de desenvolvimento usada anteriormente e pertence ao próprio NavBR.
+
+Recursos disponíveis:
+
+- tecla **K** abre a configuração de operação;
+- linha em modo automático ou manual;
+- seleção manual de **TP (Terminal Primário)** ou **TS (Terminal Secundário)**;
+- leitura de linha/curso, terminal e atraso quando o ônibus publica os dados IBIS;
+- hora/data da simulação, temperatura interna, passageiros, velocidade e estado do horário quando essas variáveis existem no veículo;
+- **lista real de rotas carregada do arquivo HOF do ônibus atual**;
+- a lista HOF mostra linha, código de rota e destino/descrição;
+- `Ctrl+Alt+F6`: mostrar/ocultar o NavBR TP/TS;
+- `Ctrl+Alt+F7`: alternar o tema;
+- `Ctrl+Alt+F8`: alternar o tamanho;
+- `Ctrl+Alt+H`: mostrar/ocultar o HUD completo.
+
+O NavBR TP/TS não inventa rotas. Se o ônibus não tiver um HOF compatível carregado ou se o HOF não contiver blocos `[infosystem_trip]`, a lista permanece vazia e o painel informa que está aguardando dados.
+
+### Ônibus simulados e permanência na pista
+
+O teste físico não usa mais uma órbita artificial. Os ônibus simulados seguem a trilha real do ônibus local com espaçamento por distância percorrida.
+
+Para mantê-los na malha viária, o NavBR agora prioriza:
+
+1. **paths de veículos (`[path]` tipo 0) definidos nas splines `.sli`**, incluindo o offset lateral real da faixa;
+2. paths dos objetos de cruzamento/interseção;
+3. somente quando um asset não possui path dirigível, o centro geométrico da spline pode ser usado como fallback.
+
+O ônibus simulado só é materializado quando existe uma âncora de via confiável próxima. Se o path ficar temporariamente indisponível, ele mantém a última pose física válida em vez de circular, teleportar ou ser recriado.

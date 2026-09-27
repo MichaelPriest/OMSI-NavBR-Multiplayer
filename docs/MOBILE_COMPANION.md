@@ -189,3 +189,17 @@ Esses comandos alteram somente preferências do NavBR no PC. Eles não escrevem 
 ### Multiplayer no mobile
 
 O mapa de sessão usa o mesmo conceito visual dos novos HUDs desktop: marcador vetorial com aro, halo, ponteiro de direção e nome do jogador. O estado de ônibus físico remoto continua vindo da Central Multiplayer real.
+
+
+### Rotas HOF no NavBR TP/TS
+
+A aba **Operação** recebe do PC a lista real de rotas do HOF localizado na pasta do ônibus carregado. O NavBR prioriza o HOF informado pela telemetria do OMSI e, quando necessário, usa o mapa atual para escolher o arquivo mais provável.
+
+Cada rota exibida contém:
+
+- linha;
+- código de rota;
+- descrição/destino;
+- arquivo HOF de origem.
+
+Tocar em uma rota prepara a linha para o modo manual do NavBR TP/TS. O celular não cria rotas inexistentes e não substitui o HOF do ônibus.
