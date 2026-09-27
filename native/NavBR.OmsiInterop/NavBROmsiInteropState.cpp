@@ -166,6 +166,8 @@ namespace
         void (__cdecl *)(void*);
     using OdeBodyIsEnabledFn =
         int (__cdecl *)(void*);
+    using OdeBodyGetPositionFn =
+        const float* (__cdecl *)(void*);
 
     struct OdeApi
     {
@@ -176,6 +178,7 @@ namespace
         OdeBodySetVelocityFn setAngularVelocity = nullptr;
         OdeBodyDisableFn disable = nullptr;
         OdeBodyIsEnabledFn isEnabled = nullptr;
+        OdeBodyGetPositionFn getPosition = nullptr;
     };
 
     FARPROC ResolveOdeProc(HMODULE module, const char* name, const char* decorated)
@@ -221,6 +224,9 @@ namespace
         api.isEnabled =
             reinterpret_cast<OdeBodyIsEnabledFn>(
                 ResolveOdeProc(module, "dBodyIsEnabled", "_dBodyIsEnabled"));
+        api.getPosition =
+            reinterpret_cast<OdeBodyGetPositionFn>(
+                ResolveOdeProc(module, "dBodyGetPosition", "_dBodyGetPosition"));
         return api;
     }
 
@@ -232,7 +238,7 @@ namespace
     // 4 = PH_Body pointer unreadable.
     int SyncExternalPhysicsBody(
         int vehiclePointer,
-        const Vec3* worldPosition,
+        const Vec3* localPosition,
         const Quaternion* rotation,
         bool* wasEnabledBeforeSync = nullptr)
     {
@@ -289,7 +295,7 @@ namespace
             *wasEnabledBeforeSync = ode.isEnabled(body) != 0;
         }
 
-        if (worldPosition != nullptr && rotation != nullptr)
+        if (localPosition != nullptr && rotation != nullptr)
         {
             const float odeQuaternion[4] = {
                 rotation->w,
@@ -297,11 +303,15 @@ namespace
                 rotation->y,
                 rotation->z
             };
+            // OMSI's PH_Body follows the same local Kachel coordinate frame
+            // as OmsiMapObjInst.Position. AbsolutePosition is render/world space
+            // and feeding it into ODE makes the active physics pass move the
+            // vehicle to a different location as soon as simulation resumes.
             ode.setPosition(
                 body,
-                worldPosition->x,
-                worldPosition->y,
-                worldPosition->z);
+                localPosition->x,
+                localPosition->y,
+                localPosition->z);
             ode.setQuaternion(body, odeQuaternion);
         }
 
@@ -1310,7 +1320,63 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 18;
+    return 19;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
+    int vehiclePointer,
+    float* bodyX,
+    float* bodyY,
+    float* bodyZ,
+    int* enabled)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        bodyX == nullptr ||
+        bodyY == nullptr ||
+        bodyZ == nullptr ||
+        enabled == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + PhysicsBodyOffset, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int bodyPointer =
+        *reinterpret_cast<const int*>(base + PhysicsBodyOffset);
+    if (bodyPointer == 0)
+    {
+        return 0;
+    }
+
+    auto& ode = GetOdeApi();
+    if (ode.module == nullptr || ode.getPosition == nullptr)
+    {
+        return 0;
+    }
+
+    auto* body = reinterpret_cast<void*>(
+        static_cast<std::uintptr_t>(bodyPointer));
+    const float* position = ode.getPosition(body);
+    if (position == nullptr ||
+        !std::isfinite(position[0]) ||
+        !std::isfinite(position[1]) ||
+        !std::isfinite(position[2]))
+    {
+        return 0;
+    }
+
+    *bodyX = position[0];
+    *bodyY = position[1];
+    *bodyZ = position[2];
+    *enabled =
+        ode.isEnabled != nullptr && ode.isEnabled(body) != 0
+            ? 1
+            : 0;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehiclePhysicsSyncStatus()
@@ -2452,7 +2518,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     // ODE can otherwise integrate the RoadVehicle body and overwrite them.
     (void)SyncExternalPhysicsBody(
         vehiclePointer,
-        &worldPosition,
+        &position,
         &rotation);
     if (effectiveTilePointer != 0 &&
         !WriteValue(
