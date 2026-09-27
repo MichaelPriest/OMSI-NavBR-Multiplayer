@@ -45,7 +45,7 @@
                 Effect="{StaticResource HudShadow}">
             <StackPanel>
                 <DockPanel>
-                    <TextBlock Text="TELEMATRIX • CONFIGURAR OPERAÇÃO"
+                    <TextBlock Text="NAVBR TP/TS • CONFIGURAR OPERAÇÃO"
                                Foreground="#FF69E6C0"
                                FontSize="13"
                                FontWeight="Bold" />
@@ -99,6 +99,25 @@
                         </StackPanel>
                     </StackPanel>
                 </Grid>
+
+                <StackPanel Margin="0,14,0,0">
+                    <TextBlock Text="ROTAS DO HOF DO ÔNIBUS"
+                               Foreground="#AFFFFFFF"
+                               FontSize="9"
+                               FontWeight="Bold" />
+                    <ComboBox x:Name="NavBrTpTsRouteCombo"
+                              Margin="0,5,0,0"
+                              Height="38"
+                              Padding="8,4"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="NavBrTpTsRouteCombo_SelectionChanged" />
+                    <TextBlock x:Name="NavBrTpTsRouteInfoText"
+                               Margin="0,4,0,0"
+                               Text="Aguardando HOF do ônibus carregado..."
+                               Foreground="#8FFFFFFF"
+                               FontSize="9"
+                               TextWrapping="Wrap" />
+                </StackPanel>
 
                 <CheckBox x:Name="TelematrixAutoDirectionCheck"
                           Margin="0,14,0,0"
@@ -338,7 +357,7 @@
 
                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                         <TextBlock x:Name="TelematrixBrandText"
-                                   Text="NAVBR • OPERAÇÃO"
+                                   Text="NAVBR TP/TS"
                                    Foreground="#FF69E6C0"
                                    FontSize="9"
                                    FontWeight="Bold" />

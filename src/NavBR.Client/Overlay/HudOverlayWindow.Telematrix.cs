@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginBridge;
 
 namespace NavBR.Client.Overlay;
@@ -16,6 +17,8 @@ public partial class HudOverlayWindow
     private string? _telematrixCandidateTerminus;
     private DateTimeOffset _telematrixCandidateSinceUtc = DateTimeOffset.MinValue;
     private string _telematrixDirection = "?";
+    private IReadOnlyList<NavBrTpTsHofRoute> _navBrTpTsHofRoutes =
+        Array.Empty<NavBrTpTsHofRoute>();
 
     private void RefreshTelematrixPanel()
     {
@@ -210,6 +213,8 @@ public partial class HudOverlayWindow
         TelematrixAutoDirectionCheck.IsChecked =
             settings.TelematrixAutoDirection;
 
+        RefreshNavBrTpTsHofRoutes();
+
         _chatInteractive = true;
         TelematrixConfigPanel.Visibility = Visibility.Visible;
         SetInteractive(true);
@@ -217,6 +222,69 @@ public partial class HudOverlayWindow
         Activate();
         TelematrixConfigLineBox.Focus();
         TelematrixConfigLineBox.SelectAll();
+    }
+
+    private void RefreshNavBrTpTsHofRoutes()
+    {
+        _navBrTpTsHofRoutes =
+            OmsiHofRouteCatalog.Resolve(_localTelemetry);
+
+        NavBrTpTsRouteCombo.ItemsSource = _navBrTpTsHofRoutes;
+        if (_navBrTpTsHofRoutes.Count == 0)
+        {
+            NavBrTpTsRouteCombo.SelectedIndex = -1;
+            NavBrTpTsRouteInfoText.Text =
+                string.IsNullOrWhiteSpace(_localTelemetry?.VehiclePath)
+                    ? "Aguardando ônibus carregado para localizar o HOF."
+                    : "Nenhuma rota [infosystem_trip] foi encontrada no HOF do ônibus.";
+            return;
+        }
+
+        NavBrTpTsRouteInfoText.Text =
+            $"{_navBrTpTsHofRoutes.Count} rota(s) carregada(s) de {_navBrTpTsHofRoutes[0].HofFile}.";
+
+        var currentLine =
+            NormalizeTelematrixText(TelematrixConfigLineBox.Text);
+        var currentRoute =
+            NormalizeTelematrixText(_localTelemetry?.Route);
+
+        var selected = _navBrTpTsHofRoutes
+            .FirstOrDefault(route =>
+                string.Equals(
+                    route.Line,
+                    currentLine,
+                    StringComparison.OrdinalIgnoreCase) &&
+                (currentRoute is null ||
+                 string.Equals(
+                     route.Route,
+                     currentRoute,
+                     StringComparison.OrdinalIgnoreCase)))
+            ?? _navBrTpTsHofRoutes
+                .FirstOrDefault(route =>
+                    string.Equals(
+                        route.Line,
+                        currentLine,
+                        StringComparison.OrdinalIgnoreCase));
+
+        NavBrTpTsRouteCombo.SelectedItem = selected;
+    }
+
+    private void NavBrTpTsRouteCombo_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (NavBrTpTsRouteCombo.SelectedItem is not
+            NavBrTpTsHofRoute route)
+        {
+            return;
+        }
+
+        TelematrixConfigLineBox.Text = route.Line;
+        NavBrTpTsRouteInfoText.Text =
+            $"{route.HofFile} • linha {route.Line} • rota {route.Route}" +
+            (string.IsNullOrWhiteSpace(route.Description)
+                ? string.Empty
+                : $" • {route.Description}");
     }
 
     private void CloseTelematrixConfig(bool save)
