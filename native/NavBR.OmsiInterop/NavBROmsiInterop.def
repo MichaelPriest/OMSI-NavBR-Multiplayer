@@ -3,6 +3,7 @@ EXPORTS
     NavBR_GetAbiVersion
     NavBR_GetStateInteropVersion
     NavBR_GetLastVehiclePhysicsSyncStatus
+    NavBR_ReadRoadVehiclePhysicsBodyPosition
     NavBR_ProbeRoleplayHumanControl
     NavBR_GetImageBase
     NavBR_ProbeOmsi23004Addresses
