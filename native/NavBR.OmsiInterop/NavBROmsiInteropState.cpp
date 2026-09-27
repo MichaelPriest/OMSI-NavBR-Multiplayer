@@ -289,10 +289,25 @@ namespace
 
         auto* body = reinterpret_cast<void*>(
             static_cast<std::uintptr_t>(bodyPointer));
-        if (wasEnabledBeforeSync != nullptr &&
-            ode.isEnabled != nullptr)
+        bool bodyEnabled = true;
+        if (ode.isEnabled != nullptr)
         {
-            *wasEnabledBeforeSync = ode.isEnabled(body) != 0;
+            bodyEnabled = ode.isEnabled(body) != 0;
+            if (wasEnabledBeforeSync != nullptr)
+            {
+                *wasEnabledBeforeSync = bodyEnabled;
+            }
+
+            // Keepalive calls do not need to rewrite velocities/ODE state when
+            // the network-owned body is already disabled. This keeps the OMSI
+            // callback path cheap while preserving the same external authority.
+            if (localPosition == nullptr &&
+                rotation == nullptr &&
+                !bodyEnabled)
+            {
+                InterlockedExchange(&LastVehiclePhysicsSyncStatus, 1);
+                return 1;
+            }
         }
 
         if (localPosition != nullptr && rotation != nullptr)
