@@ -56,13 +56,14 @@ public partial class MainWindow
             DateTimeOffset.UtcNow - operational.CapturedAtUtc <=
                 TimeSpan.FromSeconds(2);
         var hudSettings = MultiplayerSettingsStore.Load();
+        var omsiRoot = ResolveConfiguredOmsiRootForPlugin();
         var navBrTpTsRoutes =
-            OmsiHofRouteCatalog.Resolve(telemetry);
+            OmsiHofRouteCatalog.Resolve(telemetry, omsiRoot);
 
         var detectedVehicleEvents = telemetry is null
             ? Array.Empty<string>()
             : OmsiVehicleInteractionCatalog.Read(
-                ResolveConfiguredOmsiRootForPlugin(),
+                omsiRoot,
                 telemetry.VehiclePath)
                 .Take(128)
                 .ToArray();
@@ -70,7 +71,7 @@ public partial class MainWindow
         var detectedIbisEvents = telemetry is null
             ? Array.Empty<string>()
             : OmsiVehicleInteractionCatalog.ReadIbisEvents(
-                ResolveConfiguredOmsiRootForPlugin(),
+                omsiRoot,
                 telemetry.VehiclePath)
                 .Take(64)
                 .ToArray();
