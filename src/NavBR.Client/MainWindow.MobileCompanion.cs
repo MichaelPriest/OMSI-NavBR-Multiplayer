@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Mobile;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -55,6 +56,8 @@ public partial class MainWindow
             DateTimeOffset.UtcNow - operational.CapturedAtUtc <=
                 TimeSpan.FromSeconds(2);
         var hudSettings = MultiplayerSettingsStore.Load();
+        var navBrTpTsRoutes =
+            OmsiHofRouteCatalog.Resolve(telemetry);
 
         var detectedVehicleEvents = telemetry is null
             ? Array.Empty<string>()
@@ -133,12 +136,12 @@ public partial class MainWindow
             hud = new
             {
                 enabled = hudSettings.HudEnabled,
-                telematrixEnabled = hudSettings.TelematrixWidgetEnabled,
-                telematrixTheme = hudSettings.TelematrixTheme,
-                telematrixSize = hudSettings.TelematrixSize,
-                telematrixAutoDirection = hudSettings.TelematrixAutoDirection,
-                telematrixManualLine = hudSettings.TelematrixManualLine,
-                telematrixManualDirection = hudSettings.TelematrixManualDirection
+                navBrTpTsEnabled = hudSettings.TelematrixWidgetEnabled,
+                navBrTpTsTheme = hudSettings.TelematrixTheme,
+                navBrTpTsSize = hudSettings.TelematrixSize,
+                navBrTpTsAutoDirection = hudSettings.TelematrixAutoDirection,
+                navBrTpTsManualLine = hudSettings.TelematrixManualLine,
+                navBrTpTsManualDirection = hudSettings.TelematrixManualDirection
             },
             operation = new
             {
@@ -187,7 +190,15 @@ public partial class MainWindow
                     : null,
                 ibisDelayState = operationalFresh
                     ? operational?.IbisDelayState
-                    : null
+                    : null,
+                hofRoutes = navBrTpTsRoutes.Select(route => new
+                {
+                    route.Line,
+                    route.Route,
+                    route.Description,
+                    route.DestinationCode,
+                    route.HofFile
+                }).ToArray()
             },
             vehicle,
             vehicleControls = new
@@ -302,6 +313,7 @@ public partial class MainWindow
                 return MobileCommandResult(true, action);
             }
 
+            case "navbr-tpts-configure":
             case "telematrix-configure":
             {
                 var current = MultiplayerSettingsStore.Load();

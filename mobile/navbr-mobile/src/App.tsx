@@ -21,8 +21,8 @@ type MobileState = {
   omsi: { detected: boolean; inGame: boolean; mapName?: string | null };
   plugin: { connected: boolean; version?: string | null; capabilities: string[] };
   hud?: {
-    enabled: boolean; telematrixEnabled: boolean; telematrixTheme: number; telematrixSize: number;
-    telematrixAutoDirection: boolean; telematrixManualLine?: string | null; telematrixManualDirection: string;
+    enabled: boolean; navBrTpTsEnabled: boolean; navBrTpTsTheme: number; navBrTpTsSize: number;
+    navBrTpTsAutoDirection: boolean; navBrTpTsManualLine?: string | null; navBrTpTsManualDirection: string;
   };
   operation?: {
     available: boolean; capturedAtUtc?: string | null; cabinTemperatureC?: number | null; passengerCount?: number | null;
@@ -30,6 +30,7 @@ type MobileState = {
     simulationMonth?: number | null; simulationYear?: number | null; simulationPaused?: boolean | null;
     ibisLineCourse?: string | null; ibisRouteCode?: string | null; ibisTerminusName?: string | null;
     ibisDelayMinutes?: string | null; ibisDelaySeconds?: string | null; ibisDelayState?: string | null;
+    hofRoutes?: { line: string; route: string; description: string; destinationCode?: string | null; hofFile: string }[];
   };
   vehicle?: {
     mapName?: string | null; vehicleName?: string | null; vehiclePath?: string | null; line?: string | null; route?: string | null;
@@ -329,8 +330,8 @@ export default function App() {
   }, [pairing, serverBase]);
 
   useEffect(() => {
-    setOperationLineDraft(state?.hud?.telematrixManualLine || "");
-  }, [state?.hud?.telematrixManualLine]);
+    setOperationLineDraft(state?.hud?.navBrTpTsManualLine || "");
+  }, [state?.hud?.navBrTpTsManualLine]);
 
   useEffect(() => {
     if (!pttHeld) return;
@@ -627,20 +628,32 @@ export default function App() {
           <div className="section-title"><div><small>HUD DO PC</small><h2>Sobreposição NavBR</h2></div><b className={hud?.enabled ? "good" : "bad"}>{hud?.enabled ? "ATIVO" : "OCULTO"}</b></div>
           <div className="ops-actions">
             <button className={hud?.enabled ? "active-control" : ""} onClick={() => void sendCommand("hud-enabled", { enabled: !hud?.enabled })}>{hud?.enabled ? "Ocultar HUD" : "Mostrar HUD"}</button>
-            <button className={hud?.telematrixEnabled ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { enabled: !hud?.telematrixEnabled })}>{hud?.telematrixEnabled ? "Ocultar painel operação" : "Mostrar painel operação"}</button>
+            <button className={hud?.navBrTpTsEnabled ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { enabled: !hud?.navBrTpTsEnabled })}>{hud?.navBrTpTsEnabled ? "Ocultar NavBR TP/TS" : "Mostrar painel operação"}</button>
           </div>
           <div className="ops-actions three">
-            <button onClick={() => void sendCommand("telematrix-configure", { theme: ((hud?.telematrixTheme || 0) + 1) % 3 })}>Tema {["Menta","Âmbar","Gelo"][hud?.telematrixTheme || 0]}</button>
-            <button onClick={() => void sendCommand("telematrix-configure", { size: ((hud?.telematrixSize || 0) + 1) % 3 })}>Tamanho {["Normal","Grande","Compacto"][hud?.telematrixSize || 0]}</button>
-            <button className={hud?.telematrixAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: !hud?.telematrixAutoDirection })}>{hud?.telematrixAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
+            <button onClick={() => void sendCommand("navbr-tpts-configure", { theme: ((hud?.navBrTpTsTheme || 0) + 1) % 3 })}>Tema {["Menta","Âmbar","Gelo"][hud?.navBrTpTsTheme || 0]}</button>
+            <button onClick={() => void sendCommand("navbr-tpts-configure", { size: ((hud?.navBrTpTsSize || 0) + 1) % 3 })}>Tamanho {["Normal","Grande","Compacto"][hud?.navBrTpTsSize || 0]}</button>
+            <button className={hud?.navBrTpTsAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: !hud?.navBrTpTsAutoDirection })}>{hud?.navBrTpTsAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
           </div>
           <div className="ops-manual">
             <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => setOperationLineDraft(e.target.value.slice(0, 24))} placeholder={vehicle?.line || "Ex.: 76"} /></label>
             <div className="ops-direction">
-              <button className={hud?.telematrixManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
-              <button className={hud?.telematrixManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("telematrix-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
-              <button onClick={() => void sendCommand("telematrix-configure", { line: operationLineDraft || undefined, direction: hud?.telematrixManualDirection || "TP", autoDirection: !!hud?.telematrixAutoDirection })}>Salvar</button>
+              <button className={hud?.navBrTpTsManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
+              <button className={hud?.navBrTpTsManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
+              <button onClick={() => void sendCommand("navbr-tpts-configure", { line: operationLineDraft || undefined, direction: hud?.navBrTpTsManualDirection || "TP", autoDirection: !!hud?.navBrTpTsAutoDirection })}>Salvar</button>
             </div>
+          </div>
+        </div>
+
+        <div className="ops-control-card">
+          <div className="section-title"><div><small>HOF DO ÔNIBUS</small><h2>Rotas disponíveis</h2></div><b>{op?.hofRoutes?.length || 0}</b></div>
+          <div className="player-list">
+            {(op?.hofRoutes || []).slice(0, 64).map(route => (
+              <button className="player-card" key={`${route.line}|${route.route}`}
+                onClick={() => { setOperationLineDraft(route.line); void sendCommand("navbr-tpts-configure", { line: route.line, autoDirection: false }); }}>
+                <div className="player-main"><strong>{route.line} · rota {route.route}</strong><span>{route.description || "Sem descrição"}</span><small>{route.hofFile}{route.destinationCode ? ` · destino ${route.destinationCode}` : ""}</small></div>
+              </button>
+            ))}
           </div>
         </div>
 

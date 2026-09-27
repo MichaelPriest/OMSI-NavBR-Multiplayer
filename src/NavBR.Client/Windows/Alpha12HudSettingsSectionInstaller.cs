@@ -195,7 +195,7 @@ internal static class Alpha12HudSettingsSectionInstaller
         var alertsCheck = NewCheck(T("Alertas discretos", "Discrete alerts", "Alertas discretas", "Dezente Warnungen", "Alertes discrètes"), settings.DashboardShowAlerts);
         var sideIndicatorsCheck = NewCheck(T("Indicadores laterais", "Side indicators", "Indicadores laterales", "Seitenanzeigen", "Indicateurs latéraux"), settings.DashboardShowSideIndicators);
         var telematrixCheck = NewCheck(
-            T("Painel operacional (Telematrix)", "Operational panel (Telematrix)", "Panel operativo (Telematrix)", "Betriebspanel (Telematrix)", "Panneau d’exploitation (Telematrix)"),
+            T("NavBR TP/TS", "NavBR TP/TS", "NavBR TP/TS", "NavBR TP/TS", "NavBR TP/TS"),
             settings.TelematrixWidgetEnabled);
 
         presetCombo.SelectionChanged += (_, _) =>
@@ -262,8 +262,8 @@ internal static class Alpha12HudSettingsSectionInstaller
             BuildCheckGroup(hudEnabledCheck, enabledCheck, autoScaleCheck, automaticHeightCheck))));
 
         root.Children.Add(NewCard(BuildTwoColumn(
-            BuildField(T("Tema do painel operacional", "Operational panel theme", "Tema del panel operativo", "Betriebspanel-Design", "Thème du panneau d’exploitation"), telematrixThemeCombo),
-            BuildField(T("Tamanho do painel operacional", "Operational panel size", "Tamaño del panel operativo", "Größe des Betriebspanels", "Taille du panneau d’exploitation"), telematrixSizeCombo))));
+            BuildField(T("Tema do NavBR TP/TS", "NavBR TP/TS theme", "Tema del panel operativo", "Betriebspanel-Design", "Thème du panneau d’exploitation"), telematrixThemeCombo),
+            BuildField(T("Tamanho do NavBR TP/TS", "NavBR TP/TS size", "Tamaño del panel operativo", "Größe des Betriebspanels", "Taille du panneau d’exploitation"), telematrixSizeCombo))));
 
         root.Children.Add(NewCard(BuildSliderGrid(new[]
         {
