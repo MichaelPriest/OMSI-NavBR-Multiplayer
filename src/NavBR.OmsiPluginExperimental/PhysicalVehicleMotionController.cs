@@ -214,6 +214,42 @@ internal static class PhysicalVehicleMotionController
             return;
         }
 
+        // OMSI can run RoadVehicle calculation after this plugin callback.
+        // Reassert only the ownership/calculation flags on every admitted OMSI
+        // work slice, even when interpolation is settled and no pose write is
+        // necessary. This prevents the simulator from taking an externally
+        // driven NavBR bus back into its own physics/path update between
+        // network targets.
+        foreach (var pair in States.ToArray())
+        {
+            var instanceId = pair.Key;
+            var state = pair.Value;
+            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
+                OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+            {
+                States.Remove(instanceId);
+                continue;
+            }
+
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out var unsafeReason) ||
+                OmsiNativeInterop.MaintainVehicleExternalControl(
+                    instance.VehiclePointer) != 1)
+            {
+                state.FaultCode = "motion-external-control-failed";
+                state.FaultMessage =
+                    string.IsNullOrWhiteSpace(unsafeReason)
+                        ? "OMSI rejected the NavBR RoadVehicle external-control keepalive."
+                        : $"NavBR stopped the RoadVehicle external-control keepalive: {unsafeReason}.";
+            }
+        }
+
+        activeCount = States.Count;
+        if (activeCount == 0)
+        {
+            _lastTickMs = now;
+            return;
+        }
+
         var minimumTickIntervalMs = activeCount switch
         {
             >= 9 => 50L, // 20 Hz when OMSI is already managing many remote buses.
@@ -230,6 +266,11 @@ internal static class PhysicalVehicleMotionController
         {
             var instanceId = pair.Key;
             var state = pair.Value;
+
+            if (!string.IsNullOrWhiteSpace(state.FaultCode))
+            {
+                continue;
+            }
 
             if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
                 OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
