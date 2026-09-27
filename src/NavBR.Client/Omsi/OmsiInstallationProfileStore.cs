@@ -4,6 +4,9 @@ namespace NavBR.Client.Omsi;
 
 internal static class OmsiInstallationProfileStore
 {
+    private static readonly object Sync = new();
+    private static IReadOnlyList<OmsiInstallationProfile>? _cachedProfiles;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -11,27 +14,38 @@ internal static class OmsiInstallationProfileStore
 
     public static IReadOnlyList<OmsiInstallationProfile> Load()
     {
-        var path = GetPath();
-        if (!File.Exists(path))
+        lock (Sync)
         {
-            return Array.Empty<OmsiInstallationProfile>();
-        }
+            if (_cachedProfiles is not null)
+            {
+                return _cachedProfiles;
+            }
 
-        try
-        {
-            var json = File.ReadAllText(path);
-            var profiles = JsonSerializer.Deserialize<List<OmsiInstallationProfile>>(json, JsonOptions) ?? [];
-            return profiles
-                .Where(IsValidProfile)
-                .GroupBy(profile => profile.Id, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.Last())
-                .OrderByDescending(profile => profile.IsPreferred)
-                .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
-        }
-        catch
-        {
-            return Array.Empty<OmsiInstallationProfile>();
+            var path = GetPath();
+            if (!File.Exists(path))
+            {
+                _cachedProfiles = Array.Empty<OmsiInstallationProfile>();
+                return _cachedProfiles;
+            }
+
+            try
+            {
+                var json = File.ReadAllText(path);
+                var profiles = JsonSerializer.Deserialize<List<OmsiInstallationProfile>>(json, JsonOptions) ?? [];
+                _cachedProfiles = profiles
+                    .Where(IsValidProfile)
+                    .GroupBy(profile => profile.Id, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.Last())
+                    .OrderByDescending(profile => profile.IsPreferred)
+                    .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToArray();
+                return _cachedProfiles;
+            }
+            catch
+            {
+                _cachedProfiles = Array.Empty<OmsiInstallationProfile>();
+                return _cachedProfiles;
+            }
         }
     }
 
@@ -61,9 +75,18 @@ internal static class OmsiInstallationProfileStore
             normalized[i] = normalized[i] with { IsPreferred = false };
         }
 
-        var path = GetPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(normalized, JsonOptions));
+        var ordered = normalized
+            .OrderByDescending(profile => profile.IsPreferred)
+            .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+
+        lock (Sync)
+        {
+            var path = GetPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(ordered, JsonOptions));
+            _cachedProfiles = ordered;
+        }
     }
 
     public static IReadOnlyList<OmsiInstallationProfile> DiscoverAndMerge(
