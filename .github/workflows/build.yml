@@ -179,6 +179,7 @@ jobs:
           foreach ($name in @(
             'NavBR_GetAbiVersion',
             'NavBR_GetStateInteropVersion',
+            'NavBR_GetLastVehiclePhysicsSyncStatus',
             'NavBR_ProbeRoleplayHumanControl',
             'NavBR_ProbePhysicalVehicleBackend',
             'NavBR_GetRoadVehicleCount',
