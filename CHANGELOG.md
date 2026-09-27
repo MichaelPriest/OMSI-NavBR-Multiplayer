@@ -2,6 +2,35 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.21] — multiplayer físico por vehicle paths, NavBR TP/TS e Mobile v3
+
+### Adicionado
+
+- NavBR TP/TS integrado ao HUD e Mobile Companion;
+- lista real de rotas do HOF do ônibus atual;
+- aba Operação no Mobile Companion v3;
+- diagnóstico `physical-road-target` para identificar a fonte da âncora física;
+- controle mestre do HUD por `Ctrl+Alt+H`;
+- nome do jogador acima do ônibus remoto físico.
+
+### Corrigido / melhorado
+
+- simulador físico não usa mais órbita fallback;
+- comboio segue a trajetória por distância percorrida em vez de atraso temporal;
+- spawn físico aguarda telemetria e path válidos;
+- ancoragem usa vehicle paths tipo 0 das splines, offsets de faixa e paths de cruzamentos;
+- seleção de path considera o rumo para reduzir alternância em interseções;
+- mismatches recuperáveis de readback não provocam despawn/respawn imediato;
+- HUD passa a iniciar pelo runtime React e evita hooks/timers duplicados;
+- cache de preferências e cache PWA foram revisados.
+
+### Experimental
+
+- o backend físico ainda precisa de validação ampla em mapas, ônibus e redes reais;
+- estruturas internas `PathInfo` não documentadas não são escritas pelo NavBR;
+- articulados continuam fora do suporte físico validado.
+
+
 ## [0.3.0-alpha.20] — reorganização da interface, HUD por workflow e minimapa HD/Ultra
 
 ### Adicionado

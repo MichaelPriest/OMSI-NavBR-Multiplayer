@@ -2,9 +2,32 @@
 
 ## Estado atual / Current state
 
-`v0.3.0-alpha.20`
+`v0.3.0-alpha.21`
 
 > **Alpha pública de teste.** A Alpha.20 reorganiza a experiência desktop e mantém as funcionalidades reais existentes. Multiplayer LAN/online, ônibus físicos remotos, RP físico e controles locais/IBIS ainda exigem validação em uma variedade maior de PCs, ônibus e redes reais.
+
+> **Alpha pública de teste.** A Alpha.21 concentra a validação do multiplayer físico, o novo NavBR TP/TS, rotas reais do HOF, HUD robusto e Mobile Companion v3.
+
+### Alpha.21
+
+- ônibus simulados físicos seguem a trilha real do host por distância percorrida;
+- ancoragem prioriza vehicle paths das splines e paths dirigíveis de cruzamentos;
+- removido o fallback circular do simulador físico;
+- NavBR TP/TS com linha, TP/TS, pontualidade, passageiros, temperatura e hora/data OMSI;
+- lista real de rotas do HOF do ônibus atual;
+- HUD com autostart no runtime React e `Ctrl+Alt+H`;
+- nome do jogador acima do ônibus físico e marcadores atualizados;
+- Mobile Companion v3 com aba Operação e controles do HUD/NavBR TP/TS;
+- APK Android, plugin Native AOT x86, simulador, installer e demais pacotes continuam incluídos.
+
+### Ainda em validação na Alpha.21
+
+- comportamento físico em mapas/add-ons variados;
+- permanência perfeita na faixa em cruzamentos e assets com paths incompletos;
+- teste ponta a ponta com duas sessões OMSI reais em redes diferentes;
+- ônibus articulados no backend físico.
+
+Release: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.21
 
 ### Alpha.20
 
