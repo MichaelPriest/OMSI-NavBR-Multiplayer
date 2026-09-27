@@ -7,7 +7,7 @@
         Background="Transparent"
         ShowInTaskbar="False"
         ShowActivated="False"
-        Topmost="True"
+        Topmost="False"
         Loaded="HudOverlayWindow_LifecycleLoaded"
         Closed="HudOverlayWindow_LifecycleClosed">
     <Window.Resources>
