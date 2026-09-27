@@ -369,6 +369,69 @@ internal static class OmsiNativeInterop
         }
     }
 
+    internal static bool TryFindNativeAiRoadVehicle(
+        int playerVehiclePointer,
+        IReadOnlySet<int> excludedPointers,
+        out int vehiclePointer,
+        out RoadVehiclePathDiagnostics diagnostics)
+    {
+        vehiclePointer = 0;
+        diagnostics = default;
+
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            var count = GetRoadVehicleCount();
+            if (count <= 0 || count > MaxReasonableRoadVehicles)
+            {
+                return false;
+            }
+
+            // This runs only for diagnostics on OMSI's callback thread.
+            // Probe a bounded prefix and stop at the first genuine native AI
+            // instead of allocating/copying the whole RoadVehicles array.
+            var probeCount = Math.Min(count, 64);
+            for (var index = 0; index < probeCount; index++)
+            {
+                var pointer = GetRoadVehicleAt(index);
+                if (pointer == 0 ||
+                    pointer == playerVehiclePointer ||
+                    excludedPointers.Contains(pointer))
+                {
+                    continue;
+                }
+
+                if (!TryReadRoadVehiclePathDiagnostics(pointer, out var candidate) ||
+                    candidate.Pai != 1)
+                {
+                    continue;
+                }
+
+                vehiclePointer = pointer;
+                diagnostics = candidate;
+                return true;
+            }
+
+            return false;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     internal static bool TrySnapshotTempRoadVehicles(
         int tempList,
         out int[] vehiclePointers)
