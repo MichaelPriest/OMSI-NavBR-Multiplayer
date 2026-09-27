@@ -29,10 +29,14 @@ namespace
     constexpr int PhysicsVelocityOffset = 0x174;
     constexpr int PhysicsLastForceOffset = 0x180;
     constexpr int PhysicsLastMomentOffset = 0x18C;
+    constexpr int PhysicsLongOffset = 0x198;
     constexpr int PositionMatrixOffset = 0x010;
+    constexpr int RelativeMatrixPointerOffset = 0x064;
+    constexpr int UsedRelativeVectorOffset = 0x068;
     constexpr int RotationOffset = 0x050;
     constexpr int KachelOffset = 0x074;
     constexpr int AbsolutePositionOffset = 0x078;
+    constexpr int AbsolutePositionInverseOffset = 0x0B8;
     constexpr int AbsolutePositionThreadFreeOffset = 0x0F8;
     constexpr int MarkedForKillingOffset = 0x25C;
     constexpr int LastPositionOffset = 0x26E;
@@ -67,6 +71,8 @@ namespace
     constexpr int RoadVehicleDefinitionOffset = 0x710;
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
     constexpr int RoadVehicleWasCalculatedOffset = 0x715;
+    constexpr int RoadVehicleLastVelocityOffset = 0x721;
+    constexpr int RoadVehicleAccelerationLocalOffset = 0x72D;
     constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
     // OmsiMovingMapObjInst / OmsiPathInfo offsets verified against OmsiHook.
     // Diagnostics below are deliberately read-only; NavBR does not yet write
@@ -381,6 +387,63 @@ namespace
             translation.z,
             1.0f
         };
+    }
+
+    Matrix4 BuildRigidInverse(const Matrix4& matrix)
+    {
+        Matrix4 inverse{
+            matrix.m00, matrix.m10, matrix.m20, 0.0f,
+            matrix.m01, matrix.m11, matrix.m21, 0.0f,
+            matrix.m02, matrix.m12, matrix.m22, 0.0f,
+            0.0f,       0.0f,       0.0f,       1.0f
+        };
+
+        inverse.m30 = -(
+            matrix.m30 * inverse.m00 +
+            matrix.m31 * inverse.m10 +
+            matrix.m32 * inverse.m20);
+        inverse.m31 = -(
+            matrix.m30 * inverse.m01 +
+            matrix.m31 * inverse.m11 +
+            matrix.m32 * inverse.m21);
+        inverse.m32 = -(
+            matrix.m30 * inverse.m02 +
+            matrix.m31 * inverse.m12 +
+            matrix.m32 * inverse.m22);
+        return inverse;
+    }
+
+    bool WriteMatrixPointerTarget(
+        int objectPointer,
+        int pointerOffset,
+        const Matrix4& matrix)
+    {
+        const auto base = static_cast<std::uintptr_t>(objectPointer);
+        if (!IsReadableRange(base + pointerOffset, sizeof(int)))
+        {
+            return false;
+        }
+
+        const int target =
+            *reinterpret_cast<const int*>(base + pointerOffset);
+        if (target == 0)
+        {
+            // Some objects materialize this relation matrix one callback later.
+            // RelativeMatrixVar remains the safe inline fallback.
+            return true;
+        }
+
+        const auto address = static_cast<std::uintptr_t>(target);
+        if (!IsWritableRange(address, sizeof(Matrix4)))
+        {
+            return false;
+        }
+
+        std::memcpy(
+            reinterpret_cast<void*>(address),
+            &matrix,
+            sizeof(Matrix4));
+        return true;
     }
 
     bool TryQuaternionHeadingDegrees(const Quaternion& rotation, float& headingDegrees)
@@ -1215,6 +1278,22 @@ namespace
             BuildTransformMatrix(rotation, localPosition);
         const Matrix4 worldMatrix =
             BuildTransformMatrix(rotation, worldPosition);
+        const Matrix4 worldInverse =
+            BuildRigidInverse(worldMatrix);
+
+        // In OMSI, Pos_Mat is the vehicle-local transform while RelMatrix is
+        // the tile/world relation. The multiplayer_quickstart branch of
+        // Omsi-Extensions replicates both independently. Feeding Pos_Mat into
+        // RelMatrixVar makes the active simulation compose the vehicle pose
+        // twice and is consistent with the "correct only while paused" symptom.
+        const Vec3 relationTranslation{
+            worldPosition.x - localPosition.x,
+            worldPosition.y - localPosition.y,
+            worldPosition.z - localPosition.z
+        };
+        const Quaternion identityRotation{ 0.0f, 0.0f, 0.0f, 1.0f };
+        const Matrix4 relationMatrix =
+            BuildTransformMatrix(identityRotation, relationTranslation);
 
         if (!WriteValue(
                 objectPointer,
@@ -1222,8 +1301,16 @@ namespace
                 localMatrix) ||
             !WriteValue(
                 objectPointer,
+                UsedRelativeVectorOffset,
+                relationTranslation) ||
+            !WriteValue(
+                objectPointer,
                 AbsolutePositionOffset,
                 worldMatrix) ||
+            !WriteValue(
+                objectPointer,
+                AbsolutePositionInverseOffset,
+                worldInverse) ||
             !WriteValue(
                 objectPointer,
                 AbsolutePositionThreadFreeOffset,
@@ -1231,7 +1318,11 @@ namespace
             !WriteValue(
                 objectPointer,
                 RelativeMatrixVarOffset,
-                localMatrix) ||
+                relationMatrix) ||
+            !WriteMatrixPointerTarget(
+                objectPointer,
+                RelativeMatrixPointerOffset,
+                relationMatrix) ||
             !WriteValue(
                 objectPointer,
                 OutsideMatrixOffset,
@@ -1335,7 +1426,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 19;
+    return 20;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
@@ -2518,6 +2609,68 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             worldPosition);
     }
 
+    Vec3 previousPosition = position;
+    Vec3 previousVelocity{};
+    const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
+    if (IsReadableRange(vehicleBase + PositionOffset, sizeof(Vec3)))
+    {
+        previousPosition =
+            *reinterpret_cast<const Vec3*>(vehicleBase + PositionOffset);
+    }
+    if (IsReadableRange(vehicleBase + PhysicsVelocityOffset, sizeof(Vec3)))
+    {
+        previousVelocity =
+            *reinterpret_cast<const Vec3*>(vehicleBase + PhysicsVelocityOffset);
+    }
+
+    Vec3 networkVelocity{};
+    const Vec3 displacement{
+        position.x - previousPosition.x,
+        position.y - previousPosition.y,
+        position.z - previousPosition.z
+    };
+    const float displacementLength = std::sqrt(
+        displacement.x * displacement.x +
+        displacement.y * displacement.y +
+        displacement.z * displacement.z);
+    if (speedMps > 0.001f &&
+        std::isfinite(displacementLength) &&
+        displacementLength > 0.001f)
+    {
+        const float scale = speedMps / displacementLength;
+        networkVelocity = Vec3{
+            displacement.x * scale,
+            displacement.y * scale,
+            displacement.z * scale
+        };
+    }
+    else if (speedMps > 0.001f &&
+             IsReadableRange(vehicleBase + PhysicsLongOffset, sizeof(Vec3)))
+    {
+        const Vec3 longitudinal =
+            *reinterpret_cast<const Vec3*>(vehicleBase + PhysicsLongOffset);
+        const float longitudinalLength = std::sqrt(
+            longitudinal.x * longitudinal.x +
+            longitudinal.y * longitudinal.y +
+            longitudinal.z * longitudinal.z);
+        if (std::isfinite(longitudinalLength) &&
+            longitudinalLength > 0.001f)
+        {
+            const float scale = speedMps / longitudinalLength;
+            networkVelocity = Vec3{
+                longitudinal.x * scale,
+                longitudinal.y * scale,
+                longitudinal.z * scale
+            };
+        }
+    }
+
+    const Vec3 accelerationLocal{
+        networkVelocity.x - previousVelocity.x,
+        networkVelocity.y - previousVelocity.y,
+        networkVelocity.z - previousVelocity.z
+    };
+
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
     if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
     if (!WriteValue(vehiclePointer, RotationOffset, rotation)) return FailVehicleTransform(12);
@@ -2535,6 +2688,12 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         vehiclePointer,
         &position,
         &rotation);
+    // Match the state replicated by Omsi-Extensions multiplayer_quickstart.
+    // The ODE body itself remains kinematic/disabled, but OMSI's RoadVehicle
+    // calculation still reads these velocity/acceleration fields.
+    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, networkVelocity)) return FailVehicleTransform(28);
+    if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, networkVelocity)) return FailVehicleTransform(29);
+    if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, accelerationLocal)) return FailVehicleTransform(30);
     if (effectiveTilePointer != 0 &&
         !WriteValue(
             vehiclePointer,
