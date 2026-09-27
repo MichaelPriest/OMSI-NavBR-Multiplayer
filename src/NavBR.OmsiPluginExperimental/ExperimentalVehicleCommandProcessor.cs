@@ -628,7 +628,8 @@ internal static class PhysicalVehicleBackend
             $"loadedTile={path.OnLoadedKachel} path={path.PathKachel}:{path.PathIndex}:{path.SubPath} " +
             $"reverse={path.Reverse} pathPos={path.PathX:F2},{path.PathY:F2},{path.PathZ:F2} " +
             $"pathVel={path.Velocity:F2} moving={path.PaiMovingDistance:F2} " +
-            $"track={path.Track}:{path.TrackEntry} crossing={path.OnCrossing}");
+            $"track={path.Track}:{path.TrackEntry} crossing={path.OnCrossing} " +
+            $"physicsSync={OmsiNativeInterop.GetLastVehiclePhysicsSyncStatus()}");
     }
 
     private static PluginBridgeMessage? GetMaterializationPendingResult(
