@@ -24,6 +24,11 @@ namespace
     constexpr int MaxReasonableMapTiles = 200000;
 
     constexpr int PositionOffset = 0x004;
+    // OmsiPhysObjInst (base of OmsiRoadVehicleInst).
+    constexpr int PhysicsBodyOffset = 0x138;
+    constexpr int PhysicsVelocityOffset = 0x174;
+    constexpr int PhysicsLastForceOffset = 0x180;
+    constexpr int PhysicsLastMomentOffset = 0x18C;
     constexpr int PositionMatrixOffset = 0x010;
     constexpr int RotationOffset = 0x050;
     constexpr int KachelOffset = 0x074;
@@ -133,6 +138,9 @@ namespace
         float w;
     };
 
+    template <typename T>
+    bool WriteValue(int vehiclePointer, int offset, const T& value);
+
     struct Matrix4
     {
         float m00, m01, m02, m03;
@@ -146,6 +154,162 @@ namespace
         int x;
         int y;
     };
+
+    using OdeBodySetPositionFn =
+        void (__cdecl *)(void*, float, float, float);
+    using OdeBodySetQuaternionFn =
+        void (__cdecl *)(void*, const float*);
+    using OdeBodySetVelocityFn =
+        void (__cdecl *)(void*, float, float, float);
+    using OdeBodyDisableFn =
+        void (__cdecl *)(void*);
+    using OdeBodyIsEnabledFn =
+        int (__cdecl *)(void*);
+
+    struct OdeApi
+    {
+        HMODULE module = nullptr;
+        OdeBodySetPositionFn setPosition = nullptr;
+        OdeBodySetQuaternionFn setQuaternion = nullptr;
+        OdeBodySetVelocityFn setLinearVelocity = nullptr;
+        OdeBodySetVelocityFn setAngularVelocity = nullptr;
+        OdeBodyDisableFn disable = nullptr;
+        OdeBodyIsEnabledFn isEnabled = nullptr;
+        bool attempted = false;
+    };
+
+    OdeApi& GetOdeApi()
+    {
+        static OdeApi api{};
+        if (api.attempted)
+        {
+            return api;
+        }
+
+        api.attempted = true;
+        api.module = GetModuleHandleA("ode.dll");
+        if (api.module == nullptr)
+        {
+            return api;
+        }
+
+        api.setPosition =
+            reinterpret_cast<OdeBodySetPositionFn>(
+                GetProcAddress(api.module, "dBodySetPosition"));
+        api.setQuaternion =
+            reinterpret_cast<OdeBodySetQuaternionFn>(
+                GetProcAddress(api.module, "dBodySetQuaternion"));
+        api.setLinearVelocity =
+            reinterpret_cast<OdeBodySetVelocityFn>(
+                GetProcAddress(api.module, "dBodySetLinearVel"));
+        api.setAngularVelocity =
+            reinterpret_cast<OdeBodySetVelocityFn>(
+                GetProcAddress(api.module, "dBodySetAngularVel"));
+        api.disable =
+            reinterpret_cast<OdeBodyDisableFn>(
+                GetProcAddress(api.module, "dBodyDisable"));
+        api.isEnabled =
+            reinterpret_cast<OdeBodyIsEnabledFn>(
+                GetProcAddress(api.module, "dBodyIsEnabled"));
+        return api;
+    }
+
+    volatile LONG LastVehiclePhysicsSyncStatus = 0;
+
+    // Status:
+    // 0 = no body yet; 1 = body synchronized and disabled;
+    // 2 = ode.dll not loaded; 3 = required ODE exports unavailable;
+    // 4 = PH_Body pointer unreadable.
+    int SyncExternalPhysicsBody(
+        int vehiclePointer,
+        const Vec3* worldPosition,
+        const Quaternion* rotation,
+        bool* wasEnabledBeforeSync = nullptr)
+    {
+        if (wasEnabledBeforeSync != nullptr)
+        {
+            *wasEnabledBeforeSync = false;
+        }
+
+        const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+        if (!IsReadableRange(base + PhysicsBodyOffset, sizeof(int)))
+        {
+            InterlockedExchange(&LastVehiclePhysicsSyncStatus, 4);
+            return 4;
+        }
+
+        const int bodyPointer =
+            *reinterpret_cast<const int*>(base + PhysicsBodyOffset);
+        if (bodyPointer == 0)
+        {
+            InterlockedExchange(&LastVehiclePhysicsSyncStatus, 0);
+            return 0;
+        }
+
+        if (!IsReadableRange(
+                static_cast<std::uintptr_t>(bodyPointer),
+                sizeof(int)))
+        {
+            InterlockedExchange(&LastVehiclePhysicsSyncStatus, 4);
+            return 4;
+        }
+
+        auto& ode = GetOdeApi();
+        if (ode.module == nullptr)
+        {
+            InterlockedExchange(&LastVehiclePhysicsSyncStatus, 2);
+            return 2;
+        }
+
+        if (ode.setPosition == nullptr ||
+            ode.setQuaternion == nullptr ||
+            ode.setLinearVelocity == nullptr ||
+            ode.setAngularVelocity == nullptr ||
+            ode.disable == nullptr ||
+            ode.isEnabled == nullptr)
+        {
+            InterlockedExchange(&LastVehiclePhysicsSyncStatus, 3);
+            return 3;
+        }
+
+        auto* body = reinterpret_cast<void*>(
+            static_cast<std::uintptr_t>(bodyPointer));
+        if (wasEnabledBeforeSync != nullptr)
+        {
+            *wasEnabledBeforeSync = ode.isEnabled(body) != 0;
+        }
+
+        if (worldPosition != nullptr && rotation != nullptr)
+        {
+            const float odeQuaternion[4] = {
+                rotation->w,
+                rotation->x,
+                rotation->y,
+                rotation->z
+            };
+            ode.setPosition(
+                body,
+                worldPosition->x,
+                worldPosition->y,
+                worldPosition->z);
+            ode.setQuaternion(body, odeQuaternion);
+        }
+
+        // Remote multiplayer buses are network-driven kinematic objects.
+        // Never let stale local ODE velocity integrate them away from the
+        // authoritative NavBR pose between plugin callbacks.
+        ode.setLinearVelocity(body, 0.0f, 0.0f, 0.0f);
+        ode.setAngularVelocity(body, 0.0f, 0.0f, 0.0f);
+        ode.disable(body);
+
+        const Vec3 zero{};
+        (void)WriteValue(vehiclePointer, PhysicsVelocityOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastForceOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastMomentOffset, zero);
+
+        InterlockedExchange(&LastVehiclePhysicsSyncStatus, 1);
+        return 1;
+    }
 
     Matrix4 BuildTransformMatrix(
         const Quaternion& rotation,
@@ -910,8 +1074,6 @@ namespace
         return 0;
     }
 
-    template <typename T>
-    bool WriteValue(int vehiclePointer, int offset, const T& value);
     bool IsRoadVehiclePointer(int vehiclePointer);
 
     bool TryReadMatrix(int objectPointer, int offset, Matrix4& matrix)
@@ -1138,7 +1300,16 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 17;
+    return 18;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehiclePhysicsSyncStatus()
+{
+    return static_cast<int>(
+        InterlockedCompareExchange(
+            &LastVehiclePhysicsSyncStatus,
+            0,
+            0));
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -2266,6 +2437,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             position,
             worldPosition,
             rotation)) return FailVehicleTransform(15);
+    // Keep OMSI's live ODE body on the exact same network-owned pose.
+    // The visual matrices alone are not enough while the simulation is active:
+    // ODE can otherwise integrate the RoadVehicle body and overwrite them.
+    (void)SyncExternalPhysicsBody(
+        vehiclePointer,
+        &worldPosition,
+        &rotation);
     if (effectiveTilePointer != 0 &&
         !WriteValue(
             vehiclePointer,
@@ -2322,6 +2500,21 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
     // had changed before NavBR reasserted ownership, giving the real-game log
     // enough evidence to prove whether a later RoadVehicle pass is fighting us.
     int result = 1;
+    bool physicsBodyWasEnabled = false;
+    const int physicsSyncStatus =
+        SyncExternalPhysicsBody(
+            vehiclePointer,
+            nullptr,
+            nullptr,
+            &physicsBodyWasEnabled);
+    if (physicsBodyWasEnabled)
+    {
+        result |= (1 << 4);
+    }
+    if (physicsSyncStatus >= 2)
+    {
+        result |= (1 << 5);
+    }
     if (!IsReadableRange(
             base + RoadVehicleWasCalculatedOffset,
             sizeof(unsigned char)) ||
