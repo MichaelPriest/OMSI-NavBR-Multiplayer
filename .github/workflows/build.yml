@@ -197,6 +197,7 @@ jobs:
             'NavBR_RestoreHumanDriverState',
             'NavBR_MakeVehicle',
             'NavBR_SetVehicleTransform',
+            'NavBR_MaintainVehicleExternalControl',
             'NavBR_SetVehicleVisualState',
             'NavBR_MarkVehicleForKilling'
           )) {
