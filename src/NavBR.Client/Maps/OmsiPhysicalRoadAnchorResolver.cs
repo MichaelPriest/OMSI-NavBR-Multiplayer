@@ -54,6 +54,11 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         double RotationW,
         string Name);
 
+    private readonly record struct RoadPath(
+        double LateralOffset,
+        double HeightOffset,
+        int Direction);
+
     private sealed record SplinePlacement(
         double LocalX,
         double HeightY,
@@ -63,7 +68,8 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         double Radius,
         double GradientStartPercent,
         double GradientEndPercent,
-        double? DeltaH);
+        double? DeltaH,
+        IReadOnlyList<RoadPath> RoadPaths);
 
     private sealed record MapData(
         double TileSize,
@@ -116,72 +122,82 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
 
                 foreach (var spline in GetSplines(data, tile.Path))
                 {
-                    if (!TryProjectOntoSpline(
+                    var roadPaths = spline.RoadPaths.Count > 0
+                        ? spline.RoadPaths
+                        : [new RoadPath(0d, 0d, 2)];
+
+                    foreach (var roadPath in roadPaths)
+                    {
+                        if (!TryProjectOntoSpline(
+                                gridX,
+                                gridY,
+                                data.TileSize,
+                                spline,
+                                roadPath.LateralOffset,
+                                targetWorldX,
+                                targetWorldZ,
+                                out var distanceAlong,
+                                out var distanceSquared,
+                                out var snappedLocalX,
+                                out var snappedLocalZ,
+                                out var headingDegrees) ||
+                            distanceSquared >= maxDistanceSquared)
+                        {
+                            continue;
+                        }
+
+                        var axisDeltaDegrees = RoadAxisDeltaDegrees(
+                            telemetry.HeadingDegrees,
+                            headingDegrees);
+                        if (axisDeltaDegrees > 70d)
+                        {
+                            continue;
+                        }
+
+                        var headingPenalty = axisDeltaDegrees / 15d;
+                        var score =
+                            distanceSquared +
+                            headingPenalty * headingPenalty;
+                        if (!double.IsFinite(score) ||
+                            score >= bestScore)
+                        {
+                            continue;
+                        }
+
+                        var heightY =
+                            ResolveHeight(spline, distanceAlong) +
+                            roadPath.HeightOffset;
+                        if (!double.IsFinite(heightY))
+                        {
+                            continue;
+                        }
+
+                        var effectiveHeading = roadPath.Direction == 1
+                            ? NormalizeHeading(headingDegrees + 180d)
+                            : NormalizeHeading(headingDegrees);
+                        var headingRadians =
+                            effectiveHeading * Math.PI / 180d;
+                        var half = headingRadians * 0.5d;
+
+                        bestScore = score;
+                        best = new OmsiPhysicalRoadAnchor(
                             gridX,
                             gridY,
-                            data.TileSize,
-                            spline,
-                            targetWorldX,
-                            targetWorldZ,
-                            out var distanceAlong,
-                            out var distanceSquared,
-                            out var snappedLocalX,
-                            out var snappedLocalZ,
-                            out var headingDegrees) ||
-                        distanceSquared >= maxDistanceSquared)
-                    {
-                        continue;
+                            snappedLocalX,
+                            heightY,
+                            snappedLocalZ,
+                            0d,
+                            Math.Sin(half),
+                            0d,
+                            Math.Cos(half),
+                            effectiveHeading,
+                            Math.Sqrt(distanceSquared),
+                            spline.RoadPaths.Count > 0
+                                ? "vehicle-path"
+                                : "spline-center-fallback",
+                            Path.GetFileName(tile.Path));
+                        found = true;
                     }
-
-                    // At intersections multiple splines can be equally close.
-                    // Prefer the road axis that agrees with the remote bus
-                    // heading (modulo 180° because spline direction itself may
-                    // be reversed). This prevents hopping to a crossing street.
-                    var axisDeltaDegrees = RoadAxisDeltaDegrees(
-                        telemetry.HeadingDegrees,
-                        headingDegrees);
-                    if (axisDeltaDegrees > 70d)
-                    {
-                        continue;
-                    }
-
-                    var headingPenalty =
-                        axisDeltaDegrees / 15d;
-                    var score =
-                        distanceSquared +
-                        headingPenalty * headingPenalty;
-                    if (!double.IsFinite(score) ||
-                        score >= bestScore)
-                    {
-                        continue;
-                    }
-
-                    var heightY = ResolveHeight(spline, distanceAlong);
-                    if (!double.IsFinite(heightY))
-                    {
-                        continue;
-                    }
-
-                    var headingRadians =
-                        headingDegrees * Math.PI / 180d;
-                    var half = headingRadians * 0.5d;
-
-                    bestScore = score;
-                    best = new OmsiPhysicalRoadAnchor(
-                        gridX,
-                        gridY,
-                        snappedLocalX,
-                        heightY,
-                        snappedLocalZ,
-                        0d,
-                        Math.Sin(half),
-                        0d,
-                        Math.Cos(half),
-                        NormalizeHeading(headingDegrees),
-                        Math.Sqrt(distanceSquared),
-                        "spline",
-                        Path.GetFileName(tile.Path));
-                    found = true;
                 }
             }
         }
@@ -643,6 +659,10 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         string tilePath)
     {
         var result = new List<SplinePlacement>();
+        var omsiRoot = TryGetOmsiRootFromTile(tilePath);
+        var roadPathCache =
+            new Dictionary<string, IReadOnlyList<RoadPath>>(
+                StringComparer.OrdinalIgnoreCase);
         try
         {
             var lines = File.ReadAllLines(tilePath);
@@ -689,6 +709,34 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                     deltaH = parsedDeltaH;
                 }
 
+                var splineFile = ResolveOmsiAssetPath(
+                    omsiRoot,
+                    lines[index + 2].Trim());
+                IReadOnlyList<RoadPath> roadPaths =
+                    Array.Empty<RoadPath>();
+                if (!string.IsNullOrWhiteSpace(splineFile) &&
+                    File.Exists(splineFile))
+                {
+                    if (!roadPathCache.TryGetValue(
+                            splineFile,
+                            out roadPaths))
+                    {
+                        roadPaths = ReadRoadVehiclePaths(splineFile);
+                        roadPathCache[splineFile] = roadPaths;
+                    }
+
+                    if (IsMirrored(lines, index + 14) &&
+                        roadPaths.Count > 0)
+                    {
+                        roadPaths = roadPaths
+                            .Select(path => path with
+                            {
+                                LateralOffset = -path.LateralOffset
+                            })
+                            .ToArray();
+                    }
+                }
+
                 result.Add(new SplinePlacement(
                     x,
                     heightY,
@@ -698,7 +746,8 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                     radius,
                     gradientStart,
                     gradientEnd,
-                    deltaH));
+                    deltaH,
+                    roadPaths));
             }
         }
         catch (IOException)
@@ -716,6 +765,7 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         int gridY,
         double tileSize,
         SplinePlacement spline,
+        double pathOffset,
         double targetWorldX,
         double targetWorldZ,
         out double distanceAlongSpline,
@@ -759,12 +809,18 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         {
             distanceAlongSpline =
                 Math.Clamp(forward, 0d, spline.Length);
-            localCurveX = 0d;
+            localCurveX = pathOffset;
             localCurveZ = distanceAlongSpline;
         }
         else
         {
             var radius = spline.Radius;
+            var pathRadius = pathOffset - radius;
+            if (Math.Abs(pathRadius) <= 0.001d)
+            {
+                return false;
+            }
+
             var totalAngle = spline.Length / radius;
             if (!double.IsFinite(totalAngle) ||
                 Math.Abs(totalAngle) > Math.PI * 2d + 1e-6d)
@@ -773,8 +829,8 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             }
 
             var rawAngle = Math.Atan2(
-                forward / radius,
-                (radius - lateral) / radius);
+                -forward / pathRadius,
+                (lateral - radius) / pathRadius);
             var minAngle = Math.Min(0d, totalAngle);
             var maxAngle = Math.Max(0d, totalAngle);
             var middle = (minAngle + maxAngle) * 0.5d;
@@ -795,9 +851,10 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                     spline.Length);
                 var candidateAngle = distance / radius;
                 var pointX =
-                    radius * (1d - Math.Cos(candidateAngle));
+                    pathRadius * Math.Cos(candidateAngle) +
+                    radius;
                 var pointZ =
-                    radius * Math.Sin(candidateAngle);
+                    -pathRadius * Math.Sin(candidateAngle);
                 var errorX = pointX - lateral;
                 var errorZ = pointZ - forward;
                 var candidateDistanceSquared =
@@ -813,9 +870,10 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             {
                 var endpointAngle = endpoint / radius;
                 var pointX =
-                    radius * (1d - Math.Cos(endpointAngle));
+                    pathRadius * Math.Cos(endpointAngle) +
+                    radius;
                 var pointZ =
-                    radius * Math.Sin(endpointAngle);
+                    -pathRadius * Math.Sin(endpointAngle);
                 var errorX = pointX - lateral;
                 var errorZ = pointZ - forward;
                 var candidateDistanceSquared =
@@ -830,9 +888,10 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             distanceAlongSpline = bestDistance;
             curveAngle = bestDistance / radius;
             localCurveX =
-                radius * (1d - Math.Cos(curveAngle));
+                pathRadius * Math.Cos(curveAngle) +
+                radius;
             localCurveZ =
-                radius * Math.Sin(curveAngle);
+                -pathRadius * Math.Sin(curveAngle);
         }
 
         var roadDx =
@@ -863,6 +922,146 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             double.IsFinite(distanceSquared) &&
             double.IsFinite(snappedLocalX) &&
             double.IsFinite(snappedLocalZ);
+    }
+
+    private static IReadOnlyList<RoadPath> ReadRoadVehiclePaths(
+        string splineFile)
+    {
+        var result = new List<RoadPath>();
+        try
+        {
+            var lines = File.ReadAllLines(
+                splineFile,
+                System.Text.Encoding.Latin1);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var keyword = lines[index].Trim();
+                if (!string.Equals(
+                        keyword,
+                        "[path]",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        keyword,
+                        "[path_2]",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (index + 5 >= lines.Length ||
+                    !int.TryParse(
+                        lines[index + 1].Trim(),
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var pathType) ||
+                    pathType != 0 ||
+                    !TryParseDouble(
+                        lines[index + 2],
+                        out var lateralOffset) ||
+                    !TryParseDouble(
+                        lines[index + 3],
+                        out var heightOffset) ||
+                    !int.TryParse(
+                        lines[index + 5].Trim(),
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var direction) ||
+                    direction is < 0 or > 2 ||
+                    Math.Abs(lateralOffset) > 50d ||
+                    Math.Abs(heightOffset) > 10d)
+                {
+                    continue;
+                }
+
+                result.Add(
+                    new RoadPath(
+                        lateralOffset,
+                        heightOffset,
+                        direction));
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return result
+            .Distinct()
+            .ToArray();
+    }
+
+    private static string? TryGetOmsiRootFromTile(string tilePath)
+    {
+        try
+        {
+            var mapDirectory =
+                Directory.GetParent(tilePath);
+            var mapsDirectory =
+                mapDirectory?.Parent;
+            return mapsDirectory?.Parent?.FullName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveOmsiAssetPath(
+        string? omsiRoot,
+        string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(omsiRoot) ||
+            string.IsNullOrWhiteSpace(relativePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var normalized = relativePath
+                .Replace('\\', Path.DirectorySeparatorChar)
+                .Replace('/', Path.DirectorySeparatorChar);
+            return Path.IsPathRooted(normalized)
+                ? normalized
+                : Path.GetFullPath(
+                    Path.Combine(omsiRoot, normalized));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsMirrored(
+        string[] lines,
+        int startIndex)
+    {
+        var endIndex =
+            Math.Min(lines.Length, startIndex + 20);
+        for (var index = startIndex;
+             index < endIndex;
+             index++)
+        {
+            var value = lines[index].Trim();
+            if (value.StartsWith(
+                    "[",
+                    StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            if (string.Equals(
+                    value,
+                    "mirror",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static double ResolveHeight(
