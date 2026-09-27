@@ -147,6 +147,7 @@ namespace
     template <typename T>
     bool WriteValue(int vehiclePointer, int offset, const T& value);
     bool IsReadableRange(std::uintptr_t address, std::size_t bytes);
+    bool IsWritableRange(std::uintptr_t address, std::size_t bytes);
 
     struct Matrix4
     {
