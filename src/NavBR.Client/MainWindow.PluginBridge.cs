@@ -144,6 +144,7 @@ public partial class MainWindow
             }
 
             var result = OmsiPluginInstallationService.InstallOrUpdate(root);
+            InvalidatePluginInstallDiagnosticsCache();
             MessageBox.Show(
                 $"Plugin NavBR Native AOT instalado/atualizado com sucesso.\n\nOMSI: {result.OmsiRoot}\nDestino: {result.PluginsDirectory}\nArquivos: {result.InstalledFiles}\n\nNão é necessário instalar .NET Runtime x86 separadamente.",
                 "OMSI NavBR Multiplayer",
@@ -172,6 +173,7 @@ public partial class MainWindow
             }
 
             var result = OmsiPluginInstallationService.Remove(root);
+            InvalidatePluginInstallDiagnosticsCache();
             MessageBox.Show(
                 $"Plugin NavBR removido.\n\nOMSI: {result.OmsiRoot}\nArquivos removidos: {result.RemovedFiles}",
                 "OMSI NavBR Multiplayer",
