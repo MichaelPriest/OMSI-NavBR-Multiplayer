@@ -2175,6 +2175,41 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+
+    // Bit 0 means the keepalive succeeded. The higher bits report what OMSI
+    // had changed before NavBR reasserted ownership, giving the real-game log
+    // enough evidence to prove whether a later RoadVehicle pass is fighting us.
+    int result = 1;
+    if (!IsReadableRange(
+            base + RoadVehicleWasCalculatedOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + RoadVehiclePhysicsNeedPreCalcOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + RoadVehicleOnLoadedKachelOffset,
+            sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    if (*reinterpret_cast<const unsigned char*>(
+            base + RoadVehicleWasCalculatedOffset) == 0)
+    {
+        result |= (1 << 1);
+    }
+    if (*reinterpret_cast<const unsigned char*>(
+            base + RoadVehiclePhysicsNeedPreCalcOffset) != 0)
+    {
+        result |= (1 << 2);
+    }
+    if (*reinterpret_cast<const unsigned char*>(
+            base + RoadVehicleOnLoadedKachelOffset) == 0)
+    {
+        result |= (1 << 3);
+    }
+
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
         !WriteByte(vehiclePointer, PaiOffset, disabled) ||
         !WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled) ||
@@ -2185,7 +2220,6 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     // Keep the loaded-tile marker coherent whenever the owned RoadVehicle
     // already has a live Kachel. Do not invent or replace PathInfo here.
-    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
     if (IsReadableRange(base + KachelOffset, sizeof(int)))
     {
         const int tilePointer =
@@ -2200,7 +2234,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
         }
     }
 
-    return 1;
+    return result;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
