@@ -14,6 +14,9 @@ public partial class MainWindow
     private string? _webRoadmapError;
     private double? _webRoadmapProgress;
     private bool _webRoadmapBusy;
+    private const long WebRoadmapFileProbeCacheMs = 5_000;
+    private readonly Dictionary<string, WebRoadmapFileProbe> _webRoadmapFileProbes =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private object BuildWebRoadmapState()
     {
@@ -33,8 +36,10 @@ public partial class MainWindow
                         "texture",
                         "map",
                         OmsiRoadmapVectorGeneratorService.HdRoadmapFileName);
-                    var roadmapExists = File.Exists(roadmapPath);
-                    var hdRoadmapExists = File.Exists(hdRoadmapPath);
+                    var fileProbe =
+                        GetWebRoadmapFileProbe(roadmapPath, hdRoadmapPath);
+                    var roadmapExists = fileProbe.RoadmapExists;
+                    var hdRoadmapExists = fileProbe.HdRoadmapExists;
                     var roadmapPreviewUrl = roadmapExists
                         ? TryBuildWebMapResourceUrl(map, roadmapPath)
                         : null;
@@ -304,6 +309,7 @@ public partial class MainWindow
         OmsiMapInfo map,
         string generatedOutputPath)
     {
+        _webRoadmapFileProbes.Clear();
         var hdPath = Path.Combine(
             map.DirectoryPath,
             "texture",
@@ -389,6 +395,32 @@ public partial class MainWindow
         return map ?? throw new InvalidOperationException(
             "O mapa selecionado não está mais disponível no catálogo do OMSI.");
     }
+
+    private WebRoadmapFileProbe GetWebRoadmapFileProbe(
+        string roadmapPath,
+        string hdRoadmapPath)
+    {
+        var key = $"{roadmapPath}|{hdRoadmapPath}";
+        var nowTick = Environment.TickCount64;
+        if (_webRoadmapFileProbes.TryGetValue(key, out var cached) &&
+            nowTick >= cached.CheckedAtTickMs &&
+            nowTick - cached.CheckedAtTickMs < WebRoadmapFileProbeCacheMs)
+        {
+            return cached;
+        }
+
+        var probe = new WebRoadmapFileProbe(
+            nowTick,
+            File.Exists(roadmapPath),
+            File.Exists(hdRoadmapPath));
+        _webRoadmapFileProbes[key] = probe;
+        return probe;
+    }
+
+    private sealed record WebRoadmapFileProbe(
+        long CheckedAtTickMs,
+        bool RoadmapExists,
+        bool HdRoadmapExists);
 
     private sealed record WebRoadmapResult(
         string Mode,
