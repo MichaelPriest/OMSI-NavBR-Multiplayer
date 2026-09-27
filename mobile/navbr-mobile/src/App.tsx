@@ -628,7 +628,7 @@ export default function App() {
           <div className="section-title"><div><small>HUD DO PC</small><h2>Sobreposição NavBR</h2></div><b className={hud?.enabled ? "good" : "bad"}>{hud?.enabled ? "ATIVO" : "OCULTO"}</b></div>
           <div className="ops-actions">
             <button className={hud?.enabled ? "active-control" : ""} onClick={() => void sendCommand("hud-enabled", { enabled: !hud?.enabled })}>{hud?.enabled ? "Ocultar HUD" : "Mostrar HUD"}</button>
-            <button className={hud?.navBrTpTsEnabled ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { enabled: !hud?.navBrTpTsEnabled })}>{hud?.navBrTpTsEnabled ? "Ocultar NavBR TP/TS" : "Mostrar painel operação"}</button>
+            <button className={hud?.navBrTpTsEnabled ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { enabled: !hud?.navBrTpTsEnabled })}>{hud?.navBrTpTsEnabled ? "Ocultar NavBR TP/TS" : "Mostrar NavBR TP/TS"}</button>
           </div>
           <div className="ops-actions three">
             <button onClick={() => void sendCommand("navbr-tpts-configure", { theme: ((hud?.navBrTpTsTheme || 0) + 1) % 3 })}>Tema {["Menta","Âmbar","Gelo"][hud?.navBrTpTsTheme || 0]}</button>
