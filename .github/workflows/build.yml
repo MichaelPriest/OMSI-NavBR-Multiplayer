@@ -186,6 +186,7 @@ jobs:
             'NavBR_GetRoadVehicleAt',
             'NavBR_ReadRoadVehicleRenderDiagnostics',
             'NavBR_ReadRoadVehiclePathDiagnostics',
+            'NavBR_ReadRoadVehiclePhysicsBodyPosition',
             'NavBR_IsRoadVehiclePointer',
             'NavBR_GetHumanCount',
             'NavBR_GetHumanAt',
