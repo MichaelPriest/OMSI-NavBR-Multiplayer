@@ -18,6 +18,15 @@ internal static class PhysicalVehicleMotionController
     private const long StaleTargetAfterMs = 5_000;
     private const long ReadbackIntervalMs = 1_000;
     private const double ReadbackToleranceMeters = 3d;
+    private const int ExternalControlSuccessBit = 1 << 0;
+    private const int ExternalControlWasCalculatedResetBit = 1 << 1;
+    private const int ExternalControlPreCalcRequestedBit = 1 << 2;
+    private const int ExternalControlLoadedTileResetBit = 1 << 3;
+    private const int ExternalControlConflictMask =
+        ExternalControlWasCalculatedResetBit |
+        ExternalControlPreCalcRequestedBit |
+        ExternalControlLoadedTileResetBit;
+    private const long ExternalControlConflictLogIntervalMs = 2_000;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
@@ -231,15 +240,39 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out var unsafeReason) ||
-                OmsiNativeInterop.MaintainVehicleExternalControl(
-                    instance.VehiclePointer) != 1)
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                    instance,
+                    out var unsafeReason))
             {
                 state.FaultCode = "motion-external-control-failed";
                 state.FaultMessage =
-                    string.IsNullOrWhiteSpace(unsafeReason)
-                        ? "OMSI rejected the NavBR RoadVehicle external-control keepalive."
-                        : $"NavBR stopped the RoadVehicle external-control keepalive: {unsafeReason}.";
+                    $"NavBR stopped the RoadVehicle external-control keepalive: {unsafeReason}.";
+                continue;
+            }
+
+            var externalControlResult =
+                OmsiNativeInterop.MaintainVehicleExternalControl(
+                    instance.VehiclePointer);
+            if ((externalControlResult & ExternalControlSuccessBit) == 0)
+            {
+                state.FaultCode = "motion-external-control-failed";
+                state.FaultMessage =
+                    "OMSI rejected the NavBR RoadVehicle external-control keepalive.";
+                continue;
+            }
+
+            var conflictBits =
+                externalControlResult & ExternalControlConflictMask;
+            if (conflictBits != 0 &&
+                now - state.LastExternalControlConflictLogTickMs >=
+                    ExternalControlConflictLogIntervalMs)
+            {
+                state.LastExternalControlConflictLogTickMs = now;
+                PluginLogWriter.Enqueue(
+                    $"physical-frame-ownership id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
+                    $"omsiResetWasCalculated={((conflictBits & ExternalControlWasCalculatedResetBit) != 0 ? 1 : 0)} " +
+                    $"omsiRequestedPreCalc={((conflictBits & ExternalControlPreCalcRequestedBit) != 0 ? 1 : 0)} " +
+                    $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)}");
             }
         }
 
@@ -593,6 +626,7 @@ internal static class PhysicalVehicleMotionController
         public double DurationMs { get; set; }
         public long? LastSourceTimestampMs { get; set; }
         public long LastReadbackTickMs { get; set; }
+        public long LastExternalControlConflictLogTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }
