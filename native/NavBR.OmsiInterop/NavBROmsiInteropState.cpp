@@ -2611,19 +2611,12 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     }
 
     Vec3 previousPosition = position;
-    Vec3 previousVelocity{};
     const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
     if (IsReadableRange(vehicleBase + PositionOffset, sizeof(Vec3)))
     {
         previousPosition =
             *reinterpret_cast<const Vec3*>(vehicleBase + PositionOffset);
     }
-    if (IsReadableRange(vehicleBase + PhysicsVelocityOffset, sizeof(Vec3)))
-    {
-        previousVelocity =
-            *reinterpret_cast<const Vec3*>(vehicleBase + PhysicsVelocityOffset);
-    }
-
     Vec3 networkVelocity{};
     const Vec3 displacement{
         position.x - previousPosition.x,
