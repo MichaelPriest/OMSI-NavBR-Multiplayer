@@ -22,10 +22,14 @@ internal static class PhysicalVehicleMotionController
     private const int ExternalControlWasCalculatedResetBit = 1 << 1;
     private const int ExternalControlPreCalcRequestedBit = 1 << 2;
     private const int ExternalControlLoadedTileResetBit = 1 << 3;
+    private const int ExternalControlPhysicsBodyReenabledBit = 1 << 4;
+    private const int ExternalControlPhysicsSyncUnavailableBit = 1 << 5;
     private const int ExternalControlConflictMask =
         ExternalControlWasCalculatedResetBit |
         ExternalControlPreCalcRequestedBit |
-        ExternalControlLoadedTileResetBit;
+        ExternalControlLoadedTileResetBit |
+        ExternalControlPhysicsBodyReenabledBit |
+        ExternalControlPhysicsSyncUnavailableBit;
     private const long ExternalControlConflictLogIntervalMs = 2_000;
     private const long PathBindingComparisonLogIntervalMs = 5_000;
 
@@ -265,7 +269,10 @@ internal static class PhysicalVehicleMotionController
                     $"physical-frame-ownership id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
                     $"omsiResetWasCalculated={((conflictBits & ExternalControlWasCalculatedResetBit) != 0 ? 1 : 0)} " +
                     $"omsiRequestedPreCalc={((conflictBits & ExternalControlPreCalcRequestedBit) != 0 ? 1 : 0)} " +
-                    $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)}");
+                    $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)} " +
+                    $"omsiReenabledPhysicsBody={((conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0 ? 1 : 0)} " +
+                    $"physicsSyncUnavailable={((conflictBits & ExternalControlPhysicsSyncUnavailableBit) != 0 ? 1 : 0)} " +
+                    $"physicsSyncStatus={OmsiNativeInterop.GetLastVehiclePhysicsSyncStatus()}");
             }
         }
 
