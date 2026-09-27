@@ -63,6 +63,27 @@ namespace
     constexpr int RoadVehicleOnLoadedKachelOffset = 0x714;
     constexpr int RoadVehicleWasCalculatedOffset = 0x715;
     constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
+    // OmsiMovingMapObjInst / OmsiPathInfo offsets verified against OmsiHook.
+    // Diagnostics below are deliberately read-only; NavBR does not yet write
+    // PathFixed or PathInfo.
+    constexpr int PathFixedOffset = 0x2DE;
+    constexpr int PathInfoOffset = 0x2E0;
+    constexpr int PathInfoSize = 0x110;
+    constexpr int PathInfoVehTypeOffset = 0x00;
+    constexpr int PathInfoFreeOrLargeOffset = 0x03;
+    constexpr int PathInfoPathPositionOffset = 0x04;
+    constexpr int PathInfoPathKachelOffset = 0x10;
+    constexpr int PathInfoPathIndexOffset = 0x14;
+    constexpr int PathInfoSubPathOffset = 0x18;
+    constexpr int PathInfoReverseOffset = 0x1C;
+    constexpr int PathInfoHeadingOffset = 0x20;
+    constexpr int PathInfoVelocityOffset = 0x2C;
+    constexpr int PathInfoWaitModeOffset = 0x4C;
+    constexpr int PathInfoReserveGroupOffset = 0x50;
+    constexpr int PathInfoOnCrossingOffset = 0xCA;
+    constexpr int PathInfoTrackOffset = 0xF0;
+    constexpr int PathInfoTrackEntryOffset = 0xF4;
+    constexpr int PaiMovingDistanceOffset = 0x410;
 
     constexpr int MapKachelLoadedOffset = 0x038;
     constexpr int MapKachelnOffset = 0x118;
@@ -1117,7 +1138,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 16;
+    return 17;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetLastVehicleTransformFailureStage()
@@ -1381,6 +1402,121 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleRenderDiagnost
     *renderZ = renderMatrix.m32;
     *hostDistance = distanceToHost;
     return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePathDiagnostics(
+    int vehiclePointer,
+    int* pathFixed,
+    int* wasCalculated,
+    int* needPreCalc,
+    int* onLoadedKachel,
+    int* vehType,
+    int* freeOrLarge,
+    float* pathX,
+    float* pathY,
+    float* pathZ,
+    int* pathKachel,
+    int* pathIndex,
+    int* subPath,
+    int* reverse,
+    float* heading,
+    float* velocity,
+    int* waitMode,
+    int* reserveGroup,
+    int* onCrossing,
+    int* track,
+    int* trackEntry,
+    float* paiMovingDistance)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        pathFixed == nullptr ||
+        wasCalculated == nullptr ||
+        needPreCalc == nullptr ||
+        onLoadedKachel == nullptr ||
+        vehType == nullptr ||
+        freeOrLarge == nullptr ||
+        pathX == nullptr ||
+        pathY == nullptr ||
+        pathZ == nullptr ||
+        pathKachel == nullptr ||
+        pathIndex == nullptr ||
+        subPath == nullptr ||
+        reverse == nullptr ||
+        heading == nullptr ||
+        velocity == nullptr ||
+        waitMode == nullptr ||
+        reserveGroup == nullptr ||
+        onCrossing == nullptr ||
+        track == nullptr ||
+        trackEntry == nullptr ||
+        paiMovingDistance == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    const auto pathBase = base + PathInfoOffset;
+    if (!IsReadableRange(base + PathFixedOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + RoadVehicleWasCalculatedOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + RoadVehiclePhysicsNeedPreCalcOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(base + RoadVehicleOnLoadedKachelOffset, sizeof(unsigned char)) ||
+        !IsReadableRange(pathBase, PathInfoSize) ||
+        !IsReadableRange(base + PaiMovingDistanceOffset, sizeof(float)))
+    {
+        return 0;
+    }
+
+    const Vec3 pathPosition =
+        *reinterpret_cast<const Vec3*>(pathBase + PathInfoPathPositionOffset);
+
+    *pathFixed =
+        *reinterpret_cast<const unsigned char*>(base + PathFixedOffset) != 0 ? 1 : 0;
+    *wasCalculated =
+        *reinterpret_cast<const unsigned char*>(base + RoadVehicleWasCalculatedOffset) != 0 ? 1 : 0;
+    *needPreCalc =
+        *reinterpret_cast<const unsigned char*>(base + RoadVehiclePhysicsNeedPreCalcOffset) != 0 ? 1 : 0;
+    *onLoadedKachel =
+        *reinterpret_cast<const unsigned char*>(base + RoadVehicleOnLoadedKachelOffset) != 0 ? 1 : 0;
+    *vehType =
+        static_cast<int>(*reinterpret_cast<const unsigned char*>(pathBase + PathInfoVehTypeOffset));
+    *freeOrLarge =
+        *reinterpret_cast<const unsigned char*>(pathBase + PathInfoFreeOrLargeOffset) != 0 ? 1 : 0;
+    *pathX = pathPosition.x;
+    *pathY = pathPosition.y;
+    *pathZ = pathPosition.z;
+    *pathKachel =
+        *reinterpret_cast<const int*>(pathBase + PathInfoPathKachelOffset);
+    *pathIndex =
+        *reinterpret_cast<const int*>(pathBase + PathInfoPathIndexOffset);
+    *subPath =
+        *reinterpret_cast<const int*>(pathBase + PathInfoSubPathOffset);
+    *reverse =
+        *reinterpret_cast<const unsigned char*>(pathBase + PathInfoReverseOffset) != 0 ? 1 : 0;
+    *heading =
+        *reinterpret_cast<const float*>(pathBase + PathInfoHeadingOffset);
+    *velocity =
+        *reinterpret_cast<const float*>(pathBase + PathInfoVelocityOffset);
+    *waitMode =
+        static_cast<int>(*reinterpret_cast<const unsigned char*>(pathBase + PathInfoWaitModeOffset));
+    *reserveGroup =
+        *reinterpret_cast<const int*>(pathBase + PathInfoReserveGroupOffset);
+    *onCrossing =
+        *reinterpret_cast<const unsigned char*>(pathBase + PathInfoOnCrossingOffset) != 0 ? 1 : 0;
+    *track =
+        *reinterpret_cast<const int*>(pathBase + PathInfoTrackOffset);
+    *trackEntry =
+        *reinterpret_cast<const int*>(pathBase + PathInfoTrackEntryOffset);
+    *paiMovingDistance =
+        *reinterpret_cast<const float*>(base + PaiMovingDistanceOffset);
+
+    return std::isfinite(*pathX) &&
+           std::isfinite(*pathY) &&
+           std::isfinite(*pathZ) &&
+           std::isfinite(*heading) &&
+           std::isfinite(*velocity) &&
+           std::isfinite(*paiMovingDistance)
+        ? 1
+        : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsMapTileIndexValid(int mapTileIndex)
