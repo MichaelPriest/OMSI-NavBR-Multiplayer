@@ -213,22 +213,13 @@ internal static class PhysicalVehicleMotionController
         return true;
     }
 
-    public static void Tick()
+    /// <summary>
+    /// Reasserts NavBR ownership once per OMSI callback cycle, independently
+    /// from interpolation cadence. This must run on OMSI's callback thread.
+    /// </summary>
+    public static void MaintainExternalControl()
     {
         var now = Environment.TickCount64;
-        var activeCount = States.Count;
-        if (activeCount == 0)
-        {
-            _lastTickMs = now;
-            return;
-        }
-
-        // OMSI can run RoadVehicle calculation after this plugin callback.
-        // Reassert only the ownership/calculation flags on every admitted OMSI
-        // work slice, even when interpolation is settled and no pose write is
-        // necessary. This prevents the simulator from taking an externally
-        // driven NavBR bus back into its own physics/path update between
-        // network targets.
         foreach (var pair in States.ToArray())
         {
             var instanceId = pair.Key;
@@ -275,8 +266,12 @@ internal static class PhysicalVehicleMotionController
                     $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)}");
             }
         }
+    }
 
-        activeCount = States.Count;
+    public static void Tick()
+    {
+        var now = Environment.TickCount64;
+        var activeCount = States.Count;
         if (activeCount == 0)
         {
             _lastTickMs = now;
