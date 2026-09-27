@@ -153,3 +153,5 @@ Para mantê-los na malha viária, o NavBR agora prioriza:
 3. somente quando um asset não possui path dirigível, o centro geométrico da spline pode ser usado como fallback.
 
 O ônibus simulado só é materializado quando existe uma âncora de via confiável próxima. Se o path ficar temporariamente indisponível, ele mantém a última pose física válida em vez de circular, teleportar ou ser recriado.
+
+Para validar o comportamento no teste, consulte `%LOCALAPPDATA%\OMSI NavBR Multiplayer\navbr.log` e procure por `physical-road-target`. O campo `source` deve indicar preferencialmente `vehicle-path` nas vias normais e `scenery-vehicle-path` dentro de cruzamentos. `spline-center-fallback` significa que o asset não expôs um path dirigível e deve ser tratado como fallback de compatibilidade.

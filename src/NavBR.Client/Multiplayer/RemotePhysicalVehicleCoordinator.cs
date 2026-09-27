@@ -479,7 +479,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 hasRoadTarget = true;
                 NavBRAppLog.Info(
                     "physical-road-target",
-                    $"player={playerId} source={roadAnchor.Source} grid={roadAnchor.GridX},{roadAnchor.GridY} local=({roadAnchor.LocalX:F2},{roadAnchor.LocalY:F2},{roadAnchor.LocalZ:F2}) distance={roadAnchor.DistanceMeters:F2}m");
+                    $"player={playerId} source={roadAnchor.Source} anchor={roadAnchor.Name ?? "-"} grid={roadAnchor.GridX},{roadAnchor.GridY} local=({roadAnchor.LocalX:F2},{roadAnchor.LocalY:F2},{roadAnchor.LocalZ:F2}) distance={roadAnchor.DistanceMeters:F2}m");
             }
 
             if (isSimulatorPlayer && !hasRoadTarget)
