@@ -176,42 +176,51 @@ namespace
         OdeBodySetVelocityFn setAngularVelocity = nullptr;
         OdeBodyDisableFn disable = nullptr;
         OdeBodyIsEnabledFn isEnabled = nullptr;
-        bool attempted = false;
     };
+
+    FARPROC ResolveOdeProc(HMODULE module, const char* name, const char* decorated)
+    {
+        auto proc = GetProcAddress(module, name);
+        return proc != nullptr
+            ? proc
+            : GetProcAddress(module, decorated);
+    }
 
     OdeApi& GetOdeApi()
     {
         static OdeApi api{};
-        if (api.attempted)
+        if (api.module != nullptr)
         {
             return api;
         }
 
-        api.attempted = true;
-        api.module = GetModuleHandleA("ode.dll");
-        if (api.module == nullptr)
+        const auto module = GetModuleHandleA("ode.dll");
+        if (module == nullptr)
         {
+            // OMSI normally loads ode.dll before active vehicle simulation, but
+            // do not permanently cache a miss during early plugin startup.
             return api;
         }
 
+        api.module = module;
         api.setPosition =
             reinterpret_cast<OdeBodySetPositionFn>(
-                GetProcAddress(api.module, "dBodySetPosition"));
+                ResolveOdeProc(module, "dBodySetPosition", "_dBodySetPosition"));
         api.setQuaternion =
             reinterpret_cast<OdeBodySetQuaternionFn>(
-                GetProcAddress(api.module, "dBodySetQuaternion"));
+                ResolveOdeProc(module, "dBodySetQuaternion", "_dBodySetQuaternion"));
         api.setLinearVelocity =
             reinterpret_cast<OdeBodySetVelocityFn>(
-                GetProcAddress(api.module, "dBodySetLinearVel"));
+                ResolveOdeProc(module, "dBodySetLinearVel", "_dBodySetLinearVel"));
         api.setAngularVelocity =
             reinterpret_cast<OdeBodySetVelocityFn>(
-                GetProcAddress(api.module, "dBodySetAngularVel"));
+                ResolveOdeProc(module, "dBodySetAngularVel", "_dBodySetAngularVel"));
         api.disable =
             reinterpret_cast<OdeBodyDisableFn>(
-                GetProcAddress(api.module, "dBodyDisable"));
+                ResolveOdeProc(module, "dBodyDisable", "_dBodyDisable"));
         api.isEnabled =
             reinterpret_cast<OdeBodyIsEnabledFn>(
-                GetProcAddress(api.module, "dBodyIsEnabled"));
+                ResolveOdeProc(module, "dBodyIsEnabled", "_dBodyIsEnabled"));
         return api;
     }
 
@@ -266,8 +275,7 @@ namespace
             ode.setQuaternion == nullptr ||
             ode.setLinearVelocity == nullptr ||
             ode.setAngularVelocity == nullptr ||
-            ode.disable == nullptr ||
-            ode.isEnabled == nullptr)
+            ode.disable == nullptr)
         {
             InterlockedExchange(&LastVehiclePhysicsSyncStatus, 3);
             return 3;
@@ -275,7 +283,8 @@ namespace
 
         auto* body = reinterpret_cast<void*>(
             static_cast<std::uintptr_t>(bodyPointer));
-        if (wasEnabledBeforeSync != nullptr)
+        if (wasEnabledBeforeSync != nullptr &&
+            ode.isEnabled != nullptr)
         {
             *wasEnabledBeforeSync = ode.isEnabled(body) != 0;
         }
