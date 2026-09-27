@@ -33,11 +33,14 @@ internal static class PhysicalVehicleMotionController
     private const long ExternalControlConflictLogIntervalMs = 2_000;
     private const long PathBindingComparisonLogIntervalMs = 5_000;
     private const long PhysicsBodyComparisonLogIntervalMs = 2_000;
+    private const long MaximumSettledPoseReassertIntervalMs = 250;
+    private const double FramePoseDriftToleranceMeters = 0.05d;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
     private static long _lastTickMs;
     private static long _lastPathBindingComparisonLogTickMs;
+    private static long _lastExternalControlTickMs;
 
     public static int ActiveCount => States.Count;
 
@@ -227,6 +230,29 @@ internal static class PhysicalVehicleMotionController
     public static void MaintainExternalControl()
     {
         var now = Environment.TickCount64;
+        var activeCount = States.Count;
+        if (activeCount == 0)
+        {
+            _lastExternalControlTickMs = now;
+            return;
+        }
+
+        // System variable 0 can be requested more often than the visible frame
+        // cadence on some OMSI setups. Bound ownership maintenance so native
+        // ODE/transform work cannot monopolize OMSI's callback thread.
+        var minimumMaintainIntervalMs = activeCount switch
+        {
+            >= 9 => 33L,
+            >= 5 => 24L,
+            _ => 16L
+        };
+        if (_lastExternalControlTickMs > 0 &&
+            now - _lastExternalControlTickMs < minimumMaintainIntervalMs)
+        {
+            return;
+        }
+
+        _lastExternalControlTickMs = now;
         foreach (var pair in States.ToArray())
         {
             var instanceId = pair.Key;
@@ -248,22 +274,6 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            // Reapply the last authoritative NavBR pose on every OMSI callback.
-            // A running RoadVehicle/ODE pass can overwrite Position between
-            // network packets; waiting for the next interpolation tick lets a
-            // wrong pose reach the render thread. Keep this per-frame write
-            // independent from network cadence.
-            if (!TryApplyTransform(
-                    instance,
-                    state.Current,
-                    writeTileIndex: false))
-            {
-                state.FaultCode = "motion-frame-pose-reassert-failed";
-                state.FaultMessage =
-                    $"OMSI rejected the per-frame NavBR pose reassertion at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
-                continue;
-            }
-
             var externalControlResult =
                 OmsiNativeInterop.MaintainVehicleExternalControl(
                     instance.VehiclePointer);
@@ -275,13 +285,57 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            if (now - state.LastPhysicsBodyLogTickMs >=
-                    PhysicsBodyComparisonLogIntervalMs &&
+            var conflictBits =
+                externalControlResult & ExternalControlConflictMask;
+
+            var hasObjectPosition =
                 OmsiNativeInterop.ReadRoadVehiclePosition(
                     instance.VehiclePointer,
                     out var objectX,
                     out var objectY,
-                    out var objectZ) == 1 &&
+                    out var objectZ) == 1;
+            var poseDrifted = false;
+            if (hasObjectPosition)
+            {
+                var dx = objectX - state.Current.X;
+                var dy = objectY - state.Current.Y;
+                var dz = objectZ - state.Current.Z;
+                poseDrifted =
+                    dx * dx + dy * dy + dz * dz >
+                    FramePoseDriftToleranceMeters *
+                    FramePoseDriftToleranceMeters;
+            }
+
+            var physicsReenabled =
+                (conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0;
+            var periodicRefresh =
+                now - state.LastFramePoseReassertTickMs >=
+                MaximumSettledPoseReassertIntervalMs;
+
+            // Reapply the expensive full transform only when OMSI actually
+            // moved the object/body or as a low-rate render-matrix refresh.
+            // This keeps the correction from build #1074 without doing several
+            // ODE + matrix writes for every callback and every remote bus.
+            if ((poseDrifted || physicsReenabled || periodicRefresh) &&
+                !TryApplyTransform(
+                    instance,
+                    state.Current,
+                    writeTileIndex: false))
+            {
+                state.FaultCode = "motion-frame-pose-reassert-failed";
+                state.FaultMessage =
+                    $"OMSI rejected the bounded NavBR pose reassertion at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+                continue;
+            }
+
+            if (poseDrifted || physicsReenabled || periodicRefresh)
+            {
+                state.LastFramePoseReassertTickMs = now;
+            }
+
+            if (now - state.LastPhysicsBodyLogTickMs >=
+                    PhysicsBodyComparisonLogIntervalMs &&
+                hasObjectPosition &&
                 OmsiNativeInterop.TryReadRoadVehiclePhysicsBodyPosition(
                     instance.VehiclePointer,
                     out var bodyX,
@@ -298,8 +352,6 @@ internal static class PhysicalVehicleMotionController
                     $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2})");
             }
 
-            var conflictBits =
-                externalControlResult & ExternalControlConflictMask;
             if (conflictBits != 0 &&
                 now - state.LastExternalControlConflictLogTickMs >=
                     ExternalControlConflictLogIntervalMs)
@@ -533,6 +585,7 @@ internal static class PhysicalVehicleMotionController
     {
         States.Clear();
         _lastTickMs = 0;
+        _lastExternalControlTickMs = 0;
     }
 
     private static bool TryApplyTransform(
@@ -753,6 +806,7 @@ internal static class PhysicalVehicleMotionController
         public long LastReadbackTickMs { get; set; }
         public long LastExternalControlConflictLogTickMs { get; set; }
         public long LastPhysicsBodyLogTickMs { get; set; }
+        public long LastFramePoseReassertTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }
