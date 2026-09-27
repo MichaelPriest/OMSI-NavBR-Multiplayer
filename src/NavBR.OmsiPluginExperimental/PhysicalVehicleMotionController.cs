@@ -31,8 +31,8 @@ internal static class PhysicalVehicleMotionController
         ExternalControlPhysicsBodyReenabledBit |
         ExternalControlPhysicsSyncUnavailableBit;
     private const long ExternalControlConflictLogIntervalMs = 2_000;
-    private const long PathBindingComparisonLogIntervalMs = 5_000;
-    private const long PhysicsBodyComparisonLogIntervalMs = 2_000;
+    private const long PathBindingComparisonLogIntervalMs = 10_000;
+    private const long PhysicsBodyComparisonLogIntervalMs = 10_000;
     private const long MaximumSettledPoseReassertIntervalMs = 250;
     private const double FramePoseDriftToleranceMeters = 0.05d;
 
@@ -393,40 +393,14 @@ internal static class PhysicalVehicleMotionController
             return;
         }
 
-        if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var roadVehicles))
-        {
-            return;
-        }
-
         var ownedPointers = new HashSet<int>(
             owned.Select(instance => instance.VehiclePointer));
         var playerPointer = OmsiNativeInterop.GetPlayerVehiclePointer();
-        var nativeAiPointer = 0;
-        OmsiNativeInterop.RoadVehiclePathDiagnostics nativeAiPath = default;
-
-        foreach (var pointer in roadVehicles)
-        {
-            if (pointer == 0 ||
-                pointer == playerPointer ||
-                ownedPointers.Contains(pointer))
-            {
-                continue;
-            }
-
-            if (!OmsiNativeInterop.TryReadRoadVehiclePathDiagnostics(
-                    pointer,
-                    out var candidate) ||
-                candidate.Pai != 1)
-            {
-                continue;
-            }
-
-            nativeAiPointer = pointer;
-            nativeAiPath = candidate;
-            break;
-        }
-
-        if (nativeAiPointer == 0)
+        if (!OmsiNativeInterop.TryFindNativeAiRoadVehicle(
+                playerPointer,
+                ownedPointers,
+                out var nativeAiPointer,
+                out var nativeAiPath))
         {
             return;
         }
