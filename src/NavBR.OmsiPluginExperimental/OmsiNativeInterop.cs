@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 18;
+    private const int ExpectedStateInteropVersion = 19;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -699,6 +699,50 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetLastVehiclePhysicsSyncStatus")]
     internal static extern int GetLastVehiclePhysicsSyncStatus();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePhysicsBodyPosition")]
+    private static extern int ReadRoadVehiclePhysicsBodyPosition(
+        int vehiclePointer,
+        out float bodyX,
+        out float bodyY,
+        out float bodyZ,
+        out int enabled);
+
+    internal static bool TryReadRoadVehiclePhysicsBodyPosition(
+        int vehiclePointer,
+        out float bodyX,
+        out float bodyY,
+        out float bodyZ,
+        out bool enabled)
+    {
+        bodyX = 0f;
+        bodyY = 0f;
+        bodyZ = 0f;
+        enabled = false;
+        try
+        {
+            var result = ReadRoadVehiclePhysicsBodyPosition(
+                vehiclePointer,
+                out bodyX,
+                out bodyY,
+                out bodyZ,
+                out var enabledRaw);
+            enabled = enabledRaw != 0;
+            return result == 1;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetLastVehicleTransformFailureStage")]
     internal static extern int GetLastVehicleTransformFailureStage();
