@@ -248,6 +248,22 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
+            // Reapply the last authoritative NavBR pose on every OMSI callback.
+            // A running RoadVehicle/ODE pass can overwrite Position between
+            // network packets; waiting for the next interpolation tick lets a
+            // wrong pose reach the render thread. Keep this per-frame write
+            // independent from network cadence.
+            if (!TryApplyTransform(
+                    instance,
+                    state.Current,
+                    writeTileIndex: false))
+            {
+                state.FaultCode = "motion-frame-pose-reassert-failed";
+                state.FaultMessage =
+                    $"OMSI rejected the per-frame NavBR pose reassertion at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+                continue;
+            }
+
             var externalControlResult =
                 OmsiNativeInterop.MaintainVehicleExternalControl(
                     instance.VehiclePointer);
