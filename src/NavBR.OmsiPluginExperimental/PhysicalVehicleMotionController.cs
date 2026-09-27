@@ -32,6 +32,7 @@ internal static class PhysicalVehicleMotionController
         ExternalControlPhysicsSyncUnavailableBit;
     private const long ExternalControlConflictLogIntervalMs = 2_000;
     private const long PathBindingComparisonLogIntervalMs = 5_000;
+    private const long PhysicsBodyComparisonLogIntervalMs = 2_000;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
@@ -256,6 +257,29 @@ internal static class PhysicalVehicleMotionController
                 state.FaultMessage =
                     "OMSI rejected the NavBR RoadVehicle external-control keepalive.";
                 continue;
+            }
+
+            if (now - state.LastPhysicsBodyLogTickMs >=
+                    PhysicsBodyComparisonLogIntervalMs &&
+                OmsiNativeInterop.ReadRoadVehiclePosition(
+                    instance.VehiclePointer,
+                    out var objectX,
+                    out var objectY,
+                    out var objectZ) == 1 &&
+                OmsiNativeInterop.TryReadRoadVehiclePhysicsBodyPosition(
+                    instance.VehiclePointer,
+                    out var bodyX,
+                    out var bodyY,
+                    out var bodyZ,
+                    out var bodyEnabled))
+            {
+                state.LastPhysicsBodyLogTickMs = now;
+                PluginLogWriter.Enqueue(
+                    $"physical-body-compare id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
+                    $"object=({objectX:F2},{objectY:F2},{objectZ:F2}) " +
+                    $"body=({bodyX:F2},{bodyY:F2},{bodyZ:F2}) " +
+                    $"bodyEnabled={(bodyEnabled ? 1 : 0)} " +
+                    $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2})");
             }
 
             var conflictBits =
@@ -712,6 +736,7 @@ internal static class PhysicalVehicleMotionController
         public long? LastSourceTimestampMs { get; set; }
         public long LastReadbackTickMs { get; set; }
         public long LastExternalControlConflictLogTickMs { get; set; }
+        public long LastPhysicsBodyLogTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }
