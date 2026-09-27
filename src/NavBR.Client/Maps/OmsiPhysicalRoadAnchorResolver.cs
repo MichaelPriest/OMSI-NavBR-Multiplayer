@@ -76,7 +76,8 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         IReadOnlyDictionary<(int GridX, int GridY), TileRef> TilesByGrid,
         IReadOnlyDictionary<int, TileRef> TilesByIndex,
         IReadOnlyList<Entrypoint> Entrypoints,
-        Dictionary<string, IReadOnlyList<SplinePlacement>> Splines);
+        Dictionary<string, IReadOnlyList<SplinePlacement>> Splines,
+        Dictionary<string, IReadOnlyList<IReadOnlyList<OmsiSceneryRoadPoint>>> SceneryRoadPaths);
 
     public OmsiPhysicalRoadAnchorResolver(
         Func<string?> omsiInstallDirectorySource)
@@ -195,6 +196,76 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             spline.RoadPaths.Count > 0
                                 ? "vehicle-path"
                                 : "spline-center-fallback",
+                            Path.GetFileName(tile.Path));
+                        found = true;
+                    }
+                }
+
+                foreach (var sceneryPath in GetSceneryRoadPaths(
+                             data,
+                             map.DirectoryPath,
+                             tile.Path))
+                {
+                    for (var pointIndex = 1;
+                         pointIndex < sceneryPath.Count;
+                         pointIndex++)
+                    {
+                        var previous = sceneryPath[pointIndex - 1];
+                        var current = sceneryPath[pointIndex];
+                        if (!TryProjectOntoRoadSegment(
+                                gridX,
+                                gridY,
+                                data.TileSize,
+                                previous,
+                                current,
+                                targetWorldX,
+                                targetWorldZ,
+                                out var distanceSquared,
+                                out var snappedLocalX,
+                                out var snappedLocalZ,
+                                out var heightY,
+                                out var headingDegrees) ||
+                            distanceSquared >= maxDistanceSquared)
+                        {
+                            continue;
+                        }
+
+                        var axisDeltaDegrees = RoadAxisDeltaDegrees(
+                            telemetry.HeadingDegrees,
+                            headingDegrees);
+                        if (axisDeltaDegrees > 70d)
+                        {
+                            continue;
+                        }
+
+                        var headingPenalty = axisDeltaDegrees / 15d;
+                        var score =
+                            distanceSquared +
+                            headingPenalty * headingPenalty;
+                        if (!double.IsFinite(score) ||
+                            score >= bestScore)
+                        {
+                            continue;
+                        }
+
+                        var headingRadians =
+                            headingDegrees * Math.PI / 180d;
+                        var half = headingRadians * 0.5d;
+
+                        bestScore = score;
+                        best = new OmsiPhysicalRoadAnchor(
+                            gridX,
+                            gridY,
+                            snappedLocalX,
+                            heightY,
+                            snappedLocalZ,
+                            0d,
+                            Math.Sin(half),
+                            0d,
+                            Math.Cos(half),
+                            NormalizeHeading(headingDegrees),
+                            Math.Sqrt(distanceSquared),
+                            "scenery-vehicle-path",
                             Path.GetFileName(tile.Path));
                         found = true;
                     }
@@ -525,6 +596,8 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             tilesByIndex,
             entrypoints,
             new Dictionary<string, IReadOnlyList<SplinePlacement>>(
+                StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, IReadOnlyList<IReadOnlyList<OmsiSceneryRoadPoint>>>(
                 StringComparer.OrdinalIgnoreCase));
     }
 
@@ -632,6 +705,35 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         }
 
         return false;
+    }
+
+    private static IReadOnlyList<IReadOnlyList<OmsiSceneryRoadPoint>>
+        GetSceneryRoadPaths(
+            MapData data,
+            string mapDirectory,
+            string tilePath)
+    {
+        lock (data.SceneryRoadPaths)
+        {
+            if (data.SceneryRoadPaths.TryGetValue(
+                    tilePath,
+                    out var cached))
+            {
+                return cached;
+            }
+        }
+
+        var parsed =
+            OmsiRouteSceneryPathGeometryReader.ReadAllRoadPaths(
+                mapDirectory,
+                tilePath);
+
+        lock (data.SceneryRoadPaths)
+        {
+            data.SceneryRoadPaths[tilePath] = parsed;
+        }
+
+        return parsed;
     }
 
     private static IReadOnlyList<SplinePlacement> GetSplines(
@@ -1062,6 +1164,67 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         }
 
         return false;
+    }
+
+    private static bool TryProjectOntoRoadSegment(
+        int gridX,
+        int gridY,
+        double tileSize,
+        OmsiSceneryRoadPoint start,
+        OmsiSceneryRoadPoint end,
+        double targetWorldX,
+        double targetWorldZ,
+        out double distanceSquared,
+        out double snappedLocalX,
+        out double snappedLocalZ,
+        out double heightY,
+        out double headingDegrees)
+    {
+        distanceSquared = double.PositiveInfinity;
+        snappedLocalX = 0d;
+        snappedLocalZ = 0d;
+        heightY = 0d;
+        headingDegrees = 0d;
+
+        var ax = gridX * tileSize + start.TileX;
+        var az = gridY * tileSize + start.TileY;
+        var bx = gridX * tileSize + end.TileX;
+        var bz = gridY * tileSize + end.TileY;
+        var vx = bx - ax;
+        var vz = bz - az;
+        var lengthSquared = vx * vx + vz * vz;
+        if (!double.IsFinite(lengthSquared) ||
+            lengthSquared < 0.0001d)
+        {
+            return false;
+        }
+
+        var t = Math.Clamp(
+            ((targetWorldX - ax) * vx +
+             (targetWorldZ - az) * vz) /
+            lengthSquared,
+            0d,
+            1d);
+        var worldX = ax + vx * t;
+        var worldZ = az + vz * t;
+        var dx = worldX - targetWorldX;
+        var dz = worldZ - targetWorldZ;
+
+        distanceSquared = dx * dx + dz * dz;
+        snappedLocalX = worldX - gridX * tileSize;
+        snappedLocalZ = worldZ - gridY * tileSize;
+        heightY = start.Z + (end.Z - start.Z) * t;
+        headingDegrees = NormalizeHeading(
+            Math.Atan2(vx, vz) *
+            180d /
+            Math.PI);
+
+        return
+            double.IsFinite(distanceSquared) &&
+            double.IsFinite(snappedLocalX) &&
+            double.IsFinite(snappedLocalZ) &&
+            double.IsFinite(heightY) &&
+            double.IsFinite(headingDegrees);
     }
 
     private static double ResolveHeight(
