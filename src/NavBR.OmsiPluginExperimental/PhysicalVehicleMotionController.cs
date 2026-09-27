@@ -27,10 +27,12 @@ internal static class PhysicalVehicleMotionController
         ExternalControlPreCalcRequestedBit |
         ExternalControlLoadedTileResetBit;
     private const long ExternalControlConflictLogIntervalMs = 2_000;
+    private const long PathBindingComparisonLogIntervalMs = 5_000;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
     private static long _lastTickMs;
+    private static long _lastPathBindingComparisonLogTickMs;
 
     public static int ActiveCount => States.Count;
 
@@ -266,6 +268,87 @@ internal static class PhysicalVehicleMotionController
                     $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)}");
             }
         }
+
+        LogPathBindingComparison(now);
+    }
+
+    private static void LogPathBindingComparison(long now)
+    {
+        if (now - _lastPathBindingComparisonLogTickMs <
+            PathBindingComparisonLogIntervalMs)
+        {
+            return;
+        }
+
+        var owned = PhysicalVehicleInstanceRegistry.Snapshot();
+        if (owned.Length == 0)
+        {
+            return;
+        }
+
+        var ownedInstance = owned[0];
+        if (!OmsiNativeInterop.TryReadRoadVehiclePathDiagnostics(
+                ownedInstance.VehiclePointer,
+                out var navbrPath))
+        {
+            return;
+        }
+
+        if (!OmsiNativeInterop.TrySnapshotRoadVehicles(out var roadVehicles))
+        {
+            return;
+        }
+
+        var ownedPointers = new HashSet<int>(
+            owned.Select(instance => instance.VehiclePointer));
+        var playerPointer = OmsiNativeInterop.GetPlayerVehiclePointer();
+        var nativeAiPointer = 0;
+        OmsiNativeInterop.RoadVehiclePathDiagnostics nativeAiPath = default;
+
+        foreach (var pointer in roadVehicles)
+        {
+            if (pointer == 0 ||
+                pointer == playerPointer ||
+                ownedPointers.Contains(pointer))
+            {
+                continue;
+            }
+
+            if (!OmsiNativeInterop.TryReadRoadVehiclePathDiagnostics(
+                    pointer,
+                    out var candidate) ||
+                candidate.Pai != 1)
+            {
+                continue;
+            }
+
+            nativeAiPointer = pointer;
+            nativeAiPath = candidate;
+            break;
+        }
+
+        if (nativeAiPointer == 0)
+        {
+            return;
+        }
+
+        _lastPathBindingComparisonLogTickMs = now;
+        PluginLogWriter.Enqueue(
+            $"physical-path-compare navbr=0x{ownedInstance.VehiclePointer:X8} " +
+            $"navbrPathFixed={navbrPath.PathFixed} navbrPAI={navbrPath.Pai} " +
+            $"navbrCalc={navbrPath.WasCalculated} navbrPreCalc={navbrPath.NeedPreCalc} " +
+            $"navbrLoadedTile={navbrPath.OnLoadedKachel} " +
+            $"navbrPath={navbrPath.PathKachel}:{navbrPath.PathIndex}:{navbrPath.SubPath} " +
+            $"navbrReverse={navbrPath.Reverse} navbrPathPos={navbrPath.PathX:F2},{navbrPath.PathY:F2},{navbrPath.PathZ:F2} " +
+            $"navbrPathVel={navbrPath.Velocity:F2} navbrMoving={navbrPath.PaiMovingDistance:F2} " +
+            $"navbrTrack={navbrPath.Track}:{navbrPath.TrackEntry} navbrCrossing={navbrPath.OnCrossing} " +
+            $"ai=0x{nativeAiPointer:X8} aiPathFixed={nativeAiPath.PathFixed} aiPAI={nativeAiPath.Pai} " +
+            $"aiCalc={nativeAiPath.WasCalculated} aiPreCalc={nativeAiPath.NeedPreCalc} " +
+            $"aiLoadedTile={nativeAiPath.OnLoadedKachel} " +
+            $"aiPath={nativeAiPath.PathKachel}:{nativeAiPath.PathIndex}:{nativeAiPath.SubPath} " +
+            $"aiReverse={nativeAiPath.Reverse} aiPathPos={nativeAiPath.PathX:F2},{nativeAiPath.PathY:F2},{nativeAiPath.PathZ:F2} " +
+            $"aiPathVel={nativeAiPath.Velocity:F2} aiMoving={nativeAiPath.PaiMovingDistance:F2} " +
+            $"aiTrack={nativeAiPath.Track}:{nativeAiPath.TrackEntry} aiCrossing={nativeAiPath.OnCrossing}");
     }
 
     public static void Tick()
