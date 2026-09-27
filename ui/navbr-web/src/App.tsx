@@ -3901,6 +3901,7 @@ function Multiplayer({
   const { pick } = useI18n();
   const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
   const telemetry = state?.telemetry;
+  const mobileControls = state?.system?.mobileCompanion;
   const [tab, setTab] = useState<MultiplayerTab>("overview");
   const [chatText, setChatText] = useState("");
   const [serverUrl, setServerUrl] = useState("");
@@ -4191,6 +4192,42 @@ function Multiplayer({
               <p>{telemetry?.line ? `${pick("Linha", "Line", "Línea", "Linie", "Ligne")} ${telemetry.line}` : pick("Sem linha ativa", "No active line", "Sin línea activa", "Keine aktive Linie", "Aucune ligne active")}</p>
               <p>{telemetry?.route || telemetry?.destinationName || pick("Aguardando rota", "Waiting for route", "Esperando ruta", "Warte auf Route", "En attente de l’itinéraire")}</p>
             </article>
+            <article className="card compact-card experimental-quick-card">
+              <span className="eyebrow">{pick("RECURSOS EXPERIMENTAIS", "EXPERIMENTAL FEATURES", "FUNCIONES EXPERIMENTALES", "EXPERIMENTELLE FUNKTIONEN", "FONCTIONS EXPÉRIMENTALES")}</span>
+              <h3>{pick("Ativação rápida", "Quick enable", "Activación rápida", "Schnell aktivieren", "Activation rapide")}</h3>
+              <p>{pick("Os mesmos recursos experimentais ficam visíveis aqui no app principal, sem precisar procurar em Avançado ou nas configurações do Mobile Companion.", "The same experimental features are visible here in the main app, without hunting through Advanced or Mobile Companion settings.", "Las mismas funciones experimentales aparecen aquí en la app principal, sin buscarlas en Avanzado o Mobile Companion.", "Dieselben experimentellen Funktionen sind hier direkt in der Haupt-App sichtbar.", "Les mêmes fonctions expérimentales sont visibles ici dans l’application principale.")}</p>
+              <label className="privacy-toggle">
+                <input
+                  type="checkbox"
+                  checked={multiplayer.physicalVehiclesEnabled}
+                  onChange={event => sendCommand("setPhysicalVehiclesEnabled", { enabled: event.target.checked })}
+                />
+                <span>{pick("Ônibus remotos físicos (EXPERIMENTAL)", "Physical remote buses (EXPERIMENTAL)", "Autobuses remotos físicos (EXPERIMENTAL)", "Physische Remote-Busse (EXPERIMENTELL)", "Bus distants physiques (EXPÉRIMENTAL)")}</span>
+              </label>
+              <small className="plugin-update-hint">
+                {multiplayer.physicalVehiclesEnabled
+                  ? multiplayer.physicalVehiclesAvailable
+                    ? pick("Ativo e com backend físico disponível.", "Enabled with physical backend available.", "Activo con backend físico disponible.", "Aktiv mit verfügbarem physischem Backend.", "Activé avec backend physique disponible.")
+                    : pick("Ativado; aguardando o Plugin Bridge liberar a capacidade física.", "Enabled; waiting for Plugin Bridge physical capability.", "Activado; esperando la capacidad física de Plugin Bridge.", "Aktiviert; wartet auf die physische Plugin-Bridge-Fähigkeit.", "Activé ; en attente de la capacité physique du Plugin Bridge.")
+                  : pick("Desativado.", "Disabled.", "Desactivado.", "Deaktiviert.", "Désactivé.")}
+              </small>
+              <label className="privacy-toggle">
+                <input
+                  type="checkbox"
+                  checked={Boolean(mobileControls?.vehicleControlsEnabled)}
+                  onChange={event => sendCommand("setMobileVehicleControlsEnabled", { enabled: event.target.checked })}
+                />
+                <span>{pick("Controles do ônibus pelo APK/celular (EXPERIMENTAL)", "Bus controls from APK/phone (EXPERIMENTAL)", "Controles del autobús desde APK/móvil (EXPERIMENTAL)", "Bussteuerung über APK/Smartphone (EXPERIMENTELL)", "Commandes du bus via APK/téléphone (EXPÉRIMENTAL)")}</span>
+              </label>
+              <small className="plugin-update-hint">
+                {mobileControls?.vehicleControlsEnabled
+                  ? mobileControls.vehicleControlsAvailable
+                    ? pick("Autorizado e disponível para o APK.", "Authorized and available to the APK.", "Autorizado y disponible para el APK.", "Freigegeben und für die APK verfügbar.", "Autorisé et disponible pour l’APK.")
+                    : pick("Autorizado; aguardando a capacidade local-vehicle-trigger.", "Authorized; waiting for local-vehicle-trigger capability.", "Autorizado; esperando local-vehicle-trigger.", "Freigegeben; wartet auf local-vehicle-trigger.", "Autorisé ; en attente de local-vehicle-trigger.")
+                  : pick("Desativado. O APK permanece somente leitura para os controles locais.", "Disabled. The APK remains read-only for local controls.", "Desactivado. El APK permanece en solo lectura para controles locales.", "Deaktiviert. Die APK bleibt für lokale Steuerungen schreibgeschützt.", "Désactivé. L’APK reste en lecture seule pour les commandes locales.")}
+              </small>
+            </article>
+
             <article className="card compact-card">
               <span className="eyebrow">{pick("VOZ", "VOICE", "VOZ", "SPRACHE", "VOIX")}</span>
               <h3>{multiplayer.voiceEnabled ? pick("Ativa", "Active", "Activa", "Aktiv", "Active") : pick("Desativada", "Disabled", "Desactivada", "Deaktiviert", "Désactivée")}</h3>
