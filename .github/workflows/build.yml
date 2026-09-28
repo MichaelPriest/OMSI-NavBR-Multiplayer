@@ -423,8 +423,15 @@ jobs:
           $process = Start-Process `
             -FilePath "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe" `
             -ArgumentList "--runtime-smoke" `
-            -Wait `
             -PassThru
+
+          if (-not $process.WaitForExit(30000)) {
+            try { $process.Kill($true) } catch {}
+            if (Test-Path $log) { Get-Content $log | Write-Host }
+            Get-Process -Name "OMSI.NavBR.Multiplayer" -ErrorAction SilentlyContinue |
+              Stop-Process -Force -ErrorAction SilentlyContinue
+            throw "WinUI x64 to RuntimeHost x86 IPC smoke timed out after 30 seconds."
+          }
 
           if ($process.ExitCode -ne 0) {
             if (Test-Path $log) { Get-Content $log | Write-Host }
