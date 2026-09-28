@@ -326,6 +326,7 @@ jobs:
           dotnet build src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
             -c Release `
             -r win-x64 `
+            -p:Platform=x64 `
             --no-restore
           if ($LASTEXITCODE -ne 0) { throw "NavBR WinUI x64 build failed." }
 
@@ -375,6 +376,7 @@ jobs:
           dotnet publish src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
             -c Release `
             -r win-x64 `
+            -p:Platform=x64 `
             --self-contained true `
             --no-restore `
             -o artifacts/NavBR.Client.WinUI
