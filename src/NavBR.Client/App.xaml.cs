@@ -346,12 +346,39 @@ public partial class App : Application
         }
     }
 
-    private static void PluginBridge_ConnectionStateChanged(bool connected)
+    private async void PluginBridge_ConnectionStateChanged(bool connected)
     {
         RemoteDiagnosticsService.Record(
             "plugin-bridge",
             connected ? "info" : "warning",
             connected ? "connected" : "disconnected");
+
+        if (!connected)
+        {
+            return;
+        }
+
+        try
+        {
+            var profile = MultiplayerSettingsStore.Load().PerformanceProfile;
+            await PluginBridge.SendMessageAsync(new PluginBridgeMessage(
+                PluginBridgeProtocol.SetPerformanceProfile,
+                PluginBridgeProtocol.Version,
+                PerformanceProfile: profile));
+
+            RemoteDiagnosticsService.Record(
+                "plugin-performance",
+                "info",
+                $"profile={profile}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("plugin-performance-profile-apply-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-performance",
+                "warning",
+                $"profile-apply-failed type={ex.GetType().Name}");
+        }
     }
 
     private static void PluginBridge_CommandResultReceived(PluginBridgeMessage message)
