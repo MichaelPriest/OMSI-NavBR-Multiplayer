@@ -241,6 +241,40 @@
                         <Border Style="{StaticResource MetricCardStyle}">
                             <Grid ColumnSpacing="14">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="ÚLTIMO INTERVALO"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock x:Name="LastFrameIntervalText"
+                                               Text="—"
+                                               Foreground="White"
+                                               FontSize="22"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="PIOR INTERVALO"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock x:Name="PeakFrameIntervalText"
+                                               Text="—"
+                                               Foreground="White"
+                                               FontSize="22"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="STUTTERS ≥ 100 MS"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock x:Name="FrameStallCountText"
+                                               Text="—"
+                                               Foreground="White"
+                                               FontSize="22"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource MetricCardStyle}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="220"/>
                                     <ColumnDefinition Width="220"/>
                                     <ColumnDefinition Width="*"/>
