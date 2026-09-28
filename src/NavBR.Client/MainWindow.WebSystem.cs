@@ -20,6 +20,81 @@ public partial class MainWindow
     private const long OmsiProcessProbeCacheMs = 3_000;
     private long _webOmsiProcessProbeTickMs;
     private bool _webOmsiProcessRunningCached;
+    private long _webOmsiMemoryProbeTickMs;
+    private OmsiMemoryProbe? _webOmsiMemoryProbeCached;
+
+    private object? BuildWebOmsiMemoryState()
+    {
+        var omsi = _currentOmsi;
+        if (omsi is null || omsi.ProcessId <= 0)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = 0;
+            return null;
+        }
+
+        var nowTick = Environment.TickCount64;
+        if (_webOmsiMemoryProbeCached is not null &&
+            _webOmsiMemoryProbeCached.ProcessId == omsi.ProcessId &&
+            _webOmsiMemoryProbeTickMs > 0 &&
+            nowTick >= _webOmsiMemoryProbeTickMs &&
+            nowTick - _webOmsiMemoryProbeTickMs < 2_000)
+        {
+            return _webOmsiMemoryProbeCached.ToWebState();
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(omsi.ProcessId);
+            process.Refresh();
+
+            var privateBytes = Math.Max(0L, process.PrivateMemorySize64);
+            var workingSetBytes = Math.Max(0L, process.WorkingSet64);
+            var peakWorkingSetBytes = Math.Max(0L, process.PeakWorkingSet64);
+            var privateMiB = privateBytes / (1024d * 1024d);
+
+            // This is intentionally an advisory pressure scale, not a claim
+            // about the exact virtual-address limit of the user's OMSI build.
+            // It lets NavBR warn early without modifying or trimming OMSI memory.
+            var level = privateMiB switch
+            {
+                >= 2_800d => "critical",
+                >= 2_200d => "high",
+                >= 1_600d => "elevated",
+                _ => "normal"
+            };
+
+            var probe = new OmsiMemoryProbe(
+                omsi.ProcessId,
+                privateBytes,
+                workingSetBytes,
+                peakWorkingSetBytes,
+                level,
+                DateTimeOffset.UtcNow);
+
+            _webOmsiMemoryProbeCached = probe;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return probe.ToWebState();
+        }
+        catch (ArgumentException)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+    }
 
     private object BuildWebSystemState()
     {
@@ -831,4 +906,27 @@ public partial class MainWindow
             UseShellExecute = true
         });
     }
+}
+
+
+internal sealed record OmsiMemoryProbe(
+    int ProcessId,
+    long PrivateBytes,
+    long WorkingSetBytes,
+    long PeakWorkingSetBytes,
+    string Level,
+    DateTimeOffset SampledAtUtc)
+{
+    public object ToWebState() => new
+    {
+        processId = ProcessId,
+        privateBytes = PrivateBytes,
+        workingSetBytes = WorkingSetBytes,
+        peakWorkingSetBytes = PeakWorkingSetBytes,
+        privateMiB = PrivateBytes / (1024d * 1024d),
+        workingSetMiB = WorkingSetBytes / (1024d * 1024d),
+        peakWorkingSetMiB = PeakWorkingSetBytes / (1024d * 1024d),
+        level = Level,
+        sampledAtUtc = SampledAtUtc
+    };
 }
