@@ -1,4 +1,5 @@
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -58,7 +59,7 @@ public partial class MultiplayerWindow
                     displayName = player.DisplayName,
                     roomId = player.RoomId,
                     mapName = player.MapName,
-                    companyBadge = player.CompanyBadge,
+                    companyBadge = BuildWebCompanyBadge(player.CompanyBadge),
                     voiceEnabled = player.VoiceEnabled,
                     latencyMs = player.LatencyMs,
                     roleplayActive = roleplay,
@@ -785,6 +786,23 @@ public partial class MultiplayerWindow
             affectedAreas
         };
     }
+
+    private static object? BuildWebCompanyBadge(CompanyEmployeeBadge? badge) =>
+        badge is null
+            ? null
+            : new
+            {
+                companyId = badge.CompanyId,
+                companyName = badge.CompanyName,
+                companyShortName = badge.CompanyShortName,
+                playerId = badge.PlayerId,
+                displayName = badge.DisplayName,
+                employeeNumber = badge.EmployeeNumber,
+                role = badge.Role.ToString(),
+                permissions = badge.Permissions.ToString(),
+                issuedAtUtc = badge.IssuedAtUtc,
+                updatedAtUtc = badge.UpdatedAtUtc
+            };
 
     private sealed record WebSessionPoint(
         string PlayerId,
