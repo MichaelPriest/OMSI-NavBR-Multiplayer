@@ -200,6 +200,9 @@ internal static class PluginBridgeClient
         {
         }
 
+        var remoteCounts =
+            RemoteVehicles.CountSnapshot(GetLocalState());
+
         var status = new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
@@ -208,8 +211,8 @@ internal static class PluginBridgeClient
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
-            RemoteVehicleCount: RemoteVehicleCount,
-            CompatibleRemoteVehicleCount: CompatibleRemoteVehicleCount,
+            RemoteVehicleCount: remoteCounts.Total,
+            CompatibleRemoteVehicleCount: remoteCounts.Compatible,
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
