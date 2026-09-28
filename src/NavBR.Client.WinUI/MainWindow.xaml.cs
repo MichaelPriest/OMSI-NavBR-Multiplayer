@@ -93,7 +93,7 @@ public sealed partial class MainWindow : Window
         _refreshing = true;
         try
         {
-            using var response = await _runtime.GetStateAsync();
+            using var response = await _runtime.GetStateAsync(_activePageTag);
             if (!response.RootElement.TryGetProperty("ok", out var ok) ||
                 !ok.GetBoolean() ||
                 !response.RootElement.TryGetProperty("payload", out var payload))
