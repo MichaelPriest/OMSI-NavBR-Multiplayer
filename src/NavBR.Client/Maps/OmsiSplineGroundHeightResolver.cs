@@ -6,8 +6,9 @@ namespace NavBR.Client.Maps;
 
 /// <summary>
 /// Resolves a conservative ground height for the local RP character from real
-/// OMSI tile spline placement data. It never invents terrain: when no nearby,
-/// parseable spline exists the caller keeps the character's current Z.
+/// OMSI tile spline placement data. Native OMSI/D3D coordinates use X/Z as the
+/// ground plane and Y as height. It never invents terrain: when no nearby,
+/// parseable spline exists the caller keeps the character's current Y.
 /// </summary>
 internal static class OmsiSplineGroundHeightResolver
 {
@@ -37,24 +38,24 @@ internal static class OmsiSplineGroundHeightResolver
         OmsiMapInfo map,
         VehicleTelemetry telemetry,
         double characterLocalX,
-        double characterLocalY,
-        double? preferredGroundZ,
-        out double groundZ)
+        double characterLocalZ,
+        double? preferredGroundHeight,
+        out double groundHeight)
     {
-        groundZ = 0d;
+        groundHeight = 0d;
 
         if (telemetry.GridX is not int busGridX ||
             telemetry.GridY is not int busGridY ||
             telemetry.TileX is not double busTileX ||
             telemetry.TileY is not double busTileY ||
             telemetry.LocalX is not double busLocalX ||
-            telemetry.LocalY is not double busLocalY ||
+            telemetry.LocalZ is not double busLocalZ ||
             !double.IsFinite(busTileX) ||
             !double.IsFinite(busTileY) ||
             !double.IsFinite(busLocalX) ||
-            !double.IsFinite(busLocalY) ||
+            !double.IsFinite(busLocalZ) ||
             !double.IsFinite(characterLocalX) ||
-            !double.IsFinite(characterLocalY))
+            !double.IsFinite(characterLocalZ))
         {
             return false;
         }
@@ -68,7 +69,7 @@ internal static class OmsiSplineGroundHeightResolver
         var busWorldX = busGridX * cache.TileSize + busTileX;
         var busWorldY = busGridY * cache.TileSize + busTileY;
         var characterWorldX = busWorldX + (characterLocalX - busLocalX);
-        var characterWorldY = busWorldY + (characterLocalY - busLocalY);
+        var characterWorldY = busWorldY + (characterLocalZ - busLocalZ);
 
         if (!double.IsFinite(characterWorldX) || !double.IsFinite(characterWorldY))
         {
@@ -106,7 +107,7 @@ internal static class OmsiSplineGroundHeightResolver
 
                     var candidateZ = ResolveHeight(spline, distanceAlongSpline);
                     if (!double.IsFinite(candidateZ) ||
-                        preferredGroundZ is double preferred &&
+                        preferredGroundHeight is double preferred &&
                         double.IsFinite(preferred) &&
                         Math.Abs(candidateZ - preferred) > MaxPreferredHeightDeltaMeters)
                     {
@@ -125,7 +126,7 @@ internal static class OmsiSplineGroundHeightResolver
             return false;
         }
 
-        groundZ = bestZ;
+        groundHeight = bestZ;
         return true;
     }
 
