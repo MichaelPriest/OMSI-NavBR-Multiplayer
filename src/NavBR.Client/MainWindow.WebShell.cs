@@ -134,18 +134,22 @@ public partial class MainWindow
         window.Activate();
     }
 
-    internal object BuildNativeShellState() => BuildWebShellState();
+    internal object BuildNativeShellState(string? scope = null) =>
+        BuildWebShellState(scope);
 
     internal Task ExecuteNativeShellCommandAsync(
         string command,
         JsonElement? payload) =>
         HandleWebShellCommandAsync(command, payload);
 
-    private object BuildWebShellState()
+    private object BuildWebShellState(string? scope = null)
     {
         var telemetry = _lastTelemetry;
         var omsi = _currentOmsi;
         var multiplayerSettings = MultiplayerSettingsStore.Load();
+        var includeNavigation =
+            string.IsNullOrWhiteSpace(scope) ||
+            string.Equals(scope, "navigation", StringComparison.OrdinalIgnoreCase);
         var localManifest = OmsiCompatibilityManifestFactory.Create(
             telemetry,
             GetActiveMapForMultiplayer(),
@@ -203,8 +207,12 @@ public partial class MainWindow
                     headingDegrees = telemetry.HeadingDegrees,
                     speedKph = telemetry.SpeedKph
                 },
-            navigation = BuildWebNavigationState(),
-            navigation3D = BuildWebNavigation3DState(),
+            navigation = includeNavigation
+                ? BuildWebNavigationState()
+                : null,
+            navigation3D = includeNavigation
+                ? BuildWebNavigation3DState()
+                : null,
             operations = BuildWebOperationsState(),
             system = BuildWebSystemState(multiplayerSettings),
             roadmapStudio = BuildWebRoadmapState(),
