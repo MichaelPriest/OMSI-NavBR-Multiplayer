@@ -38,6 +38,7 @@ internal static class PhysicalVehicleMotionController
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly List<string> RemovalScratch = new();
     private static long _lastTickMs;
     private static long _lastPathBindingComparisonLogTickMs;
     private static long _lastExternalControlTickMs;
@@ -253,14 +254,15 @@ internal static class PhysicalVehicleMotionController
         }
 
         _lastExternalControlTickMs = now;
-        foreach (var pair in States.ToArray())
+        RemovalScratch.Clear();
+        foreach (var pair in States)
         {
             var instanceId = pair.Key;
             var state = pair.Value;
             if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
                 OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
             {
-                States.Remove(instanceId);
+                RemovalScratch.Add(instanceId);
                 continue;
             }
 
@@ -368,6 +370,7 @@ internal static class PhysicalVehicleMotionController
             }
         }
 
+        RemoveMarkedStates();
         LogPathBindingComparison(now);
     }
 
@@ -452,7 +455,8 @@ internal static class PhysicalVehicleMotionController
         }
 
         _lastTickMs = now;
-        foreach (var pair in States.ToArray())
+        RemovalScratch.Clear();
+        foreach (var pair in States)
         {
             var instanceId = pair.Key;
             var state = pair.Value;
@@ -465,7 +469,7 @@ internal static class PhysicalVehicleMotionController
             if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
                 OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
             {
-                States.Remove(instanceId);
+                RemovalScratch.Add(instanceId);
                 continue;
             }
 
@@ -478,7 +482,7 @@ internal static class PhysicalVehicleMotionController
                     OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) == 1)
                 {
                     PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
-                    States.Remove(instanceId);
+                    RemovalScratch.Add(instanceId);
                 }
                 else
                 {
@@ -532,6 +536,23 @@ internal static class PhysicalVehicleMotionController
 
             state.Current = next;
         }
+
+        RemoveMarkedStates();
+    }
+
+    private static void RemoveMarkedStates()
+    {
+        if (RemovalScratch.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var instanceId in RemovalScratch)
+        {
+            States.Remove(instanceId);
+        }
+
+        RemovalScratch.Clear();
     }
 
     private static bool IsSettled(
@@ -564,6 +585,7 @@ internal static class PhysicalVehicleMotionController
     public static void Clear()
     {
         States.Clear();
+        RemovalScratch.Clear();
         _lastTickMs = 0;
         _lastExternalControlTickMs = 0;
     }
