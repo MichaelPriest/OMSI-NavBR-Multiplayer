@@ -24,7 +24,6 @@ public static class PluginExports
     private static int _simulationMonth = -1;
     private static int _simulationYear = -1;
     private static int _simulationPaused = -1;
-    private static readonly object TelematrixStringSync = new();
     private static string? _ibisLineCourse;
     private static string? _ibisRouteCode;
     private static float _ibisLineCourseNumeric = float.NaN;
@@ -173,16 +172,33 @@ public static class PluginExports
         try
         {
             var text = ReadOmsiAnsiString(firstCharacterAddress, 128);
-            lock (TelematrixStringSync)
+            switch (variableIndex)
             {
-                switch (variableIndex)
-                {
-                    case 2: _ibisLineCourse = NullIfWhiteSpace(text); break; // IBIS_Complex_Line
-                    case 3: _ibisDelayMinutes = NullIfWhiteSpace(text); break;
-                    case 4: _ibisDelaySeconds = NullIfWhiteSpace(text); break;
-                    case 5: _ibisDelayState = NullIfWhiteSpace(text); break;
-                    case 6: _ibisTerminusName = NullIfWhiteSpace(text); break;
-                }
+                case 2:
+                    Volatile.Write(
+                        ref _ibisLineCourse,
+                        NullIfWhiteSpace(text));
+                    break; // IBIS_Complex_Line
+                case 3:
+                    Volatile.Write(
+                        ref _ibisDelayMinutes,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 4:
+                    Volatile.Write(
+                        ref _ibisDelaySeconds,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 5:
+                    Volatile.Write(
+                        ref _ibisDelayState,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 6:
+                    Volatile.Write(
+                        ref _ibisTerminusName,
+                        NullIfWhiteSpace(text));
+                    break;
             }
         }
         catch
@@ -325,21 +341,18 @@ public static class PluginExports
                     ? Volatile.Read(ref _stopRequested) != 0
                     : null;
 
-                string? ibisLineCourse;
-                string? ibisRouteCode;
-                string? ibisTerminusName;
-                string? ibisDelayMinutes;
-                string? ibisDelaySeconds;
-                string? ibisDelayState;
-                lock (TelematrixStringSync)
-                {
-                    ibisLineCourse = _ibisLineCourse;
-                    ibisRouteCode = _ibisRouteCode;
-                    ibisTerminusName = _ibisTerminusName;
-                    ibisDelayMinutes = _ibisDelayMinutes;
-                    ibisDelaySeconds = _ibisDelaySeconds;
-                    ibisDelayState = _ibisDelayState;
-                }
+                var ibisLineCourse =
+                    Volatile.Read(ref _ibisLineCourse);
+                var ibisRouteCode =
+                    Volatile.Read(ref _ibisRouteCode);
+                var ibisTerminusName =
+                    Volatile.Read(ref _ibisTerminusName);
+                var ibisDelayMinutes =
+                    Volatile.Read(ref _ibisDelayMinutes);
+                var ibisDelaySeconds =
+                    Volatile.Read(ref _ibisDelaySeconds);
+                var ibisDelayState =
+                    Volatile.Read(ref _ibisDelayState);
 
                 ibisLineCourse ??= FormatIbisNumeric(
                     Volatile.Read(ref _ibisLineCourseNumeric));
@@ -481,15 +494,12 @@ public static class PluginExports
         Volatile.Write(ref _simulationPaused, -1);
         Volatile.Write(ref _ibisLineCourseNumeric, float.NaN);
         Volatile.Write(ref _ibisRouteCodeNumeric, float.NaN);
-        lock (TelematrixStringSync)
-        {
-            _ibisLineCourse = null;
-            _ibisRouteCode = null;
-            _ibisTerminusName = null;
-            _ibisDelayMinutes = null;
-            _ibisDelaySeconds = null;
-            _ibisDelayState = null;
-        }
+        Volatile.Write(ref _ibisLineCourse, null);
+        Volatile.Write(ref _ibisRouteCode, null);
+        Volatile.Write(ref _ibisTerminusName, null);
+        Volatile.Write(ref _ibisDelayMinutes, null);
+        Volatile.Write(ref _ibisDelaySeconds, null);
+        Volatile.Write(ref _ibisDelayState, null);
     }
 
     private static string ReadOmsiAnsiString(IntPtr address, int maxChars)
