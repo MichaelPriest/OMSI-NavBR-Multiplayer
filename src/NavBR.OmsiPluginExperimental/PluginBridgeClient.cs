@@ -170,7 +170,8 @@ internal static class PluginBridgeClient
         int? pluginMaxCommandsPerSlice = null,
         double? pluginLastFrameIntervalMilliseconds = null,
         double? pluginPeakFrameIntervalMilliseconds = null,
-        long? pluginFrameStallCount = null)
+        long? pluginFrameStallCount = null,
+        string? performanceProfile = null)
     {
         int? physicalGridX = null;
         int? physicalGridY = null;
@@ -258,7 +259,9 @@ internal static class PluginBridgeClient
             PluginLastFrameIntervalMilliseconds: pluginLastFrameIntervalMilliseconds,
             PluginPeakFrameIntervalMilliseconds: pluginPeakFrameIntervalMilliseconds,
             PluginFrameStallCount: pluginFrameStallCount,
-            PerformanceProfile: OmsiPerformanceGovernor.CurrentProfile,
+            PerformanceProfile:
+                performanceProfile ??
+                OmsiPerformanceGovernor.CurrentProfile,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
