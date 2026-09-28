@@ -403,45 +403,41 @@ internal static class CompanyNodeStore
         var members = state.Company.Members.ToList();
         var used = new HashSet<int>();
         var changed = state.Company.SchemaVersion < CurrentSchemaVersion;
-
-        foreach (var member in members)
-        {
-            if (TryParseEmployeeNumber(member.EmployeeNumber, out var number))
-            {
-                used.Add(number);
-            }
-        }
-
         var next = 1;
+
         for (var index = 0; index < members.Count; index++)
         {
             var member = members[index];
-            if (TryParseEmployeeNumber(member.EmployeeNumber, out _))
+            var hasUniqueNumber =
+                TryParseEmployeeNumber(member.EmployeeNumber, out var number) &&
+                used.Add(number);
+
+            if (!hasUniqueNumber)
             {
-                if (member.BadgeIssuedAtUtc is null)
+                while (used.Contains(next))
                 {
-                    members[index] = member with
-                    {
-                        BadgeIssuedAtUtc = member.JoinedAtUtc
-                    };
-                    changed = true;
+                    next++;
                 }
+
+                members[index] = member with
+                {
+                    EmployeeNumber = FormatEmployeeNumber(next),
+                    BadgeIssuedAtUtc = member.BadgeIssuedAtUtc ?? member.JoinedAtUtc
+                };
+                used.Add(next);
+                next++;
+                changed = true;
                 continue;
             }
 
-            while (used.Contains(next))
+            if (member.BadgeIssuedAtUtc is null)
             {
-                next++;
+                members[index] = member with
+                {
+                    BadgeIssuedAtUtc = member.JoinedAtUtc
+                };
+                changed = true;
             }
-
-            members[index] = member with
-            {
-                EmployeeNumber = FormatEmployeeNumber(next),
-                BadgeIssuedAtUtc = member.JoinedAtUtc
-            };
-            used.Add(next);
-            next++;
-            changed = true;
         }
 
         if (!changed)
