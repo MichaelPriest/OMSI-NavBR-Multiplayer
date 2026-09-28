@@ -84,7 +84,9 @@ public partial class App : Application
                         payload.GetProperty("multiplayer").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("companyNetwork").ValueKind !=
-                            System.Text.Json.JsonValueKind.Object)
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("companyNetwork").GetProperty("node").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null)
                     {
                         throw new InvalidOperationException(
                             "Runtime Host scoped home state smoke returned unexpected modules.");
@@ -126,6 +128,19 @@ public partial class App : Application
                     {
                         throw new InvalidOperationException(
                             "Runtime Host scoped diagnostics state smoke did not isolate diagnostics modules.");
+                    }
+                }
+
+                using (var companyState = await runtime.GetStateAsync("company"))
+                {
+                    var payload = companyState.RootElement.GetProperty("payload");
+                    if (payload.GetProperty("companyNetwork").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("companyNetwork").GetProperty("node").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped company state smoke did not include Company Node details.");
                     }
                 }
 
