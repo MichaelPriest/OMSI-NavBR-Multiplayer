@@ -22,6 +22,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private uint _cachedIdentityDefinitionAddress;
     private long _cachedIdentityTickMs;
     private OmsiVehicleIdentity? _cachedVehicleIdentity;
+    private uint _cachedTileMapAddress;
+    private uint _cachedVehicleTilePointer;
+    private int? _cachedMapTileIndex;
+    private int _cachedTileGridX;
+    private int _cachedTileGridY;
+    private bool _cachedTileHasGrid;
+    private bool _tileCacheValid;
 
     public bool IsAttached => _memory is not null;
     public int? AttachedProcessId => _memory?.ProcessId;
@@ -475,7 +482,12 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 memory,
                 nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
             var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
-            var mapTileIndex = TryReadMapTileIndex(memory, vehicleAddress);
+            var hasPhysicalGrid = TryReadVehicleTileStateCached(
+                memory,
+                vehicleAddress,
+                out var mapTileIndex,
+                out var vehicleGridX,
+                out var vehicleGridY);
 
             int? gridX = null;
             int? gridY = null;
@@ -501,31 +513,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 tileY = navigationTileY;
             }
 
-            // The player's RoadVehicle owns both Kachel and Position. Resolve
-            // the physical grid directly from RoadVehicle.Kachel whenever
-            // possible. Some maps/builds expose a valid Kachel pointer even
-            // when the Kacheln list index cannot be reconstructed reliably.
-            var hasPhysicalGrid = false;
-            var vehicleGridX = 0;
-            var vehicleGridY = 0;
-            if (mapTileIndex is int exactTileIndex &&
-                TryReadMapTileGrid(
-                    memory,
-                    exactTileIndex,
-                    out vehicleGridX,
-                    out vehicleGridY))
-            {
-                hasPhysicalGrid = true;
-            }
-            else if (TryReadVehicleTileGrid(
-                         memory,
-                         vehicleAddress,
-                         out vehicleGridX,
-                         out vehicleGridY))
-            {
-                hasPhysicalGrid = true;
-            }
-
+            // The player's RoadVehicle owns both Kachel and Position. The
+            // physical tile/grid state above is cached by the live Map pointer
+            // plus RoadVehicle.Kachel, so the expensive Kacheln/KachelInfos
+            // scans only run when the player actually changes tile or map.
             if (hasPhysicalGrid &&
                 float.IsFinite(localPosition.X) &&
                 float.IsFinite(localPosition.Z) &&
@@ -669,6 +660,91 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _cachedIdentityDefinitionAddress = 0;
         _cachedIdentityTickMs = 0;
         _cachedVehicleIdentity = null;
+    }
+
+    private bool TryReadVehicleTileStateCached(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out int? mapTileIndex,
+        out int gridX,
+        out int gridY)
+    {
+        mapTileIndex = null;
+        gridX = 0;
+        gridY = 0;
+
+        uint vehicleTilePointer;
+        uint mapAddress;
+        try
+        {
+            vehicleTilePointer = memory.ReadUInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleKachelOffset));
+            mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+        }
+        catch
+        {
+            ClearVehicleTileCache();
+            return false;
+        }
+
+        if (vehicleTilePointer <= 0x10000u ||
+            mapAddress <= 0x10000u)
+        {
+            ClearVehicleTileCache();
+            return false;
+        }
+
+        if (_tileCacheValid &&
+            _cachedVehicleTilePointer == vehicleTilePointer &&
+            _cachedTileMapAddress == mapAddress)
+        {
+            mapTileIndex = _cachedMapTileIndex;
+            gridX = _cachedTileGridX;
+            gridY = _cachedTileGridY;
+            return _cachedTileHasGrid;
+        }
+
+        mapTileIndex = TryReadMapTileIndex(memory, vehicleAddress);
+        var hasGrid = false;
+        if (mapTileIndex is int exactTileIndex &&
+            TryReadMapTileGrid(
+                memory,
+                exactTileIndex,
+                out gridX,
+                out gridY))
+        {
+            hasGrid = true;
+        }
+        else if (TryReadVehicleTileGrid(
+                     memory,
+                     vehicleAddress,
+                     out gridX,
+                     out gridY))
+        {
+            hasGrid = true;
+        }
+
+        _cachedTileMapAddress = mapAddress;
+        _cachedVehicleTilePointer = vehicleTilePointer;
+        _cachedMapTileIndex = mapTileIndex;
+        _cachedTileGridX = gridX;
+        _cachedTileGridY = gridY;
+        _cachedTileHasGrid = hasGrid;
+        _tileCacheValid = true;
+        return hasGrid;
+    }
+
+    private void ClearVehicleTileCache()
+    {
+        _cachedTileMapAddress = 0;
+        _cachedVehicleTilePointer = 0;
+        _cachedMapTileIndex = null;
+        _cachedTileGridX = 0;
+        _cachedTileGridY = 0;
+        _cachedTileHasGrid = false;
+        _tileCacheValid = false;
     }
 
     private static bool TryReadVehicleTileGrid(
@@ -1356,5 +1432,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _memory = null;
         _processInfo = null;
         ClearVehicleIdentityCache();
+        ClearVehicleTileCache();
     }
 }
