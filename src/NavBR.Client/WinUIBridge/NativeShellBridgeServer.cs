@@ -168,7 +168,7 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
             case "state":
             {
                 var state = await _owner.Dispatcher.InvokeAsync(
-                    _owner.BuildNativeShellState);
+                    () => _owner.BuildNativeShellState(request.Scope));
                 return JsonSerializer.Serialize(new
                 {
                     ok = true,
@@ -242,5 +242,6 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
     private sealed record NativeShellRequest(
         string Kind,
         string? Command,
-        JsonElement? Payload);
+        JsonElement? Payload,
+        string? Scope);
 }
