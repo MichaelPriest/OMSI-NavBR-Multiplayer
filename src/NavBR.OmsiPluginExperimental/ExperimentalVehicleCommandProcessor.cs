@@ -742,6 +742,15 @@ internal static class PhysicalVehicleBackend
 
     internal static bool IsSafeOwnedPointer(
         PhysicalVehicleInstance instance,
+        out string reason) =>
+        IsSafeOwnedPointer(
+            instance,
+            OmsiNativeInterop.GetPlayerVehiclePointer(),
+            out reason);
+
+    internal static bool IsSafeOwnedPointer(
+        PhysicalVehicleInstance instance,
+        int currentHostVehiclePointer,
         out string reason)
     {
         reason = string.Empty;
@@ -757,8 +766,6 @@ internal static class PhysicalVehicleBackend
             return false;
         }
 
-        var currentHostVehiclePointer =
-            OmsiNativeInterop.GetPlayerVehiclePointer();
         if (instance.VehiclePointer == instance.HostVehiclePointerAtSpawn ||
             (currentHostVehiclePointer != 0 &&
              instance.VehiclePointer == currentHostVehiclePointer))
