@@ -208,8 +208,8 @@ internal static class RoleplayCharacterBackend
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
         new(StringComparer.OrdinalIgnoreCase);
-    private static readonly List<RoleplayCharacterInstance> TickScratch =
-        new(MaxOwnedCharacters);
+    private static readonly RoleplayCharacterInstance?[] TickScratch =
+        new RoleplayCharacterInstance?[MaxOwnedCharacters];
     private static readonly Dictionary<string, int> RetainedTriggerStrings =
         new(StringComparer.Ordinal);
     private static readonly Dictionary<string, HashSet<string>> ActiveTriggersByInstance =
@@ -1042,22 +1042,34 @@ internal static class RoleplayCharacterBackend
         }
 
         _lastReassertTickMs = now;
+        var tickCount = 0;
         lock (Sync)
         {
             if (Owned.Count == 0)
             {
+                Array.Clear(TickScratch);
                 return;
             }
 
-            TickScratch.Clear();
             foreach (var instance in Owned.Values)
             {
-                TickScratch.Add(instance);
+                if (tickCount >= TickScratch.Length)
+                {
+                    break;
+                }
+
+                TickScratch[tickCount++] = instance;
             }
         }
 
-        foreach (var instance in TickScratch)
+        for (var index = 0; index < tickCount; index++)
         {
+            var instance = TickScratch[index];
+            if (instance is null)
+            {
+                continue;
+            }
+
             var targetAgeMs = now >= instance.LastTargetTickMs
                 ? now - instance.LastTargetTickMs
                 : long.MaxValue;
@@ -1084,7 +1096,7 @@ internal static class RoleplayCharacterBackend
                 speed);
         }
 
-        TickScratch.Clear();
+        Array.Clear(TickScratch, 0, tickCount);
     }
 
     public static void ReleaseAllBestEffort()
@@ -1124,7 +1136,6 @@ internal static class RoleplayCharacterBackend
 
             Owned.Clear();
             Volatile.Write(ref _activeCount, 0);
-            TickScratch.Clear();
             ActiveTriggersByInstance.Clear();
             _lastReassertTickMs = 0;
         }
