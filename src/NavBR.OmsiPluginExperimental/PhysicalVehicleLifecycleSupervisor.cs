@@ -23,7 +23,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         new(StringComparer.OrdinalIgnoreCase);
     // Tick runs only on OMSI's callback thread. Reuse this bounded buffer
     // instead of allocating Entries.Values.ToArray() on every work slice.
-    private static readonly List<LifecycleEntry> TickScratch =
+    private static readonly List<LifecycleTickEntry> TickScratch =
         new(MaxEntries);
 
     private static int _resetRequested;
@@ -291,7 +291,15 @@ internal static class PhysicalVehicleLifecycleSupervisor
             TickScratch.Clear();
             foreach (var entry in Entries.Values)
             {
-                TickScratch.Add(entry);
+                var desiredTimestamp =
+                    entry.DesiredSpawn.TimestampUnixMilliseconds;
+                TickScratch.Add(new LifecycleTickEntry(
+                    entry.InstanceId,
+                    entry.LastIntentTickMs,
+                    entry.NextAttemptTickMs,
+                    entry.State,
+                    desiredTimestamp is null ||
+                    entry.LastAppliedSourceTimestampMs != desiredTimestamp));
             }
         }
 
@@ -300,7 +308,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         {
             if (now - entry.LastIntentTickMs > StaleIntentAfterMs)
             {
-                RemoveStaleEntry(entry);
+                RemoveStaleEntry(entry.InstanceId, now);
                 continue;
             }
 
@@ -323,13 +331,15 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              StringComparison.Ordinal))
                 {
                     if (nativeAttempts >= 1 ||
-                        now < ReadNextAttempt(entry.InstanceId) ||
-                        !HasPendingTargetUpdate(entry.InstanceId))
+                        now < entry.NextAttemptTickMs ||
+                        !entry.HasPendingTargetUpdate ||
+                        !TryBuildInternalUpdate(
+                            entry.InstanceId,
+                            now,
+                            out var update))
                     {
                         continue;
                     }
-
-                    var update = BuildInternalUpdate(entry);
                     var updateResult = PhysicalVehicleBackend.Execute(update);
                     ObserveResult(update, updateResult);
                     if (updateResult.Success != true)
@@ -342,12 +352,14 @@ internal static class PhysicalVehicleLifecycleSupervisor
             }
 
             if (nativeAttempts >= 1 ||
-                now < ReadNextAttempt(entry.InstanceId))
+                now < entry.NextAttemptTickMs ||
+                !TryBuildInternalSpawn(
+                    entry.InstanceId,
+                    now,
+                    out var command))
             {
                 continue;
             }
-
-            var command = BuildInternalSpawn(entry);
             var result = PhysicalVehicleBackend.Execute(command);
             ObserveResult(command, result);
             LogTransition(entry.InstanceId, result);
@@ -357,16 +369,29 @@ internal static class PhysicalVehicleLifecycleSupervisor
         TickScratch.Clear();
     }
 
-    private static void RemoveStaleEntry(LifecycleEntry entry)
+    private static void RemoveStaleEntry(
+        string instanceId,
+        long now)
     {
+        var removed = false;
         lock (Sync)
         {
-            Entries.Remove(entry.InstanceId);
-            PendingRemovals.Add(entry.InstanceId);
+            if (!Entries.TryGetValue(instanceId, out var current) ||
+                now - current.LastIntentTickMs <= StaleIntentAfterMs)
+            {
+                return;
+            }
+
+            Entries.Remove(instanceId);
+            PendingRemovals.Add(instanceId);
+            removed = true;
         }
 
-        PluginLogWriter.Enqueue(
-            $"physical-lifecycle stale-remove id={entry.InstanceId}");
+        if (removed)
+        {
+            PluginLogWriter.Enqueue(
+                $"physical-lifecycle stale-remove id={instanceId}");
+        }
     }
 
     private static void DespawnOwnedInstance(string instanceId)
@@ -388,21 +413,66 @@ internal static class PhysicalVehicleLifecycleSupervisor
             $"physical-lifecycle remove id={instanceId} success={result.Success} error={result.ErrorCode ?? "-"}");
     }
 
-    private static PluginBridgeMessage BuildInternalSpawn(LifecycleEntry entry) =>
-        entry.DesiredSpawn with
+    private static bool TryBuildInternalSpawn(
+        string instanceId,
+        long now,
+        out PluginBridgeMessage command)
+    {
+        lock (Sync)
         {
-            Type = PluginBridgeProtocol.SpawnRemoteVehicle,
-            CommandId = NextInternalCommandId(entry.InstanceId),
-            VehicleInstanceId = entry.InstanceId
-        };
+            if (!Entries.TryGetValue(instanceId, out var entry) ||
+                now < entry.NextAttemptTickMs)
+            {
+                command = null!;
+                return false;
+            }
 
-    private static PluginBridgeMessage BuildInternalUpdate(LifecycleEntry entry) =>
-        entry.DesiredSpawn with
+            command = entry.DesiredSpawn with
+            {
+                Type = PluginBridgeProtocol.SpawnRemoteVehicle,
+                CommandId = NextInternalCommandId(entry.InstanceId),
+                VehicleInstanceId = entry.InstanceId
+            };
+            return true;
+        }
+    }
+
+    private static bool TryBuildInternalUpdate(
+        string instanceId,
+        long now,
+        out PluginBridgeMessage command)
+    {
+        lock (Sync)
         {
-            Type = PluginBridgeProtocol.UpdateRemoteVehicle,
-            CommandId = NextInternalCommandId(entry.InstanceId),
-            VehicleInstanceId = entry.InstanceId
-        };
+            if (!Entries.TryGetValue(instanceId, out var entry) ||
+                !string.Equals(
+                    entry.State,
+                    "active",
+                    StringComparison.Ordinal) ||
+                now < entry.NextAttemptTickMs)
+            {
+                command = null!;
+                return false;
+            }
+
+            var desiredTimestamp =
+                entry.DesiredSpawn.TimestampUnixMilliseconds;
+            if (desiredTimestamp is not null &&
+                entry.LastAppliedSourceTimestampMs == desiredTimestamp)
+            {
+                command = null!;
+                return false;
+            }
+
+            command = entry.DesiredSpawn with
+            {
+                Type = PluginBridgeProtocol.UpdateRemoteVehicle,
+                CommandId = NextInternalCommandId(entry.InstanceId),
+                VehicleInstanceId = entry.InstanceId
+            };
+            return true;
+        }
+    }
 
     private static PluginBridgeMessage NormalizeSpawn(
         PluginBridgeMessage command) =>
@@ -449,21 +519,6 @@ internal static class PhysicalVehicleLifecycleSupervisor
                    localState.MapName,
                    remoteState.MapName,
                    StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool HasPendingTargetUpdate(string instanceId)
-    {
-        lock (Sync)
-        {
-            if (!Entries.TryGetValue(instanceId, out var entry))
-            {
-                return false;
-            }
-
-            var desiredTimestamp = entry.DesiredSpawn.TimestampUnixMilliseconds;
-            return desiredTimestamp is null ||
-                   entry.LastAppliedSourceTimestampMs != desiredTimestamp;
-        }
     }
 
     private static bool IsRemoteLifecycleCommand(string type) =>
@@ -514,16 +569,6 @@ internal static class PhysicalVehicleLifecycleSupervisor
             "spawn-pointer-unresolved" => TransientRetryMs,
             _ => SlowRetryMs
         };
-
-    private static long ReadNextAttempt(string instanceId)
-    {
-        lock (Sync)
-        {
-            return Entries.TryGetValue(instanceId, out var entry)
-                ? entry.NextAttemptTickMs
-                : long.MaxValue;
-        }
-    }
 
     private static void SetRetry(
         string instanceId,
@@ -595,6 +640,13 @@ internal static class PhysicalVehicleLifecycleSupervisor
         var sequence = Interlocked.Increment(ref _internalCommandSequence);
         return $"plugin-lifecycle-{sequence:x}-{instanceId}";
     }
+
+    private readonly record struct LifecycleTickEntry(
+        string InstanceId,
+        long LastIntentTickMs,
+        long NextAttemptTickMs,
+        string State,
+        bool HasPendingTargetUpdate);
 
     private sealed class LifecycleEntry
     {
