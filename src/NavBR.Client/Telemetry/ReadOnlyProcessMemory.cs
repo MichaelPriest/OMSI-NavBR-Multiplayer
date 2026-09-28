@@ -74,55 +74,78 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public nint AddressFromRva(int rva) => nint.Add(ModuleBaseAddress, rva);
 
-    public int ReadInt32(nint address) => BitConverter.ToInt32(ReadBytes(address, sizeof(int)), 0);
+    public int ReadInt32(nint address)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(int)];
+        ReadBytes(address, bytes);
+        return BitConverter.ToInt32(bytes);
+    }
 
-    public uint ReadUInt32(nint address) => BitConverter.ToUInt32(ReadBytes(address, sizeof(uint)), 0);
+    public uint ReadUInt32(nint address)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(uint)];
+        ReadBytes(address, bytes);
+        return BitConverter.ToUInt32(bytes);
+    }
 
     public static nint PointerFromUInt32(uint value) => unchecked((nint)(nuint)value);
 
-    public float ReadSingle(nint address) => BitConverter.ToSingle(ReadBytes(address, sizeof(float)), 0);
+    public float ReadSingle(nint address)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(float)];
+        ReadBytes(address, bytes);
+        return BitConverter.ToSingle(bytes);
+    }
 
-    public byte ReadByte(nint address) => ReadBytes(address, 1)[0];
+    public byte ReadByte(nint address)
+    {
+        Span<byte> bytes = stackalloc byte[1];
+        ReadBytes(address, bytes);
+        return bytes[0];
+    }
 
     public MemoryVector3 ReadVector3(nint address)
     {
-        var bytes = ReadBytes(address, 12);
+        Span<byte> bytes = stackalloc byte[12];
+        ReadBytes(address, bytes);
         return new MemoryVector3(
-            BitConverter.ToSingle(bytes, 0),
-            BitConverter.ToSingle(bytes, 4),
-            BitConverter.ToSingle(bytes, 8));
+            BitConverter.ToSingle(bytes[0..4]),
+            BitConverter.ToSingle(bytes[4..8]),
+            BitConverter.ToSingle(bytes[8..12]));
     }
 
     public MemoryQuaternion ReadQuaternion(nint address)
     {
-        var bytes = ReadBytes(address, 16);
+        Span<byte> bytes = stackalloc byte[16];
+        ReadBytes(address, bytes);
         return new MemoryQuaternion(
-            BitConverter.ToSingle(bytes, 0),
-            BitConverter.ToSingle(bytes, 4),
-            BitConverter.ToSingle(bytes, 8),
-            BitConverter.ToSingle(bytes, 12));
+            BitConverter.ToSingle(bytes[0..4]),
+            BitConverter.ToSingle(bytes[4..8]),
+            BitConverter.ToSingle(bytes[8..12]),
+            BitConverter.ToSingle(bytes[12..16]));
     }
 
     public Matrix4x4 ReadMatrix4x4(nint address)
     {
-        var bytes = ReadBytes(address, 64);
+        Span<byte> bytes = stackalloc byte[64];
+        ReadBytes(address, bytes);
         return new Matrix4x4(
-            BitConverter.ToSingle(bytes, 0),
-            BitConverter.ToSingle(bytes, 4),
-            BitConverter.ToSingle(bytes, 8),
-            BitConverter.ToSingle(bytes, 12),
-            BitConverter.ToSingle(bytes, 16),
-            BitConverter.ToSingle(bytes, 20),
-            BitConverter.ToSingle(bytes, 24),
-            BitConverter.ToSingle(bytes, 28),
-            BitConverter.ToSingle(bytes, 32),
-            BitConverter.ToSingle(bytes, 36),
-            BitConverter.ToSingle(bytes, 40),
-            BitConverter.ToSingle(bytes, 44),
-            BitConverter.ToSingle(bytes, 48),
-            BitConverter.ToSingle(bytes, 52),
-            BitConverter.ToSingle(bytes, 56),
-            BitConverter.ToSingle(bytes, 60));
+            BitConverter.ToSingle(bytes[0..4]),
+            BitConverter.ToSingle(bytes[4..8]),
+            BitConverter.ToSingle(bytes[8..12]),
+            BitConverter.ToSingle(bytes[12..16]),
+            BitConverter.ToSingle(bytes[16..20]),
+            BitConverter.ToSingle(bytes[20..24]),
+            BitConverter.ToSingle(bytes[24..28]),
+            BitConverter.ToSingle(bytes[28..32]),
+            BitConverter.ToSingle(bytes[32..36]),
+            BitConverter.ToSingle(bytes[36..40]),
+            BitConverter.ToSingle(bytes[40..44]),
+            BitConverter.ToSingle(bytes[44..48]),
+            BitConverter.ToSingle(bytes[48..52]),
+            BitConverter.ToSingle(bytes[52..56]),
+            BitConverter.ToSingle(bytes[56..60]),
+            BitConverter.ToSingle(bytes[60..64]));
     }
 
     public string? ReadDelphiUnicodeStringField(nint fieldAddress, int maxCharacters = 1024)
@@ -281,22 +304,38 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     private byte[] ReadBytes(nint address, int count)
     {
-        ObjectDisposedException.ThrowIf(_processHandle == nint.Zero, this);
-
         var buffer = new byte[count];
-        if (!ReadProcessMemory(_processHandle, address, buffer, count, out var bytesRead))
+        ReadBytes(address, buffer);
+        return buffer;
+    }
+
+    private void ReadBytes(nint address, Span<byte> buffer)
+    {
+        var handle = Volatile.Read(ref _processHandle);
+        ObjectDisposedException.ThrowIf(handle == nint.Zero, this);
+
+        if (buffer.Length == 0)
+        {
+            return;
+        }
+
+        ref var firstByte = ref MemoryMarshal.GetReference(buffer);
+        if (!ReadProcessMemory(
+                handle,
+                address,
+                ref firstByte,
+                buffer.Length,
+                out var bytesRead))
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(),
                 $"ReadProcessMemory failed at 0x{address.ToInt64():X}.");
         }
 
-        if (bytesRead.ToInt64() != count)
+        if (bytesRead.ToInt64() != buffer.Length)
         {
             throw new InvalidOperationException(
-                $"Short memory read at 0x{address.ToInt64():X}: expected {count}, got {bytesRead.ToInt64()}.");
+                $"Short memory read at 0x{address.ToInt64():X}: expected {buffer.Length}, got {bytesRead.ToInt64()}.");
         }
-
-        return buffer;
     }
 
     public void Dispose()
@@ -316,7 +355,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
     private static extern bool ReadProcessMemory(
         nint processHandle,
         nint baseAddress,
-        [Out] byte[] buffer,
+        ref byte buffer,
         int size,
         out nint numberOfBytesRead);
 
