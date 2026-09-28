@@ -379,6 +379,9 @@ jobs:
             -p:Platform=x64 `
             --self-contained true `
             --no-restore `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:PublishSingleFile=false `
+            -p:UseAppHost=true `
             -o artifacts/NavBR.Client.WinUI
 
           $runtimeHost = "artifacts/NavBR.Client.WinUI/RuntimeHost"
@@ -387,7 +390,8 @@ jobs:
 
           foreach ($required in @(
             "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe",
-            "artifacts/NavBR.Client.WinUI/resources.pri",
+            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.dll",
+            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.pri",
             "artifacts/NavBR.Client.WinUI/RuntimeHost/OMSI.NavBR.Multiplayer.exe"
           )) {
             if (-not (Test-Path $required)) {
