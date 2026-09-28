@@ -8,6 +8,13 @@ public sealed partial class HudPage : UserControl
 {
     public Func<string, object?, Task>? CommandHandler { get; set; }
 
+    private double _width = 520d;
+    private double _height;
+    private double _minimapScale = 1d;
+    private double _multiplayerScale = 1d;
+    private double _alertsScale = 1d;
+    private double _sideIndicatorsScale = 1d;
+
     public HudPage()
     {
         InitializeComponent();
@@ -22,6 +29,12 @@ public sealed partial class HudPage : UserControl
         EnabledToggle.IsOn = JsonState.Bool(hud, "enabled");
         ScaleNumberBox.Value = JsonState.Double(hud, "scale") ?? 1d;
         OpacityNumberBox.Value = JsonState.Double(hud, "opacity") ?? 0.92d;
+        _width = JsonState.Double(hud, "width") ?? _width;
+        _height = JsonState.Double(hud, "height") ?? _height;
+        _minimapScale = JsonState.Double(hud, "minimapScale") ?? _minimapScale;
+        _multiplayerScale = JsonState.Double(hud, "multiplayerScale") ?? _multiplayerScale;
+        _alertsScale = JsonState.Double(hud, "alertsScale") ?? _alertsScale;
+        _sideIndicatorsScale = JsonState.Double(hud, "sideIndicatorsScale") ?? _sideIndicatorsScale;
         FuelCheckBox.IsChecked = JsonState.Bool(hud, "showFuel");
         PedalsCheckBox.IsChecked = JsonState.Bool(hud, "showPedals");
         StatusCheckBox.IsChecked = JsonState.Bool(hud, "showStatus");
@@ -85,8 +98,8 @@ public sealed partial class HudPage : UserControl
             theme = theme?.Id,
             anchor = anchor?.Id,
             scale = double.IsFinite(ScaleNumberBox.Value) ? ScaleNumberBox.Value : 1d,
-            width = 520d,
-            height = 0d,
+            width = _width,
+            height = _height,
             opacity = double.IsFinite(OpacityNumberBox.Value) ? OpacityNumberBox.Value : 0.92d,
             autoScale = AutoScaleCheckBox.IsChecked == true,
             showFuel = FuelCheckBox.IsChecked == true,
@@ -96,10 +109,10 @@ public sealed partial class HudPage : UserControl
             showMultiplayer = MultiplayerCheckBox.IsChecked == true,
             showAlerts = AlertsCheckBox.IsChecked == true,
             showSideIndicators = SideIndicatorsCheckBox.IsChecked == true,
-            minimapScale = 1d,
-            multiplayerScale = 1d,
-            alertsScale = 1d,
-            sideIndicatorsScale = 1d
+            minimapScale = _minimapScale,
+            multiplayerScale = _multiplayerScale,
+            alertsScale = _alertsScale,
+            sideIndicatorsScale = _sideIndicatorsScale
         };
     }
 
