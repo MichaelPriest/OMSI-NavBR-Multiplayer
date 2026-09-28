@@ -1,4 +1,5 @@
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Operations;
 
@@ -21,7 +22,8 @@ internal sealed record DispatcherRemoteDriver(
     double? TileX = null,
     double? TileY = null,
     double HeadingDegrees = 0d,
-    string? MapCompatibilityId = null);
+    string? MapCompatibilityId = null,
+    CompanyEmployeeBadge? CompanyBadge = null);
 
 internal sealed record DispatcherSessionSnapshot(
     bool Connected,
@@ -75,7 +77,8 @@ internal static class DispatcherSessionFeed
             telemetry.TileX,
             telemetry.TileY,
             double.IsFinite(telemetry.HeadingDegrees) ? telemetry.HeadingDegrees : 0d,
-            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId);
+            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId,
+            frame.Player.CompanyBadge);
 
         lock (Sync)
         {
