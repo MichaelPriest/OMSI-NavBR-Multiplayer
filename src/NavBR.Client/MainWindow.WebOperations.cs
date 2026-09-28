@@ -1,3 +1,4 @@
+using System.Windows;
 using Microsoft.Win32;
 using NavBR.Client.Driver;
 using NavBR.Client.Operations;
@@ -17,6 +18,9 @@ public partial class MainWindow
         var company = VirtualCompanyStore.Load();
         var profile = DriverProfileStore.Load();
         var tripHistory = DriverTripHistoryStore.Load();
+        var companyBadge = Application.Current is App app
+            ? app.NetworkRuntime.CurrentBadge
+            : null;
         var now = DateTimeOffset.UtcNow;
 
         return new
@@ -25,6 +29,7 @@ public partial class MainWindow
             roomId = session.RoomId,
             updatedAtUtc = session.UpdatedAt,
             canManageReports = DispatcherOperationalFeed.CanManageReports,
+            operatorBadge = companyBadge,
             localOperation = telemetry is null
                 ? null
                 : new
@@ -63,6 +68,7 @@ public partial class MainWindow
                         headingDegrees = driver.HeadingDegrees,
                         receivedAtUtc = driver.ReceivedAtUtc,
                         stale = now - driver.ReceivedAtUtc > TimeSpan.FromSeconds(10d),
+                        companyBadge = driver.CompanyBadge,
                         latestReport = latestReport is null
                             ? null
                             : new
