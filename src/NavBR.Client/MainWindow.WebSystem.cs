@@ -10,6 +10,7 @@ using NavBR.Client.Windows;
 using NavBR.Client.Operations;
 using NavBR.Client.PluginInstaller;
 
+using NavBR.Shared.PluginBridge;
 namespace NavBR.Client;
 
 public partial class MainWindow
