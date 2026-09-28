@@ -352,6 +352,7 @@ export interface NavBrRemoteDriver {
   receivedAtUtc: string;
   stale: boolean;
   companyBadge?: NavBrCompanyBadge | null;
+  companyBadgeVerified: boolean;
   latestReport?: {
     reportId: string;
     kind: string;
@@ -376,6 +377,7 @@ export interface NavBrOperationsState {
   updatedAtUtc: string;
   canManageReports: boolean;
   operatorBadge?: NavBrCompanyBadge | null;
+  operatorBadgeVerified: boolean;
   localOperation?: {
     inGame: boolean;
     mapName?: string | null;
