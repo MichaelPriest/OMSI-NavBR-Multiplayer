@@ -251,20 +251,30 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
                 bytes = new byte[maxBytes];
             }
 
-            Span<byte> pair = stackalloc byte[2];
-            var count = 0;
-            for (var index = 0; index < maxCharacters; index++)
+            var count = TryReadUnicodeTerminatedBlock(
+                dataAddress,
+                bytes,
+                maxCharacters);
+            if (count < 0)
             {
-                ReadBytes(
-                    nint.Add(dataAddress, checked(index * 2)),
-                    pair);
-                if (pair[0] == 0 && pair[1] == 0)
+                // A single bounded block can fail near a memory-page boundary.
+                // Fall back to the conservative pair-by-pair path rather than
+                // rejecting a valid OMSI string.
+                Span<byte> pair = stackalloc byte[2];
+                count = 0;
+                for (var index = 0; index < maxCharacters; index++)
                 {
-                    break;
-                }
+                    ReadBytes(
+                        nint.Add(dataAddress, checked(index * 2)),
+                        pair);
+                    if (pair[0] == 0 && pair[1] == 0)
+                    {
+                        break;
+                    }
 
-                bytes[count++] = pair[0];
-                bytes[count++] = pair[1];
+                    bytes[count++] = pair[0];
+                    bytes[count++] = pair[1];
+                }
             }
 
             if (count == 0)
@@ -316,16 +326,23 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
                 bytes = new byte[maxCharacters];
             }
 
-            var count = 0;
-            for (var index = 0; index < maxCharacters; index++)
+            var count = TryReadAnsiTerminatedBlock(
+                dataAddress,
+                bytes);
+            if (count < 0)
             {
-                var value = ReadByte(nint.Add(dataAddress, index));
-                if (value == 0)
+                // Same page-boundary fallback as the Unicode reader.
+                count = 0;
+                for (var index = 0; index < maxCharacters; index++)
                 {
-                    break;
-                }
+                    var value = ReadByte(nint.Add(dataAddress, index));
+                    if (value == 0)
+                    {
+                        break;
+                    }
 
-                bytes[count++] = value;
+                    bytes[count++] = value;
+                }
             }
 
             if (count == 0)
@@ -343,6 +360,61 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         catch (InvalidOperationException)
         {
             return null;
+        }
+    }
+
+    private int TryReadAnsiTerminatedBlock(
+        nint address,
+        Span<byte> buffer)
+    {
+        try
+        {
+            ReadBytes(address, buffer);
+            var terminator = buffer.IndexOf((byte)0);
+            return terminator >= 0
+                ? terminator
+                : buffer.Length;
+        }
+        catch (Win32Exception)
+        {
+            return -1;
+        }
+        catch (InvalidOperationException)
+        {
+            return -1;
+        }
+    }
+
+    private int TryReadUnicodeTerminatedBlock(
+        nint address,
+        Span<byte> buffer,
+        int maxCharacters)
+    {
+        try
+        {
+            ReadBytes(address, buffer);
+            var characters = Math.Min(
+                maxCharacters,
+                buffer.Length / 2);
+            for (var index = 0; index < characters; index++)
+            {
+                var byteIndex = index * 2;
+                if (buffer[byteIndex] == 0 &&
+                    buffer[byteIndex + 1] == 0)
+                {
+                    return byteIndex;
+                }
+            }
+
+            return characters * 2;
+        }
+        catch (Win32Exception)
+        {
+            return -1;
+        }
+        catch (InvalidOperationException)
+        {
+            return -1;
         }
     }
 
