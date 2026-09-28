@@ -8,8 +8,8 @@ public static class PluginExports
 {
     private const long VehicleVariableFreshnessMs = 1_000;
 
-    private static DateTimeOffset _lastHeartbeat = DateTimeOffset.MinValue;
-    private static DateTimeOffset _lastStatusReport = DateTimeOffset.MinValue;
+    private static long _lastHeartbeatTickMs;
+    private static long _lastStatusReportTickMs;
     private static long _systemVariableCallbacks;
     private static float _pluginVelocityKph = float.NaN;
     private static int _stopRequested;
@@ -39,8 +39,8 @@ public static class PluginExports
     {
         try
         {
-            _lastHeartbeat = DateTimeOffset.MinValue;
-            _lastStatusReport = DateTimeOffset.MinValue;
+            Interlocked.Exchange(ref _lastHeartbeatTickMs, 0);
+            Interlocked.Exchange(ref _lastStatusReportTickMs, 0);
             Interlocked.Exchange(ref _systemVariableCallbacks, 0);
             Interlocked.Exchange(ref _lastOmsiWorkTickMs, 0);
             OmsiPerformanceGovernor.Reset();
@@ -243,16 +243,18 @@ public static class PluginExports
                 }
             }
 
-            // AccessSystemVariable can be called several times inside one OMSI
-            // render/update frame. Never drain the command queue on every
-            // variable callback: that multiplies native work on OMSI's main
-            // thread. The adaptive governor additionally backs NavBR off when
-            // the simulator is already under frame pressure.
-            var workTick = Environment.TickCount64;
-            if (variableIndex == 0)
+            // OMSI requests several system variables during the same frame.
+            // Index 0 is the frame anchor used by this plugin. The remaining
+            // callbacks only update their telemetry fields above, then leave
+            // immediately so they do not contend on the governor lock, inspect
+            // queues, or evaluate status timers repeatedly on OMSI's main thread.
+            if (variableIndex != 0)
             {
-                OmsiPerformanceGovernor.ObserveFrame(workTick);
+                return;
             }
+
+            var workTick = Environment.TickCount64;
+            OmsiPerformanceGovernor.ObserveFrame(workTick);
 
             var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
             var activeRoleplayCharacters = RoleplayCharacterBackend.ActiveCount;
@@ -303,12 +305,13 @@ public static class PluginExports
                 activeRoleplayCharacters,
                 OmsiThreadCommandQueue.Count);
 
-            var now = DateTimeOffset.UtcNow;
             var staleRemoved = 0;
-            if (now - _lastStatusReport >=
-                TimeSpan.FromMilliseconds(workBudget.StatusIntervalMs))
+            var lastStatusTick = Interlocked.Read(ref _lastStatusReportTickMs);
+            if (lastStatusTick <= 0 ||
+                workTick < lastStatusTick ||
+                workTick - lastStatusTick >= workBudget.StatusIntervalMs)
             {
-                _lastStatusReport = now;
+                Interlocked.Exchange(ref _lastStatusReportTickMs, workTick);
                 staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
 
                 var tick = Environment.TickCount64;
@@ -384,14 +387,17 @@ public static class PluginExports
                     workBudget.FrameStallCount);
             }
 
-            // Keep the verbose file heartbeat sparse. Hardware/status delivery is
-            // handled above at 5 Hz and is intentionally independent from logging.
-            if (now - _lastHeartbeat < TimeSpan.FromSeconds(5))
+            // Keep the verbose file heartbeat sparse. Use the same monotonic
+            // frame tick instead of sampling wall-clock time on every frame.
+            var lastHeartbeatTick = Interlocked.Read(ref _lastHeartbeatTickMs);
+            if (lastHeartbeatTick > 0 &&
+                workTick >= lastHeartbeatTick &&
+                workTick - lastHeartbeatTick < 5_000)
             {
                 return;
             }
 
-            _lastHeartbeat = now;
+            Interlocked.Exchange(ref _lastHeartbeatTickMs, workTick);
 
             float omsiTime = float.NaN;
             if (value != IntPtr.Zero)
