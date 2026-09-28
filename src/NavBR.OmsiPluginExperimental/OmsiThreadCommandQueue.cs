@@ -17,9 +17,9 @@ internal static class OmsiThreadCommandQueue
     private static readonly object Sync = new();
     private static readonly Queue<PluginBridgeMessage> Lifecycle = new();
     private static readonly Queue<PluginBridgeMessage> Commands = new();
-    private static readonly Queue<string> UpdateOrder = new();
-    private static readonly Dictionary<string, PluginBridgeMessage> LatestUpdates =
-        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Queue<UpdateKey> UpdateOrder = new();
+    private static readonly Dictionary<UpdateKey, PluginBridgeMessage> LatestUpdates =
+        new(UpdateKeyComparer.Instance);
     private static int _publishedCount;
 
     public static int Count => Volatile.Read(ref _publishedCount);
@@ -196,10 +196,39 @@ internal static class OmsiThreadCommandQueue
         return targetId.Length is > 0 and <= 128;
     }
 
-    private static string BuildUpdateKey(
+    private static UpdateKey BuildUpdateKey(
         string type,
         string targetId) =>
-        string.Concat(type, "\u001f", targetId);
+        new(type, targetId);
+
+    private readonly record struct UpdateKey(
+        string Type,
+        string TargetId);
+
+    private sealed class UpdateKeyComparer : IEqualityComparer<UpdateKey>
+    {
+        public static UpdateKeyComparer Instance { get; } = new();
+
+        public bool Equals(UpdateKey left, UpdateKey right) =>
+            string.Equals(
+                left.Type,
+                right.Type,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                left.TargetId,
+                right.TargetId,
+                StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode(UpdateKey key)
+        {
+            unchecked
+            {
+                return
+                    (StringComparer.OrdinalIgnoreCase.GetHashCode(key.Type) * 397) ^
+                    StringComparer.OrdinalIgnoreCase.GetHashCode(key.TargetId);
+            }
+        }
+    }
 
     private static void Process(
         PluginBridgeMessage command,
