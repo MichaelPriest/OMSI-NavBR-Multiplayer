@@ -1409,9 +1409,9 @@ function Operations({
                   <span className="driver-avatar">{driver.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="driver-primary">
                     <strong>{driver.displayName}</strong>
-                    {driver.companyBadge && (
+                    {validCompanyBadge(driver.companyBadge) && (
                       <small className="company-badge-inline">
-                        {driver.companyBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {driver.companyBadge.employeeNumber} · {companyRoleLabel(driver.companyBadge.role, pick)} · {driver.companyBadgeVerified ? pick("VERIFICADO", "VERIFIED", "VERIFICADO", "VERIFIZIERT", "VÉRIFIÉ") : pick("NÃO VERIFICADO", "UNVERIFIED", "NO VERIFICADO", "NICHT VERIFIZIERT", "NON VÉRIFIÉ")}
+                        {driver.companyBadge?.companyShortName || driver.companyBadge?.companyName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {driver.companyBadge?.employeeNumber} · {companyRoleLabel(driver.companyBadge?.role || "", pick)} · {driver.companyBadgeVerified ? pick("VERIFICADO", "VERIFIED", "VERIFICADO", "VERIFIZIERT", "VÉRIFIÉ") : pick("NÃO VERIFICADO", "UNVERIFIED", "NO VERIFICADO", "NICHT VERIFIZIERT", "NON VÉRIFIÉ")}
                       </small>
                     )}
                     <small>{driver.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")} · {driver.mapName || pick("Mapa —", "Map —", "Mapa —", "Karte —", "Carte —")}</small>
@@ -1628,6 +1628,19 @@ function Operations({
 
 type CompanyNetworkTab = "network" | "team";
 
+function validCompanyBadge<T extends {
+  companyShortName?: string | null;
+  companyName?: string | null;
+  displayName?: string | null;
+  employeeNumber?: string | null;
+  role?: string | null;
+}>(badge: T | null | undefined): T | null {
+  if (!badge) return null;
+  if (!badge.displayName?.trim() || !badge.employeeNumber?.trim()) return null;
+  if (!badge.companyShortName?.trim() && !badge.companyName?.trim()) return null;
+  return badge;
+}
+
 function companyRoleLabel(
   role: string,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
@@ -1716,7 +1729,9 @@ function CompanyNetwork({
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
-  const selfBadge = company?.selfBadge || companyNetwork.membership?.badge || null;
+  const selfBadge = validCompanyBadge(
+    company?.selfBadge || companyNetwork.membership?.badge || null
+  );
   const canCreateInvite = Boolean(node?.running && company?.canInvite);
 
   return (
@@ -4704,9 +4719,9 @@ function Multiplayer({
                   <span className={`avatar-dot ${player.roleplayActive ? "rp" : ""}`}>{player.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="player-main">
                     <strong>{player.displayName}{player.isLocal ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
-                    {player.companyBadge && (
+                    {validCompanyBadge(player.companyBadge) && (
                       <small className="company-badge-inline">
-                        {player.companyBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {player.companyBadge.employeeNumber} · {companyRoleLabel(player.companyBadge.role, pick)}
+                        {player.companyBadge?.companyShortName || player.companyBadge?.companyName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {player.companyBadge?.employeeNumber} · {companyRoleLabel(player.companyBadge?.role || "", pick)}
                       </small>
                     )}
                     <small>
