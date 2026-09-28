@@ -287,20 +287,42 @@ public partial class MainWindow
             roleplay = includeRoleplay
                 ? BuildWebRoleplayState()
                 : null,
-            multiplayer = BuildWebMultiplayerState(multiplayerSettings),
+            multiplayer = BuildWebMultiplayerState(
+                multiplayerSettings,
+                summaryOnly: !fullSnapshot &&
+                             !string.Equals(
+                                 scope,
+                                 "multiplayer",
+                                 StringComparison.OrdinalIgnoreCase)),
             roomDirectory
         };
     }
 
     private object BuildWebMultiplayerState(
-        MultiplayerSettings? settings = null)
+        MultiplayerSettings? settings = null,
+        bool summaryOnly = false)
     {
         if (_multiplayerWindow is not null)
         {
-            return _multiplayerWindow.BuildWebBridgeState();
+            return summaryOnly
+                ? _multiplayerWindow.BuildWebBridgeSummaryState()
+                : _multiplayerWindow.BuildWebBridgeState();
         }
 
         settings ??= MultiplayerSettingsStore.Load();
+        if (summaryOnly)
+        {
+            return new
+            {
+                available = false,
+                connected = false,
+                connectionState = "Disconnected",
+                serverUrl = settings.ServerUrl,
+                roomId = settings.RoomId,
+                displayName = settings.DisplayName,
+                playerCount = 0
+            };
+        }
         return new
         {
             available = false,
