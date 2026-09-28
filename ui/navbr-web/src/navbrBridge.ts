@@ -1,8 +1,22 @@
+export interface NavBrCompanyBadge {
+  companyId: string;
+  companyName: string;
+  companyShortName: string;
+  playerId: string;
+  displayName: string;
+  employeeNumber: string;
+  role: string;
+  permissions: string | number;
+  issuedAtUtc: string;
+  updatedAtUtc: string;
+}
+
 export interface NavBrPlayer {
   playerId: string;
   displayName: string;
   roomId: string;
   mapName?: string | null;
+  companyBadge?: NavBrCompanyBadge | null;
   voiceEnabled?: boolean | null;
   latencyMs?: number | null;
   roleplayActive: boolean;
@@ -788,6 +802,8 @@ export interface NavBrCompanyMember {
   permissions: string;
   joinedAtUtc: string;
   lastSeenAtUtc: string;
+  employeeNumber?: string | null;
+  badgeIssuedAtUtc?: string | null;
   isSelf: boolean;
   isOwner: boolean;
   canChangeRole: boolean;
@@ -807,6 +823,7 @@ export interface NavBrCompanyNetworkState {
     nodeUrl: string;
     role: string;
     joinedAtUtc: string;
+    badge?: NavBrCompanyBadge | null;
   } | null;
   node?: {
     running: boolean;
@@ -823,6 +840,7 @@ export interface NavBrCompanyNetworkState {
     updatedAtUtc: string;
     memberCount: number;
     selfRole?: string | null;
+    selfBadge?: NavBrCompanyBadge | null;
     canInvite: boolean;
     canManageRoles: boolean;
     canRemoveMembers: boolean;
