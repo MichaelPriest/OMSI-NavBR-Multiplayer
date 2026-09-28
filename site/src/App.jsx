@@ -25,6 +25,8 @@ function SiteHeader({ t, language, setLanguage, current }) {
   const nav = [
     ["inicio", "⌂", t.nav.home],
     ["recursos", "ⓘ", t.nav.features],
+    ["interface", "▣", "Interface"],
+    ["manual", "▤", "Manual PDF"],
     ["downloads", "⇩", t.nav.downloads],
     ["historico", "◷", t.nav.history],
     ["contribua", "♡", t.nav.contribute],
@@ -82,8 +84,8 @@ function Hero({ t, current, language, setLanguage }) {
         </div>
 
         <figure className="v4-hero-art">
-          <img src="./assets/navbr-mockup-approved.webp" alt="OMSI NavBR conceptual cockpit and mobile companion artwork" />
-          <figcaption>CONCEPT IMAGE / AI</figcaption>
+          <img src="./assets/navbr-alpha22-hero.webp" alt="Composição visual da interface real do OMSI NavBR Multiplayer Alpha.22" />
+          <figcaption>ALPHA.22 • INTERFACE REAL / COMPOSIÇÃO VISUAL</figcaption>
         </figure>
 
         <aside className="v4-language-rail">
@@ -152,6 +154,66 @@ function MobileShowcase({ t }) {
         <img src="./assets/concept-multiplayer.svg" alt="Conceptual NavBR Mobile Companion interface" />
         <figcaption><small>CONCEPT / AI</small></figcaption>
       </figure>
+    </section>
+  );
+}
+
+function ProductShowcase() {
+  const highlights = [
+    ["Navegação", "Roadmap, rota e orientação usando dados reais do OMSI."],
+    ["Multiplayer", "Salas, jogadores, chat, voz e ônibus remotos físicos."],
+    ["Rede da empresa", "Equipe, convites e Company Node em um único painel."],
+    ["CCO", "Operação, motoristas, ocorrências e telemetria operacional."],
+    ["Hardware Cockpit", "Bridge serial para Arduino, ESP32, letreiros e LEDs."],
+    ["HUD", "Presets, módulos, posição, escala e prévia diretamente no app."]
+  ];
+
+  return (
+    <section id="interface" className="v4-shell v4-real-showcase">
+      <div className="v4-section-head">
+        <div>
+          <span className="v4-eyebrow">INTERFACE ALPHA.22</span>
+          <h2>Uma visão real do NavBR por dentro.</h2>
+          <p>As telas enviadas para esta atualização foram usadas como referência visual do novo site.</p>
+        </div>
+      </div>
+      <figure className="v4-real-showcase-art">
+        <img src="./assets/navbr-alpha22-features.webp" alt="Galeria dos módulos reais do OMSI NavBR Multiplayer Alpha.22" loading="lazy" decoding="async" />
+        <figcaption>Composição de Navegação, Multiplayer, Rede da empresa, Hardware Cockpit e HUD.</figcaption>
+      </figure>
+      <div className="v4-real-showcase-grid">
+        {highlights.map(([title, text]) => (
+          <article key={title}><strong>{title}</strong><p>{text}</p></article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ManualDownload() {
+  const manualUrl = "./assets/OMSI-NavBR-Manual-Oficial-Alpha22.pdf";
+  return (
+    <section id="manual" className="v4-shell v4-manual-section">
+      <div className="v4-manual-card">
+        <figure className="v4-manual-art">
+          <img src="./assets/navbr-alpha22-manual.webp" alt="Capa do Manual Oficial OMSI NavBR Multiplayer Alpha.22" loading="lazy" decoding="async" />
+        </figure>
+        <div className="v4-manual-copy">
+          <span className="v4-eyebrow">MANUAL OFICIAL • PDF</span>
+          <h2>Manual completo da Alpha.22.</h2>
+          <p>Guia em PDF com instalação, navegação, criação de salas, multiplayer físico, chat e voz, Personagem/RP, Rede da empresa, CCO, Hardware Cockpit, HUD, atalhos e diagnóstico.</p>
+          <div className="v4-manual-stats">
+            <span><b>16</b><small>páginas</small></span>
+            <span><b>Alpha.22</b><small>versão documentada</small></span>
+            <span><b>PDF</b><small>download direto</small></span>
+          </div>
+          <div className="v4-actions">
+            <a className="v4-button v4-primary" href={manualUrl} download>⇩ Baixar manual PDF</a>
+            <a className="v4-button v4-secondary" href={manualUrl} target="_blank" rel="noreferrer">Abrir no navegador</a>
+          </div>
+          <small className="v4-manual-note">Inclui o estado atual do teste online: bots/AI validados seguindo o host; players reais ainda pendentes de validação ponta a ponta.</small>
+        </div>
+      </div>
     </section>
   );
 }
@@ -261,6 +323,7 @@ function Support({ t }) {
 
 function Documentation({ t }) {
   const items = [
+    ["Manual oficial PDF", "./assets/OMSI-NavBR-Manual-Oficial-Alpha22.pdf"],
     [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA22_RELEASE_NOTES.md"],
     [t.docs.shortcuts, GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     [t.docs.mobile, GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"],
@@ -286,7 +349,7 @@ function Footer({ t, language, setLanguage }) {
           <div><strong>OMSI NavBR</strong><span>Multiplayer & Mobile Companion</span><small>{t.footer.project}</small></div>
         </div>
         <div><strong>Links</strong><a href="#inicio">{t.nav.home}</a><a href="#recursos">{t.nav.features}</a><a href="#downloads">{t.nav.downloads}</a><a href="#historico">{t.nav.history}</a><a href="#contribua">{t.nav.contribute}</a></div>
-        <div><strong>{t.docs.title}</strong><a href="#documentacao">{t.docs.alpha}</a><a href="#documentacao">{t.docs.mobile}</a><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div>
+        <div><strong>{t.docs.title}</strong><a href="#manual">Manual PDF</a><a href="#documentacao">{t.docs.alpha}</a><a href="#documentacao">{t.docs.mobile}</a><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div>
         <div><strong>◎ {t.footer.languages}</strong><div className="v4-footer-langs">{LANGUAGES.map(item => <button type="button" key={item.code} className={language === item.code ? "active" : ""} onClick={() => setLanguage(item.code)}>{item.flag} {item.short}</button>)}</div><small>Mais comunidades. Mais histórias. Sem fronteiras.</small></div>
       </div>
       <div className="v4-shell v4-footer-bottom"><span>© OMSI NavBR Multiplayer</span><span>{t.footer.notice}</span></div>
@@ -317,6 +380,8 @@ export default function App() {
         <ValidationNotice t={t} />
         <AdSlot name="top" />
         <FeatureStrip t={t} />
+        <ProductShowcase />
+        <ManualDownload />
         <MobileShowcase t={t} />
         <AdSlot name="direct" />
         <DownloadsAndVersions t={t} releases={catalog.releases} current={current} language={language} />
