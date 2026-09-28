@@ -203,6 +203,7 @@ internal static class RoleplayCharacterBackend
     private const long ReassertIntervalMs = 20;
     private const long MovingTargetFreshnessMs = 400;
     private static long _lastReassertTickMs;
+    private static int _activeCount;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
@@ -667,6 +668,7 @@ internal static class RoleplayCharacterBackend
                 Environment.TickCount64);
 
             Owned[instanceId] = instance;
+            Volatile.Write(ref _activeCount, Owned.Count);
 
             return BuildSuccessStateResult(
                 command,
@@ -696,6 +698,7 @@ internal static class RoleplayCharacterBackend
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
             {
                 Owned.Remove(instanceId);
+                Volatile.Write(ref _activeCount, Owned.Count);
                 return Fail(command, "character-pointer-stale", "The possessed OMSI human no longer exists.");
             }
 
@@ -803,6 +806,7 @@ internal static class RoleplayCharacterBackend
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
             {
                 Owned.Remove(instanceId);
+                Volatile.Write(ref _activeCount, Owned.Count);
                 ActiveTriggersByInstance.Remove(instanceId);
                 return Fail(
                     command,
@@ -863,6 +867,7 @@ internal static class RoleplayCharacterBackend
             }
 
             Owned.Remove(instanceId);
+            Volatile.Write(ref _activeCount, Owned.Count);
             ActiveTriggersByInstance.Remove(instanceId);
             return RoleplayCharacterCommandProcessor.Result(command, true);
         }
@@ -1016,16 +1021,8 @@ internal static class RoleplayCharacterBackend
         return true;
     }
 
-    public static int ActiveCount
-    {
-        get
-        {
-            lock (Sync)
-            {
-                return Owned.Count;
-            }
-        }
-    }
+    public static int ActiveCount =>
+        Volatile.Read(ref _activeCount);
 
     /// <summary>
     /// Reasserts the last confirmed RP pose directly from OMSI's callback loop.
@@ -1126,6 +1123,7 @@ internal static class RoleplayCharacterBackend
             }
 
             Owned.Clear();
+            Volatile.Write(ref _activeCount, 0);
             TickScratch.Clear();
             ActiveTriggersByInstance.Clear();
             _lastReassertTickMs = 0;
