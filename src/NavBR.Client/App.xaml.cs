@@ -116,20 +116,7 @@ public partial class App : Application
         }
         nativeHost.StartNativeRuntimeForReact();
 
-        try
-        {
-            MobileCompanion = new MobileCompanionHostService(
-                nativeHost.BuildMobileCompanionStateAsync,
-                nativeHost.ExecuteMobileCompanionCommandAsync);
-            MobileCompanion.StartAsync().GetAwaiter().GetResult();
-            NavBRAppLog.Info(
-                $"mobile-companion-start port={MobileCompanion.Port} urls={string.Join(",", MobileCompanion.AccessUrls)}");
-        }
-        catch (Exception ex)
-        {
-            NavBRAppLog.Error("mobile-companion-start-error", ex);
-            MobileCompanion = null;
-        }
+        _ = StartMobileCompanionAsync(nativeHost);
 
         if (nativeHostOnly)
         {
@@ -140,6 +127,26 @@ public partial class App : Application
         else
         {
             nativeHost.OpenPrimaryWebShell();
+        }
+    }
+
+    private async Task StartMobileCompanionAsync(MainWindow nativeHost)
+    {
+        try
+        {
+            var companion = new MobileCompanionHostService(
+                nativeHost.BuildMobileCompanionStateAsync,
+                nativeHost.ExecuteMobileCompanionCommandAsync);
+
+            MobileCompanion = companion;
+            await companion.StartAsync();
+            NavBRAppLog.Info(
+                $"mobile-companion-start port={companion.Port} urls={string.Join(",", companion.AccessUrls)}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("mobile-companion-start-error", ex);
+            MobileCompanion = null;
         }
     }
 
