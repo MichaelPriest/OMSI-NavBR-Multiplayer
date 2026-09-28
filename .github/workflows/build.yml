@@ -548,7 +548,7 @@ jobs:
           $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
 
-          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client").Path
+          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client.WinUI").Path
           $simulatorRoot = (Resolve-Path "artifacts/NavBR.MultiplayerSimulator").Path
           $pluginRoot = (Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental").Path
           $setupIcon = (Resolve-Path "src/NavBR.Client/Assets/NavBR.ico").Path
@@ -563,7 +563,7 @@ jobs:
             "installer/NavBR.Multiplayer.iss"
           if ($LASTEXITCODE -ne 0) { throw "NavBR installer compilation failed." }
 
-          $installer = Get-ChildItem $output -File -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          $installer = Get-ChildItem $output -File -Filter "*-Setup-win-x64.exe" | Select-Object -First 1
           if (-not $installer) { throw "NavBR installer EXE was not generated." }
           Write-Host "Installer generated: $($installer.FullName)"
 
@@ -591,7 +591,8 @@ jobs:
           }
 
           foreach ($required in @(
-            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.WinUI.exe"),
+            (Join-Path $testRoot "RuntimeHost\OMSI.NavBR.Multiplayer.exe"),
             (Join-Path $testRoot "Simulator\NavBR.MultiplayerSimulator.exe"),
             (Join-Path $testRoot "Plugin\NavBR.OmsiPlugin.dll"),
             (Join-Path $testRoot "unins000.exe")
@@ -616,8 +617,8 @@ jobs:
           }
 
           Start-Sleep -Seconds 2
-          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe")) {
-            throw "Uninstaller left the main NavBR executable behind."
+          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.WinUI.exe")) {
+            throw "Uninstaller left the main NavBR WinUI executable behind."
           }
           Write-Host "Installer/uninstaller smoke test passed."
 
@@ -741,7 +742,7 @@ jobs:
       - name: Upload Windows test installer
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-Multiplayer-Setup-win-x86
+          name: OMSI-NavBR-Multiplayer-Setup-win-x64
           path: artifacts/NavBR.Installer/*-Setup-win-x86.exe
           if-no-files-found: error
           retention-days: 14
