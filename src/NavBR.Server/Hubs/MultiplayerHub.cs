@@ -46,8 +46,8 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         var compatibility = NormalizeCompatibility(request.Compatibility, mapName, mapCompatibilityId);
         var companyBadge = NormalizeCompanyBadge(
             request.CompanyBadge,
-            playerId,
-            displayName);
+            request.CompanyBadgeProof,
+            playerId);
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -415,12 +415,22 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
 
     private static CompanyEmployeeBadge? NormalizeCompanyBadge(
         CompanyEmployeeBadge? badge,
-        string playerId,
-        string displayName)
+        CompanyBadgePresenceProof? proof,
+        string sessionPlayerId)
     {
         if (badge is null)
         {
+            if (proof is not null)
+            {
+                throw new HubException("Company badge proof has no badge.");
+            }
+
             return null;
+        }
+
+        if (proof is null)
+        {
+            throw new HubException("Company badge requires identity proof.");
         }
 
         var companyId = NormalizeRequired(
@@ -439,14 +449,14 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             badge.EmployeeNumber,
             MaxEmployeeNumberLength,
             "employee number");
-
-        if (!string.Equals(
-                badge.PlayerId?.Trim(),
-                playerId,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new HubException("Company badge player does not match room player.");
-        }
+        var badgePlayerId = NormalizeRequired(
+            badge.PlayerId,
+            64,
+            "company badge player id");
+        var badgeDisplayName = NormalizeRequired(
+            badge.DisplayName,
+            64,
+            "company badge display name");
 
         if (!Enum.IsDefined(typeof(CompanyRole), badge.Role) ||
             (badge.Permissions & ~CompanyPermission.All) != 0)
@@ -454,20 +464,43 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             throw new HubException("Invalid company badge role or permissions.");
         }
 
-        if (badge.IssuedAtUtc > DateTimeOffset.UtcNow + TimeSpan.FromMinutes(5d))
+        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset proofTime;
+        try
         {
-            throw new HubException("Invalid company badge issue date.");
+            proofTime = DateTimeOffset.FromUnixTimeMilliseconds(
+                proof.TimestampUnixMilliseconds);
+        }
+        catch
+        {
+            throw new HubException("Invalid company badge proof timestamp.");
         }
 
-        return badge with
+        if (Math.Abs((now - proofTime).TotalMinutes) > 5d ||
+            badge.IssuedAtUtc > now + TimeSpan.FromMinutes(5d))
+        {
+            throw new HubException("Expired or invalid company badge proof.");
+        }
+
+        var normalized = badge with
         {
             CompanyId = companyId,
             CompanyName = companyName,
             CompanyShortName = companyShortName,
-            PlayerId = playerId,
-            DisplayName = displayName,
+            PlayerId = badgePlayerId,
+            DisplayName = badgeDisplayName,
             EmployeeNumber = employeeNumber
         };
+
+        if (!CompanyBadgePresenceSignatures.Verify(
+                sessionPlayerId,
+                normalized,
+                proof))
+        {
+            throw new HubException("Invalid company badge identity proof.");
+        }
+
+        return normalized;
     }
 
     private static string NormalizeVoiceChannel(string? value)
