@@ -37,7 +37,7 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
                 PipeDirection.InOut,
                 maxNumberOfServerInstances: 1,
                 PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
+                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 
             try
             {
