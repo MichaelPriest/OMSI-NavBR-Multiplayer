@@ -109,14 +109,27 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         if (companyBadge is not null)
         {
             var identity = NavBRIdentityStore.LoadOrCreate(companyBadge.DisplayName);
-            var badgeTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            companyBadgeProof = new CompanyBadgePresenceProof(
-                identity.PublicKeySpkiBase64,
-                badgeTimestamp,
-                NavBRIdentityStore.SignCompanyBadgePresence(
-                    settings.PlayerId.Trim(),
-                    companyBadge,
-                    badgeTimestamp));
+            if (!string.Equals(
+                    identity.PlayerId,
+                    companyBadge.PlayerId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                // A reset/recreated NavBR identity must not make multiplayer
+                // unusable. Drop the stale company credential; the user can
+                // rejoin the company to receive a badge for the new identity.
+                companyBadge = null;
+            }
+            else
+            {
+                var badgeTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                companyBadgeProof = new CompanyBadgePresenceProof(
+                    identity.PublicKeySpkiBase64,
+                    badgeTimestamp,
+                    NavBRIdentityStore.SignCompanyBadgePresence(
+                        settings.PlayerId.Trim(),
+                        companyBadge,
+                        badgeTimestamp));
+            }
         }
 
         _joinRequest = new JoinRoomRequest(
