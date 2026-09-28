@@ -265,7 +265,7 @@ public partial class MainWindow
             operations = includeOperations
                 ? BuildWebOperationsState()
                 : null,
-            system = BuildWebSystemState(multiplayerSettings),
+            system = BuildWebSystemState(multiplayerSettings, scope),
             roadmapStudio = fullSnapshot
                 ? BuildWebRoadmapState()
                 : null,
