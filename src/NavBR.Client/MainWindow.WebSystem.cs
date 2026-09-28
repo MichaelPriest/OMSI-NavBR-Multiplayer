@@ -120,6 +120,8 @@ public partial class MainWindow
                 {
                     nativeHostMode = _nativeHostMode,
                     telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                    telemetryLastReadMilliseconds = _lastTelemetryPollMilliseconds,
+                    telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                     hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
                 },
                 mobileCompanion = (object?)null,
@@ -169,6 +171,8 @@ public partial class MainWindow
             {
                 nativeHostMode = _nativeHostMode,
                 telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                    telemetryLastReadMilliseconds = _lastTelemetryPollMilliseconds,
+                    telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                 hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
             },
             mobileCompanion = BuildMobileCompanionDesktopState(),
