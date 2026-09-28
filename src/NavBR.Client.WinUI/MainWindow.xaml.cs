@@ -10,6 +10,7 @@ public sealed partial class MainWindow : Window
     private readonly NativeHostClient _runtime = new();
     private readonly bool _smokeOnly;
     private DispatcherQueueTimer? _refreshTimer;
+    private int _stateRefreshIntervalMs = 750;
     private bool _refreshing;
     private bool _closing;
     private string _activePageTag = "home";
@@ -67,7 +68,7 @@ public sealed partial class MainWindow : Window
             FooterStatusText.Text = "Runtime Host conectado.";
 
             _refreshTimer = DispatcherQueue.CreateTimer();
-            _refreshTimer.Interval = TimeSpan.FromMilliseconds(750);
+            _refreshTimer.Interval = TimeSpan.FromMilliseconds(_stateRefreshIntervalMs);
             _refreshTimer.Tick += async (_, _) => await RefreshStateAsync();
             _refreshTimer.Start();
 
@@ -204,6 +205,7 @@ public sealed partial class MainWindow : Window
         var frameStallCount = LongInteger(performance, "frameStallCount");
         var configuredProfile = String(performance, "configuredProfile") ?? "auto";
         var activeProfile = String(performance, "activeProfile");
+        UpdateStateRefreshCadence(omsiRunning, pressure);
 
         PerformanceStatusText.Text = !pluginConnected
             ? "PLUGIN OFFLINE"
@@ -293,6 +295,39 @@ public sealed partial class MainWindow : Window
                 NativeSettingsPage.ApplyState(state);
                 break;
         }
+    }
+
+    private void UpdateStateRefreshCadence(
+        bool omsiRunning,
+        int? pressure)
+    {
+        if (_refreshTimer is null)
+        {
+            return;
+        }
+
+        var intervalMs = pressure switch
+        {
+            >= 3 => 2_000,
+            2 => 1_500,
+            1 => 1_000,
+            _ => 750
+        };
+
+        // When OMSI is not running there is no reason to rebuild the complete
+        // x86 runtime snapshot at gameplay cadence.
+        if (!omsiRunning)
+        {
+            intervalMs = Math.Max(intervalMs, 1_250);
+        }
+
+        if (_stateRefreshIntervalMs == intervalMs)
+        {
+            return;
+        }
+
+        _stateRefreshIntervalMs = intervalMs;
+        _refreshTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
     }
 
     private void Navigation_SelectionChanged(
