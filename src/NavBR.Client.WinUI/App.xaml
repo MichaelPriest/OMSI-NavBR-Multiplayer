@@ -1,0 +1,28 @@
+<Application
+    x:Class="NavBR.Client.WinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="NavBRBackgroundBrush" Color="#071019"/>
+            <SolidColorBrush x:Key="NavBRSurfaceBrush" Color="#0D1924"/>
+            <SolidColorBrush x:Key="NavBRSurfaceRaisedBrush" Color="#122331"/>
+            <SolidColorBrush x:Key="NavBRBorderBrush" Color="#203748"/>
+            <SolidColorBrush x:Key="NavBRAccentBrush" Color="#4BA9E8"/>
+            <SolidColorBrush x:Key="NavBRMutedBrush" Color="#8EA4B4"/>
+            <SolidColorBrush x:Key="NavBRSuccessBrush" Color="#54D39A"/>
+
+            <Style x:Key="MetricCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource NavBRSurfaceBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource NavBRBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="12"/>
+                <Setter Property="Padding" Value="16"/>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
