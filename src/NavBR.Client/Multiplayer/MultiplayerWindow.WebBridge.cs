@@ -5,6 +5,18 @@ namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow
 {
+    internal object BuildWebBridgeSummaryState() =>
+        new
+        {
+            available = true,
+            connected = _client.IsConnected,
+            connectionState = _client.State.ToString(),
+            serverUrl = _settings.ServerUrl,
+            roomId = _settings.RoomId,
+            displayName = _settings.DisplayName,
+            playerCount = _players.Count
+        };
+
     internal object BuildWebBridgeState()
     {
         var now = DateTimeOffset.UtcNow;
