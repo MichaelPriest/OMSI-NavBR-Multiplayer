@@ -239,6 +239,32 @@
                         </Grid>
 
                         <Border Style="{StaticResource MetricCardStyle}">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="320"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Perfil de desempenho"
+                                                   Foreground="White"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="PerformanceProfileDetailText"
+                                                   Text="Automático"
+                                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="PerformanceProfileComboBox"
+                                              Grid.Column="1"
+                                              Header="Modo"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectionChanged="PerformanceProfileComboBox_SelectionChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource MetricCardStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Estado adaptativo" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="PerformanceExplanationText"
