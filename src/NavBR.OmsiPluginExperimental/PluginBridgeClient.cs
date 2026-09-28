@@ -196,6 +196,7 @@ internal static class PluginBridgeClient
             PluginAverageFrameIntervalMilliseconds: pluginAverageFrameIntervalMilliseconds,
             PluginMinimumWorkIntervalMilliseconds: pluginMinimumWorkIntervalMilliseconds,
             PluginMaxCommandsPerSlice: pluginMaxCommandsPerSlice,
+            PerformanceProfile: OmsiPerformanceGovernor.CurrentProfile,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
@@ -439,6 +440,13 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearTrafficVehicles, StringComparison.Ordinal))
         {
             TrafficVehicles.Clear();
+            return null;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.SetPerformanceProfile, StringComparison.Ordinal))
+        {
+            OmsiPerformanceGovernor.SetProfile(message.PerformanceProfile);
+            Log($"performance-profile={OmsiPerformanceGovernor.CurrentProfile}");
             return null;
         }
 
