@@ -183,6 +183,12 @@ public sealed partial class MainWindow : Window
         };
 
         var system = Property(state, "system");
+        var runtimeHost = Property(system, "runtimeHost");
+        var telemetryPollInterval = Integer(runtimeHost, "telemetryPollIntervalMilliseconds");
+        var hudRefreshInterval = Integer(runtimeHost, "hudRefreshIntervalMilliseconds");
+        RuntimeCadenceText.Text =
+            $"Host x86: telemetria {telemetryPollInterval?.ToString() ?? "—"} ms · HUD {hudRefreshInterval?.ToString() ?? "—"} ms";
+
         var health = Property(system, "sessionHealth");
         var pluginConnected = Bool(health, "pluginConnected");
         var performance = Property(health, "pluginPerformance");
@@ -214,7 +220,9 @@ public sealed partial class MainWindow : Window
 
         PressureText.Text = pressure?.ToString() ?? "—";
         PluginWorkText.Text = work is null ? "—" : $"{work:0.00} ms";
-        FrameIntervalText.Text = frameInterval is null ? "—" : $"{frameInterval:0.0} ms";
+        FrameIntervalText.Text = frameInterval is null || frameInterval <= 0d
+            ? "—"
+            : $"{frameInterval:0.0} ms · {1000d / frameInterval:0} FPS";
         CommandBudgetText.Text = maxCommands?.ToString() ?? "—";
         LastFrameIntervalText.Text = lastFrameInterval is null
             ? "—"
