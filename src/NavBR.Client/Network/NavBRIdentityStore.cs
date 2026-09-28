@@ -65,6 +65,23 @@ internal static class NavBRIdentityStore
         }
     }
 
+    public static string SignCompanyBadgePresence(
+        string sessionPlayerId,
+        CompanyEmployeeBadge badge,
+        long timestampUnixMilliseconds)
+    {
+        lock (Sync)
+        {
+            _cached ??= LoadCore() ?? CreateCore(badge.DisplayName);
+            return SignPayload(
+                _cached,
+                CompanyBadgePresenceSignatures.BuildPayload(
+                    sessionPlayerId,
+                    badge,
+                    timestampUnixMilliseconds));
+        }
+    }
+
     public static string SignRoleChangeRequest(
         string companyId,
         string targetPlayerId,
