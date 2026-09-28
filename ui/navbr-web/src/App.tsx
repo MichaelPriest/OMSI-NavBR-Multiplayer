@@ -1736,6 +1736,28 @@ function CompanyNetwork({
       <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>{pick("Equipe", "Team", "Equipo", "Team", "Équipe")}</button></div>
       {tab === "network" && (
         <section className="company-network-layout">
+          {selfBadge && (
+            <article className="card company-employee-badge">
+              <div className="employee-badge-top">
+                <div>
+                  <span className="eyebrow">NAVBR • {selfBadge.companyShortName}</span>
+                  <h3>{pick("Crachá operacional", "Operational badge", "Credencial operativa", "Betriebsausweis", "Badge opérationnel")}</h3>
+                </div>
+                <strong>#{selfBadge.employeeNumber}</strong>
+              </div>
+              <div className="employee-badge-holder">
+                <span className="company-member-avatar">{selfBadge.displayName.slice(0, 1).toUpperCase()}</span>
+                <div>
+                  <strong>{selfBadge.displayName}</strong>
+                  <small>{companyRoleLabel(selfBadge.role, pick)}</small>
+                </div>
+              </div>
+              <div className="employee-badge-meta">
+                <span>{selfBadge.companyName}</span>
+                <code>{selfBadge.playerId}</code>
+              </div>
+            </article>
+          )}
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("Sua identidade fica protegida neste computador.", "Your identity stays protected on this computer.", "Tu identidad permanece protegida en este equipo.", "Deine Identität bleibt auf diesem Computer geschützt.", "Votre identité reste protégée sur cet ordinateur.")}</p></article>
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
           <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
