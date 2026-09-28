@@ -99,7 +99,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     public void ReadSingles(
         nint address,
-        Span<float> values)
+        scoped Span<float> values)
     {
         if (values.Length == 0)
         {
@@ -394,7 +394,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     private int TryReadAnsiTerminatedBlock(
         nint address,
-        Span<byte> buffer)
+        scoped Span<byte> buffer)
     {
         try
         {
@@ -416,7 +416,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
     private int TryReadUnicodeTerminatedBlock(
         nint address,
-        Span<byte> buffer,
+        scoped Span<byte> buffer,
         int maxCharacters)
     {
         try
@@ -454,7 +454,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         return buffer;
     }
 
-    private void ReadBytes(nint address, Span<byte> buffer)
+    private void ReadBytes(nint address, scoped Span<byte> buffer)
     {
         var handle = Volatile.Read(ref _processHandle);
         ObjectDisposedException.ThrowIf(handle == nint.Zero, this);
