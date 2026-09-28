@@ -5,6 +5,10 @@ on:
     branches: [ main, deploy/alpha14-react-site ]
     paths:
       - 'site/**'
+      - 'scripts/build_public_manual.py'
+      - 'docs/MANUAL_DE_USO.md'
+      - 'docs/KEYBOARD_SHORTCUTS.md'
+      - 'docs/ALPHA22_RELEASE_NOTES.md'
       - 'src/NavBR.Client/Assets/NavBR.ico'
       - '.github/workflows/pages.yml'
   workflow_run:
@@ -112,6 +116,13 @@ jobs:
             ' \
             /tmp/navbr-releases.json \
           > site/releases.json
+
+      - name: Build public PDF manual
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir reportlab==4.2.5
+          python scripts/build_public_manual.py
 
       - name: Build React public site
         shell: bash
