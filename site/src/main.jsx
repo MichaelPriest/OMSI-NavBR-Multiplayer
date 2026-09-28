@@ -6,6 +6,7 @@ import "../omsi-theme.css";
 import "../modern.css";
 import "./react.css";
 import "./v3.css";
+import "./alpha22-site.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
