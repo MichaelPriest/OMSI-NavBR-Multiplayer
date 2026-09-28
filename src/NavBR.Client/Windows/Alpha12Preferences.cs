@@ -14,6 +14,9 @@ internal sealed record Alpha12Preferences(
 
 internal static class Alpha12PreferencesStore
 {
+    private static readonly object Sync = new();
+    private static Alpha12Preferences? _cachedPreferences;
+
     private static readonly string DirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "OMSI NavBR Multiplayer");
@@ -24,29 +27,45 @@ internal static class Alpha12PreferencesStore
 
     public static Alpha12Preferences Load()
     {
-        try
+        lock (Sync)
         {
-            if (!File.Exists(FilePath))
+            if (_cachedPreferences is not null)
             {
-                return Alpha12Preferences.Default;
+                return _cachedPreferences;
             }
 
-            var preferences = JsonSerializer.Deserialize<Alpha12Preferences>(File.ReadAllText(FilePath));
-            return Normalize(preferences ?? Alpha12Preferences.Default);
-        }
-        catch
-        {
-            return Alpha12Preferences.Default;
+            try
+            {
+                if (!File.Exists(FilePath))
+                {
+                    _cachedPreferences = Alpha12Preferences.Default;
+                    return _cachedPreferences;
+                }
+
+                var preferences = JsonSerializer.Deserialize<Alpha12Preferences>(File.ReadAllText(FilePath));
+                _cachedPreferences = Normalize(preferences ?? Alpha12Preferences.Default);
+                return _cachedPreferences;
+            }
+            catch
+            {
+                _cachedPreferences = Alpha12Preferences.Default;
+                return _cachedPreferences;
+            }
         }
     }
 
     public static void Save(Alpha12Preferences preferences)
     {
         preferences = Normalize(preferences);
-        Directory.CreateDirectory(DirectoryPath);
-        File.WriteAllText(
-            FilePath,
-            JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true }));
+        lock (Sync)
+        {
+            Directory.CreateDirectory(DirectoryPath);
+            File.WriteAllText(
+                FilePath,
+                JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true }));
+            _cachedPreferences = preferences;
+        }
+
         PreferencesSaved?.Invoke(preferences);
     }
 

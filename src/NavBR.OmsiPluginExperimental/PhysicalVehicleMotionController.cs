@@ -18,10 +18,29 @@ internal static class PhysicalVehicleMotionController
     private const long StaleTargetAfterMs = 5_000;
     private const long ReadbackIntervalMs = 1_000;
     private const double ReadbackToleranceMeters = 3d;
+    private const int ExternalControlSuccessBit = 1 << 0;
+    private const int ExternalControlWasCalculatedResetBit = 1 << 1;
+    private const int ExternalControlPreCalcRequestedBit = 1 << 2;
+    private const int ExternalControlLoadedTileResetBit = 1 << 3;
+    private const int ExternalControlPhysicsBodyReenabledBit = 1 << 4;
+    private const int ExternalControlPhysicsSyncUnavailableBit = 1 << 5;
+    private const int ExternalControlConflictMask =
+        ExternalControlWasCalculatedResetBit |
+        ExternalControlPreCalcRequestedBit |
+        ExternalControlLoadedTileResetBit |
+        ExternalControlPhysicsBodyReenabledBit |
+        ExternalControlPhysicsSyncUnavailableBit;
+    private const long ExternalControlConflictLogIntervalMs = 2_000;
+    private const long PathBindingComparisonLogIntervalMs = 10_000;
+    private const long PhysicsBodyComparisonLogIntervalMs = 10_000;
+    private const long MaximumSettledPoseReassertIntervalMs = 250;
+    private const double FramePoseDriftToleranceMeters = 0.05d;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
     private static long _lastTickMs;
+    private static long _lastPathBindingComparisonLogTickMs;
+    private static long _lastExternalControlTickMs;
 
     public static int ActiveCount => States.Count;
 
@@ -204,6 +223,207 @@ internal static class PhysicalVehicleMotionController
         return true;
     }
 
+    /// <summary>
+    /// Reasserts NavBR ownership once per OMSI callback cycle, independently
+    /// from interpolation cadence. This must run on OMSI's callback thread.
+    /// </summary>
+    public static void MaintainExternalControl()
+    {
+        var now = Environment.TickCount64;
+        var activeCount = States.Count;
+        if (activeCount == 0)
+        {
+            _lastExternalControlTickMs = now;
+            return;
+        }
+
+        // System variable 0 can be requested more often than the visible frame
+        // cadence on some OMSI setups. Bound ownership maintenance so native
+        // ODE/transform work cannot monopolize OMSI's callback thread.
+        var minimumMaintainIntervalMs = activeCount switch
+        {
+            >= 9 => 33L,
+            >= 5 => 24L,
+            _ => 16L
+        };
+        if (_lastExternalControlTickMs > 0 &&
+            now - _lastExternalControlTickMs < minimumMaintainIntervalMs)
+        {
+            return;
+        }
+
+        _lastExternalControlTickMs = now;
+        foreach (var pair in States.ToArray())
+        {
+            var instanceId = pair.Key;
+            var state = pair.Value;
+            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
+                OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+            {
+                States.Remove(instanceId);
+                continue;
+            }
+
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                    instance,
+                    out var unsafeReason))
+            {
+                state.FaultCode = "motion-external-control-failed";
+                state.FaultMessage =
+                    $"NavBR stopped the RoadVehicle external-control keepalive: {unsafeReason}.";
+                continue;
+            }
+
+            var externalControlResult =
+                OmsiNativeInterop.MaintainVehicleExternalControl(
+                    instance.VehiclePointer);
+            if ((externalControlResult & ExternalControlSuccessBit) == 0)
+            {
+                state.FaultCode = "motion-external-control-failed";
+                state.FaultMessage =
+                    "OMSI rejected the NavBR RoadVehicle external-control keepalive.";
+                continue;
+            }
+
+            var conflictBits =
+                externalControlResult & ExternalControlConflictMask;
+
+            var hasObjectPosition =
+                OmsiNativeInterop.ReadRoadVehiclePosition(
+                    instance.VehiclePointer,
+                    out var objectX,
+                    out var objectY,
+                    out var objectZ) == 1;
+            var poseDrifted = false;
+            if (hasObjectPosition)
+            {
+                var dx = objectX - state.Current.X;
+                var dy = objectY - state.Current.Y;
+                var dz = objectZ - state.Current.Z;
+                poseDrifted =
+                    dx * dx + dy * dy + dz * dz >
+                    FramePoseDriftToleranceMeters *
+                    FramePoseDriftToleranceMeters;
+            }
+
+            var physicsReenabled =
+                (conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0;
+            var periodicRefresh =
+                now - state.LastFramePoseReassertTickMs >=
+                MaximumSettledPoseReassertIntervalMs;
+
+            // Reapply the expensive full transform only when OMSI actually
+            // moved the object/body or as a low-rate render-matrix refresh.
+            // This keeps the correction from build #1074 without doing several
+            // ODE + matrix writes for every callback and every remote bus.
+            if ((poseDrifted || physicsReenabled || periodicRefresh) &&
+                !TryApplyTransform(
+                    instance,
+                    state.Current,
+                    writeTileIndex: false))
+            {
+                state.FaultCode = "motion-frame-pose-reassert-failed";
+                state.FaultMessage =
+                    $"OMSI rejected the bounded NavBR pose reassertion at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+                continue;
+            }
+
+            if (poseDrifted || physicsReenabled || periodicRefresh)
+            {
+                state.LastFramePoseReassertTickMs = now;
+            }
+
+            if (now - state.LastPhysicsBodyLogTickMs >=
+                    PhysicsBodyComparisonLogIntervalMs &&
+                hasObjectPosition &&
+                OmsiNativeInterop.TryReadRoadVehiclePhysicsBodyPosition(
+                    instance.VehiclePointer,
+                    out var bodyX,
+                    out var bodyY,
+                    out var bodyZ,
+                    out var bodyEnabled))
+            {
+                state.LastPhysicsBodyLogTickMs = now;
+                PluginLogWriter.Enqueue(
+                    $"physical-body-compare id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
+                    $"object=({objectX:F2},{objectY:F2},{objectZ:F2}) " +
+                    $"body=({bodyX:F2},{bodyY:F2},{bodyZ:F2}) " +
+                    $"bodyEnabled={(bodyEnabled ? 1 : 0)} " +
+                    $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2})");
+            }
+
+            if (conflictBits != 0 &&
+                now - state.LastExternalControlConflictLogTickMs >=
+                    ExternalControlConflictLogIntervalMs)
+            {
+                state.LastExternalControlConflictLogTickMs = now;
+                PluginLogWriter.Enqueue(
+                    $"physical-frame-ownership id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
+                    $"omsiResetWasCalculated={((conflictBits & ExternalControlWasCalculatedResetBit) != 0 ? 1 : 0)} " +
+                    $"omsiRequestedPreCalc={((conflictBits & ExternalControlPreCalcRequestedBit) != 0 ? 1 : 0)} " +
+                    $"omsiResetLoadedTile={((conflictBits & ExternalControlLoadedTileResetBit) != 0 ? 1 : 0)} " +
+                    $"omsiReenabledPhysicsBody={((conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0 ? 1 : 0)} " +
+                    $"physicsSyncUnavailable={((conflictBits & ExternalControlPhysicsSyncUnavailableBit) != 0 ? 1 : 0)} " +
+                    $"physicsSyncStatus={OmsiNativeInterop.GetLastVehiclePhysicsSyncStatus()}");
+            }
+        }
+
+        LogPathBindingComparison(now);
+    }
+
+    private static void LogPathBindingComparison(long now)
+    {
+        if (now - _lastPathBindingComparisonLogTickMs <
+            PathBindingComparisonLogIntervalMs)
+        {
+            return;
+        }
+
+        var owned = PhysicalVehicleInstanceRegistry.Snapshot();
+        if (owned.Length == 0)
+        {
+            return;
+        }
+
+        var ownedInstance = owned[0];
+        if (!OmsiNativeInterop.TryReadRoadVehiclePathDiagnostics(
+                ownedInstance.VehiclePointer,
+                out var navbrPath))
+        {
+            return;
+        }
+
+        var ownedPointers = new HashSet<int>(
+            owned.Select(instance => instance.VehiclePointer));
+        var playerPointer = OmsiNativeInterop.GetPlayerVehiclePointer();
+        if (!OmsiNativeInterop.TryFindNativeAiRoadVehicle(
+                playerPointer,
+                ownedPointers,
+                out var nativeAiPointer,
+                out var nativeAiPath))
+        {
+            return;
+        }
+
+        _lastPathBindingComparisonLogTickMs = now;
+        PluginLogWriter.Enqueue(
+            $"physical-path-compare navbr=0x{ownedInstance.VehiclePointer:X8} " +
+            $"navbrPathFixed={navbrPath.PathFixed} navbrPAI={navbrPath.Pai} " +
+            $"navbrCalc={navbrPath.WasCalculated} navbrPreCalc={navbrPath.NeedPreCalc} " +
+            $"navbrLoadedTile={navbrPath.OnLoadedKachel} " +
+            $"navbrPath={navbrPath.PathKachel}:{navbrPath.PathIndex}:{navbrPath.SubPath} " +
+            $"navbrReverse={navbrPath.Reverse} navbrPathPos={navbrPath.PathX:F2},{navbrPath.PathY:F2},{navbrPath.PathZ:F2} " +
+            $"navbrPathVel={navbrPath.Velocity:F2} navbrMoving={navbrPath.PaiMovingDistance:F2} " +
+            $"navbrTrack={navbrPath.Track}:{navbrPath.TrackEntry} navbrCrossing={navbrPath.OnCrossing} " +
+            $"ai=0x{nativeAiPointer:X8} aiPathFixed={nativeAiPath.PathFixed} aiPAI={nativeAiPath.Pai} " +
+            $"aiCalc={nativeAiPath.WasCalculated} aiPreCalc={nativeAiPath.NeedPreCalc} " +
+            $"aiLoadedTile={nativeAiPath.OnLoadedKachel} " +
+            $"aiPath={nativeAiPath.PathKachel}:{nativeAiPath.PathIndex}:{nativeAiPath.SubPath} " +
+            $"aiReverse={nativeAiPath.Reverse} aiPathPos={nativeAiPath.PathX:F2},{nativeAiPath.PathY:F2},{nativeAiPath.PathZ:F2} " +
+            $"aiPathVel={nativeAiPath.Velocity:F2} aiMoving={nativeAiPath.PaiMovingDistance:F2} " +
+            $"aiTrack={nativeAiPath.Track}:{nativeAiPath.TrackEntry} aiCrossing={nativeAiPath.OnCrossing}");
+    }
+
     public static void Tick()
     {
         var now = Environment.TickCount64;
@@ -230,6 +450,11 @@ internal static class PhysicalVehicleMotionController
         {
             var instanceId = pair.Key;
             var state = pair.Value;
+
+            if (!string.IsNullOrWhiteSpace(state.FaultCode))
+            {
+                continue;
+            }
 
             if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
                 OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
@@ -334,6 +559,7 @@ internal static class PhysicalVehicleMotionController
     {
         States.Clear();
         _lastTickMs = 0;
+        _lastExternalControlTickMs = 0;
     }
 
     private static bool TryApplyTransform(
@@ -552,6 +778,9 @@ internal static class PhysicalVehicleMotionController
         public double DurationMs { get; set; }
         public long? LastSourceTimestampMs { get; set; }
         public long LastReadbackTickMs { get; set; }
+        public long LastExternalControlConflictLogTickMs { get; set; }
+        public long LastPhysicsBodyLogTickMs { get; set; }
+        public long LastFramePoseReassertTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }

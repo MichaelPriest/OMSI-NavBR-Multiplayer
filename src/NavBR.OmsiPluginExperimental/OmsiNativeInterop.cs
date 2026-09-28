@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 15;
+    private const int ExpectedStateInteropVersion = 20;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -275,6 +275,148 @@ internal static class OmsiNativeInterop
                 renderZ,
                 hostDistance);
             return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool TryReadRoadVehiclePathDiagnostics(
+        int vehiclePointer,
+        out RoadVehiclePathDiagnostics diagnostics)
+    {
+        diagnostics = default;
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (ReadRoadVehiclePathDiagnostics(
+                    vehiclePointer,
+                    out var pathFixed,
+                    out var wasCalculated,
+                    out var needPreCalc,
+                    out var onLoadedKachel,
+                    out var pai,
+                    out var vehicleType,
+                    out var freeOrLarge,
+                    out var pathX,
+                    out var pathY,
+                    out var pathZ,
+                    out var pathKachel,
+                    out var pathIndex,
+                    out var subPath,
+                    out var reverse,
+                    out var heading,
+                    out var velocity,
+                    out var waitMode,
+                    out var reserveGroup,
+                    out var onCrossing,
+                    out var track,
+                    out var trackEntry,
+                    out var paiMovingDistance) != 1)
+            {
+                return false;
+            }
+
+            diagnostics = new RoadVehiclePathDiagnostics(
+                pathFixed,
+                wasCalculated,
+                needPreCalc,
+                onLoadedKachel,
+                pai,
+                vehicleType,
+                freeOrLarge,
+                pathX,
+                pathY,
+                pathZ,
+                pathKachel,
+                pathIndex,
+                subPath,
+                reverse,
+                heading,
+                velocity,
+                waitMode,
+                reserveGroup,
+                onCrossing,
+                track,
+                trackEntry,
+                paiMovingDistance);
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool TryFindNativeAiRoadVehicle(
+        int playerVehiclePointer,
+        IReadOnlySet<int> excludedPointers,
+        out int vehiclePointer,
+        out RoadVehiclePathDiagnostics diagnostics)
+    {
+        vehiclePointer = 0;
+        diagnostics = default;
+
+        if (!IsShimReady)
+        {
+            return false;
+        }
+
+        try
+        {
+            var count = GetRoadVehicleCount();
+            if (count <= 0 || count > MaxReasonableRoadVehicles)
+            {
+                return false;
+            }
+
+            // This runs only for diagnostics on OMSI's callback thread.
+            // Probe a bounded prefix and stop at the first genuine native AI
+            // instead of allocating/copying the whole RoadVehicles array.
+            var probeCount = Math.Min(count, 64);
+            for (var index = 0; index < probeCount; index++)
+            {
+                var pointer = GetRoadVehicleAt(index);
+                if (pointer == 0 ||
+                    pointer == playerVehiclePointer ||
+                    excludedPointers.Contains(pointer))
+                {
+                    continue;
+                }
+
+                if (!TryReadRoadVehiclePathDiagnostics(pointer, out var candidate) ||
+                    candidate.Pai != 1)
+                {
+                    continue;
+                }
+
+                vehiclePointer = pointer;
+                diagnostics = candidate;
+                return true;
+            }
+
+            return false;
         }
         catch (DllNotFoundException)
         {
@@ -618,6 +760,53 @@ internal static class OmsiNativeInterop
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetStateInteropVersion")]
     private static extern int GetStateInteropVersion();
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetLastVehiclePhysicsSyncStatus")]
+    internal static extern int GetLastVehiclePhysicsSyncStatus();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePhysicsBodyPosition")]
+    private static extern int ReadRoadVehiclePhysicsBodyPosition(
+        int vehiclePointer,
+        out float bodyX,
+        out float bodyY,
+        out float bodyZ,
+        out int enabled);
+
+    internal static bool TryReadRoadVehiclePhysicsBodyPosition(
+        int vehiclePointer,
+        out float bodyX,
+        out float bodyY,
+        out float bodyZ,
+        out bool enabled)
+    {
+        bodyX = 0f;
+        bodyY = 0f;
+        bodyZ = 0f;
+        enabled = false;
+        try
+        {
+            var result = ReadRoadVehiclePhysicsBodyPosition(
+                vehiclePointer,
+                out bodyX,
+                out bodyY,
+                out bodyZ,
+                out var enabledRaw);
+            enabled = enabledRaw != 0;
+            return result == 1;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetLastVehicleTransformFailureStage")]
     internal static extern int GetLastVehicleTransformFailureStage();
 
@@ -670,6 +859,32 @@ internal static class OmsiNativeInterop
         out float renderY,
         out float renderZ,
         out float hostDistance);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePathDiagnostics")]
+    private static extern int ReadRoadVehiclePathDiagnostics(
+        int vehiclePointer,
+        out int pathFixed,
+        out int wasCalculated,
+        out int needPreCalc,
+        out int onLoadedKachel,
+        out int pai,
+        out int vehicleType,
+        out int freeOrLarge,
+        out float pathX,
+        out float pathY,
+        out float pathZ,
+        out int pathKachel,
+        out int pathIndex,
+        out int subPath,
+        out int reverse,
+        out float heading,
+        out float velocity,
+        out int waitMode,
+        out int reserveGroup,
+        out int onCrossing,
+        out int track,
+        out int trackEntry,
+        out float paiMovingDistance);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
     internal static extern int IsRoadVehiclePointer(int vehiclePointer);
@@ -872,6 +1087,9 @@ internal static class OmsiNativeInterop
         float groundSpeedMps,
         int mapTileIndex);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MaintainVehicleExternalControl")]
+    internal static extern int MaintainVehicleExternalControl(int vehiclePointer);
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetVehicleVisualState")]
     internal static extern int SetVehicleVisualState(
         int vehiclePointer,
@@ -895,6 +1113,30 @@ internal static class OmsiNativeInterop
         float RenderY,
         float RenderZ,
         float HostDistance);
+
+    internal readonly record struct RoadVehiclePathDiagnostics(
+        int PathFixed,
+        int WasCalculated,
+        int NeedPreCalc,
+        int OnLoadedKachel,
+        int Pai,
+        int VehicleType,
+        int FreeOrLarge,
+        float PathX,
+        float PathY,
+        float PathZ,
+        int PathKachel,
+        int PathIndex,
+        int SubPath,
+        int Reverse,
+        float Heading,
+        float Velocity,
+        int WaitMode,
+        int ReserveGroup,
+        int OnCrossing,
+        int Track,
+        int TrackEntry,
+        float PaiMovingDistance);
 
     internal sealed record RandomBusProbeResult(
         bool Invoked,

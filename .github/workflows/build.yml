@@ -179,11 +179,14 @@ jobs:
           foreach ($name in @(
             'NavBR_GetAbiVersion',
             'NavBR_GetStateInteropVersion',
+            'NavBR_GetLastVehiclePhysicsSyncStatus',
             'NavBR_ProbeRoleplayHumanControl',
             'NavBR_ProbePhysicalVehicleBackend',
             'NavBR_GetRoadVehicleCount',
             'NavBR_GetRoadVehicleAt',
             'NavBR_ReadRoadVehicleRenderDiagnostics',
+            'NavBR_ReadRoadVehiclePathDiagnostics',
+            'NavBR_ReadRoadVehiclePhysicsBodyPosition',
             'NavBR_IsRoadVehiclePointer',
             'NavBR_GetHumanCount',
             'NavBR_GetHumanAt',
@@ -197,6 +200,7 @@ jobs:
             'NavBR_RestoreHumanDriverState',
             'NavBR_MakeVehicle',
             'NavBR_SetVehicleTransform',
+            'NavBR_MaintainVehicleExternalControl',
             'NavBR_SetVehicleVisualState',
             'NavBR_MarkVehicleForKilling'
           )) {

@@ -61,7 +61,7 @@ export function TrustStrip({ current, alphaDownloads, totalDownloads }) {
 export function StatusSection({ current }) {
   const items = [
     ["Interface", "React + WebView2", "Disponível", "ready"],
-    ["Multiplayer", "LAN + online", "Em validação real", "testing"],
+    ["Multiplayer", "LAN + online", "AI validado / players pendentes", "testing"],
     ["Plugin OMSI", "Native AOT x86 + Bridge", "Experimental", "experimental"],
     ["Ônibus físico / RP", "integração nativa", "Em validação", "testing"]
   ];
@@ -70,7 +70,7 @@ export function StatusSection({ current }) {
     <section id="estado" className="section shell v2-status-section">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Estado do projeto</span><h2>O que está disponível hoje.</h2></div>
-        <p>O NavBR continua em Alpha. A Alpha.18 está pública para testes, mas multiplayer LAN/local e online ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI.</p>
+        <p>O NavBR continua em Alpha. Na Alpha.22, o teste online com bots/AI do simulador seguindo o host foi validado no OMSI real; players reais em dois PCs/duas sessões OMSI ainda precisam de validação ponta a ponta.</p>
       </div>
       <div className="v2-status-grid">
         {items.map(([label, value, state, kind]) => (

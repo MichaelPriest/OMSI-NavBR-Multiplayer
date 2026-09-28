@@ -72,6 +72,8 @@ public partial class HudOverlayWindow : Window
     {
         _omsiProcessId = processId;
         _omsiWindowHandle = IntPtr.Zero;
+        _hudOwnerHandle = IntPtr.Zero;
+        _lastOmsiForegroundUtc = DateTimeOffset.MinValue;
         FollowOmsiWindow();
     }
 
@@ -650,27 +652,30 @@ public partial class HudOverlayWindow : Window
 
     private bool IsOmsiForeground()
     {
-        if (_omsiProcessId is not int processId)
+        if (_omsiProcessId is not int processId ||
+            _localTelemetry is null ||
+            string.IsNullOrWhiteSpace(_localTelemetry.MapName))
         {
             return false;
         }
 
         var foreground = GetForegroundWindow();
-        if (foreground == IntPtr.Zero)
+        if (foreground == IntPtr.Zero ||
+            !WindowBelongsToProcess(foreground, processId))
         {
             return false;
         }
 
-        // Fullscreen OMSI may expose a gameplay top-level HWND different from
-        // Process.MainWindowHandle. Treat any foreground window owned by the
-        // attached OMSI process as valid for HUD/global hotkeys.
-        if (WindowBelongsToProcess(foreground, processId))
+        // Never retarget the HUD/hotkeys to arbitrary OMSI dialogs. The
+        // lifecycle code is the sole authority that learns the gameplay HWND.
+        if (_omsiWindowHandle == IntPtr.Zero)
         {
             _omsiWindowHandle = foreground;
+            _hudOwnerHandle = IntPtr.Zero;
             return true;
         }
 
-        return false;
+        return foreground == _omsiWindowHandle;
     }
 
     private void SetInteractive(bool interactive)

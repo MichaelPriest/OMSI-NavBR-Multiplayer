@@ -16,6 +16,9 @@ public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
     private string? _webSessionHealthNotice;
+    private const long OmsiProcessProbeCacheMs = 3_000;
+    private long _webOmsiProcessProbeTickMs;
+    private bool _webOmsiProcessRunningCached;
 
     private object BuildWebSystemState()
     {
@@ -24,7 +27,7 @@ public partial class MainWindow
         var hudSettings = MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
-        var pluginInstall = GetPluginInstallDiagnostics();
+        var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
         var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
         var pluginInstallBlockReason =
             !OmsiPluginInstallationService.HasEmbeddedPackage
@@ -192,6 +195,7 @@ public partial class MainWindow
         }
 
         var result = OmsiPluginInstallationService.EnsureInstalledAtStartup(root);
+        InvalidatePluginInstallDiagnosticsCache();
         switch (result.Status)
         {
             case "ready":
@@ -234,6 +238,7 @@ public partial class MainWindow
         }
 
         var result = OmsiPluginInstallationService.InstallOrUpdate(root);
+        InvalidatePluginInstallDiagnosticsCache();
         _webOmsiLaunchNotice =
             $"Plugin NavBR instalado/atualizado em {result.PluginsDirectory}. Inicie o OMSI para carregar o plugin.";
     }
@@ -277,8 +282,24 @@ public partial class MainWindow
         return OmsiPluginInstallationService.ResolveOmsiRoot();
     }
 
-    private static bool IsOmsiProcessRunningForPluginUpdate()
+    private bool IsOmsiProcessRunningForPluginUpdate()
     {
+        if (_currentOmsi is not null)
+        {
+            _webOmsiProcessRunningCached = true;
+            _webOmsiProcessProbeTickMs = Environment.TickCount64;
+            return true;
+        }
+
+        var nowTick = Environment.TickCount64;
+        if (_webOmsiProcessProbeTickMs > 0 &&
+            nowTick >= _webOmsiProcessProbeTickMs &&
+            nowTick - _webOmsiProcessProbeTickMs < OmsiProcessProbeCacheMs)
+        {
+            return _webOmsiProcessRunningCached;
+        }
+
+        var running = false;
         var processes = Process.GetProcessesByName("Omsi");
         try
         {
@@ -288,15 +309,14 @@ public partial class MainWindow
                 {
                     if (!process.HasExited)
                     {
-                        return true;
+                        running = true;
+                        break;
                     }
                 }
                 catch
                 {
                 }
             }
-
-            return false;
         }
         finally
         {
@@ -305,6 +325,10 @@ public partial class MainWindow
                 process.Dispose();
             }
         }
+
+        _webOmsiProcessRunningCached = running;
+        _webOmsiProcessProbeTickMs = nowTick;
+        return running;
     }
 
     private void DiscoverOmsiProfilesFromWeb(string? preferredPath)

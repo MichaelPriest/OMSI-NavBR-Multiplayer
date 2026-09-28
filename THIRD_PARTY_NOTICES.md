@@ -44,3 +44,16 @@ O aplicativo também é construído sobre .NET e WPF. As distribuições self-co
 OMSI, Aerosoft, M-R-Software, Steam, Valve, Grand Theft Auto, GTA, Rockstar Games e outras marcas citadas pertencem aos respectivos titulares. O OMSI NavBR Multiplayer é um projeto independente e não incorpora assets proprietários dessas marcas.
 
 A interface HUD do NavBR pode se inspirar em padrões de HUD de jogos de mundo aberto, mas deve manter identidade visual, ícones e layout próprios, sem copiar assets ou telas proprietárias.
+
+
+## Referências técnicas OMSI públicas
+
+Durante a investigação do multiplayer físico foram consultados projetos públicos de interoperabilidade com OMSI, principalmente:
+
+- **Omsi-Extensions / OmsiHook** — `space928/Omsi-Extensions` — LGPL-3.0;
+- fork **multiplayer_quickstart** — `tpeterka1/Omsi-Extensions` — LGPL-3.0;
+- **OmsiLaunch** — `lmonteirotech/OmsiLaunch` — LGPL-3.0.
+
+Esses projetos foram usados como **referência técnica** para estruturas, offsets e comportamento de runtime, incluindo o estado de transformação de `RoadVehicle`. O NavBR mantém implementação própria no seu interop/plugin e não redistribui binários desses projetos.
+
+As respectivas licenças e avisos permanecem sob responsabilidade de seus repositórios originais.

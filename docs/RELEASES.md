@@ -2,11 +2,27 @@
 
 ## Estado atual / Current state
 
-`v0.3.0-alpha.21`
+`v0.3.0-alpha.22`
 
-> **Alpha pública de teste.** A Alpha.20 reorganiza a experiência desktop e mantém as funcionalidades reais existentes. Multiplayer LAN/online, ônibus físicos remotos, RP físico e controles locais/IBIS ainda exigem validação em uma variedade maior de PCs, ônibus e redes reais.
+> **Alpha pública de teste.** A Alpha.22 promove as correções do multiplayer físico após a validação online do simulador. O teste **online com bots/AI seguindo o host foi concluído com sucesso**; o próximo gate é a validação ponta a ponta com **players reais em dois PCs/duas sessões OMSI**.
 
-> **Alpha pública de teste.** A Alpha.21 concentra a validação do multiplayer físico, o novo NavBR TP/TS, rotas reais do HOF, HUD robusto e Mobile Companion v3.
+### Alpha.22
+
+- state interop ABI v20;
+- sincronização reforçada de RoadVehicle/ODE/matrizes;
+- bots/AI do simulador online validados seguindo o host;
+- HUD limitado à janela de gameplay do OMSI;
+- otimizações de callback/I/O para reduzir travamentos do app;
+- manual completo de atalhos;
+- documentação e portal atualizados para separar claramente **AI validado** de **players reais pendentes**.
+
+### Ainda em validação na Alpha.22
+
+- teste ponta a ponta com players reais em duas sessões OMSI/PCs independentes;
+- estabilidade em redes reais, cruzamentos, trocas de Kachel e addons variados;
+- ônibus articulados no backend físico.
+
+Release: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.22
 
 ### Alpha.21
 
@@ -20,11 +36,17 @@
 - Mobile Companion v3 com aba Operação e controles do HUD/NavBR TP/TS;
 - APK Android, plugin Native AOT x86, simulador, installer e demais pacotes continuam incluídos.
 
+### Validação concluída nesta etapa
+
+- teste online do simulador/AI validado com ônibus físicos seguindo o host em OMSI real;
+- pipeline simulador → rede → cliente → plugin → RoadVehicle confirmado operacional;
+- correções de ownership/matrizes e escopo do HUD incorporadas ao código promovido para `main`.
+
 ### Ainda em validação na Alpha.21
 
 - comportamento físico em mapas/add-ons variados;
 - permanência perfeita na faixa em cruzamentos e assets com paths incompletos;
-- teste ponta a ponta com duas sessões OMSI reais em redes diferentes;
+- teste ponta a ponta com **players reais** em duas sessões OMSI/PCs independentes;
 - ônibus articulados no backend físico.
 
 Release: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.21

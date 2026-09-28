@@ -35,7 +35,7 @@ public partial class WebShellWindow : Window
 
         InitializeComponent();
 
-        _pushTimer = new DispatcherTimer
+        _pushTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1)
         };

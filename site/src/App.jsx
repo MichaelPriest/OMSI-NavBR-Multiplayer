@@ -109,6 +109,15 @@ function ConceptNotice({ t }) {
   );
 }
 
+function ValidationNotice({ t }) {
+  return (
+    <section className="v4-shell v4-concept-notice">
+      <span className="v4-info-icon">✓</span>
+      <div><strong>{t.validation.title}</strong><p>{t.validation.text}</p></div>
+    </section>
+  );
+}
+
 function FeatureStrip({ t }) {
   const icons = ["♟", "▣", "▯", "◉", "⚙", "◆"];
   return (
@@ -252,10 +261,11 @@ function Support({ t }) {
 
 function Documentation({ t }) {
   const items = [
-    [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA20_RELEASE_NOTES.md"],
+    [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA22_RELEASE_NOTES.md"],
+    [t.docs.shortcuts, GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     [t.docs.mobile, GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"],
     [t.docs.plugin, GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
-    [t.docs.github, GITHUB_URL]
+    [t.docs.github, GITHUB_URL + "/blob/main/docs/MULTIPLAYER_STATUS.md"]
   ];
   return (
     <section id="documentacao" className="v4-shell v4-docs">
@@ -304,6 +314,7 @@ export default function App() {
       <main>
         <Hero t={t} current={current} language={language} setLanguage={setLanguage} />
         <ConceptNotice t={t} />
+        <ValidationNotice t={t} />
         <AdSlot name="top" />
         <FeatureStrip t={t} />
         <MobileShowcase t={t} />

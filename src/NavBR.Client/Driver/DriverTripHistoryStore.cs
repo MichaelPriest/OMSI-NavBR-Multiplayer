@@ -29,12 +29,14 @@ internal static class DriverTripHistoryStore
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "OMSI NavBR Multiplayer");
     private static readonly string FilePath = Path.Combine(DirectoryPath, "driver-trip-history.json");
+    private static IReadOnlyList<DriverTripHistoryEntry>? _cached;
 
     public static IReadOnlyList<DriverTripHistoryEntry> Load()
     {
         lock (Sync)
         {
-            return LoadCore();
+            _cached ??= LoadCore();
+            return _cached;
         }
     }
 
@@ -43,9 +45,10 @@ internal static class DriverTripHistoryStore
         entry = Normalize(entry);
         lock (Sync)
         {
-            var trips = LoadCore().ToList();
+            _cached ??= LoadCore();
+            var trips = _cached.ToList();
             trips.Insert(0, entry);
-            WriteCore(trips);
+            _cached = WriteCore(trips);
         }
     }
 
@@ -54,11 +57,11 @@ internal static class DriverTripHistoryStore
         ArgumentNullException.ThrowIfNull(entries);
         lock (Sync)
         {
-            WriteCore(entries);
+            _cached = WriteCore(entries);
         }
     }
 
-    private static void WriteCore(IEnumerable<DriverTripHistoryEntry> entries)
+    private static IReadOnlyList<DriverTripHistoryEntry> WriteCore(IEnumerable<DriverTripHistoryEntry> entries)
     {
         var trips = entries
             .Select(Normalize)
@@ -72,6 +75,7 @@ internal static class DriverTripHistoryStore
         var temporary = FilePath + ".tmp";
         File.WriteAllText(temporary, json);
         File.Move(temporary, FilePath, true);
+        return trips;
     }
 
     private static IReadOnlyList<DriverTripHistoryEntry> LoadCore()

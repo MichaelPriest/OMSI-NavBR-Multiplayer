@@ -21,9 +21,17 @@ internal static class OmsiHofRouteCatalog
     private static readonly object Sync = new();
     private static readonly Dictionary<string, CacheEntry> Cache =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, ResolutionCacheEntry> ResolutionCache =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan ResolutionCacheLifetime =
+        TimeSpan.FromSeconds(15);
 
     private sealed record CacheEntry(
         DateTime LastWriteUtc,
+        IReadOnlyList<NavBrTpTsHofRoute> Routes);
+
+    private sealed record ResolutionCacheEntry(
+        DateTimeOffset ExpiresAtUtc,
         IReadOnlyList<NavBrTpTsHofRoute> Routes);
 
     public static IReadOnlyList<NavBrTpTsHofRoute> Resolve(
@@ -59,6 +67,17 @@ internal static class OmsiHofRouteCatalog
                 return Array.Empty<NavBrTpTsHofRoute>();
             }
 
+            var resolutionKey =
+                $"{normalizedRoot}|{vehicleRelative}|{telemetry.HofName}|{telemetry.MapName}";
+            lock (Sync)
+            {
+                if (ResolutionCache.TryGetValue(resolutionKey, out var resolved) &&
+                    resolved.ExpiresAtUtc > DateTimeOffset.UtcNow)
+                {
+                    return resolved.Routes;
+                }
+            }
+
             var vehiclePath = Path.GetFullPath(
                 Path.Combine(normalizedRoot, vehicleRelative));
             var vehicleDirectory = Path.GetDirectoryName(vehiclePath);
@@ -89,8 +108,24 @@ internal static class OmsiHofRouteCatalog
                 var routes = ReadCached(hofFile);
                 if (routes.Count > 0)
                 {
+                    lock (Sync)
+                    {
+                        ResolutionCache[resolutionKey] =
+                            new ResolutionCacheEntry(
+                                DateTimeOffset.UtcNow + ResolutionCacheLifetime,
+                                routes);
+                    }
+
                     return routes;
                 }
+            }
+
+            lock (Sync)
+            {
+                ResolutionCache[resolutionKey] =
+                    new ResolutionCacheEntry(
+                        DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5),
+                        Array.Empty<NavBrTpTsHofRoute>());
             }
         }
         catch (IOException)

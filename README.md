@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública e atual é **v0.3.0-alpha.20**.
+A versão pública e atual é **v0.3.0-alpha.22**.
 
 - cliente principal: **instalador/EXE Windows x86**;
 - **APK Android NavBR Mobile Companion Alpha 2**;
@@ -14,9 +14,15 @@ A versão pública e atual é **v0.3.0-alpha.20**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> **AVISO DE TESTE DA ALPHA.20:** esta versão foi liberada publicamente para ampliar a validação. O multiplayer **LAN/local** e **online/Servidor NavBR/Host pela Internet ainda não foram validados ponta a ponta entre dois PCs/duas sessões reais do OMSI**. Sala conectada, telemetria ou confirmação do simulador não devem ser interpretadas como validação completa do multiplayer físico. Use como alpha pública de teste e reporte logs/resultados.
+> **STATUS DE VALIDAÇÃO DA ALPHA.22:** o teste online com **bots/AI do simulador seguindo o host no OMSI real foi validado com sucesso**, incluindo materialização e seguimento pela trajetória. Isso confirma o caminho de teste automatizado/simulado do multiplayer físico. **Ainda falta validar ponta a ponta com players reais em dois PCs/duas sessões reais do OMSI**, portanto o recurso continua experimental até essa etapa ser concluída.
 
-## Destaques da Alpha.20
+## Destaques da Alpha.22
+
+- **validação online do simulador físico concluída:** bots/AI apareceram no OMSI real e seguiram o host corretamente;
+- sincronização física entre **players reais ainda pendente de teste** em dois PCs/duas sessões OMSI;
+- ownership do `RoadVehicle` reforçado com sincronização de matrizes/estado usada por referências públicas de multiplayer OMSI;
+- HUD restrito à janela de gameplay do OMSI, sem permanecer sobre outras aplicações;
+- novo manual completo de atalhos: `docs/KEYBOARD_SHORTCUTS.md`;
 
 - **interface reorganizada por grupos funcionais**, reduzindo telas longas e opções duplicadas;
 - barra lateral separada em Principal, Multiplayer & RP, Operação & Ferramentas e Sistema;
@@ -48,7 +54,7 @@ A versão pública e atual é **v0.3.0-alpha.20**.
 - abas: Visão geral, Sala, Jogadores, Chat & Voz, Personagem/RP e Avançado, com dispositivos de áudio e mixer por jogador no próprio React;
 - salas públicas/privadas, senha e convite com três modos: Servidor NavBR oficial, LAN e Online através do Host;
 - tela **Rede** com verificação real do Firewall TCP 27730, listener local, NAT/CGNAT, UPnP e teste externo quando configurado;
-- Plugin Bridge **v3** + **state interop ABI v7**, com resolução local de Kachel por `GridX/GridY`;
+- Plugin Bridge **v3** + **state interop ABI v20**, com resolução local de Kachel por `GridX/GridY`;
 - modo Personagem/RP disponível também sem multiplayer, com catálogo real de `Map.Drivers`, ativação, seleção e retorno ao ônibus pelo React;
 - **Ghost / Replay no React** com gravação real a 10 Hz, biblioteca/importação, analytics, prévia read-only da rota e replay 3D experimental pelo Plugin Bridge;
 - ônibus remoto físico experimental com interpolação, culling por proximidade, diagnóstico detalhado e **resolução da Kachel local por GridX/GridY**, sem reutilizar índices de tile de outro processo OMSI;
@@ -139,7 +145,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 
 ## Ghost / Replay
 
-A Alpha.20 mantém o fluxo principal de Ghost na interface React.
+A Alpha.22 mantém o fluxo principal de Ghost na interface React.
 
 - grava telemetria local real a cada 100 ms;
 - salva arquivos `.navbrghost` usando o `GhostRecorder` existente;
@@ -161,7 +167,9 @@ A Alpha.20 mantém o fluxo principal de Ghost na interface React.
 
 ## Documentação
 
-- [docs/ALPHA20_RELEASE_NOTES.md](docs/ALPHA20_RELEASE_NOTES.md) — notas e limitações públicas da Alpha.20;
+- [docs/ALPHA21_RELEASE_NOTES.md](docs/ALPHA21_RELEASE_NOTES.md) — notas, validações e limitações públicas da Alpha.22;
+- [docs/MULTIPLAYER_STATUS.md](docs/MULTIPLAYER_STATUS.md) — estado real dos testes multiplayer;
+- [docs/KEYBOARD_SHORTCUTS.md](docs/KEYBOARD_SHORTCUTS.md) — manual completo de atalhos;
 - [docs/ALPHA18_RELEASE_NOTES.md](docs/ALPHA18_RELEASE_NOTES.md) — histórico da Alpha.18;
 - [docs/ALPHA18_COMMUNITY.md](docs/ALPHA18_COMMUNITY.md) — roteiro de validação pública da Alpha.18;
 - [docs/ALPHA15_RELEASE_NOTES.md](docs/ALPHA15_RELEASE_NOTES.md) — histórico da Alpha.15;
@@ -192,7 +200,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.20 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.22 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico em memória** enquanto serviços nativos ainda são desacoplados de sua classe. O app não usa mais `StartupUri="MainWindow.xaml"` e não chama mais `Show()` no host; telemetria, estatísticas, RP e tray são inicializados explicitamente e os antigos installers/renderizadores visuais da Alpha.11/12 não são executados. Fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 

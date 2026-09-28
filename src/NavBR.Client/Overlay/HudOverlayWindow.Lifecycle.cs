@@ -10,7 +10,6 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
-    private static readonly IntPtr HwndTopmost = new(-1);
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
@@ -18,7 +17,6 @@ public partial class HudOverlayWindow
     private const uint GaRoot = 2;
 
     private readonly TimeSpan _hudVisibilityInterval = TimeSpan.FromMilliseconds(100);
-    private readonly TimeSpan _hudFocusGracePeriod = TimeSpan.FromMilliseconds(900);
     private DispatcherTimer? _hudVisibilityTimer;
     private bool _hudLifecycleInitialized;
     private bool _restoreOmsiFocusOnChatClose = true;
@@ -27,6 +25,7 @@ public partial class HudOverlayWindow
     private bool _hudVisibilitySettingsHooked;
     private DateTimeOffset _lastOmsiForegroundUtc = DateTimeOffset.MinValue;
     private IntPtr _lastTopmostReferenceHandle;
+    private IntPtr _hudOwnerHandle;
     private string? _lastHudRoomId;
 
     private void HudOverlayWindow_LifecycleLoaded(object sender, RoutedEventArgs e)
@@ -211,6 +210,16 @@ public partial class HudOverlayWindow
             return;
         }
 
+        // HUD is a gameplay surface, not an OMSI-process-wide overlay.
+        // Do not show it in launcher/menu/options/dialog windows before a
+        // real vehicle/map telemetry frame exists.
+        if (_localTelemetry is null ||
+            string.IsNullOrWhiteSpace(_localTelemetry.MapName))
+        {
+            HideHudForOmsiState();
+            return;
+        }
+
         try
         {
             using var process = Process.GetProcessById(processId);
@@ -239,62 +248,31 @@ public partial class HudOverlayWindow
 
             if (foregroundBelongsToOmsi)
             {
-                // alpha.8 worked because the real OMSI gameplay HWND was learned
-                // from the actual foreground window. Process.MainWindowHandle is
-                // not reliable for all OMSI setups and may refer to another
-                // top-level surface. Learn the gameplay surface here instead.
+                // Learn the gameplay HWND only while real gameplay telemetry is
+                // alive. Once learned, any other OMSI top-level foreground HWND
+                // is treated as a menu/dialog and the HUD is hidden.
                 if (!IsUsableOmsiWindow(_omsiWindowHandle) ||
                     !WindowBelongsToProcess(_omsiWindowHandle, processId) ||
                     _lastOmsiForegroundUtc == DateTimeOffset.MinValue)
                 {
                     _omsiWindowHandle = foreground;
+                    _hudOwnerHandle = IntPtr.Zero;
                 }
-                else
+                else if (foreground != _omsiWindowHandle)
                 {
-                    var gameplayRoot = GetAncestor(_omsiWindowHandle, GaRoot);
-                    if (gameplayRoot == IntPtr.Zero)
-                    {
-                        gameplayRoot = _omsiWindowHandle;
-                    }
-
-                    var foregroundRoot = GetAncestor(foreground, GaRoot);
-                    if (foregroundRoot == IntPtr.Zero)
-                    {
-                        foregroundRoot = foreground;
-                    }
-
-                    // A separate OMSI top-level window is a menu/dialog. Keep
-                    // the learned gameplay HWND unchanged and hide immediately.
-                    if (foreground != _omsiWindowHandle &&
-                        foregroundRoot != gameplayRoot)
-                    {
-                        HideHudForOmsiState();
-                        return;
-                    }
+                    HideHudForOmsiState();
+                    return;
                 }
 
                 _lastOmsiForegroundUtc = now;
             }
             else if (!overlayOwnsForeground)
             {
-                // Do not use Process.MainWindowHandle as a visibility fallback.
-                // Until a real OMSI foreground surface has been learned, stay
-                // hidden. This prevents a wrong HWND from blocking the HUD later.
-                if (!IsUsableOmsiWindow(_omsiWindowHandle) ||
-                    !WindowBelongsToProcess(_omsiWindowHandle, processId))
-                {
-                    HideHudForOmsiState();
-                    return;
-                }
-
-                var neverFocused = _lastOmsiForegroundUtc == DateTimeOffset.MinValue;
-                var focusLostTooLong = !neverFocused &&
-                                       now - _lastOmsiForegroundUtc > _hudFocusGracePeriod;
-                if (neverFocused || focusLostTooLong)
-                {
-                    HideHudForOmsiState();
-                    return;
-                }
+                // Strict gameplay-only visibility: as soon as another process
+                // becomes foreground, remove the whole overlay window instead
+                // of leaving a desktop-global transparent TOPMOST surface.
+                HideHudForOmsiState();
+                return;
             }
 
             var gameplayHandle = _omsiWindowHandle;
@@ -357,18 +335,23 @@ public partial class HudOverlayWindow
 
     private void ShowHudForOmsiState(IntPtr overlayHandle, IntPtr omsiHandle)
     {
-        var becomingVisible = !_hudVisibleForOmsi || OverlayRoot.Visibility != Visibility.Visible;
+        EnsureOverlayOwnedByOmsi(overlayHandle, omsiHandle);
+
+        var becomingVisible =
+            !_hudVisibleForOmsi ||
+            OverlayRoot.Visibility != Visibility.Visible ||
+            !IsVisible;
         if (becomingVisible)
         {
             OverlayRoot.Visibility = Visibility.Visible;
             _hudVisibleForOmsi = true;
+            if (!IsVisible)
+            {
+                Show();
+            }
         }
 
-        if (becomingVisible || _lastTopmostReferenceHandle != omsiHandle)
-        {
-            EnsureOverlayTopmost(overlayHandle);
-            _lastTopmostReferenceHandle = omsiHandle;
-        }
+        _lastTopmostReferenceHandle = omsiHandle;
     }
 
     private void HideHudForOmsiState()
@@ -392,6 +375,11 @@ public partial class HudOverlayWindow
         OverlayRoot.Visibility = Visibility.Collapsed;
         _hudVisibleForOmsi = false;
         _lastTopmostReferenceHandle = IntPtr.Zero;
+
+        if (!_hudLayoutEditMode && IsVisible)
+        {
+            Hide();
+        }
     }
 
     private void ChatInputPanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -432,21 +420,34 @@ public partial class HudOverlayWindow
         return foregroundProcessId == (uint)processId;
     }
 
-    private static void EnsureOverlayTopmost(IntPtr overlayHandle)
+    private void EnsureOverlayOwnedByOmsi(
+        IntPtr overlayHandle,
+        IntPtr omsiHandle)
     {
-        if (overlayHandle == IntPtr.Zero)
+        if (overlayHandle == IntPtr.Zero ||
+            omsiHandle == IntPtr.Zero ||
+            _hudOwnerHandle == omsiHandle)
         {
             return;
         }
 
-        _ = SetWindowPos(
-            overlayHandle,
-            HwndTopmost,
-            0,
-            0,
-            0,
-            0,
-            SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+        // Native HWND ownership keeps the overlay above OMSI but not above
+        // unrelated desktop applications. This is intentionally different
+        // from HWND_TOPMOST / WPF Topmost, which caused the HUD to leak across
+        // every window on the desktop.
+        _ = SetNativeOwner(overlayHandle, omsiHandle);
+        _hudOwnerHandle = omsiHandle;
+    }
+
+    private static IntPtr SetNativeOwner(IntPtr window, IntPtr owner)
+    {
+        const int gwlHwndParent = -8;
+        return IntPtr.Size == 8
+            ? SetWindowLongPtr64(window, gwlHwndParent, owner)
+            : new IntPtr(SetWindowLong32(
+                window,
+                gwlHwndParent,
+                owner.ToInt32()));
     }
 
     [DllImport("user32.dll", EntryPoint = "IsIconic")]
@@ -466,6 +467,18 @@ public partial class HudOverlayWindow
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    private static extern int SetWindowLong32(
+        IntPtr hWnd,
+        int nIndex,
+        int dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr64(
+        IntPtr hWnd,
+        int nIndex,
+        IntPtr dwNewLong);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

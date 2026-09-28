@@ -15,6 +15,10 @@ public partial class MainWindow
     private Button? _pluginInstallButton;
     private Button? _pluginRemoveButton;
     private bool _pluginDiagnosticsUiCreated;
+    private const long PluginInstallDiagnosticsCacheMs = 10_000;
+    private PluginInstallDiagnostics? _cachedPluginInstallDiagnostics;
+    private string? _cachedPluginInstallDiagnosticsRoot;
+    private long _cachedPluginInstallDiagnosticsTickMs;
 
     internal string? GetCurrentMapCompatibilityIdForPlugin() =>
         GetActiveMapForMultiplayer()?.CompatibilityId;
@@ -81,9 +85,9 @@ public partial class MainWindow
         };
         parent.Children.Add(_pluginDiagnosticsStatusText);
 
-        _pluginDiagnosticsTimer = new DispatcherTimer
+        _pluginDiagnosticsTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(500)
+            Interval = TimeSpan.FromSeconds(1)
         };
         _pluginDiagnosticsTimer.Tick += PluginDiagnosticsTimer_Tick;
         _pluginDiagnosticsTimer.Start();
@@ -140,6 +144,7 @@ public partial class MainWindow
             }
 
             var result = OmsiPluginInstallationService.InstallOrUpdate(root);
+            InvalidatePluginInstallDiagnosticsCache();
             MessageBox.Show(
                 $"Plugin NavBR Native AOT instalado/atualizado com sucesso.\n\nOMSI: {result.OmsiRoot}\nDestino: {result.PluginsDirectory}\nArquivos: {result.InstalledFiles}\n\nNão é necessário instalar .NET Runtime x86 separadamente.",
                 "OMSI NavBR Multiplayer",
@@ -168,6 +173,7 @@ public partial class MainWindow
             }
 
             var result = OmsiPluginInstallationService.Remove(root);
+            InvalidatePluginInstallDiagnosticsCache();
             MessageBox.Show(
                 $"Plugin NavBR removido.\n\nOMSI: {result.OmsiRoot}\nArquivos removidos: {result.RemovedFiles}",
                 "OMSI NavBR Multiplayer",
@@ -301,12 +307,29 @@ public partial class MainWindow
             : TryFindResource("NavMutedBrush") as Brush ?? Brushes.LightGray;
     }
 
-    private PluginInstallDiagnostics GetPluginInstallDiagnostics()
+    private PluginInstallDiagnostics GetPluginInstallDiagnostics(
+        string? installDirectory = null,
+        bool forceRefresh = false)
     {
-        var installDirectory = ResolveConfiguredOmsiRootForPlugin();
+        var nowTick = Environment.TickCount64;
+        if (!forceRefresh &&
+            _cachedPluginInstallDiagnostics is not null &&
+            nowTick >= _cachedPluginInstallDiagnosticsTickMs &&
+            nowTick - _cachedPluginInstallDiagnosticsTickMs <
+                PluginInstallDiagnosticsCacheMs &&
+            (installDirectory is null ||
+             string.Equals(
+                 installDirectory,
+                 _cachedPluginInstallDiagnosticsRoot,
+                 StringComparison.OrdinalIgnoreCase)))
+        {
+            return _cachedPluginInstallDiagnostics;
+        }
+
+        installDirectory ??= ResolveConfiguredOmsiRootForPlugin();
         if (string.IsNullOrWhiteSpace(installDirectory))
         {
-            return new PluginInstallDiagnostics(
+            var unknown = new PluginInstallDiagnostics(
                 "UNKNOWN",
                 0,
                 0,
@@ -318,6 +341,8 @@ public partial class MainWindow
                 DateTimeOffset.UtcNow,
                 Array.Empty<PluginFileVerification>(),
                 null);
+            CachePluginInstallDiagnostics(unknown, null, nowTick);
+            return unknown;
         }
 
         try
@@ -340,7 +365,7 @@ public partial class MainWindow
                 _ => "ERROR"
             };
 
-            return new PluginInstallDiagnostics(
+            var diagnostics = new PluginInstallDiagnostics(
                 state,
                 verification.RequiredFilesFound,
                 verification.VerifiedFiles,
@@ -352,10 +377,12 @@ public partial class MainWindow
                 verification.CheckedAtUtc,
                 verification.Files,
                 verification.Message);
+            CachePluginInstallDiagnostics(diagnostics, installDirectory, nowTick);
+            return diagnostics;
         }
         catch (Exception ex)
         {
-            return new PluginInstallDiagnostics(
+            var diagnostics = new PluginInstallDiagnostics(
                 "ERROR",
                 0,
                 0,
@@ -367,6 +394,8 @@ public partial class MainWindow
                 DateTimeOffset.UtcNow,
                 Array.Empty<PluginFileVerification>(),
                 ex.Message);
+            CachePluginInstallDiagnostics(diagnostics, installDirectory, nowTick);
+            return diagnostics;
         }
     }
 
@@ -408,6 +437,23 @@ public partial class MainWindow
         return normalized.Length <= 20
             ? normalized
             : $"{normalized[..12]}…{normalized[^6..]}";
+    }
+
+    private void CachePluginInstallDiagnostics(
+        PluginInstallDiagnostics diagnostics,
+        string? installDirectory,
+        long nowTick)
+    {
+        _cachedPluginInstallDiagnostics = diagnostics;
+        _cachedPluginInstallDiagnosticsRoot = installDirectory;
+        _cachedPluginInstallDiagnosticsTickMs = nowTick;
+    }
+
+    private void InvalidatePluginInstallDiagnosticsCache()
+    {
+        _cachedPluginInstallDiagnostics = null;
+        _cachedPluginInstallDiagnosticsRoot = null;
+        _cachedPluginInstallDiagnosticsTickMs = 0;
     }
 
     private sealed record PluginInstallDiagnostics(
