@@ -189,3 +189,14 @@ Os frames Opus usam SignalR/WebSocket nesta fase. A implementação prioriza sim
 ## NavBR TP/TS
 
 O módulo operacional do HUD chama-se **NavBR TP/TS**. A tecla `K` abre linha/sentido e a lista real de rotas do HOF do ônibus. `Ctrl+Alt+F6/F7/F8` controlam visibilidade, tema e tamanho do módulo. `Ctrl+Alt+H` alterna o HUD completo.
+
+
+## Manual completo de atalhos
+
+A referência consolidada de teclado está em [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
+
+Ela inclui Chat/PTT configuráveis, `Ctrl+Alt+H`, comandos do NavBR TP/TS e controles do modo Personagem/RP.
+
+## Escopo da janela do HUD
+
+Na Alpha.21 atualizada, o HUD não usa mais uma janela desktop-global `Topmost`. O overlay fica associado ao HWND de gameplay do OMSI e é ocultado quando outra aplicação ou outra janela superior do OMSI assume o foco.
