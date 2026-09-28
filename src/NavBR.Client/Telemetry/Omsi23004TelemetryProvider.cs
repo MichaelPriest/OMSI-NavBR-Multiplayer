@@ -458,9 +458,14 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             // speedometer/script-facing speed and follows the same km/h unit as
             // the built-in Velocity variable used by bus scripts. Groundspeed
             // and the physical velocity vector stay as independent fallbacks.
-            var tachoKph = Math.Abs(memory.ReadSingle(nint.Add(
-                vehicleAddress,
-                Omsi23004MemoryProfile.VehicleTachoOffset)));
+            Span<float> speedScalars = stackalloc float[2];
+            memory.ReadSingles(
+                nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleTachoOffset),
+                speedScalars);
+            var tachoKph = Math.Abs(speedScalars[0]);
+            var groundSpeedMps = Math.Abs(speedScalars[1]);
 
             var velocity = memory.ReadVector3(nint.Add(
                 vehicleAddress,
@@ -470,10 +475,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 velocity.X * velocity.X +
                 velocity.Y * velocity.Y +
                 velocity.Z * velocity.Z);
-
-            var groundSpeedMps = Math.Abs(memory.ReadSingle(nint.Add(
-                vehicleAddress,
-                Omsi23004MemoryProfile.VehicleGroundSpeedOffset)));
 
             var speedKph = ResolveVehicleSpeedKph(
                 tachoKph,
@@ -490,12 +491,11 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             // previously left at VehicleTelemetry defaults. Read them best-effort
             // so remote physical buses receive real control/visual state instead
             // of permanent zeros.
-            var throttlePercent = TryReadPercent(
+            TryReadPedalPercents(
                 memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleThrottleOffset));
-            var brakePercent = TryReadPercent(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleBrakePedalOffset));
+                vehicleAddress,
+                out var throttlePercent,
+                out var brakePercent);
             var fuelPercent = TryReadPercent(
                 memory,
                 nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
@@ -1047,37 +1047,77 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
     }
 
+    private static void TryReadPedalPercents(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out double? throttlePercent,
+        out double? brakePercent)
+    {
+        try
+        {
+            Span<float> values = stackalloc float[2];
+            memory.ReadSingles(
+                nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleThrottleOffset),
+                values);
+            throttlePercent = NormalizePercent(values[0]);
+            brakePercent = NormalizePercent(values[1]);
+            return;
+        }
+        catch
+        {
+            // Keep per-field best-effort behavior for unusual addons.
+        }
+
+        throttlePercent = TryReadPercent(
+            memory,
+            nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleThrottleOffset));
+        brakePercent = TryReadPercent(
+            memory,
+            nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleBrakePedalOffset));
+    }
+
     private static double? TryReadPercent(
         ReadOnlyProcessMemory memory,
         nint address)
     {
         try
         {
-            var value = (double)memory.ReadSingle(address);
-            if (!double.IsFinite(value) || value < -0.05d)
-            {
-                return null;
-            }
-
-            // OMSI control/runtime fields are commonly normalized to 0..1,
-            // while a few add-ons expose an already-percent-like value. Accept
-            // both shapes without letting malformed memory enter telemetry.
-            if (value <= 1.05d)
-            {
-                return Math.Clamp(value, 0d, 1d) * 100d;
-            }
-
-            if (value <= 100d)
-            {
-                return Math.Clamp(value, 0d, 100d);
-            }
-
-            return null;
+            return NormalizePercent(memory.ReadSingle(address));
         }
         catch
         {
             return null;
         }
+    }
+
+    private static double? NormalizePercent(float rawValue)
+    {
+        var value = (double)rawValue;
+        if (!double.IsFinite(value) || value < -0.05d)
+        {
+            return null;
+        }
+
+        // OMSI control/runtime fields are commonly normalized to 0..1,
+        // while a few add-ons expose an already-percent-like value. Accept
+        // both shapes without letting malformed memory enter telemetry.
+        if (value <= 1.05d)
+        {
+            return Math.Clamp(value, 0d, 1d) * 100d;
+        }
+
+        if (value <= 100d)
+        {
+            return Math.Clamp(value, 0d, 100d);
+        }
+
+        return null;
     }
 
     private static VehicleVisualTelemetry TryReadVehicleVisualState(
@@ -1086,66 +1126,106 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     {
         try
         {
-            var external = ReadVisualFlag(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiLightOffset));
-            var interior = ReadVisualFlag(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiInteriorLightOffset));
-            var left = ReadVisualFlag(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset));
-            var right = ReadVisualFlag(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset));
-            var brake = ReadVisualFlag(
-                memory,
-                nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleAiBrakeLightOffset));
-
-            var lights = VehicleLightFlags.None;
-            if (external)
-            {
-                // The validated AI field represents external road lighting as a
-                // single state. Keep it generic instead of guessing low/high beam.
-                lights |= VehicleLightFlags.Position;
-            }
-
-            if (interior)
-            {
-                lights |= VehicleLightFlags.Interior;
-            }
-
-            if (brake)
-            {
-                lights |= VehicleLightFlags.Brake;
-            }
-
-            TurnSignalState turnSignal;
-            if (left && right)
-            {
-                lights |= VehicleLightFlags.Hazard;
-                turnSignal = TurnSignalState.Hazard;
-            }
-            else if (left)
-            {
-                turnSignal = TurnSignalState.Left;
-            }
-            else if (right)
-            {
-                turnSignal = TurnSignalState.Right;
-            }
-            else
-            {
-                turnSignal = TurnSignalState.Off;
-            }
-
-            return new VehicleVisualTelemetry(lights, turnSignal);
+            Span<float> values = stackalloc float[5];
+            memory.ReadSingles(
+                nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleAiLightOffset),
+                values);
+            return BuildVehicleVisualTelemetry(
+                IsVisualFlag(values[0]),
+                IsVisualFlag(values[1]),
+                IsVisualFlag(values[2]),
+                IsVisualFlag(values[3]),
+                IsVisualFlag(values[4]));
         }
         catch
         {
-            return default;
+            // Fall back to the older per-field reads if an addon exposes an
+            // unexpected boundary inside this otherwise contiguous OMSI block.
+            try
+            {
+                return BuildVehicleVisualTelemetry(
+                    ReadVisualFlag(
+                        memory,
+                        nint.Add(
+                            vehicleAddress,
+                            Omsi23004MemoryProfile.VehicleAiLightOffset)),
+                    ReadVisualFlag(
+                        memory,
+                        nint.Add(
+                            vehicleAddress,
+                            Omsi23004MemoryProfile.VehicleAiInteriorLightOffset)),
+                    ReadVisualFlag(
+                        memory,
+                        nint.Add(
+                            vehicleAddress,
+                            Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset)),
+                    ReadVisualFlag(
+                        memory,
+                        nint.Add(
+                            vehicleAddress,
+                            Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset)),
+                    ReadVisualFlag(
+                        memory,
+                        nint.Add(
+                            vehicleAddress,
+                            Omsi23004MemoryProfile.VehicleAiBrakeLightOffset)));
+            }
+            catch
+            {
+                return default;
+            }
         }
     }
+
+    private static VehicleVisualTelemetry BuildVehicleVisualTelemetry(
+        bool external,
+        bool interior,
+        bool left,
+        bool right,
+        bool brake)
+    {
+        var lights = VehicleLightFlags.None;
+        if (external)
+        {
+            lights |= VehicleLightFlags.Position;
+        }
+
+        if (interior)
+        {
+            lights |= VehicleLightFlags.Interior;
+        }
+
+        if (brake)
+        {
+            lights |= VehicleLightFlags.Brake;
+        }
+
+        TurnSignalState turnSignal;
+        if (left && right)
+        {
+            lights |= VehicleLightFlags.Hazard;
+            turnSignal = TurnSignalState.Hazard;
+        }
+        else if (left)
+        {
+            turnSignal = TurnSignalState.Left;
+        }
+        else if (right)
+        {
+            turnSignal = TurnSignalState.Right;
+        }
+        else
+        {
+            turnSignal = TurnSignalState.Off;
+        }
+
+        return new VehicleVisualTelemetry(lights, turnSignal);
+    }
+
+    private static bool IsVisualFlag(float value) =>
+        float.IsFinite(value) && value > 0.5f;
 
     private static bool ReadVisualFlag(
         ReadOnlyProcessMemory memory,
