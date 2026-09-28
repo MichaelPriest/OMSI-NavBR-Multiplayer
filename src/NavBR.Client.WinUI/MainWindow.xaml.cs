@@ -191,8 +191,8 @@ public sealed partial class MainWindow : Window
         var hudRefreshInterval = Integer(runtimeHost, "hudRefreshIntervalMilliseconds");
         RuntimeCadenceText.Text =
             $"Host x86: telemetria {telemetryPollInterval?.ToString() ?? "—"} ms · " +
-            $"leitura {(telemetryAverageRead is > 0d ? telemetryAverageRead.Value.ToString("0.00") : "—")} ms média · " +
-            $"última {(telemetryLastRead is > 0d ? telemetryLastRead.Value.ToString("0.00") : "—")} ms · " +
+            $"leitura {(telemetryAverageRead is double averageRead && averageRead > 0d ? averageRead.ToString("0.00") : "—")} ms média · " +
+            $"última {(telemetryLastRead is double lastRead && lastRead > 0d ? lastRead.ToString("0.00") : "—")} ms · " +
             $"HUD {hudRefreshInterval?.ToString() ?? "—"} ms";
 
         var health = Property(system, "sessionHealth");
