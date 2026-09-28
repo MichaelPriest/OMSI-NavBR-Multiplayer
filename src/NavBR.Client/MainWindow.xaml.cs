@@ -68,12 +68,12 @@ public partial class MainWindow : Window
         _driverStatisticsService = new DriverStatisticsService(() => _lastTelemetry);
         _driverStatisticsService.Start();
 
-        if (!_nativeHostMode)
-        {
-            ConfigureLanguageSelector();
-            ApplyLocalization();
-            RenderCurrentState();
-        }
+        // A few legacy controller paths still read localized control state
+        // even when the window is hidden. Keep this one-time initialization;
+        // continuous retired WPF rendering remains disabled.
+        ConfigureLanguageSelector();
+        ApplyLocalization();
+        RenderCurrentState();
 
         Closed += (_, _) =>
         {
@@ -178,14 +178,27 @@ public partial class MainWindow : Window
 
         _nativeRuntimeStarted = true;
 
-        // The historical WPF MainWindow is an invisible service host in the
-        // React shell. Its Loaded events therefore never fire reliably, so the
-        // base HUD must be started explicitly with the native runtime instead
-        // of depending on MultiplayerButton_Loaded.
+        // The historical WPF MainWindow is an invisible service host. Keep
+        // service startup independent from the overlay: in WinUI/native-host
+        // mode the IPC bridge must become responsive before any WPF HUD work.
         HookHudLifetimeToMainWindow();
-        EnsureHudOverlay();
-
         _ = RefreshOmsiStatusAsync();
+
+        if (_nativeHostMode)
+        {
+            _ = Dispatcher.BeginInvoke(
+                DispatcherPriority.ApplicationIdle,
+                new Action(() =>
+                {
+                    if (_nativeRuntimeStarted)
+                    {
+                        EnsureHudOverlay();
+                    }
+                }));
+            return;
+        }
+
+        EnsureHudOverlay();
     }
 
     private async Task RefreshOmsiStatusAsync()
