@@ -1647,6 +1647,7 @@ function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMem
       <div className="company-member-main">
         <strong>{member.displayName}{member.isSelf ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
         <small>{member.playerId}{member.isOwner ? " · OWNER" : ""}</small>
+        {member.employeeNumber && <small className="company-badge-inline">{pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {member.employeeNumber}</small>}
       </div>
       <div className="company-member-role">
         <span>{companyRoleLabel(member.role, pick)}</span>
@@ -1705,6 +1706,7 @@ function CompanyNetwork({
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
+  const selfBadge = company?.selfBadge || companyNetwork.membership?.badge || null;
   const canCreateInvite = Boolean(node?.running && company?.canInvite);
 
   return (
@@ -1717,6 +1719,7 @@ function CompanyNetwork({
       <section className="company-network-metrics">
         <div className="metric"><small>{pick("EMPRESA", "COMPANY", "EMPRESA", "UNTERNEHMEN", "ENTREPRISE")}</small><strong>{company?.name || localCompany?.name || "—"}</strong></div>
         <div className="metric"><small>{pick("CARGO", "ROLE", "CARGO", "ROLLE", "RÔLE")}</small><strong>{company?.selfRole ? companyRoleLabel(company.selfRole, pick) : companyNetwork.membership?.role ? companyRoleLabel(companyNetwork.membership.role, pick) : "—"}</strong></div>
+        <div className="metric"><small>{pick("CRACHÁ", "BADGE", "CREDENCIAL", "AUSWEIS", "BADGE")}</small><strong>{selfBadge ? `${selfBadge.companyShortName} #${selfBadge.employeeNumber}` : "—"}</strong></div>
         <div className="metric"><small>{pick("MEMBROS", "MEMBERS", "MIEMBROS", "MITGLIEDER", "MEMBRES")}</small><strong>{company?.memberCount ?? 0}</strong></div>
         <div className="metric"><small>NODE</small><strong>{node?.running ? "Online" : "Offline"}</strong></div>
       </section>
@@ -4669,6 +4672,11 @@ function Multiplayer({
                   <span className={`avatar-dot ${player.roleplayActive ? "rp" : ""}`}>{player.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="player-main">
                     <strong>{player.displayName}{player.isLocal ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
+                    {player.companyBadge && (
+                      <small className="company-badge-inline">
+                        {player.companyBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {player.companyBadge.employeeNumber} · {companyRoleLabel(player.companyBadge.role, pick)}
+                      </small>
+                    )}
                     <small>
                       {[player.line, player.route, player.mapName]
                         .filter(Boolean)
