@@ -424,7 +424,7 @@ internal static class PhysicalVehicleMotionController
             $"aiTrack={nativeAiPath.Track}:{nativeAiPath.TrackEntry} aiCrossing={nativeAiPath.OnCrossing}");
     }
 
-    public static void Tick()
+    public static void Tick(long minimumIntervalOverrideMs = 0)
     {
         var now = Environment.TickCount64;
         var activeCount = States.Count;
@@ -440,6 +440,12 @@ internal static class PhysicalVehicleMotionController
             >= 5 => 33L, // ~30 Hz for medium rooms.
             _ => 20L     // 50 Hz maximum for a few nearby buses.
         };
+        if (minimumIntervalOverrideMs > 0)
+        {
+            minimumTickIntervalMs = Math.Max(
+                minimumTickIntervalMs,
+                minimumIntervalOverrideMs);
+        }
         if (_lastTickMs > 0 && now - _lastTickMs < minimumTickIntervalMs)
         {
             return;
