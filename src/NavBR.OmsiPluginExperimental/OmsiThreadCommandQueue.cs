@@ -20,17 +20,9 @@ internal static class OmsiThreadCommandQueue
     private static readonly Queue<string> UpdateOrder = new();
     private static readonly Dictionary<string, PluginBridgeMessage> LatestUpdates =
         new(StringComparer.OrdinalIgnoreCase);
+    private static int _publishedCount;
 
-    public static int Count
-    {
-        get
-        {
-            lock (Sync)
-            {
-                return CountUnsafe();
-            }
-        }
-    }
+    public static int Count => Volatile.Read(ref _publishedCount);
 
     public static bool TryEnqueue(PluginBridgeMessage command)
     {
@@ -56,6 +48,7 @@ internal static class OmsiThreadCommandQueue
 
                 LatestUpdates.Add(key, command);
                 UpdateOrder.Enqueue(key);
+                PublishCountUnsafe();
                 return true;
             }
 
@@ -73,6 +66,7 @@ internal static class OmsiThreadCommandQueue
                 Commands.Enqueue(command);
             }
 
+            PublishCountUnsafe();
             return true;
         }
     }
@@ -115,11 +109,13 @@ internal static class OmsiThreadCommandQueue
         {
             if (Lifecycle.TryDequeue(out command!))
             {
+                PublishCountUnsafe();
                 return true;
             }
 
             if (Commands.TryDequeue(out command!))
             {
+                PublishCountUnsafe();
                 return true;
             }
 
@@ -145,6 +141,7 @@ internal static class OmsiThreadCommandQueue
                 continue;
             }
 
+            PublishCountUnsafe();
             return true;
         }
 
@@ -156,6 +153,9 @@ internal static class OmsiThreadCommandQueue
         Lifecycle.Count +
         Commands.Count +
         LatestUpdates.Count;
+
+    private static void PublishCountUnsafe() =>
+        Volatile.Write(ref _publishedCount, CountUnsafe());
 
     private static bool IsLightweightUpdate(string type) =>
         string.Equals(
@@ -222,6 +222,7 @@ internal static class OmsiThreadCommandQueue
             Commands.Clear();
             UpdateOrder.Clear();
             LatestUpdates.Clear();
+            Volatile.Write(ref _publishedCount, 0);
             return removed;
         }
     }
