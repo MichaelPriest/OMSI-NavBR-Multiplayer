@@ -130,7 +130,7 @@ motion, and file logging is handed to a background writer. Players beyond the
 physical budget remain present in the session, HUD and maps.
 
 
-## Alpha.21 — state interop ABI v20
+## Alpha.22 — state interop ABI v20
 
 O caminho físico promovido após a validação do simulador usa **state interop ABI v20**.
 
