@@ -15,6 +15,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 {
     private const uint ProcessVmRead = 0x0010;
     private const uint ProcessQueryInformation = 0x0400;
+    private const uint StillActive = 259;
 
     private nint _processHandle;
 
@@ -35,7 +36,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             throw new NotSupportedException($"Unsupported OMSI executable version: {processInfo.FileVersion}");
         }
 
-        var process = Process.GetProcessById(processInfo.ProcessId);
+        using var process = Process.GetProcessById(processInfo.ProcessId);
         if (process.HasExited)
         {
             throw new InvalidOperationException("OMSI process already exited.");
@@ -58,6 +59,17 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         }
 
         return new ReadOnlyProcessMemory(handle, moduleBase, processInfo.ProcessId);
+    }
+
+    public bool IsProcessAlive
+    {
+        get
+        {
+            var handle = Volatile.Read(ref _processHandle);
+            return handle != nint.Zero &&
+                   GetExitCodeProcess(handle, out var exitCode) &&
+                   exitCode == StillActive;
+        }
     }
 
     public nint AddressFromRva(int rva) => nint.Add(ModuleBaseAddress, rva);
@@ -307,6 +319,12 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         [Out] byte[] buffer,
         int size,
         out nint numberOfBytesRead);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetExitCodeProcess(
+        nint processHandle,
+        out uint exitCode);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
