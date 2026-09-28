@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
+using NavBR.Client.Network;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
@@ -103,6 +104,19 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         var companyBadge = System.Windows.Application.Current is App app
             ? app.NetworkRuntime.CurrentBadge
             : null;
+        CompanyBadgePresenceProof? companyBadgeProof = null;
+        if (companyBadge is not null)
+        {
+            var identity = NavBRIdentityStore.LoadOrCreate(companyBadge.DisplayName);
+            var badgeTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            companyBadgeProof = new CompanyBadgePresenceProof(
+                identity.PublicKeySpkiBase64,
+                badgeTimestamp,
+                NavBRIdentityStore.SignCompanyBadgePresence(
+                    settings.PlayerId.Trim(),
+                    companyBadge,
+                    badgeTimestamp));
+        }
 
         _joinRequest = new JoinRoomRequest(
             settings.RoomId.Trim(),
@@ -113,7 +127,8 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             compatibility,
             settings.EphemeralRoomPassword,
             settings.EphemeralCreatePrivateRoom,
-            companyBadge);
+            companyBadge,
+            companyBadgeProof);
         _physicalVehicles.SetLocalManifest(compatibility);
         _physicalVehicles.SetLocalTelemetry(null);
 
