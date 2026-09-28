@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using NavBR.Server.Multiplayer;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
+using NavBR.Shared.Network;
 
 namespace NavBR.Server.Hubs;
 
@@ -25,6 +26,10 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
     private const int MaxCapabilityLength = 64;
     private const int MaxTrafficVehicles = 48;
     private const int MaxTrafficIdLength = 128;
+    private const int MaxCompanyIdLength = 96;
+    private const int MaxCompanyNameLength = 96;
+    private const int MaxCompanyShortNameLength = 16;
+    private const int MaxEmployeeNumberLength = 12;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -39,6 +44,10 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             MaxMapCompatibilityIdLength,
             "map compatibility id");
         var compatibility = NormalizeCompatibility(request.Compatibility, mapName, mapCompatibilityId);
+        var companyBadge = NormalizeCompanyBadge(
+            request.CompanyBadge,
+            playerId,
+            displayName);
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -55,7 +64,8 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             displayName,
             mapName,
             mapCompatibilityId,
-            compatibility);
+            compatibility,
+            companyBadge);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
@@ -401,6 +411,63 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         }
 
         return normalized;
+    }
+
+    private static CompanyEmployeeBadge? NormalizeCompanyBadge(
+        CompanyEmployeeBadge? badge,
+        string playerId,
+        string displayName)
+    {
+        if (badge is null)
+        {
+            return null;
+        }
+
+        var companyId = NormalizeRequired(
+            badge.CompanyId,
+            MaxCompanyIdLength,
+            "company id");
+        var companyName = NormalizeRequired(
+            badge.CompanyName,
+            MaxCompanyNameLength,
+            "company name");
+        var companyShortName = NormalizeRequired(
+            badge.CompanyShortName,
+            MaxCompanyShortNameLength,
+            "company short name");
+        var employeeNumber = NormalizeRequired(
+            badge.EmployeeNumber,
+            MaxEmployeeNumberLength,
+            "employee number");
+
+        if (!string.Equals(
+                badge.PlayerId?.Trim(),
+                playerId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new HubException("Company badge player does not match room player.");
+        }
+
+        if (!Enum.IsDefined(typeof(CompanyRole), badge.Role) ||
+            (badge.Permissions & ~CompanyPermission.All) != 0)
+        {
+            throw new HubException("Invalid company badge role or permissions.");
+        }
+
+        if (badge.IssuedAtUtc > DateTimeOffset.UtcNow + TimeSpan.FromMinutes(5d))
+        {
+            throw new HubException("Invalid company badge issue date.");
+        }
+
+        return badge with
+        {
+            CompanyId = companyId,
+            CompanyName = companyName,
+            CompanyShortName = companyShortName,
+            PlayerId = playerId,
+            DisplayName = displayName,
+            EmployeeNumber = employeeNumber
+        };
     }
 
     private static string NormalizeVoiceChannel(string? value)
