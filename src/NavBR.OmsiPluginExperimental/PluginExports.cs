@@ -385,7 +385,8 @@ public static class PluginExports
                     workBudget.MaxCommands,
                     workBudget.LastFrameIntervalMilliseconds,
                     workBudget.PeakFrameIntervalMilliseconds,
-                    workBudget.FrameStallCount);
+                    workBudget.FrameStallCount,
+                    workBudget.PerformanceProfile);
             }
 
             // Keep the verbose file heartbeat sparse. Use the same monotonic
