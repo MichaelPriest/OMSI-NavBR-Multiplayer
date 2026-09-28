@@ -96,8 +96,23 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
                     continue;
                 }
 
+                var shouldShutdown = string.Equals(
+                    request.Kind,
+                    "shutdown",
+                    StringComparison.OrdinalIgnoreCase);
+
                 var response = await HandleRequestAsync(request, cancellationToken);
                 await writer.WriteLineAsync(response);
+
+                if (shouldShutdown)
+                {
+                    // Complete the IPC response and terminate this server loop
+                    // before WPF OnExit disposes the bridge. This avoids an
+                    // exit-time wait cycle between the dispatcher and server task.
+                    _ = _owner.Dispatcher.InvokeAsync(() =>
+                        Application.Current?.Shutdown());
+                    return;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -187,8 +202,6 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
             }
 
             case "shutdown":
-                _ = _owner.Dispatcher.InvokeAsync(() =>
-                    Application.Current?.Shutdown());
                 return JsonSerializer.Serialize(new
                 {
                     ok = true
