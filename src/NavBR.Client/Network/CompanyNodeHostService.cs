@@ -140,7 +140,8 @@ internal sealed record CompanyMembershipLink(
     string CompanyName,
     string NodeUrl,
     CompanyRole Role,
-    DateTimeOffset JoinedAtUtc);
+    DateTimeOffset JoinedAtUtc,
+    CompanyEmployeeBadge? Badge = null);
 
 internal static class CompanyMembershipStore
 {
@@ -183,6 +184,19 @@ internal sealed class NavBRNetworkRuntime : IAsyncDisposable
     public NavBRPublicIdentity Identity => NavBRIdentityStore.LoadOrCreate();
     public CompanyMembershipLink? Membership => CompanyMembershipStore.Load();
 
+    public CompanyEmployeeBadge? CurrentBadge
+    {
+        get
+        {
+            var identity = Identity;
+            var hosted = CompanyNodeStore.LoadCompany();
+            var hostedMember = hosted?.Members.FirstOrDefault(member =>
+                string.Equals(member.PlayerId, identity.PlayerId, StringComparison.OrdinalIgnoreCase));
+            return CompanyEmployeeBadgeFactory.Create(hosted, hostedMember)
+                   ?? Membership?.Badge;
+        }
+    }
+
     public async Task<CompanyNodeSnapshot> StartCompanyNodeAsync(
         int port = 27740,
         CancellationToken cancellationToken = default)
@@ -200,7 +214,8 @@ internal sealed class NavBRNetworkRuntime : IAsyncDisposable
             company.Name,
             CompanyNode.LocalUrl,
             self.Role,
-            self.JoinedAtUtc));
+            self.JoinedAtUtc,
+            CompanyEmployeeBadgeFactory.Create(company, self)));
         return company;
     }
 
@@ -250,15 +265,34 @@ internal sealed class NavBRNetworkRuntime : IAsyncDisposable
             result.Company.Name,
             normalizedUrl,
             member.Role,
-            member.JoinedAtUtc));
+            member.JoinedAtUtc,
+            CompanyEmployeeBadgeFactory.Create(result.Company, member)));
         return result;
     }
 
     public async Task<CompanyNodeSnapshot> GetCompanySnapshotAsync(CancellationToken cancellationToken = default)
     {
         var url = ResolveNodeUrl();
-        return await _http.GetFromJsonAsync<CompanyNodeSnapshot>($"{url}/api/company", cancellationToken)
+        var company = await _http.GetFromJsonAsync<CompanyNodeSnapshot>(
+            $"{url}/api/company",
+            cancellationToken)
             ?? throw new InvalidOperationException("O Company Node não retornou a empresa.");
+
+        var identity = Identity;
+        var member = company.Members.FirstOrDefault(item =>
+            string.Equals(item.PlayerId, identity.PlayerId, StringComparison.OrdinalIgnoreCase));
+        if (member is not null)
+        {
+            CompanyMembershipStore.Save(new CompanyMembershipLink(
+                company.CompanyId,
+                company.Name,
+                url,
+                member.Role,
+                member.JoinedAtUtc,
+                CompanyEmployeeBadgeFactory.Create(company, member)));
+        }
+
+        return company;
     }
 
     public async Task<CompanyMemberActionResponse> ChangeCompanyMemberRoleAsync(
