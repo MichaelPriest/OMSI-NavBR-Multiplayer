@@ -706,6 +706,18 @@ public partial class MainWindow
             multiplayerConnected = session.Connected,
             pluginConnected = plugin?.IsConnected == true,
             pluginVersion = plugin?.PluginComponentVersion,
+            pluginPerformance = plugin?.LastStatus is { } pluginStatus
+                ? new
+                {
+                    pressureLevel = pluginStatus.PluginPressureLevel,
+                    workMilliseconds = pluginStatus.PluginWorkMilliseconds,
+                    averageWorkMilliseconds = pluginStatus.PluginAverageWorkMilliseconds,
+                    averageFrameIntervalMilliseconds = pluginStatus.PluginAverageFrameIntervalMilliseconds,
+                    minimumWorkIntervalMilliseconds = pluginStatus.PluginMinimumWorkIntervalMilliseconds,
+                    maxCommandsPerSlice = pluginStatus.PluginMaxCommandsPerSlice,
+                    queueBackpressureActive = pluginStatus.PluginPressureLevel is > 0
+                }
+                : null,
             remoteDrivers = session.Connected ? session.RemoteDrivers.Count : 0,
             remoteTelemetryAgeSeconds = freshnessSeconds,
             latencyMs = networkReady ? network.RoundTripMs : null,
