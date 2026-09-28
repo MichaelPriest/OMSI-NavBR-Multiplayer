@@ -19,6 +19,10 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         Closed += MainWindow_Closed;
 
+        NativeMultiplayerPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeOperationsPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeCompanyPage.CommandHandler = ExecuteNativeCommandAsync;
+
         if (_smokeOnly)
         {
             return;
@@ -190,6 +194,10 @@ public sealed partial class MainWindow : Window
         HomeSubtitle.Text = omsiRunning
             ? "OMSI detectado · operação acompanhada pelo Runtime Host"
             : "WinUI 3 x64 conectado ao Runtime Host · aguardando OMSI";
+
+        NativeMultiplayerPage.ApplyState(state);
+        NativeOperationsPage.ApplyState(state);
+        NativeCompanyPage.ApplyState(state);
     }
 
     private void Navigation_SelectionChanged(
@@ -212,20 +220,33 @@ public sealed partial class MainWindow : Window
         PerformancePage.Visibility = tag == "performance"
             ? Visibility.Visible
             : Visibility.Collapsed;
-        ModulePage.Visibility = tag is not ("home" or "performance")
+        NativeMultiplayerPage.Visibility = tag == "multiplayer"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeOperationsPage.Visibility = tag == "cco"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeCompanyPage.Visibility = tag == "company"
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        if (ModulePage.Visibility != Visibility.Visible)
+        var usePlaceholder = tag is not (
+            "home" or
+            "performance" or
+            "multiplayer" or
+            "cco" or
+            "company");
+        ModulePage.Visibility = usePlaceholder
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!usePlaceholder)
         {
             return;
         }
 
         (ModuleTitleText.Text, ModuleSubtitleText.Text) = tag switch
         {
-            "multiplayer" => ("Multiplayer", "Salas, jogadores, voz, chat, compatibilidade e presença física usando o backend real do NavBR."),
-            "cco" => ("CCO", "Centro de Controle Operacional: frota, ocorrências, crachás, despacho e regulação."),
-            "company" => ("Rede da Empresa", "Empresa Online, crachá, equipe, frota, escala e permissões operacionais."),
             "navigation" => ("Navegação", "GPS, rota, próximos pontos e navegação operacional integrada ao OMSI."),
             "roleplay" => ("Personagem RP", "Personagem, caminhada, crachá, jornada e interação com veículos."),
             "hud" => ("HUD e Telematrix", "HUD modular, IBIS, Telematrix e informações operacionais."),
@@ -234,6 +255,14 @@ public sealed partial class MainWindow : Window
             "settings" => ("Configurações", "Idioma, aparência, OMSI, atualização, privacidade e recursos experimentais."),
             _ => ("NavBR", "Módulo nativo em migração.")
         };
+    }
+
+    private async Task ExecuteNativeCommandAsync(
+        string command,
+        object? payload)
+    {
+        await _runtime.SendCommandAsync(command, payload);
+        await RefreshStateAsync();
     }
 
     private void QuickNavButton_Click(
