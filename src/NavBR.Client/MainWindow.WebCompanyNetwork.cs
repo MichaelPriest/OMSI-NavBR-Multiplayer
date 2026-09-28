@@ -33,6 +33,7 @@ public partial class MainWindow
         var company = _webCompanyNetworkSnapshot ?? hostedCompany;
         var self = company?.Members.FirstOrDefault(member =>
             string.Equals(member.PlayerId, identity.PlayerId, StringComparison.OrdinalIgnoreCase));
+        var selfBadge = CompanyEmployeeBadgeFactory.Create(company, self) ?? membership?.Badge;
 
         var canInvite = self is not null &&
                         (self.Permissions & CompanyPermission.InviteMembers) != 0;
@@ -69,6 +70,8 @@ public partial class MainWindow
                         permissions = member.Permissions.ToString(),
                         joinedAtUtc = member.JoinedAtUtc,
                         lastSeenAtUtc = member.LastSeenAtUtc,
+                        employeeNumber = member.EmployeeNumber,
+                        badgeIssuedAtUtc = member.BadgeIssuedAtUtc,
                         isSelf = string.Equals(
                             identity.PlayerId,
                             member.PlayerId,
@@ -97,7 +100,8 @@ public partial class MainWindow
                     companyName = membership.CompanyName,
                     nodeUrl = membership.NodeUrl,
                     role = membership.Role.ToString(),
-                    joinedAtUtc = membership.JoinedAtUtc
+                    joinedAtUtc = membership.JoinedAtUtc,
+                    badge = membership.Badge
                 },
             node = new
             {
@@ -120,6 +124,7 @@ public partial class MainWindow
                     updatedAtUtc = company.UpdatedAtUtc,
                     memberCount = company.Members.Count,
                     selfRole = self?.Role.ToString(),
+                    selfBadge,
                     canInvite,
                     canManageRoles,
                     canRemoveMembers,
