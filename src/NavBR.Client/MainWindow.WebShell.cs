@@ -358,6 +358,15 @@ public partial class MainWindow
                 await RefreshOmsiStatusAsync();
                 break;
 
+            case "launchOmsi":
+                LaunchOmsiForShell();
+                await RefreshOmsiStatusAsync();
+                break;
+
+            case "openLegacyShell":
+                OpenPrimaryWebShell();
+                break;
+
             case "setShellTopmost":
                 if (_webShellWindow is not null)
                 {
