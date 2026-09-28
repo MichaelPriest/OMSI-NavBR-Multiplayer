@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Operations;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -101,7 +102,19 @@ public partial class MultiplayerWindow
 
         _client.OperationalReportChanged += OperationsClient_ReportChanged;
         DispatcherOperationalFeed.ConfigureActions(
-            () => _client.IsTrafficAuthority,
+            () =>
+            {
+                if (!_client.IsTrafficAuthority)
+                {
+                    return false;
+                }
+
+                var badge = Application.Current is App app
+                    ? app.NetworkRuntime.CurrentBadge
+                    : null;
+                return badge is null ||
+                       (badge.Permissions & CompanyPermission.UseDispatcher) != 0;
+            },
             reportId => _client.AcknowledgeOperationalReportAsync(reportId),
             reportId => _client.ResolveOperationalReportAsync(reportId));
 
