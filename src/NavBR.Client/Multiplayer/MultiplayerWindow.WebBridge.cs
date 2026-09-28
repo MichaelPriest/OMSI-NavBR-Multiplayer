@@ -58,6 +58,7 @@ public partial class MultiplayerWindow
                     displayName = player.DisplayName,
                     roomId = player.RoomId,
                     mapName = player.MapName,
+                    companyBadge = player.CompanyBadge,
                     voiceEnabled = player.VoiceEnabled,
                     latencyMs = player.LatencyMs,
                     roleplayActive = roleplay,
