@@ -41,6 +41,7 @@ public static class PluginExports
             _lastStatusReport = DateTimeOffset.MinValue;
             Interlocked.Exchange(ref _systemVariableCallbacks, 0);
             Interlocked.Exchange(ref _lastOmsiWorkTickMs, 0);
+            OmsiPerformanceGovernor.Reset();
             PluginLogWriter.Start();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -66,6 +67,7 @@ public static class PluginExports
             RoleplayCharacterBackend.ReleaseAllBestEffort();
             PhysicalVehicleBackend.MarkAllOwnedVehiclesForRemoval();
             PhysicalVehicleLifecycleSupervisor.ClearManagedState();
+            OmsiPerformanceGovernor.Reset();
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -248,49 +250,67 @@ public static class PluginExports
             // AccessSystemVariable can be called several times inside one OMSI
             // render/update frame. Never drain the command queue on every
             // variable callback: that multiplies native work on OMSI's main
-            // thread. The guard admits one bounded work slice at a time.
+            // thread. The adaptive governor additionally backs NavBR off when
+            // the simulator is already under frame pressure.
             var workTick = Environment.TickCount64;
-            var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
-            var minimumWorkIntervalMs = activePhysicalVehicles switch
+            if (variableIndex == 0)
             {
-                >= 9 => 33L,
-                >= 5 => 24L,
-                _ => 16L
-            };
-
-            if (TryAcquireOmsiWorkSlot(workTick, minimumWorkIntervalMs))
-            {
-                var maxCommands = activePhysicalVehicles switch
-                {
-                    >= 9 => 2,
-                    >= 5 => 3,
-                    _ => 4
-                };
-
-                OmsiThreadCommandQueue.DrainFrame(
-                    maxCommands,
-                    PluginBridgeClient.QueueCommandResult);
-
-                // Keep physical ownership alive inside the OMSI callback even
-                // if the desktop misses a response or a pointer has to be
-                // recreated. At most one native retry is performed per tick.
-                PhysicalVehicleLifecycleSupervisor.Tick();
-
-                // Remote buses receive network targets at a lower cadence than
-                // OMSI's callback loop. The motion controller has its own
-                // adaptive rate and skips settled vehicles entirely.
-                PhysicalVehicleMotionController.Tick();
-
-                // RP targets come from the desktop at ~20 Hz, but OMSI can
-                // restore human/driver state inside the frames between bridge
-                // commands. Reassert the last confirmed target on this same
-                // OMSI callback loop so movement remains physically visible.
-                RoleplayCharacterBackend.Tick();
+                OmsiPerformanceGovernor.ObserveFrame(workTick);
             }
+
+            var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
+            var activeRoleplayCharacters = RoleplayCharacterBackend.ActiveCount;
+            var pendingCommands = OmsiThreadCommandQueue.Count;
+            var workBudget = OmsiPerformanceGovernor.GetBudget(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+
+            if (TryAcquireOmsiWorkSlot(
+                    workTick,
+                    workBudget.MinimumWorkIntervalMs))
+            {
+                var workStart = OmsiPerformanceGovernor.BeginWorkSlice();
+                try
+                {
+                    OmsiThreadCommandQueue.DrainFrame(
+                        workBudget.MaxCommands,
+                        PluginBridgeClient.QueueCommandResult);
+
+                    // Keep physical ownership alive inside the OMSI callback even
+                    // if the desktop misses a response or a pointer has to be
+                    // recreated. At most one native retry is performed per tick.
+                    PhysicalVehicleLifecycleSupervisor.Tick();
+
+                    // Remote buses receive network targets at a lower cadence than
+                    // OMSI's callback loop. Under pressure, interpolation keeps
+                    // them visually moving while expensive native writes back off.
+                    PhysicalVehicleMotionController.Tick(
+                        workBudget.MotionMinimumIntervalMs);
+
+                    // RP targets come from the desktop at ~20 Hz, but OMSI can
+                    // restore human/driver state inside the frames between bridge
+                    // commands. Reassert the last confirmed target on this same
+                    // OMSI callback loop so movement remains physically visible.
+                    RoleplayCharacterBackend.Tick();
+                }
+                finally
+                {
+                    OmsiPerformanceGovernor.EndWorkSlice(workStart);
+                }
+            }
+
+            // Refresh after the work slice so exported telemetry reflects the
+            // governor pressure caused by this callback too.
+            workBudget = OmsiPerformanceGovernor.GetBudget(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                OmsiThreadCommandQueue.Count);
 
             var now = DateTimeOffset.UtcNow;
             var staleRemoved = 0;
-            if (now - _lastStatusReport >= TimeSpan.FromMilliseconds(200))
+            if (now - _lastStatusReport >=
+                TimeSpan.FromMilliseconds(workBudget.StatusIntervalMs))
             {
                 _lastStatusReport = now;
                 staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
@@ -351,7 +371,13 @@ public static class PluginExports
                     ibisTerminusName,
                     ibisDelayMinutes,
                     ibisDelaySeconds,
-                    ibisDelayState);
+                    ibisDelayState,
+                    workBudget.PressureLevel,
+                    workBudget.LastWorkMilliseconds,
+                    workBudget.AverageWorkMilliseconds,
+                    workBudget.AverageFrameIntervalMilliseconds,
+                    workBudget.MinimumWorkIntervalMs,
+                    workBudget.MaxCommands);
             }
 
             // Keep the verbose file heartbeat sparse. Hardware/status delivery is
@@ -421,6 +447,7 @@ public static class PluginExports
                 $"trafficAuthority={PluginBridgeClient.TrafficAuthorityPlayerId ?? "-"} " +
                 $"physicalQueue={OmsiThreadCommandQueue.Count} " +
                 $"physicalLifecycle={PhysicalVehicleLifecycleSupervisor.Summary} " +
+                $"performance={OmsiPerformanceGovernor.Summary} " +
                 $"hostKachel={hostTileIndex} {hostGridSummary} " +
                 $"staleRemoved={staleRemoved} {remoteSummary}");
         }
