@@ -20,43 +20,24 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
     private DateTimeOffset? _connectedAtUtc;
     private PluginBridgeMessage? _lastPluginStatus;
     private PluginBridgeMessage? _lastPluginCapabilities;
+    private OmsiPluginBridgeConnectionInfo _connectionInfo =
+        new(false, null, null, null, null, null);
 
-    public bool IsConnected
-    {
-        get
-        {
-            lock (_connectionSync)
-            {
-                return _writer is not null;
-            }
-        }
-    }
+    public bool IsConnected =>
+        Volatile.Read(ref _connectionInfo).IsConnected;
 
-    public OmsiPluginBridgeConnectionInfo GetConnectionInfo()
-    {
-        lock (_connectionSync)
-        {
-            return new OmsiPluginBridgeConnectionInfo(
-                _writer is not null,
-                _pluginProcessId,
-                _pluginComponentVersion,
-                _connectedAtUtc,
-                _lastPluginStatus,
-                _lastPluginCapabilities);
-        }
-    }
+    public OmsiPluginBridgeConnectionInfo GetConnectionInfo() =>
+        Volatile.Read(ref _connectionInfo);
 
     public bool SupportsCapability(string capability)
     {
-        lock (_connectionSync)
-        {
-            return _lastPluginCapabilities?.Capabilities?.Contains(
-                       capability,
-                       StringComparer.OrdinalIgnoreCase) == true ||
-                   _lastPluginStatus?.Capabilities?.Contains(
-                       capability,
-                       StringComparer.OrdinalIgnoreCase) == true;
-        }
+        var info = Volatile.Read(ref _connectionInfo);
+        return info.LastCapabilities?.Capabilities?.Contains(
+                   capability,
+                   StringComparer.OrdinalIgnoreCase) == true ||
+               info.LastStatus?.Capabilities?.Contains(
+                   capability,
+                   StringComparer.OrdinalIgnoreCase) == true;
     }
 
     public event Action<bool>? ConnectionStateChanged;
@@ -276,6 +257,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             lock (_connectionSync)
             {
                 _lastPluginStatus = message;
+                PublishConnectionInfoUnsafe();
             }
             LocalOmsiOperationalSnapshotStore.Update(message);
             return;
@@ -286,6 +268,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             lock (_connectionSync)
             {
                 _lastPluginCapabilities = message;
+                PublishConnectionInfoUnsafe();
             }
             PluginCapabilitiesChanged?.Invoke(message);
             return;
@@ -358,6 +341,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             _lastPluginStatus = null;
             LocalOmsiOperationalSnapshotStore.Clear();
             _lastPluginCapabilities = null;
+            PublishConnectionInfoUnsafe();
         }
 
         ConnectionStateChanged?.Invoke(true);
@@ -375,8 +359,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _pluginComponentVersion = null;
                 _connectedAtUtc = null;
                 _lastPluginStatus = null;
-            LocalOmsiOperationalSnapshotStore.Clear();
+                LocalOmsiOperationalSnapshotStore.Clear();
                 _lastPluginCapabilities = null;
+                PublishConnectionInfoUnsafe();
                 changed = true;
             }
         }
@@ -391,6 +376,19 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         {
             ConnectionStateChanged?.Invoke(false);
         }
+    }
+
+    private void PublishConnectionInfoUnsafe()
+    {
+        Volatile.Write(
+            ref _connectionInfo,
+            new OmsiPluginBridgeConnectionInfo(
+                _writer is not null,
+                _pluginProcessId,
+                _pluginComponentVersion,
+                _connectedAtUtc,
+                _lastPluginStatus,
+                _lastPluginCapabilities));
     }
 
     private static async Task DelayBeforeRetryAsync(CancellationToken cancellationToken)
