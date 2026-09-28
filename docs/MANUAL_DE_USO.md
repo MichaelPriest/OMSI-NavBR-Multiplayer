@@ -1,6 +1,6 @@
 # Manual de Uso — OMSI NavBR Multiplayer
 
-> Manual atualizado para **v0.3.0-alpha.21**.
+> Manual atualizado para **v0.3.0-alpha.22**.
 
 ## 1. Primeira abertura
 
@@ -92,7 +92,7 @@ Arquivos principais:
     NavBR.OmsiPlugin.opl
     NavBR.OmsiInterop.dll
 
-A Alpha.21 usa Plugin Bridge v3 e state interop ABI v20.
+A Alpha.22 usa Plugin Bridge v3 e state interop ABI v20.
 
 ## 10. Personagem / RP
 
