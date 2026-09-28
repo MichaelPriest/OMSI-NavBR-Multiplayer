@@ -97,6 +97,35 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         return BitConverter.ToSingle(bytes);
     }
 
+    public void ReadSingles(
+        nint address,
+        Span<float> values)
+    {
+        if (values.Length == 0)
+        {
+            return;
+        }
+
+        var byteCount = checked(values.Length * sizeof(float));
+        Span<byte> bytes;
+        if (byteCount <= 256)
+        {
+            bytes = stackalloc byte[byteCount];
+        }
+        else
+        {
+            bytes = new byte[byteCount];
+        }
+
+        ReadBytes(address, bytes);
+        for (var index = 0; index < values.Length; index++)
+        {
+            var offset = index * sizeof(float);
+            values[index] = BitConverter.ToSingle(
+                bytes.Slice(offset, sizeof(float)));
+        }
+    }
+
     public byte ReadByte(nint address)
     {
         Span<byte> bytes = stackalloc byte[1];
