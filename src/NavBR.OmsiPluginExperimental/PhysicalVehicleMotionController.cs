@@ -34,6 +34,9 @@ internal static class PhysicalVehicleMotionController
     private const long PathBindingComparisonLogIntervalMs = 10_000;
     private const long PhysicsBodyComparisonLogIntervalMs = 10_000;
     private const long MaximumSettledPoseReassertIntervalMs = 250;
+    private const long LightPoseProbeIntervalMs = 75;
+    private const long MediumPoseProbeIntervalMs = 100;
+    private const long CrowdedPoseProbeIntervalMs = 150;
     private const double FramePoseDriftToleranceMeters = 0.05d;
 
     private static readonly Dictionary<string, MotionState> States =
@@ -96,7 +99,9 @@ internal static class PhysicalVehicleMotionController
             LastTargetTickMs = now,
             DurationMs = DefaultInterpolationMs,
             LastSourceTimestampMs = command.TimestampUnixMilliseconds,
-            LastReadbackTickMs = now
+            LastReadbackTickMs = now,
+            LastFramePoseProbeTickMs = now,
+            LastFramePoseReassertTickMs = now
         };
         return true;
     }
@@ -207,6 +212,8 @@ internal static class PhysicalVehicleMotionController
             state.DurationMs = DefaultInterpolationMs;
             state.LastSourceTimestampMs = sourceTimestamp;
             state.LastReadbackTickMs = now;
+            state.LastFramePoseProbeTickMs = now;
+            state.LastFramePoseReassertTickMs = now;
             return true;
         }
 
@@ -289,13 +296,51 @@ internal static class PhysicalVehicleMotionController
 
             var conflictBits =
                 externalControlResult & ExternalControlConflictMask;
+            var physicsReenabled =
+                (conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0;
+            var periodicRefresh =
+                now - state.LastFramePoseReassertTickMs >=
+                MaximumSettledPoseReassertIntervalMs;
 
-            var hasObjectPosition =
-                OmsiNativeInterop.ReadRoadVehiclePosition(
-                    instance.VehiclePointer,
-                    out var objectX,
-                    out var objectY,
-                    out var objectZ) == 1;
+            // Keep the ownership keepalive at the frame cadence, but avoid a
+            // second native position read for every remote bus on every frame.
+            // While a bus is moving, Tick() already writes the network pose.
+            // Settled buses are probed often enough to catch OMSI drift well
+            // before the bounded 250 ms full-pose refresh. Any ownership
+            // conflict or diagnostic sample still forces an immediate probe.
+            var poseProbeIntervalMs = activeCount switch
+            {
+                >= 9 => CrowdedPoseProbeIntervalMs,
+                >= 5 => MediumPoseProbeIntervalMs,
+                _ => LightPoseProbeIntervalMs
+            };
+            var settled = IsSettled(state.Current, state.Target);
+            var physicsDiagnosticDue =
+                now - state.LastPhysicsBodyLogTickMs >=
+                PhysicsBodyComparisonLogIntervalMs;
+            var poseProbeDue =
+                state.LastFramePoseProbeTickMs <= 0 ||
+                now - state.LastFramePoseProbeTickMs >= poseProbeIntervalMs;
+            var shouldProbeObjectPosition =
+                conflictBits != 0 ||
+                physicsDiagnosticDue ||
+                (settled && poseProbeDue);
+
+            var hasObjectPosition = false;
+            var objectX = 0f;
+            var objectY = 0f;
+            var objectZ = 0f;
+            if (shouldProbeObjectPosition)
+            {
+                state.LastFramePoseProbeTickMs = now;
+                hasObjectPosition =
+                    OmsiNativeInterop.ReadRoadVehiclePosition(
+                        instance.VehiclePointer,
+                        out objectX,
+                        out objectY,
+                        out objectZ) == 1;
+            }
+
             var poseDrifted = false;
             if (hasObjectPosition)
             {
@@ -307,12 +352,6 @@ internal static class PhysicalVehicleMotionController
                     FramePoseDriftToleranceMeters *
                     FramePoseDriftToleranceMeters;
             }
-
-            var physicsReenabled =
-                (conflictBits & ExternalControlPhysicsBodyReenabledBit) != 0;
-            var periodicRefresh =
-                now - state.LastFramePoseReassertTickMs >=
-                MaximumSettledPoseReassertIntervalMs;
 
             // Reapply the expensive full transform only when OMSI actually
             // moved the object/body or as a low-rate render-matrix refresh.
@@ -806,6 +845,7 @@ internal static class PhysicalVehicleMotionController
         public double DurationMs { get; set; }
         public long? LastSourceTimestampMs { get; set; }
         public long LastReadbackTickMs { get; set; }
+        public long LastFramePoseProbeTickMs { get; set; }
         public long LastExternalControlConflictLogTickMs { get; set; }
         public long LastPhysicsBodyLogTickMs { get; set; }
         public long LastFramePoseReassertTickMs { get; set; }
