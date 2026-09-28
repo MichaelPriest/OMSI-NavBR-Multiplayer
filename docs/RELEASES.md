@@ -2,9 +2,27 @@
 
 ## Estado atual / Current state
 
-`v0.3.0-alpha.21`
+`v0.3.0-alpha.22`
 
-> **Alpha pública de teste.** A Alpha.21 concentra a validação do multiplayer físico, o NavBR TP/TS, rotas reais do HOF, HUD e Mobile Companion v3. O teste **online com bots/AI do simulador seguindo o host foi concluído com sucesso**; o próximo gate é a validação ponta a ponta com **players reais em dois PCs/duas sessões OMSI**.
+> **Alpha pública de teste.** A Alpha.22 promove as correções do multiplayer físico após a validação online do simulador. O teste **online com bots/AI seguindo o host foi concluído com sucesso**; o próximo gate é a validação ponta a ponta com **players reais em dois PCs/duas sessões OMSI**.
+
+### Alpha.22
+
+- state interop ABI v20;
+- sincronização reforçada de RoadVehicle/ODE/matrizes;
+- bots/AI do simulador online validados seguindo o host;
+- HUD limitado à janela de gameplay do OMSI;
+- otimizações de callback/I/O para reduzir travamentos do app;
+- manual completo de atalhos;
+- documentação e portal atualizados para separar claramente **AI validado** de **players reais pendentes**.
+
+### Ainda em validação na Alpha.22
+
+- teste ponta a ponta com players reais em duas sessões OMSI/PCs independentes;
+- estabilidade em redes reais, cruzamentos, trocas de Kachel e addons variados;
+- ônibus articulados no backend físico.
+
+Release: https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/v0.3.0-alpha.22
 
 ### Alpha.21
 
