@@ -280,18 +280,22 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            // Resolve PlayerVehicle once for this keepalive cycle instead of
-            // once per remote bus. IsSafeOwnedPointer still validates that the
-            // pointer is a live RoadVehicle, while the native keepalive repeats
-            // the current-host guard immediately before touching OMSI memory.
-            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+            // Keep only immutable provenance and the cached host identity
+            // guard in managed code. The native keepalive itself validates live
+            // RoadVehicles membership and re-reads PlayerVehicle immediately
+            // before touching OMSI memory, so repeating IsRoadVehiclePointer
+            // here would add one P/Invoke per bus every 16-33 ms with no extra
+            // write safety.
+            if (!PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(
                     instance,
-                    currentHostVehiclePointer,
-                    out var unsafeReason))
+                    out var unsafeReason) ||
+                (currentHostVehiclePointer != 0 &&
+                 instance.VehiclePointer == currentHostVehiclePointer))
             {
                 state.FaultCode = "motion-external-control-failed";
                 state.FaultMessage =
-                    $"NavBR stopped the RoadVehicle external-control keepalive: {unsafeReason}.";
+                    $"NavBR stopped the RoadVehicle external-control keepalive: " +
+                    $"{(string.IsNullOrWhiteSpace(unsafeReason) ? "pointer-is-current-host" : unsafeReason)}.";
                 continue;
             }
 
