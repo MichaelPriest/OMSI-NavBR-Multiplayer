@@ -239,6 +239,38 @@
                         </Grid>
 
                         <Border Style="{StaticResource MetricCardStyle}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220"/>
+                                    <ColumnDefinition Width="220"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="MEMÓRIA PRIVADA DO OMSI"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock x:Name="OmsiPrivateMemoryText"
+                                               Text="—"
+                                               Foreground="White"
+                                               FontSize="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="PRESSÃO DE MEMÓRIA"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock x:Name="OmsiMemoryLevelText"
+                                               Text="—"
+                                               Foreground="White"
+                                               FontSize="26"/>
+                                </StackPanel>
+                                <TextBlock x:Name="OmsiMemoryAdviceText"
+                                           Grid.Column="2"
+                                           Text="O monitor é apenas observacional e não força limpeza de memória do OMSI."
+                                           Foreground="{StaticResource NavBRMutedBrush}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource MetricCardStyle}">
                             <StackPanel Spacing="10">
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
