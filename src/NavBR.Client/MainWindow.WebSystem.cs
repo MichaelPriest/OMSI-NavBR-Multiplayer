@@ -97,11 +97,45 @@ public partial class MainWindow
     }
 
     private object BuildWebSystemState(
-        MultiplayerSettings? hudSettings = null)
+        MultiplayerSettings? hudSettings = null,
+        string? scope = null)
     {
+        hudSettings ??= MultiplayerSettingsStore.Load();
+
+        var requiresDetailedSystemState =
+            string.IsNullOrWhiteSpace(scope) ||
+            string.Equals(scope, "hud", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(scope, "diagnostics", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(scope, "settings", StringComparison.OrdinalIgnoreCase);
+        if (!requiresDetailedSystemState)
+        {
+            // Most WinUI pages only consume the runtime cadence and Session
+            // Health fields rendered by MainWindow. Avoid probing plugin files,
+            // OMSI profiles, logs, Mobile Companion and the HUD catalog on
+            // every background state poll when those modules are not visible.
+            return new
+            {
+                installationsNotice = (string?)null,
+                runtimeHost = new
+                {
+                    nativeHostMode = _nativeHostMode,
+                    telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                    hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
+                },
+                mobileCompanion = (object?)null,
+                pluginInstallation = (object?)null,
+                installations = (object?)null,
+                hud = (object?)null,
+                diagnostics = (object?)null,
+                sessionHealthNotice = _webSessionHealthNotice,
+                sessionHealth = BuildWebSessionHealthState(
+                    hudSettings.PerformanceProfile),
+                legacyPreferences = (object?)null
+            };
+        }
+
         var profiles = OmsiInstallationProfileStore.Load();
         var currentInstall = _currentOmsi?.InstallDirectory;
-        hudSettings ??= MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
