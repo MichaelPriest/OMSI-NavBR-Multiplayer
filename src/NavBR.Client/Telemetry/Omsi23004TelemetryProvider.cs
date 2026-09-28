@@ -15,6 +15,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 {
     private const long VehicleIdentityRefreshMs = 5_000;
     private const long VehicleTileRefreshMs = 2_000;
+    private const long MapNameRefreshMs = 5_000;
+    private const long NextStopRefreshMs = 750;
+    private const long TripTextRefreshMs = 5_000;
 
     private ReadOnlyProcessMemory? _memory;
     private OmsiProcessInfo? _processInfo;
@@ -31,6 +34,19 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private bool _cachedTileHasGrid;
     private long _cachedTileTickMs;
     private bool _tileCacheValid;
+    private uint _cachedMapNameAddress;
+    private long _cachedMapNameTickMs;
+    private string? _cachedMapName;
+    private nint _cachedTripVehicleAddress;
+    private uint _cachedTripManagerAddress;
+    private int _cachedTripIndex = -1;
+    private long _cachedTripTextTickMs;
+    private string? _cachedTripLine;
+    private string? _cachedTripRoute;
+    private string? _cachedTripDestination;
+    private uint _cachedNextStopStringPointer;
+    private long _cachedNextStopTickMs;
+    private string? _cachedNextStopName;
 
     public bool IsAttached => _memory is not null;
     public int? AttachedProcessId => _memory?.ProcessId;
@@ -464,7 +480,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 linearSpeedMps * 3.6d,
                 groundSpeedMps * 3.6d);
 
-            var mapName = TryReadMapName(memory, out var mapLoaded);
+            var mapName = TryReadMapNameCached(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
             var vehicleIdentity = ReadVehicleIdentityCached(
                 memory,
@@ -539,7 +555,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             string? route = null;
             string? nextStopName = null;
             string? destinationName = null;
-            TryReadActiveTrip(
+            TryReadActiveTripCached(
                 memory,
                 vehicleAddress,
                 out line,
@@ -1225,7 +1241,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             : nint.Zero;
     }
 
-    private static bool TryReadActiveTrip(
+    private bool TryReadActiveTripCached(
         ReadOnlyProcessMemory memory,
         nint vehicleAddress,
         out string? line,
@@ -1244,47 +1260,99 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                     vehicleAddress,
                     Omsi23004MemoryProfile.VehicleScheduleInfoValidOffset)) == 0)
             {
+                ClearTripCache();
                 return false;
             }
 
-            nextStopName = memory.ReadNullTerminatedUnicodeStringField(
-                               nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
-                               maxCharacters: 128)
-                           ?? memory.ReadNullTerminatedAnsiStringField(
-                               nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset),
-                               maxCharacters: 128);
+            var now = Environment.TickCount64;
+            var nextStopFieldAddress = nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleScheduleNextStopNameOffset);
+            uint nextStopStringPointer = 0;
+            try
+            {
+                nextStopStringPointer =
+                    memory.ReadUInt32(nextStopFieldAddress);
+            }
+            catch
+            {
+            }
+
+            if (_cachedTripVehicleAddress == vehicleAddress &&
+                _cachedNextStopTickMs > 0 &&
+                now >= _cachedNextStopTickMs &&
+                now - _cachedNextStopTickMs < NextStopRefreshMs &&
+                _cachedNextStopStringPointer == nextStopStringPointer)
+            {
+                nextStopName = _cachedNextStopName;
+            }
+            else
+            {
+                nextStopName =
+                    memory.ReadNullTerminatedUnicodeStringField(
+                        nextStopFieldAddress,
+                        maxCharacters: 128)
+                    ?? memory.ReadNullTerminatedAnsiStringField(
+                        nextStopFieldAddress,
+                        maxCharacters: 128);
+                _cachedNextStopStringPointer = nextStopStringPointer;
+                _cachedNextStopTickMs = now;
+                _cachedNextStopName = nextStopName;
+            }
 
             var tripIndex = memory.ReadInt32(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleScheduleTripIndexOffset));
             if (tripIndex < 0 || tripIndex > 100000)
             {
-                return false;
+                return !string.IsNullOrWhiteSpace(nextStopName);
             }
 
             var timeTableAddress = memory.ReadUInt32(
-                memory.AddressFromRva(Omsi23004MemoryProfile.TimeTableManagerRva));
+                memory.AddressFromRva(
+                    Omsi23004MemoryProfile.TimeTableManagerRva));
             if (timeTableAddress <= 0x10000u)
             {
-                return false;
+                return !string.IsNullOrWhiteSpace(nextStopName);
             }
 
-            var timeTablePointer = ReadOnlyProcessMemory.PointerFromUInt32(timeTableAddress);
+            var sameTrip =
+                _cachedTripVehicleAddress == vehicleAddress &&
+                _cachedTripManagerAddress == timeTableAddress &&
+                _cachedTripIndex == tripIndex &&
+                _cachedTripTextTickMs > 0 &&
+                now >= _cachedTripTextTickMs &&
+                now - _cachedTripTextTickMs < TripTextRefreshMs;
+            if (sameTrip)
+            {
+                line = _cachedTripLine;
+                route = _cachedTripRoute;
+                destinationName = _cachedTripDestination;
+                return !string.IsNullOrWhiteSpace(line) ||
+                       !string.IsNullOrWhiteSpace(route) ||
+                       !string.IsNullOrWhiteSpace(nextStopName) ||
+                       !string.IsNullOrWhiteSpace(destinationName);
+            }
+
+            var timeTablePointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(timeTableAddress);
             var tripsAddress = memory.ReadUInt32(nint.Add(
                 timeTablePointer,
                 Omsi23004MemoryProfile.TimeTableTripsOffset));
             if (tripsAddress <= 0x10000u)
             {
-                return false;
+                return !string.IsNullOrWhiteSpace(nextStopName);
             }
 
-            var tripsPointer = ReadOnlyProcessMemory.PointerFromUInt32(tripsAddress);
+            var tripsPointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(tripsAddress);
             try
             {
-                var count = memory.ReadInt32(nint.Subtract(tripsPointer, sizeof(int)));
+                var count =
+                    memory.ReadInt32(nint.Subtract(tripsPointer, sizeof(int)));
                 if (count > 0 && count < 100000 && tripIndex >= count)
                 {
-                    return false;
+                    return !string.IsNullOrWhiteSpace(nextStopName);
                 }
             }
             catch
@@ -1302,11 +1370,22 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var trackName = memory.ReadNullTerminatedAnsiStringField(nint.Add(
                 tripPointer,
                 Omsi23004MemoryProfile.TripTrackNameOffset));
-            destinationName = memory.ReadNullTerminatedAnsiStringField(nint.Add(
-                tripPointer,
-                Omsi23004MemoryProfile.TripTargetOffset));
+            destinationName =
+                memory.ReadNullTerminatedAnsiStringField(nint.Add(
+                    tripPointer,
+                    Omsi23004MemoryProfile.TripTargetOffset));
+            route = !string.IsNullOrWhiteSpace(trackName)
+                ? trackName
+                : destinationName;
 
-            route = !string.IsNullOrWhiteSpace(trackName) ? trackName : destinationName;
+            _cachedTripVehicleAddress = vehicleAddress;
+            _cachedTripManagerAddress = timeTableAddress;
+            _cachedTripIndex = tripIndex;
+            _cachedTripTextTickMs = now;
+            _cachedTripLine = line;
+            _cachedTripRoute = route;
+            _cachedTripDestination = destinationName;
+
             return !string.IsNullOrWhiteSpace(line) ||
                    !string.IsNullOrWhiteSpace(route) ||
                    !string.IsNullOrWhiteSpace(nextStopName) ||
@@ -1320,6 +1399,20 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             destinationName = null;
             return false;
         }
+    }
+
+    private void ClearTripCache()
+    {
+        _cachedTripVehicleAddress = nint.Zero;
+        _cachedTripManagerAddress = 0;
+        _cachedTripIndex = -1;
+        _cachedTripTextTickMs = 0;
+        _cachedTripLine = null;
+        _cachedTripRoute = null;
+        _cachedTripDestination = null;
+        _cachedNextStopStringPointer = 0;
+        _cachedNextStopTickMs = 0;
+        _cachedNextStopName = null;
     }
 
     private static bool TryReadNavigationPosition(
@@ -1370,7 +1463,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
     }
 
-    private static string? TryReadMapName(
+    private string? TryReadMapNameCached(
         ReadOnlyProcessMemory memory,
         out bool mapLoaded)
     {
@@ -1379,14 +1472,16 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         try
         {
             var mapAddress = memory.ReadUInt32(
-                memory.AddressFromRva(Omsi23004MemoryProfile.MapPointerRva));
+                memory.AddressFromRva(
+                    Omsi23004MemoryProfile.MapPointerRva));
             if (mapAddress <= 0x10000u)
             {
+                ClearMapNameCache();
                 return null;
             }
 
-            var mapPointer = ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
-
+            var mapPointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(mapAddress);
             try
             {
                 mapLoaded = memory.ReadByte(nint.Add(
@@ -1398,22 +1493,45 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 mapLoaded = false;
             }
 
+            var now = Environment.TickCount64;
+            if (_cachedMapNameAddress == mapAddress &&
+                !string.IsNullOrWhiteSpace(_cachedMapName) &&
+                _cachedMapNameTickMs > 0 &&
+                now >= _cachedMapNameTickMs &&
+                now - _cachedMapNameTickMs < MapNameRefreshMs)
+            {
+                mapLoaded = true;
+                return _cachedMapName;
+            }
+
             var mapName = memory.ReadNullTerminatedUnicodeStringField(
                 nint.Add(mapPointer, Omsi23004MemoryProfile.MapNameOffset),
                 maxCharacters: 128);
 
-            if (!string.IsNullOrWhiteSpace(mapName))
+            _cachedMapNameAddress = mapAddress;
+            _cachedMapNameTickMs = now;
+            _cachedMapName = string.IsNullOrWhiteSpace(mapName)
+                ? null
+                : mapName;
+
+            if (_cachedMapName is not null)
             {
                 mapLoaded = true;
-                return mapName;
             }
 
-            return null;
+            return _cachedMapName;
         }
         catch
         {
             return null;
         }
+    }
+
+    private void ClearMapNameCache()
+    {
+        _cachedMapNameAddress = 0;
+        _cachedMapNameTickMs = 0;
+        _cachedMapName = null;
     }
 
     private readonly record struct VehicleVisualTelemetry(
@@ -1441,5 +1559,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _processInfo = null;
         ClearVehicleIdentityCache();
         ClearVehicleTileCache();
+        ClearMapNameCache();
+        ClearTripCache();
     }
 }
