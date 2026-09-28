@@ -1,7 +1,9 @@
 using System.Windows;
 using Microsoft.Win32;
 using NavBR.Client.Driver;
+using NavBR.Client.Network;
 using NavBR.Client.Operations;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client;
 
@@ -21,6 +23,14 @@ public partial class MainWindow
         var companyBadge = Application.Current is App app
             ? app.NetworkRuntime.CurrentBadge
             : null;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var operatorMember = onlineCompany?.Members.FirstOrDefault(member =>
+            companyBadge is not null &&
+            string.Equals(member.PlayerId, companyBadge.PlayerId, StringComparison.OrdinalIgnoreCase));
+        var operatorBadgeVerified = CompanyEmployeeBadgeFactory.MatchesMember(
+            companyBadge,
+            onlineCompany,
+            operatorMember);
         var now = DateTimeOffset.UtcNow;
 
         return new
@@ -30,6 +40,7 @@ public partial class MainWindow
             updatedAtUtc = session.UpdatedAt,
             canManageReports = DispatcherOperationalFeed.CanManageReports,
             operatorBadge = companyBadge,
+            operatorBadgeVerified,
             localOperation = telemetry is null
                 ? null
                 : new
@@ -52,6 +63,14 @@ public partial class MainWindow
                 .Select(driver =>
                 {
                     var latestReport = DispatcherOperationalFeed.LatestForPlayer(driver.PlayerId);
+                    var remoteMember = onlineCompany?.Members.FirstOrDefault(member =>
+                        driver.CompanyBadge is not null &&
+                        string.Equals(member.PlayerId, driver.CompanyBadge.PlayerId, StringComparison.OrdinalIgnoreCase));
+                    var badgeVerified = CompanyEmployeeBadgeFactory.MatchesMember(
+                        driver.CompanyBadge,
+                        onlineCompany,
+                        remoteMember);
+
                     return new
                     {
                         playerId = driver.PlayerId,
@@ -69,6 +88,7 @@ public partial class MainWindow
                         receivedAtUtc = driver.ReceivedAtUtc,
                         stale = now - driver.ReceivedAtUtc > TimeSpan.FromSeconds(10d),
                         companyBadge = driver.CompanyBadge,
+                        companyBadgeVerified = badgeVerified,
                         latestReport = latestReport is null
                             ? null
                             : new
