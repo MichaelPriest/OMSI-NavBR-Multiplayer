@@ -13,8 +13,15 @@ namespace NavBR.Client.Telemetry;
 /// </summary>
 public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 {
+    private const long VehicleIdentityRefreshMs = 5_000;
+
     private ReadOnlyProcessMemory? _memory;
     private OmsiProcessInfo? _processInfo;
+    private nint _cachedIdentityVehicleAddress;
+    private uint _cachedIdentityFileObjectAddress;
+    private uint _cachedIdentityDefinitionAddress;
+    private long _cachedIdentityTickMs;
+    private OmsiVehicleIdentity? _cachedVehicleIdentity;
 
     public bool IsAttached => _memory is not null;
     public int? AttachedProcessId => _memory?.ProcessId;
@@ -450,7 +457,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             var mapName = TryReadMapName(memory, out var mapLoaded);
             var heading = QuaternionToHeadingDegrees(rotation);
-            var vehicleIdentity = OmsiVehicleIdentityReader.Read(memory, _processInfo, vehicleAddress);
+            var vehicleIdentity = ReadVehicleIdentityCached(
+                memory,
+                vehicleAddress);
 
             // These fields already exist in the supported OMSI profile but were
             // previously left at VehicleTelemetry defaults. Read them best-effort
@@ -594,6 +603,72 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             LastErrorCode = TelemetryErrorCode.ReadFailed;
             return null;
         }
+    }
+
+    private OmsiVehicleIdentity ReadVehicleIdentityCached(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress)
+    {
+        uint fileObjectAddress = 0;
+        uint definitionAddress = 0;
+        try
+        {
+            fileObjectAddress = memory.ReadUInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleFileObjectOffset));
+            definitionAddress = memory.ReadUInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.RoadVehicleDefinitionOffset));
+        }
+        catch
+        {
+            // The full reader is best-effort and remains the fallback below.
+        }
+
+        var now = Environment.TickCount64;
+        var stableIdentityPointers =
+            fileObjectAddress > 0x10000u ||
+            definitionAddress > 0x10000u;
+        if (stableIdentityPointers &&
+            _cachedVehicleIdentity is not null &&
+            _cachedIdentityVehicleAddress == vehicleAddress &&
+            _cachedIdentityFileObjectAddress == fileObjectAddress &&
+            _cachedIdentityDefinitionAddress == definitionAddress &&
+            _cachedIdentityTickMs > 0 &&
+            now >= _cachedIdentityTickMs &&
+            now - _cachedIdentityTickMs < VehicleIdentityRefreshMs)
+        {
+            return _cachedVehicleIdentity;
+        }
+
+        var identity = OmsiVehicleIdentityReader.Read(
+            memory,
+            _processInfo,
+            vehicleAddress);
+
+        if (stableIdentityPointers)
+        {
+            _cachedIdentityVehicleAddress = vehicleAddress;
+            _cachedIdentityFileObjectAddress = fileObjectAddress;
+            _cachedIdentityDefinitionAddress = definitionAddress;
+            _cachedIdentityTickMs = now;
+            _cachedVehicleIdentity = identity;
+        }
+        else
+        {
+            ClearVehicleIdentityCache();
+        }
+
+        return identity;
+    }
+
+    private void ClearVehicleIdentityCache()
+    {
+        _cachedIdentityVehicleAddress = nint.Zero;
+        _cachedIdentityFileObjectAddress = 0;
+        _cachedIdentityDefinitionAddress = 0;
+        _cachedIdentityTickMs = 0;
+        _cachedVehicleIdentity = null;
     }
 
     private static bool TryReadVehicleTileGrid(
@@ -1280,5 +1355,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _memory?.Dispose();
         _memory = null;
         _processInfo = null;
+        ClearVehicleIdentityCache();
     }
 }
