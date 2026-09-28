@@ -18,6 +18,7 @@ public static class PluginBridgeProtocol
     public const string ClearRemoteVehicles = "clear-remote-vehicles";
     public const string TrafficSnapshotState = "traffic-snapshot-state";
     public const string ClearTrafficVehicles = "clear-traffic-vehicles";
+    public const string SetPerformanceProfile = "set-performance-profile";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -156,4 +157,5 @@ public sealed record PluginBridgeMessage(
     double? PluginAverageWorkMilliseconds = null,
     double? PluginAverageFrameIntervalMilliseconds = null,
     long? PluginMinimumWorkIntervalMilliseconds = null,
-    int? PluginMaxCommandsPerSlice = null);
+    int? PluginMaxCommandsPerSlice = null,
+    string? PerformanceProfile = null);
