@@ -790,6 +790,9 @@ public partial class MainWindow
                 averageFrameIntervalMilliseconds = plugin?.LastStatus?.PluginAverageFrameIntervalMilliseconds,
                 minimumWorkIntervalMilliseconds = plugin?.LastStatus?.PluginMinimumWorkIntervalMilliseconds,
                 maxCommandsPerSlice = plugin?.LastStatus?.PluginMaxCommandsPerSlice,
+                lastFrameIntervalMilliseconds = plugin?.LastStatus?.PluginLastFrameIntervalMilliseconds,
+                peakFrameIntervalMilliseconds = plugin?.LastStatus?.PluginPeakFrameIntervalMilliseconds,
+                frameStallCount = plugin?.LastStatus?.PluginFrameStallCount,
                 configuredProfile = MultiplayerSettingsStore.Load().PerformanceProfile,
                 activeProfile = plugin?.LastStatus?.PerformanceProfile,
                 queueBackpressureActive = plugin?.LastStatus?.PluginPressureLevel is > 0
