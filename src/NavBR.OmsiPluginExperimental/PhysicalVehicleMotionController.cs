@@ -639,7 +639,10 @@ internal static class PhysicalVehicleMotionController
         PhysicalVehicleInstance instance,
         MotionSnapshot snapshot,
         bool writeTileIndex) =>
-        PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out _) &&
+        // Static provenance is checked here; the native transform performs
+        // the live RoadVehicles membership and current PlayerVehicle guards
+        // immediately before any OMSI memory write.
+        PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(instance, out _) &&
         OmsiNativeInterop.SetVehicleTransform(
             instance.VehiclePointer,
             snapshot.X,
@@ -721,7 +724,10 @@ internal static class PhysicalVehicleMotionController
             lightFlags |= (int)VehicleLightFlags.Brake;
         }
 
-        return PhysicalVehicleBackend.IsSafeOwnedPointer(instance, out _) &&
+        // As with transforms, keep the immutable ownership guard in
+        // managed code and let the native write perform the live RoadVehicle
+        // and current PlayerVehicle checks at the actual write boundary.
+        return PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(instance, out _) &&
                OmsiNativeInterop.SetVehicleVisualState(
                    instance.VehiclePointer,
                    lightFlags,
