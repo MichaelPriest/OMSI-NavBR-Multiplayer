@@ -8,10 +8,24 @@ const highlights = [
 ];
 
 const shots = [
-  {src:"./assets/navbr-mockup-approved.webp", title:"OMSI NavBR", text:"Visão geral da identidade visual do projeto e do Companion.", badge:"CONCEITO VISUAL"},
-  {src:"./assets/concept-hud.svg", title:"HUD operacional", text:"Direção de interface para navegação, operação e telemetria sem tirar o foco da condução.", badge:"CONCEITO IA"},
-  {src:"./assets/concept-multiplayer.svg", title:"Multiplayer", text:"Direção visual para presença de jogadores, sala, mapa e sincronização.", badge:"CONCEITO IA"},
-  {src:"./assets/concept-roleplay.svg", title:"Personagem / RP", text:"Direção visual do modo personagem e da experiência fora do ônibus.", badge:"CONCEITO IA"}
+  {
+    src:"./assets/screens/alpha22/home.webp",
+    title:"Central operacional Alpha.22",
+    text:"Tela inicial real do aplicativo Windows, com estado do OMSI, mapa, multiplayer e atalhos rápidos para os módulos principais.",
+    badge:"CAPTURA REAL • ALPHA.22"
+  },
+  {
+    src:"./assets/screens/alpha22/alpha22-multiplayer.webp",
+    title:"Navegação, jogadores, voz e RP",
+    text:"Quatro capturas reais reunidas: Navegação, lista de jogadores, Chat & Voz e Personagem / RP.",
+    badge:"4 CAPTURAS REAIS"
+  },
+  {
+    src:"./assets/screens/alpha22/alpha22-tools-hud.webp",
+    title:"HUD, ferramentas e cockpit",
+    text:"Quatro capturas reais reunidas: controles avançados do multiplayer, Hardware Cockpit, seleção de HUD e prévia do preset.",
+    badge:"4 CAPTURAS REAIS"
+  }
 ];
 
 export default function Alpha22Showcase() {
@@ -36,14 +50,20 @@ export default function Alpha22Showcase() {
         </div>
 
         <div className="a22-gallery-head">
-          <div><span className="a22-kicker">VISUAL DO PROJETO</span><h3>Interface, HUD, multiplayer e Mobile Companion</h3></div>
-          <p>Os cards abaixo usam os assets atualmente versionados no projeto. Imagens conceituais continuam identificadas como conceito.</p>
+          <div>
+            <span className="a22-kicker">TELAS REAIS DO APP</span>
+            <h3>Alpha.22 por dentro</h3>
+          </div>
+          <p>Estas imagens são capturas reais do aplicativo Windows. Estados sem telemetria refletem o OMSI fechado no momento da captura; não são dados simulados.</p>
         </div>
 
         <div className="a22-gallery">
-          {shots.map((shot,index) => (
-            <figure className={index === 0 ? "a22-shot a22-shot-wide" : "a22-shot"} key={shot.title}>
-              <div className="a22-shot-media"><img src={shot.src} alt={shot.title} loading="lazy"/><span>{shot.badge}</span></div>
+          {shots.map(shot => (
+            <figure className="a22-shot" key={shot.title}>
+              <div className="a22-shot-media">
+                <img src={shot.src} alt={shot.title} loading="lazy"/>
+                <span>{shot.badge}</span>
+              </div>
               <figcaption><strong>{shot.title}</strong><p>{shot.text}</p></figcaption>
             </figure>
           ))}
