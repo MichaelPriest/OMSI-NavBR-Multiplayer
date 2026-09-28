@@ -130,6 +130,12 @@ public partial class MainWindow
         return new
         {
             installationsNotice = _webOmsiLaunchNotice,
+            runtimeHost = new
+            {
+                nativeHostMode = _nativeHostMode,
+                telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
+            },
             mobileCompanion = BuildMobileCompanionDesktopState(),
             pluginInstallation = new
             {
