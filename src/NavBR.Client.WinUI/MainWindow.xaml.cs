@@ -13,6 +13,15 @@ public sealed partial class MainWindow : Window
     private bool _refreshing;
     private bool _closing;
     private string _activePageTag = "home";
+    private bool _applyingPerformanceProfile;
+    private static readonly PerformanceProfileOption[] PerformanceProfiles =
+    [
+        new("auto", "Automático", "Equilibra FPS, responsividade e carga conforme o OMSI."),
+        new("stability", "Estabilidade", "Reduz a cadência e o número de comandos para priorizar estabilidade."),
+        new("multiplayer", "Multiplayer", "Mantém maior vazão de sincronização sem abandonar o governador adaptativo."),
+        new("quality", "Qualidade", "Aumenta a frequência das atualizações quando há orçamento de frame disponível."),
+        new("diagnostics", "Diagnóstico", "Reduz trabalho físico e aumenta a frequência das métricas para investigação.")
+    ];
 
     public MainWindow(bool smokeOnly = false)
     {
@@ -28,6 +37,7 @@ public sealed partial class MainWindow : Window
         NativeHardwarePage.CommandHandler = ExecuteNativeCommandAsync;
         NativeDiagnosticsPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeSettingsPage.CommandHandler = ExecuteNativeCommandAsync;
+        PerformanceProfileComboBox.ItemsSource = PerformanceProfiles;
 
         if (_smokeOnly)
         {
@@ -167,6 +177,8 @@ public sealed partial class MainWindow : Window
         var frameInterval = Number(performance, "averageFrameIntervalMilliseconds");
         var maxCommands = Integer(performance, "maxCommandsPerSlice");
         var minimumInterval = Integer(performance, "minimumWorkIntervalMilliseconds");
+        var configuredProfile = String(performance, "configuredProfile") ?? "auto";
+        var activeProfile = String(performance, "activeProfile");
 
         PerformanceStatusText.Text = !pluginConnected
             ? "PLUGIN OFFLINE"
@@ -185,6 +197,22 @@ public sealed partial class MainWindow : Window
         PluginWorkText.Text = work is null ? "—" : $"{work:0.00} ms";
         FrameIntervalText.Text = frameInterval is null ? "—" : $"{frameInterval:0.0} ms";
         CommandBudgetText.Text = maxCommands?.ToString() ?? "—";
+
+        var selectedProfile = PerformanceProfiles.FirstOrDefault(profile =>
+            string.Equals(profile.Id, configuredProfile, StringComparison.OrdinalIgnoreCase))
+            ?? PerformanceProfiles[0];
+        _applyingPerformanceProfile = true;
+        try
+        {
+            PerformanceProfileComboBox.SelectedItem = selectedProfile;
+        }
+        finally
+        {
+            _applyingPerformanceProfile = false;
+        }
+        PerformanceProfileDetailText.Text = activeProfile is null
+            ? $"{selectedProfile.DisplayName} · será aplicado quando o plugin conectar. {selectedProfile.Description}"
+            : $"{selectedProfile.DisplayName} · ativo no plugin: {activeProfile}. {selectedProfile.Description}";
 
         PerformanceExplanationText.Text = !pluginConnected
             ? "O Performance Bridge começará a medir quando o plugin do OMSI estiver conectado."
@@ -344,6 +372,28 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private async void PerformanceProfileComboBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_applyingPerformanceProfile ||
+            PerformanceProfileComboBox.SelectedItem is not PerformanceProfileOption profile)
+        {
+            return;
+        }
+
+        try
+        {
+            await ExecuteNativeCommandAsync(
+                "setPerformanceProfile",
+                new { profile = profile.Id });
+        }
+        catch (Exception ex)
+        {
+            FooterStatusText.Text = ex.Message;
+        }
+    }
+
     private async void RefreshButton_Click(
         object sender,
         RoutedEventArgs e)
@@ -450,3 +500,9 @@ public sealed partial class MainWindow : Window
             : null;
     }
 }
+
+
+internal sealed record PerformanceProfileOption(
+    string Id,
+    string DisplayName,
+    string Description);
