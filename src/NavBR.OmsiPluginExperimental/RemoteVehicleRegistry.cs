@@ -11,6 +11,8 @@ internal sealed class RemoteVehicleRegistry
     private readonly object _sync = new();
     private readonly Dictionary<string, RemoteVehicleEntry> _entries =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _staleIds =
+        new(MaxRemoteVehicles);
 
     public int Count
     {
@@ -29,7 +31,35 @@ internal sealed class RemoteVehicleRegistry
         lock (_sync)
         {
             PruneStaleUnsafe(DateTimeOffset.UtcNow);
-            return _entries.Values.Count(entry => IsCompatible(localState, entry.Current));
+            var compatible = 0;
+            foreach (var entry in _entries.Values)
+            {
+                if (IsCompatible(localState, entry.Current))
+                {
+                    compatible++;
+                }
+            }
+
+            return compatible;
+        }
+    }
+
+    public (int Total, int Compatible) CountSnapshot(
+        PluginBridgeMessage? localState)
+    {
+        lock (_sync)
+        {
+            PruneStaleUnsafe(DateTimeOffset.UtcNow);
+            var compatible = 0;
+            foreach (var entry in _entries.Values)
+            {
+                if (IsCompatible(localState, entry.Current))
+                {
+                    compatible++;
+                }
+            }
+
+            return (_entries.Count, compatible);
         }
     }
 
@@ -39,12 +69,20 @@ internal sealed class RemoteVehicleRegistry
         lock (_sync)
         {
             PruneStaleUnsafe(now);
-            var entry = _entries.Values
-                .Where(candidate => IsCompatible(localState, candidate.Current))
-                .OrderByDescending(candidate => candidate.ReceivedAtUtc)
-                .FirstOrDefault();
+            RemoteVehicleEntry? latest = null;
+            foreach (var candidate in _entries.Values)
+            {
+                if (!IsCompatible(localState, candidate.Current) ||
+                    (latest is not null &&
+                     candidate.ReceivedAtUtc <= latest.ReceivedAtUtc))
+                {
+                    continue;
+                }
 
-            return entry?.Sample(now - InterpolationDelay);
+                latest = candidate;
+            }
+
+            return latest?.Sample(now - InterpolationDelay);
         }
     }
 
@@ -68,13 +106,22 @@ internal sealed class RemoteVehicleRegistry
 
             if (_entries.Count >= MaxRemoteVehicles)
             {
-                var oldest = _entries
-                    .OrderBy(pair => pair.Value.ReceivedAtUtc)
-                    .FirstOrDefault();
-
-                if (!string.IsNullOrWhiteSpace(oldest.Key))
+                string? oldestPlayerId = null;
+                var oldestReceivedAtUtc = DateTimeOffset.MaxValue;
+                foreach (var pair in _entries)
                 {
-                    _entries.Remove(oldest.Key);
+                    if (pair.Value.ReceivedAtUtc >= oldestReceivedAtUtc)
+                    {
+                        continue;
+                    }
+
+                    oldestPlayerId = pair.Key;
+                    oldestReceivedAtUtc = pair.Value.ReceivedAtUtc;
+                }
+
+                if (!string.IsNullOrWhiteSpace(oldestPlayerId))
+                {
+                    _entries.Remove(oldestPlayerId);
                 }
             }
 
@@ -114,17 +161,23 @@ internal sealed class RemoteVehicleRegistry
 
     private int PruneStaleUnsafe(DateTimeOffset now)
     {
-        var staleIds = _entries
-            .Where(pair => now - pair.Value.ReceivedAtUtc > StaleAfter)
-            .Select(pair => pair.Key)
-            .ToArray();
+        _staleIds.Clear();
+        foreach (var pair in _entries)
+        {
+            if (now - pair.Value.ReceivedAtUtc > StaleAfter)
+            {
+                _staleIds.Add(pair.Key);
+            }
+        }
 
-        foreach (var playerId in staleIds)
+        foreach (var playerId in _staleIds)
         {
             _entries.Remove(playerId);
         }
 
-        return staleIds.Length;
+        var removed = _staleIds.Count;
+        _staleIds.Clear();
+        return removed;
     }
 
     private static bool IsCompatible(
