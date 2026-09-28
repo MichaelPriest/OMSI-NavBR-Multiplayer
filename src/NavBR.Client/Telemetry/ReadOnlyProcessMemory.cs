@@ -163,7 +163,18 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             return null;
         }
 
-        var bytes = ReadBytes(dataAddress, checked(length * 2));
+        var byteCount = checked(length * 2);
+        Span<byte> bytes;
+        if (byteCount <= 512)
+        {
+            bytes = stackalloc byte[byteCount];
+        }
+        else
+        {
+            bytes = new byte[byteCount];
+        }
+
+        ReadBytes(dataAddress, bytes);
         return Encoding.Unicode.GetString(bytes).TrimEnd('\0');
     }
 
@@ -189,7 +200,17 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
                 return null;
             }
 
-            var bytes = ReadBytes(dataAddress, length);
+            Span<byte> bytes;
+            if (length <= 512)
+            {
+                bytes = stackalloc byte[length];
+            }
+            else
+            {
+                bytes = new byte[length];
+            }
+
+            ReadBytes(dataAddress, bytes);
             var value = Encoding.Latin1.GetString(bytes).TrimEnd('\0').Trim();
             return string.IsNullOrWhiteSpace(value) ? null : value;
         }
@@ -219,26 +240,39 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             }
 
             var dataAddress = PointerFromUInt32(stringPointer);
-            var bytes = new List<byte>(Math.Min(maxCharacters * 2, 512));
+            var maxBytes = checked(maxCharacters * 2);
+            Span<byte> bytes;
+            if (maxBytes <= 512)
+            {
+                bytes = stackalloc byte[maxBytes];
+            }
+            else
+            {
+                bytes = new byte[maxBytes];
+            }
 
+            Span<byte> pair = stackalloc byte[2];
+            var count = 0;
             for (var index = 0; index < maxCharacters; index++)
             {
-                var pair = ReadBytes(nint.Add(dataAddress, checked(index * 2)), 2);
+                ReadBytes(
+                    nint.Add(dataAddress, checked(index * 2)),
+                    pair);
                 if (pair[0] == 0 && pair[1] == 0)
                 {
                     break;
                 }
 
-                bytes.Add(pair[0]);
-                bytes.Add(pair[1]);
+                bytes[count++] = pair[0];
+                bytes[count++] = pair[1];
             }
 
-            if (bytes.Count == 0)
+            if (count == 0)
             {
                 return null;
             }
 
-            var value = Encoding.Unicode.GetString(bytes.ToArray()).Trim();
+            var value = Encoding.Unicode.GetString(bytes[..count]).Trim();
             return string.IsNullOrWhiteSpace(value) ? null : value;
         }
         catch (Win32Exception)
@@ -272,7 +306,17 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             }
 
             var dataAddress = PointerFromUInt32(stringPointer);
-            var bytes = new List<byte>(Math.Min(maxCharacters, 256));
+            Span<byte> bytes;
+            if (maxCharacters <= 512)
+            {
+                bytes = stackalloc byte[maxCharacters];
+            }
+            else
+            {
+                bytes = new byte[maxCharacters];
+            }
+
+            var count = 0;
             for (var index = 0; index < maxCharacters; index++)
             {
                 var value = ReadByte(nint.Add(dataAddress, index));
@@ -281,15 +325,15 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
                     break;
                 }
 
-                bytes.Add(value);
+                bytes[count++] = value;
             }
 
-            if (bytes.Count == 0)
+            if (count == 0)
             {
                 return null;
             }
 
-            var text = Encoding.Latin1.GetString(bytes.ToArray()).Trim();
+            var text = Encoding.Latin1.GetString(bytes[..count]).Trim();
             return string.IsNullOrWhiteSpace(text) ? null : text;
         }
         catch (Win32Exception)
