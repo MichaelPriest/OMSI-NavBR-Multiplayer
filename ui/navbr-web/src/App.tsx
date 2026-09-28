@@ -1292,6 +1292,11 @@ function Operations({
         <div>
           <span className="eyebrow">{pick("CENTRO DE CONTROLE OPERACIONAL", "OPERATIONS CONTROL CENTER", "CENTRO DE CONTROL OPERACIONAL", "BETRIEBSLEITSTELLE", "CENTRE DE CONTRÔLE OPÉRATIONNEL")}</span>
           <h1>CCO</h1>
+          {operations.operatorBadge && (
+            <p className="company-badge-inline">
+              {operations.operatorBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {operations.operatorBadge.employeeNumber} · {companyRoleLabel(operations.operatorBadge.role, pick)}
+            </p>
+          )}
           <p>{pick("Operação local, motoristas da sessão e ocorrências recebidas pelo backend NavBR.", "Local operation, session drivers and reports received by the NavBR backend.", "Operación local, conductores de la sesión e incidencias recibidas por el backend NavBR.", "Lokaler Betrieb, Sitzungsfahrer und Meldungen aus dem NavBR-Backend.", "Opération locale, conducteurs de session et incidents reçus par le backend NavBR.")}</p>
         </div>
         <div className="top-actions">
@@ -1404,6 +1409,11 @@ function Operations({
                   <span className="driver-avatar">{driver.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="driver-primary">
                     <strong>{driver.displayName}</strong>
+                    {driver.companyBadge && (
+                      <small className="company-badge-inline">
+                        {driver.companyBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {driver.companyBadge.employeeNumber} · {companyRoleLabel(driver.companyBadge.role, pick)}
+                      </small>
+                    )}
                     <small>{driver.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")} · {driver.mapName || pick("Mapa —", "Map —", "Mapa —", "Karte —", "Carte —")}</small>
                   </div>
                   <div className="driver-service">
