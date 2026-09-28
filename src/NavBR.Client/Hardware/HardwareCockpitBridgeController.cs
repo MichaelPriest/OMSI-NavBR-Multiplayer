@@ -131,6 +131,21 @@ internal sealed class HardwareCockpitBridgeController : IDisposable
             return;
         }
 
+        // In the default/no-hardware case, avoid taking the controller lock
+        // and running reconnect logic on every telemetry poll. Settings are
+        // immutable cached records, so this fast path stays coherent with
+        // Connect/Disconnect/SaveSelection while preserving exact-port
+        // auto-reconnect behavior when it is enabled.
+        if (!_transport.IsConnected)
+        {
+            var settings = HardwareCockpitConnectionSettingsStore.Load();
+            if (!settings.AutoReconnect ||
+                string.IsNullOrWhiteSpace(settings.PortName))
+            {
+                return;
+            }
+        }
+
         lock (_sync)
         {
             TryReconnectUnsafe();
