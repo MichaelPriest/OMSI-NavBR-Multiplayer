@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Maps;
 using NavBR.Client.PluginBridge;
+using NavBR.Client.Telemetry;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
@@ -33,6 +34,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
     private const int VkEscape = 0x1B;
     private const int VkE = 0x45;
+    private const int VkF1 = 0x70;
+    private const int VkF2 = 0x71;
+    private const int VkF3 = 0x72;
+    private const int VkF4 = 0x73;
+    private const int VkF11 = 0x7A;
     private const int VkW = 0x57;
     private const int VkA = 0x41;
     private const int VkS = 0x53;
@@ -54,10 +60,17 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const double MaxInitialGroundOffsetMeters = 3.5d;
     private const double MaxGroundSampleJumpMeters = 1.25d;
     private const double MaxGroundTargetErrorMeters = 1.5d;
+    private const double MaxEgoCameraCalibrationDistanceMeters = 25d;
+    private const double MaxEgoCameraFrameStepMeters = 8d;
+    private const double MaxEgoCameraVerticalStepMeters = 4d;
+    private const double MaxEgoCameraSpeedMps = 6d;
+    private static readonly TimeSpan MaxEgoCameraSnapshotAge =
+        TimeSpan.FromMilliseconds(750d);
 
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
     private readonly Func<string?> _mapKeySource;
+    private readonly Func<OmsiCameraProjectionSnapshot?>? _cameraProjectionSource;
     private readonly DispatcherTimer _timer;
     private readonly object _inputSync = new();
     private readonly HashSet<int> _pressedKeys = [];
@@ -90,6 +103,12 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private string? _lastErrorMessage;
     private double _signedMovementSpeedMps;
     private bool _focusStopApplied;
+    private bool _egoCameraSyncRequested;
+    private bool _egoCameraCalibrated;
+    private double _egoCameraOffsetX;
+    private double _egoCameraOffsetY;
+    private double _egoCameraOffsetZ;
+    private double _egoCameraHeadingOffsetDegrees;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -98,11 +117,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public RoleplayCharacterController(
         Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource,
-        Func<string?> mapKeySource)
+        Func<string?> mapKeySource,
+        Func<OmsiCameraProjectionSnapshot?>? cameraProjectionSource = null)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
         _mapKeySource = mapKeySource;
+        _cameraProjectionSource = cameraProjectionSource;
 
         _timer = new DispatcherTimer(DispatcherPriority.Input)
         {
@@ -113,6 +134,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
+    public bool IsNativeEgoCameraActive =>
+        _egoCameraSyncRequested && _egoCameraCalibrated;
     public double EnterBusRangeMeters => EnterBusDistanceMeters;
     public double InteractionRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
@@ -508,6 +531,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _consecutiveFailures = 0;
         _signedMovementSpeedMps = 0d;
         _focusStopApplied = false;
+        ResetEgoCameraSync();
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
         InstallKeyboardHook();
@@ -543,6 +567,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _consecutiveFailures = 0;
             _signedMovementSpeedMps = 0d;
             _focusStopApplied = false;
+            ResetEgoCameraSync();
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -722,6 +747,66 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 0.15d);
             _lastTickUtc = now;
 
+            if (_egoCameraSyncRequested)
+            {
+                var cameraUpdated = TryBuildNativeEgoCameraState(
+                    current,
+                    now,
+                    deltaSeconds,
+                    out var synchronizedState)
+                    ? synchronizedState
+                    : current with
+                    {
+                        Timestamp = now,
+                        SpeedMps = 0d,
+                        Activity = RoleplayCharacterActivity.Idle
+                    };
+
+                _signedMovementSpeedMps = 0d;
+                var cameraResult = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
+                    instanceId,
+                    cameraUpdated,
+                    MultiplayerSettingsStore.Load().DisplayName);
+
+                if (sessionGeneration != Volatile.Read(ref _sessionGeneration) ||
+                    !string.Equals(instanceId, _instanceId, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                if (cameraResult?.Success != true)
+                {
+                    _consecutiveFailures++;
+                    if (_consecutiveFailures >= 3)
+                    {
+                        await StopAsync(
+                            cameraResult?.ErrorCode ??
+                            "roleplay-ego-camera-control-lost");
+                    }
+
+                    return;
+                }
+
+                _consecutiveFailures = 0;
+                UpdateNativeAnimationDiagnostics(
+                    cameraResult,
+                    cameraUpdated.SpeedMps);
+                _state = cameraUpdated with
+                {
+                    LocalX = cameraResult.LocalX ?? cameraUpdated.LocalX,
+                    LocalY = cameraResult.LocalY ?? cameraUpdated.LocalY,
+                    LocalZ = cameraResult.LocalZ ?? cameraUpdated.LocalZ,
+                    HeadingDegrees =
+                        cameraResult.HeadingDegrees ??
+                        cameraUpdated.HeadingDegrees,
+                    SpeedMps = cameraResult.SpeedMps ?? cameraUpdated.SpeedMps
+                };
+
+                StateChanged?.Invoke(_state);
+                EmitNetworkState(_state);
+                return;
+            }
+
             bool forward;
             bool backward;
             bool left;
@@ -897,6 +982,145 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         {
             Interlocked.Exchange(ref _updateInFlight, 0);
         }
+    }
+
+    private bool TryBuildNativeEgoCameraState(
+        RoleplayCharacterState current,
+        DateTimeOffset now,
+        double deltaSeconds,
+        out RoleplayCharacterState updated)
+    {
+        updated = current;
+
+        OmsiCameraProjectionSnapshot? snapshot;
+        try
+        {
+            snapshot = _cameraProjectionSource?.Invoke();
+        }
+        catch
+        {
+            snapshot = null;
+        }
+
+        if (snapshot is null ||
+            now - snapshot.Value.CapturedAtUtc > MaxEgoCameraSnapshotAge ||
+            !RoleplayEgoCameraPoseResolver.TryResolve(
+                snapshot.Value,
+                out var camera))
+        {
+            return false;
+        }
+
+        if (!_egoCameraCalibrated)
+        {
+            var calibrationDx = camera.X - current.LocalX;
+            var calibrationDy = camera.Y - current.LocalY;
+            var calibrationDz = camera.Z - current.LocalZ;
+            var calibrationDistance = Math.Sqrt(
+                calibrationDx * calibrationDx +
+                calibrationDy * calibrationDy +
+                calibrationDz * calibrationDz);
+
+            if (!double.IsFinite(calibrationDistance) ||
+                calibrationDistance > MaxEgoCameraCalibrationDistanceMeters)
+            {
+                return false;
+            }
+
+            _egoCameraOffsetX = calibrationDx;
+            _egoCameraOffsetY = calibrationDy;
+            _egoCameraOffsetZ = calibrationDz;
+            _egoCameraHeadingOffsetDegrees = NormalizeHeading(
+                camera.HeadingDegrees - current.HeadingDegrees);
+            _egoCameraCalibrated = true;
+            SetStatus("roleplay-ego-camera-active");
+
+            updated = current with
+            {
+                Timestamp = now,
+                SpeedMps = 0d,
+                Activity = RoleplayCharacterActivity.Idle
+            };
+            return true;
+        }
+
+        var x = camera.X - _egoCameraOffsetX;
+        var y = camera.Y - _egoCameraOffsetY;
+        var z = camera.Z - _egoCameraOffsetZ;
+        var heading = NormalizeHeading(
+            camera.HeadingDegrees - _egoCameraHeadingOffsetDegrees);
+
+        if (!double.IsFinite(x) ||
+            !double.IsFinite(y) ||
+            !double.IsFinite(z) ||
+            !double.IsFinite(heading))
+        {
+            return false;
+        }
+
+        var dx = x - current.LocalX;
+        var dy = y - current.LocalY;
+        var dz = z - current.LocalZ;
+        var planarStep = Math.Sqrt(dx * dx + dz * dz);
+
+        if (!double.IsFinite(planarStep) ||
+            planarStep > MaxEgoCameraFrameStepMeters ||
+            Math.Abs(dy) > MaxEgoCameraVerticalStepMeters)
+        {
+            _egoCameraCalibrated = false;
+            SetStatus("roleplay-ego-camera-resync");
+            return false;
+        }
+
+        var fromOriginX = x - _originX;
+        var fromOriginZ = z - _originZ;
+        var fromOrigin = Math.Sqrt(
+            fromOriginX * fromOriginX +
+            fromOriginZ * fromOriginZ);
+        if (double.IsFinite(fromOrigin) &&
+            fromOrigin > MaxDistanceFromBusMeters)
+        {
+            var scale = MaxDistanceFromBusMeters / fromOrigin;
+            x = _originX + fromOriginX * scale;
+            z = _originZ + fromOriginZ * scale;
+            planarStep = Math.Sqrt(
+                (x - current.LocalX) * (x - current.LocalX) +
+                (z - current.LocalZ) * (z - current.LocalZ));
+        }
+
+        var speed = deltaSeconds > 0.001d
+            ? Math.Clamp(
+                planarStep / deltaSeconds,
+                0d,
+                MaxEgoCameraSpeedMps)
+            : 0d;
+        var activity = speed <= 0.05d
+            ? RoleplayCharacterActivity.Idle
+            : speed > WalkSpeedMps * 1.15d
+                ? RoleplayCharacterActivity.Running
+                : RoleplayCharacterActivity.Walking;
+
+        updated = current with
+        {
+            Timestamp = now,
+            LocalX = x,
+            LocalY = y,
+            LocalZ = z,
+            HeadingDegrees = heading,
+            SpeedMps = speed,
+            Activity = activity
+        };
+        return true;
+    }
+
+    private void ResetEgoCameraSync()
+    {
+        _egoCameraSyncRequested = false;
+        _egoCameraCalibrated = false;
+        _egoCameraOffsetX = 0d;
+        _egoCameraOffsetY = 0d;
+        _egoCameraOffsetZ = 0d;
+        _egoCameraHeadingOffsetDegrees = 0d;
     }
 
     private void UpdateNativeAnimationDiagnostics(
@@ -1147,6 +1371,55 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return false;
         }
 
+        if (virtualKey == VkF11)
+        {
+            var newlyPressed = false;
+            lock (_inputSync)
+            {
+                if (isDown)
+                {
+                    newlyPressed = _pressedKeys.Add(virtualKey);
+                }
+                else
+                {
+                    _pressedKeys.Remove(virtualKey);
+                }
+            }
+
+            if (newlyPressed)
+            {
+                _egoCameraSyncRequested = true;
+                _egoCameraCalibrated = false;
+                _signedMovementSpeedMps = 0d;
+                lock (_inputSync)
+                {
+                    _pressedKeys.Remove(VkW);
+                    _pressedKeys.Remove(VkA);
+                    _pressedKeys.Remove(VkS);
+                    _pressedKeys.Remove(VkD);
+                    _pressedKeys.Remove(VkShift);
+                    _pressedKeys.Remove(VkLeftShift);
+                    _pressedKeys.Remove(VkRightShift);
+                }
+                SetStatus("roleplay-ego-camera-waiting");
+            }
+
+            // F11 remains an OMSI input. NavBR observes the native ego camera
+            // instead of replacing the simulator's own camera implementation.
+            return false;
+        }
+
+        if (virtualKey is VkF1 or VkF2 or VkF3 or VkF4)
+        {
+            if (isDown && _egoCameraSyncRequested)
+            {
+                ResetEgoCameraSync();
+                SetStatus("roleplay-active");
+            }
+
+            return false;
+        }
+
         if (virtualKey == VkEscape)
         {
             if (isDown)
@@ -1187,6 +1460,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
         if (!controlled)
         {
+            return false;
+        }
+
+        if (_egoCameraSyncRequested)
+        {
+            // Let OMSI's native F11 camera receive walking/running input. The
+            // current camera pose is mirrored back into the possessed THuman.
             return false;
         }
 
