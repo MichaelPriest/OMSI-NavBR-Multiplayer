@@ -183,7 +183,8 @@ public partial class MainWindow
                 processId = omsi?.ProcessId,
                 version = omsi?.FileVersion,
                 installDirectory = omsi?.InstallDirectory,
-                compatible = omsi?.IsOmsi23004 ?? false
+                compatible = omsi?.IsOmsi23004 ?? false,
+                memory = BuildWebOmsiMemoryState()
             },
             telemetry = telemetry is null
                 ? null
