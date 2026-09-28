@@ -186,9 +186,14 @@ public sealed partial class MainWindow : Window
         var system = Property(state, "system");
         var runtimeHost = Property(system, "runtimeHost");
         var telemetryPollInterval = Integer(runtimeHost, "telemetryPollIntervalMilliseconds");
+        var telemetryLastRead = Number(runtimeHost, "telemetryLastReadMilliseconds");
+        var telemetryAverageRead = Number(runtimeHost, "telemetryAverageReadMilliseconds");
         var hudRefreshInterval = Integer(runtimeHost, "hudRefreshIntervalMilliseconds");
         RuntimeCadenceText.Text =
-            $"Host x86: telemetria {telemetryPollInterval?.ToString() ?? "—"} ms · HUD {hudRefreshInterval?.ToString() ?? "—"} ms";
+            $"Host x86: telemetria {telemetryPollInterval?.ToString() ?? "—"} ms · " +
+            $"leitura {(telemetryAverageRead is > 0d ? telemetryAverageRead.Value.ToString("0.00") : "—")} ms média · " +
+            $"última {(telemetryLastRead is > 0d ? telemetryLastRead.Value.ToString("0.00") : "—")} ms · " +
+            $"HUD {hudRefreshInterval?.ToString() ?? "—"} ms";
 
         var health = Property(system, "sessionHealth");
         var pluginConnected = Bool(health, "pluginConnected");
