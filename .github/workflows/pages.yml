@@ -2,7 +2,7 @@ name: pages
 
 on:
   push:
-    branches: [ main, deploy/alpha14-react-site ]
+    branches: [ main, deploy/alpha14-react-site, site/alpha22-visual-refresh ]
     paths:
       - 'site/**'
       - 'scripts/build_public_manual.py'
