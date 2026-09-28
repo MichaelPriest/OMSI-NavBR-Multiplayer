@@ -100,6 +100,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             throw MultiplayerNetworkErrorClassifier.WrapConnection(ex);
         }
 
+        var companyBadge = System.Windows.Application.Current is App app
+            ? app.NetworkRuntime.CurrentBadge
+            : null;
+
         _joinRequest = new JoinRoomRequest(
             settings.RoomId.Trim(),
             settings.PlayerId.Trim(),
@@ -108,7 +112,8 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             NormalizeOptional(currentMapCompatibilityId),
             compatibility,
             settings.EphemeralRoomPassword,
-            settings.EphemeralCreatePrivateRoom);
+            settings.EphemeralCreatePrivateRoom,
+            companyBadge);
         _physicalVehicles.SetLocalManifest(compatibility);
         _physicalVehicles.SetLocalTelemetry(null);
 
