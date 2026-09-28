@@ -2,6 +2,29 @@
 
 Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 
+## [0.3.0-alpha.22] — ownership físico, HUD restrito ao gameplay e validação online do simulador
+
+### Validado
+
+- cenário online com bots/AI do simulador funcionando em OMSI real;
+- ônibus físicos simulados seguindo corretamente o host com a simulação ativa;
+- pipeline simulador → rede → cliente → plugin → RoadVehicle confirmado operacional.
+
+### Corrigido / melhorado
+
+- state interop ABI v20;
+- sincronização adicional de `RelMatrix`, `Used_RelVec`, `AbsPosition_Inv`, `Velocity` e `Last_Velocity`;
+- proteção da escrita dinâmica de matriz;
+- HUD deixa de ser topmost global e passa a ser associado somente ao gameplay do OMSI;
+- caches e throttling em callbacks/diagnósticos/I/O para reduzir travamentos;
+- manual completo de atalhos e documentação pública atualizada.
+
+### Ainda em validação
+
+- teste ponta a ponta com players reais em dois PCs/duas sessões OMSI;
+- comportamento em redes/mapas/addons variados;
+- ônibus articulados no backend físico.
+
 ## [0.3.0-alpha.21] — multiplayer físico por vehicle paths, NavBR TP/TS e Mobile v3
 
 ### Adicionado
