@@ -19,6 +19,7 @@ internal sealed record CompanyNodeState(
 
 internal static class CompanyNodeStore
 {
+    private const int CurrentSchemaVersion = 2;
     private static readonly object Sync = new();
     private static readonly string DirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -62,9 +63,13 @@ internal static class CompanyNodeStore
                 CompanyRole.President,
                 CompanyPermission.All,
                 now,
-                now);
+                now)
+            {
+                EmployeeNumber = "0001",
+                BadgeIssuedAtUtc = now
+            };
             var company = new CompanyNodeSnapshot(
-                1,
+                CurrentSchemaVersion,
                 $"NC-{Guid.NewGuid():N}".ToUpperInvariant(),
                 localCompany.Name.Trim(),
                 NormalizeShortName(localCompany.ShortName, localCompany.Name),
@@ -166,7 +171,11 @@ internal static class CompanyNodeStore
                 {
                     DisplayName = request.Identity.DisplayName.Trim(),
                     PublicKeySpkiBase64 = request.Identity.PublicKeySpkiBase64,
-                    LastSeenAtUtc = now
+                    LastSeenAtUtc = now,
+                    EmployeeNumber = string.IsNullOrWhiteSpace(previous.EmployeeNumber)
+                        ? NextEmployeeNumber(members)
+                        : previous.EmployeeNumber,
+                    BadgeIssuedAtUtc = previous.BadgeIssuedAtUtc ?? previous.JoinedAtUtc
                 };
             }
             else
@@ -183,7 +192,11 @@ internal static class CompanyNodeStore
                     inviteIndex.invite.Role,
                     CompanyRolePolicy.DefaultPermissions(inviteIndex.invite.Role),
                     now,
-                    now));
+                    now)
+                {
+                    EmployeeNumber = NextEmployeeNumber(members),
+                    BadgeIssuedAtUtc = now
+                });
             }
 
             var invites = _cached.Invites.ToList();
@@ -371,13 +384,114 @@ internal static class CompanyNodeStore
             {
                 return null;
             }
-            return parsed;
+
+            var migrated = EnsureEmployeeBadges(parsed);
+            if (!ReferenceEquals(migrated, parsed))
+            {
+                Persist(migrated);
+            }
+            return migrated;
         }
         catch
         {
             return null;
         }
     }
+
+    private static CompanyNodeState EnsureEmployeeBadges(CompanyNodeState state)
+    {
+        var members = state.Company.Members.ToList();
+        var used = new HashSet<int>();
+        var changed = state.Company.SchemaVersion < CurrentSchemaVersion;
+
+        foreach (var member in members)
+        {
+            if (TryParseEmployeeNumber(member.EmployeeNumber, out var number))
+            {
+                used.Add(number);
+            }
+        }
+
+        var next = 1;
+        for (var index = 0; index < members.Count; index++)
+        {
+            var member = members[index];
+            if (TryParseEmployeeNumber(member.EmployeeNumber, out _))
+            {
+                if (member.BadgeIssuedAtUtc is null)
+                {
+                    members[index] = member with
+                    {
+                        BadgeIssuedAtUtc = member.JoinedAtUtc
+                    };
+                    changed = true;
+                }
+                continue;
+            }
+
+            while (used.Contains(next))
+            {
+                next++;
+            }
+
+            members[index] = member with
+            {
+                EmployeeNumber = FormatEmployeeNumber(next),
+                BadgeIssuedAtUtc = member.JoinedAtUtc
+            };
+            used.Add(next);
+            next++;
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return state;
+        }
+
+        return state with
+        {
+            Company = state.Company with
+            {
+                SchemaVersion = CurrentSchemaVersion,
+                Members = members,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            }
+        };
+    }
+
+    private static string NextEmployeeNumber(IReadOnlyList<CompanyMemberRecord> members)
+    {
+        var used = members
+            .Select(member => TryParseEmployeeNumber(member.EmployeeNumber, out var number)
+                ? number
+                : 0)
+            .Where(number => number > 0)
+            .ToHashSet();
+
+        var next = 1;
+        while (used.Contains(next))
+        {
+            next++;
+        }
+
+        return FormatEmployeeNumber(next);
+    }
+
+    private static bool TryParseEmployeeNumber(string? value, out int number)
+    {
+        number = 0;
+        return !string.IsNullOrWhiteSpace(value) &&
+               int.TryParse(
+                   value.Trim(),
+                   System.Globalization.NumberStyles.None,
+                   System.Globalization.CultureInfo.InvariantCulture,
+                   out number) &&
+               number is > 0 and <= 999999;
+    }
+
+    private static string FormatEmployeeNumber(int number) =>
+        number.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string NormalizeShortName(string? shortName, string companyName)
     {
