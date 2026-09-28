@@ -86,7 +86,8 @@ public partial class App : Application
                         payload.GetProperty("companyNetwork").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("companyNetwork").GetProperty("node").ValueKind !=
-                            System.Text.Json.JsonValueKind.Null)
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("multiplayer").TryGetProperty("players", out _))
                     {
                         throw new InvalidOperationException(
                             "Runtime Host scoped home state smoke returned unexpected modules.");
@@ -141,6 +142,21 @@ public partial class App : Application
                     {
                         throw new InvalidOperationException(
                             "Runtime Host scoped company state smoke did not include Company Node details.");
+                    }
+                }
+
+                using (var multiplayerState = await runtime.GetStateAsync("multiplayer"))
+                {
+                    var payload = multiplayerState.RootElement.GetProperty("payload");
+                    var multiplayer = payload.GetProperty("multiplayer");
+                    if (multiplayer.ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        !multiplayer.TryGetProperty("players", out var players) ||
+                        players.ValueKind !=
+                            System.Text.Json.JsonValueKind.Array)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped multiplayer state smoke did not include full player details.");
                     }
                 }
 
