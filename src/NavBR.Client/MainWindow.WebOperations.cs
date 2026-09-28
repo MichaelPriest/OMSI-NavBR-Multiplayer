@@ -39,7 +39,7 @@ public partial class MainWindow
             roomId = session.RoomId,
             updatedAtUtc = session.UpdatedAt,
             canManageReports = DispatcherOperationalFeed.CanManageReports,
-            operatorBadge = companyBadge,
+            operatorBadge = BuildWebCompanyBadge(companyBadge),
             operatorBadgeVerified,
             localOperation = telemetry is null
                 ? null
@@ -87,7 +87,7 @@ public partial class MainWindow
                         headingDegrees = driver.HeadingDegrees,
                         receivedAtUtc = driver.ReceivedAtUtc,
                         stale = now - driver.ReceivedAtUtc > TimeSpan.FromSeconds(10d),
-                        companyBadge = driver.CompanyBadge,
+                        companyBadge = BuildWebCompanyBadge(driver.CompanyBadge),
                         companyBadgeVerified = badgeVerified,
                         latestReport = latestReport is null
                             ? null
