@@ -265,6 +265,12 @@
                 <local:HardwarePage x:Name="NativeHardwarePage"
                                     Visibility="Collapsed"/>
 
+                <local:DiagnosticsPage x:Name="NativeDiagnosticsPage"
+                                       Visibility="Collapsed"/>
+
+                <local:SettingsPage x:Name="NativeSettingsPage"
+                                    Visibility="Collapsed"/>
+
                 <local:OperationsPage x:Name="NativeOperationsPage"
                                       Visibility="Collapsed"/>
 
