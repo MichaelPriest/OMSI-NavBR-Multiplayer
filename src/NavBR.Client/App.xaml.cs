@@ -101,15 +101,19 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var nativeHost = new MainWindow(nativeHostOnly);
         MainWindow = nativeHost;
-        nativeHost.InitializeRoleplayForShell();
-        TrayIcon.Attach(nativeHost);
 
-        // Bring IPC online before telemetry/HUD work. The WinUI process can now
-        // handshake immediately even if an overlay or OMSI probe takes longer.
+        // Bring IPC online before any optional/legacy runtime service. The WinUI
+        // process must be able to handshake even if RP, tray, HUD or OMSI probes
+        // take longer on a user's machine.
         _nativeShellBridge = new NativeShellBridgeServer(nativeHost);
         _nativeShellBridge.Start();
         NavBRAppLog.Info("native-shell-bridge-start");
 
+        nativeHost.InitializeRoleplayForShell();
+        if (!nativeHostOnly)
+        {
+            TrayIcon.Attach(nativeHost);
+        }
         nativeHost.StartNativeRuntimeForReact();
 
         try
