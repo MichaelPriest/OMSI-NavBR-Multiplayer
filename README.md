@@ -4,7 +4,7 @@ Companion app independente para **OMSI 2**, com navegação/HUD, telemetria, mul
 
 ## Versão pública atual
 
-A versão pública e atual é **v0.3.0-alpha.21**.
+A versão pública e atual é **v0.3.0-alpha.22**.
 
 - cliente principal: **instalador/EXE Windows x86**;
 - **APK Android NavBR Mobile Companion Alpha 2**;
@@ -14,9 +14,9 @@ A versão pública e atual é **v0.3.0-alpha.21**.
 - simulador multiplayer de desenvolvimento/teste;
 - documentação e SHA256SUMS.
 
-> **STATUS DE VALIDAÇÃO DA ALPHA.21:** o teste online com **bots/AI do simulador seguindo o host no OMSI real foi validado com sucesso**, incluindo materialização e seguimento pela trajetória. Isso confirma o caminho de teste automatizado/simulado do multiplayer físico. **Ainda falta validar ponta a ponta com players reais em dois PCs/duas sessões reais do OMSI**, portanto o recurso continua experimental até essa etapa ser concluída.
+> **STATUS DE VALIDAÇÃO DA ALPHA.22:** o teste online com **bots/AI do simulador seguindo o host no OMSI real foi validado com sucesso**, incluindo materialização e seguimento pela trajetória. Isso confirma o caminho de teste automatizado/simulado do multiplayer físico. **Ainda falta validar ponta a ponta com players reais em dois PCs/duas sessões reais do OMSI**, portanto o recurso continua experimental até essa etapa ser concluída.
 
-## Destaques da Alpha.21
+## Destaques da Alpha.22
 
 - **validação online do simulador físico concluída:** bots/AI apareceram no OMSI real e seguiram o host corretamente;
 - sincronização física entre **players reais ainda pendente de teste** em dois PCs/duas sessões OMSI;
@@ -145,7 +145,7 @@ Ainda exigem validação física mais ampla: câmera dedicada, terreno inclinado
 
 ## Ghost / Replay
 
-A Alpha.21 mantém o fluxo principal de Ghost na interface React.
+A Alpha.22 mantém o fluxo principal de Ghost na interface React.
 
 - grava telemetria local real a cada 100 ms;
 - salva arquivos `.navbrghost` usando o `GhostRecorder` existente;
@@ -167,7 +167,7 @@ A Alpha.21 mantém o fluxo principal de Ghost na interface React.
 
 ## Documentação
 
-- [docs/ALPHA21_RELEASE_NOTES.md](docs/ALPHA21_RELEASE_NOTES.md) — notas, validações e limitações públicas da Alpha.21;
+- [docs/ALPHA21_RELEASE_NOTES.md](docs/ALPHA21_RELEASE_NOTES.md) — notas, validações e limitações públicas da Alpha.22;
 - [docs/MULTIPLAYER_STATUS.md](docs/MULTIPLAYER_STATUS.md) — estado real dos testes multiplayer;
 - [docs/KEYBOARD_SHORTCUTS.md](docs/KEYBOARD_SHORTCUTS.md) — manual completo de atalhos;
 - [docs/ALPHA18_RELEASE_NOTES.md](docs/ALPHA18_RELEASE_NOTES.md) — histórico da Alpha.18;
@@ -200,7 +200,7 @@ Consulte [LICENSE](LICENSE) e [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Interface principal React/WebView2
 
-A Alpha.21 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
+A Alpha.22 usa **React + TypeScript + Vite em WebView2 como shell desktop principal**. O processo continua sendo o cliente .NET/WPF x86: C# permanece responsável por telemetria, OMSI/plugin, SignalR, host TCP 27730, pipeline de voz/Opus, Firewall/NAT/UPnP, Hardware Cockpit, arquivos do OMSI, renderização/interação do HUD, arquivos do mapa/roadmap, geração de roadmaps, gravação/arquivos e playback físico de Ghosts e runtime físico do RP.
 
 O shell WPF anterior não é mais uma superfície acessível ao usuário. O `MainWindow` continua compilado temporariamente apenas como **host técnico em memória** enquanto serviços nativos ainda são desacoplados de sua classe. O app não usa mais `StartupUri="MainWindow.xaml"` e não chama mais `Show()` no host; telemetria, estatísticas, RP e tray são inicializados explicitamente e os antigos installers/renderizadores visuais da Alpha.11/12 não são executados. Fechar o React mantém o NavBR na bandeja em vez de reabrir o layout antigo. Falhas de carregamento do WebView2 são apresentadas no painel de erro da própria janela React/WebView2. O ícone da bandeja sempre reabre a interface React. **Mover HUD** continua nativo por depender da interação direta com o overlay do OMSI.
 
