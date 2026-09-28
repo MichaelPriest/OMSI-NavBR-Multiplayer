@@ -14,6 +14,7 @@ public partial class MainWindow
     private MultiplayerWindow? _multiplayerWindow;
     private HudOverlayWindow? _hudOverlay;
     private DispatcherTimer? _hudStateTimer;
+    private int _hudRefreshIntervalMs = 200;
     private int? _hudAttachedOmsiProcessId;
     private bool _multiplayerLocalizationHooked;
     private bool _hudLifetimeHooked;
@@ -231,7 +232,7 @@ public partial class MainWindow
         {
             _hudStateTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(200)
+                Interval = TimeSpan.FromMilliseconds(_hudRefreshIntervalMs)
             };
             _hudStateTimer.Tick += (_, _) => UpdateHudLocalState();
         }
@@ -276,6 +277,37 @@ public partial class MainWindow
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
         _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         UpdateHudRoleplayStateForShell();
+        UpdateHudRefreshCadence();
+    }
+
+    private void UpdateHudRefreshCadence()
+    {
+        if (_hudStateTimer is null)
+        {
+            return;
+        }
+
+        var status = (System.Windows.Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo()
+            .LastStatus;
+        var intervalMs = ComputeAdaptiveRuntimeIntervalMs(
+            status?.PerformanceProfile,
+            status?.PluginPressureLevel ?? 0,
+            _lastTelemetry?.IsInGame == true,
+            qualityMs: 125,
+            multiplayerMs: 150,
+            stabilityMs: 300,
+            diagnosticsMs: 250,
+            automaticMs: 200);
+
+        if (_hudRefreshIntervalMs == intervalMs)
+        {
+            return;
+        }
+
+        _hudRefreshIntervalMs = intervalMs;
+        _hudStateTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
     }
 
     private OmsiMapInfo? GetActiveMapForMultiplayer()
