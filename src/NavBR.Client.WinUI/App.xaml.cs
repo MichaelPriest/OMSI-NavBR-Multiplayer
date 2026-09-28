@@ -11,14 +11,48 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var smokeOnly = Environment
-            .GetCommandLineArgs()
-            .Any(argument => string.Equals(
-                argument,
-                "--xaml-smoke",
-                StringComparison.OrdinalIgnoreCase));
+        var commandLine = Environment.GetCommandLineArgs();
+        var smokeOnly = commandLine.Any(argument => string.Equals(
+            argument,
+            "--xaml-smoke",
+            StringComparison.OrdinalIgnoreCase));
+        var runtimeSmoke = commandLine.Any(argument => string.Equals(
+            argument,
+            "--runtime-smoke",
+            StringComparison.OrdinalIgnoreCase));
+
+        if (runtimeSmoke)
+        {
+            try
+            {
+                var runtime = new NativeHostClient();
+                await runtime.EnsureRuntimeHostAsync();
+
+                using var state = await runtime.GetStateAsync();
+                var root = state.RootElement;
+                if (!root.TryGetProperty("ok", out var ok) ||
+                    !ok.GetBoolean() ||
+                    !root.TryGetProperty("payload", out var payload) ||
+                    payload.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                    !payload.TryGetProperty("appVersion", out _))
+                {
+                    throw new InvalidOperationException(
+                        "Runtime Host IPC state smoke returned an invalid payload.");
+                }
+
+                await runtime.ShutdownOwnedHostAsync();
+                Environment.Exit(0);
+                return;
+            }
+            catch (Exception ex)
+            {
+                StartupLog.Write(ex);
+                Environment.Exit(87);
+                return;
+            }
+        }
 
         try
         {
