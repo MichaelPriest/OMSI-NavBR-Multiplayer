@@ -367,6 +367,11 @@ public partial class MainWindow
                 OpenPrimaryWebShell();
                 break;
 
+            case "setPerformanceProfile":
+                await SetPerformanceProfileFromWebAsync(
+                    GetWebPayloadString(payload, "profile"));
+                break;
+
             case "setShellTopmost":
                 if (_webShellWindow is not null)
                 {
