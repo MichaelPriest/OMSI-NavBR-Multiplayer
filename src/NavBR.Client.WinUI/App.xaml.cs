@@ -67,6 +67,20 @@ public partial class App : Application
                             System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("system").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("runtimeHost").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("sessionHealth").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("pluginInstallation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("system").GetProperty("hud").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("system").GetProperty("diagnostics").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("system").GetProperty("installations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("system").GetProperty("legacyPreferences").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("multiplayer").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("companyNetwork").ValueKind !=
@@ -100,6 +114,10 @@ public partial class App : Application
                     if (payload.GetProperty("network").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("system").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("pluginInstallation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("diagnostics").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("navigation").ValueKind !=
                             System.Text.Json.JsonValueKind.Null ||
