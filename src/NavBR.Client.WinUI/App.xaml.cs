@@ -69,6 +69,10 @@ public partial class App : Application
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("system").GetProperty("runtimeHost").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").GetProperty("runtimeHost").GetProperty("telemetryLastReadMilliseconds").ValueKind !=
+                            System.Text.Json.JsonValueKind.Number ||
+                        payload.GetProperty("system").GetProperty("runtimeHost").GetProperty("telemetryAverageReadMilliseconds").ValueKind !=
+                            System.Text.Json.JsonValueKind.Number ||
                         payload.GetProperty("system").GetProperty("sessionHealth").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("system").GetProperty("pluginInstallation").ValueKind !=
