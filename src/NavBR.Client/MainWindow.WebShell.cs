@@ -134,6 +134,13 @@ public partial class MainWindow
         window.Activate();
     }
 
+    internal object BuildNativeShellState() => BuildWebShellState();
+
+    internal Task ExecuteNativeShellCommandAsync(
+        string command,
+        JsonElement? payload) =>
+        HandleWebShellCommandAsync(command, payload);
+
     private object BuildWebShellState()
     {
         var telemetry = _lastTelemetry;
