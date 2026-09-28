@@ -15,12 +15,16 @@ internal static class PluginBridgeClient
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
     private static readonly TrafficVehicleRegistry TrafficVehicles = new();
     private static readonly ConcurrentQueue<PluginBridgeMessage> OutboundCommandResults = new();
+    private const long SuccessfulCommandLogIntervalMs = 5_000;
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
     private static Action<string>? _log;
     private static PluginBridgeMessage? _localState;
     private static PluginBridgeMessage? _pendingStatus;
+    private static string[]? _cachedCapabilities;
+    private static long _lastSuccessfulCommandLogTickMs;
+    private static long _successfulCommandResultsSinceLog;
 
     private static readonly string? ComponentVersion =
         typeof(PluginBridgeClient).Assembly
@@ -78,6 +82,39 @@ internal static class PluginBridgeClient
         }
 
         OutboundCommandResults.Enqueue(result);
+
+        // Successful pose/visual updates are high-frequency state, not useful
+        // as one log line per command. Keep every IPC result, but batch only the
+        // diagnostic log so string formatting/file-queue pressure stays off the
+        // OMSI callback thread. Errors remain fully logged below.
+        if (result.Success == true)
+        {
+            Interlocked.Increment(ref _successfulCommandResultsSinceLog);
+            var now = Environment.TickCount64;
+            var previous = Interlocked.Read(ref _lastSuccessfulCommandLogTickMs);
+            if (previous > 0 &&
+                now >= previous &&
+                now - previous < SuccessfulCommandLogIntervalMs)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref _lastSuccessfulCommandLogTickMs,
+                    now,
+                    previous) != previous)
+            {
+                return;
+            }
+
+            var batched = Interlocked.Exchange(
+                ref _successfulCommandResultsSinceLog,
+                0);
+            Log(
+                $"command-results success={batched} latest={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"}");
+            return;
+        }
+
         var detail = string.IsNullOrWhiteSpace(result.ErrorMessage)
             ? "-"
             : result.ErrorMessage
@@ -207,11 +244,7 @@ internal static class PluginBridgeClient
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
                 LocalVehicleCommandProcessor.ExperimentalWritesEnabled,
-            Capabilities: ExperimentalVehicleCommandProcessor
-                .GetCapabilities()
-                .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
-                .Distinct(StringComparer.Ordinal)
-                .ToArray());
+            Capabilities: GetCachedCapabilities());
 
         lock (StatusSync)
         {
@@ -279,11 +312,7 @@ internal static class PluginBridgeClient
                     ExperimentalWritesEnabled:
                         ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                         RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
-                    Capabilities: ExperimentalVehicleCommandProcessor
-                        .GetCapabilities()
-                        .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
-                        .Distinct(StringComparer.Ordinal)
-                        .ToArray());
+                    Capabilities: GetCachedCapabilities());
                 await writer.WriteLineAsync(SerializeMessage(capabilities));
                 await writer.FlushAsync(cancellationToken);
 
@@ -614,6 +643,26 @@ internal static class PluginBridgeClient
 
     private static bool IsFinite(double? value) =>
         value is double number && double.IsFinite(number);
+
+    private static string[] GetCachedCapabilities()
+    {
+        var cached = Volatile.Read(ref _cachedCapabilities);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        var built = ExperimentalVehicleCommandProcessor
+            .GetCapabilities()
+            .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Interlocked.CompareExchange(
+            ref _cachedCapabilities,
+            built,
+            null);
+        return _cachedCapabilities ?? built;
+    }
 
     private static string SerializeMessage(PluginBridgeMessage message) =>
         JsonSerializer.Serialize(
