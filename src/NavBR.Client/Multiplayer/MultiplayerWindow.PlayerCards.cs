@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
@@ -333,6 +334,19 @@ public partial class MultiplayerWindow
             FontWeight = FontWeights.SemiBold,
             TextTrimming = TextTrimming.CharacterEllipsis
         });
+        if (player.CompanyBadge is { } companyBadge)
+        {
+            identity.Children.Add(new TextBlock
+            {
+                Text = BuildCompanyBadgeLine(companyBadge),
+                Foreground = PlayerCardBrush(86, 194, 255),
+                FontSize = 9.2d,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0d, 2d, 0d, 0d)
+            });
+        }
+
         identity.Children.Add(new TextBlock
         {
             Text = BuildPlayerServiceLine(telemetry, player),
@@ -487,6 +501,27 @@ public partial class MultiplayerWindow
             Margin = new Thickness(0d, 0d, 5d, 5d),
             Child = stack
         };
+    }
+
+    private static string BuildCompanyBadgeLine(CompanyEmployeeBadge badge)
+    {
+        var company = string.IsNullOrWhiteSpace(badge.CompanyShortName)
+            ? badge.CompanyName
+            : badge.CompanyShortName;
+        var role = badge.Role switch
+        {
+            CompanyRole.President => PlayerCardText("Presidente", "President", "Presidente", "Präsident", "Président"),
+            CompanyRole.VicePresident => PlayerCardText("Vice-Presidente", "Vice President", "Vicepresidente", "Vizepräsident", "Vice-président"),
+            CompanyRole.Director => PlayerCardText("Diretoria", "Director", "Dirección", "Direktor", "Direction"),
+            CompanyRole.OperationsManager => PlayerCardText("Gerente Operacional", "Operations Manager", "Gerente operativo", "Betriebsleiter", "Responsable opérations"),
+            CompanyRole.Dispatcher => PlayerCardText("CCO / Despachante", "CCO / Dispatcher", "CCO / Dispatcher", "Leitstelle", "PCC / Dispatcher"),
+            CompanyRole.Supervisor => PlayerCardText("Fiscal / Supervisor", "Supervisor", "Supervisor", "Supervisor", "Superviseur"),
+            CompanyRole.SeniorDriver => PlayerCardText("Motorista Sênior", "Senior Driver", "Conductor sénior", "Senior-Fahrer", "Conducteur senior"),
+            CompanyRole.Driver => PlayerCardText("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur"),
+            _ => PlayerCardText("Aprendiz", "Trainee", "Aprendiz", "Anwärter", "Apprenti")
+        };
+
+        return $"{company} • CRACHÁ {badge.EmployeeNumber} • {role}";
     }
 
     private static string BuildPlayerServiceLine(VehicleTelemetry? telemetry, PlayerPresence player)
