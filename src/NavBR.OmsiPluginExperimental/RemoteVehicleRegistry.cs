@@ -159,6 +159,25 @@ internal sealed class RemoteVehicleRegistry
         }
     }
 
+    public (int Removed, int Total, int Compatible) PruneAndCount(
+        PluginBridgeMessage? localState)
+    {
+        lock (_sync)
+        {
+            var removed = PruneStaleUnsafe(DateTimeOffset.UtcNow);
+            var compatible = 0;
+            foreach (var entry in _entries.Values)
+            {
+                if (IsCompatible(localState, entry.Current))
+                {
+                    compatible++;
+                }
+            }
+
+            return (removed, _entries.Count, compatible);
+        }
+    }
+
     private int PruneStaleUnsafe(DateTimeOffset now)
     {
         _staleIds.Clear();
