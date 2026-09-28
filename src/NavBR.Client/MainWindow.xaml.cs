@@ -265,7 +265,13 @@ public partial class MainWindow : Window
         if (telemetry is not null)
         {
             _lastTelemetry = telemetry;
-            HardwareCockpitBridgeController.Shared.PublishTelemetry(GetCurrentTelemetryForAlpha11());
+            var hardwareCockpit =
+                HardwareCockpitBridgeController.Shared;
+            if (hardwareCockpit.WantsTelemetry)
+            {
+                hardwareCockpit.PublishTelemetry(
+                    GetCurrentTelemetryForAlpha11());
+            }
             _statusKey = "TelemetryConnected";
             _telemetryStatusKey = telemetry.IsInGame
                 ? "TelemetryConnected"
