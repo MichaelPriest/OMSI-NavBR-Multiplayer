@@ -44,6 +44,34 @@ public partial class App : Application
                     }
                 }
 
+                using (var homeState = await runtime.GetStateAsync("home"))
+                {
+                    var payload = homeState.RootElement.GetProperty("payload");
+                    if (payload.GetProperty("navigation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("navigation3D").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("system").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped home state smoke returned unexpected modules.");
+                    }
+                }
+
+                using (var navigationState = await runtime.GetStateAsync("navigation"))
+                {
+                    var payload = navigationState.RootElement.GetProperty("payload");
+                    if (payload.GetProperty("navigation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("navigation3D").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped navigation state smoke did not include navigation modules.");
+                    }
+                }
+
                 await runtime.SendCommandAsync(
                     "setPerformanceProfile",
                     new { profile = "stability" });
