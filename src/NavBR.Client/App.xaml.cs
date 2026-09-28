@@ -89,12 +89,17 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        var nativeHostOnly = e.Args.Any(argument =>
+            string.Equals(
+                argument,
+                "--native-host",
+                StringComparison.OrdinalIgnoreCase));
+
         // The historical WPF MainWindow is now only an in-memory native-service
-        // host. Do not Show() it: React/WebView2 is the only desktop window
-        // exposed to the user. Explicit shutdown keeps the tray/runtime alive
-        // when the React shell is closed.
+        // host. In WinUI mode it skips retired visual initialization while
+        // preserving telemetry, HUD, multiplayer and companion services.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        var nativeHost = new MainWindow();
+        var nativeHost = new MainWindow(nativeHostOnly);
         MainWindow = nativeHost;
         nativeHost.InitializeRoleplayForShell();
         TrayIcon.Attach(nativeHost);
@@ -118,12 +123,6 @@ public partial class App : Application
             NavBRAppLog.Error("mobile-companion-start-error", ex);
             MobileCompanion = null;
         }
-
-        var nativeHostOnly = e.Args.Any(argument =>
-            string.Equals(
-                argument,
-                "--native-host",
-                StringComparison.OrdinalIgnoreCase));
 
         if (nativeHostOnly)
         {
