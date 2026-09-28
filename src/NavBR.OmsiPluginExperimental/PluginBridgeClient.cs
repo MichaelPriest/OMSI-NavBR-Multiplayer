@@ -113,7 +113,13 @@ internal static class PluginBridgeClient
         string? ibisTerminusName = null,
         string? ibisDelayMinutes = null,
         string? ibisDelaySeconds = null,
-        string? ibisDelayState = null)
+        string? ibisDelayState = null,
+        int? pluginPressureLevel = null,
+        double? pluginWorkMilliseconds = null,
+        double? pluginAverageWorkMilliseconds = null,
+        double? pluginAverageFrameIntervalMilliseconds = null,
+        long? pluginMinimumWorkIntervalMilliseconds = null,
+        int? pluginMaxCommandsPerSlice = null)
     {
         int? physicalGridX = null;
         int? physicalGridY = null;
@@ -184,11 +190,21 @@ internal static class PluginBridgeClient
             GridX: physicalGridX,
             GridY: physicalGridY,
             MapTileIndex: physicalMapTileIndex,
+            PluginPressureLevel: pluginPressureLevel,
+            PluginWorkMilliseconds: pluginWorkMilliseconds,
+            PluginAverageWorkMilliseconds: pluginAverageWorkMilliseconds,
+            PluginAverageFrameIntervalMilliseconds: pluginAverageFrameIntervalMilliseconds,
+            PluginMinimumWorkIntervalMilliseconds: pluginMinimumWorkIntervalMilliseconds,
+            PluginMaxCommandsPerSlice: pluginMaxCommandsPerSlice,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
                 LocalVehicleCommandProcessor.ExperimentalWritesEnabled,
-            Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
+            Capabilities: ExperimentalVehicleCommandProcessor
+                .GetCapabilities()
+                .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray());
 
         lock (StatusSync)
         {
@@ -256,7 +272,11 @@ internal static class PluginBridgeClient
                     ExperimentalWritesEnabled:
                         ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                         RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
-                    Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
+                    Capabilities: ExperimentalVehicleCommandProcessor
+                        .GetCapabilities()
+                        .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray());
                 await writer.WriteLineAsync(SerializeMessage(capabilities));
                 await writer.FlushAsync(cancellationToken);
 
