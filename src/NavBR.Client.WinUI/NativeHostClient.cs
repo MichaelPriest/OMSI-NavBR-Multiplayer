@@ -139,12 +139,38 @@ internal sealed class NativeHostClient
             if (_ownedHost is not null &&
                 !_ownedHost.HasExited)
             {
-                await _ownedHost.WaitForExitAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(3));
+                try
+                {
+                    await _ownedHost.WaitForExitAsync()
+                        .WaitAsync(TimeSpan.FromSeconds(8));
+                }
+                catch (TimeoutException)
+                {
+                    // WPF shutdown can legitimately spend a couple seconds
+                    // flushing diagnostics and disposing background services.
+                    // If the host we started still refuses to exit, terminate
+                    // only that owned process so WinUI never leaves an orphan.
+                    if (!_ownedHost.HasExited)
+                    {
+                        _ownedHost.Kill(entireProcessTree: true);
+                        await _ownedHost.WaitForExitAsync()
+                            .WaitAsync(TimeSpan.FromSeconds(2));
+                    }
+                }
             }
         }
         catch
         {
+            if (_ownedHost is { HasExited: false })
+            {
+                try
+                {
+                    _ownedHost.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                }
+            }
         }
         finally
         {
