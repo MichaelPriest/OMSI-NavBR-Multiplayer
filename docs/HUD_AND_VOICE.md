@@ -199,4 +199,4 @@ Ela inclui Chat/PTT configuráveis, `Ctrl+Alt+H`, comandos do NavBR TP/TS e cont
 
 ## Escopo da janela do HUD
 
-Na Alpha.21 atualizada, o HUD não usa mais uma janela desktop-global `Topmost`. O overlay fica associado ao HWND de gameplay do OMSI e é ocultado quando outra aplicação ou outra janela superior do OMSI assume o foco.
+Na Alpha.22, o HUD não usa mais uma janela desktop-global `Topmost`. O overlay fica associado ao HWND de gameplay do OMSI e é ocultado quando outra aplicação ou outra janela superior do OMSI assume o foco.
