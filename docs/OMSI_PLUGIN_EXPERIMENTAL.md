@@ -5,7 +5,7 @@ O plugin de escrita física continua **experimental, opt-in e focado no OMSI 2.3
 ## Bridge v3
 
 - named pipe: OMSI.NavBR.Multiplayer.Plugin.v3;
-- ABI/state version 3;
+- Plugin Bridge/protocol v3;
 - plugin Native AOT x86;
 - capacidades atualizadas em runtime;
 - capability `vehicle-interpolation` para ônibus remoto físico suavizado;
@@ -128,3 +128,25 @@ writes, interpolation scales from 50 Hz down to 30/20 Hz as physical-bus count
 grows, command draining is rate-limited, readback runs at 1 Hz during smooth
 motion, and file logging is handed to a background writer. Players beyond the
 physical budget remain present in the session, HUD and maps.
+
+
+## Alpha.21 — state interop ABI v20
+
+O caminho físico promovido após a validação do simulador usa **state interop ABI v20**.
+
+Principais mudanças:
+
+- ownership externo do `RoadVehicle` reforçado;
+- sincronização de `Velocity` / `Last_Velocity`;
+- sincronização de `Used_RelVec`;
+- relação `RelMatrix` / `RelMatrixVar` tratada separadamente da matriz local `Pos_Mat`;
+- `AbsPosition_Inv` mantida junto da matriz absoluta;
+- corpo ODE remoto mantido sob autoridade do NavBR;
+- diagnósticos de comparação de corpo/posição;
+- proteção contra escrita em ponteiros de matriz não materializados.
+
+### Estado de validação
+
+O teste online com **bots/AI do simulador** foi concluído com sucesso: os ônibus físicos simulados passaram a seguir o host com o OMSI em execução normal.
+
+Ainda falta o teste equivalente com **players reais em dois PCs/duas sessões OMSI**. Até essa etapa ser concluída, o backend físico continua experimental.
