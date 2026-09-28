@@ -216,6 +216,7 @@ function SiteHeader({ t, language, setLanguage, current }) {
 
 function Hero({ t, current, language, setLanguage }) {
   const installer = pickAsset(current, /Setup-win-x86\.exe$/i);
+  const showcase = SHOWCASE_COPY[language] || SHOWCASE_COPY.en;
   return (
     <section id="inicio" className="v4-hero">
       <div className="v4-shell v4-hero-grid">
@@ -235,9 +236,11 @@ function Hero({ t, current, language, setLanguage }) {
           <div className="v4-package-line">• Windows &nbsp;• Plugin &nbsp;• Server &nbsp;• Mobile APK &nbsp;• Documentation</div>
         </div>
 
-        <figure className="v4-hero-art">
-          <img src="./assets/navbr-mockup-approved.webp" alt="OMSI NavBR Alpha.22 product interface composition" />
-          <figcaption>{SHOWCASE_COPY[language]?.heroCaption || SHOWCASE_COPY.en.heroCaption}</figcaption>
+        <figure className="v4-hero-art v4-hero-product-art">
+          <ScreenPreview type="home" eyebrow={showcase.screens.home[0]} title={showcase.screens.home[1]} featured />
+          <div className="v4-hero-floating-ui nav"><ScreenPreview type="navigation" eyebrow={showcase.screens.navigation[0]} title={showcase.screens.navigation[1]} /></div>
+          <div className="v4-hero-floating-ui multi"><ScreenPreview type="multiplayer" eyebrow={showcase.screens.multiplayer[0]} title={showcase.screens.multiplayer[1]} /></div>
+          <figcaption>{showcase.heroCaption}</figcaption>
         </figure>
 
         <aside className="v4-language-rail">
