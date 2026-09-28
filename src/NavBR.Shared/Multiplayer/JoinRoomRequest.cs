@@ -11,4 +11,5 @@ public sealed record JoinRoomRequest(
     OmsiCompatibilityManifest? Compatibility = null,
     string? RoomPassword = null,
     bool CreatePrivateRoom = false,
-    CompanyEmployeeBadge? CompanyBadge = null);
+    CompanyEmployeeBadge? CompanyBadge = null,
+    CompanyBadgePresenceProof? CompanyBadgeProof = null);
