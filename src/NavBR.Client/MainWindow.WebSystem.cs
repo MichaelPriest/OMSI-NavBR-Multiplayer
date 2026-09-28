@@ -782,20 +782,18 @@ public partial class MainWindow
             multiplayerConnected = session.Connected,
             pluginConnected = plugin?.IsConnected == true,
             pluginVersion = plugin?.PluginComponentVersion,
-            pluginPerformance = plugin?.LastStatus is { } pluginStatus
-                ? new
-                {
-                    pressureLevel = pluginStatus.PluginPressureLevel,
-                    workMilliseconds = pluginStatus.PluginWorkMilliseconds,
-                    averageWorkMilliseconds = pluginStatus.PluginAverageWorkMilliseconds,
-                    averageFrameIntervalMilliseconds = pluginStatus.PluginAverageFrameIntervalMilliseconds,
-                    minimumWorkIntervalMilliseconds = pluginStatus.PluginMinimumWorkIntervalMilliseconds,
-                    maxCommandsPerSlice = pluginStatus.PluginMaxCommandsPerSlice,
-                    configuredProfile = MultiplayerSettingsStore.Load().PerformanceProfile,
-                    activeProfile = pluginStatus.PerformanceProfile,
-                    queueBackpressureActive = pluginStatus.PluginPressureLevel is > 0
-                }
-                : null,
+            pluginPerformance = new
+            {
+                pressureLevel = plugin?.LastStatus?.PluginPressureLevel,
+                workMilliseconds = plugin?.LastStatus?.PluginWorkMilliseconds,
+                averageWorkMilliseconds = plugin?.LastStatus?.PluginAverageWorkMilliseconds,
+                averageFrameIntervalMilliseconds = plugin?.LastStatus?.PluginAverageFrameIntervalMilliseconds,
+                minimumWorkIntervalMilliseconds = plugin?.LastStatus?.PluginMinimumWorkIntervalMilliseconds,
+                maxCommandsPerSlice = plugin?.LastStatus?.PluginMaxCommandsPerSlice,
+                configuredProfile = MultiplayerSettingsStore.Load().PerformanceProfile,
+                activeProfile = plugin?.LastStatus?.PerformanceProfile,
+                queueBackpressureActive = plugin?.LastStatus?.PluginPressureLevel is > 0
+            },
             remoteDrivers = session.Connected ? session.RemoteDrivers.Count : 0,
             remoteTelemetryAgeSeconds = freshnessSeconds,
             latencyMs = networkReady ? network.RoundTripMs : null,
