@@ -14,6 +14,7 @@ namespace NavBR.Client.Telemetry;
 public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 {
     private const long VehicleIdentityRefreshMs = 5_000;
+    private const long VehicleTileRefreshMs = 2_000;
 
     private ReadOnlyProcessMemory? _memory;
     private OmsiProcessInfo? _processInfo;
@@ -28,6 +29,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private int _cachedTileGridX;
     private int _cachedTileGridY;
     private bool _cachedTileHasGrid;
+    private long _cachedTileTickMs;
     private bool _tileCacheValid;
 
     public bool IsAttached => _memory is not null;
@@ -696,9 +698,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             return false;
         }
 
+        var now = Environment.TickCount64;
         if (_tileCacheValid &&
             _cachedVehicleTilePointer == vehicleTilePointer &&
-            _cachedTileMapAddress == mapAddress)
+            _cachedTileMapAddress == mapAddress &&
+            _cachedTileTickMs > 0 &&
+            now >= _cachedTileTickMs &&
+            now - _cachedTileTickMs < VehicleTileRefreshMs)
         {
             mapTileIndex = _cachedMapTileIndex;
             gridX = _cachedTileGridX;
@@ -732,6 +738,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _cachedTileGridX = gridX;
         _cachedTileGridY = gridY;
         _cachedTileHasGrid = hasGrid;
+        _cachedTileTickMs = now;
         _tileCacheValid = true;
         return hasGrid;
     }
@@ -744,6 +751,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _cachedTileGridX = 0;
         _cachedTileGridY = 0;
         _cachedTileHasGrid = false;
+        _cachedTileTickMs = 0;
         _tileCacheValid = false;
     }
 
