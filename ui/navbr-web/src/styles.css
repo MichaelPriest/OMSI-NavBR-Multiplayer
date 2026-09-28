@@ -2843,3 +2843,85 @@ h3 { margin:6px 0 16px; font-size:19px; }
 @media (max-width:720px) {
   .settings-preference-list { grid-template-columns:1fr; }
 }
+
+
+/* Company employee badge / CCO identity */
+.company-badge-inline {
+  color: #6bc1ff;
+  font-weight: 700;
+  letter-spacing: .015em;
+}
+.company-employee-badge {
+  position: relative;
+  overflow: hidden;
+  min-height: 205px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(56, 162, 255, .22), transparent 34%),
+    linear-gradient(135deg, rgba(11, 31, 46, .98), rgba(7, 20, 30, .98));
+  border-color: rgba(69, 157, 220, .55);
+}
+.company-employee-badge::after {
+  content: "";
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  right: -58px;
+  bottom: -72px;
+  border: 22px solid rgba(74, 174, 244, .08);
+  border-radius: 50%;
+}
+.employee-badge-top,
+.employee-badge-holder,
+.employee-badge-meta {
+  position: relative;
+  z-index: 1;
+}
+.employee-badge-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.employee-badge-top h3 {
+  margin: 5px 0 0;
+}
+.employee-badge-top > strong {
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 1.3rem;
+  color: #8bd0ff;
+  letter-spacing: .06em;
+}
+.employee-badge-holder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 23px;
+}
+.employee-badge-holder .company-member-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 1rem;
+}
+.employee-badge-holder div {
+  display: grid;
+  gap: 3px;
+}
+.employee-badge-holder strong {
+  font-size: 1.04rem;
+}
+.employee-badge-holder small {
+  color: #8fc7ec;
+}
+.employee-badge-meta {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  color: #aabcca;
+  font-size: .78rem;
+}
+.employee-badge-meta code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7893a5;
+  white-space: nowrap;
+}
