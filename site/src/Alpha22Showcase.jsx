@@ -56,7 +56,7 @@ export default function Alpha22Showcase() {
             <h3>Atalhos de teclado e controles do NavBR</h3>
             <p>Chat, Push-to-Talk, HUD, NavBR TP/TS, personagem/RP, edição do HUD e detecção de conflitos com o keyboard.cfg.</p>
           </div>
-          <a className="v4-button v4-primary" href="./assets/OMSI-NavBR-Manual-Atalhos.pdf" target="_blank" rel="noreferrer">Abrir manual PDF ↗</a>
+          <a className="v4-button v4-primary" href="https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/blob/main/docs/KEYBOARD_SHORTCUTS.md" target="_blank" rel="noreferrer">Abrir manual ↗</a>
         </div>
       </div>
     </section>
