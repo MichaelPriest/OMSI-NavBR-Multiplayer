@@ -7,6 +7,160 @@ import { COPY, LANGUAGES, resolveInitialLanguage } from "./i18n.js";
 const PIX_KEY = "b07a9cc9-b10d-48a8-b201-d28bddc4399a";
 const STRIPE_URL = "https://donate.stripe.com/4gM9AUevYgaj9ab4C55wI00";
 
+const SHOWCASE_COPY = {
+  "pt-BR": {
+    heroCaption: "ALPHA.22 • INTERFACE",
+    eyebrow: "INTERFACE REAL",
+    title: "A Alpha.22 por dentro.",
+    intro: "As telas enviadas da versão atual viraram a base visual do novo site: navegação, multiplayer, CCO, empresa, hardware e HUD em uma apresentação mais próxima do produto real.",
+    note: "Composição visual baseada nas telas reais da Alpha.22.",
+    screens: {
+      home: ["Central operacional", "Home"],
+      navigation: ["GPS / Roadmap", "Navegação"],
+      multiplayer: ["Central multiplayer", "Sessão NavBR"],
+      company: ["Company Network", "Rede da empresa"],
+      cco: ["Centro de controle operacional", "CCO"],
+      hardware: ["Hardware Cockpit", "Painel físico"],
+      hud: ["Configurações", "HUD imersivo"]
+    },
+    manual: {
+      eyebrow: "MANUAL OFICIAL",
+      title: "Manual em PDF, junto com a Alpha.22.",
+      text: "Um guia direto do primeiro acesso aos recursos avançados: salas, navegação, voz, RP, empresa, CCO, hardware, HUD, atalhos, diagnóstico e estado do multiplayer físico.",
+      pdfLabel: "Baixar manual PDF",
+      onlineLabel: "Manual online",
+      shortcuts: "Atalhos",
+      bullets: ["Primeiros passos e instalação", "Multiplayer e compatibilidade", "HUD, TP/TS e atalhos", "Diagnóstico e logs"]
+    }
+  },
+  en: {
+    heroCaption: "ALPHA.22 • INTERFACE",
+    eyebrow: "REAL INTERFACE",
+    title: "Inside Alpha.22.",
+    intro: "The current product screens now shape the public site: navigation, multiplayer, CCO, company network, hardware and HUD presented much closer to the real app.",
+    note: "Visual composition based on the real Alpha.22 screens.",
+    screens: {
+      home: ["Operations center", "Home"],
+      navigation: ["GPS / Roadmap", "Navigation"],
+      multiplayer: ["Multiplayer center", "NavBR Session"],
+      company: ["Company Network", "Company network"],
+      cco: ["Operations control center", "CCO"],
+      hardware: ["Hardware Cockpit", "Physical panel"],
+      hud: ["Settings", "Immersive HUD"]
+    },
+    manual: {
+      eyebrow: "OFFICIAL MANUAL",
+      title: "A PDF manual for Alpha.22.",
+      text: "A direct guide from first launch to advanced features: rooms, navigation, voice, RP, company network, CCO, hardware, HUD, shortcuts, diagnostics and physical multiplayer status.",
+      pdfLabel: "Download PDF manual",
+      onlineLabel: "Online manual",
+      shortcuts: "Shortcuts",
+      bullets: ["First steps and installation", "Multiplayer and compatibility", "HUD, TP/TS and shortcuts", "Diagnostics and logs"]
+    }
+  },
+  de: {
+    heroCaption: "ALPHA.22 • INTERFACE",
+    eyebrow: "ECHTE OBERFLÄCHE",
+    title: "Alpha.22 von innen.",
+    intro: "Die aktuellen Produktansichten prägen jetzt die Website: Navigation, Multiplayer, CCO, Firmennetzwerk, Hardware und HUD näher an der echten App.",
+    note: "Visuelle Komposition auf Basis der echten Alpha.22-Oberflächen.",
+    screens: {
+      home: ["Betriebszentrale", "Start"],
+      navigation: ["GPS / Roadmap", "Navigation"],
+      multiplayer: ["Multiplayer-Zentrale", "NavBR Sitzung"],
+      company: ["Company Network", "Firmennetzwerk"],
+      cco: ["Betriebsleitstelle", "CCO"],
+      hardware: ["Hardware Cockpit", "Physisches Panel"],
+      hud: ["Einstellungen", "Immersives HUD"]
+    },
+    manual: {
+      eyebrow: "OFFIZIELLES HANDBUCH",
+      title: "Das PDF-Handbuch zur Alpha.22.",
+      text: "Vom ersten Start bis zu erweiterten Funktionen: Räume, Navigation, Sprache, RP, Firmennetzwerk, CCO, Hardware, HUD, Tastenkürzel und Diagnose.",
+      pdfLabel: "PDF-Handbuch laden",
+      onlineLabel: "Online-Handbuch",
+      shortcuts: "Tastenkürzel",
+      bullets: ["Erste Schritte und Installation", "Multiplayer und Kompatibilität", "HUD, TP/TS und Tastenkürzel", "Diagnose und Logs"]
+    }
+  },
+  es: {
+    heroCaption: "ALPHA.22 • INTERFAZ",
+    eyebrow: "INTERFAZ REAL",
+    title: "Alpha.22 por dentro.",
+    intro: "Las pantallas actuales del producto pasan a formar parte del sitio: navegación, multijugador, CCO, red de empresa, hardware y HUD más cerca de la app real.",
+    note: "Composición visual basada en las pantallas reales de Alpha.22.",
+    screens: {
+      home: ["Central operativa", "Inicio"],
+      navigation: ["GPS / Roadmap", "Navegación"],
+      multiplayer: ["Central multijugador", "Sesión NavBR"],
+      company: ["Company Network", "Red de empresa"],
+      cco: ["Centro de control operativo", "CCO"],
+      hardware: ["Hardware Cockpit", "Panel físico"],
+      hud: ["Configuración", "HUD inmersivo"]
+    },
+    manual: {
+      eyebrow: "MANUAL OFICIAL",
+      title: "Manual PDF para Alpha.22.",
+      text: "Una guía desde el primer acceso hasta las funciones avanzadas: salas, navegación, voz, RP, empresa, CCO, hardware, HUD, atajos y diagnóstico.",
+      pdfLabel: "Descargar manual PDF",
+      onlineLabel: "Manual online",
+      shortcuts: "Atajos",
+      bullets: ["Primeros pasos e instalación", "Multijugador y compatibilidad", "HUD, TP/TS y atajos", "Diagnóstico y logs"]
+    }
+  },
+  pl: {
+    heroCaption: "ALPHA.22 • INTERFEJS",
+    eyebrow: "PRAWDZIWY INTERFEJS",
+    title: "Alpha.22 od środka.",
+    intro: "Aktualne ekrany produktu stają się częścią strony: nawigacja, multiplayer, CCO, sieć firmy, hardware i HUD bliżej prawdziwej aplikacji.",
+    note: "Kompozycja wizualna oparta na prawdziwych ekranach Alpha.22.",
+    screens: {
+      home: ["Centrum operacyjne", "Start"],
+      navigation: ["GPS / Roadmap", "Nawigacja"],
+      multiplayer: ["Centrum multiplayer", "Sesja NavBR"],
+      company: ["Company Network", "Sieć firmy"],
+      cco: ["Centrum kontroli", "CCO"],
+      hardware: ["Hardware Cockpit", "Panel fizyczny"],
+      hud: ["Ustawienia", "HUD immersyjny"]
+    },
+    manual: {
+      eyebrow: "OFICJALNY PODRĘCZNIK",
+      title: "Podręcznik PDF dla Alpha.22.",
+      text: "Od pierwszego uruchomienia po funkcje zaawansowane: pokoje, nawigacja, głos, RP, firma, CCO, hardware, HUD, skróty i diagnostyka.",
+      pdfLabel: "Pobierz podręcznik PDF",
+      onlineLabel: "Podręcznik online",
+      shortcuts: "Skróty",
+      bullets: ["Pierwsze kroki i instalacja", "Multiplayer i zgodność", "HUD, TP/TS i skróty", "Diagnostyka i logi"]
+    }
+  },
+  fr: {
+    heroCaption: "ALPHA.22 • INTERFACE",
+    eyebrow: "INTERFACE RÉELLE",
+    title: "Alpha.22 de l'intérieur.",
+    intro: "Les écrans actuels du produit structurent désormais le site : navigation, multijoueur, CCO, réseau d'entreprise, matériel et HUD plus proches de l'application réelle.",
+    note: "Composition visuelle basée sur les écrans réels de l'Alpha.22.",
+    screens: {
+      home: ["Centre opérationnel", "Accueil"],
+      navigation: ["GPS / Roadmap", "Navigation"],
+      multiplayer: ["Centre multijoueur", "Session NavBR"],
+      company: ["Company Network", "Réseau entreprise"],
+      cco: ["Centre de contrôle", "CCO"],
+      hardware: ["Hardware Cockpit", "Panneau physique"],
+      hud: ["Paramètres", "HUD immersif"]
+    },
+    manual: {
+      eyebrow: "MANUEL OFFICIEL",
+      title: "Le manuel PDF de l'Alpha.22.",
+      text: "Un guide du premier lancement aux fonctions avancées : salons, navigation, voix, RP, entreprise, CCO, matériel, HUD, raccourcis et diagnostic.",
+      pdfLabel: "Télécharger le manuel PDF",
+      onlineLabel: "Manuel en ligne",
+      shortcuts: "Raccourcis",
+      bullets: ["Premiers pas et installation", "Multijoueur et compatibilité", "HUD, TP/TS et raccourcis", "Diagnostic et logs"]
+    }
+  }
+};
+
+
 function pickAsset(release, regex) {
   return (release?.assets || []).find(asset => regex.test(asset?.name || ""));
 }
@@ -82,8 +236,8 @@ function Hero({ t, current, language, setLanguage }) {
         </div>
 
         <figure className="v4-hero-art">
-          <img src="./assets/navbr-mockup-approved.webp" alt="OMSI NavBR conceptual cockpit and mobile companion artwork" />
-          <figcaption>CONCEPT IMAGE / AI</figcaption>
+          <img src="./assets/navbr-mockup-approved.webp" alt="OMSI NavBR Alpha.22 product interface composition" />
+          <figcaption>{SHOWCASE_COPY[language]?.heroCaption || SHOWCASE_COPY.en.heroCaption}</figcaption>
         </figure>
 
         <aside className="v4-language-rail">
@@ -129,6 +283,129 @@ function FeatureStrip({ t }) {
           <p>{text}</p>
         </article>
       ))}
+    </section>
+  );
+}
+
+function ScreenPreview({ type, eyebrow, title, featured = false }) {
+  const common = (
+    <div className="v4-screen-shell">
+      <aside className="v4-screen-sidebar">
+        <span className="v4-screen-logo">N</span>
+        <i />
+        <i />
+        <i className="active" />
+        <i />
+        <i />
+      </aside>
+      <div className="v4-screen-main">
+        <div className="v4-screen-top">
+          <div><small>{eyebrow}</small><strong>{title}</strong></div>
+          <span>Alpha.22</span>
+        </div>
+        {type === "navigation" && (
+          <div className="v4-screen-nav-layout">
+            <div className="v4-screen-map"><b className="route r1" /><b className="route r2" /><b className="bus-dot" /></div>
+            <div className="v4-screen-stack"><em>PRÓXIMA MANOBRA</em><strong>↑ Siga em frente</strong><i /><i /></div>
+          </div>
+        )}
+        {type === "multiplayer" && (
+          <>
+            <div className="v4-screen-metrics"><span>SALA ATUAL<b>—</b></span><span>JOGADORES<b>0</b></span><span>LATÊNCIA<b>—</b></span><span>HOST<b>Offline</b></span></div>
+            <div className="v4-screen-session"><div className="v4-screen-map grid-only" /><div><small>VOCÊ</small><strong>Sessão NavBR</strong><p>Chat, voz e RP em tempo real.</p></div></div>
+          </>
+        )}
+        {type === "company" && (
+          <>
+            <div className="v4-screen-metrics"><span>EMPRESA<b>NavBR</b></span><span>CARGO<b>Presidente</b></span><span>MEMBROS<b>1</b></span></div>
+            <div className="v4-screen-two"><div><small>IDENTIDADE NAVBR</small><strong>micha</strong><i /></div><div><small>COMPANY NODE</small><strong>TCP 27740</strong><button>Hospedar neste PC</button></div></div>
+          </>
+        )}
+        {type === "cco" && (
+          <>
+            <div className="v4-screen-metrics five"><span>MOTORISTAS<b>0</b></span><span>OCORRÊNCIAS<b>0</b></span><span>CRÍTICAS<b>0</b></span><span>ATRASO<b>0</b></span><span>SEM TELEMETRIA<b>0</b></span></div>
+            <div className="v4-screen-session"><div className="v4-screen-map grid-only"><b className="route r3" /></div><div><small>OPERAÇÃO LOCAL</small><strong>Nenhum ônibus detectado</strong><p>Sem linha · Sem rota</p></div></div>
+          </>
+        )}
+        {type === "hardware" && (
+          <div className="v4-screen-two hardware">
+            <div><small>USB / SERIAL</small><strong>NAVBR_HW_V1</strong><label>COM1</label><label>115200</label><button>Conectar hardware</button></div>
+            <div><small>TELEMETRIA AO VIVO</small><strong>Aguardando OMSI</strong><i /><i /><i /></div>
+          </div>
+        )}
+        {type === "hud" && (
+          <div className="v4-screen-hud-preview">
+            <div className="v4-screen-hudbar"><span>LINHA<br/><b>—</b></span><span>ROTA / DESTINO<br/><b>Sem telemetria</b></span><span>PRÓXIMA<br/><b>—</b></span></div>
+            <div className="v4-screen-road"><div className="v4-screen-map"><b className="route r1" /><b className="route r2" /><b className="bus-dot" /></div><div className="v4-screen-player-card">MULTIPLAYER<br/><b>Nenhum jogador</b><br/>PTT —</div></div>
+          </div>
+        )}
+        {type === "home" && (
+          <>
+            <div className="v4-screen-home-card"><small>AGUARDANDO OMSI</small><strong>Nenhuma operação ativa</strong><p>Abra o OMSI para iniciar a telemetria.</p></div>
+            <div className="v4-screen-metrics"><span>OMSI<b>Não detectado</b></span><span>MAPA<b>—</b></span><span>MULTIPLAYER<b>Desconectado</b></span></div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+  return <article className={"v4-screen-preview" + (featured ? " featured" : "")}>{common}</article>;
+}
+
+function ProductShowcase({ language }) {
+  const copy = SHOWCASE_COPY[language] || SHOWCASE_COPY.en;
+  return (
+    <section id="interface" className="v4-product-showcase">
+      <div className="v4-shell">
+        <div className="v4-showcase-head">
+          <div><span className="v4-eyebrow">{copy.eyebrow}</span><h2>{copy.title}</h2></div>
+          <p>{copy.intro}</p>
+        </div>
+        <div className="v4-real-ui-grid">
+          <ScreenPreview type="navigation" eyebrow={copy.screens.navigation[0]} title={copy.screens.navigation[1]} featured />
+          <ScreenPreview type="multiplayer" eyebrow={copy.screens.multiplayer[0]} title={copy.screens.multiplayer[1]} featured />
+          <ScreenPreview type="company" eyebrow={copy.screens.company[0]} title={copy.screens.company[1]} />
+          <ScreenPreview type="cco" eyebrow={copy.screens.cco[0]} title={copy.screens.cco[1]} />
+          <ScreenPreview type="hardware" eyebrow={copy.screens.hardware[0]} title={copy.screens.hardware[1]} />
+          <ScreenPreview type="hud" eyebrow={copy.screens.hud[0]} title={copy.screens.hud[1]} />
+        </div>
+        <p className="v4-showcase-note">◈ {copy.note}</p>
+      </div>
+    </section>
+  );
+}
+
+function ManualDownload({ language }) {
+  const copy = SHOWCASE_COPY[language] || SHOWCASE_COPY.en;
+  const manualUrl = "./OMSI-NavBR-Multiplayer-Manual-Oficial-Alpha22.pdf";
+  return (
+    <section id="manual" className="v4-shell v4-manual-section">
+      <div className="v4-manual-art" aria-hidden="true">
+        <div className="v4-manual-book">
+          <span>MANUAL OFICIAL</span>
+          <strong>OMSI <b>NavBR</b></strong>
+          <em>Multiplayer</em>
+          <i>Guia oficial · Alpha.22</i>
+          <div className="v4-manual-mini-screen"><ScreenPreview type="home" eyebrow="CENTRAL OPERACIONAL" title="Boa viagem." /></div>
+          <small>PDF · GUIA COMPLETO</small>
+        </div>
+        <div className="v4-manual-pages">
+          <div><b>01</b><strong>Primeiros passos</strong><span>Instalação e operação</span></div>
+          <div><b>02</b><strong>Multiplayer</strong><span>Salas, jogadores e voz</span></div>
+          <div><b>03</b><strong>HUD e operação</strong><span>Presets e módulos</span></div>
+          <div><b>04</b><strong>Atalhos</strong><span>Teclas e diagnóstico</span></div>
+        </div>
+      </div>
+      <div className="v4-manual-copy">
+        <span className="v4-eyebrow">{copy.manual.eyebrow}</span>
+        <h2>{copy.manual.title}</h2>
+        <p>{copy.manual.text}</p>
+        <ul>{copy.manual.bullets.map(item => <li key={item}>✓ {item}</li>)}</ul>
+        <div className="v4-actions">
+          <a className="v4-button v4-primary" href={manualUrl} download>▤ {copy.manual.pdfLabel}</a>
+          <a className="v4-button v4-secondary" href={GITHUB_URL + "/blob/main/docs/MANUAL_DE_USO.md"} target="_blank" rel="noreferrer">{copy.manual.onlineLabel} ↗</a>
+          <a className="v4-button v4-secondary" href={GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"} target="_blank" rel="noreferrer">{copy.manual.shortcuts} ↗</a>
+        </div>
+      </div>
     </section>
   );
 }
@@ -259,8 +536,11 @@ function Support({ t }) {
   );
 }
 
-function Documentation({ t }) {
+function Documentation({ t, language }) {
+  const showcase = SHOWCASE_COPY[language] || SHOWCASE_COPY.en;
   const items = [
+    [showcase.manual.pdfLabel, "./OMSI-NavBR-Multiplayer-Manual-Oficial-Alpha22.pdf"],
+    [showcase.manual.onlineLabel, GITHUB_URL + "/blob/main/docs/MANUAL_DE_USO.md"],
     [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA22_RELEASE_NOTES.md"],
     [t.docs.shortcuts, GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     [t.docs.mobile, GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"],
@@ -317,11 +597,13 @@ export default function App() {
         <ValidationNotice t={t} />
         <AdSlot name="top" />
         <FeatureStrip t={t} />
+        <ProductShowcase language={language} />
+        <ManualDownload language={language} />
         <MobileShowcase t={t} />
         <AdSlot name="direct" />
         <DownloadsAndVersions t={t} releases={catalog.releases} current={current} language={language} />
         <FullHistory t={t} releases={catalog.releases} current={current} language={language} />
-        <Documentation t={t} />
+        <Documentation t={t} language={language} />
         <AdSlot name="content" />
         <Support t={t} />
       </main>
