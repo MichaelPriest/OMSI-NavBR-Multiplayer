@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Operations;
 
@@ -70,7 +71,8 @@ internal static class DispatcherRemoteDriversPanel
             {
                 var report = DispatcherOperationalFeed.LatestForPlayer(driver.PlayerId);
                 var stale = now - driver.ReceivedAtUtc > TimeSpan.FromSeconds(10d);
-                return $"{driver.PlayerId}:{driver.ReceivedAtUtc.UtcTicks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}:{stale}:{report?.ReportId}:{report?.Status}:{report?.UpdatedAtUtc.UtcTicks}";
+                var badge = driver.CompanyBadge;
+                return $"{driver.PlayerId}:{driver.ReceivedAtUtc.UtcTicks}:{driver.SpeedKph:0.0}:{driver.DelaySeconds}:{stale}:{report?.ReportId}:{report?.Status}:{report?.UpdatedAtUtc.UtcTicks}:{badge?.CompanyId}:{badge?.EmployeeNumber}:{badge?.Role}";
             }));
             signature = $"{snapshot.Connected}:{signature}:{LocalizationService.CurrentCulture.Name}";
             if (string.Equals(signature, lastSignature, StringComparison.Ordinal))
@@ -115,7 +117,10 @@ internal static class DispatcherRemoteDriversPanel
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86d) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(126d) });
 
-        var driverBlock = BuildCell(driver.DisplayName, Safe(driver.MapName), true);
+        var driverSecondary = driver.CompanyBadge is { } badge
+            ? FormatCompanyBadge(badge)
+            : Safe(driver.MapName);
+        var driverBlock = BuildCell(driver.DisplayName, driverSecondary, true);
         var vehicleBlock = BuildCell(Safe(driver.VehicleName), Safe(driver.Destination), false);
         var service = string.Join(" • ", new[] { driver.Line, driver.Route }.Where(value => !string.IsNullOrWhiteSpace(value)));
         var serviceBlock = BuildCell(string.IsNullOrWhiteSpace(service) ? "—" : service, Safe(driver.NextStop), false);
@@ -249,6 +254,27 @@ internal static class DispatcherRemoteDriversPanel
         return seconds.Value > 0 ? $"+{minutes} min" : $"-{minutes} min";
     }
 
+    private static string FormatCompanyBadge(CompanyEmployeeBadge badge)
+    {
+        var company = string.IsNullOrWhiteSpace(badge.CompanyShortName)
+            ? badge.CompanyName
+            : badge.CompanyShortName;
+        return $"{company} • CRACHÁ {badge.EmployeeNumber} • {RoleText(badge.Role)}";
+    }
+
+    private static string RoleText(CompanyRole role) => role switch
+    {
+        CompanyRole.President => Text("RolePresident"),
+        CompanyRole.VicePresident => Text("RoleVicePresident"),
+        CompanyRole.Director => Text("RoleDirector"),
+        CompanyRole.OperationsManager => Text("RoleOperationsManager"),
+        CompanyRole.Dispatcher => Text("RoleDispatcher"),
+        CompanyRole.Supervisor => Text("RoleSupervisor"),
+        CompanyRole.SeniorDriver => Text("RoleSeniorDriver"),
+        CompanyRole.Driver => Text("RoleDriver"),
+        _ => Text("RoleTrainee")
+    };
+
     private static string Safe(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
 
     private static string Text(string key)
@@ -273,7 +299,12 @@ internal static class DispatcherRemoteDriversPanel
         ("JoinSession", "Open Multiplayer and join or create a room to populate this control-center view."),
         ("Speed", "Speed"), ("Schedule", "Schedule"), ("OnTime", "On time"),
         ("StateNormal", "NORMAL"), ("StateDelayed", "DELAYED"), ("StateNoTelemetry", "NO TELEMETRY"),
-        ("StateSupport", "SUPPORT REQUEST"), ("StateIncident", "INCIDENT"));
+        ("StateSupport", "SUPPORT REQUEST"), ("StateIncident", "INCIDENT"),
+        ("RolePresident", "President"), ("RoleVicePresident", "Vice President"),
+        ("RoleDirector", "Director"), ("RoleOperationsManager", "Operations Manager"),
+        ("RoleDispatcher", "CCO / Dispatcher"), ("RoleSupervisor", "Supervisor"),
+        ("RoleSeniorDriver", "Senior Driver"), ("RoleDriver", "Driver"),
+        ("RoleTrainee", "Trainee"));
     private static readonly IReadOnlyDictionary<string, string> Pt = T(
         ("RemoteDrivers", "Motoristas da sessão multiplayer"),
         ("ConnectedStatus", "Multiplayer conectado • {0} motorista(s) remoto(s) visível(is) no CCO."),
@@ -282,7 +313,12 @@ internal static class DispatcherRemoteDriversPanel
         ("JoinSession", "Abra o Multiplayer e crie ou entre em uma sala para preencher esta visão do CCO."),
         ("Speed", "Velocidade"), ("Schedule", "Horário"), ("OnTime", "No horário"),
         ("StateNormal", "NORMAL"), ("StateDelayed", "ATRASADO"), ("StateNoTelemetry", "SEM TELEMETRIA"),
-        ("StateSupport", "SOLICITA APOIO"), ("StateIncident", "INCIDENTE"));
+        ("StateSupport", "SOLICITA APOIO"), ("StateIncident", "INCIDENTE"),
+        ("RolePresident", "Presidente"), ("RoleVicePresident", "Vice-Presidente"),
+        ("RoleDirector", "Diretoria"), ("RoleOperationsManager", "Gerente Operacional"),
+        ("RoleDispatcher", "CCO / Despachante"), ("RoleSupervisor", "Fiscal / Supervisor"),
+        ("RoleSeniorDriver", "Motorista Sênior"), ("RoleDriver", "Motorista"),
+        ("RoleTrainee", "Aprendiz"));
     private static readonly IReadOnlyDictionary<string, string> Es = T(
         ("RemoteDrivers", "Conductores de la sesión multijugador"),
         ("ConnectedStatus", "Multijugador conectado • {0} conductor(es) remoto(s) visible(s) en el CCO."),
@@ -291,7 +327,12 @@ internal static class DispatcherRemoteDriversPanel
         ("JoinSession", "Abre Multijugador y crea o únete a una sala para llenar esta vista del CCO."),
         ("Speed", "Velocidad"), ("Schedule", "Horario"), ("OnTime", "En horario"),
         ("StateNormal", "NORMAL"), ("StateDelayed", "RETRASADO"), ("StateNoTelemetry", "SIN TELEMETRÍA"),
-        ("StateSupport", "SOLICITA APOYO"), ("StateIncident", "INCIDENTE"));
+        ("StateSupport", "SOLICITA APOYO"), ("StateIncident", "INCIDENTE"),
+        ("RolePresident", "Presidente"), ("RoleVicePresident", "Vicepresidente"),
+        ("RoleDirector", "Dirección"), ("RoleOperationsManager", "Gerente operativo"),
+        ("RoleDispatcher", "CCO / Dispatcher"), ("RoleSupervisor", "Supervisor"),
+        ("RoleSeniorDriver", "Conductor sénior"), ("RoleDriver", "Conductor"),
+        ("RoleTrainee", "Aprendiz"));
     private static readonly IReadOnlyDictionary<string, string> De = T(
         ("RemoteDrivers", "Fahrer der Mehrspieler-Sitzung"),
         ("ConnectedStatus", "Mehrspieler verbunden • {0} Remote-Fahrer in der Leitstelle sichtbar."),
@@ -300,7 +341,12 @@ internal static class DispatcherRemoteDriversPanel
         ("JoinSession", "Mehrspieler öffnen und einen Raum erstellen oder beitreten, um diese Leitstellenansicht zu füllen."),
         ("Speed", "Geschwindigkeit"), ("Schedule", "Fahrplan"), ("OnTime", "Pünktlich"),
         ("StateNormal", "NORMAL"), ("StateDelayed", "VERSPÄTET"), ("StateNoTelemetry", "KEINE TELEMETRIE"),
-        ("StateSupport", "HILFE ANGEFORDERT"), ("StateIncident", "VORFALL"));
+        ("StateSupport", "HILFE ANGEFORDERT"), ("StateIncident", "VORFALL"),
+        ("RolePresident", "Präsident"), ("RoleVicePresident", "Vizepräsident"),
+        ("RoleDirector", "Direktor"), ("RoleOperationsManager", "Betriebsleiter"),
+        ("RoleDispatcher", "Leitstelle"), ("RoleSupervisor", "Supervisor"),
+        ("RoleSeniorDriver", "Senior-Fahrer"), ("RoleDriver", "Fahrer"),
+        ("RoleTrainee", "Anwärter"));
     private static readonly IReadOnlyDictionary<string, string> Fr = T(
         ("RemoteDrivers", "Conducteurs de la session multijoueur"),
         ("ConnectedStatus", "Multijoueur connecté • {0} conducteur(s) distant(s) visible(s) au PCC."),
@@ -309,7 +355,12 @@ internal static class DispatcherRemoteDriversPanel
         ("JoinSession", "Ouvrez le multijoueur et créez ou rejoignez une salle pour alimenter cette vue PCC."),
         ("Speed", "Vitesse"), ("Schedule", "Horaire"), ("OnTime", "À l’heure"),
         ("StateNormal", "NORMAL"), ("StateDelayed", "EN RETARD"), ("StateNoTelemetry", "SANS TÉLÉMÉTRIE"),
-        ("StateSupport", "DEMANDE D’AIDE"), ("StateIncident", "INCIDENT"));
+        ("StateSupport", "DEMANDE D’AIDE"), ("StateIncident", "INCIDENT"),
+        ("RolePresident", "Président"), ("RoleVicePresident", "Vice-président"),
+        ("RoleDirector", "Direction"), ("RoleOperationsManager", "Responsable opérations"),
+        ("RoleDispatcher", "PCC / Dispatcher"), ("RoleSupervisor", "Superviseur"),
+        ("RoleSeniorDriver", "Conducteur senior"), ("RoleDriver", "Conducteur"),
+        ("RoleTrainee", "Apprenti"));
 
     private static IReadOnlyDictionary<string, string> T(params (string Key, string Value)[] values) =>
         values.ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
