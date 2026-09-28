@@ -78,7 +78,7 @@ public partial class MainWindow
         }
 
         var window = new WebShellWindow(
-            BuildWebShellState,
+            () => BuildWebShellState(),
             () =>
             {
                 LaunchOmsiForShell();
