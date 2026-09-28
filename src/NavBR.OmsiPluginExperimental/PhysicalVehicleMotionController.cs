@@ -261,20 +261,26 @@ internal static class PhysicalVehicleMotionController
         }
 
         _lastExternalControlTickMs = now;
+        var currentHostVehiclePointer =
+            OmsiNativeInterop.GetPlayerVehiclePointer();
         RemovalScratch.Clear();
         foreach (var pair in States)
         {
             var instanceId = pair.Key;
             var state = pair.Value;
-            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
-                OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance))
             {
                 RemovalScratch.Add(instanceId);
                 continue;
             }
 
+            // Resolve PlayerVehicle once for this keepalive cycle instead of
+            // once per remote bus. IsSafeOwnedPointer still validates that the
+            // pointer is a live RoadVehicle, while the native keepalive repeats
+            // the current-host guard immediately before touching OMSI memory.
             if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
                     instance,
+                    currentHostVehiclePointer,
                     out var unsafeReason))
             {
                 state.FaultCode = "motion-external-control-failed";
