@@ -253,6 +253,18 @@
                 <local:MultiplayerPage x:Name="NativeMultiplayerPage"
                                        Visibility="Collapsed"/>
 
+                <local:NavigationPage x:Name="NativeNavigationPage"
+                                      Visibility="Collapsed"/>
+
+                <local:RoleplayPage x:Name="NativeRoleplayPage"
+                                    Visibility="Collapsed"/>
+
+                <local:HudPage x:Name="NativeHudPage"
+                               Visibility="Collapsed"/>
+
+                <local:HardwarePage x:Name="NativeHardwarePage"
+                                    Visibility="Collapsed"/>
+
                 <local:OperationsPage x:Name="NativeOperationsPage"
                                       Visibility="Collapsed"/>
 
