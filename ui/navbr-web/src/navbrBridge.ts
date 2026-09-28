@@ -351,6 +351,7 @@ export interface NavBrRemoteDriver {
   headingDegrees: number;
   receivedAtUtc: string;
   stale: boolean;
+  companyBadge?: NavBrCompanyBadge | null;
   latestReport?: {
     reportId: string;
     kind: string;
@@ -374,6 +375,7 @@ export interface NavBrOperationsState {
   roomId?: string | null;
   updatedAtUtc: string;
   canManageReports: boolean;
+  operatorBadge?: NavBrCompanyBadge | null;
   localOperation?: {
     inGame: boolean;
     mapName?: string | null;
