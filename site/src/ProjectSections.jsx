@@ -35,11 +35,11 @@ export function MultiplayerSection() {
     <section id="multiplayer" className="section shell v2-multiplayer">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Multiplayer</span><h2>Três formas de jogar em conjunto.</h2></div>
-        <p>Cada modo tem um objetivo claro. Na Alpha.18, LAN/local e os modos online ainda estão em validação pública e não devem ser tratados como comprovados ponta a ponta.</p>
+        <p>Cada modo tem um objetivo claro. Na Alpha.21, o cenário online com bots/AI do simulador seguindo o host já foi validado; o teste ponta a ponta com players reais ainda está pendente.</p>
       </div>
       <div className="v2-public-alpha-warning">
         <strong>Estado de validação</strong>
-        <span>Implementação disponível para testes. Ainda faltam testes reproduzíveis com dois computadores reais para validar LAN, Servidor NavBR, Host pela Internet e ônibus remoto físico.</span>
+        <span>O pipeline físico com bots/AI do simulador foi validado online. Ainda faltam testes reproduzíveis com dois players reais para confirmar o comportamento ponta a ponta.</span>
       </div>
       <div className="v2-mode-grid">
         {modes.map(([title, text, badge], index) => (
@@ -113,8 +113,9 @@ export function RoadmapSection() {
 
 export function DocumentationSection() {
   const links = [
-    ["Alpha.18", "Notas, limitações e estado da versão pública", GITHUB_URL + "/blob/main/docs/ALPHA18_RELEASE_NOTES.md"],
-    ["Validação Alpha.18", "Roteiro para testar LAN, online, plugin e ônibus físico", GITHUB_URL + "/blob/main/docs/ALPHA18_COMMUNITY.md"],
+    ["Alpha.21", "Notas, validações e limitações da versão pública", GITHUB_URL + "/blob/main/docs/ALPHA21_RELEASE_NOTES.md"],
+    ["Estado Multiplayer", "AI/simulador validado e players reais pendentes", GITHUB_URL + "/blob/main/docs/MULTIPLAYER_STATUS.md"],
+    ["Atalhos", "Manual completo de teclas do NavBR", GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     ["Plugin OMSI", "Integração experimental e diagnóstico", GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
     ["Mobile Companion", "Roadmap do smartphone e IBIS", GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"]
   ];
