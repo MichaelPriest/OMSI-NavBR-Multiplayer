@@ -414,6 +414,31 @@ jobs:
           }
           Write-Host "WinUI 3 XAML startup smoke passed."
 
+      - name: Smoke-test WinUI x64 to RuntimeHost x86 IPC
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA "OMSI NavBR Multiplayer/navbr-winui.log"
+          if (Test-Path $log) { Remove-Item $log -Force }
+
+          $process = Start-Process `
+            -FilePath "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe" `
+            -ArgumentList "--runtime-smoke" `
+            -Wait `
+            -PassThru
+
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path $log) { Get-Content $log | Write-Host }
+            throw "WinUI x64 to RuntimeHost x86 IPC smoke failed with exit code $($process.ExitCode)."
+          }
+
+          $orphan = Get-Process -Name "OMSI.NavBR.Multiplayer" -ErrorAction SilentlyContinue
+          if ($orphan) {
+            $orphan | Stop-Process -Force
+            throw "RuntimeHost x86 remained alive after IPC shutdown."
+          }
+
+          Write-Host "WinUI x64 -> RuntimeHost x86 ping/state/shutdown smoke passed."
+
       - name: Publish standalone Windows x86 EXE
         shell: pwsh
         run: >-
