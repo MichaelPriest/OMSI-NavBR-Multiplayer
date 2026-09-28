@@ -195,9 +195,14 @@ function ManualDownload() {
   return (
     <section id="manual" className="v4-shell v4-manual-section">
       <div className="v4-manual-card">
-        <figure className="v4-manual-art">
-          <img src="./assets/navbr-alpha22-manual.webp" alt="Capa do Manual Oficial OMSI NavBR Multiplayer Alpha.22" loading="lazy" decoding="async" />
-        </figure>
+        <div className="v4-manual-art v4-manual-cover" aria-label="Capa do Manual Oficial OMSI NavBR Multiplayer Alpha.22">
+          <span className="v4-manual-logo">N</span>
+          <small>OMSI NAVBR MULTIPLAYER</small>
+          <strong>Manual Oficial</strong>
+          <b>Alpha.22</b>
+          <div className="v4-manual-cover-lines"><i /><i /><i /><i /></div>
+          <em>Instalação • Multiplayer • HUD • RP • Atalhos</em>
+        </div>
         <div className="v4-manual-copy">
           <span className="v4-eyebrow">MANUAL OFICIAL • PDF</span>
           <h2>Manual completo da Alpha.22.</h2>
