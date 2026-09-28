@@ -70,7 +70,7 @@ export function StatusSection({ current }) {
     <section id="estado" className="section shell v2-status-section">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Estado do projeto</span><h2>O que está disponível hoje.</h2></div>
-        <p>O NavBR continua em Alpha. Na Alpha.21, o teste online com bots/AI do simulador seguindo o host foi validado no OMSI real; players reais em dois PCs/duas sessões OMSI ainda precisam de validação ponta a ponta.</p>
+        <p>O NavBR continua em Alpha. Na Alpha.22, o teste online com bots/AI do simulador seguindo o host foi validado no OMSI real; players reais em dois PCs/duas sessões OMSI ainda precisam de validação ponta a ponta.</p>
       </div>
       <div className="v2-status-grid">
         {items.map(([label, value, state, kind]) => (
