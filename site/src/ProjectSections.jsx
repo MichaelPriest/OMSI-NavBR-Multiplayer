@@ -35,7 +35,7 @@ export function MultiplayerSection() {
     <section id="multiplayer" className="section shell v2-multiplayer">
       <div className="v2-section-heading">
         <div><span className="eyebrow">Multiplayer</span><h2>Três formas de jogar em conjunto.</h2></div>
-        <p>Cada modo tem um objetivo claro. Na Alpha.21, o cenário online com bots/AI do simulador seguindo o host já foi validado; o teste ponta a ponta com players reais ainda está pendente.</p>
+        <p>Cada modo tem um objetivo claro. Na Alpha.22, o cenário online com bots/AI do simulador seguindo o host já foi validado; o teste ponta a ponta com players reais ainda está pendente.</p>
       </div>
       <div className="v2-public-alpha-warning">
         <strong>Estado de validação</strong>
@@ -113,7 +113,7 @@ export function RoadmapSection() {
 
 export function DocumentationSection() {
   const links = [
-    ["Alpha.21", "Notas, validações e limitações da versão pública", GITHUB_URL + "/blob/main/docs/ALPHA21_RELEASE_NOTES.md"],
+    ["Alpha.22", "Notas, validações e limitações da versão pública", GITHUB_URL + "/blob/main/docs/ALPHA22_RELEASE_NOTES.md"],
     ["Estado Multiplayer", "AI/simulador validado e players reais pendentes", GITHUB_URL + "/blob/main/docs/MULTIPLAYER_STATUS.md"],
     ["Atalhos", "Manual completo de teclas do NavBR", GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     ["Plugin OMSI", "Integração experimental e diagnóstico", GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
