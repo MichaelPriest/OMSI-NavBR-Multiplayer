@@ -10,8 +10,6 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class PluginBridgeClient
 {
-    private static readonly object LocalStateSync = new();
-    private static readonly object StatusSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
     private static readonly TrafficVehicleRegistry TrafficVehicles = new();
     private static readonly ConcurrentQueue<PluginBridgeMessage> OutboundCommandResults = new();
@@ -267,10 +265,7 @@ internal static class PluginBridgeClient
                 LocalVehicleCommandProcessor.ExperimentalWritesEnabled,
             Capabilities: GetCachedCapabilities());
 
-        lock (StatusSync)
-        {
-            _pendingStatus = status;
-        }
+        Interlocked.Exchange(ref _pendingStatus, status);
     }
 
     private static async Task RunAsync(CancellationToken cancellationToken)
@@ -453,23 +448,11 @@ internal static class PluginBridgeClient
         }
     }
 
-    private static PluginBridgeMessage? TakePendingStatus()
-    {
-        lock (StatusSync)
-        {
-            var pending = _pendingStatus;
-            _pendingStatus = null;
-            return pending;
-        }
-    }
+    private static PluginBridgeMessage? TakePendingStatus() =>
+        Interlocked.Exchange(ref _pendingStatus, null);
 
-    private static void ClearPendingStatus()
-    {
-        lock (StatusSync)
-        {
-            _pendingStatus = null;
-        }
-    }
+    private static void ClearPendingStatus() =>
+        Interlocked.Exchange(ref _pendingStatus, null);
 
     private static void ClearOutboundCommandResults()
     {
@@ -618,21 +601,11 @@ internal static class PluginBridgeClient
         string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
 
-    private static PluginBridgeMessage? GetLocalState()
-    {
-        lock (LocalStateSync)
-        {
-            return _localState;
-        }
-    }
+    private static PluginBridgeMessage? GetLocalState() =>
+        Volatile.Read(ref _localState);
 
-    private static void SetLocalState(PluginBridgeMessage? state)
-    {
-        lock (LocalStateSync)
-        {
-            _localState = state;
-        }
-    }
+    private static void SetLocalState(PluginBridgeMessage? state) =>
+        Interlocked.Exchange(ref _localState, state);
 
     private static void ClearAllState()
     {
