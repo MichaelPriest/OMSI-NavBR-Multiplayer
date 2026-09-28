@@ -10,7 +10,7 @@ public partial class MainWindow
     private string? _webCompanyInviteCode;
     private string? _webCompanyInvitePayload;
 
-    private object BuildWebCompanyNetworkState()
+    private object BuildWebCompanyNetworkState(bool summaryOnly = false)
     {
         if (Application.Current is not App app)
         {
@@ -29,11 +29,45 @@ public partial class MainWindow
         var runtime = app.NetworkRuntime;
         var identity = runtime.Identity;
         var membership = runtime.Membership;
-        var hostedCompany = CompanyNodeStore.LoadCompany();
-        var company = _webCompanyNetworkSnapshot ?? hostedCompany;
+        var company =
+            _webCompanyNetworkSnapshot ??
+            CompanyNodeStore.LoadCompany();
         var self = company?.Members.FirstOrDefault(member =>
             string.Equals(member.PlayerId, identity.PlayerId, StringComparison.OrdinalIgnoreCase));
         var selfBadge = CompanyEmployeeBadgeFactory.Create(company, self) ?? membership?.Badge;
+
+        if (summaryOnly)
+        {
+            return new
+            {
+                available = true,
+                identity = (object?)null,
+                membership = membership is null
+                    ? null
+                    : new
+                    {
+                        companyId = membership.CompanyId,
+                        companyName = membership.CompanyName,
+                        role = membership.Role.ToString(),
+                        badge = BuildWebCompanyBadge(membership.Badge)
+                    },
+                node = (object?)null,
+                company = company is null
+                    ? null
+                    : new
+                    {
+                        companyId = company.CompanyId,
+                        name = company.Name,
+                        shortName = company.ShortName,
+                        memberCount = company.Members.Count,
+                        selfRole = self?.Role.ToString(),
+                        selfBadge = BuildWebCompanyBadge(selfBadge),
+                        members = Array.Empty<object>()
+                    },
+                assignableRoles = Array.Empty<string>(),
+                invite = (object?)null
+            };
+        }
 
         var canInvite = self is not null &&
                         (self.Permissions & CompanyPermission.InviteMembers) != 0;
