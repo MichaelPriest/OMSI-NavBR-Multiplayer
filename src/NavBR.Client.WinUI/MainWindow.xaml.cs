@@ -166,6 +166,22 @@ public sealed partial class MainWindow : Window
                 $"Velocidade: {Number(telemetry, "speedKph")?.ToString("0.0") ?? "—"} km/h";
         }
 
+        var omsiMemory = Property(omsi, "memory");
+        var privateMiB = Number(omsiMemory, "privateMiB");
+        var memoryLevel = String(omsiMemory, "level");
+        OmsiPrivateMemoryText.Text = privateMiB is null
+            ? "—"
+            : $"{privateMiB:0} MiB";
+        OmsiMemoryLevelText.Text = memoryLevel?.ToUpperInvariant() ?? "—";
+        OmsiMemoryAdviceText.Text = memoryLevel switch
+        {
+            "elevated" => "Uso elevado. O NavBR continuará reduzindo apenas a própria carga; acompanhe se o mapa/ônibus continuar crescendo.",
+            "high" => "Uso alto. Evite aumentar tráfego/objetos e observe carregamentos de tiles e addons pesados.",
+            "critical" => "Uso muito alto para um processo 32-bit. Salve a sessão quando possível e reduza carga antes que a estabilidade piore.",
+            "normal" => "Uso dentro da faixa observacional normal. Nenhuma limpeza forçada de memória é aplicada.",
+            _ => "Inicie o OMSI para acompanhar memória privada e working set em tempo real."
+        };
+
         var system = Property(state, "system");
         var health = Property(system, "sessionHealth");
         var pluginConnected = Bool(health, "pluginConnected");
