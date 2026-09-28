@@ -101,7 +101,7 @@ public partial class MainWindow
                     nodeUrl = membership.NodeUrl,
                     role = membership.Role.ToString(),
                     joinedAtUtc = membership.JoinedAtUtc,
-                    badge = membership.Badge
+                    badge = BuildWebCompanyBadge(membership.Badge)
                 },
             node = new
             {
@@ -124,7 +124,7 @@ public partial class MainWindow
                     updatedAtUtc = company.UpdatedAtUtc,
                     memberCount = company.Members.Count,
                     selfRole = self?.Role.ToString(),
-                    selfBadge,
+                    selfBadge = BuildWebCompanyBadge(selfBadge),
                     canInvite,
                     canManageRoles,
                     canRemoveMembers,
@@ -290,6 +290,23 @@ public partial class MainWindow
 
         _webCompanyNetworkSnapshot = result.Company;
     }
+
+    private static object? BuildWebCompanyBadge(CompanyEmployeeBadge? badge) =>
+        badge is null
+            ? null
+            : new
+            {
+                companyId = badge.CompanyId,
+                companyName = badge.CompanyName,
+                companyShortName = badge.CompanyShortName,
+                playerId = badge.PlayerId,
+                displayName = badge.DisplayName,
+                employeeNumber = badge.EmployeeNumber,
+                role = badge.Role.ToString(),
+                permissions = badge.Permissions.ToString(),
+                issuedAtUtc = badge.IssuedAtUtc,
+                updatedAtUtc = badge.UpdatedAtUtc
+            };
 
     private static CompanyRole ParseCompanyRole(
         string? value,
