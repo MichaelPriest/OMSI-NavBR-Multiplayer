@@ -1,5 +1,7 @@
 # HUD, GPS, chat e voz
 
+> Manual completo de atalhos: [`KEYBOARD_SHORTCUTS.md`](KEYBOARD_SHORTCUTS.md)
+
 ## Interface em jogo
 
 O HUD do NavBR é uma sobreposição WPF transparente sobre a janela do OMSI. A interface da alpha.11 usa uma barra superior translúcida moderna e módulos separados para navegação, dados da linha, painel do ônibus, chat e voz.
