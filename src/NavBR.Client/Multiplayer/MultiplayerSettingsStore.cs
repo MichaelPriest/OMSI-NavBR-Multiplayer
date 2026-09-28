@@ -160,6 +160,14 @@ public static class MultiplayerSettingsStore
         var relayServerUrl = string.IsNullOrWhiteSpace(settings.RelayServerUrl)
             ? MultiplayerSettings.DefaultOnlineServerUrl
             : settings.RelayServerUrl.Trim();
+        var performanceProfile = settings.PerformanceProfile?.Trim().ToLowerInvariant() switch
+        {
+            "stability" => "stability",
+            "multiplayer" => "multiplayer",
+            "quality" => "quality",
+            "diagnostics" => "diagnostics",
+            _ => "auto"
+        };
 
         // Network settings version 2 makes the shared Render service the
         // out-of-box multiplayer transport. Only migrate the historical
@@ -274,7 +282,8 @@ public static class MultiplayerSettingsStore
                     : "TP",
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
-            RelayServerUrl = relayServerUrl
+            RelayServerUrl = relayServerUrl,
+            PerformanceProfile = performanceProfile
         };
     }
 }
