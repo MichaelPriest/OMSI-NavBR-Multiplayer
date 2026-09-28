@@ -27,6 +27,8 @@ public static class PluginExports
     private static readonly object TelematrixStringSync = new();
     private static string? _ibisLineCourse;
     private static string? _ibisRouteCode;
+    private static float _ibisLineCourseNumeric = float.NaN;
+    private static float _ibisRouteCodeNumeric = float.NaN;
     private static string? _ibisTerminusName;
     private static string? _ibisDelayMinutes;
     private static string? _ibisDelaySeconds;
@@ -136,16 +138,10 @@ public static class PluginExports
                     Volatile.Write(ref _scheduleActive, variableValue > 0.5f ? 1 : 0);
                     break;
                 case 7: // IBIS_LinieKurs
-                    lock (TelematrixStringSync)
-                    {
-                        _ibisLineCourse = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-                    }
+                    Volatile.Write(ref _ibisLineCourseNumeric, variableValue);
                     break;
                 case 8: // IBIS_Route
-                    lock (TelematrixStringSync)
-                    {
-                        _ibisRouteCode = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-                    }
+                    Volatile.Write(ref _ibisRouteCodeNumeric, variableValue);
                     break;
             }
         }
@@ -343,6 +339,11 @@ public static class PluginExports
                     ibisDelayState = _ibisDelayState;
                 }
 
+                ibisLineCourse ??= FormatIbisNumeric(
+                    Volatile.Read(ref _ibisLineCourseNumeric));
+                ibisRouteCode ??= FormatIbisNumeric(
+                    Volatile.Read(ref _ibisRouteCodeNumeric));
+
                 var cabinTemperature = Volatile.Read(ref _cabinTemperatureC);
                 var passengers = Volatile.Read(ref _passengerCount);
                 var schedule = Volatile.Read(ref _scheduleActive);
@@ -467,6 +468,8 @@ public static class PluginExports
         Volatile.Write(ref _simulationMonth, -1);
         Volatile.Write(ref _simulationYear, -1);
         Volatile.Write(ref _simulationPaused, -1);
+        Volatile.Write(ref _ibisLineCourseNumeric, float.NaN);
+        Volatile.Write(ref _ibisRouteCodeNumeric, float.NaN);
         lock (TelematrixStringSync)
         {
             _ibisLineCourse = null;
@@ -480,21 +483,36 @@ public static class PluginExports
 
     private static string ReadOmsiAnsiString(IntPtr address, int maxChars)
     {
-        var bytes = new List<byte>(Math.Min(maxChars, 128));
-        for (var index = 0; index < maxChars; index++)
+        if (maxChars <= 0)
         {
-            var value = Marshal.ReadByte(address, index);
+            return string.Empty;
+        }
+
+        var boundedLength = Math.Min(maxChars, 256);
+        Span<byte> bytes = stackalloc byte[boundedLength];
+        var count = 0;
+        for (; count < boundedLength; count++)
+        {
+            var value = Marshal.ReadByte(address, count);
             if (value == 0)
             {
                 break;
             }
-            bytes.Add(value);
+
+            bytes[count] = value;
         }
 
-        return bytes.Count == 0
+        return count == 0
             ? string.Empty
-            : System.Text.Encoding.Latin1.GetString(bytes.ToArray()).Trim();
+            : System.Text.Encoding.Latin1.GetString(bytes[..count]).Trim();
     }
+
+    private static string? FormatIbisNumeric(float value) =>
+        float.IsFinite(value)
+            ? value.ToString(
+                "0.###",
+                System.Globalization.CultureInfo.InvariantCulture)
+            : null;
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
