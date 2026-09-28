@@ -22,6 +22,9 @@ internal static class OmsiPerformanceGovernor
     private static double _lastWorkMs;
     private static double _averageWorkMs;
     private static double _averageFrameIntervalMs;
+    private static double _lastFrameIntervalMs;
+    private static double _peakFrameIntervalMs;
+    private static long _frameStallCount;
     private static long _lastFrameTickMs;
     private static string _profile = "auto";
 
@@ -55,6 +58,9 @@ internal static class OmsiPerformanceGovernor
             _lastWorkMs = 0d;
             _averageWorkMs = 0d;
             _averageFrameIntervalMs = 0d;
+            _lastFrameIntervalMs = 0d;
+            _peakFrameIntervalMs = 0d;
+            _frameStallCount = 0;
             _lastFrameTickMs = 0;
         }
     }
@@ -69,6 +75,13 @@ internal static class OmsiPerformanceGovernor
                 var interval = nowTickMs - _lastFrameTickMs;
                 if (interval is > 0 and < 1_000)
                 {
+                    _lastFrameIntervalMs = interval;
+                    _peakFrameIntervalMs = Math.Max(_peakFrameIntervalMs, interval);
+                    if (interval >= 100d)
+                    {
+                        _frameStallCount++;
+                    }
+
                     _averageFrameIntervalMs = _averageFrameIntervalMs <= 0d
                         ? interval
                         : Lerp(_averageFrameIntervalMs, interval, 0.08d);
@@ -176,7 +189,10 @@ internal static class OmsiPerformanceGovernor
                 _pressureLevel,
                 _lastWorkMs,
                 _averageWorkMs,
-                _averageFrameIntervalMs);
+                _averageFrameIntervalMs,
+                _lastFrameIntervalMs,
+                _peakFrameIntervalMs,
+                _frameStallCount);
         }
     }
 
@@ -248,7 +264,10 @@ internal static class OmsiPerformanceGovernor
                     $"pressure={_pressureLevel} " +
                     $"work={_lastWorkMs:F2}ms " +
                     $"avgWork={_averageWorkMs:F2}ms " +
-                    $"avgFrame={_averageFrameIntervalMs:F1}ms";
+                    $"avgFrame={_averageFrameIntervalMs:F1}ms " +
+                    $"lastFrame={_lastFrameIntervalMs:F1}ms " +
+                    $"peakFrame={_peakFrameIntervalMs:F1}ms " +
+                    $"stalls100ms={_frameStallCount}";
             }
         }
     }
@@ -275,4 +294,7 @@ internal readonly record struct OmsiWorkBudget(
     int PressureLevel,
     double LastWorkMilliseconds,
     double AverageWorkMilliseconds,
-    double AverageFrameIntervalMilliseconds);
+    double AverageFrameIntervalMilliseconds,
+    double LastFrameIntervalMilliseconds,
+    double PeakFrameIntervalMilliseconds,
+    long FrameStallCount);
