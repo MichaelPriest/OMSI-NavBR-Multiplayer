@@ -558,6 +558,7 @@ function Documentation({ t, language }) {
 }
 
 function Footer({ t, language, setLanguage }) {
+  const showcase = SHOWCASE_COPY[language] || SHOWCASE_COPY.en;
   return (
     <footer className="v4-footer">
       <div className="v4-shell v4-footer-grid">
@@ -566,7 +567,7 @@ function Footer({ t, language, setLanguage }) {
           <div><strong>OMSI NavBR</strong><span>Multiplayer & Mobile Companion</span><small>{t.footer.project}</small></div>
         </div>
         <div><strong>Links</strong><a href="#inicio">{t.nav.home}</a><a href="#recursos">{t.nav.features}</a><a href="#downloads">{t.nav.downloads}</a><a href="#historico">{t.nav.history}</a><a href="#contribua">{t.nav.contribute}</a></div>
-        <div><strong>{t.docs.title}</strong><a href="#documentacao">{t.docs.alpha}</a><a href="#documentacao">{t.docs.mobile}</a><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div>
+        <div><strong>{t.docs.title}</strong><a href="./OMSI-NavBR-Multiplayer-Manual-Oficial-Alpha22.pdf">{showcase.manual.pdfLabel}</a><a href="#documentacao">{t.docs.alpha}</a><a href="#documentacao">{t.docs.mobile}</a><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div>
         <div><strong>◎ {t.footer.languages}</strong><div className="v4-footer-langs">{LANGUAGES.map(item => <button type="button" key={item.code} className={language === item.code ? "active" : ""} onClick={() => setLanguage(item.code)}>{item.flag} {item.short}</button>)}</div><small>Mais comunidades. Mais histórias. Sem fronteiras.</small></div>
       </div>
       <div className="v4-shell v4-footer-bottom"><span>© OMSI NavBR Multiplayer</span><span>{t.footer.notice}</span></div>
