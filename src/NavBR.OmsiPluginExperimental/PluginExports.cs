@@ -254,12 +254,11 @@ public static class PluginExports
             }
 
             var workTick = Environment.TickCount64;
-            OmsiPerformanceGovernor.ObserveFrame(workTick);
-
             var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
             var activeRoleplayCharacters = RoleplayCharacterBackend.ActiveCount;
             var pendingCommands = OmsiThreadCommandQueue.Count;
-            var workBudget = OmsiPerformanceGovernor.GetBudget(
+            var workBudget = OmsiPerformanceGovernor.ObserveFrameAndGetBudget(
+                workTick,
                 activePhysicalVehicles,
                 activeRoleplayCharacters,
                 pendingCommands);
@@ -294,16 +293,14 @@ public static class PluginExports
                 }
                 finally
                 {
-                    OmsiPerformanceGovernor.EndWorkSlice(workStart);
+                    workBudget =
+                        OmsiPerformanceGovernor.EndWorkSliceAndGetBudget(
+                            workStart,
+                            activePhysicalVehicles,
+                            activeRoleplayCharacters,
+                            OmsiThreadCommandQueue.Count);
                 }
             }
-
-            // Refresh after the work slice so exported telemetry reflects the
-            // governor pressure caused by this callback too.
-            workBudget = OmsiPerformanceGovernor.GetBudget(
-                activePhysicalVehicles,
-                activeRoleplayCharacters,
-                OmsiThreadCommandQueue.Count);
 
             var staleRemoved = 0;
             var lastStatusTick = Interlocked.Read(ref _lastStatusReportTickMs);
