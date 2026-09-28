@@ -1,6 +1,6 @@
 # Manual de Uso — OMSI NavBR Multiplayer
 
-> Manual atualizado para **v0.3.0-alpha.14**.
+> Manual atualizado para **v0.3.0-alpha.21**.
 
 ## 1. Primeira abertura
 
@@ -61,9 +61,13 @@ Também é possível usar Salas públicas ou convite quando disponível.
 
 ## 7. Chat e voz
 
-- F9: chat;
-- F10: push-to-talk;
-- opções de voz ficam em Chat & Voz.
+- F9: chat por padrão;
+- F10: push-to-talk por padrão;
+- Chat e PTT podem ser remapeados para as combinações suportadas pelo NavBR;
+- opções de voz ficam em Chat & Voz;
+- o NavBR verifica conflitos contra `Inputs\keyboard.cfg`.
+
+Manual completo: [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
 
 ## 8. Simulador Multiplayer
 
@@ -88,7 +92,7 @@ Arquivos principais:
     NavBR.OmsiPlugin.opl
     NavBR.OmsiInterop.dll
 
-A Alpha.14 usa bridge/protocolo v3.
+A Alpha.21 usa Plugin Bridge v3 e state interop ABI v20.
 
 ## 10. Personagem / RP
 
@@ -104,6 +108,10 @@ RP continua experimental; câmera dedicada, terreno inclinado e animações aind
 ## 11. Ônibus remoto físico
 
 Recurso experimental e opt-in. Para testar, os PCs devem ter OMSI compatível, plugin atualizado, mapa compatível e o veículo remoto disponível localmente.
+
+**Estado atual:** o cenário online com bots/AI do simulador seguindo o host foi validado com sucesso em OMSI real. Ainda falta concluir a mesma validação com players reais em dois PCs/duas sessões OMSI independentes.
+
+Veja também [MULTIPLAYER_STATUS.md](MULTIPLAYER_STATUS.md).
 
 ## 12. Se algo não funcionar
 
