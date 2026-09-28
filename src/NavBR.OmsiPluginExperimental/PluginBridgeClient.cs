@@ -119,7 +119,10 @@ internal static class PluginBridgeClient
         double? pluginAverageWorkMilliseconds = null,
         double? pluginAverageFrameIntervalMilliseconds = null,
         long? pluginMinimumWorkIntervalMilliseconds = null,
-        int? pluginMaxCommandsPerSlice = null)
+        int? pluginMaxCommandsPerSlice = null,
+        double? pluginLastFrameIntervalMilliseconds = null,
+        double? pluginPeakFrameIntervalMilliseconds = null,
+        long? pluginFrameStallCount = null)
     {
         int? physicalGridX = null;
         int? physicalGridY = null;
@@ -196,6 +199,9 @@ internal static class PluginBridgeClient
             PluginAverageFrameIntervalMilliseconds: pluginAverageFrameIntervalMilliseconds,
             PluginMinimumWorkIntervalMilliseconds: pluginMinimumWorkIntervalMilliseconds,
             PluginMaxCommandsPerSlice: pluginMaxCommandsPerSlice,
+            PluginLastFrameIntervalMilliseconds: pluginLastFrameIntervalMilliseconds,
+            PluginPeakFrameIntervalMilliseconds: pluginPeakFrameIntervalMilliseconds,
+            PluginFrameStallCount: pluginFrameStallCount,
             PerformanceProfile: OmsiPerformanceGovernor.CurrentProfile,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
