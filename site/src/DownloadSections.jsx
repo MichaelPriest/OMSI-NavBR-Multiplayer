@@ -56,14 +56,14 @@ export function Downloads({ currentAssets, current, loading, error, releasesPage
         Para novos testes, prefira o instalador Windows. O EXE standalone continua disponível como alternativa.
       </p>
       <div className="v2-public-alpha-warning">
-        <strong>Alpha.18 pública de teste</strong>
-        <span>Multiplayer LAN/local e online ainda não foram validados ponta a ponta com dois PCs/duas sessões reais do OMSI. Baixe para testar, não como versão estável.</span>
+        <strong>Alpha.21 pública de teste</strong>
+        <span>O teste online com bots/AI do simulador seguindo o host foi validado. Players reais em dois PCs/duas sessões OMSI ainda precisam de teste ponta a ponta. Continue tratando esta versão como Alpha.</span>
       </div>
 
       <div className="current-release-banner">
         <div>
           <span className="tag">VERSÃO ATUAL</span>
-          <strong>{current?.tag_name || "Alpha.14"}</strong>
+          <strong>{current?.tag_name || "Alpha.21"}</strong>
           <small>{current?.name || "Catálogo da versão atual"}</small>
         </div>
         <a href={current?.html_url || releasesPage} target="_blank" rel="noreferrer">Abrir release no GitHub →</a>
