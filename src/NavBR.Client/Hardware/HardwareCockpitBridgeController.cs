@@ -35,6 +35,21 @@ internal sealed class HardwareCockpitBridgeController : IDisposable
     public static HardwareCockpitBridgeController Shared { get; } = new();
 
     public bool IsConnected => _transport.IsConnected;
+    public bool WantsTelemetry
+    {
+        get
+        {
+            if (_transport.IsConnected)
+            {
+                return true;
+            }
+
+            var settings =
+                HardwareCockpitConnectionSettingsStore.Load();
+            return settings.AutoReconnect &&
+                   !string.IsNullOrWhiteSpace(settings.PortName);
+        }
+    }
     public string? PortName => _transport.PortName;
     public int? BaudRate => _transport.BaudRate;
 
