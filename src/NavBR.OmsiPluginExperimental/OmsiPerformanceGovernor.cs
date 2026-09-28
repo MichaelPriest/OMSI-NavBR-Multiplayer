@@ -23,6 +23,28 @@ internal static class OmsiPerformanceGovernor
     private static double _averageWorkMs;
     private static double _averageFrameIntervalMs;
     private static long _lastFrameTickMs;
+    private static string _profile = "auto";
+
+    public static string CurrentProfile
+    {
+        get
+        {
+            lock (Sync)
+            {
+                return _profile;
+            }
+        }
+    }
+
+    public static void SetProfile(string? profile)
+    {
+        lock (Sync)
+        {
+            _profile = NormalizeProfile(profile);
+            _pressureLevel = 0;
+            _healthySlices = 0;
+        }
+    }
 
     public static void Reset()
     {
@@ -87,6 +109,15 @@ internal static class OmsiPerformanceGovernor
                 _ => 4
             };
 
+            (baseIntervalMs, baseCommands) = _profile switch
+            {
+                "stability" => (Math.Max(baseIntervalMs, 33L), Math.Min(baseCommands, 2)),
+                "multiplayer" => (Math.Max(baseIntervalMs, 20L), Math.Min(baseCommands + 1, 5)),
+                "quality" => (Math.Max(12L, baseIntervalMs - 4L), Math.Min(baseCommands + 1, 5)),
+                "diagnostics" => (Math.Max(baseIntervalMs, 24L), Math.Min(baseCommands, 2)),
+                _ => (baseIntervalMs, baseCommands)
+            };
+
             // A large queue should keep making forward progress, but never at
             // the cost of an unbounded callback spike.
             if (pendingCommands >= 24 && _pressureLevel == 0)
@@ -114,6 +145,12 @@ internal static class OmsiPerformanceGovernor
                 2 => 500L,
                 3 => 750L,
                 _ => 200L
+            };
+            statusIntervalMs = _profile switch
+            {
+                "stability" => Math.Max(statusIntervalMs, 500L),
+                "diagnostics" => 150L,
+                _ => statusIntervalMs
             };
             var motionMinimumIntervalMs = _pressureLevel switch
             {
@@ -215,6 +252,16 @@ internal static class OmsiPerformanceGovernor
             }
         }
     }
+
+    private static string NormalizeProfile(string? profile) =>
+        profile?.Trim().ToLowerInvariant() switch
+        {
+            "stability" => "stability",
+            "multiplayer" => "multiplayer",
+            "quality" => "quality",
+            "diagnostics" => "diagnostics",
+            _ => "auto"
+        };
 
     private static double Lerp(double current, double sample, double alpha) =>
         current + ((sample - current) * alpha);
