@@ -193,6 +193,9 @@ public sealed partial class MainWindow : Window
         var frameInterval = Number(performance, "averageFrameIntervalMilliseconds");
         var maxCommands = Integer(performance, "maxCommandsPerSlice");
         var minimumInterval = Integer(performance, "minimumWorkIntervalMilliseconds");
+        var lastFrameInterval = Number(performance, "lastFrameIntervalMilliseconds");
+        var peakFrameInterval = Number(performance, "peakFrameIntervalMilliseconds");
+        var frameStallCount = LongInteger(performance, "frameStallCount");
         var configuredProfile = String(performance, "configuredProfile") ?? "auto";
         var activeProfile = String(performance, "activeProfile");
 
@@ -213,6 +216,13 @@ public sealed partial class MainWindow : Window
         PluginWorkText.Text = work is null ? "—" : $"{work:0.00} ms";
         FrameIntervalText.Text = frameInterval is null ? "—" : $"{frameInterval:0.0} ms";
         CommandBudgetText.Text = maxCommands?.ToString() ?? "—";
+        LastFrameIntervalText.Text = lastFrameInterval is null
+            ? "—"
+            : $"{lastFrameInterval:0.0} ms";
+        PeakFrameIntervalText.Text = peakFrameInterval is null
+            ? "—"
+            : $"{peakFrameInterval:0.0} ms";
+        FrameStallCountText.Text = frameStallCount?.ToString() ?? "—";
 
         var selectedProfile = PerformanceProfiles.FirstOrDefault(profile =>
             string.Equals(profile.Id, configuredProfile, StringComparison.OrdinalIgnoreCase))
@@ -512,6 +522,17 @@ public sealed partial class MainWindow : Window
         var value = Property(element, name);
         return value.ValueKind == JsonValueKind.Number &&
                value.TryGetDouble(out var result)
+            ? result
+            : null;
+    }
+
+    private static long? LongInteger(
+        JsonElement element,
+        string name)
+    {
+        var value = Property(element, name);
+        return value.ValueKind == JsonValueKind.Number &&
+               value.TryGetInt64(out var result)
             ? result
             : null;
     }
