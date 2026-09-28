@@ -22,6 +22,9 @@ public sealed partial class MainWindow : Window
         NativeMultiplayerPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeOperationsPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeCompanyPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeRoleplayPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeHudPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeHardwarePage.CommandHandler = ExecuteNativeCommandAsync;
 
         if (_smokeOnly)
         {
@@ -198,6 +201,10 @@ public sealed partial class MainWindow : Window
         NativeMultiplayerPage.ApplyState(state);
         NativeOperationsPage.ApplyState(state);
         NativeCompanyPage.ApplyState(state);
+        NativeNavigationPage.ApplyState(state);
+        NativeRoleplayPage.ApplyState(state);
+        NativeHudPage.ApplyState(state);
+        NativeHardwarePage.ApplyState(state);
     }
 
     private void Navigation_SelectionChanged(
@@ -229,13 +236,29 @@ public sealed partial class MainWindow : Window
         NativeCompanyPage.Visibility = tag == "company"
             ? Visibility.Visible
             : Visibility.Collapsed;
+        NativeNavigationPage.Visibility = tag == "navigation"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeRoleplayPage.Visibility = tag == "roleplay"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeHudPage.Visibility = tag == "hud"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeHardwarePage.Visibility = tag == "hardware"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         var usePlaceholder = tag is not (
             "home" or
             "performance" or
             "multiplayer" or
             "cco" or
-            "company");
+            "company" or
+            "navigation" or
+            "roleplay" or
+            "hud" or
+            "hardware");
         ModulePage.Visibility = usePlaceholder
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -247,10 +270,6 @@ public sealed partial class MainWindow : Window
 
         (ModuleTitleText.Text, ModuleSubtitleText.Text) = tag switch
         {
-            "navigation" => ("Navegação", "GPS, rota, próximos pontos e navegação operacional integrada ao OMSI."),
-            "roleplay" => ("Personagem RP", "Personagem, caminhada, crachá, jornada e interação com veículos."),
-            "hud" => ("HUD e Telematrix", "HUD modular, IBIS, Telematrix e informações operacionais."),
-            "hardware" => ("Hardware Cockpit", "Volantes, painéis, Arduino/ESP32, serial e perfis de controles."),
             "diagnostics" => ("Diagnóstico", "Estado do OMSI, plugin, bridge, multiplayer, rede e reparos."),
             "settings" => ("Configurações", "Idioma, aparência, OMSI, atualização, privacidade e recursos experimentais."),
             _ => ("NavBR", "Módulo nativo em migração.")
