@@ -263,6 +263,12 @@ internal static class PhysicalVehicleMotionController
         _lastExternalControlTickMs = now;
         var currentHostVehiclePointer =
             OmsiNativeInterop.GetPlayerVehiclePointer();
+        var poseProbeIntervalMs = activeCount switch
+        {
+            >= 9 => CrowdedPoseProbeIntervalMs,
+            >= 5 => MediumPoseProbeIntervalMs,
+            _ => LightPoseProbeIntervalMs
+        };
         RemovalScratch.Clear();
         foreach (var pair in States)
         {
@@ -314,12 +320,6 @@ internal static class PhysicalVehicleMotionController
             // Settled buses are probed often enough to catch OMSI drift well
             // before the bounded 250 ms full-pose refresh. Any ownership
             // conflict or diagnostic sample still forces an immediate probe.
-            var poseProbeIntervalMs = activeCount switch
-            {
-                >= 9 => CrowdedPoseProbeIntervalMs,
-                >= 5 => MediumPoseProbeIntervalMs,
-                _ => LightPoseProbeIntervalMs
-            };
             var settled = IsSettled(state.Current, state.Target);
             var physicsDiagnosticDue =
                 now - state.LastPhysicsBodyLogTickMs >=
@@ -511,12 +511,17 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance) ||
-                OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+            if (!PhysicalVehicleInstanceRegistry.TryGet(instanceId, out var instance))
             {
                 RemovalScratch.Add(instanceId);
                 continue;
             }
+
+            // MaintainExternalControl runs before Tick on the OMSI frame
+            // callback and validates live RoadVehicles membership. Moving
+            // transforms repeat that validation inside the native write, while
+            // stale removal below still uses the full managed ownership guard.
+            // Avoid another IsRoadVehiclePointer P/Invoke for every bus/tick.
 
             if (now - state.LastTargetTickMs >= StaleTargetAfterMs)
             {
@@ -604,7 +609,10 @@ internal static class PhysicalVehicleMotionController
         MotionSnapshot current,
         MotionSnapshot target)
     {
-        if (Distance(current, target) > 0.01d ||
+        var dx = (double)target.X - current.X;
+        var dy = (double)target.Y - current.Y;
+        var dz = (double)target.Z - current.Z;
+        if (dx * dx + dy * dy + dz * dz > 0.0001d ||
             Math.Abs(current.SpeedMps - target.SpeedMps) > 0.01f)
         {
             return false;
