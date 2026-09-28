@@ -25,6 +25,8 @@ public sealed partial class MainWindow : Window
         NativeRoleplayPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeHudPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeHardwarePage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeDiagnosticsPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeSettingsPage.CommandHandler = ExecuteNativeCommandAsync;
 
         if (_smokeOnly)
         {
@@ -205,6 +207,8 @@ public sealed partial class MainWindow : Window
         NativeRoleplayPage.ApplyState(state);
         NativeHudPage.ApplyState(state);
         NativeHardwarePage.ApplyState(state);
+        NativeDiagnosticsPage.ApplyState(state);
+        NativeSettingsPage.ApplyState(state);
     }
 
     private void Navigation_SelectionChanged(
@@ -248,6 +252,12 @@ public sealed partial class MainWindow : Window
         NativeHardwarePage.Visibility = tag == "hardware"
             ? Visibility.Visible
             : Visibility.Collapsed;
+        NativeDiagnosticsPage.Visibility = tag == "diagnostics"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NativeSettingsPage.Visibility = tag == "settings"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         var usePlaceholder = tag is not (
             "home" or
@@ -258,7 +268,9 @@ public sealed partial class MainWindow : Window
             "navigation" or
             "roleplay" or
             "hud" or
-            "hardware");
+            "hardware" or
+            "diagnostics" or
+            "settings");
         ModulePage.Visibility = usePlaceholder
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -268,12 +280,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        (ModuleTitleText.Text, ModuleSubtitleText.Text) = tag switch
-        {
-            "diagnostics" => ("Diagnóstico", "Estado do OMSI, plugin, bridge, multiplayer, rede e reparos."),
-            "settings" => ("Configurações", "Idioma, aparência, OMSI, atualização, privacidade e recursos experimentais."),
-            _ => ("NavBR", "Módulo nativo em migração.")
-        };
+        (ModuleTitleText.Text, ModuleSubtitleText.Text) =
+            ("NavBR", "Módulo nativo em migração.");
     }
 
     private async Task ExecuteNativeCommandAsync(
