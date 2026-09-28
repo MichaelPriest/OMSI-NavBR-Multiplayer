@@ -45,6 +45,8 @@ public partial class MainWindow : Window
     private bool _nativeRuntimeStarted;
     private readonly bool _nativeHostMode;
     private int _telemetryPollIntervalMs = 200;
+    private double _lastTelemetryPollMilliseconds;
+    private double _averageTelemetryPollMilliseconds;
 
     public MainWindow()
         : this(nativeHostMode: false)
@@ -261,7 +263,25 @@ public partial class MainWindow : Window
             return;
         }
 
+        var telemetryReadStart =
+            System.Diagnostics.Stopwatch.GetTimestamp();
         var telemetry = _telemetryProvider.Read("local");
+        var telemetryReadTicks =
+            System.Diagnostics.Stopwatch.GetTimestamp() -
+            telemetryReadStart;
+        if (telemetryReadTicks >= 0)
+        {
+            _lastTelemetryPollMilliseconds =
+                telemetryReadTicks * 1000d /
+                System.Diagnostics.Stopwatch.Frequency;
+            _averageTelemetryPollMilliseconds =
+                _averageTelemetryPollMilliseconds <= 0d
+                    ? _lastTelemetryPollMilliseconds
+                    : _averageTelemetryPollMilliseconds +
+                      ((_lastTelemetryPollMilliseconds -
+                        _averageTelemetryPollMilliseconds) * 0.12d);
+        }
+
         if (telemetry is not null)
         {
             _lastTelemetry = telemetry;
