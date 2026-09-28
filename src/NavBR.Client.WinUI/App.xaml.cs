@@ -51,7 +51,25 @@ public partial class App : Application
                             System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("navigation3D").ValueKind !=
                             System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("operations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("roadmapStudio").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("ghost").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("hardware").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("network").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("roleplay").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("roomDirectory").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("system").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("multiplayer").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("companyNetwork").ValueKind !=
                             System.Text.Json.JsonValueKind.Object)
                     {
                         throw new InvalidOperationException(
@@ -65,10 +83,31 @@ public partial class App : Application
                     if (payload.GetProperty("navigation").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("navigation3D").ValueKind !=
-                            System.Text.Json.JsonValueKind.Object)
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("operations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("network").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null)
                     {
                         throw new InvalidOperationException(
-                            "Runtime Host scoped navigation state smoke did not include navigation modules.");
+                            "Runtime Host scoped navigation state smoke did not isolate navigation modules.");
+                    }
+                }
+
+                using (var diagnosticsState = await runtime.GetStateAsync("diagnostics"))
+                {
+                    var payload = diagnosticsState.RootElement.GetProperty("payload");
+                    if (payload.GetProperty("network").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("system").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("navigation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("operations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped diagnostics state smoke did not isolate diagnostics modules.");
                     }
                 }
 
