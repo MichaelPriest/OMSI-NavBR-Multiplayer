@@ -147,13 +147,62 @@ public partial class MainWindow
         var telemetry = _lastTelemetry;
         var omsi = _currentOmsi;
         var multiplayerSettings = MultiplayerSettingsStore.Load();
-        var includeNavigation =
-            string.IsNullOrWhiteSpace(scope) ||
-            string.Equals(scope, "navigation", StringComparison.OrdinalIgnoreCase);
-        var localManifest = OmsiCompatibilityManifestFactory.Create(
-            telemetry,
-            GetActiveMapForMultiplayer(),
-            omsi?.FileVersion);
+        var fullSnapshot = string.IsNullOrWhiteSpace(scope);
+        bool IncludeScope(string target) =>
+            fullSnapshot ||
+            string.Equals(scope, target, StringComparison.OrdinalIgnoreCase);
+
+        var includeNavigation = IncludeScope("navigation");
+        var includeOperations = IncludeScope("cco");
+        var includeHardware = IncludeScope("hardware");
+        var includeNetwork = IncludeScope("diagnostics");
+        var includeRoleplay = IncludeScope("roleplay");
+
+        // The WinUI shell never renders the legacy Roadmap Studio, Ghost or
+        // public-room directory directly. Preserve all of them for the
+        // unscoped legacy/full snapshot, but avoid rebuilding them on the
+        // regular scoped WinUI polling path.
+        object? roomDirectory = null;
+        if (fullSnapshot)
+        {
+            var localManifest = OmsiCompatibilityManifestFactory.Create(
+                telemetry,
+                GetActiveMapForMultiplayer(),
+                omsi?.FileVersion);
+            roomDirectory = new
+            {
+                serverUrl = _webPublicRoomDirectoryServerUrl,
+                error = _webPublicRoomDirectoryError,
+                rooms = _webPublicRooms
+                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+                    .ThenByDescending(room => room.PlayerCount)
+                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(room =>
+                    {
+                        var compatibility = EvaluateWebRoomCompatibility(localManifest, room);
+                        return new
+                        {
+                            roomId = room.RoomId,
+                            playerCount = room.PlayerCount,
+                            mapName = room.MapName,
+                            mapCompatibilityId = room.MapCompatibilityId,
+                            updatedAtUtc = room.UpdatedAtUtc,
+                            omsiVersion = room.OmsiVersion,
+                            navbrVersion = room.NavBRVersion,
+                            vehiclePath = room.VehiclePath,
+                            vehicleCompatibilityId = room.VehicleCompatibilityId,
+                            hofName = room.HofName,
+                            hofCompatibilityId = room.HofCompatibilityId,
+                            pluginProtocolVersion = room.PluginProtocolVersion,
+                            favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId),
+                            compatibility = compatibility.Level,
+                            compatibilityIssues = compatibility.Issues,
+                            directJoinAllowed = compatibility.DirectJoinAllowed
+                        };
+                    })
+                    .ToArray()
+            };
+        }
 
         return new
         {
@@ -213,48 +262,28 @@ public partial class MainWindow
             navigation3D = includeNavigation
                 ? BuildWebNavigation3DState()
                 : null,
-            operations = BuildWebOperationsState(),
+            operations = includeOperations
+                ? BuildWebOperationsState()
+                : null,
             system = BuildWebSystemState(multiplayerSettings),
-            roadmapStudio = BuildWebRoadmapState(),
-            ghost = BuildWebGhostState(),
-            hardware = BuildWebHardwareState(),
-            network = BuildWebNetworkState(),
+            roadmapStudio = fullSnapshot
+                ? BuildWebRoadmapState()
+                : null,
+            ghost = fullSnapshot
+                ? BuildWebGhostState()
+                : null,
+            hardware = includeHardware
+                ? BuildWebHardwareState()
+                : null,
+            network = includeNetwork
+                ? BuildWebNetworkState()
+                : null,
             companyNetwork = BuildWebCompanyNetworkState(),
-            roleplay = BuildWebRoleplayState(),
+            roleplay = includeRoleplay
+                ? BuildWebRoleplayState()
+                : null,
             multiplayer = BuildWebMultiplayerState(multiplayerSettings),
-            roomDirectory = new
-            {
-                serverUrl = _webPublicRoomDirectoryServerUrl,
-                error = _webPublicRoomDirectoryError,
-                rooms = _webPublicRooms
-                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
-                    .ThenByDescending(room => room.PlayerCount)
-                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(room =>
-                    {
-                        var compatibility = EvaluateWebRoomCompatibility(localManifest, room);
-                        return new
-                        {
-                            roomId = room.RoomId,
-                            playerCount = room.PlayerCount,
-                            mapName = room.MapName,
-                            mapCompatibilityId = room.MapCompatibilityId,
-                            updatedAtUtc = room.UpdatedAtUtc,
-                            omsiVersion = room.OmsiVersion,
-                            navbrVersion = room.NavBRVersion,
-                            vehiclePath = room.VehiclePath,
-                            vehicleCompatibilityId = room.VehicleCompatibilityId,
-                            hofName = room.HofName,
-                            hofCompatibilityId = room.HofCompatibilityId,
-                            pluginProtocolVersion = room.PluginProtocolVersion,
-                            favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId),
-                            compatibility = compatibility.Level,
-                            compatibilityIssues = compatibility.Issues,
-                            directJoinAllowed = compatibility.DirectJoinAllowed
-                        };
-                    })
-                    .ToArray()
-            }
+            roomDirectory
         };
     }
 
