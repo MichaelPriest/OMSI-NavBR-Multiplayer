@@ -24,6 +24,21 @@ Todas as mudanças relevantes do OMSI NavBR Multiplayer serão registradas aqui.
 - HUD passa a iniciar pelo runtime React e evita hooks/timers duplicados;
 - cache de preferências e cache PWA foram revisados.
 
+### Validação manual confirmada
+
+- teste **online com bots/AI do simulador** validado em uma sessão OMSI real;
+- os ônibus físicos simulados materializaram e passaram a **seguir corretamente o host pela trajetória** com a simulação ativa;
+- a etapa seguinte é validar o mesmo fluxo com **players reais em dois PCs/duas sessões OMSI**;
+- essa validação de players reais ainda não é considerada concluída.
+
+### Corrigido após a validação
+
+- sincronização adicional de `RoadVehicle` para estado de matriz/velocidade usado por referências públicas de multiplayer OMSI;
+- `RelMatrix`, `Used_RelVec`, `AbsPosition_Inv`, `Velocity` e `Last_Velocity` passam a ser mantidos no caminho físico;
+- HUD deixa de usar topmost global e fica associado somente à janela de gameplay do OMSI;
+- redução de trabalho síncrono/callback e caches para diminuir travamentos do app;
+- manual completo de atalhos adicionado em `docs/KEYBOARD_SHORTCUTS.md`.
+
 ### Experimental
 
 - o backend físico ainda precisa de validação ampla em mapas, ônibus e redes reais;
