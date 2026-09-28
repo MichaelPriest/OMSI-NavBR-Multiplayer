@@ -278,7 +278,12 @@ public partial class MainWindow
             network = includeNetwork
                 ? BuildWebNetworkState()
                 : null,
-            companyNetwork = BuildWebCompanyNetworkState(),
+            companyNetwork = BuildWebCompanyNetworkState(
+                summaryOnly: !fullSnapshot &&
+                             !string.Equals(
+                                 scope,
+                                 "company",
+                                 StringComparison.OrdinalIgnoreCase)),
             roleplay = includeRoleplay
                 ? BuildWebRoleplayState()
                 : null,
