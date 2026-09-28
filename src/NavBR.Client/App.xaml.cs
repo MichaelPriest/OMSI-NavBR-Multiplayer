@@ -15,6 +15,7 @@ using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.PluginInstaller;
 using NavBR.Client.Windows;
+using NavBR.Client.WinUIBridge;
 using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client;
@@ -28,6 +29,7 @@ public partial class App : Application
 
     private CancellationTokenSource? _deferredPluginUpdateCts;
     private string? _deferredPluginUpdateRoot;
+    private NativeShellBridgeServer? _nativeShellBridge;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -98,6 +100,10 @@ public partial class App : Application
         TrayIcon.Attach(nativeHost);
         nativeHost.StartNativeRuntimeForReact();
 
+        _nativeShellBridge = new NativeShellBridgeServer(nativeHost);
+        _nativeShellBridge.Start();
+        NavBRAppLog.Info("native-shell-bridge-start");
+
         try
         {
             MobileCompanion = new MobileCompanionHostService(
@@ -113,7 +119,22 @@ public partial class App : Application
             MobileCompanion = null;
         }
 
-        nativeHost.OpenPrimaryWebShell();
+        var nativeHostOnly = e.Args.Any(argument =>
+            string.Equals(
+                argument,
+                "--native-host",
+                StringComparison.OrdinalIgnoreCase));
+
+        if (nativeHostOnly)
+        {
+            NavBRAppLog.Info("desktop-mode=native-host");
+            nativeHost.ShowInTaskbar = false;
+            nativeHost.Hide();
+        }
+        else
+        {
+            nativeHost.OpenPrimaryWebShell();
+        }
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -147,6 +168,23 @@ public partial class App : Application
             finally
             {
                 MobileCompanion = null;
+            }
+        }
+
+        if (_nativeShellBridge is not null)
+        {
+            try
+            {
+                _nativeShellBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                NavBRAppLog.Info("native-shell-bridge-stop");
+            }
+            catch (Exception ex)
+            {
+                NavBRAppLog.Error("native-shell-bridge-stop-error", ex);
+            }
+            finally
+            {
+                _nativeShellBridge = null;
             }
         }
 
