@@ -294,16 +294,44 @@ public partial class MainWindow : Window
             .GetConnectionInfo()
             .LastStatus;
 
-        var profile = status?.PerformanceProfile?.Trim().ToLowerInvariant() ?? "auto";
+        var profile = status?.PerformanceProfile;
         var pressure = status?.PluginPressureLevel ?? 0;
+        var intervalMs = ComputeAdaptiveRuntimeIntervalMs(
+            profile,
+            pressure,
+            telemetry?.IsInGame == true,
+            qualityMs: 125,
+            multiplayerMs: 150,
+            stabilityMs: 300,
+            diagnosticsMs: 250,
+            automaticMs: 200);
 
-        var intervalMs = profile switch
+        if (_telemetryPollIntervalMs == intervalMs)
         {
-            "quality" => 125,
-            "multiplayer" => 150,
-            "stability" => 300,
-            "diagnostics" => 250,
-            _ => 200
+            return;
+        }
+
+        _telemetryPollIntervalMs = intervalMs;
+        _telemetryTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+    }
+
+    private static int ComputeAdaptiveRuntimeIntervalMs(
+        string? profile,
+        int pressure,
+        bool inGame,
+        int qualityMs,
+        int multiplayerMs,
+        int stabilityMs,
+        int diagnosticsMs,
+        int automaticMs)
+    {
+        var intervalMs = profile?.Trim().ToLowerInvariant() switch
+        {
+            "quality" => qualityMs,
+            "multiplayer" => multiplayerMs,
+            "stability" => stabilityMs,
+            "diagnostics" => diagnosticsMs,
+            _ => automaticMs
         };
 
         intervalMs = pressure switch
@@ -314,18 +342,9 @@ public partial class MainWindow : Window
             _ => intervalMs
         };
 
-        if (telemetry?.IsInGame != true)
-        {
-            intervalMs = Math.Max(intervalMs, 500);
-        }
-
-        if (_telemetryPollIntervalMs == intervalMs)
-        {
-            return;
-        }
-
-        _telemetryPollIntervalMs = intervalMs;
-        _telemetryTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+        return inGame
+            ? intervalMs
+            : Math.Max(intervalMs, 500);
     }
 
     private void RenderCurrentState()
