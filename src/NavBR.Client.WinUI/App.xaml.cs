@@ -30,18 +30,47 @@ public partial class App : Application
                 var runtime = new NativeHostClient();
                 await runtime.EnsureRuntimeHostAsync();
 
-                using var state = await runtime.GetStateAsync();
-                var root = state.RootElement;
-                if (!root.TryGetProperty("ok", out var ok) ||
-                    !ok.GetBoolean() ||
-                    !root.TryGetProperty("payload", out var payload) ||
-                    payload.ValueKind != System.Text.Json.JsonValueKind.Object ||
-                    !payload.TryGetProperty("appVersion", out _))
+                using (var state = await runtime.GetStateAsync())
                 {
-                    throw new InvalidOperationException(
-                        "Runtime Host IPC state smoke returned an invalid payload.");
+                    var root = state.RootElement;
+                    if (!root.TryGetProperty("ok", out var ok) ||
+                        !ok.GetBoolean() ||
+                        !root.TryGetProperty("payload", out var payload) ||
+                        payload.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                        !payload.TryGetProperty("appVersion", out _))
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host IPC state smoke returned an invalid payload.");
+                    }
                 }
 
+                await runtime.SendCommandAsync(
+                    "setPerformanceProfile",
+                    new { profile = "stability" });
+
+                using (var state = await runtime.GetStateAsync())
+                {
+                    var payload = state.RootElement.GetProperty("payload");
+                    var configuredProfile = payload
+                        .GetProperty("system")
+                        .GetProperty("sessionHealth")
+                        .GetProperty("pluginPerformance")
+                        .GetProperty("configuredProfile")
+                        .GetString();
+
+                    if (!string.Equals(
+                            configuredProfile,
+                            "stability",
+                            StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Runtime Host performance profile smoke failed: {configuredProfile ?? "<null>"}.");
+                    }
+                }
+
+                await runtime.SendCommandAsync(
+                    "setPerformanceProfile",
+                    new { profile = "auto" });
                 await runtime.ShutdownOwnedHostAsync();
                 Environment.Exit(0);
                 return;
