@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Server.Multiplayer;
 
@@ -15,7 +16,8 @@ public sealed class MultiplayerRoomRegistry
         string displayName,
         string? mapName,
         string? mapCompatibilityId,
-        OmsiCompatibilityManifest? compatibility = null)
+        OmsiCompatibilityManifest? compatibility = null,
+        CompanyEmployeeBadge? companyBadge = null)
     {
         var presence = new PlayerPresence(
             playerId,
@@ -24,7 +26,8 @@ public sealed class MultiplayerRoomRegistry
             NormalizeOptional(mapName),
             DateTimeOffset.UtcNow,
             NormalizeOptional(mapCompatibilityId),
-            compatibility);
+            compatibility,
+            companyBadge);
 
         _connections[connectionId] = presence;
         return presence;
