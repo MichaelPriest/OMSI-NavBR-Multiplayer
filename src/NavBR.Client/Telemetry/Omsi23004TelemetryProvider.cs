@@ -354,7 +354,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
         try
         {
-            if (Process.GetProcessById(memory.ProcessId).HasExited)
+            if (!memory.IsProcessAlive)
             {
                 return Array.Empty<TrafficVehicleState>();
             }
@@ -382,7 +382,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
         try
         {
-            if (Process.GetProcessById(memory.ProcessId).HasExited)
+            if (!memory.IsProcessAlive)
             {
                 LastErrorCode = TelemetryErrorCode.ProcessExited;
                 DisposeMemory();
