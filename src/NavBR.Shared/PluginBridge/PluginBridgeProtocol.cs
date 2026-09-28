@@ -48,6 +48,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityCharacterTransform = "character-transform";
     public const string CapabilityCharacterInteraction = "character-interaction";
     public const string CapabilityLocalVehicleTrigger = "local-vehicle-trigger";
+    public const string CapabilityPerformanceGovernor = "performance-governor";
 }
 
 public sealed record PluginBridgeMessage(
@@ -149,4 +150,10 @@ public sealed record PluginBridgeMessage(
     string? AuthorityPlayerId = null,
     long? Sequence = null,
     TrafficVehicleState[]? TrafficVehicles = null,
-    int? MapTileIndex = null);
+    int? MapTileIndex = null,
+    int? PluginPressureLevel = null,
+    double? PluginWorkMilliseconds = null,
+    double? PluginAverageWorkMilliseconds = null,
+    double? PluginAverageFrameIntervalMilliseconds = null,
+    long? PluginMinimumWorkIntervalMilliseconds = null,
+    int? PluginMaxCommandsPerSlice = null);
