@@ -103,11 +103,14 @@ public partial class App : Application
         MainWindow = nativeHost;
         nativeHost.InitializeRoleplayForShell();
         TrayIcon.Attach(nativeHost);
-        nativeHost.StartNativeRuntimeForReact();
 
+        // Bring IPC online before telemetry/HUD work. The WinUI process can now
+        // handshake immediately even if an overlay or OMSI probe takes longer.
         _nativeShellBridge = new NativeShellBridgeServer(nativeHost);
         _nativeShellBridge.Start();
         NavBRAppLog.Info("native-shell-bridge-start");
+
+        nativeHost.StartNativeRuntimeForReact();
 
         try
         {
