@@ -158,4 +158,7 @@ public sealed record PluginBridgeMessage(
     double? PluginAverageFrameIntervalMilliseconds = null,
     long? PluginMinimumWorkIntervalMilliseconds = null,
     int? PluginMaxCommandsPerSlice = null,
+    double? PluginLastFrameIntervalMilliseconds = null,
+    double? PluginPeakFrameIntervalMilliseconds = null,
+    long? PluginFrameStallCount = null,
     string? PerformanceProfile = null);
