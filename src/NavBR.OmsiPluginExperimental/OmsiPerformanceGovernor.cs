@@ -225,7 +225,8 @@ internal static class OmsiPerformanceGovernor
                 _averageFrameIntervalMs,
                 _lastFrameIntervalMs,
                 _peakFrameIntervalMs,
-                _frameStallCount);
+                _frameStallCount,
+                _profile);
     }
 
     public static long BeginWorkSlice() => Stopwatch.GetTimestamp();
@@ -369,4 +370,5 @@ internal readonly record struct OmsiWorkBudget(
     double AverageFrameIntervalMilliseconds,
     double LastFrameIntervalMilliseconds,
     double PeakFrameIntervalMilliseconds,
-    long FrameStallCount);
+    long FrameStallCount,
+    string PerformanceProfile);
