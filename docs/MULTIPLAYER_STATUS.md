@@ -1,4 +1,4 @@
-# Estado real do multiplayer — Alpha.21
+# Estado real do multiplayer — Alpha.22
 
 > **Status público:** o caminho online com **bots/AI do simulador seguindo o host foi validado com sucesso em OMSI real**. A sincronização ponta a ponta entre **players reais em dois PCs/duas sessões OMSI ainda precisa ser testada**.
 
