@@ -21,6 +21,10 @@ internal static class PhysicalVehicleLifecycleSupervisor
         new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> PendingRemovals =
         new(StringComparer.OrdinalIgnoreCase);
+    // Tick runs only on OMSI's callback thread. Reuse this bounded buffer
+    // instead of allocating Entries.Values.ToArray() on every work slice.
+    private static readonly List<LifecycleEntry> TickScratch =
+        new(MaxEntries);
 
     private static int _resetRequested;
     private static int _randomBusControlProbeAttempted;
@@ -282,14 +286,17 @@ internal static class PhysicalVehicleLifecycleSupervisor
             return;
         }
 
-        LifecycleEntry[] snapshot;
         lock (Sync)
         {
-            snapshot = Entries.Values.ToArray();
+            TickScratch.Clear();
+            foreach (var entry in Entries.Values)
+            {
+                TickScratch.Add(entry);
+            }
         }
 
         var nativeAttempts = 0;
-        foreach (var entry in snapshot)
+        foreach (var entry in TickScratch)
         {
             if (now - entry.LastIntentTickMs > StaleIntentAfterMs)
             {
@@ -346,6 +353,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
             LogTransition(entry.InstanceId, result);
             nativeAttempts++;
         }
+
+        TickScratch.Clear();
     }
 
     private static void RemoveStaleEntry(LifecycleEntry entry)
