@@ -59,6 +59,17 @@ A Alpha.21 é uma **alpha pública de teste** focada no multiplayer físico dent
 
 A Alpha.21 passa pelos gates de React desktop, PWA, APK Android, .NET, Native AOT x86, exports OMSI, Plugin Bridge, simulador SignalR, installer/uninstaller e pacotes de integração.
 
+## Atualização de validação — 27/09/2026
+
+Foi concluído com sucesso um teste online usando o **simulador com bots/AI** conectado ao fluxo real do NavBR/OMSI:
+
+- os ônibus físicos simulados foram materializados no OMSI;
+- com a simulação ativa, passaram a seguir corretamente o host pela trajetória;
+- a validação confirma o caminho **simulador → rede → cliente → plugin → RoadVehicle**;
+- o HUD também recebeu correção para permanecer somente sobre a janela de gameplay do OMSI.
+
+Essa validação **não equivale ainda a um teste ponta a ponta entre dois jogadores reais**. A próxima etapa é confirmar sincronização, movimento, troca de Kachel e estabilidade com dois PCs/duas sessões OMSI reais.
+
 ### Limitações conhecidas
 
 O multiplayer físico continua experimental. O NavBR usa a geometria dos vehicle paths reais do mapa para manter os remotos na pista, mas não escreve estruturas internas `PathInfo` não documentadas do OMSI. Testes reais em mapas, cruzamentos e ônibus diferentes continuam necessários. Ônibus articulados ainda não são considerados suportados pelo caminho físico experimental.
