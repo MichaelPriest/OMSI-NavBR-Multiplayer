@@ -94,7 +94,8 @@ public partial class MainWindow
         var controller = new RoleplayCharacterController(
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
-            GetRoleplayMapKeyForShell);
+            GetRoleplayMapKeyForShell,
+            _telemetryProvider.ReadCameraProjection);
 
         controller.NetworkStateReady += state =>
         {
