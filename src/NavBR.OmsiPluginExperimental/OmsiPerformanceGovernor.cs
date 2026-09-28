@@ -69,37 +69,58 @@ internal static class OmsiPerformanceGovernor
     {
         lock (Sync)
         {
-            if (_lastFrameTickMs > 0 &&
-                nowTickMs >= _lastFrameTickMs)
+            ObserveFrameUnsafe(nowTickMs);
+        }
+    }
+
+    public static OmsiWorkBudget ObserveFrameAndGetBudget(
+        long nowTickMs,
+        int activePhysicalVehicles,
+        int activeRoleplayCharacters,
+        int pendingCommands)
+    {
+        lock (Sync)
+        {
+            ObserveFrameUnsafe(nowTickMs);
+            return BuildBudgetUnsafe(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+        }
+    }
+
+    private static void ObserveFrameUnsafe(long nowTickMs)
+    {
+        if (_lastFrameTickMs > 0 &&
+            nowTickMs >= _lastFrameTickMs)
+        {
+            var interval = nowTickMs - _lastFrameTickMs;
+            if (interval is > 0 and < 1_000)
             {
-                var interval = nowTickMs - _lastFrameTickMs;
-                if (interval is > 0 and < 1_000)
+                _lastFrameIntervalMs = interval;
+                _peakFrameIntervalMs = Math.Max(_peakFrameIntervalMs, interval);
+                if (interval >= 100d)
                 {
-                    _lastFrameIntervalMs = interval;
-                    _peakFrameIntervalMs = Math.Max(_peakFrameIntervalMs, interval);
-                    if (interval >= 100d)
-                    {
-                        _frameStallCount++;
-                    }
+                    _frameStallCount++;
+                }
 
-                    _averageFrameIntervalMs = _averageFrameIntervalMs <= 0d
-                        ? interval
-                        : Lerp(_averageFrameIntervalMs, interval, 0.08d);
+                _averageFrameIntervalMs = _averageFrameIntervalMs <= 0d
+                    ? interval
+                    : Lerp(_averageFrameIntervalMs, interval, 0.08d);
 
-                    // If the simulator itself is already falling below roughly
-                    // 28 FPS, NavBR should reduce optional work instead of
-                    // competing for more time on the same thread.
-                    if (_averageFrameIntervalMs >= 36d &&
-                        _pressureLevel < 3)
-                    {
-                        _pressureLevel++;
-                        _healthySlices = 0;
-                    }
+                // If the simulator itself is already falling below roughly
+                // 28 FPS, NavBR should reduce optional work instead of
+                // competing for more time on the same thread.
+                if (_averageFrameIntervalMs >= 36d &&
+                    _pressureLevel < 3)
+                {
+                    _pressureLevel++;
+                    _healthySlices = 0;
                 }
             }
-
-            _lastFrameTickMs = nowTickMs;
         }
+
+        _lastFrameTickMs = nowTickMs;
     }
 
     public static OmsiWorkBudget GetBudget(
@@ -109,6 +130,18 @@ internal static class OmsiPerformanceGovernor
     {
         lock (Sync)
         {
+            return BuildBudgetUnsafe(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+        }
+    }
+
+    private static OmsiWorkBudget BuildBudgetUnsafe(
+        int activePhysicalVehicles,
+        int activeRoleplayCharacters,
+        int pendingCommands)
+    {
             var baseIntervalMs = activePhysicalVehicles switch
             {
                 >= 9 => 33L,
@@ -193,64 +226,103 @@ internal static class OmsiPerformanceGovernor
                 _lastFrameIntervalMs,
                 _peakFrameIntervalMs,
                 _frameStallCount);
-        }
     }
 
     public static long BeginWorkSlice() => Stopwatch.GetTimestamp();
 
     public static void EndWorkSlice(long startTimestamp)
     {
-        if (startTimestamp <= 0)
+        if (!TryMeasureWorkSlice(startTimestamp, out var elapsedMs))
         {
             return;
+        }
+
+        lock (Sync)
+        {
+            ApplyWorkSliceUnsafe(elapsedMs);
+        }
+    }
+
+    public static OmsiWorkBudget EndWorkSliceAndGetBudget(
+        long startTimestamp,
+        int activePhysicalVehicles,
+        int activeRoleplayCharacters,
+        int pendingCommands)
+    {
+        if (!TryMeasureWorkSlice(startTimestamp, out var elapsedMs))
+        {
+            return GetBudget(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+        }
+
+        lock (Sync)
+        {
+            ApplyWorkSliceUnsafe(elapsedMs);
+            return BuildBudgetUnsafe(
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+        }
+    }
+
+    private static bool TryMeasureWorkSlice(
+        long startTimestamp,
+        out double elapsedMs)
+    {
+        elapsedMs = 0d;
+        if (startTimestamp <= 0)
+        {
+            return false;
         }
 
         var elapsedTicks = Stopwatch.GetTimestamp() - startTimestamp;
         if (elapsedTicks < 0)
         {
+            return false;
+        }
+
+        elapsedMs = elapsedTicks * 1000d / Stopwatch.Frequency;
+        return true;
+    }
+
+    private static void ApplyWorkSliceUnsafe(double elapsedMs)
+    {
+        _lastWorkMs = elapsedMs;
+        _averageWorkMs = _averageWorkMs <= 0d
+            ? elapsedMs
+            : Lerp(_averageWorkMs, elapsedMs, EwmaAlpha);
+
+        if (elapsedMs >= SeverePluginWorkMs ||
+            _averageWorkMs >= TargetPluginWorkMs * 2d)
+        {
+            _pressureLevel = Math.Min(3, _pressureLevel + 1);
+            _healthySlices = 0;
             return;
         }
 
-        var elapsedMs =
-            elapsedTicks * 1000d / Stopwatch.Frequency;
-
-        lock (Sync)
+        if (elapsedMs > TargetPluginWorkMs ||
+            _averageWorkMs > TargetPluginWorkMs)
         {
-            _lastWorkMs = elapsedMs;
-            _averageWorkMs = _averageWorkMs <= 0d
-                ? elapsedMs
-                : Lerp(_averageWorkMs, elapsedMs, EwmaAlpha);
+            _pressureLevel = Math.Min(3, _pressureLevel + 1);
+            _healthySlices = 0;
+            return;
+        }
 
-            if (elapsedMs >= SeverePluginWorkMs ||
-                _averageWorkMs >= TargetPluginWorkMs * 2d)
+        if (_averageWorkMs <= TargetPluginWorkMs * 0.55d &&
+            _averageFrameIntervalMs is > 0d and < 28d)
+        {
+            _healthySlices++;
+            if (_healthySlices >= 90 && _pressureLevel > 0)
             {
-                _pressureLevel = Math.Min(3, _pressureLevel + 1);
-                _healthySlices = 0;
-                return;
-            }
-
-            if (elapsedMs > TargetPluginWorkMs ||
-                _averageWorkMs > TargetPluginWorkMs)
-            {
-                _pressureLevel = Math.Min(3, _pressureLevel + 1);
-                _healthySlices = 0;
-                return;
-            }
-
-            if (_averageWorkMs <= TargetPluginWorkMs * 0.55d &&
-                _averageFrameIntervalMs is > 0d and < 28d)
-            {
-                _healthySlices++;
-                if (_healthySlices >= 90 && _pressureLevel > 0)
-                {
-                    _pressureLevel--;
-                    _healthySlices = 0;
-                }
-            }
-            else
-            {
+                _pressureLevel--;
                 _healthySlices = 0;
             }
+        }
+        else
+        {
+            _healthySlices = 0;
         }
     }
 
