@@ -715,6 +715,8 @@ public partial class MainWindow
                     averageFrameIntervalMilliseconds = pluginStatus.PluginAverageFrameIntervalMilliseconds,
                     minimumWorkIntervalMilliseconds = pluginStatus.PluginMinimumWorkIntervalMilliseconds,
                     maxCommandsPerSlice = pluginStatus.PluginMaxCommandsPerSlice,
+                    configuredProfile = MultiplayerSettingsStore.Load().PerformanceProfile,
+                    activeProfile = pluginStatus.PerformanceProfile,
                     queueBackpressureActive = pluginStatus.PluginPressureLevel is > 0
                 }
                 : null,
@@ -728,6 +730,38 @@ public partial class MainWindow
             samples = network.Samples,
             updatedAtUtc = now
         };
+    }
+
+    private static async Task SetPerformanceProfileFromWebAsync(string? profile)
+    {
+        var normalized = profile?.Trim().ToLowerInvariant() switch
+        {
+            "stability" => "stability",
+            "multiplayer" => "multiplayer",
+            "quality" => "quality",
+            "diagnostics" => "diagnostics",
+            _ => "auto"
+        };
+
+        var settings = MultiplayerSettingsStore.Load();
+        if (!string.Equals(settings.PerformanceProfile, normalized, StringComparison.Ordinal))
+        {
+            MultiplayerSettingsStore.Save(settings with
+            {
+                PerformanceProfile = normalized
+            });
+        }
+
+        if (Application.Current is not App app ||
+            !app.PluginBridge.GetConnectionInfo().IsConnected)
+        {
+            return;
+        }
+
+        await app.PluginBridge.SendMessageAsync(new PluginBridgeMessage(
+            PluginBridgeProtocol.SetPerformanceProfile,
+            PluginBridgeProtocol.Version,
+            PerformanceProfile: normalized));
     }
 
     private void ExportSessionHealthFromWeb()
