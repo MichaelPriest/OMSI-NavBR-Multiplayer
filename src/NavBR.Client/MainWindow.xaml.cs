@@ -43,14 +43,22 @@ public partial class MainWindow : Window
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
     private bool _nativeRuntimeStarted;
+    private readonly bool _nativeHostMode;
+    private int _telemetryPollIntervalMs = 200;
 
     public MainWindow()
+        : this(nativeHostMode: false)
     {
+    }
+
+    internal MainWindow(bool nativeHostMode)
+    {
+        _nativeHostMode = nativeHostMode;
         InitializeComponent();
 
         _telemetryTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(200)
+            Interval = TimeSpan.FromMilliseconds(_telemetryPollIntervalMs)
         };
         _telemetryTimer.Tick += (_, _) => PollTelemetry();
 
@@ -60,9 +68,12 @@ public partial class MainWindow : Window
         _driverStatisticsService = new DriverStatisticsService(() => _lastTelemetry);
         _driverStatisticsService.Start();
 
-        ConfigureLanguageSelector();
-        ApplyLocalization();
-        RenderCurrentState();
+        if (!_nativeHostMode)
+        {
+            ConfigureLanguageSelector();
+            ApplyLocalization();
+            RenderCurrentState();
+        }
 
         Closed += (_, _) =>
         {
@@ -259,7 +270,49 @@ public partial class MainWindow : Window
             }
         }
 
+        UpdateTelemetryPollingCadence(telemetry);
         RenderCurrentState();
+    }
+
+    private void UpdateTelemetryPollingCadence(VehicleTelemetry? telemetry)
+    {
+        var status = (System.Windows.Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo()
+            .LastStatus;
+
+        var profile = status?.PerformanceProfile?.Trim().ToLowerInvariant() ?? "auto";
+        var pressure = status?.PluginPressureLevel ?? 0;
+
+        var intervalMs = profile switch
+        {
+            "quality" => 125,
+            "multiplayer" => 150,
+            "stability" => 300,
+            "diagnostics" => 250,
+            _ => 200
+        };
+
+        intervalMs = pressure switch
+        {
+            >= 3 => Math.Max(intervalMs, 500),
+            2 => Math.Max(intervalMs, 350),
+            1 => Math.Max(intervalMs, 250),
+            _ => intervalMs
+        };
+
+        if (telemetry?.IsInGame != true)
+        {
+            intervalMs = Math.Max(intervalMs, 500);
+        }
+
+        if (_telemetryPollIntervalMs == intervalMs)
+        {
+            return;
+        }
+
+        _telemetryPollIntervalMs = intervalMs;
+        _telemetryTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
     }
 
     private void RenderCurrentState()
