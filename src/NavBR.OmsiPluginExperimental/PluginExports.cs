@@ -309,7 +309,9 @@ public static class PluginExports
                 workTick - lastStatusTick >= workBudget.StatusIntervalMs)
             {
                 Interlocked.Exchange(ref _lastStatusReportTickMs, workTick);
-                staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
+                var registryStatus =
+                    PluginBridgeClient.PruneAndSnapshotRemoteStates();
+                staleRemoved = registryStatus.StaleRemoved;
 
                 var tick = Environment.TickCount64;
                 var velocityAge = AgeMilliseconds(tick, Interlocked.Read(ref _lastVelocityTickMs));
@@ -357,6 +359,8 @@ public static class PluginExports
                     Interlocked.Read(ref _systemVariableCallbacks),
                     variableIndex,
                     staleRemoved,
+                    registryStatus.RemoteTotal,
+                    registryStatus.RemoteCompatible,
                     speedKph,
                     stopRequested,
                     float.IsFinite(cabinTemperature) ? cabinTemperature : null,
