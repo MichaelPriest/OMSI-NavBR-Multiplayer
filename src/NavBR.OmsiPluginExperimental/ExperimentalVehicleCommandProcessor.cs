@@ -748,9 +748,8 @@ internal static class PhysicalVehicleBackend
             OmsiNativeInterop.GetPlayerVehiclePointer(),
             out reason);
 
-    internal static bool IsSafeOwnedPointer(
+    internal static bool HasSafeOwnedPointerIdentity(
         PhysicalVehicleInstance instance,
-        int currentHostVehiclePointer,
         out string reason)
     {
         reason = string.Empty;
@@ -766,12 +765,31 @@ internal static class PhysicalVehicleBackend
             return false;
         }
 
-        if (instance.VehiclePointer == instance.HostVehiclePointerAtSpawn ||
-            (currentHostVehiclePointer != 0 &&
-             instance.VehiclePointer == currentHostVehiclePointer))
+        if (instance.VehiclePointer == instance.HostVehiclePointerAtSpawn)
         {
             reason =
-                $"pointer-is-host hostAtSpawn={FormatPointer(instance.HostVehiclePointerAtSpawn)} currentHost={FormatPointer(currentHostVehiclePointer)}";
+                $"pointer-is-host-at-spawn hostAtSpawn={FormatPointer(instance.HostVehiclePointerAtSpawn)}";
+            return false;
+        }
+
+        return true;
+    }
+
+    internal static bool IsSafeOwnedPointer(
+        PhysicalVehicleInstance instance,
+        int currentHostVehiclePointer,
+        out string reason)
+    {
+        if (!HasSafeOwnedPointerIdentity(instance, out reason))
+        {
+            return false;
+        }
+
+        if (currentHostVehiclePointer != 0 &&
+            instance.VehiclePointer == currentHostVehiclePointer)
+        {
+            reason =
+                $"pointer-is-current-host currentHost={FormatPointer(currentHostVehiclePointer)}";
             return false;
         }
 
