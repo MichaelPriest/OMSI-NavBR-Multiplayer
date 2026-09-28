@@ -12,6 +12,7 @@ public sealed partial class MainWindow : Window
     private DispatcherQueueTimer? _refreshTimer;
     private bool _refreshing;
     private bool _closing;
+    private string _activePageTag = "home";
 
     public MainWindow(bool smokeOnly = false)
     {
@@ -200,15 +201,36 @@ public sealed partial class MainWindow : Window
             ? "OMSI detectado · operação acompanhada pelo Runtime Host"
             : "WinUI 3 x64 conectado ao Runtime Host · aguardando OMSI";
 
-        NativeMultiplayerPage.ApplyState(state);
-        NativeOperationsPage.ApplyState(state);
-        NativeCompanyPage.ApplyState(state);
-        NativeNavigationPage.ApplyState(state);
-        NativeRoleplayPage.ApplyState(state);
-        NativeHudPage.ApplyState(state);
-        NativeHardwarePage.ApplyState(state);
-        NativeDiagnosticsPage.ApplyState(state);
-        NativeSettingsPage.ApplyState(state);
+        switch (_activePageTag)
+        {
+            case "multiplayer":
+                NativeMultiplayerPage.ApplyState(state);
+                break;
+            case "cco":
+                NativeOperationsPage.ApplyState(state);
+                break;
+            case "company":
+                NativeCompanyPage.ApplyState(state);
+                break;
+            case "navigation":
+                NativeNavigationPage.ApplyState(state);
+                break;
+            case "roleplay":
+                NativeRoleplayPage.ApplyState(state);
+                break;
+            case "hud":
+                NativeHudPage.ApplyState(state);
+                break;
+            case "hardware":
+                NativeHardwarePage.ApplyState(state);
+                break;
+            case "diagnostics":
+                NativeDiagnosticsPage.ApplyState(state);
+                break;
+            case "settings":
+                NativeSettingsPage.ApplyState(state);
+                break;
+        }
     }
 
     private void Navigation_SelectionChanged(
@@ -225,6 +247,10 @@ public sealed partial class MainWindow : Window
 
     private void ShowPage(string tag)
     {
+        _activePageTag = string.IsNullOrWhiteSpace(tag)
+            ? "home"
+            : tag;
+
         HomePage.Visibility = tag == "home"
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -277,6 +303,7 @@ public sealed partial class MainWindow : Window
 
         if (!usePlaceholder)
         {
+            _ = RefreshStateAsync();
             return;
         }
 
