@@ -96,11 +96,12 @@ public partial class MainWindow
         }
     }
 
-    private object BuildWebSystemState()
+    private object BuildWebSystemState(
+        MultiplayerSettings? hudSettings = null)
     {
         var profiles = OmsiInstallationProfileStore.Load();
         var currentInstall = _currentOmsi?.InstallDirectory;
-        var hudSettings = MultiplayerSettingsStore.Load();
+        hudSettings ??= MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
@@ -257,7 +258,7 @@ public partial class MainWindow
                 logUpdatedAtUtc = logInfo?.LastWriteTimeUtc
             },
             sessionHealthNotice = _webSessionHealthNotice,
-            sessionHealth = BuildWebSessionHealthState(),
+            sessionHealth = BuildWebSessionHealthState(hudSettings.PerformanceProfile),
             legacyPreferences = new
             {
                 firstRunCompleted = alpha12Preferences.FirstRunCompleted,
@@ -757,7 +758,8 @@ public partial class MainWindow
     private static void PurgeDiagnosticsFromWeb() =>
         RemoteDiagnosticsService.PurgeQueuedEvents();
 
-    private object BuildWebSessionHealthState()
+    private object BuildWebSessionHealthState(
+        string? configuredPerformanceProfile = null)
     {
         var session = DispatcherSessionFeed.Snapshot();
         var network = SessionNetworkQualityFeed.Snapshot();
@@ -799,7 +801,9 @@ public partial class MainWindow
                 lastFrameIntervalMilliseconds = plugin?.LastStatus?.PluginLastFrameIntervalMilliseconds,
                 peakFrameIntervalMilliseconds = plugin?.LastStatus?.PluginPeakFrameIntervalMilliseconds,
                 frameStallCount = plugin?.LastStatus?.PluginFrameStallCount,
-                configuredProfile = MultiplayerSettingsStore.Load().PerformanceProfile,
+                configuredProfile =
+                    configuredPerformanceProfile
+                    ?? MultiplayerSettingsStore.Load().PerformanceProfile,
                 activeProfile = plugin?.LastStatus?.PerformanceProfile,
                 queueBackpressureActive = plugin?.LastStatus?.PluginPressureLevel is > 0
             },
