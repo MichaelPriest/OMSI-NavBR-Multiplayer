@@ -3,6 +3,7 @@ import { AdSlot, MonetizationScripts, ScrollProgress } from "./SiteChrome.jsx";
 import { useReleaseCatalog } from "./hooks.js";
 import { CURRENT_TAG, GITHUB_URL, RELEASES_PAGE, formatNumber, releaseDownloadCount } from "./lib.js";
 import { COPY, LANGUAGES, resolveInitialLanguage } from "./i18n.js";
+import Alpha22Showcase from "./Alpha22Showcase.jsx";
 
 const PIX_KEY = "b07a9cc9-b10d-48a8-b201-d28bddc4399a";
 const STRIPE_URL = "https://donate.stripe.com/4gM9AUevYgaj9ab4C55wI00";
@@ -316,6 +317,7 @@ export default function App() {
         <ConceptNotice t={t} />
         <ValidationNotice t={t} />
         <AdSlot name="top" />
+        <Alpha22Showcase />
         <FeatureStrip t={t} />
         <MobileShowcase t={t} />
         <AdSlot name="direct" />
