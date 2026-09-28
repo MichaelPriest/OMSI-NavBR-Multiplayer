@@ -153,6 +153,7 @@ jobs:
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj -r win-x64
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
 
@@ -319,6 +320,16 @@ jobs:
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
+      - name: Build WinUI 3 x64 shell
+        shell: pwsh
+        run: |
+          dotnet build src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
+            -c Release `
+            -r win-x64 `
+            --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "NavBR WinUI x64 build failed." }
+
+
       - name: Validate embedded plugin resource without loading x86 assembly
         shell: pwsh
         run: |
@@ -357,6 +368,45 @@ jobs:
               throw "Complete client output missing: $required"
             }
           }
+
+      - name: Publish WinUI 3 x64 desktop
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            --no-restore `
+            -o artifacts/NavBR.Client.WinUI
+
+          $runtimeHost = "artifacts/NavBR.Client.WinUI/RuntimeHost"
+          New-Item -ItemType Directory -Path $runtimeHost -Force | Out-Null
+          Copy-Item "artifacts/NavBR.Client/*" $runtimeHost -Recurse -Force
+
+          foreach ($required in @(
+            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe",
+            "artifacts/NavBR.Client.WinUI/resources.pri",
+            "artifacts/NavBR.Client.WinUI/RuntimeHost/OMSI.NavBR.Multiplayer.exe"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "WinUI desktop package incomplete: $required"
+            }
+          }
+
+      - name: Smoke-test WinUI XAML startup
+        shell: pwsh
+        run: |
+          $process = Start-Process `
+            -FilePath "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe" `
+            -ArgumentList "--xaml-smoke" `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            $log = Join-Path $env:LOCALAPPDATA "OMSI NavBR Multiplayer/navbr-winui.log"
+            if (Test-Path $log) { Get-Content $log | Write-Host }
+            throw "WinUI XAML startup smoke failed with exit code $($process.ExitCode)."
+          }
+          Write-Host "WinUI 3 XAML startup smoke passed."
 
       - name: Publish standalone Windows x86 EXE
         shell: pwsh
@@ -639,6 +689,14 @@ jobs:
         with:
           name: OMSI-NavBR-Multiplayer-win-x86
           path: artifacts/NavBR.Client
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload WinUI 3 x64 desktop
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-Multiplayer-WinUI-win-x64
+          path: artifacts/NavBR.Client.WinUI
           if-no-files-found: error
           retention-days: 14
 
