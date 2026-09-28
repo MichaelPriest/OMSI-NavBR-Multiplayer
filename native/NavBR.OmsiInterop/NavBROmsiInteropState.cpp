@@ -435,9 +435,27 @@ namespace
         }
 
         const auto address = static_cast<std::uintptr_t>(target);
-        if (!IsWritableRange(address, sizeof(Matrix4)))
+        if (address < 0x10000u ||
+            (address & 0x3u) != 0u ||
+            !IsReadableRange(address, sizeof(Matrix4)) ||
+            !IsWritableRange(address, sizeof(Matrix4)))
         {
-            return false;
+            // Layouts/builds where +0x64 is not a live matrix pointer must not
+            // turn a transform update into a crash/fault. Keep the verified
+            // inline RelMatrixVar and retry when/if OMSI materializes a pointer.
+            return true;
+        }
+
+        const Matrix4 existing =
+            *reinterpret_cast<const Matrix4*>(address);
+        if (!std::isfinite(existing.m00) ||
+            !std::isfinite(existing.m11) ||
+            !std::isfinite(existing.m22) ||
+            !std::isfinite(existing.m30) ||
+            !std::isfinite(existing.m31) ||
+            !std::isfinite(existing.m32))
+        {
+            return true;
         }
 
         std::memcpy(
