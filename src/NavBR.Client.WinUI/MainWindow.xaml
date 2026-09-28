@@ -320,6 +320,11 @@
                                                    Text="Automático"
                                                    Foreground="{StaticResource NavBRMutedBrush}"
                                                    TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="RuntimeCadenceText"
+                                                   Text="Host x86: aguardando dados"
+                                                   Foreground="#6F8798"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ComboBox x:Name="PerformanceProfileComboBox"
                                               Grid.Column="1"
