@@ -3,7 +3,7 @@ name: build
 
 on:
   push:
-    branches: [ main, feature/mobile-companion-alpha1, feature/mobile-companion-alpha2 ]
+    branches: [ main, feature/mobile-companion-alpha1, feature/mobile-companion-alpha2, feature/winui3-app-platform ]
     paths-ignore:
       - 'docs/**'
       - 'site/**'
