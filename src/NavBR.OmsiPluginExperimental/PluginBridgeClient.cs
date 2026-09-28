@@ -166,17 +166,10 @@ internal static class PluginBridgeClient
         int? physicalMapTileIndex = null;
         try
         {
-            var playerVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
-            if (playerVehicle != 0)
-            {
-                var directTileIndex =
-                    OmsiNativeInterop.ReadRoadVehicleTileIndex(playerVehicle);
-                if (directTileIndex >= 0)
-                {
-                    physicalMapTileIndex = directTileIndex;
-                }
-            }
-
+            // The grid helper already resolves PlayerVehicle, Kachel and the
+            // tile index. Use it as the normal single native call. Only fall
+            // back to the direct tile read when OMSI exposes a Kachel that can
+            // be indexed but whose grid cannot currently be resolved.
             if (OmsiNativeInterop.ReadPlayerVehicleGrid(
                     out var gridX,
                     out var gridY,
@@ -187,6 +180,21 @@ internal static class PluginBridgeClient
                 if (mapTileIndex >= 0)
                 {
                     physicalMapTileIndex = mapTileIndex;
+                }
+            }
+            else
+            {
+                var playerVehicle =
+                    OmsiNativeInterop.GetPlayerVehiclePointer();
+                if (playerVehicle != 0)
+                {
+                    var directTileIndex =
+                        OmsiNativeInterop.ReadRoadVehicleTileIndex(
+                            playerVehicle);
+                    if (directTileIndex >= 0)
+                    {
+                        physicalMapTileIndex = directTileIndex;
+                    }
                 }
             }
         }
