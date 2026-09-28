@@ -145,6 +145,7 @@ public partial class MainWindow
     {
         var telemetry = _lastTelemetry;
         var omsi = _currentOmsi;
+        var multiplayerSettings = MultiplayerSettingsStore.Load();
         var localManifest = OmsiCompatibilityManifestFactory.Create(
             telemetry,
             GetActiveMapForMultiplayer(),
@@ -205,14 +206,14 @@ public partial class MainWindow
             navigation = BuildWebNavigationState(),
             navigation3D = BuildWebNavigation3DState(),
             operations = BuildWebOperationsState(),
-            system = BuildWebSystemState(),
+            system = BuildWebSystemState(multiplayerSettings),
             roadmapStudio = BuildWebRoadmapState(),
             ghost = BuildWebGhostState(),
             hardware = BuildWebHardwareState(),
             network = BuildWebNetworkState(),
             companyNetwork = BuildWebCompanyNetworkState(),
             roleplay = BuildWebRoleplayState(),
-            multiplayer = BuildWebMultiplayerState(),
+            multiplayer = BuildWebMultiplayerState(multiplayerSettings),
             roomDirectory = new
             {
                 serverUrl = _webPublicRoomDirectoryServerUrl,
@@ -249,14 +250,15 @@ public partial class MainWindow
         };
     }
 
-    private object BuildWebMultiplayerState()
+    private object BuildWebMultiplayerState(
+        MultiplayerSettings? settings = null)
     {
         if (_multiplayerWindow is not null)
         {
             return _multiplayerWindow.BuildWebBridgeState();
         }
 
-        var settings = MultiplayerSettingsStore.Load();
+        settings ??= MultiplayerSettingsStore.Load();
         return new
         {
             available = false,
