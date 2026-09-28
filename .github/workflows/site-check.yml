@@ -1,0 +1,33 @@
+name: site-check
+
+on:
+  push:
+    branches: [ feature/alpha22-site-refresh ]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site-check.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build React public site
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd site
+          npm install --no-audit --no-fund
+          npm run build
