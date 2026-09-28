@@ -378,7 +378,10 @@ public static class PluginExports
                     workBudget.AverageWorkMilliseconds,
                     workBudget.AverageFrameIntervalMilliseconds,
                     workBudget.MinimumWorkIntervalMs,
-                    workBudget.MaxCommands);
+                    workBudget.MaxCommands,
+                    workBudget.LastFrameIntervalMilliseconds,
+                    workBudget.PeakFrameIntervalMilliseconds,
+                    workBudget.FrameStallCount);
             }
 
             // Keep the verbose file heartbeat sparse. Hardware/status delivery is
