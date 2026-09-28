@@ -263,7 +263,6 @@ function Support({ t }) {
 function Documentation({ t }) {
   const items = [
     [t.docs.alpha, GITHUB_URL + "/blob/main/docs/ALPHA22_RELEASE_NOTES.md"],
-    ["Manual de atalhos", GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     [t.docs.shortcuts, GITHUB_URL + "/blob/main/docs/KEYBOARD_SHORTCUTS.md"],
     [t.docs.mobile, GITHUB_URL + "/blob/main/docs/MOBILE_COMPANION.md"],
     [t.docs.plugin, GITHUB_URL + "/blob/main/docs/OMSI_PLUGIN_EXPERIMENTAL.md"],
