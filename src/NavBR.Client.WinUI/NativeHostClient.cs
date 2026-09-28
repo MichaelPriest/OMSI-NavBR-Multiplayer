@@ -84,9 +84,12 @@ internal sealed class NativeHostClient
     }
 
     public async Task<JsonDocument> GetStateAsync(
+        string? scope = null,
         CancellationToken cancellationToken = default) =>
         await SendAsync(
-            new { kind = "state" },
+            string.IsNullOrWhiteSpace(scope)
+                ? new { kind = "state", scope = (string?)null }
+                : new { kind = "state", scope },
             TimeSpan.FromSeconds(2),
             cancellationToken);
 
