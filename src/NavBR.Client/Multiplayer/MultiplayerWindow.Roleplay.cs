@@ -257,6 +257,24 @@ public partial class MultiplayerWindow
             "Personaje activo.",
             "Charakter aktiv.",
             "Personnage actif."),
+        "roleplay-ego-camera-waiting" => RpT(
+            "F11 detectado. Aguardando a câmera Ego real do OMSI.",
+            "F11 detected. Waiting for OMSI's real Ego camera.",
+            "F11 detectado. Esperando la cámara Ego real de OMSI.",
+            "F11 erkannt. Warte auf die echte OMSI-Ego-Kamera.",
+            "F11 détecté. En attente de la caméra Ego réelle d’OMSI."),
+        "roleplay-ego-camera-active" => RpT(
+            "Câmera Ego F11 sincronizada com o personagem.",
+            "F11 Ego camera synchronized with the character.",
+            "Cámara Ego F11 sincronizada con el personaje.",
+            "F11-Ego-Kamera mit dem Charakter synchronisiert.",
+            "Caméra Ego F11 synchronisée avec le personnage."),
+        "roleplay-ego-camera-resync" => RpT(
+            "A câmera F11 mudou bruscamente. Recalibrando sem teleportar o personagem.",
+            "F11 camera jumped. Recalibrating without teleporting the character.",
+            "La cámara F11 saltó. Recalibrando sin teletransportar al personaje.",
+            "F11-Kamera ist gesprungen. Neukalibrierung ohne Teleport.",
+            "La caméra F11 a sauté. Recalibrage sans téléportation."),
         "roleplay-character-required" => RpT(
             "Selecione o personagem do motorista primeiro.",
             "Select the driver character first.",

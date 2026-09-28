@@ -154,12 +154,20 @@ Essas teclas só são capturadas quando:
 | `A` | Virar para a esquerda |
 | `D` | Virar para a direita |
 | `Shift` | Correr enquanto se move |
+| `F11` | Ativar/sincronizar a câmera Ego nativa do OMSI com o personagem |
+| `F1`-`F4` | Sair da sincronização F11 e voltar às câmeras normais do OMSI |
 
-Velocidades internas atuais:
+Velocidades internas atuais no controle NavBR:
 
 - caminhada: aproximadamente 1,45 m/s;
 - corrida: aproximadamente 3,25 m/s;
 - marcha à ré: aproximadamente 1,05 m/s.
+
+### Câmera Ego F11
+
+Com o RP ativo, `F11` continua sendo entregue ao próprio OMSI. Quando a câmera Ego é detectada, o NavBR calibra a posição da câmera contra o `THuman` possuído e passa a sincronizar o personagem com a pose real da câmera. Nesse modo, `W/A/S/D`, `Shift` e o mouse permanecem sob controle da câmera nativa do OMSI, evitando dois controladores movimentando o personagem ao mesmo tempo.
+
+A sincronização usa somente a matriz de câmera real já lida pelo NavBR para o HUD. Saltos grandes de câmera são rejeitados e forçam recalibração, em vez de teleportar o personagem.
 
 ### `E` - entrar/voltar ao ônibus
 
@@ -171,7 +179,7 @@ Distância atual: **até 8 metros**.
 
 Encerra imediatamente o controle a pé e solicita retorno ao ônibus.
 
-Durante o modo RP, essas teclas são consumidas pelo controlador do NavBR para evitar que a mesma entrada seja aplicada simultaneamente ao OMSI.
+Fora da câmera F11, as teclas de movimento são consumidas pelo controlador do NavBR para evitar aplicação dupla. Com a sincronização F11 ativa, o NavBR deixa essas teclas e o mouse seguirem para o próprio OMSI e apenas espelha a pose da câmera no personagem.
 
 ## 8. Edição do HUD - controles de mouse relacionados
 

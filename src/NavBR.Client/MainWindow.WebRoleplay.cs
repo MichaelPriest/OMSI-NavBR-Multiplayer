@@ -65,6 +65,7 @@ public partial class MainWindow
             runtimeAvailable = controller.IsRuntimeAvailable,
             active = controller.IsActive,
             terrainFollowing = controller.IsGroundFollowing,
+            nativeEgoCameraActive = controller.IsNativeEgoCameraActive,
             nativeAnimation = nativeAnimation is null
                 ? null
                 : new
