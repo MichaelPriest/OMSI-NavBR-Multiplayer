@@ -71,8 +71,19 @@ internal static class PluginBridgeClient
         ClearOutboundCommandResults();
     }
 
+    public static PluginRegistryStatus PruneAndSnapshotRemoteStates()
+    {
+        var remote =
+            RemoteVehicles.PruneAndCount(GetLocalState());
+        var trafficRemoved = TrafficVehicles.PruneStale();
+        return new PluginRegistryStatus(
+            remote.Removed + trafficRemoved,
+            remote.Total,
+            remote.Compatible);
+    }
+
     public static int PruneStaleRemoteStates() =>
-        RemoteVehicles.PruneStale() + TrafficVehicles.PruneStale();
+        PruneAndSnapshotRemoteStates().StaleRemoved;
 
     public static void QueueCommandResult(PluginBridgeMessage result)
     {
@@ -135,6 +146,8 @@ internal static class PluginBridgeClient
         long systemVariableCallbacks,
         int lastSystemVariableIndex,
         int staleRemovedCount,
+        int remoteVehicleCount,
+        int compatibleRemoteVehicleCount,
         double? speedKph = null,
         bool? stopRequested = null,
         double? cabinTemperatureC = null,
@@ -208,9 +221,6 @@ internal static class PluginBridgeClient
         {
         }
 
-        var remoteCounts =
-            RemoteVehicles.CountSnapshot(GetLocalState());
-
         var status = new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
@@ -219,8 +229,8 @@ internal static class PluginBridgeClient
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
-            RemoteVehicleCount: remoteCounts.Total,
-            CompatibleRemoteVehicleCount: remoteCounts.Compatible,
+            RemoteVehicleCount: remoteVehicleCount,
+            CompatibleRemoteVehicleCount: compatibleRemoteVehicleCount,
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
@@ -711,6 +721,11 @@ internal static class PluginBridgeClient
         {
         }
     }
+
+    public readonly record struct PluginRegistryStatus(
+        int StaleRemoved,
+        int RemoteTotal,
+        int RemoteCompatible);
 
     private static void Log(string message)
     {
