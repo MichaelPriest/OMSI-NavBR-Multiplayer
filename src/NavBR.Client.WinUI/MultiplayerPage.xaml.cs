@@ -54,8 +54,12 @@ public sealed partial class MultiplayerPage : UserControl
         {
             if (ServerTextBox.FocusState == FocusState.Unfocused)
             {
+                var preferredServer = SelectedConnectionMode == "relay-host"
+                    ? JsonState.String(multiplayer, "relayServerUrl")
+                    : JsonState.String(multiplayer, "serverUrl");
                 ServerTextBox.Text =
-                    JsonState.String(multiplayer, "serverUrl")
+                    preferredServer
+                    ?? JsonState.String(multiplayer, "serverUrl")
                     ?? ServerTextBox.Text;
             }
 
@@ -76,8 +80,11 @@ public sealed partial class MultiplayerPage : UserControl
             PhysicalVehiclesToggle.IsOn =
                 JsonState.Bool(multiplayer, "physicalVehiclesEnabled");
 
-            PrivateRoomCheckBox.IsChecked =
-                JsonState.Bool(multiplayer, "roomIsPrivate");
+            if (connected || hostRunning)
+            {
+                PrivateRoomCheckBox.IsChecked =
+                    JsonState.Bool(multiplayer, "roomIsPrivate");
+            }
         }
         finally
         {
@@ -208,10 +215,10 @@ public sealed partial class MultiplayerPage : UserControl
         {
             case "create-online":
                 ServerTextBox.IsEnabled = true;
-                ServerTextBox.Header = "Servidor NavBR / Relay online";
+                ServerTextBox.Header = "Servidor NavBR";
                 ConnectButton.Content = "Criar sala online";
                 ModeDetailText.Text =
-                    "Cria a sala no servidor NavBR/relay informado. Não exige abrir porta no roteador.";
+                    "Cria a sala no servidor NavBR informado. Usa o servidor online padrão quando o campo estiver vazio e não exige abrir porta no roteador.";
                 break;
 
             case "lan-host":
@@ -232,10 +239,10 @@ public sealed partial class MultiplayerPage : UserControl
 
             case "relay-host":
                 ServerTextBox.IsEnabled = true;
-                ServerTextBox.Header = "Servidor Relay";
+                ServerTextBox.Header = "Relay personalizado";
                 ConnectButton.Content = "Hospedar via Relay";
                 ModeDetailText.Text =
-                    "Cria a sala usando o relay central, útil quando não é possível abrir porta no roteador.";
+                    "Cria a sala usando um relay personalizado. Use quando você possui outro relay ou não quer usar o servidor NavBR padrão.";
                 break;
 
             default:
