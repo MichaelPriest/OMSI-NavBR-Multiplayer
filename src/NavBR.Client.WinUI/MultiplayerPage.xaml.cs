@@ -12,6 +12,10 @@ public sealed partial class MultiplayerPage : UserControl
 
     private readonly ObservableCollection<NativePlayerRow> _players = new();
     private readonly ObservableCollection<NativePublicRoomRow> _publicRooms = new();
+    private readonly ObservableCollection<NativeChatRow> _chat = new();
+    private readonly ObservableCollection<NativeVoiceDeviceOption> _voiceInputDevices = new();
+    private readonly ObservableCollection<NativeVoiceDeviceOption> _voiceOutputDevices = new();
+    private readonly ObservableCollection<NativeVoiceMixerRow> _voiceMixers = new();
     private bool _applyingState;
     private string? _publicRoomServerUrl;
     private string? _configuredServerUrl;
@@ -20,13 +24,19 @@ public sealed partial class MultiplayerPage : UserControl
     private string? _lastInviteServerUrl;
     private string? _lastInviteRoomId;
     private string _lastInviteMode = "peer-host";
+    private string? _lastChatSignature;
 
     public MultiplayerPage()
     {
         InitializeComponent();
         PlayersList.ItemsSource = _players;
         PublicRoomsList.ItemsSource = _publicRooms;
+        ChatList.ItemsSource = _chat;
+        VoiceInputComboBox.ItemsSource = _voiceInputDevices;
+        VoiceOutputComboBox.ItemsSource = _voiceOutputDevices;
+        VoiceMixersList.ItemsSource = _voiceMixers;
         ConnectionModeComboBox.SelectedIndex = 0;
+        VoiceChannelComboBox.SelectedIndex = 0;
         UpdateConnectionModeUi();
     }
 
@@ -152,6 +162,8 @@ public sealed partial class MultiplayerPage : UserControl
 
         ApplyConnectivity(state, hostRunning);
         ApplyPublicRooms(state);
+        ApplyVoice(multiplayer, connected);
+        ApplyChat(multiplayer);
         ApplyPlayers(multiplayer);
     }
 
@@ -277,6 +289,217 @@ public sealed partial class MultiplayerPage : UserControl
             : _publicRooms.Count == 0
                 ? "Nenhuma sala pública carregada. Use Atualizar."
                 : $"{_publicRooms.Count} sala(s) pública(s) disponível(is).";
+    }
+
+    private void ApplyVoice(
+        JsonElement multiplayer,
+        bool connected)
+    {
+        var selectedMixerId =
+            (VoiceMixersList.SelectedItem as NativeVoiceMixerRow)?.PlayerId;
+
+        _applyingState = true;
+        try
+        {
+            VoiceEnabledToggle.IsOn =
+                JsonState.Bool(multiplayer, "voiceEnabled");
+            VoiceDeafenedToggle.IsOn =
+                JsonState.Bool(multiplayer, "voiceDeafened");
+
+            var channel =
+                JsonState.String(multiplayer, "voiceChannel")
+                ?? "general";
+            var channelItem = VoiceChannelComboBox.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(item =>
+                    string.Equals(
+                        item.Tag?.ToString(),
+                        channel,
+                        StringComparison.OrdinalIgnoreCase));
+            if (channelItem is not null)
+            {
+                VoiceChannelComboBox.SelectedItem = channelItem;
+            }
+
+            var proximity =
+                JsonState.Double(multiplayer, "voiceProximityMeters");
+            if (proximity is double radius &&
+                double.IsFinite(radius))
+            {
+                VoiceProximityNumberBox.Value =
+                    Math.Clamp(radius, 20d, 1000d);
+            }
+
+            SyncVoiceDevices(
+                _voiceInputDevices,
+                JsonState.Array(multiplayer, "voiceInputDevices"));
+            SyncVoiceDevices(
+                _voiceOutputDevices,
+                JsonState.Array(multiplayer, "voiceOutputDevices"));
+
+            var inputNumber =
+                JsonState.Int(multiplayer, "voiceInputDeviceNumber");
+            var outputNumber =
+                JsonState.Int(multiplayer, "voiceOutputDeviceNumber");
+            if (inputNumber is int input)
+            {
+                VoiceInputComboBox.SelectedValue = input;
+            }
+            if (outputNumber is int output)
+            {
+                VoiceOutputComboBox.SelectedValue = output;
+            }
+        }
+        finally
+        {
+            _applyingState = false;
+        }
+
+        _voiceMixers.Clear();
+        foreach (var mixer in JsonState.Array(multiplayer, "voiceMixers"))
+        {
+            var playerId =
+                JsonState.String(mixer, "playerId");
+            if (string.IsNullOrWhiteSpace(playerId))
+            {
+                continue;
+            }
+
+            var muted =
+                JsonState.Bool(mixer, "muted");
+            var speaking =
+                JsonState.Bool(mixer, "speaking");
+            var gain =
+                JsonState.Double(mixer, "gain") ?? 1d;
+
+            _voiceMixers.Add(new NativeVoiceMixerRow(
+                playerId,
+                JsonState.String(mixer, "displayName") ?? "Jogador",
+                muted,
+                Math.Clamp(gain, 0d, 2d),
+                speaking,
+                muted
+                    ? "MUDO"
+                    : speaking
+                        ? "FALANDO"
+                        : "OUVINDO",
+                $"{Math.Clamp(gain, 0d, 2d) * 100d:0}%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedMixerId))
+        {
+            var selected = _voiceMixers.FirstOrDefault(item =>
+                string.Equals(
+                    item.PlayerId,
+                    selectedMixerId,
+                    StringComparison.OrdinalIgnoreCase));
+            if (selected is not null)
+            {
+                VoiceMixersList.SelectedItem = selected;
+                RemoteVoiceGainNumberBox.Value = selected.Gain;
+            }
+        }
+
+        var quality =
+            JsonState.Property(multiplayer, "voiceQuality");
+        var activeStreams =
+            JsonState.Int(quality, "activeStreams") ?? 0;
+        var jitter =
+            JsonState.Double(quality, "averageJitterMilliseconds") ?? 0d;
+        var loss =
+            JsonState.Double(quality, "estimatedLossPercent") ?? 0d;
+        var targetBuffer =
+            JsonState.Int(quality, "targetBufferMilliseconds") ?? 0;
+
+        VoiceQualityText.Text =
+            $"Qualidade: {activeStreams} stream(s) · jitter {jitter:0.0} ms · " +
+            $"perda {loss:0.0}% · buffer {targetBuffer} ms";
+
+        var channelLabel =
+            (VoiceChannelComboBox.SelectedItem as ComboBoxItem)?
+                .Content?
+                .ToString()
+            ?? "Geral";
+        VoiceStatusText.Text =
+            VoiceEnabledToggle.IsOn
+                ? connected
+                    ? $"{channelLabel} · {(VoiceDeafenedToggle.IsOn ? "recepção silenciada" : "PTT pronto")}"
+                    : $"{channelLabel} · voz configurada; conecte a uma sala"
+                : "Voz desativada.";
+    }
+
+    private static void SyncVoiceDevices(
+        ObservableCollection<NativeVoiceDeviceOption> target,
+        IEnumerable<JsonElement> source)
+    {
+        var next = source
+            .Select(item => new NativeVoiceDeviceOption(
+                JsonState.Int(item, "deviceNumber") ?? -1,
+                JsonState.String(item, "displayName") ?? "Dispositivo"))
+            .ToArray();
+
+        if (target.Count == next.Length &&
+            target.Zip(next).All(pair =>
+                pair.First.DeviceNumber == pair.Second.DeviceNumber &&
+                string.Equals(
+                    pair.First.DisplayName,
+                    pair.Second.DisplayName,
+                    StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        target.Clear();
+        foreach (var item in next)
+        {
+            target.Add(item);
+        }
+    }
+
+    private void ApplyChat(JsonElement multiplayer)
+    {
+        var messages =
+            JsonState.Array(multiplayer, "chat").ToArray();
+        var last = messages.LastOrDefault();
+        var signature = messages.Length == 0
+            ? "0"
+            : $"{messages.Length}|{JsonState.String(last, "timestampUtc")}|{JsonState.String(last, "playerId")}|{JsonState.String(last, "text")}";
+
+        if (string.Equals(
+                signature,
+                _lastChatSignature,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastChatSignature = signature;
+        _chat.Clear();
+
+        foreach (var message in messages)
+        {
+            var rawTimestamp =
+                JsonState.String(message, "timestampUtc");
+            var time = DateTimeOffset.TryParse(
+                rawTimestamp,
+                out var timestamp)
+                ? timestamp.ToLocalTime().ToString("HH:mm")
+                : string.Empty;
+
+            var isSystem =
+                JsonState.Bool(message, "isSystem");
+            _chat.Add(new NativeChatRow(
+                isSystem
+                    ? "SISTEMA"
+                    : JsonState.String(message, "displayName") ?? "Jogador",
+                JsonState.String(message, "text") ?? string.Empty,
+                time));
+        }
+
+        if (_chat.Count > 0)
+        {
+            ChatList.ScrollIntoView(_chat[^1]);
+        }
     }
 
     private void ApplyPlayers(JsonElement multiplayer)
@@ -405,25 +628,29 @@ public sealed partial class MultiplayerPage : UserControl
         }
     }
 
-    private async Task RunAsync(string command, object? payload = null)
+    private async Task<bool> RunAsync(
+        string command,
+        object? payload = null)
     {
         try
         {
             if (CommandHandler is null)
             {
-                return;
+                return false;
             }
 
             await CommandHandler(command, payload);
             NoticeBar.Message = "Multiplayer atualizado.";
             NoticeBar.Severity = InfoBarSeverity.Success;
             NoticeBar.IsOpen = true;
+            return true;
         }
         catch (Exception ex)
         {
             NoticeBar.Message = ex.Message;
             NoticeBar.Severity = InfoBarSeverity.Error;
             NoticeBar.IsOpen = true;
+            return false;
         }
     }
 
@@ -764,6 +991,135 @@ public sealed partial class MultiplayerPage : UserControl
             new { enabled = AutomaticUpnpToggle.IsOn });
     }
 
+    private async void VoiceEnabled_Toggled(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_applyingState)
+        {
+            return;
+        }
+
+        await RunAsync(
+            "setVoiceEnabled",
+            new { enabled = VoiceEnabledToggle.IsOn });
+    }
+
+    private async void ApplyVoiceSettings_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var channel =
+            (VoiceChannelComboBox.SelectedItem as ComboBoxItem)?
+                .Tag?
+                .ToString()
+            ?? "general";
+        var proximity =
+            double.IsFinite(VoiceProximityNumberBox.Value)
+                ? VoiceProximityNumberBox.Value
+                : 120d;
+
+        var configured = await RunAsync(
+            "configureVoice",
+            new
+            {
+                channel,
+                proximityMeters = Math.Clamp(proximity, 20d, 1000d),
+                deafened = VoiceDeafenedToggle.IsOn
+            });
+
+        if (!configured)
+        {
+            return;
+        }
+
+        await RunAsync(
+            "configureVoiceDevices",
+            new
+            {
+                inputDeviceNumber =
+                    VoiceInputComboBox.SelectedValue is int input
+                        ? input
+                        : (int?)null,
+                outputDeviceNumber =
+                    VoiceOutputComboBox.SelectedValue is int output
+                        ? output
+                        : (int?)null
+            });
+    }
+
+    private async void ApplyRemoteVoiceGain_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (VoiceMixersList.SelectedItem is not NativeVoiceMixerRow mixer)
+        {
+            NoticeBar.Message =
+                "Selecione um jogador na lista de voz.";
+            NoticeBar.Severity = InfoBarSeverity.Warning;
+            NoticeBar.IsOpen = true;
+            return;
+        }
+
+        var gain =
+            double.IsFinite(RemoteVoiceGainNumberBox.Value)
+                ? Math.Clamp(
+                    RemoteVoiceGainNumberBox.Value,
+                    0d,
+                    2d)
+                : mixer.Gain;
+
+        await RunAsync(
+            "configureRemoteVoice",
+            new
+            {
+                playerId = mixer.PlayerId,
+                muted = mixer.Muted,
+                gain
+            });
+    }
+
+    private async void ToggleRemoteVoiceMute_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (VoiceMixersList.SelectedItem is not NativeVoiceMixerRow mixer)
+        {
+            NoticeBar.Message =
+                "Selecione um jogador na lista de voz.";
+            NoticeBar.Severity = InfoBarSeverity.Warning;
+            NoticeBar.IsOpen = true;
+            return;
+        }
+
+        await RunAsync(
+            "configureRemoteVoice",
+            new
+            {
+                playerId = mixer.PlayerId,
+                muted = !mixer.Muted,
+                gain = mixer.Gain
+            });
+    }
+
+    private async void SendChat_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var textValue = ChatTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(textValue))
+        {
+            return;
+        }
+
+        if (await RunAsync(
+                "sendChat",
+                new { text = textValue }))
+        {
+            ChatTextBox.Text = string.Empty;
+        }
+    }
+
     private async void PhysicalVehicles_Toggled(
         object sender,
         RoutedEventArgs e)
@@ -792,3 +1148,21 @@ public sealed record NativePublicRoomRow(
     string Players,
     string MapName,
     string Favorite);
+
+public sealed record NativeChatRow(
+    string DisplayName,
+    string Text,
+    string Time);
+
+public sealed record NativeVoiceDeviceOption(
+    int DeviceNumber,
+    string DisplayName);
+
+public sealed record NativeVoiceMixerRow(
+    string PlayerId,
+    string DisplayName,
+    bool Muted,
+    double Gain,
+    bool Speaking,
+    string State,
+    string GainText);
