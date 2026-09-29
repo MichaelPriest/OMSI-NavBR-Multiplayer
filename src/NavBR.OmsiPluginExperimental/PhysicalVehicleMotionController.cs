@@ -698,11 +698,13 @@ internal static class PhysicalVehicleMotionController
             return true;
         }
 
-        // SetVehicleTransform keeps a safe fallback for legacy clients. When
-        // the source OMSI published its real physical vectors, overwrite only
-        // those replicated fields with the authoritative values. ODE remains
-        // disabled/kinematic under NavBR ownership.
-        return OmsiNativeInterop.SetVehicleNetworkMotion(
+        // SetVehicleTransform already wrote a safe fallback. Exact motion
+        // vectors are an optional fidelity upgrade; a guarded rejection here
+        // must never turn a valid pose write into a fatal despawn/respan loop.
+        // The native export independently protects PlayerVehicle and stale
+        // RoadVehicle pointers, so ignoring a rejected optional overwrite is
+        // safe and preserves the fallback state.
+        _ = OmsiNativeInterop.SetVehicleNetworkMotion(
             instance.VehiclePointer,
             snapshot.HasVelocity ? 1 : 0,
             snapshot.VelocityX,
@@ -711,7 +713,8 @@ internal static class PhysicalVehicleMotionController
             snapshot.HasAccelerationLocal ? 1 : 0,
             snapshot.AccelerationLocalX,
             snapshot.AccelerationLocalY,
-            snapshot.AccelerationLocalZ) == 1;
+            snapshot.AccelerationLocalZ);
+        return true;
     }
 
     private static bool TryConfirmTransform(
@@ -914,20 +917,14 @@ internal static class PhysicalVehicleMotionController
             qw,
             Lerp(from.SpeedMps, to.SpeedMps, t),
             to.MapTileIndex ?? from.MapTileIndex,
-            to.HasVelocity || from.HasVelocity,
-            to.HasVelocity ? to.VelocityX : from.VelocityX,
-            to.HasVelocity ? to.VelocityY : from.VelocityY,
-            to.HasVelocity ? to.VelocityZ : from.VelocityZ,
-            to.HasAccelerationLocal || from.HasAccelerationLocal,
-            to.HasAccelerationLocal
-                ? to.AccelerationLocalX
-                : from.AccelerationLocalX,
-            to.HasAccelerationLocal
-                ? to.AccelerationLocalY
-                : from.AccelerationLocalY,
-            to.HasAccelerationLocal
-                ? to.AccelerationLocalZ
-                : from.AccelerationLocalZ);
+            to.HasVelocity,
+            to.VelocityX,
+            to.VelocityY,
+            to.VelocityZ,
+            to.HasAccelerationLocal,
+            to.AccelerationLocalX,
+            to.AccelerationLocalY,
+            to.AccelerationLocalZ);
     }
 
     private static bool TryReadBoundedVector(
