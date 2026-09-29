@@ -343,6 +343,8 @@ public partial class MainWindow
                 connected = false,
                 connectionState = "Disconnected",
                 serverUrl = settings.ServerUrl,
+                defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+                relayServerUrl = settings.RelayServerUrl,
                 roomId = settings.RoomId,
                 displayName = settings.DisplayName,
                 playerCount = 0
@@ -354,6 +356,8 @@ public partial class MainWindow
             connected = false,
             connectionState = "Disconnected",
             serverUrl = settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = settings.RelayServerUrl,
             roomId = settings.RoomId,
             displayName = settings.DisplayName,
             hostRunning = false,
