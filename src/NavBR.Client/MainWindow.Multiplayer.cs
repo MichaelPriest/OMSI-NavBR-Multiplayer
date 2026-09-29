@@ -276,6 +276,28 @@ public partial class MainWindow
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
         _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
+
+        var pluginStatus = (System.Windows.Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo()
+            .LastStatus;
+        var averageFrameIntervalMs =
+            pluginStatus?.PluginAverageFrameIntervalMilliseconds;
+        double? fps =
+            averageFrameIntervalMs is double frameMs &&
+            double.IsFinite(frameMs) &&
+            frameMs > 0.1d
+                ? 1000d / frameMs
+                : null;
+        var network = SessionNetworkQualityFeed.Snapshot();
+        var networkReady =
+            network.Samples >= 2 &&
+            network.RoundTripMs is not null;
+        _hudOverlay.SetRuntimeMetrics(
+            fps,
+            networkReady ? network.RoundTripMs : null,
+            networkReady ? network.JitterMs : null);
+
         UpdateHudRoleplayStateForShell();
         UpdateHudRefreshCadence();
     }
