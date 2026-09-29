@@ -148,13 +148,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
-            .WithAutomaticReconnect(
-            [
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(2),
-                TimeSpan.FromSeconds(5),
-                TimeSpan.FromSeconds(10)
-            ])
+            .WithAutomaticReconnect(NavBrReconnectPolicy.Instance)
             .Build();
 
         RegisterHandlers(connection);
@@ -489,9 +483,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
         connection.Reconnecting += error =>
         {
-            ClearRoleplayCharacters();
-            _ = _physicalVehicles.ClearAsync();
-            _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
+            // Keep the last confirmed remote entities during a transient
+            // transport loss. Their native lifecycle has its own bounded stale
+            // timeout, so a brief Wi-Fi/relay interruption no longer becomes an
+            // immediate despawn/respawn and visible teleport.
             ConnectionStateChanged?.Invoke(HubConnectionState.Reconnecting);
             return Task.CompletedTask;
         };
@@ -561,6 +556,37 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
         RoomOwnerPlayerId = normalized;
         RoomOwnerChanged?.Invoke(normalized);
+    }
+
+    private sealed class NavBrReconnectPolicy : IRetryPolicy
+    {
+        private static readonly TimeSpan MaximumReconnectWindow =
+            TimeSpan.FromSeconds(60);
+
+        public static NavBrReconnectPolicy Instance { get; } = new();
+
+        public TimeSpan? NextRetryDelay(RetryContext retryContext)
+        {
+            var remaining =
+                MaximumReconnectWindow -
+                retryContext.ElapsedTime;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return null;
+            }
+
+            var desired = retryContext.PreviousRetryCount switch
+            {
+                0 => TimeSpan.Zero,
+                1 => TimeSpan.FromSeconds(2),
+                2 => TimeSpan.FromSeconds(5),
+                _ => TimeSpan.FromSeconds(10)
+            };
+
+            return desired <= remaining
+                ? desired
+                : remaining;
+        }
     }
 
     private HubConnection RequireConnectedConnection()
