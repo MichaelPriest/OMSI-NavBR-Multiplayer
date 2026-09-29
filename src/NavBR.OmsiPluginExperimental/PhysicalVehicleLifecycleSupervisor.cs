@@ -15,6 +15,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
     private const long TransientRetryMs = 750;
     private const long SlowRetryMs = 2_000;
     private const int MaxEntries = 32;
+    private const long TargetRateLogIntervalMs = 5_000;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, LifecycleEntry> Entries =
@@ -103,6 +104,11 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
             entry.DesiredSpawn = normalized;
             entry.LastIntentTickMs = now;
+            entry.ObservedTargetCount++;
+            entry.TargetRateWindowStartedTickMs =
+                entry.TargetRateWindowStartedTickMs <= 0
+                    ? now
+                    : entry.TargetRateWindowStartedTickMs;
 
             var sourceTimestamp = normalized.TimestampUnixMilliseconds;
             var targetChanged =
@@ -231,12 +237,51 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
             if (result.Success == true)
             {
+                var previousAppliedSourceTimestamp =
+                    entry.LastAppliedSourceTimestampMs;
+                var appliedSourceTimestamp =
+                    command.TimestampUnixMilliseconds ??
+                    entry.DesiredSpawn.TimestampUnixMilliseconds;
+
                 entry.State = "active";
                 entry.NextAttemptTickMs = now;
                 entry.LastAppliedSourceTimestampMs =
-                    command.TimestampUnixMilliseconds ??
-                    entry.DesiredSpawn.TimestampUnixMilliseconds;
+                    appliedSourceTimestamp;
                 entry.LastLoggedErrorCode = null;
+
+                if (string.Equals(
+                        command.Type,
+                        PluginBridgeProtocol.UpdateRemoteVehicle,
+                        StringComparison.Ordinal) &&
+                    (appliedSourceTimestamp is null ||
+                     previousAppliedSourceTimestamp != appliedSourceTimestamp))
+                {
+                    entry.AppliedTargetCount++;
+                }
+
+                if (entry.TargetRateWindowStartedTickMs > 0 &&
+                    now - entry.TargetRateWindowStartedTickMs >=
+                        TargetRateLogIntervalMs)
+                {
+                    var elapsedSeconds =
+                        Math.Max(
+                            0.001d,
+                            (now - entry.TargetRateWindowStartedTickMs) /
+                            1000d);
+                    var observedHz =
+                        entry.ObservedTargetCount / elapsedSeconds;
+                    var appliedHz =
+                        entry.AppliedTargetCount / elapsedSeconds;
+                    PluginLogWriter.Enqueue(
+                        $"physical-target-rate id={entry.InstanceId} " +
+                        $"observedHz={observedHz:F1} appliedHz={appliedHz:F1} " +
+                        $"observed={entry.ObservedTargetCount} applied={entry.AppliedTargetCount} " +
+                        $"state={entry.State}");
+                    entry.TargetRateWindowStartedTickMs = now;
+                    entry.ObservedTargetCount = 0;
+                    entry.AppliedTargetCount = 0;
+                }
+
                 return;
             }
 
@@ -713,5 +758,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
         public string? LastErrorMessage { get; set; }
         public string? LastLoggedErrorCode { get; set; }
         public long? LastAppliedSourceTimestampMs { get; set; }
+        public long TargetRateWindowStartedTickMs { get; set; }
+        public int ObservedTargetCount { get; set; }
+        public int AppliedTargetCount { get; set; }
     }
 }
