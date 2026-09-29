@@ -53,6 +53,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private nint _cachedRearSectionPlayerAddress;
     private nint[] _cachedRearSectionAddresses = [];
     private long _cachedRearSectionAddressTickMs;
+    private uint _cachedRearTileGridMapAddress;
+    private readonly Dictionary<uint, (int GridX, int GridY)> _cachedRearTileGrids = new();
 
     public bool IsAttached => _memory is not null;
     public int? AttachedProcessId => _memory?.ProcessId;
@@ -1492,9 +1494,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 gridX = playerGridX;
                 gridY = playerGridY;
             }
-            else if (!TryReadVehicleTileGrid(
+            else if (!TryReadRearSectionTileGridCached(
                          memory,
                          sectionAddress,
+                         sectionTilePointer,
                          out gridX,
                          out gridY))
             {
@@ -1519,6 +1522,73 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         }
 
         return poses;
+    }
+
+    private bool TryReadRearSectionTileGridCached(
+        ReadOnlyProcessMemory memory,
+        nint sectionAddress,
+        uint sectionTilePointer,
+        out int gridX,
+        out int gridY)
+    {
+        gridX = 0;
+        gridY = 0;
+
+        uint mapAddress;
+        try
+        {
+            mapAddress = memory.ReadUInt32(
+                memory.AddressFromRva(
+                    Omsi23004MemoryProfile.MapPointerRva));
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (mapAddress <= 0x10000u)
+        {
+            return false;
+        }
+
+        if (_cachedRearTileGridMapAddress != mapAddress)
+        {
+            _cachedRearTileGridMapAddress = mapAddress;
+            _cachedRearTileGrids.Clear();
+        }
+
+        if (_cachedRearTileGrids.TryGetValue(
+                sectionTilePointer,
+                out var cached))
+        {
+            gridX = cached.GridX;
+            gridY = cached.GridY;
+            return true;
+        }
+
+        if (!TryReadVehicleTileGrid(
+                memory,
+                sectionAddress,
+                out gridX,
+                out gridY))
+        {
+            return false;
+        }
+
+        _cachedRearTileGrids[sectionTilePointer] =
+            (gridX, gridY);
+
+        // A normal articulated consist spans very few Kacheln. Keep the cache
+        // tightly bounded in case unusual content exposes stale tile pointers.
+        if (_cachedRearTileGrids.Count > 16)
+        {
+            var keep =
+                _cachedRearTileGrids[sectionTilePointer];
+            _cachedRearTileGrids.Clear();
+            _cachedRearTileGrids[sectionTilePointer] = keep;
+        }
+
+        return true;
     }
 
     private nint[] ResolveRearSectionAddressesCached(
@@ -1687,6 +1757,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _cachedRearSectionPlayerAddress = nint.Zero;
         _cachedRearSectionAddressTickMs = 0;
         _cachedRearSectionAddresses = [];
+        _cachedRearTileGridMapAddress = 0;
+        _cachedRearTileGrids.Clear();
     }
 
     private readonly record struct RearSectionCandidate(
