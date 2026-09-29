@@ -155,7 +155,9 @@ public partial class MainWindow
         var includeNavigation = IncludeScope("navigation");
         var includeOperations = IncludeScope("cco");
         var includeHardware = IncludeScope("hardware");
-        var includeNetwork = IncludeScope("diagnostics");
+        var includeNetwork =
+            IncludeScope("diagnostics") ||
+            IncludeScope("multiplayer");
         var includeRoleplay = IncludeScope("roleplay");
 
         // Public rooms are part of the native Multiplayer page again.
