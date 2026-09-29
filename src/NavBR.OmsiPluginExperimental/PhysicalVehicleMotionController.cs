@@ -383,9 +383,37 @@ internal static class PhysicalVehicleMotionController
                     state.Current,
                     writeTileIndex: false))
             {
-                state.FaultCode = "motion-frame-pose-reassert-failed";
-                state.FaultMessage =
-                    $"OMSI rejected the bounded NavBR pose reassertion at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+                var failureStage =
+                    OmsiNativeInterop.GetLastVehicleTransformFailureStage();
+
+                // A failed periodic/render reassert is not automatically proof
+                // that ownership was lost. MaintainExternalControl succeeded for
+                // this exact pointer immediately above, so matrix/ODE fields can
+                // still be transiently unavailable while OMSI is materializing
+                // or reshuffling render state. Only the native safety stages
+                // that prove an invalid/current-player target are latched as
+                // fatal; all other failures back off to the normal 250 ms
+                // refresh cadence and retry without poisoning the next network
+                // target with a permanent FaultCode.
+                if (failureStage is 1 or 8)
+                {
+                    state.FaultCode = "motion-frame-pose-reassert-failed";
+                    state.FaultMessage =
+                        $"OMSI rejected the bounded NavBR pose reassertion at unsafe native stage {failureStage}.";
+                    continue;
+                }
+
+                state.LastFramePoseReassertTickMs = now;
+                if (now - state.LastFramePoseReassertFailureLogTickMs >=
+                        ExternalControlConflictLogIntervalMs)
+                {
+                    state.LastFramePoseReassertFailureLogTickMs = now;
+                    PluginLogWriter.Enqueue(
+                        $"physical-frame-reassert-retry id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
+                        $"stage={failureStage} drift={(poseDrifted ? 1 : 0)} " +
+                        $"physicsReenabled={(physicsReenabled ? 1 : 0)} periodic={(periodicRefresh ? 1 : 0)}");
+                }
+
                 continue;
             }
 
@@ -992,6 +1020,7 @@ internal static class PhysicalVehicleMotionController
         public long LastExternalControlConflictLogTickMs { get; set; }
         public long LastPhysicsBodyLogTickMs { get; set; }
         public long LastFramePoseReassertTickMs { get; set; }
+        public long LastFramePoseReassertFailureLogTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }
