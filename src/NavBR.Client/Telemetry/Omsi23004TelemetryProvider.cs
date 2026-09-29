@@ -639,9 +639,10 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 out destinationName);
 
             LastErrorCode = TelemetryErrorCode.None;
+            var sampledAtUtc = DateTimeOffset.UtcNow;
             return new VehicleTelemetry(
                 PlayerId: playerId,
-                Timestamp: DateTimeOffset.UtcNow,
+                Timestamp: sampledAtUtc,
                 MapName: mapName,
                 VehicleName: vehicleIdentity.Name,
                 Line: line,
@@ -680,7 +681,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 VelocityZ: float.IsFinite(velocity.Z) ? velocity.Z : null,
                 AccelerationLocalX: accelerationLocalX,
                 AccelerationLocalY: accelerationLocalY,
-                AccelerationLocalZ: accelerationLocalZ);
+                AccelerationLocalZ: accelerationLocalZ,
+                SourceTimestampUnixMilliseconds: sampledAtUtc.ToUnixTimeMilliseconds());
         }
         catch (ArgumentException)
         {
