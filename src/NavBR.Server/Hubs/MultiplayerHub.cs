@@ -103,10 +103,26 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
 
         ValidateTelemetry(telemetry);
 
+        var serverReceivedAtUtc = DateTimeOffset.UtcNow;
+        var sourceTimestampMs =
+            telemetry.SourceTimestampUnixMilliseconds ??
+            telemetry.Timestamp.ToUnixTimeMilliseconds();
+        var sourceSkewMs =
+            Math.Abs(
+                (double)sourceTimestampMs -
+                serverReceivedAtUtc.ToUnixTimeMilliseconds());
+        if (!double.IsFinite(sourceSkewMs) ||
+            sourceSkewMs > TimeSpan.FromHours(24).TotalMilliseconds)
+        {
+            sourceTimestampMs =
+                serverReceivedAtUtc.ToUnixTimeMilliseconds();
+        }
+
         var safeTelemetry = telemetry with
         {
             PlayerId = presence.PlayerId,
-            Timestamp = DateTimeOffset.UtcNow,
+            Timestamp = serverReceivedAtUtc,
+            SourceTimestampUnixMilliseconds = sourceTimestampMs,
             MapName = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name"),
             MapCompatibilityId = NormalizeOptional(
                 telemetry.MapCompatibilityId,
