@@ -73,9 +73,14 @@ internal static class PhysicalVehicleMotionController
 
         if (!TryApplyTransform(instance, snapshot, writeTileIndex: true))
         {
-            errorCode = "transform-write-failed";
-            errorMessage =
-                $"OMSI rejected the guarded vehicle transform write at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+            var failureStage =
+                OmsiNativeInterop.GetLastVehicleTransformFailureStage();
+            errorCode = failureStage == 31
+                ? "motion-world-origin-unavailable"
+                : "transform-write-failed";
+            errorMessage = failureStage == 31
+                ? "OMSI has not materialized a reliable world-space origin on the target Kachel yet."
+                : $"OMSI rejected the guarded vehicle transform write at native stage {failureStage}.";
             return false;
         }
 
@@ -188,9 +193,14 @@ internal static class PhysicalVehicleMotionController
                     target,
                     writeTileIndex: tileChanged))
             {
-                errorCode = "transform-write-failed";
-                errorMessage =
-                    $"OMSI rejected the guarded vehicle transform write at native stage {OmsiNativeInterop.GetLastVehicleTransformFailureStage()}.";
+                var failureStage =
+                    OmsiNativeInterop.GetLastVehicleTransformFailureStage();
+                errorCode = failureStage == 31
+                    ? "motion-world-origin-unavailable"
+                    : "transform-write-failed";
+                errorMessage = failureStage == 31
+                    ? "OMSI has not materialized a reliable world-space origin on the target Kachel yet; keeping the previous physical pose."
+                    : $"OMSI rejected the guarded vehicle transform write at native stage {failureStage}.";
                 return false;
             }
 
