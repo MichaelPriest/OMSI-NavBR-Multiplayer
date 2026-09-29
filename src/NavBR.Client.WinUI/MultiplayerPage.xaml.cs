@@ -533,8 +533,9 @@ public sealed partial class MultiplayerPage : UserControl
                     JsonState.Int(player, "physicalVehiclePartCount");
                 var expectedParts =
                     JsonState.Int(player, "physicalVehicleExpectedPartCount");
-                if (partCount is int parts || expectedParts is int)
+                if (partCount is int || expectedParts is int)
                 {
+                    var parts = partCount ?? 0;
                     physicalDetailParts.Add(
                         $"partes {parts}/{expectedParts ?? parts}");
                 }
@@ -562,6 +563,19 @@ public sealed partial class MultiplayerPage : UserControl
                         JsonState.Bool(player, "telemetryStale")
                             ? $"tele {age:0.0}s STALE"
                             : $"tele {age:0.0}s");
+                }
+
+                var physicalUpdatedAt =
+                    JsonState.String(player, "physicalVehicleUpdatedAtUtc");
+                if (DateTimeOffset.TryParse(
+                        physicalUpdatedAt,
+                        out var updatedAt))
+                {
+                    var physicalAge =
+                        Math.Max(
+                            0d,
+                            (DateTimeOffset.UtcNow - updatedAt).TotalSeconds);
+                    physicalDetailParts.Add($"phys {physicalAge:0.0}s");
                 }
 
                 var errorCode =
