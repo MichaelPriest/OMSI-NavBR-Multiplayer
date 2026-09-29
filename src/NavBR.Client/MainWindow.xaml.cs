@@ -322,15 +322,33 @@ public partial class MainWindow : Window
 
         var profile = status?.PerformanceProfile;
         var pressure = status?.PluginPressureLevel ?? 0;
+        var physicalRealtime =
+            ExperimentalFeatureFlags.PhysicalVehiclesEnabled &&
+            _multiplayerWindow?.IsConnected == true;
+
         var intervalMs = ComputeAdaptiveRuntimeIntervalMs(
             profile,
             pressure,
             telemetry?.IsInGame == true,
-            qualityMs: 125,
-            multiplayerMs: 150,
-            stabilityMs: 300,
-            diagnosticsMs: 250,
-            automaticMs: 200);
+            qualityMs: physicalRealtime ? 50 : 125,
+            multiplayerMs: physicalRealtime ? 50 : 150,
+            stabilityMs: physicalRealtime ? 150 : 300,
+            diagnosticsMs: physicalRealtime ? 100 : 250,
+            automaticMs: physicalRealtime ? 75 : 200);
+
+        // External-memory telemetry must never occupy most of the dispatcher
+        // cadence. Keep at least ~2.5x the measured average read cost so a
+        // heavy map/vehicle cannot turn higher multiplayer fidelity into UI or
+        // OMSI contention.
+        if (_averageTelemetryPollMilliseconds > 0d)
+        {
+            var readCostFloorMs = Math.Clamp(
+                (int)Math.Ceiling(
+                    _averageTelemetryPollMilliseconds * 2.5d),
+                50,
+                500);
+            intervalMs = Math.Max(intervalMs, readCostFloorMs);
+        }
 
         if (_telemetryPollIntervalMs == intervalMs)
         {

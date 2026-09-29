@@ -35,6 +35,8 @@ public partial class MultiplayerWindow : Window
     private bool _measuringLatency;
     private bool _controllerInitialized;
     private double? _lastLatencyMs;
+    private DateTimeOffset? _lastPublishedTelemetrySourceTimestamp;
+    private int _publishIntervalMs = 250;
 
     public event Action<PlayerTelemetryFrame>? RemoteTelemetryReceived;
     public event Action<string>? RemotePlayerLeft;
@@ -317,6 +319,8 @@ public partial class MultiplayerWindow : Window
                 compatibility);
 
             ApplySnapshot(snapshot);
+            _lastPublishedTelemetrySourceTimestamp = null;
+            UpdatePublishTimerCadence();
             _publishTimer.Start();
             _latencyTimer.Start();
             if (VoiceEnabledCheckBox.IsChecked == true)
@@ -350,6 +354,7 @@ public partial class MultiplayerWindow : Window
         _latencyTimer.Stop();
         _voiceChat.Stop();
         _lastLatencyMs = null;
+        _lastPublishedTelemetrySourceTimestamp = null;
         await _client.DisconnectAsync();
         _players.Clear();
         _remoteTelemetry.Clear();
@@ -365,9 +370,53 @@ public partial class MultiplayerWindow : Window
 
     private async void PublishTimer_Tick(object? sender, EventArgs e)
     {
+        UpdatePublishTimerCadence();
         await PublishLocalTelemetryAsync();
         UpdateLocalMapText();
         RenderPlayers();
+    }
+
+    private void UpdatePublishTimerCadence()
+    {
+        var physicalRealtime =
+            ExperimentalFeatureFlags.PhysicalVehiclesEnabled &&
+            _client.IsConnected;
+        var status = (Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo()
+            .LastStatus;
+        var pressure = status?.PluginPressureLevel ?? 0;
+        var profile = status?.PerformanceProfile?
+            .Trim()
+            .ToLowerInvariant();
+
+        var intervalMs = physicalRealtime
+            ? profile switch
+            {
+                "quality" => 50,
+                "multiplayer" => 50,
+                "stability" => 150,
+                "diagnostics" => 100,
+                _ => 75
+            }
+            : 250;
+
+        intervalMs = pressure switch
+        {
+            >= 3 => Math.Max(intervalMs, 500),
+            2 => Math.Max(intervalMs, 350),
+            1 => Math.Max(intervalMs, 250),
+            _ => intervalMs
+        };
+
+        if (_publishIntervalMs == intervalMs)
+        {
+            return;
+        }
+
+        _publishIntervalMs = intervalMs;
+        _publishTimer.Interval =
+            TimeSpan.FromMilliseconds(intervalMs);
     }
 
     private async void LatencyTimer_Tick(object? sender, EventArgs e)
@@ -410,6 +459,16 @@ public partial class MultiplayerWindow : Window
             return;
         }
 
+        // The dispatcher publisher can run faster than the read-only OMSI
+        // telemetry poll. Never turn the same source sample into multiple
+        // apparently fresh network frames: that repeatedly resets remote
+        // interpolation and creates the stop/jump pattern under load.
+        if (_lastPublishedTelemetrySourceTimestamp is DateTimeOffset previous &&
+            telemetry.Timestamp <= previous)
+        {
+            return;
+        }
+
         _publishing = true;
         try
         {
@@ -419,6 +478,8 @@ public partial class MultiplayerWindow : Window
                 Timestamp = DateTimeOffset.UtcNow
             };
             await _client.PublishTelemetryAsync(outgoing);
+            _lastPublishedTelemetrySourceTimestamp =
+                telemetry.Timestamp;
         }
         catch (Exception ex)
         {
