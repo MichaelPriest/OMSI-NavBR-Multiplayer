@@ -209,14 +209,20 @@ internal static class PhysicalVehicleBackend
     {
         foreach (var instance in PhysicalVehicleInstanceRegistry.Snapshot())
         {
-            if (IsSafeOwnedPointer(instance, out var unsafeReason))
+            foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
             {
-                OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer);
-            }
-            else
-            {
-                PluginLogWriter.Enqueue(
-                    $"physical-safety skip-remove id={instance.InstanceId} pointer={FormatPointer(instance.VehiclePointer)} reason={unsafeReason}");
+                if (IsSafeOwnedPointer(
+                        instance,
+                        vehiclePointer,
+                        out var unsafeReason))
+                {
+                    OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+                }
+                else
+                {
+                    PluginLogWriter.Enqueue(
+                        $"physical-safety skip-remove id={instance.InstanceId} pointer={FormatPointer(vehiclePointer)} reason={unsafeReason}");
+                }
             }
         }
 
@@ -315,6 +321,7 @@ internal static class PhysicalVehicleBackend
         var makeVehicleResult = 0;
         var copyTempListResult = 0;
         var createdVehiclePointers = Array.Empty<int>();
+        var primaryVehiclePointer = 0;
         var tempVehiclePointers = Array.Empty<int>();
         var tempListSnapshotAvailable = false;
         var hostVehiclePointer = 0;
@@ -495,16 +502,31 @@ internal static class PhysicalVehicleBackend
                     $"OMSI spawn did not produce a fully identifiable RoadVehicle. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, tempSnapshot={tempListSnapshotAvailable}, tempCount={tempVehiclePointers.Length}, detected={createdVehiclePointers.Length}.");
             }
 
-            if (createdVehiclePointers.Length != 1)
+            if (createdVehiclePointers.Length == 1)
             {
-                // Do not kill every pointer from an ambiguous global diff:
-                // another OMSI AI spawn may have happened concurrently and we
-                // must never delete a vehicle that NavBR does not own.
+                primaryVehiclePointer = createdVehiclePointers[0];
+            }
+            else if (!tempListSnapshotAvailable ||
+                     !OmsiNativeInterop.TryResolveMakeVehicleResult(
+                         makeVehicleResult,
+                         beforeVehiclePointers,
+                         out var exactPrimaryVehiclePointer) ||
+                     !createdVehiclePointers.Contains(exactPrimaryVehiclePointer))
+            {
+                // Multiple RoadVehicles are valid for an OMSI articulated
+                // consist only when the temporary list proves every part came
+                // from this exact MakeVehicle call and its return value proves
+                // which part is the main vehicle. Never infer a main pointer
+                // from global list ordering.
                 return Fail(
                     command,
                     "spawn-pointer-ambiguous",
-                    $"OMSI created or exposed {createdVehiclePointers.Length} new RoadVehicle candidates but the exact MakeVehicle result could not be resolved safely. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}.",
+                    $"OMSI created or exposed {createdVehiclePointers.Length} RoadVehicle parts but the exact main vehicle could not be proven safely. Native MakeVehicle result={makeVehicleResult}, CopyTempList result={copyTempListResult}, tempSnapshot={tempListSnapshotAvailable}.",
                     remoteVehicleCount: createdVehiclePointers.Length);
+            }
+            else
+            {
+                primaryVehiclePointer = exactPrimaryVehiclePointer;
             }
         }
         finally
@@ -524,26 +546,33 @@ internal static class PhysicalVehicleBackend
             }
         }
 
-        var vehiclePointer = createdVehiclePointers[0];
+        var vehiclePointer = primaryVehiclePointer;
         var hostVehiclePointerAfterSpawn = OmsiNativeInterop.GetPlayerVehiclePointer();
-        if (beforeVehiclePointers.Contains(vehiclePointer) ||
-            !afterVehiclePointers.Contains(vehiclePointer) ||
-            vehiclePointer == hostVehiclePointer ||
-            vehiclePointer == hostVehiclePointerAfterSpawn ||
-            OmsiNativeInterop.IsRoadVehiclePointer(vehiclePointer) != 1)
+        var unsafeCreatedPointers = createdVehiclePointers
+            .Where(pointer =>
+                beforeVehiclePointers.Contains(pointer) ||
+                !afterVehiclePointers.Contains(pointer) ||
+                pointer == hostVehiclePointer ||
+                pointer == hostVehiclePointerAfterSpawn ||
+                OmsiNativeInterop.IsRoadVehiclePointer(pointer) != 1)
+            .ToArray();
+        if (vehiclePointer <= 0 ||
+            !createdVehiclePointers.Contains(vehiclePointer) ||
+            unsafeCreatedPointers.Length > 0)
         {
             PluginLogWriter.Enqueue(
-                $"physical-safety reject-spawn id={instanceId} pointer={FormatPointer(vehiclePointer)} hostBefore={FormatPointer(hostVehiclePointer)} hostAfter={FormatPointer(hostVehiclePointerAfterSpawn)} before={FormatPointerList(beforeVehiclePointers)} after={FormatPointerList(afterVehiclePointers)}");
+                $"physical-safety reject-spawn id={instanceId} primary={FormatPointer(vehiclePointer)} parts={FormatPointerList(createdVehiclePointers)} unsafe={FormatPointerList(unsafeCreatedPointers)} hostBefore={FormatPointer(hostVehiclePointer)} hostAfter={FormatPointer(hostVehiclePointerAfterSpawn)} before={FormatPointerList(beforeVehiclePointers)} after={FormatPointerList(afterVehiclePointers)}");
             return Fail(
                 command,
                 "unsafe-spawn-pointer",
-                "The candidate RoadVehicle was not proven to be a newly created non-player vehicle.");
+                "The OMSI consist was not proven to contain only newly created non-player RoadVehicles.",
+                remoteVehicleCount: createdVehiclePointers.Length);
         }
 
         var assignedTileIndex =
             OmsiNativeInterop.ReadRoadVehicleTileIndex(vehiclePointer);
         PluginLogWriter.Enqueue(
-            $"physical-spawn assigned id={instanceId} pointer={FormatPointer(vehiclePointer)} hostVehiclePointer={FormatPointer(hostVehiclePointerAfterSpawn)} vehiclePath={vehiclePath} kachel={assignedTileIndex} newCandidate=true");
+            $"physical-spawn assigned id={instanceId} pointer={FormatPointer(vehiclePointer)} parts={FormatPointerList(createdVehiclePointers)} partCount={createdVehiclePointers.Length} hostVehiclePointer={FormatPointer(hostVehiclePointerAfterSpawn)} vehiclePath={vehiclePath} kachel={assignedTileIndex} newCandidate=true");
 
         var instance = new PhysicalVehicleInstance(
             instanceId,
@@ -551,21 +580,32 @@ internal static class PhysicalVehicleBackend
             vehiclePath,
             DateTimeOffset.UtcNow,
             hostVehiclePointer,
-            PointerWasAbsentBeforeSpawn: true);
+            PointerWasAbsentBeforeSpawn: true,
+            VehiclePointers: createdVehiclePointers);
 
         if (!PhysicalVehicleInstanceRegistry.TryAdd(instance))
         {
-            if (IsSafeOwnedPointer(instance, out var cleanupUnsafeReason))
+            foreach (var ownedPointer in instance.GetOwnedVehiclePointers())
             {
-                _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
-            }
-            else
-            {
-                PluginLogWriter.Enqueue(
-                    $"physical-safety skip-registry-cleanup id={instanceId} pointer={FormatPointer(vehiclePointer)} reason={cleanupUnsafeReason}");
+                if (IsSafeOwnedPointer(
+                        instance,
+                        ownedPointer,
+                        out var cleanupUnsafeReason))
+                {
+                    _ = OmsiNativeInterop.MarkVehicleForKilling(ownedPointer);
+                }
+                else
+                {
+                    PluginLogWriter.Enqueue(
+                        $"physical-safety skip-registry-cleanup id={instanceId} pointer={FormatPointer(ownedPointer)} reason={cleanupUnsafeReason}");
+                }
             }
 
-            return Fail(command, "instance-registry-full", "Could not register the newly created NavBR vehicle safely.");
+            return Fail(
+                command,
+                "instance-registry-full",
+                "Could not register the newly created NavBR vehicle consist safely.",
+                remoteVehicleCount: instance.PartCount);
         }
 
         LogRoadVehiclePathState("spawn-before-transform", instanceId, vehiclePointer);
@@ -595,9 +635,12 @@ internal static class PhysicalVehicleBackend
 
             PhysicalVehicleMotionController.Remove(instanceId);
             PhysicalVehicleInstanceRegistry.TryRemove(instanceId, out _);
-            if (IsSafeOwnedPointer(instance, out _))
+            foreach (var ownedPointer in instance.GetOwnedVehiclePointers())
             {
-                _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+                if (IsSafeOwnedPointer(instance, ownedPointer, out _))
+                {
+                    _ = OmsiNativeInterop.MarkVehicleForKilling(ownedPointer);
+                }
             }
             return applied;
         }
@@ -754,6 +797,15 @@ internal static class PhysicalVehicleBackend
 
     internal static bool HasSafeOwnedPointerIdentity(
         PhysicalVehicleInstance instance,
+        out string reason) =>
+        HasSafeOwnedPointerIdentity(
+            instance,
+            instance.VehiclePointer,
+            out reason);
+
+    private static bool HasSafeOwnedPointerIdentity(
+        PhysicalVehicleInstance instance,
+        int vehiclePointer,
         out string reason)
     {
         reason = string.Empty;
@@ -763,13 +815,14 @@ internal static class PhysicalVehicleBackend
             return false;
         }
 
-        if (instance.VehiclePointer <= 0)
+        if (vehiclePointer <= 0 ||
+            !instance.GetOwnedVehiclePointers().Contains(vehiclePointer))
         {
-            reason = "pointer-invalid";
+            reason = "pointer-invalid-or-not-owned";
             return false;
         }
 
-        if (instance.VehiclePointer == instance.HostVehiclePointerAtSpawn)
+        if (vehiclePointer == instance.HostVehiclePointerAtSpawn)
         {
             reason =
                 $"pointer-is-host-at-spawn hostAtSpawn={FormatPointer(instance.HostVehiclePointerAtSpawn)}";
@@ -782,22 +835,43 @@ internal static class PhysicalVehicleBackend
     internal static bool IsSafeOwnedPointer(
         PhysicalVehicleInstance instance,
         int currentHostVehiclePointer,
+        out string reason) =>
+        IsSafeOwnedPointer(
+            instance,
+            instance.VehiclePointer,
+            currentHostVehiclePointer,
+            out reason);
+
+    internal static bool IsSafeOwnedPointer(
+        PhysicalVehicleInstance instance,
+        int vehiclePointer,
+        out string reason) =>
+        IsSafeOwnedPointer(
+            instance,
+            vehiclePointer,
+            OmsiNativeInterop.GetPlayerVehiclePointer(),
+            out reason);
+
+    private static bool IsSafeOwnedPointer(
+        PhysicalVehicleInstance instance,
+        int vehiclePointer,
+        int currentHostVehiclePointer,
         out string reason)
     {
-        if (!HasSafeOwnedPointerIdentity(instance, out reason))
+        if (!HasSafeOwnedPointerIdentity(instance, vehiclePointer, out reason))
         {
             return false;
         }
 
         if (currentHostVehiclePointer != 0 &&
-            instance.VehiclePointer == currentHostVehiclePointer)
+            vehiclePointer == currentHostVehiclePointer)
         {
             reason =
                 $"pointer-is-current-host currentHost={FormatPointer(currentHostVehiclePointer)}";
             return false;
         }
 
-        if (OmsiNativeInterop.IsRoadVehiclePointer(instance.VehiclePointer) != 1)
+        if (OmsiNativeInterop.IsRoadVehiclePointer(vehiclePointer) != 1)
         {
             reason = "pointer-not-in-RoadVehicles";
             return false;
@@ -838,22 +912,41 @@ internal static class PhysicalVehicleBackend
             return ExperimentalVehicleCommandProcessor.Result(command, true);
         }
 
-        if (!IsSafeOwnedPointer(instance, out var unsafeReason))
+        foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
         {
-            PhysicalVehicleMotionController.Remove(instanceId);
-            PluginLogWriter.Enqueue(
-                $"physical-safety skip-despawn id={instanceId} pointer={FormatPointer(instance.VehiclePointer)} reason={unsafeReason}");
-            return ExperimentalVehicleCommandProcessor.Result(command, true);
+            if (!IsSafeOwnedPointer(
+                    instance,
+                    vehiclePointer,
+                    out var unsafeReason))
+            {
+                PhysicalVehicleMotionController.Remove(instanceId);
+                PluginLogWriter.Enqueue(
+                    $"physical-safety skip-despawn id={instanceId} pointer={FormatPointer(vehiclePointer)} reason={unsafeReason}");
+                return ExperimentalVehicleCommandProcessor.Result(
+                    command,
+                    true,
+                    remoteVehicleCount: instance.PartCount);
+            }
         }
 
-        if (OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer) != 1)
+        foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
         {
-            PhysicalVehicleInstanceRegistry.TryAdd(instance);
-            return Fail(command, "despawn-mark-failed", "Could not mark the NavBR-owned OMSI vehicle for removal.");
+            if (OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer) != 1)
+            {
+                PhysicalVehicleInstanceRegistry.TryAdd(instance);
+                return Fail(
+                    command,
+                    "despawn-mark-failed",
+                    $"Could not mark NavBR-owned OMSI consist part {FormatPointer(vehiclePointer)} for removal.",
+                    remoteVehicleCount: instance.PartCount);
+            }
         }
 
         PhysicalVehicleMotionController.Remove(instanceId);
-        return ExperimentalVehicleCommandProcessor.Result(command, true);
+        return ExperimentalVehicleCommandProcessor.Result(
+            command,
+            true,
+            remoteVehicleCount: instance.PartCount);
     }
 
     private static PluginBridgeMessage InitializeRemoteMotion(
@@ -923,6 +1016,7 @@ internal static class PhysicalVehicleBackend
         return ExperimentalVehicleCommandProcessor.Result(
             command,
             true,
+            remoteVehicleCount: instance.PartCount,
             localX: actualX,
             localY: actualY,
             localZ: actualZ,
@@ -957,7 +1051,10 @@ internal static class PhysicalVehicleBackend
                 localizedCommand,
                 out var errorCode,
                 out var errorMessage)
-            ? ExperimentalVehicleCommandProcessor.Result(localizedCommand, true)
+            ? ExperimentalVehicleCommandProcessor.Result(
+                localizedCommand,
+                true,
+                remoteVehicleCount: instance.PartCount)
             : Fail(
                 localizedCommand,
                 errorCode ?? "motion-target-failed",
