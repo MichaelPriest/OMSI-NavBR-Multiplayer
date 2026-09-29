@@ -333,7 +333,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             }
         }
 
-        var nativeAttempts = 0;
+        var spawnAttempts = 0;
         foreach (var entry in TickScratch)
         {
             if (now - entry.LastIntentTickMs > StaleIntentAfterMs)
@@ -369,8 +369,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              "active",
                              StringComparison.Ordinal))
                 {
-                    if (nativeAttempts >= 1 ||
-                        now < entry.NextAttemptTickMs ||
+                    if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
                             entry.InstanceId,
@@ -385,12 +384,16 @@ internal static class PhysicalVehicleLifecycleSupervisor
                     {
                         LogTransition(entry.InstanceId, updateResult);
                     }
-                    nativeAttempts++;
                     continue;
                 }
             }
 
-            if (nativeAttempts >= 1 ||
+            // Spawning remains deliberately serialized because MakeVehicle can
+            // allocate/materialize a full OMSI consist. Active network target
+            // updates are lightweight buffer/visual-state feeds and must not
+            // share this one-spawn-per-callback budget; otherwise N remote
+            // players divide the effective state rate by N.
+            if (spawnAttempts >= 1 ||
                 now < entry.NextAttemptTickMs ||
                 !TryBuildInternalSpawn(
                     entry.InstanceId,
@@ -402,7 +405,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             var result = PhysicalVehicleBackend.Execute(command);
             ObserveResult(command, result);
             LogTransition(entry.InstanceId, result);
-            nativeAttempts++;
+            spawnAttempts++;
         }
 
         TickScratch.Clear();
