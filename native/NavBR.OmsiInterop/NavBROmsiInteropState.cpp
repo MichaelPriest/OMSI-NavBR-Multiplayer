@@ -2727,6 +2727,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             *reinterpret_cast<const Vec3*>(vehicleBase + PositionOffset);
     }
     Vec3 networkVelocity{};
+    const bool sameLocalCoordinateFrame =
+        previousTilePointer != 0 &&
+        effectiveTilePointer != 0 &&
+        previousTilePointer == effectiveTilePointer;
     const Vec3 displacement{
         position.x - previousPosition.x,
         position.y - previousPosition.y,
@@ -2736,7 +2740,13 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         displacement.x * displacement.x +
         displacement.y * displacement.y +
         displacement.z * displacement.z);
-    if (speedMps > 0.001f &&
+
+    // Position is local to Kachel. Never derive a velocity vector by
+    // subtracting local coordinates that belong to two different tiles.
+    // Leave the replicated physics vector at zero for the transition frame;
+    // the next update on the new Kachel resumes normal velocity derivation.
+    if (sameLocalCoordinateFrame &&
+        speedMps > 0.001f &&
         std::isfinite(displacementLength) &&
         displacementLength > 0.001f)
     {
@@ -2747,7 +2757,8 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             displacement.z * scale
         };
     }
-    else if (speedMps > 0.001f &&
+    else if (sameLocalCoordinateFrame &&
+             speedMps > 0.001f &&
              IsReadableRange(vehicleBase + PhysicsLongOffset, sizeof(Vec3)))
     {
         const Vec3 longitudinal =
