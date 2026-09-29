@@ -158,11 +158,13 @@ public partial class MainWindow
         var includeNetwork = IncludeScope("diagnostics");
         var includeRoleplay = IncludeScope("roleplay");
 
-        // The WinUI shell never renders the legacy Roadmap Studio, Ghost or
-        // public-room directory directly. Preserve all of them for the
-        // unscoped legacy/full snapshot, but avoid rebuilding them on the
-        // regular scoped WinUI polling path.
+        // Public rooms are part of the native Multiplayer page again.
+        // Keep the expensive compatibility evaluation only for the legacy/full
+        // snapshot; the scoped WinUI page receives a lightweight cached room
+        // directory and performs the final compatibility check on join.
         object? roomDirectory = null;
+        var includeScopedRoomDirectory =
+            string.Equals(scope, "multiplayer", StringComparison.OrdinalIgnoreCase);
         if (fullSnapshot)
         {
             var localManifest = OmsiCompatibilityManifestFactory.Create(
@@ -199,6 +201,27 @@ public partial class MainWindow
                             compatibilityIssues = compatibility.Issues,
                             directJoinAllowed = compatibility.DirectJoinAllowed
                         };
+                    })
+                    .ToArray()
+            };
+        }
+        else if (includeScopedRoomDirectory)
+        {
+            roomDirectory = new
+            {
+                serverUrl = _webPublicRoomDirectoryServerUrl,
+                error = _webPublicRoomDirectoryError,
+                rooms = _webPublicRooms
+                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+                    .ThenByDescending(room => room.PlayerCount)
+                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(room => new
+                    {
+                        roomId = room.RoomId,
+                        playerCount = room.PlayerCount,
+                        mapName = room.MapName,
+                        updatedAtUtc = room.UpdatedAtUtc,
+                        favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId)
                     })
                     .ToArray()
             };
