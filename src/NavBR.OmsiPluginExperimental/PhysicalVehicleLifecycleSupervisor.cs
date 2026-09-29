@@ -316,14 +316,23 @@ internal static class PhysicalVehicleLifecycleSupervisor
                     entry.InstanceId,
                     out var instance))
             {
-                if (OmsiNativeInterop.IsRoadVehiclePointer(
-                        instance.VehiclePointer) != 1)
+                var stalePart = instance
+                    .GetOwnedVehiclePointers()
+                    .FirstOrDefault(pointer =>
+                        OmsiNativeInterop.IsRoadVehiclePointer(pointer) != 1);
+                if (stalePart != 0)
                 {
                     PhysicalVehicleMotionController.Remove(entry.InstanceId);
                     PhysicalVehicleInstanceRegistry.TryRemove(
                         entry.InstanceId,
                         out _);
-                    SetRetry(entry.InstanceId, now, "vehicle-pointer-stale", 100);
+                    SetRetry(
+                        entry.InstanceId,
+                        now,
+                        "vehicle-consist-pointer-stale",
+                        100);
+                    PluginLogWriter.Enqueue(
+                        $"physical-lifecycle stale-part id={entry.InstanceId} pointer=0x{stalePart:X8} parts={instance.PartCount}");
                 }
                 else if (string.Equals(
                              entry.State,
