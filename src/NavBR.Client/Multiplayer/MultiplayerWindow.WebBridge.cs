@@ -226,7 +226,6 @@ public partial class MultiplayerWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
-            relayServerUrl = _settings.RelayServerUrl,
             physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             networkQuality = new
