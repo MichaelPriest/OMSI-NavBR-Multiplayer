@@ -114,7 +114,8 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         {
             var offset = index * sizeof(float);
             values[index] = BitConverter.ToSingle(
-                bytes.Slice(offset, sizeof(float)));
+                bytes,
+                offset);
         }
     }
 
