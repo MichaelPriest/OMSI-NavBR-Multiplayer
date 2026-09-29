@@ -439,8 +439,17 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
 
             // Keep both representations. AbsPosition is useful for cross-tile
             // distance calculations, while Position/Rotation are the exact
-            // native pose that the alpha.11 physical multiplayer backend can
-            // apply to another OMSI instance without guessing coordinate axes.
+            // native pose used by physical multiplayer. RoadVehicle.Position is
+            // local to RoadVehicle.Kachel, so the Kachel pointer must remain
+            // stable across the pose read. Otherwise one active-frame tile
+            // transition can combine an old local position with a new grid and
+            // move a remote bus by an entire tile.
+            var physicalPoseCoherent =
+                TryReadVehicleKachelPointer(
+                    memory,
+                    vehicleAddress,
+                    out var physicalPoseTilePointer);
+
             var localPosition = memory.ReadVector3(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehiclePositionOffset));
@@ -453,6 +462,42 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             var rotation = memory.ReadQuaternion(nint.Add(
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleRotationOffset));
+
+            if (physicalPoseCoherent)
+            {
+                if (!TryReadVehicleKachelPointer(
+                        memory,
+                        vehicleAddress,
+                        out var tilePointerAfterPose))
+                {
+                    physicalPoseCoherent = false;
+                }
+                else if (tilePointerAfterPose != physicalPoseTilePointer)
+                {
+                    // The player crossed a tile while we were reading the pose.
+                    // Retry once against the new Kachel; if it changes again,
+                    // publish normal world/navigation telemetry but withhold the
+                    // physical-local pose for this frame.
+                    physicalPoseTilePointer = tilePointerAfterPose;
+                    localPosition = memory.ReadVector3(nint.Add(
+                        vehicleAddress,
+                        Omsi23004MemoryProfile.VehiclePositionOffset));
+                    absolutePosition = memory.ReadVector3(nint.Add(
+                        vehicleAddress,
+                        Omsi23004MemoryProfile.VehicleAbsPositionOffset +
+                        Omsi23004MemoryProfile.MatrixTranslationOffset));
+                    rotation = memory.ReadQuaternion(nint.Add(
+                        vehicleAddress,
+                        Omsi23004MemoryProfile.VehicleRotationOffset));
+
+                    physicalPoseCoherent =
+                        TryReadVehicleKachelPointer(
+                            memory,
+                            vehicleAddress,
+                            out var tilePointerAfterRetry) &&
+                        tilePointerAfterRetry == physicalPoseTilePointer;
+                }
+            }
 
             // OMSI maintains three useful motion values here. Tacho is the
             // speedometer/script-facing speed and follows the same km/h unit as
@@ -500,12 +545,21 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 memory,
                 nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
             var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
-            var hasPhysicalGrid = TryReadVehicleTileStateCached(
-                memory,
-                vehicleAddress,
-                out var mapTileIndex,
-                out var vehicleGridX,
-                out var vehicleGridY);
+            var hasPhysicalGrid =
+                physicalPoseCoherent &&
+                TryReadVehicleTileStateCached(
+                    memory,
+                    vehicleAddress,
+                    physicalPoseTilePointer,
+                    out var mapTileIndex,
+                    out var vehicleGridX,
+                    out var vehicleGridY);
+            if (!physicalPoseCoherent)
+            {
+                mapTileIndex = null;
+                vehicleGridX = 0;
+                vehicleGridY = 0;
+            }
 
             int? gridX = null;
             int? gridY = null;
@@ -590,13 +644,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 Lights: visualState.Lights,
                 TurnSignal: visualState.TurnSignal,
                 VehicleCompatibilityId: vehicleIdentity.CompatibilityId,
-                LocalX: localPosition.X,
-                LocalY: localPosition.Y,
-                LocalZ: localPosition.Z,
-                RotationX: rotation.X,
-                RotationY: rotation.Y,
-                RotationZ: rotation.Z,
-                RotationW: rotation.W,
+                LocalX: physicalPoseCoherent ? localPosition.X : null,
+                LocalY: physicalPoseCoherent ? localPosition.Y : null,
+                LocalZ: physicalPoseCoherent ? localPosition.Z : null,
+                RotationX: physicalPoseCoherent ? rotation.X : null,
+                RotationY: physicalPoseCoherent ? rotation.Y : null,
+                RotationZ: physicalPoseCoherent ? rotation.Z : null,
+                RotationW: physicalPoseCoherent ? rotation.W : null,
                 MapTileIndex: mapTileIndex,
                 PhysicalGridX: physicalGridX,
                 PhysicalGridY: physicalGridY);
@@ -683,6 +737,7 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private bool TryReadVehicleTileStateCached(
         ReadOnlyProcessMemory memory,
         nint vehicleAddress,
+        uint expectedVehicleTilePointer,
         out int? mapTileIndex,
         out int gridX,
         out int gridY)
@@ -711,6 +766,15 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
             mapAddress <= 0x10000u)
         {
             ClearVehicleTileCache();
+            return false;
+        }
+
+        // Position/Rotation were read against expectedVehicleTilePointer.
+        // Reject the physical pair if OMSI crossed Kachel again before the
+        // grid lookup; navigation/world telemetry can still be published.
+        if (expectedVehicleTilePointer <= 0x10000u ||
+            vehicleTilePointer != expectedVehicleTilePointer)
+        {
             return false;
         }
 
@@ -769,6 +833,26 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         _cachedTileHasGrid = false;
         _cachedTileTickMs = 0;
         _tileCacheValid = false;
+    }
+
+    private static bool TryReadVehicleKachelPointer(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out uint tilePointer)
+    {
+        tilePointer = 0;
+        try
+        {
+            tilePointer = memory.ReadUInt32(nint.Add(
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleKachelOffset));
+            return tilePointer > 0x10000u;
+        }
+        catch
+        {
+            tilePointer = 0;
+            return false;
+        }
     }
 
     private static bool TryReadVehicleTileGrid(
