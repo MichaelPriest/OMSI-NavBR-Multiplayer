@@ -78,13 +78,43 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var instanceId = remoteState.PlayerId.Trim();
-        var command = remoteState with
+        var normalized = NormalizeSpawn(remoteState with
         {
             Type = PluginBridgeProtocol.SpawnRemoteVehicle,
             CommandId = NextInternalCommandId(instanceId),
             VehicleInstanceId = instanceId
-        };
-        ObserveCommand(command);
+        });
+        var now = Environment.TickCount64;
+
+        lock (Sync)
+        {
+            // The desktop coordinator is the admission authority for physical
+            // players (distance, compatibility and bounded player count). Once
+            // it has created the lifecycle entry, the raw state stream becomes
+            // the high-rate target feed. Never let a raw telemetry frame create
+            // a new physical intent on its own: otherwise a bus that the
+            // coordinator despawned for distance/load can immediately respawn
+            // here and the two controllers fight over lifecycle.
+            if (PendingRemovals.Contains(instanceId) ||
+                !Entries.TryGetValue(instanceId, out var entry))
+            {
+                return;
+            }
+
+            entry.DesiredSpawn = normalized;
+            entry.LastIntentTickMs = now;
+
+            var sourceTimestamp = normalized.TimestampUnixMilliseconds;
+            var targetChanged =
+                sourceTimestamp is null ||
+                entry.LastAppliedSourceTimestampMs != sourceTimestamp;
+            if (targetChanged ||
+                !string.Equals(entry.State, "active", StringComparison.Ordinal))
+            {
+                entry.NextAttemptTickMs =
+                    Math.Min(entry.NextAttemptTickMs, now);
+            }
+        }
     }
 
     public static void RequestRemoteRemoval(string? instanceId)
