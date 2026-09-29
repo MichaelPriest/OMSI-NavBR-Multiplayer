@@ -259,11 +259,19 @@ public static class PluginExports
                 }
             }
 
+            // Index 4 (simulation paused) is a later lightweight
+            // checkpoint in the normal OMSI system-variable callback sequence.
+            // Reconcile only render matrices here so a RoadVehicle calculation
+            // that ran after index 0 cannot leave a NavBR bus visually displaced
+            // for the frame. This intentionally does not repeat queues,
+            // lifecycle, interpolation, governor or ODE ownership work.
+            if (variableIndex == 4)
+            {
+                PhysicalVehicleMotionController.MaintainLateRenderControl();
+            }
+
             // OMSI requests several system variables during the same frame.
-            // Index 0 is the frame anchor used by this plugin. The remaining
-            // callbacks only update their telemetry fields above, then leave
-            // immediately so they do not contend on the governor lock, inspect
-            // queues, or evaluate status timers repeatedly on OMSI's main thread.
+            // Index 0 remains the sole frame anchor for all regular plugin work.
             if (variableIndex != 0)
             {
                 return;

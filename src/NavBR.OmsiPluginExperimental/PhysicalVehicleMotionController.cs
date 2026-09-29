@@ -38,6 +38,9 @@ internal static class PhysicalVehicleMotionController
     private const long MediumPoseProbeIntervalMs = 100;
     private const long CrowdedPoseProbeIntervalMs = 150;
     private const double FramePoseDriftToleranceMeters = 0.05d;
+    private const int LateRenderControlSuccessBit = 1 << 0;
+    private const int LateRenderControlCorrectedBit = 1 << 1;
+    private const long LateRenderCorrectionLogIntervalMs = 2_000;
 
     private static readonly Dictionary<string, MotionState> States =
         new(StringComparer.OrdinalIgnoreCase);
@@ -45,6 +48,7 @@ internal static class PhysicalVehicleMotionController
     private static long _lastTickMs;
     private static long _lastPathBindingComparisonLogTickMs;
     private static long _lastExternalControlTickMs;
+    private static long _lastLateRenderControlTickMs;
 
     public static int ActiveCount => States.Count;
 
@@ -461,6 +465,82 @@ internal static class PhysicalVehicleMotionController
         LogPathBindingComparison(now);
     }
 
+    public static void MaintainLateRenderControl()
+    {
+        var now = Environment.TickCount64;
+        var activeCount = States.Count;
+        if (activeCount == 0)
+        {
+            _lastLateRenderControlTickMs = now;
+            return;
+        }
+
+        // This runs from a later OMSI system-variable callback than the main
+        // frame anchor. It performs only a render-matrix consistency probe and
+        // writes matrices/visibility when OMSI changed them after NavBR's
+        // normal motion callback. No queue, ODE, lifecycle or interpolation
+        // work is repeated here.
+        var minimumIntervalMs = activeCount switch
+        {
+            >= 9 => 50L,
+            >= 5 => 33L,
+            _ => 16L
+        };
+        if (_lastLateRenderControlTickMs > 0 &&
+            now - _lastLateRenderControlTickMs < minimumIntervalMs)
+        {
+            return;
+        }
+
+        _lastLateRenderControlTickMs = now;
+        foreach (var pair in States)
+        {
+            var instanceId = pair.Key;
+            var state = pair.Value;
+            if (!string.IsNullOrWhiteSpace(state.FaultCode) ||
+                !PhysicalVehicleInstanceRegistry.TryGet(
+                    instanceId,
+                    out var instance) ||
+                !PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(
+                    instance,
+                    out _))
+            {
+                continue;
+            }
+
+            var result =
+                OmsiNativeInterop.MaintainVehicleRenderControl(
+                    instance.VehiclePointer,
+                    state.Current.X,
+                    state.Current.Y,
+                    state.Current.Z,
+                    state.Current.RotationX,
+                    state.Current.RotationY,
+                    state.Current.RotationZ,
+                    state.Current.RotationW);
+            if ((result & LateRenderControlSuccessBit) == 0)
+            {
+                if (now - state.LastLateRenderFailureLogTickMs >=
+                        LateRenderCorrectionLogIntervalMs)
+                {
+                    state.LastLateRenderFailureLogTickMs = now;
+                    PluginLogWriter.Enqueue(
+                        $"physical-late-render-retry id={instanceId} pointer=0x{instance.VehiclePointer:X8}");
+                }
+                continue;
+            }
+
+            if ((result & LateRenderControlCorrectedBit) != 0 &&
+                now - state.LastLateRenderCorrectionLogTickMs >=
+                    LateRenderCorrectionLogIntervalMs)
+            {
+                state.LastLateRenderCorrectionLogTickMs = now;
+                PluginLogWriter.Enqueue(
+                    $"physical-late-render-corrected id={instanceId} pointer=0x{instance.VehiclePointer:X8}");
+            }
+        }
+    }
+
     private static void LogPathBindingComparison(long now)
     {
         if (now - _lastPathBindingComparisonLogTickMs <
@@ -683,6 +763,7 @@ internal static class PhysicalVehicleMotionController
         RemovalScratch.Clear();
         _lastTickMs = 0;
         _lastExternalControlTickMs = 0;
+        _lastLateRenderControlTickMs = 0;
     }
 
     private static bool TryApplyTransform(
@@ -1049,6 +1130,8 @@ internal static class PhysicalVehicleMotionController
         public long LastPhysicsBodyLogTickMs { get; set; }
         public long LastFramePoseReassertTickMs { get; set; }
         public long LastFramePoseReassertFailureLogTickMs { get; set; }
+        public long LastLateRenderCorrectionLogTickMs { get; set; }
+        public long LastLateRenderFailureLogTickMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }

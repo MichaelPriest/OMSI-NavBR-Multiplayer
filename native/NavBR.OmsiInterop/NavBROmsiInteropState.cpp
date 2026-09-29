@@ -1594,7 +1594,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 21;
+    return 22;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
@@ -2918,6 +2918,199 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
 
     InterlockedExchange(&LastVehicleTransformFailureStage, 0);
     return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
+    int vehiclePointer,
+    float x,
+    float y,
+    float z,
+    float rotationX,
+    float rotationY,
+    float rotationZ,
+    float rotationW)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        !std::isfinite(x) ||
+        !std::isfinite(y) ||
+        !std::isfinite(z) ||
+        !std::isfinite(rotationX) ||
+        !std::isfinite(rotationY) ||
+        !std::isfinite(rotationZ) ||
+        !std::isfinite(rotationW))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    const float quaternionLength = std::sqrt(
+        rotationX * rotationX +
+        rotationY * rotationY +
+        rotationZ * rotationZ +
+        rotationW * rotationW);
+    if (!std::isfinite(quaternionLength) ||
+        quaternionLength < 0.0001f)
+    {
+        return 0;
+    }
+
+    const auto base =
+        static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(
+            base + UsedRelativeVectorOffset,
+            sizeof(Vec3)) ||
+        !IsReadableRange(
+            base + VisibleLogicalOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + VisibleLogicalRenderThreadOffset,
+            sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    const Vec3 relationTranslation =
+        *reinterpret_cast<const Vec3*>(
+            base + UsedRelativeVectorOffset);
+    if (!std::isfinite(relationTranslation.x) ||
+        !std::isfinite(relationTranslation.y) ||
+        !std::isfinite(relationTranslation.z))
+    {
+        return 0;
+    }
+
+    const Vec3 localPosition{ x, y, z };
+    const Vec3 worldPosition{
+        x + relationTranslation.x,
+        y + relationTranslation.y,
+        z + relationTranslation.z
+    };
+    if (!std::isfinite(worldPosition.x) ||
+        !std::isfinite(worldPosition.y) ||
+        !std::isfinite(worldPosition.z))
+    {
+        return 0;
+    }
+
+    const float inverseLength = 1.0f / quaternionLength;
+    const Quaternion rotation{
+        rotationX * inverseLength,
+        rotationY * inverseLength,
+        rotationZ * inverseLength,
+        rotationW * inverseLength
+    };
+    const Matrix4 expected =
+        BuildTransformMatrix(rotation, worldPosition);
+
+    bool needsCorrection = false;
+    Matrix4 current{};
+    if (!TryReadMatrix(
+            vehiclePointer,
+            OutsideMatrixThreadFreeOffset,
+            current))
+    {
+        needsCorrection = true;
+    }
+    else
+    {
+        const float dx = current.m30 - expected.m30;
+        const float dy = current.m31 - expected.m31;
+        const float dz = current.m32 - expected.m32;
+        constexpr float PositionTolerance = 0.05f;
+        needsCorrection =
+            dx * dx + dy * dy + dz * dz >
+            PositionTolerance * PositionTolerance;
+
+        constexpr float MatrixTolerance = 0.001f;
+        if (!needsCorrection)
+        {
+            needsCorrection =
+                !std::isfinite(current.m00) ||
+                !std::isfinite(current.m01) ||
+                !std::isfinite(current.m02) ||
+                !std::isfinite(current.m10) ||
+                !std::isfinite(current.m11) ||
+                !std::isfinite(current.m12) ||
+                !std::isfinite(current.m20) ||
+                !std::isfinite(current.m21) ||
+                !std::isfinite(current.m22) ||
+                std::fabs(current.m00 - expected.m00) > MatrixTolerance ||
+                std::fabs(current.m01 - expected.m01) > MatrixTolerance ||
+                std::fabs(current.m02 - expected.m02) > MatrixTolerance ||
+                std::fabs(current.m10 - expected.m10) > MatrixTolerance ||
+                std::fabs(current.m11 - expected.m11) > MatrixTolerance ||
+                std::fabs(current.m12 - expected.m12) > MatrixTolerance ||
+                std::fabs(current.m20 - expected.m20) > MatrixTolerance ||
+                std::fabs(current.m21 - expected.m21) > MatrixTolerance ||
+                std::fabs(current.m22 - expected.m22) > MatrixTolerance;
+        }
+    }
+
+    if (*reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalOffset) == 0 ||
+        *reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalRenderThreadOffset) == 0)
+    {
+        needsCorrection = true;
+    }
+
+    const int complObjInstance =
+        IsReadableRange(
+            base + ComplObjInstanceOffset,
+            sizeof(int))
+            ? *reinterpret_cast<const int*>(
+                base + ComplObjInstanceOffset)
+            : 0;
+    if (complObjInstance != 0)
+    {
+        const auto complBase =
+            static_cast<std::uintptr_t>(complObjInstance);
+        if ((IsReadableRange(
+                 complBase + ComplObjInstanceVisibleOffset,
+                 sizeof(unsigned char)) &&
+             *reinterpret_cast<const unsigned char*>(
+                 complBase + ComplObjInstanceVisibleOffset) == 0) ||
+            (IsReadableRange(
+                 complBase + ComplObjInstanceRenderMeOffset,
+                 sizeof(unsigned char)) &&
+             *reinterpret_cast<const unsigned char*>(
+                 complBase + ComplObjInstanceRenderMeOffset) == 0))
+        {
+            needsCorrection = true;
+        }
+    }
+
+    if (!needsCorrection)
+    {
+        return 1;
+    }
+
+    const unsigned char enabled = 1;
+    if (!WriteRenderMatrices(
+            vehiclePointer,
+            localPosition,
+            worldPosition,
+            rotation) ||
+        !WriteByte(
+            vehiclePointer,
+            VisibleLogicalOffset,
+            enabled) ||
+        !WriteByte(
+            vehiclePointer,
+            VisibleLogicalRenderThreadOffset,
+            enabled))
+    {
+        return 0;
+    }
+
+    // Bit 0 = probe/write succeeded; bit 1 = render state was corrected.
+    return 1 | (1 << 1);
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleNetworkMotion(

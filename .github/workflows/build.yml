@@ -201,6 +201,7 @@ jobs:
             'NavBR_RestoreHumanDriverState',
             'NavBR_MakeVehicle',
             'NavBR_SetVehicleTransform',
+            'NavBR_MaintainVehicleRenderControl',
             'NavBR_SetVehicleNetworkMotion',
             'NavBR_MaintainVehicleExternalControl',
             'NavBR_SetVehicleVisualState',

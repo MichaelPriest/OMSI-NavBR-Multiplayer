@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 21;
+    private const int ExpectedStateInteropVersion = 22;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -1086,6 +1086,17 @@ internal static class OmsiNativeInterop
         float rotationW,
         float groundSpeedMps,
         int mapTileIndex);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_MaintainVehicleRenderControl")]
+    internal static extern int MaintainVehicleRenderControl(
+        int vehiclePointer,
+        float x,
+        float y,
+        float z,
+        float rotationX,
+        float rotationY,
+        float rotationZ,
+        float rotationW);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_SetVehicleNetworkMotion")]
     internal static extern int SetVehicleNetworkMotion(
