@@ -26,9 +26,14 @@ internal static class PhysicalVehicleInstanceRegistry
 
     public static bool TryAdd(PhysicalVehicleInstance instance)
     {
+        var ownedPointers = instance.GetOwnedVehiclePointers();
         if (string.IsNullOrWhiteSpace(instance.InstanceId) ||
             instance.InstanceId.Length > 128 ||
             instance.VehiclePointer <= 0 ||
+            ownedPointers.Length is <= 0 or > 16 ||
+            ownedPointers.Any(pointer => pointer <= 0) ||
+            ownedPointers.Distinct().Count() != ownedPointers.Length ||
+            !ownedPointers.Contains(instance.VehiclePointer) ||
             string.IsNullOrWhiteSpace(instance.VehiclePath))
         {
             return false;
@@ -83,4 +88,16 @@ internal readonly record struct PhysicalVehicleInstance(
     string VehiclePath,
     DateTimeOffset CreatedAtUtc,
     int HostVehiclePointerAtSpawn,
-    bool PointerWasAbsentBeforeSpawn);
+    bool PointerWasAbsentBeforeSpawn,
+    int[]? VehiclePointers = null)
+{
+    public int[] GetOwnedVehiclePointers() =>
+        VehiclePointers is { Length: > 0 }
+            ? VehiclePointers
+            : [VehiclePointer];
+
+    public int PartCount =>
+        VehiclePointers is { Length: > 0 }
+            ? VehiclePointers.Length
+            : 1;
+}
