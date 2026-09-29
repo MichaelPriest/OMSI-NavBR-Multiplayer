@@ -127,8 +127,14 @@ public partial class HudOverlayWindow
         var voiceShortcut = _voiceHotkeyAvailable
             ? $"{_voiceHotkey.Name}: PTT"
             : $"{_voiceHotkey.Name}: OMSI";
-        HudShortcutsText.Text =
-            $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
+        HudShortcutsText.Text = _roleplayHudActive
+            ? HudRpText(
+                "WASD andar • Shift correr • Espaço pular • ←/→ virar • E ônibus • Esc retorno",
+                "WASD walk • Shift run • Space jump • ←/→ turn • E bus • Esc return",
+                "WASD andar • Shift correr • Espacio saltar • ←/→ girar • E autobús • Esc volver",
+                "WASD laufen • Shift rennen • Leertaste springen • ←/→ drehen • E Bus • Esc zurück",
+                "WASD marcher • Shift courir • Espace sauter • ←/→ tourner • E bus • Échap retour")
+            : $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
