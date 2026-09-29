@@ -157,10 +157,14 @@ public partial class App : Application
                             System.Text.Json.JsonValueKind.Object ||
                         !multiplayer.TryGetProperty("players", out var players) ||
                         players.ValueKind !=
-                            System.Text.Json.JsonValueKind.Array)
+                            System.Text.Json.JsonValueKind.Array ||
+                        payload.GetProperty("network").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("roomDirectory").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object)
                     {
                         throw new InvalidOperationException(
-                            "Runtime Host scoped multiplayer state smoke did not include full player details.");
+                            "Runtime Host scoped multiplayer state smoke did not include players, network diagnostics and public rooms.");
                     }
                 }
 
