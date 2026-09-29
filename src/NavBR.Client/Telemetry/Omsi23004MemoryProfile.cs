@@ -103,6 +103,10 @@ internal static class Omsi23004MemoryProfile
 
     // OmsiRoadVehicleInst runtime state.
     public const int VehicleCurrentStationOffset = 0x7A0;
+    // OmsiRoadVehicleInst.ScriptParent, published by OmsiHook. This is used
+    // read-only to identify articulated child sections belonging to the
+    // player's exact RoadVehicle; NavBR never writes coupling fields.
+    public const int VehicleScriptParentOffset = 0x8C0;
     public const int VehicleFuelPercentOffset = 0x7CC;
 
     // TTimeTableMan dynamic arrays and TTTTrip layout.

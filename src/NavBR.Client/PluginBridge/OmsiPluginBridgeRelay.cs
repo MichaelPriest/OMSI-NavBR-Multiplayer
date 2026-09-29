@@ -316,7 +316,8 @@ public static class OmsiPluginBridgeRelay
             VelocityZ: telemetry.VelocityZ,
             AccelerationLocalX: telemetry.AccelerationLocalX,
             AccelerationLocalY: telemetry.AccelerationLocalY,
-            AccelerationLocalZ: telemetry.AccelerationLocalZ);
+            AccelerationLocalZ: telemetry.AccelerationLocalZ,
+            RearSections: telemetry.RearSections);
     }
 
     private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(

@@ -18,6 +18,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private const long MapNameRefreshMs = 5_000;
     private const long NextStopRefreshMs = 750;
     private const long TripTextRefreshMs = 5_000;
+    private const long RearSectionAddressRefreshMs = 1_000;
+    private const int MaxRearSections = 3;
+    private const int MaxReasonableRoadVehicles = 4_096;
 
     private ReadOnlyProcessMemory? _memory;
     private OmsiProcessInfo? _processInfo;
@@ -47,6 +50,9 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
     private uint _cachedNextStopStringPointer;
     private long _cachedNextStopTickMs;
     private string? _cachedNextStopName;
+    private nint _cachedRearSectionPlayerAddress;
+    private nint[] _cachedRearSectionAddresses = [];
+    private long _cachedRearSectionAddressTickMs;
 
     public bool IsAttached => _memory is not null;
     public int? AttachedProcessId => _memory?.ProcessId;
@@ -581,6 +587,15 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                     out mapTileIndex,
                     out vehicleGridX,
                     out vehicleGridY);
+            var rearSections = physicalPoseCoherent
+                ? TryReadRearSections(
+                    memory,
+                    vehicleAddress,
+                    physicalPoseTilePointer,
+                    hasPhysicalGrid,
+                    vehicleGridX,
+                    vehicleGridY)
+                : null;
 
             int? gridX = null;
             int? gridY = null;
@@ -682,7 +697,8 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 AccelerationLocalX: accelerationLocalX,
                 AccelerationLocalY: accelerationLocalY,
                 AccelerationLocalZ: accelerationLocalZ,
-                SourceTimestampUnixMilliseconds: sampledAtUtc.ToUnixTimeMilliseconds());
+                SourceTimestampUnixMilliseconds: sampledAtUtc.ToUnixTimeMilliseconds(),
+                RearSections: rearSections);
         }
         catch (ArgumentException)
         {
@@ -1395,6 +1411,290 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         return 0d;
     }
 
+    private VehicleSectionPose[]? TryReadRearSections(
+        ReadOnlyProcessMemory memory,
+        nint playerVehicleAddress,
+        uint playerTilePointer,
+        bool playerGridAvailable,
+        int playerGridX,
+        int playerGridY)
+    {
+        var rearAddresses =
+            ResolveRearSectionAddressesCached(memory, playerVehicleAddress);
+        if (rearAddresses.Length == 0)
+        {
+            return Array.Empty<VehicleSectionPose>();
+        }
+
+        var poses = new VehicleSectionPose[rearAddresses.Length];
+        for (var index = 0; index < rearAddresses.Length; index++)
+        {
+            var sectionAddress = rearAddresses[index];
+            if (!TryReadVehicleKachelPointer(
+                    memory,
+                    sectionAddress,
+                    out var sectionTilePointer))
+            {
+                return null;
+            }
+
+            MemoryVector3 position;
+            MemoryQuaternion rotation;
+            try
+            {
+                position = memory.ReadVector3(nint.Add(
+                    sectionAddress,
+                    Omsi23004MemoryProfile.VehiclePositionOffset));
+                rotation = memory.ReadQuaternion(nint.Add(
+                    sectionAddress,
+                    Omsi23004MemoryProfile.VehicleRotationOffset));
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (!TryReadVehicleKachelPointer(
+                    memory,
+                    sectionAddress,
+                    out var tilePointerAfterPose) ||
+                tilePointerAfterPose != sectionTilePointer ||
+                !float.IsFinite(position.X) ||
+                !float.IsFinite(position.Y) ||
+                !float.IsFinite(position.Z) ||
+                !float.IsFinite(rotation.X) ||
+                !float.IsFinite(rotation.Y) ||
+                !float.IsFinite(rotation.Z) ||
+                !float.IsFinite(rotation.W) ||
+                Math.Abs(position.X) > 100_000f ||
+                Math.Abs(position.Y) > 100_000f ||
+                Math.Abs(position.Z) > 100_000f)
+            {
+                return null;
+            }
+
+            var quaternionLengthSquared =
+                rotation.X * rotation.X +
+                rotation.Y * rotation.Y +
+                rotation.Z * rotation.Z +
+                rotation.W * rotation.W;
+            if (!float.IsFinite(quaternionLengthSquared) ||
+                quaternionLengthSquared < 0.00000001f)
+            {
+                return null;
+            }
+
+            int gridX;
+            int gridY;
+            if (playerGridAvailable &&
+                sectionTilePointer == playerTilePointer)
+            {
+                gridX = playerGridX;
+                gridY = playerGridY;
+            }
+            else if (!TryReadVehicleTileGrid(
+                         memory,
+                         sectionAddress,
+                         out gridX,
+                         out gridY))
+            {
+                // Do not publish a local pose without its stable Kachel grid.
+                // A missing section for one sample is safer than assigning its
+                // coordinates to the front vehicle's tile on the remote PC.
+                return null;
+            }
+
+            var inverseLength =
+                1d / Math.Sqrt(quaternionLengthSquared);
+            poses[index] = new VehicleSectionPose(
+                position.X,
+                position.Y,
+                position.Z,
+                rotation.X * inverseLength,
+                rotation.Y * inverseLength,
+                rotation.Z * inverseLength,
+                rotation.W * inverseLength,
+                gridX,
+                gridY);
+        }
+
+        return poses;
+    }
+
+    private nint[] ResolveRearSectionAddressesCached(
+        ReadOnlyProcessMemory memory,
+        nint playerVehicleAddress)
+    {
+        var now = Environment.TickCount64;
+        if (_cachedRearSectionPlayerAddress == playerVehicleAddress &&
+            _cachedRearSectionAddressTickMs > 0 &&
+            now >= _cachedRearSectionAddressTickMs &&
+            now - _cachedRearSectionAddressTickMs <
+                RearSectionAddressRefreshMs)
+        {
+            return _cachedRearSectionAddresses;
+        }
+
+        try
+        {
+            var omsiListAddress = memory.ReadUInt32(
+                memory.AddressFromRva(
+                    Omsi23004MemoryProfile.RoadVehiclesListRva));
+            if (omsiListAddress <= 0x10000u)
+            {
+                return CacheRearSectionAddresses(
+                    playerVehicleAddress,
+                    now,
+                    []);
+            }
+
+            var omsiListPointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(omsiListAddress);
+            var count = memory.ReadInt32(nint.Add(
+                omsiListPointer,
+                Omsi23004MemoryProfile.OmsiListCountOffset));
+            var fListAddress = memory.ReadUInt32(nint.Add(
+                omsiListPointer,
+                Omsi23004MemoryProfile.OmsiListFListOffset));
+            if (count is <= 0 or > MaxReasonableRoadVehicles ||
+                fListAddress <= 0x10000u)
+            {
+                return CacheRearSectionAddresses(
+                    playerVehicleAddress,
+                    now,
+                    []);
+            }
+
+            var fListPointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(fListAddress);
+            var itemsAddress = memory.ReadUInt32(nint.Add(
+                fListPointer,
+                Omsi23004MemoryProfile.TListItemsOffset));
+            if (itemsAddress <= 0x10000u)
+            {
+                return CacheRearSectionAddresses(
+                    playerVehicleAddress,
+                    now,
+                    []);
+            }
+
+            var itemsPointer =
+                ReadOnlyProcessMemory.PointerFromUInt32(itemsAddress);
+            var playerRaw =
+                unchecked((uint)playerVehicleAddress.ToInt64());
+            var candidates =
+                new List<RearSectionCandidate>(Math.Min(count, 128));
+            var byAddress = new Dictionary<uint, RearSectionCandidate>();
+
+            for (var index = 0; index < count; index++)
+            {
+                var rawAddress = memory.ReadUInt32(nint.Add(
+                    itemsPointer,
+                    checked(index * sizeof(int))));
+                if (rawAddress <= 0x10000u ||
+                    rawAddress == playerRaw)
+                {
+                    continue;
+                }
+
+                var address =
+                    ReadOnlyProcessMemory.PointerFromUInt32(rawAddress);
+                var parent = memory.ReadUInt32(nint.Add(
+                    address,
+                    Omsi23004MemoryProfile.VehicleScriptParentOffset));
+                var candidate =
+                    new RearSectionCandidate(
+                        address,
+                        rawAddress,
+                        parent,
+                        index);
+                candidates.Add(candidate);
+                byAddress[rawAddress] = candidate;
+            }
+
+            var owned = new List<(int Depth, int Index, nint Address)>(
+                MaxRearSections);
+            foreach (var candidate in candidates)
+            {
+                var currentParent = candidate.ParentAddress;
+                var visited = new HashSet<uint>
+                {
+                    candidate.RawAddress
+                };
+
+                for (var depth = 1;
+                     depth <= MaxRearSections;
+                     depth++)
+                {
+                    if (currentParent == playerRaw)
+                    {
+                        owned.Add((
+                            depth,
+                            candidate.ListIndex,
+                            candidate.Address));
+                        break;
+                    }
+
+                    if (currentParent <= 0x10000u ||
+                        !visited.Add(currentParent) ||
+                        !byAddress.TryGetValue(
+                            currentParent,
+                            out var parentCandidate))
+                    {
+                        break;
+                    }
+
+                    currentParent =
+                        parentCandidate.ParentAddress;
+                }
+            }
+
+            var addresses = owned
+                .OrderBy(candidate => candidate.Depth)
+                .ThenBy(candidate => candidate.Index)
+                .Select(candidate => candidate.Address)
+                .Distinct()
+                .Take(MaxRearSections)
+                .ToArray();
+
+            return CacheRearSectionAddresses(
+                playerVehicleAddress,
+                now,
+                addresses);
+        }
+        catch
+        {
+            return CacheRearSectionAddresses(
+                playerVehicleAddress,
+                now,
+                []);
+        }
+    }
+
+    private nint[] CacheRearSectionAddresses(
+        nint playerVehicleAddress,
+        long tickMs,
+        nint[] addresses)
+    {
+        _cachedRearSectionPlayerAddress = playerVehicleAddress;
+        _cachedRearSectionAddressTickMs = tickMs;
+        _cachedRearSectionAddresses = addresses;
+        return addresses;
+    }
+
+    private void ClearRearSectionCache()
+    {
+        _cachedRearSectionPlayerAddress = nint.Zero;
+        _cachedRearSectionAddressTickMs = 0;
+        _cachedRearSectionAddresses = [];
+    }
+
+    private readonly record struct RearSectionCandidate(
+        nint Address,
+        uint RawAddress,
+        uint ParentAddress,
+        int ListIndex);
+
     private static nint ResolvePlayerVehicleAddress(
         ReadOnlyProcessMemory memory,
         int playerVehicleIndex)
@@ -1754,5 +2054,6 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
         ClearVehicleTileCache();
         ClearMapNameCache();
         ClearTripCache();
+        ClearRearSectionCache();
     }
 }

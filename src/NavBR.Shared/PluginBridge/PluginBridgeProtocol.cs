@@ -1,4 +1,5 @@
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Shared.PluginBridge;
 
@@ -178,4 +179,5 @@ public sealed record PluginBridgeMessage(
     double? VelocityZ = null,
     double? AccelerationLocalX = null,
     double? AccelerationLocalY = null,
-    double? AccelerationLocalZ = null);
+    double? AccelerationLocalZ = null,
+    VehicleSectionPose[]? RearSections = null);

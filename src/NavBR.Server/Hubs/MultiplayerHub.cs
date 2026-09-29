@@ -622,6 +622,7 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             telemetry.AccelerationLocalZ,
             100d,
             "local physical acceleration");
+        ValidateRearSections(telemetry.RearSections);
 
         if (telemetry.FuelPercent is < 0 or > 100 ||
             telemetry.ThrottlePercent is < 0 or > 100 ||
@@ -679,6 +680,54 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         _ = NormalizeOptional(telemetry.Route, MaxRouteLength, "route");
         _ = NormalizeOptional(telemetry.NextStopName, MaxStopNameLength, "next stop");
         _ = NormalizeOptional(telemetry.DestinationName, MaxDestinationLength, "destination");
+    }
+
+    private static void ValidateRearSections(
+        VehicleSectionPose[]? sections)
+    {
+        if (sections is null)
+        {
+            return;
+        }
+
+        if (sections.Length > 3)
+        {
+            throw new HubException(
+                "Telemetry contains too many articulated vehicle sections.");
+        }
+
+        foreach (var section in sections)
+        {
+            if (!double.IsFinite(section.LocalX) ||
+                !double.IsFinite(section.LocalY) ||
+                !double.IsFinite(section.LocalZ) ||
+                !double.IsFinite(section.RotationX) ||
+                !double.IsFinite(section.RotationY) ||
+                !double.IsFinite(section.RotationZ) ||
+                !double.IsFinite(section.RotationW) ||
+                Math.Abs(section.LocalX) > 100_000d ||
+                Math.Abs(section.LocalY) > 100_000d ||
+                Math.Abs(section.LocalZ) > 100_000d ||
+                Math.Abs((long)section.GridX) > 100_000L ||
+                Math.Abs((long)section.GridY) > 100_000L ||
+                section.MapTileIndex is < 0 or > 200_000)
+            {
+                throw new HubException(
+                    "Telemetry contains an invalid articulated vehicle section.");
+            }
+
+            var quaternionLengthSquared =
+                section.RotationX * section.RotationX +
+                section.RotationY * section.RotationY +
+                section.RotationZ * section.RotationZ +
+                section.RotationW * section.RotationW;
+            if (!double.IsFinite(quaternionLengthSquared) ||
+                quaternionLengthSquared < 0.00000001d)
+            {
+                throw new HubException(
+                    "Telemetry contains an invalid articulated section rotation.");
+            }
+        }
     }
 
     private static void ValidateOptionalFinite(double? value, string fieldName)
