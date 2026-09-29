@@ -403,13 +403,30 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var hasExplicitPhysicalGrid =
+            frame.Telemetry.PhysicalGridX is int &&
+            frame.Telemetry.PhysicalGridY is int;
+
+        // Backward compatibility for an older server/shared payload that may
+        // strip PhysicalGridX/Y: only trust legacy GridX/Y when the transmitted
+        // TileX/TileY still prove they were derived from the same RoadVehicle
+        // local pose. Navigation GridX/Y + unrelated TileX/TileY must never be
+        // paired with LocalX/LocalZ for physical multiplayer.
+        var hasCoherentLegacyPhysicalGrid =
+            frame.Telemetry.PhysicalGridX is null &&
+            frame.Telemetry.PhysicalGridY is null &&
+            frame.Telemetry.GridX is int &&
+            frame.Telemetry.GridY is int &&
+            frame.Telemetry.TileX is double legacyTileX &&
+            double.IsFinite(legacyTileX) &&
+            frame.Telemetry.TileY is double legacyTileY &&
+            double.IsFinite(legacyTileY) &&
+            Math.Abs(legacyTileX - localX) <= 0.05d &&
+            Math.Abs(legacyTileY - localZ) <= 0.05d;
+
         var hasStablePhysicalGrid =
-            (frame.Telemetry.PhysicalGridX is int &&
-             frame.Telemetry.PhysicalGridY is int) ||
-            (frame.Telemetry.PhysicalGridX is null &&
-             frame.Telemetry.PhysicalGridY is null &&
-             frame.Telemetry.GridX is int &&
-             frame.Telemetry.GridY is int);
+            hasExplicitPhysicalGrid ||
+            hasCoherentLegacyPhysicalGrid;
         var hasSimulatorLocalTile =
             playerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase) &&
             frame.Telemetry.MapTileIndex is int simulatorTileIndex &&
@@ -423,7 +440,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 playerId,
                 "tile-unavailable",
                 "remote-grid-missing",
-                "Remote telemetry did not include any usable OMSI GridX/GridY identity. Current physical grid is preferred; legacy GridX/GridY is accepted only when the local plugin can resolve it to a loaded Kachel.");
+                "Remote telemetry did not include a Kachel-coherent OMSI GridX/GridY identity. PhysicalGridX/Y is preferred; legacy GridX/GridY is accepted only when TileX/TileY matches the same LocalX/LocalZ pose.");
             return;
         }
 
