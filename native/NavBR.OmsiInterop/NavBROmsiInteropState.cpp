@@ -1254,6 +1254,19 @@ namespace
             return false;
         }
 
+        // The reference RoadVehicle can itself cross a Kachel while this
+        // snapshot is being read. Re-check the tile after Position/AbsPosition
+        // so a mixed old/new reference can never become the world origin for a
+        // NavBR remote bus.
+        if (!IsReadableRange(
+                referenceBase + KachelOffset,
+                sizeof(int)) ||
+            *reinterpret_cast<const int*>(
+                referenceBase + KachelOffset) != targetTilePointer)
+        {
+            return false;
+        }
+
         const Vec3 candidate{
             targetPosition.x +
                 (referenceAbsolute.m30 - referencePosition.x),
