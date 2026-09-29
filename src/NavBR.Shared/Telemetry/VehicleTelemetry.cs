@@ -55,7 +55,8 @@ public sealed record VehicleTelemetry(
     double? VelocityZ = null,
     double? AccelerationLocalX = null,
     double? AccelerationLocalY = null,
-    double? AccelerationLocalZ = null);
+    double? AccelerationLocalZ = null,
+    long? SourceTimestampUnixMilliseconds = null);
 
 [Flags]
 public enum VehicleDoorFlags
