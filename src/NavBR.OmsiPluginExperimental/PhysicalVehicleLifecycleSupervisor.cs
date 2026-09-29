@@ -10,7 +10,7 @@ namespace NavBR.OmsiPluginExperimental;
 /// </summary>
 internal static class PhysicalVehicleLifecycleSupervisor
 {
-    private const long StaleIntentAfterMs = 8_000;
+    private const long StaleIntentAfterMs = 15_000;
     private const long MaterializationRetryMs = 250;
     private const long TransientRetryMs = 750;
     private const long SlowRetryMs = 2_000;
