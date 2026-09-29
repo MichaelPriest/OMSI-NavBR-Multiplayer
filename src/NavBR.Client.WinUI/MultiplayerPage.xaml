@@ -450,8 +450,8 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="1.2*"/>
                                         <ColumnDefinition Width="1*"/>
-                                        <ColumnDefinition Width="1.5*"/>
-                                        <ColumnDefinition Width="1*"/>
+                                        <ColumnDefinition Width="1.4*"/>
+                                        <ColumnDefinition Width="1.8*"/>
                                         <ColumnDefinition Width="90"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
@@ -469,9 +469,15 @@
                                                Text="{Binding Vehicle}"
                                                Foreground="{StaticResource NavBRMutedBrush}"
                                                TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="3"
-                                               Text="{Binding PhysicalState}"
-                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <StackPanel Grid.Column="3" Spacing="2">
+                                        <TextBlock Text="{Binding PhysicalState}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding PhysicalDetail}"
+                                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
                                     <TextBlock Grid.Column="4"
                                                Text="{Binding Latency}"
                                                Foreground="White"
