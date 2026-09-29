@@ -27,6 +27,7 @@ internal static class PhysicalVehicleInstanceRegistry
     public static bool TryAdd(PhysicalVehicleInstance instance)
     {
         var ownedPointers = instance.GetOwnedVehiclePointers();
+        var posePointers = instance.GetPoseOrderedVehiclePointers();
         if (string.IsNullOrWhiteSpace(instance.InstanceId) ||
             instance.InstanceId.Length > 128 ||
             instance.VehiclePointer <= 0 ||
@@ -34,6 +35,10 @@ internal static class PhysicalVehicleInstanceRegistry
             ownedPointers.Any(pointer => pointer <= 0) ||
             ownedPointers.Distinct().Count() != ownedPointers.Length ||
             !ownedPointers.Contains(instance.VehiclePointer) ||
+            posePointers.Length is <= 0 or > 4 ||
+            posePointers[0] != instance.VehiclePointer ||
+            posePointers.Any(pointer => !ownedPointers.Contains(pointer)) ||
+            posePointers.Distinct().Count() != posePointers.Length ||
             string.IsNullOrWhiteSpace(instance.VehiclePath))
         {
             return false;
@@ -89,11 +94,17 @@ internal readonly record struct PhysicalVehicleInstance(
     DateTimeOffset CreatedAtUtc,
     int HostVehiclePointerAtSpawn,
     bool PointerWasAbsentBeforeSpawn,
-    int[]? VehiclePointers = null)
+    int[]? VehiclePointers = null,
+    int[]? PoseOrderedVehiclePointers = null)
 {
     public int[] GetOwnedVehiclePointers() =>
         VehiclePointers is { Length: > 0 }
             ? VehiclePointers
+            : [VehiclePointer];
+
+    public int[] GetPoseOrderedVehiclePointers() =>
+        PoseOrderedVehiclePointers is { Length: > 0 }
+            ? PoseOrderedVehiclePointers
             : [VehiclePointer];
 
     public int PartCount =>

@@ -1,5 +1,6 @@
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.OmsiPluginExperimental;
 
@@ -569,6 +570,17 @@ internal static class PhysicalVehicleBackend
                 remoteVehicleCount: createdVehiclePointers.Length);
         }
 
+        var poseOrderedVehiclePointers =
+            BuildPoseOrderedVehiclePointers(
+                vehiclePointer,
+                createdVehiclePointers);
+        if (createdVehiclePointers.Length > 1)
+        {
+            PluginLogWriter.Enqueue(
+                $"physical-consist-order id={instanceId} primary={FormatPointer(vehiclePointer)} " +
+                $"owned={FormatPointerList(createdVehiclePointers)} poseOrder={FormatPointerList(poseOrderedVehiclePointers)}");
+        }
+
         var assignedTileIndex =
             OmsiNativeInterop.ReadRoadVehicleTileIndex(vehiclePointer);
         PluginLogWriter.Enqueue(
@@ -581,7 +593,8 @@ internal static class PhysicalVehicleBackend
             DateTimeOffset.UtcNow,
             hostVehiclePointer,
             PointerWasAbsentBeforeSpawn: true,
-            VehiclePointers: createdVehiclePointers);
+            VehiclePointers: createdVehiclePointers,
+            PoseOrderedVehiclePointers: poseOrderedVehiclePointers);
 
         if (!PhysicalVehicleInstanceRegistry.TryAdd(instance))
         {
@@ -897,6 +910,67 @@ internal static class PhysicalVehicleBackend
         }
 
         return true;
+    }
+
+    private static int[] BuildPoseOrderedVehiclePointers(
+        int primaryVehiclePointer,
+        IReadOnlyCollection<int> ownedVehiclePointers)
+    {
+        var source = ownedVehiclePointers
+            .Where(pointer => pointer > 0)
+            .Distinct()
+            .ToArray();
+        if (source.Length <= 1)
+        {
+            return [primaryVehiclePointer];
+        }
+
+        var ordered = new List<int>(Math.Min(source.Length, 4))
+        {
+            primaryVehiclePointer
+        };
+        var remaining = new HashSet<int>(
+            source.Where(pointer => pointer != primaryVehiclePointer));
+
+        // ScriptParent is the only relation used here. Never infer trailer
+        // identity from global RoadVehicles ordering or physical proximity.
+        // Three passes match the network limit of three rear sections.
+        for (var depth = 0;
+             depth < 3 && remaining.Count > 0;
+             depth++)
+        {
+            var added = false;
+            foreach (var pointer in source)
+            {
+                if (!remaining.Contains(pointer))
+                {
+                    continue;
+                }
+
+                var parent =
+                    OmsiNativeInterop.ReadRoadVehicleScriptParent(pointer);
+                if (parent == 0 ||
+                    !ordered.Contains(parent))
+                {
+                    continue;
+                }
+
+                ordered.Add(pointer);
+                remaining.Remove(pointer);
+                added = true;
+                if (ordered.Count >= 4)
+                {
+                    return ordered.ToArray();
+                }
+            }
+
+            if (!added)
+            {
+                break;
+            }
+        }
+
+        return ordered.ToArray();
     }
 
     private static string FormatPointer(int pointer) =>
@@ -1220,10 +1294,71 @@ internal static class PhysicalVehicleBackend
         // MapTileIndex is an index into the local process' currently loaded
         // Kachel list and is not portable across multiplayer clients. Resolve
         // the remote stable grid coordinates into this OMSI process instead.
+        if (!TryResolveLocalRearSections(
+                command.RearSections,
+                out var localizedRearSections,
+                out errorCode,
+                out errorMessage))
+        {
+            return false;
+        }
+
         localizedCommand = command with
         {
-            MapTileIndex = localTileIndex
+            MapTileIndex = localTileIndex,
+            RearSections = localizedRearSections
         };
+        return true;
+    }
+
+    private static bool TryResolveLocalRearSections(
+        VehicleSectionPose[]? sections,
+        out VehicleSectionPose[]? localizedSections,
+        out string errorCode,
+        out string errorMessage)
+    {
+        localizedSections = sections;
+        errorCode = string.Empty;
+        errorMessage = string.Empty;
+        if (sections is null || sections.Length == 0)
+        {
+            return true;
+        }
+
+        if (sections.Length > 3)
+        {
+            errorCode = "invalid-consist-sections";
+            errorMessage =
+                "Remote physical vehicle reported more than three articulated rear sections.";
+            return false;
+        }
+
+        var resolved =
+            new VehicleSectionPose[sections.Length];
+        for (var index = 0; index < sections.Length; index++)
+        {
+            var section = sections[index];
+            var localTileIndex =
+                OmsiNativeInterop.ResolveMapTileIndex(
+                    section.GridX,
+                    section.GridY);
+            if (localTileIndex < 0 ||
+                OmsiNativeInterop.IsMapTileIndexValid(
+                    localTileIndex) != 1)
+            {
+                errorCode = "tile-grid-unavailable";
+                errorMessage =
+                    $"Articulated section {index + 1} OMSI grid ({section.GridX}, {section.GridY}) is not currently loaded in the local map.";
+                return false;
+            }
+
+            resolved[index] = section with
+            {
+                MapTileIndex = localTileIndex
+            };
+        }
+
+        localizedSections = resolved;
         return true;
     }
 

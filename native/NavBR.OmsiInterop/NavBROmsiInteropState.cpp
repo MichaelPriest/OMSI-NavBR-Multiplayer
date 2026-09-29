@@ -74,6 +74,9 @@ namespace
     constexpr int RoadVehicleLastVelocityOffset = 0x721;
     constexpr int RoadVehicleAccelerationLocalOffset = 0x72D;
     constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
+    // OmsiRoadVehicleInst.ScriptParent, verified against public OmsiHook
+    // layout. NavBR reads this pointer only to order articulated sections.
+    constexpr int RoadVehicleScriptParentOffset = 0x8C0;
     // OmsiMovingMapObjInst / OmsiPathInfo offsets verified against OmsiHook.
     // Diagnostics below are deliberately read-only; NavBR does not yet write
     // PathFixed or PathInfo.
@@ -1594,7 +1597,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 22;
+    return 23;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
@@ -1691,6 +1694,29 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
 {
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleScriptParent(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const auto address =
+        static_cast<std::uintptr_t>(vehiclePointer) +
+        RoadVehicleScriptParentOffset;
+    if (!IsReadableRange(address, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int parent =
+        *reinterpret_cast<const int*>(address);
+    return parent != 0 && IsRoadVehiclePointer(parent)
+        ? parent
+        : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleMaterializationFlags(

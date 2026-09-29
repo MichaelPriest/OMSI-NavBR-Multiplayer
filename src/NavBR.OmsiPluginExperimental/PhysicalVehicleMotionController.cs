@@ -196,6 +196,15 @@ internal static class PhysicalVehicleMotionController
             target = target with { MapTileIndex = previousTileIndex };
         }
 
+        if (target.RearSections is null &&
+            state.Target.RearSections is { Length: > 0 } previousRearSections)
+        {
+            target = target with
+            {
+                RearSections = previousRearSections
+            };
+        }
+
         var now = Environment.TickCount64;
 
         // Timestamped multiplayer states follow a buffered sender-time
@@ -377,6 +386,39 @@ internal static class PhysicalVehicleMotionController
                 state.FaultCode = "motion-external-control-failed";
                 state.FaultMessage =
                     "OMSI rejected the NavBR RoadVehicle external-control keepalive.";
+                continue;
+            }
+
+            var posePointers =
+                instance.GetPoseOrderedVehiclePointers();
+            var activeRearCount = Math.Min(
+                state.Current.RearSections?.Length ?? 0,
+                Math.Max(0, posePointers.Length - 1));
+            var rearControlFailed = false;
+            for (var rearIndex = 0;
+                 rearIndex < activeRearCount;
+                 rearIndex++)
+            {
+                var rearPointer = posePointers[rearIndex + 1];
+                if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                        instance,
+                        rearPointer,
+                        out _) ||
+                    (OmsiNativeInterop.MaintainVehicleExternalControl(
+                         rearPointer) &
+                     ExternalControlSuccessBit) == 0)
+                {
+                    rearControlFailed = true;
+                    break;
+                }
+            }
+
+            if (rearControlFailed)
+            {
+                state.FaultCode =
+                    "motion-rear-external-control-failed";
+                state.FaultMessage =
+                    "OMSI rejected NavBR external control for an articulated vehicle section.";
                 continue;
             }
 
@@ -1050,11 +1092,32 @@ internal static class PhysicalVehicleMotionController
             return source;
         }
 
+        SectionSnapshot[]? rearSections = source.RearSections;
+        if (rearSections is { Length: > 0 } &&
+            source.MapTileIndex is int frontTileIndex)
+        {
+            var deltaX = source.VelocityX * seconds;
+            var deltaY = source.VelocityY * seconds;
+            var deltaZ = source.VelocityZ * seconds;
+            rearSections = rearSections
+                .Select(section =>
+                    section.MapTileIndex == frontTileIndex
+                        ? section with
+                        {
+                            X = section.X + deltaX,
+                            Y = section.Y + deltaY,
+                            Z = section.Z + deltaZ
+                        }
+                        : section)
+                .ToArray();
+        }
+
         return source with
         {
             X = x,
             Y = y,
-            Z = z
+            Z = z,
+            RearSections = rearSections
         };
     }
 
@@ -1079,7 +1142,47 @@ internal static class PhysicalVehicleMotionController
             current.RotationZ * target.RotationZ +
             current.RotationW * target.RotationW;
 
-        return Math.Abs(rotationDot) >= 0.99999f;
+        return Math.Abs(rotationDot) >= 0.99999f &&
+               AreRearSectionsSettled(
+                   current.RearSections,
+                   target.RearSections);
+    }
+
+    private static bool AreRearSectionsSettled(
+        SectionSnapshot[]? current,
+        SectionSnapshot[]? target)
+    {
+        if (current is null || target is null)
+        {
+            return current is null && target is null;
+        }
+
+        if (current.Length != target.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < current.Length; index++)
+        {
+            var left = current[index];
+            var right = target[index];
+            var dx = (double)right.X - left.X;
+            var dy = (double)right.Y - left.Y;
+            var dz = (double)right.Z - left.Z;
+            var rotationDot =
+                left.RotationX * right.RotationX +
+                left.RotationY * right.RotationY +
+                left.RotationZ * right.RotationZ +
+                left.RotationW * right.RotationW;
+            if (left.MapTileIndex != right.MapTileIndex ||
+                dx * dx + dy * dy + dz * dz > 0.0001d ||
+                Math.Abs(rotationDot) < 0.99999f)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static void Remove(string? instanceId)
@@ -1134,6 +1237,13 @@ internal static class PhysicalVehicleMotionController
             return false;
         }
 
+        if (!TryApplyRearSectionTransforms(
+                instance,
+                snapshot))
+        {
+            return false;
+        }
+
         if (!snapshot.HasVelocity &&
             !snapshot.HasAccelerationLocal)
         {
@@ -1156,6 +1266,48 @@ internal static class PhysicalVehicleMotionController
             snapshot.AccelerationLocalX,
             snapshot.AccelerationLocalY,
             snapshot.AccelerationLocalZ);
+        return true;
+    }
+
+    private static bool TryApplyRearSectionTransforms(
+        PhysicalVehicleInstance instance,
+        MotionSnapshot snapshot)
+    {
+        if (snapshot.RearSections is not { Length: > 0 } rearSections)
+        {
+            return true;
+        }
+
+        var posePointers =
+            instance.GetPoseOrderedVehiclePointers();
+        var availableRearCount =
+            Math.Max(0, posePointers.Length - 1);
+        var count =
+            Math.Min(rearSections.Length, availableRearCount);
+        for (var index = 0; index < count; index++)
+        {
+            var pointer = posePointers[index + 1];
+            var section = rearSections[index];
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                    instance,
+                    pointer,
+                    out _) ||
+                OmsiNativeInterop.SetVehicleTransform(
+                    pointer,
+                    section.X,
+                    section.Y,
+                    section.Z,
+                    section.RotationX,
+                    section.RotationY,
+                    section.RotationZ,
+                    section.RotationW,
+                    snapshot.SpeedMps,
+                    section.MapTileIndex) != 1)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1206,6 +1358,60 @@ internal static class PhysicalVehicleMotionController
                 errorMessage =
                     $"OMSI physical vehicle is on Kachel {actualTileIndex}, expected {expectedTileIndex}.";
                 return false;
+            }
+        }
+
+        if (snapshot.RearSections is { Length: > 0 } rearSections)
+        {
+            var posePointers =
+                instance.GetPoseOrderedVehiclePointers();
+            var count = Math.Min(
+                rearSections.Length,
+                Math.Max(0, posePointers.Length - 1));
+            for (var index = 0; index < count; index++)
+            {
+                var pointer = posePointers[index + 1];
+                var section = rearSections[index];
+                if (OmsiNativeInterop.ReadRoadVehiclePosition(
+                        pointer,
+                        out var rearX,
+                        out var rearY,
+                        out var rearZ) != 1)
+                {
+                    errorCode =
+                        PluginBridgeProtocol.ErrorMotionReadbackUnavailable;
+                    errorMessage =
+                        $"OMSI did not expose articulated section {index + 1} after the network transform.";
+                    return false;
+                }
+
+                var rearDx = (double)rearX - section.X;
+                var rearDy = (double)rearY - section.Y;
+                var rearDz = (double)rearZ - section.Z;
+                var rearDistance = Math.Sqrt(
+                    rearDx * rearDx +
+                    rearDy * rearDy +
+                    rearDz * rearDz);
+                var rearTile =
+                    OmsiNativeInterop.ReadRoadVehicleTileIndex(pointer);
+                if (!double.IsFinite(rearDistance) ||
+                    rearDistance > ReadbackToleranceMeters)
+                {
+                    errorCode =
+                        PluginBridgeProtocol.ErrorMotionTransformMismatch;
+                    errorMessage =
+                        $"OMSI articulated section {index + 1} readback differs by {rearDistance:F2} m.";
+                    return false;
+                }
+
+                if (rearTile != section.MapTileIndex)
+                {
+                    errorCode =
+                        PluginBridgeProtocol.ErrorMotionTileMismatch;
+                    errorMessage =
+                        $"OMSI articulated section {index + 1} is on Kachel {rearTile}, expected {section.MapTileIndex}.";
+                    return false;
+                }
             }
         }
 
@@ -1354,6 +1560,12 @@ internal static class PhysicalVehicleMotionController
             out var accelerationLocalX,
             out var accelerationLocalY,
             out var accelerationLocalZ);
+        if (!TryReadRearSectionSnapshots(
+                command.RearSections,
+                out var rearSections))
+        {
+            return false;
+        }
 
         snapshot = new MotionSnapshot(
             (float)x,
@@ -1372,7 +1584,69 @@ internal static class PhysicalVehicleMotionController
             hasAccelerationLocal,
             accelerationLocalX,
             accelerationLocalY,
-            accelerationLocalZ);
+            accelerationLocalZ,
+            rearSections);
+        return true;
+    }
+
+    private static bool TryReadRearSectionSnapshots(
+        VehicleSectionPose[]? sections,
+        out SectionSnapshot[]? snapshots)
+    {
+        snapshots = null;
+        if (sections is null)
+        {
+            return true;
+        }
+
+        if (sections.Length > 3)
+        {
+            return false;
+        }
+
+        snapshots = new SectionSnapshot[sections.Length];
+        for (var index = 0; index < sections.Length; index++)
+        {
+            var section = sections[index];
+            if (!double.IsFinite(section.LocalX) ||
+                !double.IsFinite(section.LocalY) ||
+                !double.IsFinite(section.LocalZ) ||
+                !double.IsFinite(section.RotationX) ||
+                !double.IsFinite(section.RotationY) ||
+                !double.IsFinite(section.RotationZ) ||
+                !double.IsFinite(section.RotationW) ||
+                Math.Abs(section.LocalX) > 100_000d ||
+                Math.Abs(section.LocalY) > 100_000d ||
+                Math.Abs(section.LocalZ) > 100_000d ||
+                section.MapTileIndex is not int mapTileIndex ||
+                mapTileIndex is < 0 or > 200_000)
+            {
+                return false;
+            }
+
+            var length = Math.Sqrt(
+                section.RotationX * section.RotationX +
+                section.RotationY * section.RotationY +
+                section.RotationZ * section.RotationZ +
+                section.RotationW * section.RotationW);
+            if (!double.IsFinite(length) ||
+                length < 0.0001d)
+            {
+                return false;
+            }
+
+            var inverse = 1d / length;
+            snapshots[index] = new SectionSnapshot(
+                (float)section.LocalX,
+                (float)section.LocalY,
+                (float)section.LocalZ,
+                (float)(section.RotationX * inverse),
+                (float)(section.RotationY * inverse),
+                (float)(section.RotationZ * inverse),
+                (float)(section.RotationW * inverse),
+                mapTileIndex);
+        }
+
         return true;
     }
 
@@ -1456,7 +1730,99 @@ internal static class PhysicalVehicleMotionController
                     from.AccelerationLocalZ,
                     to.AccelerationLocalZ,
                     t)
-                : to.AccelerationLocalZ);
+                : to.AccelerationLocalZ,
+            InterpolateRearSections(
+                from.RearSections,
+                to.RearSections,
+                t));
+    }
+
+    private static SectionSnapshot[]? InterpolateRearSections(
+        SectionSnapshot[]? from,
+        SectionSnapshot[]? to,
+        float amount)
+    {
+        if (to is null)
+        {
+            return from;
+        }
+
+        if (from is null ||
+            from.Length != to.Length)
+        {
+            return amount >= 1f ? to : from;
+        }
+
+        if (to.Length == 0)
+        {
+            return to;
+        }
+
+        var result = new SectionSnapshot[to.Length];
+        for (var index = 0; index < to.Length; index++)
+        {
+            var left = from[index];
+            var right = to[index];
+            if (left.MapTileIndex != right.MapTileIndex)
+            {
+                result[index] =
+                    amount >= 1f ? right : left;
+                continue;
+            }
+
+            var dot =
+                left.RotationX * right.RotationX +
+                left.RotationY * right.RotationY +
+                left.RotationZ * right.RotationZ +
+                left.RotationW * right.RotationW;
+            var sign = dot < 0f ? -1f : 1f;
+            var qx = Lerp(
+                left.RotationX,
+                right.RotationX * sign,
+                amount);
+            var qy = Lerp(
+                left.RotationY,
+                right.RotationY * sign,
+                amount);
+            var qz = Lerp(
+                left.RotationZ,
+                right.RotationZ * sign,
+                amount);
+            var qw = Lerp(
+                left.RotationW,
+                right.RotationW * sign,
+                amount);
+            var qLength =
+                MathF.Sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
+            if (float.IsFinite(qLength) &&
+                qLength > 0.0001f)
+            {
+                var inverse = 1f / qLength;
+                qx *= inverse;
+                qy *= inverse;
+                qz *= inverse;
+                qw *= inverse;
+            }
+            else
+            {
+                qx = right.RotationX;
+                qy = right.RotationY;
+                qz = right.RotationZ;
+                qw = right.RotationW;
+            }
+
+            result[index] = new SectionSnapshot(
+                Lerp(left.X, right.X, amount),
+                Lerp(left.Y, right.Y, amount),
+                Lerp(left.Z, right.Z, amount),
+                qx,
+                qy,
+                qz,
+                qw,
+                right.MapTileIndex);
+        }
+
+        return result;
     }
 
     private static bool TryReadBoundedVector(
@@ -1555,5 +1921,16 @@ internal static class PhysicalVehicleMotionController
         bool HasAccelerationLocal,
         float AccelerationLocalX,
         float AccelerationLocalY,
-        float AccelerationLocalZ);
+        float AccelerationLocalZ,
+        SectionSnapshot[]? RearSections);
+
+    private readonly record struct SectionSnapshot(
+        float X,
+        float Y,
+        float Z,
+        float RotationX,
+        float RotationY,
+        float RotationZ,
+        float RotationW,
+        int MapTileIndex);
 }
