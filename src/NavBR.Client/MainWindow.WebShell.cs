@@ -394,7 +394,6 @@ public partial class MainWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = settings.EnableApplicationRelay,
-            relayServerUrl = settings.RelayServerUrl,
             physicalVehiclesEnabled = settings.ExperimentalPhysicalVehiclesEnabled,
             physicalVehiclesAvailable = false,
             networkQuality = new
