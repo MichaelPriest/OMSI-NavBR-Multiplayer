@@ -267,7 +267,9 @@ public static class OmsiPluginBridgeRelay
             DisplayName: displayName,
             MapName: telemetry.MapName,
             MapCompatibilityId: mapCompatibilityId,
-            TimestampUnixMilliseconds: telemetry.Timestamp.ToUnixTimeMilliseconds(),
+            TimestampUnixMilliseconds:
+                telemetry.SourceTimestampUnixMilliseconds ??
+                telemetry.Timestamp.ToUnixTimeMilliseconds(),
             X: telemetry.X,
             Y: telemetry.Y,
             Z: telemetry.Z,
