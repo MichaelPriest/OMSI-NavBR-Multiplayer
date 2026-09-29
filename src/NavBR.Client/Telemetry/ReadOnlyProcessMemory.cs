@@ -107,15 +107,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         }
 
         var byteCount = checked(values.Length * sizeof(float));
-        Span<byte> bytes;
-        if (byteCount <= 256)
-        {
-            bytes = stackalloc byte[byteCount];
-        }
-        else
-        {
-            bytes = new byte[byteCount];
-        }
+        var bytes = new byte[byteCount];
 
         ReadBytes(address, bytes);
         for (var index = 0; index < values.Length; index++)
@@ -193,15 +185,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
         }
 
         var byteCount = checked(length * 2);
-        Span<byte> bytes;
-        if (byteCount <= 512)
-        {
-            bytes = stackalloc byte[byteCount];
-        }
-        else
-        {
-            bytes = new byte[byteCount];
-        }
+        var bytes = new byte[byteCount];
 
         ReadBytes(dataAddress, bytes);
         return Encoding.Unicode.GetString(bytes).TrimEnd('\0');
@@ -229,15 +213,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
                 return null;
             }
 
-            Span<byte> bytes;
-            if (length <= 512)
-            {
-                bytes = stackalloc byte[length];
-            }
-            else
-            {
-                bytes = new byte[length];
-            }
+            var bytes = new byte[length];
 
             ReadBytes(dataAddress, bytes);
             var value = Encoding.Latin1.GetString(bytes).TrimEnd('\0').Trim();
@@ -270,15 +246,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
 
             var dataAddress = PointerFromUInt32(stringPointer);
             var maxBytes = checked(maxCharacters * 2);
-            Span<byte> bytes;
-            if (maxBytes <= 512)
-            {
-                bytes = stackalloc byte[maxBytes];
-            }
-            else
-            {
-                bytes = new byte[maxBytes];
-            }
+            var bytes = new byte[maxBytes];
 
             var count = TryReadUnicodeTerminatedBlock(
                 dataAddress,
@@ -345,15 +313,7 @@ internal sealed class ReadOnlyProcessMemory : IDisposable
             }
 
             var dataAddress = PointerFromUInt32(stringPointer);
-            Span<byte> bytes;
-            if (maxCharacters <= 512)
-            {
-                bytes = stackalloc byte[maxCharacters];
-            }
-            else
-            {
-                bytes = new byte[maxCharacters];
-            }
+            var bytes = new byte[maxCharacters];
 
             var count = TryReadAnsiTerminatedBlock(
                 dataAddress,
