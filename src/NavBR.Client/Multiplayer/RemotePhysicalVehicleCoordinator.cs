@@ -403,6 +403,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var stableLocalX = frame.Telemetry.LocalX!.Value;
+        var stableLocalZ = frame.Telemetry.LocalZ!.Value;
+
         var hasExplicitPhysicalGrid =
             frame.Telemetry.PhysicalGridX is int &&
             frame.Telemetry.PhysicalGridY is int;
@@ -421,8 +424,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
             double.IsFinite(legacyTileX) &&
             frame.Telemetry.TileY is double legacyTileY &&
             double.IsFinite(legacyTileY) &&
-            Math.Abs(legacyTileX - localX) <= 0.05d &&
-            Math.Abs(legacyTileY - localZ) <= 0.05d;
+            Math.Abs(legacyTileX - stableLocalX) <= 0.05d &&
+            Math.Abs(legacyTileY - stableLocalZ) <= 0.05d;
 
         var hasStablePhysicalGrid =
             hasExplicitPhysicalGrid ||
