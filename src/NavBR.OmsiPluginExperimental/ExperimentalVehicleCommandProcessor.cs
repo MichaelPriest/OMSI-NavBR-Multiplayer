@@ -712,7 +712,11 @@ internal static class PhysicalVehicleBackend
             StringComparison.Ordinal) ||
         string.Equals(
             errorCode,
-            "motion-readback-unavailable",
+            PluginBridgeProtocol.ErrorMotionReadbackUnavailable,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            errorCode,
+            PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable,
             StringComparison.Ordinal) ||
         string.Equals(
             errorCode,

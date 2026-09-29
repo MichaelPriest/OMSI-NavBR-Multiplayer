@@ -567,6 +567,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             "makevehicle-lock-failed" => TransientRetryMs,
             "temp-list-failed" => TransientRetryMs,
             "spawn-pointer-unresolved" => TransientRetryMs,
+            PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable => TransientRetryMs,
             _ => SlowRetryMs
         };
 

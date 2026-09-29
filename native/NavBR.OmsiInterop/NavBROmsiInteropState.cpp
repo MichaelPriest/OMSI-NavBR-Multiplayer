@@ -2684,10 +2684,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             *reinterpret_cast<const int*>(vehicleBase + KachelOffset);
     }
 
-    const bool changingTile =
+    const bool needsReliableWorldTranslation =
         writeExplicitTile &&
         effectiveTilePointer != 0 &&
-        previousTilePointer != 0 &&
         previousTilePointer != effectiveTilePointer;
 
     const bool hasWorldTranslation =
@@ -2699,10 +2698,11 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
             worldPosition);
 
     // Never substitute local Kachel coordinates for render/world coordinates
-    // on an actual tile transition. If OMSI has not materialized any reliable
-    // world-space reference on the target Kachel yet, keep the old remote pose
-    // and retry on a later network frame instead of jumping by a whole tile.
-    if (changingTile && !hasWorldTranslation)
+    // while assigning a new tile. This also covers a freshly materialized
+    // RoadVehicle whose Kachel pointer is still zero: keep the exact owned
+    // pointer alive and retry after OMSI finishes attaching its tile/render
+    // state instead of writing a zero-origin matrix.
+    if (needsReliableWorldTranslation && !hasWorldTranslation)
     {
         return FailVehicleTransform(31);
     }
