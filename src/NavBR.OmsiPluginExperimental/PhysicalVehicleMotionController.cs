@@ -630,13 +630,75 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            if ((result & LateRenderControlCorrectedBit) != 0 &&
+            var correctedParts =
+                (result & LateRenderControlCorrectedBit) != 0
+                    ? 1
+                    : 0;
+            var rearRenderFailed = false;
+            if (state.Current.RearSections is { Length: > 0 } rearSections)
+            {
+                var posePointers =
+                    instance.GetPoseOrderedVehiclePointers();
+                var rearCount = Math.Min(
+                    rearSections.Length,
+                    Math.Max(0, posePointers.Length - 1));
+                for (var rearIndex = 0;
+                     rearIndex < rearCount;
+                     rearIndex++)
+                {
+                    var pointer = posePointers[rearIndex + 1];
+                    var section = rearSections[rearIndex];
+                    if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                            instance,
+                            pointer,
+                            out _))
+                    {
+                        rearRenderFailed = true;
+                        break;
+                    }
+
+                    var rearResult =
+                        OmsiNativeInterop.MaintainVehicleRenderControl(
+                            pointer,
+                            section.X,
+                            section.Y,
+                            section.Z,
+                            section.RotationX,
+                            section.RotationY,
+                            section.RotationZ,
+                            section.RotationW);
+                    if ((rearResult & LateRenderControlSuccessBit) == 0)
+                    {
+                        rearRenderFailed = true;
+                        break;
+                    }
+
+                    if ((rearResult & LateRenderControlCorrectedBit) != 0)
+                    {
+                        correctedParts++;
+                    }
+                }
+            }
+
+            if (rearRenderFailed)
+            {
+                if (now - state.LastLateRenderFailureLogTickMs >=
+                        LateRenderCorrectionLogIntervalMs)
+                {
+                    state.LastLateRenderFailureLogTickMs = now;
+                    PluginLogWriter.Enqueue(
+                        $"physical-late-render-retry id={instanceId} articulated=1");
+                }
+                continue;
+            }
+
+            if (correctedParts > 0 &&
                 now - state.LastLateRenderCorrectionLogTickMs >=
                     LateRenderCorrectionLogIntervalMs)
             {
                 state.LastLateRenderCorrectionLogTickMs = now;
                 PluginLogWriter.Enqueue(
-                    $"physical-late-render-corrected id={instanceId} pointer=0x{instance.VehiclePointer:X8}");
+                    $"physical-late-render-corrected id={instanceId} parts={correctedParts}");
             }
         }
     }
