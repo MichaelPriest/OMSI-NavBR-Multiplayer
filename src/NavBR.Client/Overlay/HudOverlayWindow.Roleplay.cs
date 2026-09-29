@@ -9,6 +9,8 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
+    private bool _roleplayHudActive;
+
     public event Action? RoleplayButtonRequested;
 
     public void SetRoleplayState(
@@ -18,6 +20,8 @@ public partial class HudOverlayWindow
         bool active,
         string? characterName)
     {
+        _roleplayHudActive = active;
+
         if (active)
         {
             RoleplayHudButton.Content = HudRpText(
