@@ -138,17 +138,75 @@
 
             <Border Style="{StaticResource MetricCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Hospedagem / convite"
-                               Foreground="White"
-                               FontSize="18"
-                               FontWeight="SemiBold"/>
-                    <TextBlock x:Name="HostStatusText"
-                               Text="Nenhuma hospedagem local ativa."
-                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Hospedagem / convite"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="HostStatusText"
+                                       Text="Nenhuma hospedagem local ativa."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Copiar convite"
+                                Margin="0,0,8,0"
+                                Click="CopyInvite_Click"/>
+                        <Button Grid.Column="2"
+                                Content="Colar convite"
+                                Click="PasteInvite_Click"/>
+                    </Grid>
                     <TextBlock x:Name="InviteText"
                                Text="—"
                                TextWrapping="Wrap"
                                Foreground="White"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Rede / NAT"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ConnectivityStatusText"
+                                       Text="Diagnóstico ainda não executado."
+                                       Foreground="{StaticResource NavBRMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="AutomaticUpnpToggle"
+                                      Grid.Column="1"
+                                      Header="UPnP automático"
+                                      OffContent="Desativado"
+                                      OnContent="Ativado"
+                                      Toggled="AutomaticUpnp_Toggled"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Atualizar diagnóstico"
+                                Click="RefreshNetworkDiagnostics_Click"/>
+                        <Button Content="Configurar Firewall TCP 27730"
+                                Click="ApplyFirewall_Click"/>
+                        <Button x:Name="ExternalPortProbeButton"
+                                Content="Testar porta externa"
+                                Click="RunExternalPortProbe_Click"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="ConnectivityDetailText"
+                               Text="—"
+                               Foreground="White"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
