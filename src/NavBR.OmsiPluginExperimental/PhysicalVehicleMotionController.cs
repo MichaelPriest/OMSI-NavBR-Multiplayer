@@ -935,6 +935,13 @@ internal static class PhysicalVehicleMotionController
             qw = to.RotationW;
         }
 
+        var interpolateVelocity =
+            from.HasVelocity &&
+            to.HasVelocity;
+        var interpolateAcceleration =
+            from.HasAccelerationLocal &&
+            to.HasAccelerationLocal;
+
         return new MotionSnapshot(
             Lerp(from.X, to.X, t),
             Lerp(from.Y, to.Y, t),
@@ -946,13 +953,34 @@ internal static class PhysicalVehicleMotionController
             Lerp(from.SpeedMps, to.SpeedMps, t),
             to.MapTileIndex ?? from.MapTileIndex,
             to.HasVelocity,
-            to.VelocityX,
-            to.VelocityY,
-            to.VelocityZ,
+            interpolateVelocity
+                ? Lerp(from.VelocityX, to.VelocityX, t)
+                : to.VelocityX,
+            interpolateVelocity
+                ? Lerp(from.VelocityY, to.VelocityY, t)
+                : to.VelocityY,
+            interpolateVelocity
+                ? Lerp(from.VelocityZ, to.VelocityZ, t)
+                : to.VelocityZ,
             to.HasAccelerationLocal,
-            to.AccelerationLocalX,
-            to.AccelerationLocalY,
-            to.AccelerationLocalZ);
+            interpolateAcceleration
+                ? Lerp(
+                    from.AccelerationLocalX,
+                    to.AccelerationLocalX,
+                    t)
+                : to.AccelerationLocalX,
+            interpolateAcceleration
+                ? Lerp(
+                    from.AccelerationLocalY,
+                    to.AccelerationLocalY,
+                    t)
+                : to.AccelerationLocalY,
+            interpolateAcceleration
+                ? Lerp(
+                    from.AccelerationLocalZ,
+                    to.AccelerationLocalZ,
+                    t)
+                : to.AccelerationLocalZ);
     }
 
     private static bool TryReadBoundedVector(
