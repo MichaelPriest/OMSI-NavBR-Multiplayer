@@ -731,33 +731,56 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (update?.Success != true)
         {
             var errorCode = update?.ErrorCode ?? "no-result";
-            var recoverableReadback =
+            var recoverableMotion =
                 IsRecoverableMotionReadbackFailure(errorCode);
-            var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
-                playerId,
-                1,
-                static (_, previous) => Math.Min(previous + 1, 10));
+
+            // Recoverable readback/tile/world-origin observations are part of
+            // normal Kachel transition recovery. They must not consume the
+            // consecutive hard-failure budget: otherwise several harmless
+            // origin waits can prime the counter so one later transient update
+            // failure despawns an otherwise healthy remote bus immediately.
+            var failureCount = recoverableMotion
+                ? 0
+                : _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
+                    playerId,
+                    1,
+                    static (_, previous) => Math.Min(previous + 1, 10));
+
+            if (recoverableMotion)
+            {
+                _consecutiveUpdateFailuresByPlayer.TryRemove(
+                    playerId,
+                    out _);
+            }
 
             if (IsFatalUpdateFailure(errorCode) ||
-                (!recoverableReadback && failureCount >= 3))
+                (!recoverableMotion && failureCount >= 3))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
                 ReportCommandFailureOnce(playerId, "update", update);
                 return;
             }
 
-            // Readback/tile mismatches are recoverable observations, not proof
-            // that ownership is invalid. Keep the physical RoadVehicle alive
-            // and retry on later telemetry instead of entering a despawn/spawn
-            // loop that is visually worse and can race OMSI model callbacks.
+            // Readback/tile/world-origin mismatches are recoverable
+            // observations, not proof that ownership is invalid. Keep the
+            // exact physical RoadVehicle alive and retry on later telemetry
+            // instead of entering a despawn/spawn loop.
+            var recoverableState =
+                string.Equals(
+                    errorCode,
+                    PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable,
+                    StringComparison.Ordinal)
+                    ? "waiting-kachel-origin"
+                    : "motion-resyncing";
+
             SetStatus(
                 playerId,
-                recoverableReadback
-                    ? "motion-resyncing"
+                recoverableMotion
+                    ? recoverableState
                     : "update-retrying",
                 errorCode,
                 update?.ErrorMessage);
-            if (recoverableReadback)
+            if (recoverableMotion)
             {
                 _lastPhysicalUpdateAtByPlayer[playerId] =
                     DateTimeOffset.UtcNow;
