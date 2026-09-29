@@ -36,6 +36,8 @@ public partial class MultiplayerWindow : Window
     private bool _controllerInitialized;
     private double? _lastLatencyMs;
     private DateTimeOffset? _lastPublishedTelemetrySourceTimestamp;
+    private VehicleTelemetry? _lastCadenceTelemetry;
+    private DateTimeOffset _lastTelemetryActivityUtc = DateTimeOffset.MinValue;
     private int _publishIntervalMs = 250;
 
     public event Action<PlayerTelemetryFrame>? RemoteTelemetryReceived;
@@ -355,6 +357,8 @@ public partial class MultiplayerWindow : Window
         _voiceChat.Stop();
         _lastLatencyMs = null;
         _lastPublishedTelemetrySourceTimestamp = null;
+        _lastCadenceTelemetry = null;
+        _lastTelemetryActivityUtc = DateTimeOffset.MinValue;
         await _client.DisconnectAsync();
         _players.Clear();
         _remoteTelemetry.Clear();
@@ -390,17 +394,44 @@ public partial class MultiplayerWindow : Window
             .Trim()
             .ToLowerInvariant();
 
-        var intervalMs = physicalRealtime
-            ? profile switch
+        var now = DateTimeOffset.UtcNow;
+        var telemetry = _telemetrySource();
+        if (telemetry is not null)
+        {
+            if (HasRealtimeTelemetryActivity(
+                    telemetry,
+                    _lastCadenceTelemetry))
             {
-                "quality" => 50,
-                "multiplayer" => 50,
-                "stability" => 150,
-                "diagnostics" => 100,
-                _ => 75
+                _lastTelemetryActivityUtc = now;
             }
-            : 250;
 
+            _lastCadenceTelemetry = telemetry;
+        }
+
+        // Match openOMSI's useful transport behavior: moving/changing vehicles
+        // publish at 20 Hz; after a full second with no material motion or
+        // vehicle-state change, fall back to 5 Hz. This reduces idle traffic
+        // without making moving physical buses chase low-rate targets.
+        var activeRealtime =
+            physicalRealtime &&
+            telemetry is not null &&
+            (now - _lastTelemetryActivityUtc <= TimeSpan.FromSeconds(1d) ||
+             Math.Abs(telemetry.SpeedKph) > 0.35d);
+
+        var intervalMs = !physicalRealtime
+            ? 250
+            : activeRealtime
+                ? profile switch
+                {
+                    "stability" => 100,
+                    "diagnostics" => 75,
+                    _ => 50
+                }
+                : 200;
+
+        // Plugin pressure remains authoritative. Network smoothness must never
+        // defeat the OMSI callback governor when the 32-bit process is under
+        // load.
         intervalMs = pressure switch
         {
             >= 3 => Math.Max(intervalMs, 500),
@@ -417,6 +448,48 @@ public partial class MultiplayerWindow : Window
         _publishIntervalMs = intervalMs;
         _publishTimer.Interval =
             TimeSpan.FromMilliseconds(intervalMs);
+    }
+
+    private static bool HasRealtimeTelemetryActivity(
+        VehicleTelemetry current,
+        VehicleTelemetry? previous)
+    {
+        if (previous is null)
+        {
+            return true;
+        }
+
+        if (Math.Abs(current.SpeedKph) > 0.35d ||
+            current.Doors != previous.Doors ||
+            current.Lights != previous.Lights ||
+            current.TurnSignal != previous.TurnSignal ||
+            current.HornActive != previous.HornActive ||
+            current.WipersActive != previous.WipersActive ||
+            current.ParkingBrakeActive != previous.ParkingBrakeActive ||
+            current.ReverseGear != previous.ReverseGear)
+        {
+            return true;
+        }
+
+        var dx = current.LocalX - previous.LocalX;
+        var dy = current.LocalY - previous.LocalY;
+        var dz = current.LocalZ - previous.LocalZ;
+        if (double.IsFinite(dx) &&
+            double.IsFinite(dy) &&
+            double.IsFinite(dz) &&
+            dx * dx + dy * dy + dz * dz > 0.0004d)
+        {
+            return true;
+        }
+
+        var headingDelta =
+            Math.Abs(
+                ((current.HeadingDegrees -
+                  previous.HeadingDegrees +
+                  540d) % 360d) -
+                180d);
+        return double.IsFinite(headingDelta) &&
+               headingDelta > 0.25d;
     }
 
     private async void LatencyTimer_Tick(object? sender, EventArgs e)
