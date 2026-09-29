@@ -158,13 +158,21 @@ public partial class App : Application
                         !multiplayer.TryGetProperty("players", out var players) ||
                         players.ValueKind !=
                             System.Text.Json.JsonValueKind.Array ||
+                        multiplayer.GetProperty("chat").ValueKind !=
+                            System.Text.Json.JsonValueKind.Array ||
+                        multiplayer.GetProperty("voiceInputDevices").ValueKind !=
+                            System.Text.Json.JsonValueKind.Array ||
+                        multiplayer.GetProperty("voiceOutputDevices").ValueKind !=
+                            System.Text.Json.JsonValueKind.Array ||
+                        multiplayer.GetProperty("voiceMixers").ValueKind !=
+                            System.Text.Json.JsonValueKind.Array ||
                         payload.GetProperty("network").ValueKind !=
                             System.Text.Json.JsonValueKind.Object ||
                         payload.GetProperty("roomDirectory").ValueKind !=
                             System.Text.Json.JsonValueKind.Object)
                     {
                         throw new InvalidOperationException(
-                            "Runtime Host scoped multiplayer state smoke did not include players, network diagnostics and public rooms.");
+                            "Runtime Host scoped multiplayer state smoke did not include players, chat, voice, network diagnostics and public rooms.");
                     }
                 }
 
