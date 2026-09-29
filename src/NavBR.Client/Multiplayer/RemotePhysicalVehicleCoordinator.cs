@@ -480,17 +480,35 @@ internal sealed class RemotePhysicalVehicleCoordinator
             var consistInfo = await _vehicleAssetResolver.InspectConsistAsync(
                 resolvedVehiclePath,
                 cancellationToken);
-            if (consistInfo is { ExpectedPartCount: > 1 })
+            if (consistInfo is { ExpectedPartCount: > 1, IsComplete: false })
             {
                 SetStatus(
                     playerId,
-                    "consist-unsupported",
-                    "multi-vehicle-consist-declared",
+                    "consist-incomplete",
+                    "multi-vehicle-consist-incomplete",
                     expectedPartCount: consistInfo.ExpectedPartCount);
                 ReportFailureOnce(
                     playerId,
                     "consist",
-                    $"multi-vehicle-consist-declared expected-parts={consistInfo.ExpectedPartCount} complete={consistInfo.IsComplete}");
+                    $"multi-vehicle-consist-incomplete expected-parts={consistInfo.ExpectedPartCount}");
+                return;
+            }
+
+            // openOMSI carries up to three rear sections in addition to the
+            // main bus. Match that bounded shape for the first native OMSI
+            // consist pass; larger trains remain fail-closed until their
+            // ownership/lifecycle has been validated separately.
+            if (consistInfo is { ExpectedPartCount: > 4 })
+            {
+                SetStatus(
+                    playerId,
+                    "consist-unsupported",
+                    "multi-vehicle-consist-too-large",
+                    expectedPartCount: consistInfo.ExpectedPartCount);
+                ReportFailureOnce(
+                    playerId,
+                    "consist",
+                    $"multi-vehicle-consist-too-large expected-parts={consistInfo.ExpectedPartCount}");
                 return;
             }
 
@@ -630,7 +648,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
 
-                    SetStatus(playerId, "active");
+                    SetStatus(
+                        playerId,
+                        "active",
+                        partCount: spawn.RemoteVehicleCount,
+                        expectedPartCount: consistInfo?.ExpectedPartCount);
                     PublishPhysicalVehicleSetIfChanged();
                     RemoteDiagnosticsService.Record(
                         "physical-vehicle",
