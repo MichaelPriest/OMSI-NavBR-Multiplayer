@@ -47,6 +47,7 @@ EXPORTS
     NavBR_CopyTempRoadVehicleListIntoMain
     NavBR_MakeVehicle
     NavBR_SetVehicleTransform
+    NavBR_SetVehicleNetworkMotion
     NavBR_MaintainVehicleExternalControl
     NavBR_SetVehicleVisualState
     NavBR_TriggerRoadVehicle

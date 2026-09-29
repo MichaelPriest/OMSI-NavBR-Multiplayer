@@ -660,26 +660,59 @@ internal static class PhysicalVehicleMotionController
     private static bool TryApplyTransform(
         PhysicalVehicleInstance instance,
         MotionSnapshot snapshot,
-        bool writeTileIndex) =>
-        // Static provenance is checked here; the native transform performs
-        // the live RoadVehicles membership and current PlayerVehicle guards
-        // immediately before any OMSI memory write.
-        PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(instance, out _) &&
-        OmsiNativeInterop.SetVehicleTransform(
+        bool writeTileIndex)
+    {
+        // Static provenance is checked here; native writes perform the live
+        // RoadVehicles membership and current PlayerVehicle guards at the
+        // actual memory-write boundary.
+        if (!PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(
+                instance,
+                out _))
+        {
+            return false;
+        }
+
+        if (OmsiNativeInterop.SetVehicleTransform(
+                instance.VehiclePointer,
+                snapshot.X,
+                snapshot.Y,
+                snapshot.Z,
+                snapshot.RotationX,
+                snapshot.RotationY,
+                snapshot.RotationZ,
+                snapshot.RotationW,
+                snapshot.SpeedMps,
+                snapshot.MapTileIndex == OmsiNativeInterop.HostPlayerTileSentinel
+                    ? OmsiNativeInterop.HostPlayerTileSentinel
+                    : writeTileIndex &&
+                      snapshot.MapTileIndex is int mapTileIndex
+                        ? mapTileIndex
+                        : -1) != 1)
+        {
+            return false;
+        }
+
+        if (!snapshot.HasVelocity &&
+            !snapshot.HasAccelerationLocal)
+        {
+            return true;
+        }
+
+        // SetVehicleTransform keeps a safe fallback for legacy clients. When
+        // the source OMSI published its real physical vectors, overwrite only
+        // those replicated fields with the authoritative values. ODE remains
+        // disabled/kinematic under NavBR ownership.
+        return OmsiNativeInterop.SetVehicleNetworkMotion(
             instance.VehiclePointer,
-            snapshot.X,
-            snapshot.Y,
-            snapshot.Z,
-            snapshot.RotationX,
-            snapshot.RotationY,
-            snapshot.RotationZ,
-            snapshot.RotationW,
-            snapshot.SpeedMps,
-            snapshot.MapTileIndex == OmsiNativeInterop.HostPlayerTileSentinel
-                ? OmsiNativeInterop.HostPlayerTileSentinel
-                : writeTileIndex && snapshot.MapTileIndex is int mapTileIndex
-                    ? mapTileIndex
-                    : -1) == 1;
+            snapshot.HasVelocity ? 1 : 0,
+            snapshot.VelocityX,
+            snapshot.VelocityY,
+            snapshot.VelocityZ,
+            snapshot.HasAccelerationLocal ? 1 : 0,
+            snapshot.AccelerationLocalX,
+            snapshot.AccelerationLocalY,
+            snapshot.AccelerationLocalZ) == 1;
+    }
 
     private static bool TryConfirmTransform(
         PhysicalVehicleInstance instance,
@@ -798,6 +831,23 @@ internal static class PhysicalVehicleMotionController
             ? rawTileIndex
             : null;
 
+        var hasVelocity = TryReadBoundedVector(
+            command.VelocityX,
+            command.VelocityY,
+            command.VelocityZ,
+            maximumMagnitude: 150f,
+            out var velocityX,
+            out var velocityY,
+            out var velocityZ);
+        var hasAccelerationLocal = TryReadBoundedVector(
+            command.AccelerationLocalX,
+            command.AccelerationLocalY,
+            command.AccelerationLocalZ,
+            maximumMagnitude: 100f,
+            out var accelerationLocalX,
+            out var accelerationLocalY,
+            out var accelerationLocalZ);
+
         snapshot = new MotionSnapshot(
             (float)x,
             (float)y,
@@ -807,7 +857,15 @@ internal static class PhysicalVehicleMotionController
             (float)(rotationZ * inverse),
             (float)(rotationW * inverse),
             speedMps,
-            mapTileIndex);
+            mapTileIndex,
+            hasVelocity,
+            velocityX,
+            velocityY,
+            velocityZ,
+            hasAccelerationLocal,
+            accelerationLocalX,
+            accelerationLocalY,
+            accelerationLocalZ);
         return true;
     }
 
@@ -855,7 +913,61 @@ internal static class PhysicalVehicleMotionController
             qz,
             qw,
             Lerp(from.SpeedMps, to.SpeedMps, t),
-            to.MapTileIndex ?? from.MapTileIndex);
+            to.MapTileIndex ?? from.MapTileIndex,
+            to.HasVelocity || from.HasVelocity,
+            to.HasVelocity ? to.VelocityX : from.VelocityX,
+            to.HasVelocity ? to.VelocityY : from.VelocityY,
+            to.HasVelocity ? to.VelocityZ : from.VelocityZ,
+            to.HasAccelerationLocal || from.HasAccelerationLocal,
+            to.HasAccelerationLocal
+                ? to.AccelerationLocalX
+                : from.AccelerationLocalX,
+            to.HasAccelerationLocal
+                ? to.AccelerationLocalY
+                : from.AccelerationLocalY,
+            to.HasAccelerationLocal
+                ? to.AccelerationLocalZ
+                : from.AccelerationLocalZ);
+    }
+
+    private static bool TryReadBoundedVector(
+        double? x,
+        double? y,
+        double? z,
+        float maximumMagnitude,
+        out float valueX,
+        out float valueY,
+        out float valueZ)
+    {
+        valueX = 0f;
+        valueY = 0f;
+        valueZ = 0f;
+        if (x is not double sourceX ||
+            y is not double sourceY ||
+            z is not double sourceZ ||
+            !double.IsFinite(sourceX) ||
+            !double.IsFinite(sourceY) ||
+            !double.IsFinite(sourceZ))
+        {
+            return false;
+        }
+
+        var magnitudeSquared =
+            sourceX * sourceX +
+            sourceY * sourceY +
+            sourceZ * sourceZ;
+        var maximumSquared =
+            (double)maximumMagnitude * maximumMagnitude;
+        if (!double.IsFinite(magnitudeSquared) ||
+            magnitudeSquared > maximumSquared)
+        {
+            return false;
+        }
+
+        valueX = (float)sourceX;
+        valueY = (float)sourceY;
+        valueZ = (float)sourceZ;
+        return true;
     }
 
     private static float Lerp(float from, float to, float amount) =>
@@ -896,5 +1008,13 @@ internal static class PhysicalVehicleMotionController
         float RotationZ,
         float RotationW,
         float SpeedMps,
-        int? MapTileIndex);
+        int? MapTileIndex,
+        bool HasVelocity,
+        float VelocityX,
+        float VelocityY,
+        float VelocityZ,
+        bool HasAccelerationLocal,
+        float AccelerationLocalX,
+        float AccelerationLocalY,
+        float AccelerationLocalZ);
 }

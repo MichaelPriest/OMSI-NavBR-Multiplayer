@@ -1515,7 +1515,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 20;
+    return 21;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
@@ -2838,6 +2838,111 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
 
     InterlockedExchange(&LastVehicleTransformFailureStage, 0);
+    return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleNetworkMotion(
+    int vehiclePointer,
+    int hasVelocity,
+    float velocityX,
+    float velocityY,
+    float velocityZ,
+    int hasAccelerationLocal,
+    float accelerationLocalX,
+    float accelerationLocalY,
+    float accelerationLocalZ)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    if (hasVelocity != 0)
+    {
+        if (!std::isfinite(velocityX) ||
+            !std::isfinite(velocityY) ||
+            !std::isfinite(velocityZ))
+        {
+            return 0;
+        }
+
+        const float velocitySquared =
+            velocityX * velocityX +
+            velocityY * velocityY +
+            velocityZ * velocityZ;
+        constexpr float MaxVelocityMps = 150.0f;
+        if (!std::isfinite(velocitySquared) ||
+            velocitySquared > MaxVelocityMps * MaxVelocityMps)
+        {
+            return 0;
+        }
+    }
+
+    if (hasAccelerationLocal != 0)
+    {
+        if (!std::isfinite(accelerationLocalX) ||
+            !std::isfinite(accelerationLocalY) ||
+            !std::isfinite(accelerationLocalZ))
+        {
+            return 0;
+        }
+
+        const float accelerationSquared =
+            accelerationLocalX * accelerationLocalX +
+            accelerationLocalY * accelerationLocalY +
+            accelerationLocalZ * accelerationLocalZ;
+        constexpr float MaxAccelerationMps2 = 100.0f;
+        if (!std::isfinite(accelerationSquared) ||
+            accelerationSquared >
+                MaxAccelerationMps2 * MaxAccelerationMps2)
+        {
+            return 0;
+        }
+    }
+
+    if (hasVelocity != 0)
+    {
+        const Vec3 velocity{
+            velocityX,
+            velocityY,
+            velocityZ
+        };
+        if (!WriteValue(
+                vehiclePointer,
+                PhysicsVelocityOffset,
+                velocity) ||
+            !WriteValue(
+                vehiclePointer,
+                RoadVehicleLastVelocityOffset,
+                velocity))
+        {
+            return 0;
+        }
+    }
+
+    if (hasAccelerationLocal != 0)
+    {
+        const Vec3 accelerationLocal{
+            accelerationLocalX,
+            accelerationLocalY,
+            accelerationLocalZ
+        };
+        if (!WriteValue(
+                vehiclePointer,
+                RoadVehicleAccelerationLocalOffset,
+                accelerationLocal))
+        {
+            return 0;
+        }
+    }
+
     return 1;
 }
 
