@@ -50,6 +50,17 @@ public static class PluginBridgeProtocol
     public const string CapabilityCharacterInteraction = "character-interaction";
     public const string CapabilityLocalVehicleTrigger = "local-vehicle-trigger";
     public const string CapabilityPerformanceGovernor = "performance-governor";
+
+    public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
+    public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
+    public const string ErrorMotionTileMismatch = "motion-tile-mismatch";
+    public const string ErrorMotionWorldOriginUnavailable = "motion-world-origin-unavailable";
+
+    public static bool IsRecoverablePhysicalMotionError(string? errorCode) =>
+        string.Equals(errorCode, ErrorMotionReadbackUnavailable, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionTransformMismatch, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionTileMismatch, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionWorldOriginUnavailable, StringComparison.Ordinal);
 }
 
 public sealed record PluginBridgeMessage(

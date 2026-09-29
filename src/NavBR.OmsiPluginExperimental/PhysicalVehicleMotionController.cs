@@ -76,7 +76,7 @@ internal static class PhysicalVehicleMotionController
             var failureStage =
                 OmsiNativeInterop.GetLastVehicleTransformFailureStage();
             errorCode = failureStage == 31
-                ? "motion-world-origin-unavailable"
+                ? PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable
                 : "transform-write-failed";
             errorMessage = failureStage == 31
                 ? "OMSI has not materialized a reliable world-space origin on the target Kachel yet."
@@ -196,7 +196,7 @@ internal static class PhysicalVehicleMotionController
                 var failureStage =
                     OmsiNativeInterop.GetLastVehicleTransformFailureStage();
                 errorCode = failureStage == 31
-                    ? "motion-world-origin-unavailable"
+                    ? PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable
                     : "transform-write-failed";
                 errorMessage = failureStage == 31
                     ? "OMSI has not materialized a reliable world-space origin on the target Kachel yet; keeping the previous physical pose."
@@ -697,7 +697,7 @@ internal static class PhysicalVehicleMotionController
                 out var actualY,
                 out var actualZ) != 1)
         {
-            errorCode = "motion-readback-unavailable";
+            errorCode = PluginBridgeProtocol.ErrorMotionReadbackUnavailable;
             errorMessage =
                 "OMSI did not expose a readable position after the physical vehicle transform.";
             return false;
@@ -709,7 +709,7 @@ internal static class PhysicalVehicleMotionController
         var distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (!double.IsFinite(distance) || distance > ReadbackToleranceMeters)
         {
-            errorCode = "motion-transform-mismatch";
+            errorCode = PluginBridgeProtocol.ErrorMotionTransformMismatch;
             errorMessage =
                 $"OMSI physical vehicle readback differs from the requested smoothed pose by {distance:F2} m.";
             return false;
@@ -724,7 +724,7 @@ internal static class PhysicalVehicleMotionController
                     instance.VehiclePointer);
             if (actualTileIndex != expectedTileIndex)
             {
-                errorCode = "motion-tile-mismatch";
+                errorCode = PluginBridgeProtocol.ErrorMotionTileMismatch;
                 errorMessage =
                     $"OMSI physical vehicle is on Kachel {actualTileIndex}, expected {expectedTileIndex}.";
                 return false;

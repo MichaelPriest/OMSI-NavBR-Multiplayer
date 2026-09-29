@@ -1117,10 +1117,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal);
 
     private static bool IsRecoverableMotionReadbackFailure(string? errorCode) =>
-        string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-world-origin-unavailable", StringComparison.Ordinal);
+        PluginBridgeProtocol.IsRecoverablePhysicalMotionError(errorCode);
 
     private void ReportCommandFailureOnce(
         string playerId,

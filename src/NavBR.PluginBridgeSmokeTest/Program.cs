@@ -99,6 +99,26 @@ Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterPosses
 Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform),
     "runtime character-transform capability was not refreshed from plugin status");
 
+Require(
+    PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
+        PluginBridgeProtocol.ErrorMotionReadbackUnavailable),
+    "motion readback unavailable must remain recoverable");
+Require(
+    PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
+        PluginBridgeProtocol.ErrorMotionTransformMismatch),
+    "motion transform mismatch must remain recoverable");
+Require(
+    PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
+        PluginBridgeProtocol.ErrorMotionTileMismatch),
+    "motion tile mismatch must remain recoverable");
+Require(
+    PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
+        PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable),
+    "Kachel world-origin wait must remain recoverable");
+Require(
+    !PluginBridgeProtocol.IsRecoverablePhysicalMotionError("vehicle-not-owned"),
+    "ownership failures must not be classified as recoverable motion drift");
+
 var spoofedStatus = pluginStatus with
 {
     ProcessId = 9999,
