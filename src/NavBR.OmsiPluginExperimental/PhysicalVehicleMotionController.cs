@@ -40,6 +40,7 @@ internal static class PhysicalVehicleMotionController
     private const long ExternalControlConflictLogIntervalMs = 2_000;
     private const long PathBindingComparisonLogIntervalMs = 10_000;
     private const long PhysicsBodyComparisonLogIntervalMs = 10_000;
+    private const long ConsistPartComparisonLogIntervalMs = 10_000;
     private const long MaximumSettledPoseReassertIntervalMs = 250;
     private const long LightPoseProbeIntervalMs = 75;
     private const long MediumPoseProbeIntervalMs = 100;
@@ -499,6 +500,8 @@ internal static class PhysicalVehicleMotionController
                     $"bodyEnabled={(bodyEnabled ? 1 : 0)} " +
                     $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2})");
             }
+
+            LogConsistPartPositions(instance, state, now);
 
             if (conflictBits != 0 &&
                 now - state.LastExternalControlConflictLogTickMs >=
@@ -1221,14 +1224,76 @@ internal static class PhysicalVehicleMotionController
             lightFlags |= (int)VehicleLightFlags.Brake;
         }
 
-        // As with transforms, keep the immutable ownership guard in
-        // managed code and let the native write perform the live RoadVehicle
-        // and current PlayerVehicle checks at the actual write boundary.
-        return PhysicalVehicleBackend.HasSafeOwnedPointerIdentity(instance, out _) &&
-               OmsiNativeInterop.SetVehicleVisualState(
-                   instance.VehiclePointer,
-                   lightFlags,
-                   command.TurnSignal ?? 0) == 1;
+        // Make the whole OMSI consist look like one remote vehicle. MakeVehicle
+        // can return a main RoadVehicle plus one or more trailer/articulated
+        // RoadVehicles; applying lamps only to the primary left the rear
+        // sections visually disconnected from the player state. Every write
+        // still passes the exact owned-pointer/current-player guard.
+        foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
+        {
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                    instance,
+                    vehiclePointer,
+                    out _) ||
+                OmsiNativeInterop.SetVehicleVisualState(
+                    vehiclePointer,
+                    lightFlags,
+                    command.TurnSignal ?? 0) != 1)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void LogConsistPartPositions(
+        PhysicalVehicleInstance instance,
+        MotionState state,
+        long now)
+    {
+        var pointers = instance.GetOwnedVehiclePointers();
+        if (pointers.Length <= 1 ||
+            now - state.LastConsistPartsLogTickMs <
+                ConsistPartComparisonLogIntervalMs)
+        {
+            return;
+        }
+
+        state.LastConsistPartsLogTickMs = now;
+        var parts = new List<string>(pointers.Length);
+        foreach (var vehiclePointer in pointers)
+        {
+            if (!PhysicalVehicleBackend.IsSafeOwnedPointer(
+                    instance,
+                    vehiclePointer,
+                    out var unsafeReason))
+            {
+                parts.Add(
+                    $"0x{vehiclePointer:X8}:unsafe={unsafeReason}");
+                continue;
+            }
+
+            if (OmsiNativeInterop.ReadRoadVehiclePosition(
+                    vehiclePointer,
+                    out var x,
+                    out var y,
+                    out var z) != 1)
+            {
+                parts.Add(
+                    $"0x{vehiclePointer:X8}:pose=unavailable");
+                continue;
+            }
+
+            var tileIndex =
+                OmsiNativeInterop.ReadRoadVehicleTileIndex(vehiclePointer);
+            parts.Add(
+                $"0x{vehiclePointer:X8}:kachel={tileIndex},local=({x:F2},{y:F2},{z:F2})");
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-consist-parts id={instance.InstanceId} primary=0x{instance.VehiclePointer:X8} " +
+            $"partCount={pointers.Length} parts=[{string.Join(" | ", parts)}]");
     }
 
     private static bool TryReadSnapshot(
@@ -1458,6 +1523,7 @@ internal static class PhysicalVehicleMotionController
         public long LastFramePoseProbeTickMs { get; set; }
         public long LastExternalControlConflictLogTickMs { get; set; }
         public long LastPhysicsBodyLogTickMs { get; set; }
+        public long LastConsistPartsLogTickMs { get; set; }
         public long LastFramePoseReassertTickMs { get; set; }
         public long LastFramePoseReassertFailureLogTickMs { get; set; }
         public long LastLateRenderCorrectionLogTickMs { get; set; }
