@@ -370,6 +370,39 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var hasCoherentPhysicalPose =
+            frame.Telemetry.LocalX is double localX &&
+            double.IsFinite(localX) &&
+            frame.Telemetry.LocalY is double localY &&
+            double.IsFinite(localY) &&
+            frame.Telemetry.LocalZ is double localZ &&
+            double.IsFinite(localZ) &&
+            frame.Telemetry.RotationX is double rotationX &&
+            double.IsFinite(rotationX) &&
+            frame.Telemetry.RotationY is double rotationY &&
+            double.IsFinite(rotationY) &&
+            frame.Telemetry.RotationZ is double rotationZ &&
+            double.IsFinite(rotationZ) &&
+            frame.Telemetry.RotationW is double rotationW &&
+            double.IsFinite(rotationW);
+
+        if (!hasCoherentPhysicalPose)
+        {
+            // OMSI can switch RoadVehicle.Kachel in the middle of one
+            // read-only telemetry poll while the simulation is running. The
+            // provider withholds LocalX/Y/Z + quaternion for that transient
+            // frame rather than pairing coordinates from different Kacheln.
+            // Hold the last physical pose and wait for the next coherent frame;
+            // never turn a tile-boundary race into an invalid transform,
+            // resync loop or despawn/spawn cycle.
+            SetStatus(
+                playerId,
+                "waiting-coherent-pose",
+                "physical-pose-unstable",
+                "Holding the last physical pose while OMSI completes a Kachel transition.");
+            return;
+        }
+
         var hasStablePhysicalGrid =
             (frame.Telemetry.PhysicalGridX is int &&
              frame.Telemetry.PhysicalGridY is int) ||
