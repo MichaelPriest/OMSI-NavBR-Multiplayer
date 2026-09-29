@@ -594,6 +594,18 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         ValidateOptionalFinite(telemetry.RotationY, "rotation Y");
         ValidateOptionalFinite(telemetry.RotationZ, "rotation Z");
         ValidateOptionalFinite(telemetry.RotationW, "rotation W");
+        ValidateOptionalVector(
+            telemetry.VelocityX,
+            telemetry.VelocityY,
+            telemetry.VelocityZ,
+            150d,
+            "physical velocity");
+        ValidateOptionalVector(
+            telemetry.AccelerationLocalX,
+            telemetry.AccelerationLocalY,
+            telemetry.AccelerationLocalZ,
+            100d,
+            "local physical acceleration");
 
         if (telemetry.FuelPercent is < 0 or > 100 ||
             telemetry.ThrottlePercent is < 0 or > 100 ||
@@ -613,6 +625,22 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
              Math.Abs((long)gridY) > 100_000L))
         {
             throw new HubException("Telemetry contains invalid OMSI grid coordinates.");
+        }
+
+        if ((telemetry.PhysicalGridX is null) !=
+            (telemetry.PhysicalGridY is null))
+        {
+            throw new HubException(
+                "Telemetry physical OMSI grid must include both coordinates.");
+        }
+
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            (Math.Abs((long)physicalGridX) > 100_000L ||
+             Math.Abs((long)physicalGridY) > 100_000L))
+        {
+            throw new HubException(
+                "Telemetry contains invalid physical OMSI grid coordinates.");
         }
 
         if (telemetry.MapTileIndex is int mapTileIndex &&
@@ -642,6 +670,41 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         if (value is double number && !double.IsFinite(number))
         {
             throw new HubException($"Telemetry contains invalid {fieldName}.");
+        }
+    }
+
+    private static void ValidateOptionalVector(
+        double? x,
+        double? y,
+        double? z,
+        double maximumMagnitude,
+        string fieldName)
+    {
+        if (x is null && y is null && z is null)
+        {
+            return;
+        }
+
+        if (x is not double valueX ||
+            y is not double valueY ||
+            z is not double valueZ ||
+            !double.IsFinite(valueX) ||
+            !double.IsFinite(valueY) ||
+            !double.IsFinite(valueZ))
+        {
+            throw new HubException(
+                $"Telemetry contains incomplete or invalid {fieldName}.");
+        }
+
+        var magnitudeSquared =
+            valueX * valueX +
+            valueY * valueY +
+            valueZ * valueZ;
+        if (!double.IsFinite(magnitudeSquared) ||
+            magnitudeSquared > maximumMagnitude * maximumMagnitude)
+        {
+            throw new HubException(
+                $"Telemetry contains out-of-range {fieldName}.");
         }
     }
 }
