@@ -13,6 +13,13 @@ internal static class PhysicalVehicleMotionController
     private const double MaximumInterpolationMs = 320d;
     private const double DefaultInterpolationMs = 120d;
     private const double InterpolationPeriodScale = 1.05d;
+    private const double MinimumBufferedDelayMs = 120d;
+    private const double MaximumBufferedDelayMs = 450d;
+    private const double BufferedDelaySafetyMs = 20d;
+    private const double MaximumExtrapolationMs = 300d;
+    private const double ClockOffsetCreep = 0.01d;
+    private const int MaximumBufferedSamples = 40;
+    private const long SourceClockResetThresholdMs = 30_000;
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
     private const long StaleTargetAfterMs = 5_000;
@@ -99,7 +106,7 @@ internal static class PhysicalVehicleMotionController
         }
 
         var now = Environment.TickCount64;
-        States[instance.InstanceId] = new MotionState
+        var state = new MotionState
         {
             Current = snapshot,
             Start = snapshot,
@@ -112,6 +119,16 @@ internal static class PhysicalVehicleMotionController
             LastFramePoseProbeTickMs = now,
             LastFramePoseReassertTickMs = now
         };
+        if (command.TimestampUnixMilliseconds is long sourceTimestampMs)
+        {
+            ResetBufferedTimeline(
+                state,
+                sourceTimestampMs,
+                snapshot,
+                now);
+        }
+
+        States[instance.InstanceId] = state;
         return true;
     }
 
@@ -146,13 +163,23 @@ internal static class PhysicalVehicleMotionController
         }
 
         var sourceTimestamp = command.TimestampUnixMilliseconds;
+        var sourceClockReset = false;
         if (sourceTimestamp is long sourceMs &&
             state.LastSourceTimestampMs is long previousSourceMs &&
             sourceMs <= previousSourceMs)
         {
-            // Reconnects/network jitter can surface an older telemetry sample.
-            // Never rewind a physical bus to an older state.
-            return true;
+            // Ordinary reordering must never rewind a remote bus. A large
+            // backwards jump means the sender restarted or its wall clock was
+            // corrected; start a new buffered timeline instead of ignoring that
+            // player forever.
+            if (previousSourceMs - sourceMs > SourceClockResetThresholdMs)
+            {
+                sourceClockReset = true;
+            }
+            else
+            {
+                return true;
+            }
         }
 
         if (!TryApplyVisualState(instance, command))
@@ -168,21 +195,49 @@ internal static class PhysicalVehicleMotionController
             target = target with { MapTileIndex = previousTileIndex };
         }
 
+        var now = Environment.TickCount64;
+
+        // Timestamped multiplayer states follow a buffered sender-time
+        // timeline. This is deliberately different from repeatedly easing from
+        // Current to the newest arrival: arrival-time interpolation turns
+        // network jitter into visible bus jitter and can make a moving remote
+        // vehicle chase a target it never reaches.
+        if (sourceTimestamp is long bufferedSourceMs)
+        {
+            if (sourceClockReset)
+            {
+                ResetBufferedTimeline(
+                    state,
+                    bufferedSourceMs,
+                    target,
+                    now);
+            }
+            else
+            {
+                QueueBufferedSample(
+                    state,
+                    bufferedSourceMs,
+                    target,
+                    now);
+            }
+
+            state.Target = target;
+            state.LastTargetTickMs = now;
+            state.LastSourceTimestampMs = sourceTimestamp;
+            return true;
+        }
+
+        // Compatibility fallback for older bridge clients that do not stamp
+        // telemetry. Preserve the existing arrival-time interpolation path.
+        state.Samples.Clear();
+        state.SourceToLocalOffsetMs = null;
+
         var tileChanged =
             target.MapTileIndex is int targetTileIndex &&
             state.Target.MapTileIndex != targetTileIndex;
 
-        var now = Environment.TickCount64;
         var gapMs = Math.Max(0L, now - state.LastTargetTickMs);
-        var sourceGapMs =
-            sourceTimestamp is long sourceValue &&
-            state.LastSourceTimestampMs is long previousSourceValue &&
-            sourceValue > previousSourceValue
-                ? sourceValue - previousSourceValue
-                : 0L;
-        var cadenceMs = sourceGapMs is >= 20 and <= 1_000
-            ? sourceGapMs
-            : gapMs;
+        var cadenceMs = gapMs;
         var distance = Distance(state.Current, target);
 
         if (tileChanged ||
@@ -666,35 +721,59 @@ internal static class PhysicalVehicleMotionController
                 continue;
             }
 
-            var duration = Math.Max(1d, state.DurationMs);
-            var amount = Math.Clamp((now - state.StartTickMs) / duration, 0d, 1d);
-            var settled = IsSettled(state.Current, state.Target);
-            var next = settled
-                ? state.Target
-                : Interpolate(state.Start, state.Target, amount);
+            var next = ResolveMotionSnapshot(
+                state,
+                now,
+                out var writeTileIndex);
+            var settled = IsSettled(state.Current, next);
 
             // The previous implementation kept writing the exact same native
             // transform every callback after interpolation had completed.
             // Stationary/settled remote buses now cost no transform write at
-            // all until a new network target arrives.
+            // all until the buffered timeline advances.
             if (!settled &&
-                !TryApplyTransform(instance, next, writeTileIndex: false))
+                !TryApplyTransform(
+                    instance,
+                    next,
+                    writeTileIndex))
             {
+                var failureStage =
+                    OmsiNativeInterop.GetLastVehicleTransformFailureStage();
+
+                // During a Kachel transition the target tile can be known
+                // before OMSI has materialized its world-space origin. Hold the
+                // previous physical pose and retry on the next callback rather
+                // than poisoning ownership and forcing a despawn/spawn cycle.
+                if (failureStage == 31)
+                {
+                    continue;
+                }
+
                 state.FaultCode = "motion-transform-write-failed";
                 state.FaultMessage =
-                    "OMSI rejected a smoothed physical vehicle transform write.";
+                    $"OMSI rejected a smoothed physical vehicle transform write at native stage {failureStage}.";
                 continue;
             }
 
-            if (now - state.LastReadbackTickMs >= ReadbackIntervalMs)
+            if (writeTileIndex ||
+                now - state.LastReadbackTickMs >= ReadbackIntervalMs)
             {
                 if (!TryConfirmTransform(
                         instance,
                         next,
-                        validateTileIndex: false,
+                        validateTileIndex: writeTileIndex,
                         out var readbackErrorCode,
                         out var readbackErrorMessage))
                 {
+                    if (PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
+                            readbackErrorCode))
+                    {
+                        // Keep Current on the last confirmed Kachel/pose so the
+                        // exact transition is retried instead of being accepted
+                        // from an uncertain readback.
+                        continue;
+                    }
+
                     state.FaultCode =
                         readbackErrorCode ?? "motion-readback-failed";
                     state.FaultMessage =
@@ -727,6 +806,255 @@ internal static class PhysicalVehicleMotionController
         RemovalScratch.Clear();
     }
 
+    private static void ResetBufferedTimeline(
+        MotionState state,
+        long sourceTimestampMs,
+        MotionSnapshot snapshot,
+        long arrivalTickMs)
+    {
+        state.Samples.Clear();
+        state.SourceToLocalOffsetMs = null;
+        QueueBufferedSample(
+            state,
+            sourceTimestampMs,
+            snapshot,
+            arrivalTickMs);
+    }
+
+    private static void QueueBufferedSample(
+        MotionState state,
+        long sourceTimestampMs,
+        MotionSnapshot snapshot,
+        long arrivalTickMs)
+    {
+        var candidateOffsetMs =
+            arrivalTickMs - (double)sourceTimestampMs;
+        if (state.SourceToLocalOffsetMs is double previousOffsetMs)
+        {
+            state.SourceToLocalOffsetMs =
+                candidateOffsetMs < previousOffsetMs
+                    ? candidateOffsetMs
+                    : previousOffsetMs +
+                      (candidateOffsetMs - previousOffsetMs) *
+                      ClockOffsetCreep;
+        }
+        else
+        {
+            state.SourceToLocalOffsetMs = candidateOffsetMs;
+        }
+
+        state.Samples.Add(
+            new MotionSample(
+                sourceTimestampMs,
+                snapshot));
+        while (state.Samples.Count > MaximumBufferedSamples)
+        {
+            state.Samples.RemoveAt(0);
+        }
+    }
+
+    private static MotionSnapshot ResolveMotionSnapshot(
+        MotionState state,
+        long now,
+        out bool writeTileIndex)
+    {
+        MotionSnapshot next;
+        if (state.SourceToLocalOffsetMs is double offsetMs &&
+            state.Samples.Count > 0)
+        {
+            var renderSourceMs =
+                now -
+                offsetMs -
+                ResolveBufferedDelayMs(state);
+            next = SampleBufferedTimeline(
+                state.Samples,
+                renderSourceMs);
+        }
+        else
+        {
+            var duration = Math.Max(1d, state.DurationMs);
+            var amount =
+                Math.Clamp(
+                    (now - state.StartTickMs) / duration,
+                    0d,
+                    1d);
+            next = Interpolate(
+                state.Start,
+                state.Target,
+                amount);
+        }
+
+        writeTileIndex =
+            next.MapTileIndex is int nextTileIndex &&
+            state.Current.MapTileIndex != nextTileIndex;
+        return next;
+    }
+
+    private static double ResolveBufferedDelayMs(
+        MotionState state)
+    {
+        if (state.Samples.Count < 2)
+        {
+            return DefaultInterpolationMs;
+        }
+
+        var maximumRecentGapMs = 0d;
+        var firstIndex =
+            Math.Max(1, state.Samples.Count - 4);
+        for (var i = firstIndex;
+             i < state.Samples.Count;
+             i++)
+        {
+            var gapMs =
+                state.Samples[i].SourceTimestampMs -
+                state.Samples[i - 1].SourceTimestampMs;
+            if (gapMs is > 0 and <= 1_000)
+            {
+                maximumRecentGapMs =
+                    Math.Max(
+                        maximumRecentGapMs,
+                        gapMs);
+            }
+        }
+
+        if (maximumRecentGapMs <= 0d)
+        {
+            return DefaultInterpolationMs;
+        }
+
+        return Math.Clamp(
+            maximumRecentGapMs * 2d +
+            BufferedDelaySafetyMs,
+            MinimumBufferedDelayMs,
+            MaximumBufferedDelayMs);
+    }
+
+    private static MotionSnapshot SampleBufferedTimeline(
+        List<MotionSample> samples,
+        double renderSourceMs)
+    {
+        var first = samples[0];
+        if (renderSourceMs <= first.SourceTimestampMs)
+        {
+            return first.Snapshot;
+        }
+
+        var leftIndex = samples.Count - 1;
+        for (var i = samples.Count - 1;
+             i >= 0;
+             i--)
+        {
+            if (samples[i].SourceTimestampMs <=
+                renderSourceMs)
+            {
+                leftIndex = i;
+                break;
+            }
+        }
+
+        if (leftIndex + 1 < samples.Count)
+        {
+            var left = samples[leftIndex];
+            var right = samples[leftIndex + 1];
+            if (IsBufferedDiscontinuity(left, right))
+            {
+                // Local OMSI coordinates belong to a Kachel. Never blend two
+                // Kachel frames or a deliberate teleport. Hold the old pose
+                // until the sender-time cursor reaches the new sample, then
+                // switch tile and pose together.
+                return left.Snapshot;
+            }
+
+            var spanMs =
+                Math.Max(
+                    1d,
+                    right.SourceTimestampMs -
+                    left.SourceTimestampMs);
+            var amount =
+                Math.Clamp(
+                    (renderSourceMs -
+                     left.SourceTimestampMs) /
+                    spanMs,
+                    0d,
+                    1d);
+            return Interpolate(
+                left.Snapshot,
+                right.Snapshot,
+                amount);
+        }
+
+        var last = samples[^1];
+        var aheadMs =
+            Math.Clamp(
+                renderSourceMs -
+                last.SourceTimestampMs,
+                0d,
+                MaximumExtrapolationMs);
+        return Extrapolate(
+            last.Snapshot,
+            aheadMs);
+    }
+
+    private static bool IsBufferedDiscontinuity(
+        MotionSample left,
+        MotionSample right)
+    {
+        if (right.SourceTimestampMs -
+                left.SourceTimestampMs >=
+            TeleportGapMs)
+        {
+            return true;
+        }
+
+        if (left.Snapshot.MapTileIndex is int leftTile &&
+            right.Snapshot.MapTileIndex is int rightTile &&
+            leftTile != rightTile)
+        {
+            return true;
+        }
+
+        return Distance(
+            left.Snapshot,
+            right.Snapshot) >=
+            TeleportDistanceMeters;
+    }
+
+    private static MotionSnapshot Extrapolate(
+        MotionSnapshot source,
+        double aheadMs)
+    {
+        if (!source.HasVelocity ||
+            aheadMs <= 0d)
+        {
+            return source;
+        }
+
+        var seconds =
+            (float)(aheadMs / 1_000d);
+        var x =
+            source.X +
+            source.VelocityX * seconds;
+        var y =
+            source.Y +
+            source.VelocityY * seconds;
+        var z =
+            source.Z +
+            source.VelocityZ * seconds;
+        if (!float.IsFinite(x) ||
+            !float.IsFinite(y) ||
+            !float.IsFinite(z))
+        {
+            return source;
+        }
+
+        return source with
+        {
+            X = x,
+            Y = y,
+            Z = z
+        };
+    }
+
     private static bool IsSettled(
         MotionSnapshot current,
         MotionSnapshot target)
@@ -734,7 +1062,9 @@ internal static class PhysicalVehicleMotionController
         var dx = (double)target.X - current.X;
         var dy = (double)target.Y - current.Y;
         var dz = (double)target.Z - current.Z;
-        if (dx * dx + dy * dy + dz * dz > 0.0001d ||
+        if ((target.MapTileIndex is int targetTileIndex &&
+             current.MapTileIndex != targetTileIndex) ||
+            dx * dx + dy * dy + dz * dz > 0.0001d ||
             Math.Abs(current.SpeedMps - target.SpeedMps) > 0.01f)
         {
             return false;
@@ -1132,9 +1462,15 @@ internal static class PhysicalVehicleMotionController
         public long LastFramePoseReassertFailureLogTickMs { get; set; }
         public long LastLateRenderCorrectionLogTickMs { get; set; }
         public long LastLateRenderFailureLogTickMs { get; set; }
+        public List<MotionSample> Samples { get; } = new();
+        public double? SourceToLocalOffsetMs { get; set; }
         public string? FaultCode { get; set; }
         public string? FaultMessage { get; set; }
     }
+
+    private readonly record struct MotionSample(
+        long SourceTimestampMs,
+        MotionSnapshot Snapshot);
 
     private readonly record struct MotionSnapshot(
         float X,
