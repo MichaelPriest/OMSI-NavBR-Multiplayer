@@ -9,6 +9,7 @@ using NavBR.Client.Driver;
 using NavBR.Client.Omsi;
 using NavBR.Client.Hardware;
 using NavBR.Client.Telemetry;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client;
