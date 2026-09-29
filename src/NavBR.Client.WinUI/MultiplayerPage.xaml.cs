@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace NavBR.Client.WinUI;
 
@@ -13,6 +14,9 @@ public sealed partial class MultiplayerPage : UserControl
     private readonly ObservableCollection<NativePublicRoomRow> _publicRooms = new();
     private bool _applyingState;
     private string? _publicRoomServerUrl;
+    private string? _lastInviteServerUrl;
+    private string? _lastInviteRoomId;
+    private string _lastInviteMode = "peer-host";
 
     public MultiplayerPage()
     {
@@ -124,8 +128,114 @@ public sealed partial class MultiplayerPage : UserControl
             ? "—"
             : string.Join(" · ", invites);
 
+        _lastInviteRoomId =
+            JsonState.String(multiplayer, "roomId");
+        _lastInviteServerUrl = hostRunning
+            ? !string.IsNullOrWhiteSpace(internetInvite)
+                ? internetInvite
+                : invites.FirstOrDefault(value =>
+                    !value.StartsWith("Internet:", StringComparison.OrdinalIgnoreCase))
+            : JsonState.String(multiplayer, "serverUrl");
+        _lastInviteMode =
+            transportMode == "dedicated-server"
+                ? "relay"
+                : "peer-host";
+
+        ApplyConnectivity(state, hostRunning);
         ApplyPublicRooms(state);
         ApplyPlayers(multiplayer);
+    }
+
+    private void ApplyConnectivity(
+        JsonElement state,
+        bool hostRunning)
+    {
+        var network = JsonState.Property(state, "network");
+        var diagnostics = JsonState.Property(network, "diagnostics");
+        var probe = JsonState.Property(network, "externalProbe");
+
+        _applyingState = true;
+        try
+        {
+            AutomaticUpnpToggle.IsOn =
+                JsonState.Bool(network, "automaticUpnpEnabled");
+        }
+        finally
+        {
+            _applyingState = false;
+        }
+
+        var networkError = JsonState.String(network, "error");
+        var networkMessage = JsonState.String(network, "message");
+        ConnectivityStatusText.Text =
+            !string.IsNullOrWhiteSpace(networkError)
+                ? networkError
+                : !string.IsNullOrWhiteSpace(networkMessage)
+                    ? networkMessage
+                    : "Diagnóstico de rede disponível sob demanda.";
+
+        var firewallPresent =
+            JsonState.Bool(diagnostics, "firewallRulePresent");
+        var listening =
+            JsonState.Bool(diagnostics, "localPortListening");
+        var gatewayFound =
+            JsonState.Bool(diagnostics, "upnpGatewayFound");
+        var environment =
+            JsonState.String(diagnostics, "environmentKind");
+        var externalVerified =
+            JsonState.Bool(diagnostics, "externalPortVerified");
+
+        var probeStatus =
+            JsonState.String(probe, "status");
+        var probeReachable =
+            JsonState.Bool(probe, "reachable");
+        var probeDuration =
+            JsonState.Double(probe, "durationMilliseconds");
+
+        var diagnosticParts = new List<string>();
+        if (diagnostics.ValueKind is not (
+                JsonValueKind.Undefined or
+                JsonValueKind.Null))
+        {
+            diagnosticParts.Add(
+                listening
+                    ? "TCP 27730 escutando"
+                    : "TCP 27730 não está escutando");
+            diagnosticParts.Add(
+                firewallPresent
+                    ? "Firewall OK"
+                    : "Regra de Firewall ausente/não confirmada");
+            diagnosticParts.Add(
+                gatewayFound
+                    ? "gateway UPnP encontrado"
+                    : "gateway UPnP não confirmado");
+            if (!string.IsNullOrWhiteSpace(environment))
+            {
+                diagnosticParts.Add($"NAT: {environment}");
+            }
+
+            if (externalVerified)
+            {
+                diagnosticParts.Add("porta externa verificada");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(probeStatus))
+        {
+            diagnosticParts.Add(
+                probeReachable
+                    ? $"teste externo OK ({probeDuration ?? 0d:0} ms)"
+                    : $"teste externo: {probeStatus}");
+        }
+
+        ConnectivityDetailText.Text =
+            diagnosticParts.Count == 0
+                ? "—"
+                : string.Join(" · ", diagnosticParts);
+
+        ExternalPortProbeButton.IsEnabled =
+            hostRunning &&
+            JsonState.Bool(network, "externalProbeConfigured");
     }
 
     private void ApplyPublicRooms(JsonElement state)
@@ -406,6 +516,188 @@ public sealed partial class MultiplayerPage : UserControl
                 displayName = DisplayNameTextBox.Text.Trim(),
                 roomPassword = PasswordTextBox.Password
             });
+    }
+
+    private void CopyInvite_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_lastInviteServerUrl) ||
+            string.IsNullOrWhiteSpace(_lastInviteRoomId))
+        {
+            NoticeBar.Message =
+                "Hospede ou conecte a uma sala antes de copiar o convite.";
+            NoticeBar.Severity = InfoBarSeverity.Warning;
+            NoticeBar.IsOpen = true;
+            return;
+        }
+
+        var invite = string.Join(
+            Environment.NewLine,
+            "NAVBR_INVITE_V1",
+            $"server={_lastInviteServerUrl}",
+            $"room={_lastInviteRoomId}",
+            $"mode={_lastInviteMode}");
+
+        var package = new DataPackage();
+        package.SetText(invite);
+        Clipboard.SetContent(package);
+        Clipboard.Flush();
+
+        NoticeBar.Message = "Convite NavBR copiado.";
+        NoticeBar.Severity = InfoBarSeverity.Success;
+        NoticeBar.IsOpen = true;
+    }
+
+    private async void PasteInvite_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (!content.Contains(StandardDataFormats.Text))
+            {
+                throw new InvalidOperationException(
+                    "A área de transferência não contém um convite em texto.");
+            }
+
+            var text = (await content.GetTextAsync()).Trim();
+            if (!TryParseInvite(
+                    text,
+                    out var serverUrl,
+                    out var roomId))
+            {
+                throw new InvalidOperationException(
+                    "O texto copiado não é um convite NavBR válido.");
+            }
+
+            ServerTextBox.Text = serverUrl;
+            RoomTextBox.Text = roomId;
+            ConnectionModeComboBox.SelectedIndex = 0;
+            NoticeBar.Message =
+                "Convite carregado. Confira seu nome e clique em Entrar na sala.";
+            NoticeBar.Severity = InfoBarSeverity.Success;
+            NoticeBar.IsOpen = true;
+        }
+        catch (Exception ex)
+        {
+            NoticeBar.Message = ex.Message;
+            NoticeBar.Severity = InfoBarSeverity.Error;
+            NoticeBar.IsOpen = true;
+        }
+    }
+
+    private static bool TryParseInvite(
+        string text,
+        out string serverUrl,
+        out string roomId)
+    {
+        serverUrl = string.Empty;
+        roomId = string.Empty;
+
+        var lines = text
+            .Split(
+                ['\r', '\n'],
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        if (lines.Length == 0)
+        {
+            return false;
+        }
+
+        if (string.Equals(
+                lines[0],
+                "NAVBR_INVITE_V1",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var line in lines.Skip(1))
+            {
+                var separator = line.IndexOf('=');
+                if (separator <= 0 ||
+                    separator >= line.Length - 1)
+                {
+                    continue;
+                }
+
+                var key = line[..separator].Trim();
+                var value = line[(separator + 1)..].Trim();
+                if (string.Equals(
+                        key,
+                        "server",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    serverUrl = value;
+                }
+                else if (string.Equals(
+                             key,
+                             "room",
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    roomId = value;
+                }
+            }
+        }
+        else
+        {
+            var serverIndex = Array.FindIndex(
+                lines,
+                line =>
+                    line.StartsWith(
+                        "http://",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith(
+                        "https://",
+                        StringComparison.OrdinalIgnoreCase));
+            if (serverIndex >= 0)
+            {
+                serverUrl = lines[serverIndex];
+                if (serverIndex + 1 < lines.Length)
+                {
+                    roomId = lines[serverIndex + 1];
+                }
+            }
+        }
+
+        return Uri.TryCreate(
+                   serverUrl,
+                   UriKind.Absolute,
+                   out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp ||
+                uri.Scheme == Uri.UriSchemeHttps) &&
+               roomId.Length is > 0 and <= 64;
+    }
+
+    private async void RefreshNetworkDiagnostics_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        await RunAsync("refreshNetworkDiagnostics");
+
+    private async void ApplyFirewall_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        await RunAsync("applyFirewallRule");
+
+    private async void RunExternalPortProbe_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        await RunAsync("runExternalPortProbe");
+
+    private async void AutomaticUpnp_Toggled(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_applyingState)
+        {
+            return;
+        }
+
+        await RunAsync(
+            "setAutomaticUpnp",
+            new { enabled = AutomaticUpnpToggle.IsOn });
     }
 
     private async void PhysicalVehicles_Toggled(
