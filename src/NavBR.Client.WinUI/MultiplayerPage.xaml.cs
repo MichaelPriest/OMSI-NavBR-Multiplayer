@@ -14,6 +14,9 @@ public sealed partial class MultiplayerPage : UserControl
     private readonly ObservableCollection<NativePublicRoomRow> _publicRooms = new();
     private bool _applyingState;
     private string? _publicRoomServerUrl;
+    private string? _configuredServerUrl;
+    private string? _defaultOnlineServerUrl;
+    private string? _relayServerUrl;
     private string? _lastInviteServerUrl;
     private string? _lastInviteRoomId;
     private string _lastInviteMode = "peer-host";
@@ -53,17 +56,23 @@ public sealed partial class MultiplayerPage : UserControl
             ? JsonState.String(quality, "level") ?? "—"
             : $"{latency:0} ms · J {jitter ?? 0d:0}";
 
+        _configuredServerUrl =
+            JsonState.String(multiplayer, "serverUrl")
+            ?? _configuredServerUrl;
+        _defaultOnlineServerUrl =
+            JsonState.String(multiplayer, "defaultOnlineServerUrl")
+            ?? _defaultOnlineServerUrl;
+        _relayServerUrl =
+            JsonState.String(multiplayer, "relayServerUrl")
+            ?? _relayServerUrl;
+
         _applyingState = true;
         try
         {
             if (ServerTextBox.FocusState == FocusState.Unfocused)
             {
-                var preferredServer = SelectedConnectionMode == "relay-host"
-                    ? JsonState.String(multiplayer, "relayServerUrl")
-                    : JsonState.String(multiplayer, "serverUrl");
                 ServerTextBox.Text =
-                    preferredServer
-                    ?? JsonState.String(multiplayer, "serverUrl")
+                    PreferredServerForMode(SelectedConnectionMode)
                     ?? ServerTextBox.Text;
             }
 
@@ -309,8 +318,39 @@ public sealed partial class MultiplayerPage : UserControl
 
     private void ConnectionMode_SelectionChanged(
         object sender,
-        SelectionChangedEventArgs e) =>
+        SelectionChangedEventArgs e)
+    {
         UpdateConnectionModeUi();
+        if (_applyingState ||
+            ServerTextBox is null)
+        {
+            return;
+        }
+
+        var preferred =
+            PreferredServerForMode(SelectedConnectionMode);
+        if (!string.IsNullOrWhiteSpace(preferred))
+        {
+            ServerTextBox.Text = preferred;
+        }
+    }
+
+    private string? PreferredServerForMode(string mode) =>
+        mode switch
+        {
+            "create-online" =>
+                _defaultOnlineServerUrl
+                ?? _relayServerUrl
+                ?? _configuredServerUrl,
+            "relay-host" =>
+                _relayServerUrl
+                ?? _defaultOnlineServerUrl
+                ?? _configuredServerUrl,
+            "join-server" =>
+                _configuredServerUrl
+                ?? _defaultOnlineServerUrl,
+            _ => _configuredServerUrl
+        };
 
     private void UpdateConnectionModeUi()
     {
@@ -328,7 +368,7 @@ public sealed partial class MultiplayerPage : UserControl
                 ServerTextBox.Header = "Servidor NavBR";
                 ConnectButton.Content = "Criar sala online";
                 ModeDetailText.Text =
-                    "Cria a sala no servidor NavBR informado. Usa o servidor online padrão quando o campo estiver vazio e não exige abrir porta no roteador.";
+                    "Cria a sala no Servidor NavBR oficial. Não abre TCP 27730 no seu PC e funciona mesmo atrás de CGNAT.";
                 break;
 
             case "lan-host":
