@@ -1210,6 +1210,69 @@ namespace
             std::isfinite(matrix.m32);
     }
 
+    bool TryResolveWorldTranslationFromRoadVehicle(
+        int referenceVehiclePointer,
+        int targetTilePointer,
+        const Vec3& targetPosition,
+        Vec3& worldPosition)
+    {
+        if (referenceVehiclePointer <= 0)
+        {
+            return false;
+        }
+
+        const auto referenceBase =
+            static_cast<std::uintptr_t>(referenceVehiclePointer);
+        if (!IsReadableRange(
+                referenceBase + KachelOffset,
+                sizeof(int)) ||
+            *reinterpret_cast<const int*>(
+                referenceBase + KachelOffset) != targetTilePointer ||
+            !IsReadableRange(
+                referenceBase + PositionOffset,
+                sizeof(Vec3)))
+        {
+            return false;
+        }
+
+        const auto referencePosition =
+            *reinterpret_cast<const Vec3*>(
+                referenceBase + PositionOffset);
+        if (!std::isfinite(referencePosition.x) ||
+            !std::isfinite(referencePosition.y) ||
+            !std::isfinite(referencePosition.z))
+        {
+            return false;
+        }
+
+        Matrix4 referenceAbsolute{};
+        if (!TryReadMatrix(
+                referenceVehiclePointer,
+                AbsolutePositionOffset,
+                referenceAbsolute))
+        {
+            return false;
+        }
+
+        const Vec3 candidate{
+            targetPosition.x +
+                (referenceAbsolute.m30 - referencePosition.x),
+            targetPosition.y +
+                (referenceAbsolute.m31 - referencePosition.y),
+            targetPosition.z +
+                (referenceAbsolute.m32 - referencePosition.z)
+        };
+        if (!std::isfinite(candidate.x) ||
+            !std::isfinite(candidate.y) ||
+            !std::isfinite(candidate.z))
+        {
+            return false;
+        }
+
+        worldPosition = candidate;
+        return true;
+    }
+
     bool TryResolveWorldTranslation(
         int objectPointer,
         int targetTilePointer,
@@ -1222,64 +1285,58 @@ namespace
         // same Kachel. This preserves OMSI's current tile/center offset without
         // guessing the map's absolute coordinate convention.
         const int playerVehicle = GetPlayerVehiclePointer();
-        if (IsRoadVehiclePointer(playerVehicle))
+        if (IsRoadVehiclePointer(playerVehicle) &&
+            TryResolveWorldTranslationFromRoadVehicle(
+                playerVehicle,
+                targetTilePointer,
+                targetPosition,
+                worldPosition))
         {
-            const auto playerBase =
-                static_cast<std::uintptr_t>(playerVehicle);
-            if (IsReadableRange(playerBase + KachelOffset, sizeof(int)) &&
-                *reinterpret_cast<const int*>(playerBase + KachelOffset) ==
-                    targetTilePointer &&
-                IsReadableRange(playerBase + PositionOffset, sizeof(Vec3)))
-            {
-                const auto playerPosition =
-                    *reinterpret_cast<const Vec3*>(
-                        playerBase + PositionOffset);
-                Matrix4 playerAbsolute{};
-                if (TryReadMatrix(
-                        playerVehicle,
-                        AbsolutePositionOffset,
-                        playerAbsolute))
-                {
-                    worldPosition.x =
-                        targetPosition.x +
-                        (playerAbsolute.m30 - playerPosition.x);
-                    worldPosition.y =
-                        targetPosition.y +
-                        (playerAbsolute.m31 - playerPosition.y);
-                    worldPosition.z =
-                        targetPosition.z +
-                        (playerAbsolute.m32 - playerPosition.z);
-                    return true;
-                }
-            }
+            return true;
         }
 
         // Once an owned object is already on the target Kachel, retain its
         // existing OMSI render-space origin and only change the local delta.
-        const auto base =
-            static_cast<std::uintptr_t>(objectPointer);
-        if (IsReadableRange(base + KachelOffset, sizeof(int)) &&
-            *reinterpret_cast<const int*>(base + KachelOffset) ==
-                targetTilePointer &&
-            IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+        if (TryResolveWorldTranslationFromRoadVehicle(
+                objectPointer,
+                targetTilePointer,
+                targetPosition,
+                worldPosition))
         {
-            const auto previousPosition =
-                *reinterpret_cast<const Vec3*>(base + PositionOffset);
-            Matrix4 previousAbsolute{};
-            if (TryReadMatrix(
-                    objectPointer,
-                    AbsolutePositionOffset,
-                    previousAbsolute))
+            return true;
+        }
+
+        // On a Kachel boundary the player can already be on another tile while
+        // the remote bus needs to enter this target tile. Reuse any live
+        // RoadVehicle that OMSI already placed on that exact Kachel. Its
+        // AbsPosition - Position delta is the authoritative render-space tile
+        // origin and works for both Cartesian and real-coordinate maps.
+        int count = 0;
+        int items = 0;
+        if (!TryGetRoadVehicleItems(count, items))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < count; ++index)
+        {
+            const int candidate =
+                *reinterpret_cast<const int*>(
+                    static_cast<std::uintptr_t>(items) +
+                    static_cast<std::uintptr_t>(index) * sizeof(int));
+            if (candidate == 0 ||
+                candidate == objectPointer ||
+                candidate == playerVehicle)
             {
-                worldPosition.x =
-                    targetPosition.x +
-                    (previousAbsolute.m30 - previousPosition.x);
-                worldPosition.y =
-                    targetPosition.y +
-                    (previousAbsolute.m31 - previousPosition.y);
-                worldPosition.z =
-                    targetPosition.z +
-                    (previousAbsolute.m32 - previousPosition.z);
+                continue;
+            }
+
+            if (TryResolveWorldTranslationFromRoadVehicle(
+                    candidate,
+                    targetTilePointer,
+                    targetPosition,
+                    worldPosition))
+            {
                 return true;
             }
         }
@@ -2619,17 +2676,38 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     const unsigned char enabled = 1;
 
     Vec3 worldPosition = position;
-    if (effectiveTilePointer != 0)
+    const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
+    int previousTilePointer = 0;
+    if (IsReadableRange(vehicleBase + KachelOffset, sizeof(int)))
     {
-        (void)TryResolveWorldTranslation(
+        previousTilePointer =
+            *reinterpret_cast<const int*>(vehicleBase + KachelOffset);
+    }
+
+    const bool changingTile =
+        writeExplicitTile &&
+        effectiveTilePointer != 0 &&
+        previousTilePointer != 0 &&
+        previousTilePointer != effectiveTilePointer;
+
+    const bool hasWorldTranslation =
+        effectiveTilePointer == 0 ||
+        TryResolveWorldTranslation(
             vehiclePointer,
             effectiveTilePointer,
             position,
             worldPosition);
+
+    // Never substitute local Kachel coordinates for render/world coordinates
+    // on an actual tile transition. If OMSI has not materialized any reliable
+    // world-space reference on the target Kachel yet, keep the old remote pose
+    // and retry on a later network frame instead of jumping by a whole tile.
+    if (changingTile && !hasWorldTranslation)
+    {
+        return FailVehicleTransform(31);
     }
 
     Vec3 previousPosition = position;
-    const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
     if (IsReadableRange(vehicleBase + PositionOffset, sizeof(Vec3)))
     {
         previousPosition =
