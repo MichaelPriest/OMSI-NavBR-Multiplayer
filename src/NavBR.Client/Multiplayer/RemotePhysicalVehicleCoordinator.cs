@@ -1119,7 +1119,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
     private static bool IsRecoverableMotionReadbackFailure(string? errorCode) =>
         string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
         string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
+        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal) ||
+        string.Equals(errorCode, "motion-world-origin-unavailable", StringComparison.Ordinal);
 
     private void ReportCommandFailureOnce(
         string playerId,
