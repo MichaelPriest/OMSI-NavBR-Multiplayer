@@ -628,7 +628,12 @@ public sealed partial class MultiplayerPage : UserControl
         }
     }
 
-    private async Task<bool> RunAsync(
+    private async Task RunAsync(
+        string command,
+        object? payload = null) =>
+        _ = await TryRunAsync(command, payload);
+
+    private async Task<bool> TryRunAsync(
         string command,
         object? payload = null)
     {
@@ -1019,7 +1024,7 @@ public sealed partial class MultiplayerPage : UserControl
                 ? VoiceProximityNumberBox.Value
                 : 120d;
 
-        var configured = await RunAsync(
+        var configured = await TryRunAsync(
             "configureVoice",
             new
             {
@@ -1112,7 +1117,7 @@ public sealed partial class MultiplayerPage : UserControl
             return;
         }
 
-        if (await RunAsync(
+        if (await TryRunAsync(
                 "sendChat",
                 new { text = textValue }))
         {
