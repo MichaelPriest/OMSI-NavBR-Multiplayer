@@ -513,6 +513,7 @@ public sealed partial class MultiplayerPage : UserControl
                 ? (JsonState.Bool(player, "isLocal") ? "VOCÊ" : "Sem crachá")
                 : $"#{employee} · {JsonState.String(badge, "companyShortName") ?? "EMPRESA"} · {JsonState.String(badge, "role") ?? "membro"}";
 
+            var isLocal = JsonState.Bool(player, "isLocal");
             var physical = JsonState.Bool(player, "physicalVehicleSpawned")
                 ? "FÍSICO"
                 : JsonState.String(player, "physicalVehicleState") ?? "—";
@@ -521,12 +522,74 @@ public sealed partial class MultiplayerPage : UserControl
                 physical += " · RP";
             }
 
+            var physicalDetailParts = new List<string>();
+            if (isLocal)
+            {
+                physicalDetailParts.Add("veículo local");
+            }
+            else
+            {
+                var partCount =
+                    JsonState.Int(player, "physicalVehiclePartCount");
+                var expectedParts =
+                    JsonState.Int(player, "physicalVehicleExpectedPartCount");
+                if (partCount is int parts || expectedParts is int)
+                {
+                    physicalDetailParts.Add(
+                        $"partes {parts}/{expectedParts ?? parts}");
+                }
+
+                var tile =
+                    JsonState.Int(player, "physicalTelemetryRemoteTileIndex");
+                var gridX =
+                    JsonState.Int(player, "physicalTelemetryGridX");
+                var gridY =
+                    JsonState.Int(player, "physicalTelemetryGridY");
+                if (tile is int tileIndex)
+                {
+                    physicalDetailParts.Add($"tile {tileIndex}");
+                }
+                if (gridX is int gx && gridY is int gy)
+                {
+                    physicalDetailParts.Add($"grid {gx},{gy}");
+                }
+
+                var telemetryAge =
+                    JsonState.Double(player, "telemetryAgeSeconds");
+                if (telemetryAge is double age)
+                {
+                    physicalDetailParts.Add(
+                        JsonState.Bool(player, "telemetryStale")
+                            ? $"tele {age:0.0}s STALE"
+                            : $"tele {age:0.0}s");
+                }
+
+                var errorCode =
+                    JsonState.String(player, "physicalVehicleErrorCode");
+                var errorMessage =
+                    JsonState.String(player, "physicalVehicleErrorMessage");
+                if (!string.IsNullOrWhiteSpace(errorCode))
+                {
+                    physicalDetailParts.Add($"erro {errorCode}");
+                }
+                else if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    physicalDetailParts.Add(
+                        errorMessage.Length > 80
+                            ? errorMessage[..80] + "…"
+                            : errorMessage);
+                }
+            }
+
             _players.Add(new NativePlayerRow(
                 JsonState.String(player, "displayName") ?? "Jogador",
                 badgeText,
                 $"{JsonState.String(player, "line") ?? "—"} / {JsonState.String(player, "route") ?? "—"}",
                 JsonState.String(player, "vehicleName") ?? "—",
                 physical,
+                physicalDetailParts.Count == 0
+                    ? "sem diagnóstico físico"
+                    : string.Join(" · ", physicalDetailParts),
                 JsonState.Double(player, "latencyMs") is double playerLatency
                     ? $"{playerLatency:0} ms"
                     : "—"));
@@ -1146,6 +1209,7 @@ public sealed record NativePlayerRow(
     string Service,
     string Vehicle,
     string PhysicalState,
+    string PhysicalDetail,
     string Latency);
 
 public sealed record NativePublicRoomRow(
