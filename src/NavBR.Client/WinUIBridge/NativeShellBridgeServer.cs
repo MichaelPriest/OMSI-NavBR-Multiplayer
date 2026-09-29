@@ -158,12 +158,21 @@ internal sealed class NativeShellBridgeServer : IAsyncDisposable
         switch (request.Kind.Trim().ToLowerInvariant())
         {
             case "ping":
+            {
+                // The pipe server comes online before the WPF runtime host has
+                // finished all synchronous startup work. A bare pipe-level ping
+                // can therefore succeed while the UI Dispatcher is still busy,
+                // causing the very next state request to time out. Treat the
+                // Dispatcher round-trip as part of readiness so WinUI only
+                // observes a ready host once state/command work can actually run.
+                await _owner.Dispatcher.InvokeAsync(static () => { });
                 return JsonSerializer.Serialize(new
                 {
                     ok = true,
                     protocol = 1,
                     runtimePid = Environment.ProcessId
                 });
+            }
 
             case "state":
             {
