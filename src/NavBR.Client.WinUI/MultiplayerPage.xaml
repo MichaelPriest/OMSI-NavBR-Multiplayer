@@ -273,6 +273,171 @@
             </Border>
 
             <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Voz"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="VoiceStatusText"
+                                       Text="Configure o canal e os dispositivos."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="VoiceEnabledToggle"
+                                      Grid.Column="1"
+                                      OffContent="Desativada"
+                                      OnContent="Ativada"
+                                      Toggled="VoiceEnabled_Toggled"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="VoiceChannelComboBox"
+                                  Header="Canal de voz">
+                            <ComboBoxItem Content="Geral" Tag="general"/>
+                            <ComboBoxItem Content="Empresa / equipe" Tag="company"/>
+                            <ComboBoxItem Content="CCO / Dispatcher" Tag="dispatch"/>
+                            <ComboBoxItem Content="Proximidade" Tag="proximity"/>
+                        </ComboBox>
+                        <NumberBox x:Name="VoiceProximityNumberBox"
+                                   Grid.Column="1"
+                                   Header="Raio de proximidade (m)"
+                                   Minimum="20"
+                                   Maximum="1000"
+                                   SmallChange="10"
+                                   Value="120"
+                                   SpinButtonPlacementMode="Compact"/>
+                        <ToggleSwitch x:Name="VoiceDeafenedToggle"
+                                      Grid.Column="2"
+                                      Header="Recepção"
+                                      OffContent="Escutando"
+                                      OnContent="Silenciada"/>
+                        <Button Grid.Column="3"
+                                VerticalAlignment="Bottom"
+                                Content="Aplicar voz"
+                                Click="ApplyVoiceSettings_Click"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="VoiceInputComboBox"
+                                  Header="Microfone"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="DeviceNumber"/>
+                        <ComboBox x:Name="VoiceOutputComboBox"
+                                  Grid.Column="1"
+                                  Header="Saída de áudio"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="DeviceNumber"/>
+                    </Grid>
+
+                    <TextBlock x:Name="VoiceQualityText"
+                               Text="Qualidade: aguardando voz."
+                               Foreground="{StaticResource NavBRMutedBrush}"
+                               TextWrapping="Wrap"/>
+
+                    <TextBlock Text="Volume por jogador"
+                               Foreground="White"
+                               FontWeight="SemiBold"/>
+                    <ListView x:Name="VoiceMixersList" Height="130">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="90"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Foreground="White"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding State}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding GainText}"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{StaticResource NavBRAccentBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <NumberBox x:Name="RemoteVoiceGainNumberBox"
+                                   Header="Ganho selecionado"
+                                   Minimum="0"
+                                   Maximum="2"
+                                   SmallChange="0.05"
+                                   Value="1"
+                                   Width="180"/>
+                        <Button Content="Aplicar ganho"
+                                VerticalAlignment="Bottom"
+                                Click="ApplyRemoteVoiceGain_Click"/>
+                        <Button Content="Alternar mute"
+                                VerticalAlignment="Bottom"
+                                Click="ToggleRemoteVoiceMute_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Chat da sala"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ListView x:Name="ChatList" Height="220">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Foreground="{StaticResource NavBRAccentBrush}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Text}"
+                                               Foreground="White"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Time}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ChatTextBox"
+                                 PlaceholderText="Mensagem para a sala"/>
+                        <Button Grid.Column="1"
+                                Content="Enviar"
+                                Click="SendChat_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Jogadores na sessão"
                                Foreground="White"
