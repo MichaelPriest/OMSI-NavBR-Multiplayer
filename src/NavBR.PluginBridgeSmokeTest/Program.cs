@@ -119,6 +119,25 @@ Require(
     !PluginBridgeProtocol.IsRecoverablePhysicalMotionError("vehicle-not-owned"),
     "ownership failures must not be classified as recoverable motion drift");
 
+var motionVectorMessage = new PluginBridgeMessage(
+    PluginBridgeProtocol.UpdateRemoteVehicle,
+    PluginBridgeProtocol.Version,
+    VelocityX: 1.25,
+    VelocityY: -0.5,
+    VelocityZ: 3.75,
+    AccelerationLocalX: 0.1,
+    AccelerationLocalY: 0.2,
+    AccelerationLocalZ: -0.3);
+var motionVectorJson = JsonSerializer.Serialize(motionVectorMessage);
+var motionVectorRoundTrip =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(motionVectorJson);
+Require(motionVectorRoundTrip?.VelocityX == 1.25, "velocity X did not round-trip");
+Require(motionVectorRoundTrip?.VelocityY == -0.5, "velocity Y did not round-trip");
+Require(motionVectorRoundTrip?.VelocityZ == 3.75, "velocity Z did not round-trip");
+Require(motionVectorRoundTrip?.AccelerationLocalX == 0.1, "Acc_Local X did not round-trip");
+Require(motionVectorRoundTrip?.AccelerationLocalY == 0.2, "Acc_Local Y did not round-trip");
+Require(motionVectorRoundTrip?.AccelerationLocalZ == -0.3, "Acc_Local Z did not round-trip");
+
 var spoofedStatus = pluginStatus with
 {
     ProcessId = 9999,

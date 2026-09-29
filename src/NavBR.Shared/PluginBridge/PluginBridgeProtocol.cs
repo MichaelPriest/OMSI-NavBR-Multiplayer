@@ -172,4 +172,10 @@ public sealed record PluginBridgeMessage(
     double? PluginLastFrameIntervalMilliseconds = null,
     double? PluginPeakFrameIntervalMilliseconds = null,
     long? PluginFrameStallCount = null,
-    string? PerformanceProfile = null);
+    string? PerformanceProfile = null,
+    double? VelocityX = null,
+    double? VelocityY = null,
+    double? VelocityZ = null,
+    double? AccelerationLocalX = null,
+    double? AccelerationLocalY = null,
+    double? AccelerationLocalZ = null);

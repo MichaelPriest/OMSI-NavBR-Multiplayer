@@ -49,7 +49,13 @@ public sealed record VehicleTelemetry(
     bool StopRequested = false,
     int? MapTileIndex = null,
     int? PhysicalGridX = null,
-    int? PhysicalGridY = null);
+    int? PhysicalGridY = null,
+    double? VelocityX = null,
+    double? VelocityY = null,
+    double? VelocityZ = null,
+    double? AccelerationLocalX = null,
+    double? AccelerationLocalY = null,
+    double? AccelerationLocalZ = null);
 
 [Flags]
 public enum VehicleDoorFlags

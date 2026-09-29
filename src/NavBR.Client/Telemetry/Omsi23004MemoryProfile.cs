@@ -58,6 +58,8 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleVelocityOffset = 0x174;
     public const int VehicleTurnVelocityOffset = 0x1C0;
     public const int VehicleLocalVelocityOffset = 0x1CC;
+    // OmsiRoadVehicleInst.Acc_Local, confirmed against OmsiHook.
+    public const int VehicleAccelerationLocalOffset = 0x72D;
 
     public const int MovingVehicleIndexOffset = 0x258;
     public const int MovingVehicleUserTrainOffset = 0x26C;

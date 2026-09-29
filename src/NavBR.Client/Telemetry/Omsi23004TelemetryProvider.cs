@@ -516,6 +516,30 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 vehicleAddress,
                 Omsi23004MemoryProfile.VehicleVelocityOffset));
 
+            double? accelerationLocalX = null;
+            double? accelerationLocalY = null;
+            double? accelerationLocalZ = null;
+            try
+            {
+                var accelerationLocal = memory.ReadVector3(nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleAccelerationLocalOffset));
+                if (float.IsFinite(accelerationLocal.X) &&
+                    float.IsFinite(accelerationLocal.Y) &&
+                    float.IsFinite(accelerationLocal.Z))
+                {
+                    accelerationLocalX = accelerationLocal.X;
+                    accelerationLocalY = accelerationLocal.Y;
+                    accelerationLocalZ = accelerationLocal.Z;
+                }
+            }
+            catch
+            {
+                // Optional motion detail. The primary telemetry frame remains
+                // valid if Acc_Local is temporarily unreadable during OMSI
+                // vehicle materialization or a Kachel transition.
+            }
+
             var linearSpeedMps = Math.Sqrt(
                 velocity.X * velocity.X +
                 velocity.Y * velocity.Y +
@@ -650,7 +674,13 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 RotationW: physicalPoseCoherent ? rotation.W : null,
                 MapTileIndex: mapTileIndex,
                 PhysicalGridX: physicalGridX,
-                PhysicalGridY: physicalGridY);
+                PhysicalGridY: physicalGridY,
+                VelocityX: float.IsFinite(velocity.X) ? velocity.X : null,
+                VelocityY: float.IsFinite(velocity.Y) ? velocity.Y : null,
+                VelocityZ: float.IsFinite(velocity.Z) ? velocity.Z : null,
+                AccelerationLocalX: accelerationLocalX,
+                AccelerationLocalY: accelerationLocalY,
+                AccelerationLocalZ: accelerationLocalZ);
         }
         catch (ArgumentException)
         {
