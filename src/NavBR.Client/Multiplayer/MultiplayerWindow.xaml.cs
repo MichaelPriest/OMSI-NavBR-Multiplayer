@@ -471,9 +471,15 @@ public partial class MultiplayerWindow : Window
             return true;
         }
 
-        var dx = current.LocalX - previous.LocalX;
-        var dy = current.LocalY - previous.LocalY;
-        var dz = current.LocalZ - previous.LocalZ;
+        var currentX = current.LocalX ?? current.X;
+        var currentY = current.LocalY ?? current.Y;
+        var currentZ = current.LocalZ ?? current.Z;
+        var previousX = previous.LocalX ?? previous.X;
+        var previousY = previous.LocalY ?? previous.Y;
+        var previousZ = previous.LocalZ ?? previous.Z;
+        var dx = currentX - previousX;
+        var dy = currentY - previousY;
+        var dz = currentZ - previousZ;
         if (double.IsFinite(dx) &&
             double.IsFinite(dy) &&
             double.IsFinite(dz) &&
