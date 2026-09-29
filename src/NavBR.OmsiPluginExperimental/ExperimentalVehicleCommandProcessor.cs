@@ -689,58 +689,86 @@ internal static class PhysicalVehicleBackend
                 $"The OMSI vehicle instance is no longer safe to own: {unsafeReason}.");
         }
 
-        var flags = OmsiNativeInterop.GetRoadVehicleMaterializationFlags(
-            instance.VehiclePointer);
-        var flagsReady =
-            (flags & RequiredMaterializationFlags) ==
-            RequiredMaterializationFlags;
-        var hasRenderDiagnostics =
-            OmsiNativeInterop.TryReadRoadVehicleRenderDiagnostics(
-                instance.VehiclePointer,
-                out var render);
-        var renderReady =
-            hasRenderDiagnostics &&
-            render.VisibleLogical == 1 &&
-            render.VisibleLogicalRenderThread == 1 &&
-            render.RoadVehicleDefinitionPointer != 0 &&
-            render.ComplObjPointer != 0 &&
-            render.ComplObjVisible == 1 &&
-            render.ComplObjRenderMe == 1 &&
-            render.ModelStringPointer != 0 &&
-            render.KachelPointer != 0 &&
-            float.IsFinite(render.RenderX) &&
-            float.IsFinite(render.RenderY) &&
-            float.IsFinite(render.RenderZ);
+        var pendingParts = new List<string>();
+        foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
+        {
+            if (!IsSafeOwnedPointer(
+                    instance,
+                    vehiclePointer,
+                    out var partUnsafeReason))
+            {
+                pendingParts.Add(
+                    $"{FormatPointer(vehiclePointer)}:unsafe={partUnsafeReason}");
+                continue;
+            }
 
-        if (flagsReady && renderReady)
+            var flags =
+                OmsiNativeInterop.GetRoadVehicleMaterializationFlags(
+                    vehiclePointer);
+            var flagsReady =
+                (flags & RequiredMaterializationFlags) ==
+                RequiredMaterializationFlags;
+            var hasRenderDiagnostics =
+                OmsiNativeInterop.TryReadRoadVehicleRenderDiagnostics(
+                    vehiclePointer,
+                    out var render);
+            var renderReady =
+                hasRenderDiagnostics &&
+                render.VisibleLogical == 1 &&
+                render.VisibleLogicalRenderThread == 1 &&
+                render.RoadVehicleDefinitionPointer != 0 &&
+                render.ComplObjPointer != 0 &&
+                render.ComplObjVisible == 1 &&
+                render.ComplObjRenderMe == 1 &&
+                render.ModelStringPointer != 0 &&
+                render.KachelPointer != 0 &&
+                float.IsFinite(render.RenderX) &&
+                float.IsFinite(render.RenderY) &&
+                float.IsFinite(render.RenderZ);
+
+            if (!flagsReady || !renderReady)
+            {
+                var renderSummary = hasRenderDiagnostics
+                    ? DescribeRenderDiagnostics(render)
+                    : "render-diagnostics-unavailable";
+                pendingParts.Add(
+                    $"{FormatPointer(vehiclePointer)}:flags=0x{flags:X2}[{DescribeMaterializationFlags(flags)}],{renderSummary}");
+            }
+        }
+
+        if (pendingParts.Count == 0)
         {
             PluginLogWriter.Enqueue(
-                $"physical-render-confirm id={instance.InstanceId} pointer={FormatPointer(instance.VehiclePointer)} hostVehiclePointer={FormatPointer(OmsiNativeInterop.GetPlayerVehiclePointer())} vehiclePath={instance.VehiclePath} definition={FormatPointer(render.RoadVehicleDefinitionPointer)} complObj={FormatPointer(render.ComplObjPointer)} complObjVisible={render.ComplObjVisible} complObjRenderMe={render.ComplObjRenderMe} model={FormatPointer(render.ModelStringPointer)} kachelPtr={FormatPointer(render.KachelPointer)} kachel={render.MapTileIndex} visibleLogical={render.VisibleLogical} visibleRenderThread={render.VisibleLogicalRenderThread} matrix=({render.RenderX:F2},{render.RenderY:F2},{render.RenderZ:F2}) hostDistance={(render.HostDistance >= 0f ? render.HostDistance.ToString("F2") : "n/a")}");
+                $"physical-render-confirm id={instance.InstanceId} primary={FormatPointer(instance.VehiclePointer)} parts={FormatPointerList(instance.GetOwnedVehiclePointers())} partCount={instance.PartCount} hostVehiclePointer={FormatPointer(OmsiNativeInterop.GetPlayerVehiclePointer())} vehiclePath={instance.VehiclePath}");
             return null;
         }
 
         var age = DateTimeOffset.UtcNow - instance.CreatedAtUtc;
-        var renderSummary = hasRenderDiagnostics
-            ? DescribeRenderDiagnostics(render)
-            : "render-diagnostics-unavailable";
+        var pendingSummary = string.Join(" | ", pendingParts);
         if (age >= MaterializationTimeout)
         {
             PhysicalVehicleMotionController.Remove(instance.InstanceId);
             PhysicalVehicleInstanceRegistry.TryRemove(instance.InstanceId, out _);
-            if (IsSafeOwnedPointer(instance, out _))
+            foreach (var vehiclePointer in instance.GetOwnedVehiclePointers())
             {
-                _ = OmsiNativeInterop.MarkVehicleForKilling(instance.VehiclePointer);
+                if (IsSafeOwnedPointer(instance, vehiclePointer, out _))
+                {
+                    _ = OmsiNativeInterop.MarkVehicleForKilling(vehiclePointer);
+                }
             }
+
             return Fail(
                 command,
                 "spawn-model-timeout",
-                $"OMSI kept RoadVehicle 0x{instance.VehiclePointer:X8} alive for {age.TotalSeconds:F1}s, but visual materialization was not confirmed (flags=0x{flags:X2} [{DescribeMaterializationFlags(flags)}], required=0x{RequiredMaterializationFlags:X2}, {renderSummary}).");
+                $"OMSI kept the {instance.PartCount}-part RoadVehicle consist alive for {age.TotalSeconds:F1}s, but visual materialization was not confirmed ({pendingSummary}).",
+                remoteVehicleCount: instance.PartCount);
         }
 
         return Fail(
             command,
             "spawn-model-pending",
-            $"OMSI created and positioned RoadVehicle 0x{instance.VehiclePointer:X8}; visual materialization is still pending (flags=0x{flags:X2} [{DescribeMaterializationFlags(flags)}], required=0x{RequiredMaterializationFlags:X2}, {renderSummary}, age={age.TotalMilliseconds:F0}ms).");
+            $"OMSI created the {instance.PartCount}-part RoadVehicle consist; visual materialization is still pending ({pendingSummary}, age={age.TotalMilliseconds:F0}ms).",
+            remoteVehicleCount: instance.PartCount);
     }
 
     private static bool IsTransientPostSpawnFailure(
