@@ -1286,6 +1286,53 @@ namespace
         return true;
     }
 
+    bool IsPreferredWorldOriginReference(
+        int vehiclePointer,
+        int targetTilePointer)
+    {
+        if (vehiclePointer <= 0)
+        {
+            return false;
+        }
+
+        const auto base =
+            static_cast<std::uintptr_t>(vehiclePointer);
+        if (!IsReadableRange(base + KachelOffset, sizeof(int)) ||
+            !IsReadableRange(base + MarkedForKillingOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + VisibleLogicalOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + RoadVehicleOnLoadedKachelOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + PaiOffset, sizeof(unsigned char)))
+        {
+            return false;
+        }
+
+        const int tilePointer =
+            *reinterpret_cast<const int*>(base + KachelOffset);
+        const auto marked =
+            *reinterpret_cast<const unsigned char*>(
+                base + MarkedForKillingOffset);
+        const auto visible =
+            *reinterpret_cast<const unsigned char*>(
+                base + VisibleLogicalOffset);
+        const auto loadedTile =
+            *reinterpret_cast<const unsigned char*>(
+                base + RoadVehicleOnLoadedKachelOffset);
+        const auto pai =
+            *reinterpret_cast<const unsigned char*>(
+                base + PaiOffset);
+
+        // NavBR-owned physical buses deliberately force PAI=0. Prefer a
+        // healthy OMSI-controlled RoadVehicle when deriving a new Kachel
+        // world origin so one remote bus cannot propagate a stale render
+        // matrix into another. We still retain a second-pass fallback below
+        // for sparse maps where no native AI happens to occupy the tile.
+        return tilePointer == targetTilePointer &&
+               marked == 0 &&
+               visible != 0 &&
+               loadedTile != 0 &&
+               pai != 0;
+    }
+
     bool TryResolveWorldTranslation(
         int objectPointer,
         int targetTilePointer,
@@ -1331,6 +1378,38 @@ namespace
             return false;
         }
 
+        // First pass: prefer an OMSI-controlled RoadVehicle with a live AI
+        // state. NavBR physical buses intentionally force PAI=0 and therefore
+        // will not bootstrap one another while a native reference is available.
+        for (int index = 0; index < count; ++index)
+        {
+            const int candidate =
+                *reinterpret_cast<const int*>(
+                    static_cast<std::uintptr_t>(items) +
+                    static_cast<std::uintptr_t>(index) * sizeof(int));
+            if (candidate == 0 ||
+                candidate == objectPointer ||
+                candidate == playerVehicle ||
+                !IsPreferredWorldOriginReference(
+                    candidate,
+                    targetTilePointer))
+            {
+                continue;
+            }
+
+            if (TryResolveWorldTranslationFromRoadVehicle(
+                    candidate,
+                    targetTilePointer,
+                    targetPosition,
+                    worldPosition))
+            {
+                return true;
+            }
+        }
+
+        // Sparse maps can legitimately have no native AI on the target tile.
+        // Preserve the previous guarded fallback in that case rather than
+        // inventing a tile-size formula that would break real-coordinate maps.
         for (int index = 0; index < count; ++index)
         {
             const int candidate =
