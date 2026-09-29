@@ -545,21 +545,18 @@ public sealed class Omsi23004TelemetryProvider : ITelemetryProvider
                 memory,
                 nint.Add(vehicleAddress, Omsi23004MemoryProfile.VehicleFuelPercentOffset));
             var visualState = TryReadVehicleVisualState(memory, vehicleAddress);
+            int? mapTileIndex = null;
+            var vehicleGridX = 0;
+            var vehicleGridY = 0;
             var hasPhysicalGrid =
                 physicalPoseCoherent &&
                 TryReadVehicleTileStateCached(
                     memory,
                     vehicleAddress,
                     physicalPoseTilePointer,
-                    out var mapTileIndex,
-                    out var vehicleGridX,
-                    out var vehicleGridY);
-            if (!physicalPoseCoherent)
-            {
-                mapTileIndex = null;
-                vehicleGridX = 0;
-                vehicleGridY = 0;
-            }
+                    out mapTileIndex,
+                    out vehicleGridX,
+                    out vehicleGridY);
 
             int? gridX = null;
             int? gridY = null;
