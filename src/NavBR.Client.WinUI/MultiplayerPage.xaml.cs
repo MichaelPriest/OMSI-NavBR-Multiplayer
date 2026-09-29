@@ -487,6 +487,30 @@ public sealed partial class MultiplayerPage : UserControl
             new { serverUrl = ServerTextBox.Text.Trim() });
     }
 
+    private async void TogglePublicRoomFavorite_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (PublicRoomsList.SelectedItem is not NativePublicRoomRow room)
+        {
+            NoticeBar.Message = "Selecione uma sala pública primeiro.";
+            NoticeBar.Severity = InfoBarSeverity.Warning;
+            NoticeBar.IsOpen = true;
+            return;
+        }
+
+        await RunAsync(
+            "toggleRoomFavorite",
+            new { roomId = room.RoomId });
+
+        if (!string.IsNullOrWhiteSpace(_publicRoomServerUrl))
+        {
+            await RunAsync(
+                "refreshPublicRooms",
+                new { serverUrl = _publicRoomServerUrl });
+        }
+    }
+
     private async void JoinPublicRoom_Click(
         object sender,
         RoutedEventArgs e)
