@@ -12,6 +12,8 @@ public partial class MultiplayerWindow
             connected = _client.IsConnected,
             connectionState = _client.State.ToString(),
             serverUrl = _settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = _settings.RelayServerUrl,
             roomId = _settings.RoomId,
             displayName = _settings.DisplayName,
             playerCount = _players.Count
@@ -181,6 +183,8 @@ public partial class MultiplayerWindow
             connected = _client.IsConnected,
             connectionState = _client.State.ToString(),
             serverUrl = _settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = _settings.RelayServerUrl,
             roomId = _settings.RoomId,
             displayName = _settings.DisplayName,
             hostRunning = _host.IsRunning,
