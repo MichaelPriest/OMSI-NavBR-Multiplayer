@@ -20,24 +20,72 @@
                                Foreground="{StaticResource NavBRMutedBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="ConnectButton" Content="Conectar" Click="Connect_Click"/>
-                    <Button x:Name="DisconnectButton" Content="Desconectar" Click="Disconnect_Click"/>
+                    <Button x:Name="ConnectButton"
+                            Content="Executar"
+                            Click="Connect_Click"/>
+                    <Button x:Name="StopHostButton"
+                            Content="Parar hospedagem"
+                            Visibility="Collapsed"
+                            Click="StopHost_Click"/>
+                    <Button x:Name="DisconnectButton"
+                            Content="Desconectar"
+                            Click="Disconnect_Click"/>
                 </StackPanel>
             </Grid>
 
             <Border Style="{StaticResource MetricCardStyle}">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="ServerTextBox" Header="Servidor"/>
-                    <TextBox x:Name="RoomTextBox" Grid.Column="1" Header="Sala"/>
-                    <TextBox x:Name="DisplayNameTextBox" Grid.Column="2" Header="Nome"/>
-                    <PasswordBox x:Name="PasswordTextBox" Grid.Column="3" Header="Senha da sala"/>
-                </Grid>
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Modo de conexão"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.15*"/>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox x:Name="ConnectionModeComboBox"
+                                  Header="Modo"
+                                  SelectionChanged="ConnectionMode_SelectionChanged">
+                            <ComboBoxItem Content="Entrar em servidor / sala" Tag="join-server"/>
+                            <ComboBoxItem Content="Criar sala online (Servidor NavBR)" Tag="create-online"/>
+                            <ComboBoxItem Content="Hospedar na LAN" Tag="lan-host"/>
+                            <ComboBoxItem Content="Hospedar pela Internet (UPnP)" Tag="internet-host"/>
+                            <ComboBoxItem Content="Hospedar via Relay" Tag="relay-host"/>
+                        </ComboBox>
+
+                        <TextBox x:Name="ServerTextBox"
+                                 Grid.Column="1"
+                                 Header="Servidor / Relay"/>
+                        <TextBox x:Name="RoomTextBox"
+                                 Grid.Column="2"
+                                 Header="Sala"/>
+                        <TextBox x:Name="DisplayNameTextBox"
+                                 Grid.Column="3"
+                                 Header="Nome"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox x:Name="PrivateRoomCheckBox"
+                                  Content="Sala privada"/>
+                        <PasswordBox x:Name="PasswordTextBox"
+                                     Grid.Column="1"
+                                     Header="Senha da sala"/>
+                        <TextBlock x:Name="ModeDetailText"
+                                   Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource NavBRMutedBrush}"/>
+                    </Grid>
+                </StackPanel>
             </Border>
 
             <Grid ColumnSpacing="10">
@@ -48,13 +96,34 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource MetricCardStyle}">
-                    <StackPanel><TextBlock Text="ESTADO" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="ConnectionText" Text="OFFLINE" Foreground="White" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="ESTADO" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="ConnectionText"
+                                   Text="OFFLINE"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
-                    <StackPanel><TextBlock Text="JOGADORES" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="PlayerCountText" Text="0" Foreground="White" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="JOGADORES" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="PlayerCountText"
+                                   Text="0"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
-                    <StackPanel><TextBlock Text="REDE" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="NetworkText" Text="—" Foreground="White" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="REDE" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="NetworkText"
+                                   Text="—"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
                 </Border>
                 <Border Grid.Column="3" Style="{StaticResource MetricCardStyle}">
                     <StackPanel>
@@ -69,7 +138,83 @@
 
             <Border Style="{StaticResource MetricCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Jogadores na sessão" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="Hospedagem / convite"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <TextBlock x:Name="HostStatusText"
+                               Text="Nenhuma hospedagem local ativa."
+                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                    <TextBlock x:Name="InviteText"
+                               Text="—"
+                               TextWrapping="Wrap"
+                               Foreground="White"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Salas públicas"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PublicRoomStatusText"
+                                       Text="Use Atualizar para consultar o servidor selecionado."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Atualizar"
+                                Margin="0,0,8,0"
+                                Click="RefreshPublicRooms_Click"/>
+                        <Button Grid.Column="2"
+                                Content="Entrar na selecionada"
+                                Click="JoinPublicRoom_Click"/>
+                    </Grid>
+
+                    <ListView x:Name="PublicRoomsList" Height="180">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,7" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.4*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="1.6*"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding RoomId}"
+                                               Foreground="White"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Players}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding MapName}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Favorite}"
+                                               Foreground="{StaticResource NavBRAccentBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Jogadores na sessão"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
                     <ListView x:Name="PlayersList" Height="360">
                         <ListView.ItemTemplate>
                             <DataTemplate>
@@ -82,13 +227,27 @@
                                         <ColumnDefinition Width="90"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding DisplayName}" Foreground="White" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding Badge}" Foreground="{StaticResource NavBRAccentBrush}" FontSize="11"/>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Badge}"
+                                                   Foreground="{StaticResource NavBRAccentBrush}"
+                                                   FontSize="11"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding Service}" Foreground="{StaticResource NavBRMutedBrush}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Vehicle}" Foreground="{StaticResource NavBRMutedBrush}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding PhysicalState}" Foreground="{StaticResource NavBRMutedBrush}"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding Latency}" Foreground="White" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Service}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Vehicle}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding PhysicalState}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding Latency}"
+                                               Foreground="White"
+                                               HorizontalAlignment="Right"/>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
