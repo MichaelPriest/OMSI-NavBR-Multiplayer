@@ -1597,7 +1597,87 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 23;
+    return 24;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleMotionDiagnostics(
+    int vehiclePointer,
+    float* physicsVelocityX,
+    float* physicsVelocityY,
+    float* physicsVelocityZ,
+    float* lastVelocityX,
+    float* lastVelocityY,
+    float* lastVelocityZ,
+    float* accelerationLocalX,
+    float* accelerationLocalY,
+    float* accelerationLocalZ,
+    float* groundSpeed,
+    float* tacho)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        physicsVelocityX == nullptr ||
+        physicsVelocityY == nullptr ||
+        physicsVelocityZ == nullptr ||
+        lastVelocityX == nullptr ||
+        lastVelocityY == nullptr ||
+        lastVelocityZ == nullptr ||
+        accelerationLocalX == nullptr ||
+        accelerationLocalY == nullptr ||
+        accelerationLocalZ == nullptr ||
+        groundSpeed == nullptr ||
+        tacho == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + PhysicsVelocityOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + RoadVehicleLastVelocityOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + RoadVehicleAccelerationLocalOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + GroundspeedOffset, sizeof(float)) ||
+        !IsReadableRange(base + TachoOffset, sizeof(float)))
+    {
+        return 0;
+    }
+
+    const auto physicsVelocity =
+        *reinterpret_cast<const Vec3*>(base + PhysicsVelocityOffset);
+    const auto lastVelocity =
+        *reinterpret_cast<const Vec3*>(base + RoadVehicleLastVelocityOffset);
+    const auto accelerationLocal =
+        *reinterpret_cast<const Vec3*>(base + RoadVehicleAccelerationLocalOffset);
+    const float readGroundSpeed =
+        *reinterpret_cast<const float*>(base + GroundspeedOffset);
+    const float readTacho =
+        *reinterpret_cast<const float*>(base + TachoOffset);
+
+    if (!std::isfinite(physicsVelocity.x) ||
+        !std::isfinite(physicsVelocity.y) ||
+        !std::isfinite(physicsVelocity.z) ||
+        !std::isfinite(lastVelocity.x) ||
+        !std::isfinite(lastVelocity.y) ||
+        !std::isfinite(lastVelocity.z) ||
+        !std::isfinite(accelerationLocal.x) ||
+        !std::isfinite(accelerationLocal.y) ||
+        !std::isfinite(accelerationLocal.z) ||
+        !std::isfinite(readGroundSpeed) ||
+        !std::isfinite(readTacho))
+    {
+        return 0;
+    }
+
+    *physicsVelocityX = physicsVelocity.x;
+    *physicsVelocityY = physicsVelocity.y;
+    *physicsVelocityZ = physicsVelocity.z;
+    *lastVelocityX = lastVelocity.x;
+    *lastVelocityY = lastVelocity.y;
+    *lastVelocityZ = lastVelocity.z;
+    *accelerationLocalX = accelerationLocal.x;
+    *accelerationLocalY = accelerationLocal.y;
+    *accelerationLocalZ = accelerationLocal.z;
+    *groundSpeed = readGroundSpeed;
+    *tacho = readTacho;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
