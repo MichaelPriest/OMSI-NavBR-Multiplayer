@@ -13,12 +13,25 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 23;
+    private const int ExpectedStateInteropVersion = 24;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
     private static readonly object ShimLoadSync = new();
     private static nint _shimHandle;
+
+    internal readonly record struct RoadVehicleMotionDiagnostics(
+        float PhysicsVelocityX,
+        float PhysicsVelocityY,
+        float PhysicsVelocityZ,
+        float LastVelocityX,
+        float LastVelocityY,
+        float LastVelocityZ,
+        float AccelerationLocalX,
+        float AccelerationLocalY,
+        float AccelerationLocalZ,
+        float GroundSpeed,
+        float Tacho);
 
     public static bool IsCandidateOmsi23004Runtime
     {
@@ -762,6 +775,74 @@ internal static class OmsiNativeInterop
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetLastVehiclePhysicsSyncStatus")]
     internal static extern int GetLastVehiclePhysicsSyncStatus();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleMotionDiagnostics")]
+    private static extern int ReadRoadVehicleMotionDiagnostics(
+        int vehiclePointer,
+        out float physicsVelocityX,
+        out float physicsVelocityY,
+        out float physicsVelocityZ,
+        out float lastVelocityX,
+        out float lastVelocityY,
+        out float lastVelocityZ,
+        out float accelerationLocalX,
+        out float accelerationLocalY,
+        out float accelerationLocalZ,
+        out float groundSpeed,
+        out float tacho);
+
+    internal static bool TryReadRoadVehicleMotionDiagnostics(
+        int vehiclePointer,
+        out RoadVehicleMotionDiagnostics diagnostics)
+    {
+        diagnostics = default;
+        try
+        {
+            var result = ReadRoadVehicleMotionDiagnostics(
+                vehiclePointer,
+                out var physicsVelocityX,
+                out var physicsVelocityY,
+                out var physicsVelocityZ,
+                out var lastVelocityX,
+                out var lastVelocityY,
+                out var lastVelocityZ,
+                out var accelerationLocalX,
+                out var accelerationLocalY,
+                out var accelerationLocalZ,
+                out var groundSpeed,
+                out var tacho);
+            if (result != 1)
+            {
+                return false;
+            }
+
+            diagnostics = new RoadVehicleMotionDiagnostics(
+                physicsVelocityX,
+                physicsVelocityY,
+                physicsVelocityZ,
+                lastVelocityX,
+                lastVelocityY,
+                lastVelocityZ,
+                accelerationLocalX,
+                accelerationLocalY,
+                accelerationLocalZ,
+                groundSpeed,
+                tacho);
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePhysicsBodyPosition")]
     private static extern int ReadRoadVehiclePhysicsBodyPosition(
