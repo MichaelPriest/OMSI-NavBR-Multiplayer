@@ -174,6 +174,8 @@ public sealed record PluginBridgeMessage(
     double? PluginPeakFrameIntervalMilliseconds = null,
     long? PluginFrameStallCount = null,
     string? PerformanceProfile = null,
+    int? PhysicalGridX = null,
+    int? PhysicalGridY = null,
     double? VelocityX = null,
     double? VelocityY = null,
     double? VelocityZ = null,

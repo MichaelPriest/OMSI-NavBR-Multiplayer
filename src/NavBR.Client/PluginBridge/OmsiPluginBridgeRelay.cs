@@ -311,6 +311,8 @@ public static class OmsiPluginBridgeRelay
             RotationZ: telemetry.RotationZ,
             RotationW: telemetry.RotationW,
             MapTileIndex: telemetry.MapTileIndex,
+            PhysicalGridX: telemetry.PhysicalGridX,
+            PhysicalGridY: telemetry.PhysicalGridY,
             VelocityX: telemetry.VelocityX,
             VelocityY: telemetry.VelocityY,
             VelocityZ: telemetry.VelocityZ,

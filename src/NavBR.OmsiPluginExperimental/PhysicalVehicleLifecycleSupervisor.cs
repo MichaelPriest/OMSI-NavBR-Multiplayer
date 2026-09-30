@@ -102,7 +102,30 @@ internal static class PhysicalVehicleLifecycleSupervisor
                 return;
             }
 
-            entry.DesiredSpawn = normalized;
+            // RemoteVehicleState is a high-rate mirror of the server payload.
+            // Its legacy GridX/GridY fields belong to navigation and must never
+            // replace the Kachel-coherent physical grid that the desktop
+            // coordinator already admitted. Prefer explicit PhysicalGridX/Y;
+            // when an older payload omits them, preserve the previously
+            // approved physical grid and articulated section poses.
+            var physicalGridX =
+                normalized.PhysicalGridX ??
+                entry.DesiredSpawn.GridX;
+            var physicalGridY =
+                normalized.PhysicalGridY ??
+                entry.DesiredSpawn.GridY;
+            var physicalSections =
+                normalized.RearSections ??
+                entry.DesiredSpawn.RearSections;
+
+            entry.DesiredSpawn = normalized with
+            {
+                GridX = physicalGridX,
+                GridY = physicalGridY,
+                MapTileIndex = null,
+                RearSections = physicalSections
+            };
+            normalized = entry.DesiredSpawn;
             entry.LastIntentTickMs = now;
             entry.ObservedTargetCount++;
             entry.TargetRateWindowStartedTickMs =
