@@ -711,7 +711,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 $"physical-vehicle-path-recovered player={playerId} path={localVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)}");
         }
 
-        var updateInterval = ResolvePhysicalUpdateInterval(currentDistanceMeters);
+        var updateInterval = ResolvePhysicalUpdateInterval(frame.Telemetry);
         if (_lastPhysicalUpdateAtByPlayer.TryGetValue(
                 playerId,
                 out var lastPhysicalUpdateAt) &&
@@ -1122,19 +1122,34 @@ internal sealed class RemotePhysicalVehicleCoordinator
     }
 
     private static TimeSpan ResolvePhysicalUpdateInterval(
-        double? distanceMeters)
+        VehicleTelemetry telemetry)
     {
-        if (distanceMeters is not double distance || !double.IsFinite(distance))
+        // Keep physical update cadence tied to whether the remote vehicle is
+        // actually moving, not to camera distance. A bus at the edge of the
+        // physical spawn radius still needs enough sender samples to cross
+        // Kacheln and articulate smoothly. This mirrors openOMSI's 20 Hz
+        // active / 5 Hz idle transport behavior while the existing network and
+        // plugin pressure governors remain free to back off upstream.
+        var active =
+            Math.Abs(telemetry.SpeedKph) > 0.35d ||
+            HasMeaningfulVelocity(telemetry);
+
+        return TimeSpan.FromMilliseconds(active ? 50d : 200d);
+    }
+
+    private static bool HasMeaningfulVelocity(VehicleTelemetry telemetry)
+    {
+        if (telemetry.VelocityX is not double vx ||
+            telemetry.VelocityY is not double vy ||
+            telemetry.VelocityZ is not double vz ||
+            !double.IsFinite(vx) ||
+            !double.IsFinite(vy) ||
+            !double.IsFinite(vz))
         {
-            return TimeSpan.FromMilliseconds(100);
+            return false;
         }
 
-        return distance switch
-        {
-            <= 150d => TimeSpan.FromMilliseconds(50),
-            <= 350d => TimeSpan.FromMilliseconds(100),
-            _ => TimeSpan.FromMilliseconds(200)
-        };
+        return vx * vx + vy * vy + vz * vz > 0.01d;
     }
 
     private static bool IsTileAvailabilityError(string? errorCode) =>
