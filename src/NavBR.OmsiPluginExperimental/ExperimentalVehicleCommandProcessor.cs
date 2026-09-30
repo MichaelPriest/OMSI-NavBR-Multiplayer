@@ -28,6 +28,7 @@ internal static class ExperimentalVehicleCommandProcessor
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleVisualState);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleInterpolation);
             capabilities.Add(PluginBridgeProtocol.CapabilityVehicleTileSync);
+            capabilities.Add(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25);
         }
 
         if (LocalVehicleCommandProcessor.IsRuntimeSupported)

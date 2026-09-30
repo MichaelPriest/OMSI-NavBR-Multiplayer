@@ -44,6 +44,11 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
     public const string CapabilityVehicleTileSync = "vehicle-tile-sync";
+    // Capability marker for the physical-grid/world-pose multiplayer path
+    // introduced with state interop 25. Requiring this on the desktop makes a
+    // stale OMSI-loaded plugin fail closed instead of pretending that the
+    // legacy vehicle-spawn/transform implementation is compatible.
+    public const string CapabilityPhysicalMultiplayerV25 = "physical-multiplayer-v25";
     public const string CapabilityTimetableState = "timetable-state";
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";

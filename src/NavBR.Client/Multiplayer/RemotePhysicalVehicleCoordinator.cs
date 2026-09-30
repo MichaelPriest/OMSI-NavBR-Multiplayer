@@ -92,7 +92,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
             }
 
             return app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleSpawn) &&
-                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleTransform);
+                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleTransform) &&
+                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25);
         }
     }
 
@@ -1264,7 +1265,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 "The OMSI x86 plugin is not connected. If NavBR was updated while OMSI was open, close OMSI, restart NavBR so the plugin DLL can be replaced, then start OMSI again.");
         }
 
-        var missing = new List<string>(2);
+        var missing = new List<string>(3);
         if (!app.PluginBridge.SupportsCapability(
                 PluginBridgeProtocol.CapabilityVehicleSpawn))
         {
@@ -1277,11 +1278,17 @@ internal sealed class RemotePhysicalVehicleCoordinator
             missing.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
         }
 
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25);
+        }
+
         if (missing.Count > 0)
         {
             return (
                 "plugin-capability-missing",
-                $"Connected OMSI plugin is missing required capability/capabilities: {string.Join(", ", missing)}. The loaded plugin may be older than the desktop build; update it with OMSI closed.");
+                $"Connected OMSI plugin is missing required capability/capabilities: {string.Join(", ", missing)}. This build requires the state-interop-25 physical multiplayer path. Close OMSI completely, restart/install NavBR so the plugin DLL can be replaced, then start OMSI again.");
         }
 
         return (
