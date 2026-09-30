@@ -16,21 +16,21 @@ var normalizeVehiclePath = identityReaderType.GetMethod(
 
 var splitOmsiIdentity = (string?)normalizeVehiclePath.Invoke(
     null,
-    [@"C:\\Program Files (x86)\\OMSI 2", "MAN_EN92_main.bus", @"Vehicles\\MAN_NL_NG"]);
+    [@"C:\Program Files (x86)\OMSI 2", "MAN_EN92_main.bus", @"Vehicles\MAN_NL_NG"]);
 Require(
     string.Equals(
         splitOmsiIdentity,
-        @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus",
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
         StringComparison.OrdinalIgnoreCase),
     "split OMSI MyPath + Obj vehicle identity was not normalized");
 
 var completeOmsiIdentity = (string?)normalizeVehiclePath.Invoke(
     null,
-    [@"C:\\Program Files (x86)\\OMSI 2", @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus", @"Vehicles\\MAN_NL_NG"]);
+    [@"C:\Program Files (x86)\OMSI 2", @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus", @"Vehicles\MAN_NL_NG"]);
 Require(
     string.Equals(
         completeOmsiIdentity,
-        @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus",
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
         StringComparison.OrdinalIgnoreCase),
     "complete OMSI vehicle identity path regressed");
 
