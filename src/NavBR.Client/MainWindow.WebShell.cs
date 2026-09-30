@@ -153,6 +153,7 @@ public partial class MainWindow
             string.Equals(scope, target, StringComparison.OrdinalIgnoreCase);
 
         var includeNavigation = IncludeScope("navigation");
+        var includeGhost = IncludeScope("ghost");
         var includeOperations = IncludeScope("cco");
         var includeHardware = IncludeScope("hardware");
         var includeNetwork =
@@ -294,7 +295,7 @@ public partial class MainWindow
             roadmapStudio = fullSnapshot
                 ? BuildWebRoadmapState()
                 : null,
-            ghost = fullSnapshot
+            ghost = includeGhost
                 ? BuildWebGhostState()
                 : null,
             hardware = includeHardware
@@ -590,7 +591,7 @@ public partial class MainWindow
                 break;
 
             case "playGhost":
-                await PlayGhostFromWebAsync(
+                StartGhostPlaybackForShell(
                     GetWebPayloadDouble(payload, "playbackSpeed"),
                     GetWebPayloadBool(payload, "loop"));
                 break;

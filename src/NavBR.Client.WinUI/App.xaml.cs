@@ -115,6 +115,23 @@ public partial class App : Application
                     }
                 }
 
+                using (var ghostState = await runtime.GetStateAsync("ghost"))
+                {
+                    var payload = ghostState.RootElement.GetProperty("payload");
+                    if (payload.GetProperty("ghost").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("navigation").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("operations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("roadmapStudio").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped ghost state smoke did not isolate the Ghost/Replay module.");
+                    }
+                }
+
                 using (var diagnosticsState = await runtime.GetStateAsync("diagnostics"))
                 {
                     var payload = diagnosticsState.RootElement.GetProperty("payload");

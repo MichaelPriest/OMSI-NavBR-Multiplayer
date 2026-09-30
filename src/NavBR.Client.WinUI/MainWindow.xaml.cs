@@ -33,6 +33,7 @@ public sealed partial class MainWindow : Window
         NativeMultiplayerPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeOperationsPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeCompanyPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeGhostPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeRoleplayPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeHudPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeHardwarePage.CommandHandler = ExecuteNativeCommandAsync;
@@ -284,6 +285,9 @@ public sealed partial class MainWindow : Window
             case "navigation":
                 NativeNavigationPage.ApplyState(state);
                 break;
+            case "ghost":
+                NativeGhostPage.ApplyState(state);
+                break;
             case "roleplay":
                 NativeRoleplayPage.ApplyState(state);
                 break;
@@ -371,6 +375,9 @@ public sealed partial class MainWindow : Window
         NativeNavigationPage.Visibility = tag == "navigation"
             ? Visibility.Visible
             : Visibility.Collapsed;
+        NativeGhostPage.Visibility = tag == "ghost"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         NativeRoleplayPage.Visibility = tag == "roleplay"
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -394,6 +401,7 @@ public sealed partial class MainWindow : Window
             "cco" or
             "company" or
             "navigation" or
+            "ghost" or
             "roleplay" or
             "hud" or
             "hardware" or

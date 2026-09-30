@@ -91,6 +91,9 @@
                 <NavigationViewItem Content="Navegação" Tag="navigation">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE707;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Ghost / Replay" Tag="ghost">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE768;"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="Personagem RP" Tag="roleplay">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE77B;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -352,6 +355,9 @@
 
                 <local:NavigationPage x:Name="NativeNavigationPage"
                                       Visibility="Collapsed"/>
+
+                <local:GhostPage x:Name="NativeGhostPage"
+                                 Visibility="Collapsed"/>
 
                 <local:RoleplayPage x:Name="NativeRoleplayPage"
                                     Visibility="Collapsed"/>
