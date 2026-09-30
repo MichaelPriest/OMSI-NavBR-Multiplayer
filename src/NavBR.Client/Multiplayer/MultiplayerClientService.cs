@@ -11,8 +11,13 @@ namespace NavBR.Client.Multiplayer;
 
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
+    private const long RemoteSourceClockResetThresholdMs = 30_000;
+
     private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
     private readonly SemaphoreSlim _physicalVehicleStatusPublishGate = new(1, 1);
+    private readonly object _remoteTelemetryOrderSync = new();
+    private readonly Dictionary<string, long> _lastRemoteSourceTimestampByPlayer =
+        new(StringComparer.OrdinalIgnoreCase);
     private long _physicalVehicleStatusRevision;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
@@ -448,6 +453,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
         connection.On<string>("playerLeft", playerId =>
         {
+            ForgetRemoteTelemetryOrder(playerId);
             PlayerLeft?.Invoke(playerId);
             RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
@@ -455,6 +461,11 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         });
         connection.On<PlayerTelemetryFrame>("telemetry", frame =>
         {
+            if (!TryAcceptRemoteTelemetry(frame))
+            {
+                return;
+            }
+
             TelemetryReceived?.Invoke(frame);
             _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
             _ = _physicalVehicles.ApplyAsync(frame);
@@ -506,12 +517,81 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         connection.Closed += error =>
         {
             ResetRoomMetadata();
+            ClearRemoteTelemetryOrder();
             ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
+    }
+
+    private bool TryAcceptRemoteTelemetry(PlayerTelemetryFrame frame)
+    {
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return false;
+        }
+
+        var sourceTimestampMs =
+            frame.Telemetry.SourceTimestampUnixMilliseconds ??
+            frame.Telemetry.Timestamp.ToUnixTimeMilliseconds();
+
+        lock (_remoteTelemetryOrderSync)
+        {
+            if (!_lastRemoteSourceTimestampByPlayer.TryGetValue(
+                    playerId,
+                    out var previousSourceTimestampMs))
+            {
+                _lastRemoteSourceTimestampByPlayer[playerId] =
+                    sourceTimestampMs;
+                return true;
+            }
+
+            if (sourceTimestampMs > previousSourceTimestampMs)
+            {
+                _lastRemoteSourceTimestampByPlayer[playerId] =
+                    sourceTimestampMs;
+                return true;
+            }
+
+            // A substantial rollback means the sender restarted or corrected
+            // its clock. Match the openOMSI strategy: reset the ordering anchor
+            // instead of permanently rejecting a legitimate new session.
+            if (previousSourceTimestampMs - sourceTimestampMs >
+                RemoteSourceClockResetThresholdMs)
+            {
+                _lastRemoteSourceTimestampByPlayer[playerId] =
+                    sourceTimestampMs;
+                return true;
+            }
+
+            // Ignore duplicates and ordinary out-of-order arrivals before they
+            // can reach the physical RoadVehicle or plugin bridge.
+            return false;
+        }
+    }
+
+    private void ForgetRemoteTelemetryOrder(string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        lock (_remoteTelemetryOrderSync)
+        {
+            _lastRemoteSourceTimestampByPlayer.Remove(playerId);
+        }
+    }
+
+    private void ClearRemoteTelemetryOrder()
+    {
+        lock (_remoteTelemetryOrderSync)
+        {
+            _lastRemoteSourceTimestampByPlayer.Clear();
+        }
     }
 
     private void ApplyRoomSnapshotMetadata(RoomSnapshot snapshot)
