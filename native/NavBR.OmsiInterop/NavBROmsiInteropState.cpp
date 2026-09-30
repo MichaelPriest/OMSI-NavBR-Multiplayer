@@ -2994,12 +2994,32 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         if (!WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled)) return FailVehicleTransform(25);
     }
 
-    // NavBR owns this remote RoadVehicle's world transform. Leaving
-    // WasCalculated=false / PH_NeedPreCalc=true hands it back to OMSI's
-    // RoadVehicle calculation later in the active frame, which can overwrite
-    // the network pose. Mark the externally supplied state as complete instead.
-    if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled)) return FailVehicleTransform(26);
-    if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
+    // Do not lock OMSI's calculation flags until the deferred vehicle/model
+    // graph is really attached. The public Omsi-Extensions multiplayer
+    // quickstart lets OMSI finish that phase naturally; forcing WasCalculated
+    // and PH_NeedPreCalc too early can starve the callback that materializes
+    // ComplObj/model and leave a valid RoadVehicle permanently invisible.
+    constexpr int RequiredExternalControlMaterializationFlags =
+        (1 << 0) | // main list
+        (1 << 1) | // RoadVehicle definition
+        (1 << 2) | // ComplMapObj definition
+        (1 << 3) | // ComplObj instance
+        (1 << 5);  // model string
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredExternalControlMaterializationFlags) ==
+        RequiredExternalControlMaterializationFlags;
+
+    if (visualGraphReady)
+    {
+        // Once the visual graph exists, NavBR owns this remote RoadVehicle's
+        // world transform. Leaving WasCalculated=false / PH_NeedPreCalc=true
+        // after this point hands it back to a later OMSI RoadVehicle pass,
+        // which can overwrite the network pose while the simulation is active.
+        if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled)) return FailVehicleTransform(26);
+        if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
+    }
 
     InterlockedExchange(&LastVehicleTransformFailureStage, 0);
     return 1;
@@ -3047,6 +3067,36 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
 
     const auto base =
         static_cast<std::uintptr_t>(vehiclePointer);
+
+    constexpr int RequiredRenderControlMaterializationFlags =
+        (1 << 0) |
+        (1 << 1) |
+        (1 << 2) |
+        (1 << 3) |
+        (1 << 5);
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredRenderControlMaterializationFlags) ==
+        RequiredRenderControlMaterializationFlags;
+
+    if (!visualGraphReady)
+    {
+        // Keep the object alive and in the same AI/script ownership mode as
+        // the working Omsi-Extensions multiplayer example, but deliberately
+        // avoid touching calculation/render flags while OMSI is still
+        // attaching its deferred ComplObj/model graph.
+        const unsigned char disabled = 0;
+        const float networkAiActive = 1.0f;
+        if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
+            !WriteByte(vehiclePointer, PaiOffset, disabled) ||
+            !WriteValue(vehiclePointer, AiVarOffset, networkAiActive))
+        {
+            return 0;
+        }
+        return 1;
+    }
+
     if (!IsReadableRange(
             base + UsedRelativeVectorOffset,
             sizeof(Vec3)) ||
@@ -3439,6 +3489,31 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
     const float networkAiActive = 1.0f;
     const Vec3 zeroDynamics{};
     const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+
+    constexpr int RequiredKeepaliveMaterializationFlags =
+        (1 << 0) |
+        (1 << 1) |
+        (1 << 2) |
+        (1 << 3) |
+        (1 << 5);
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredKeepaliveMaterializationFlags) ==
+        RequiredKeepaliveMaterializationFlags;
+
+    if (!visualGraphReady)
+    {
+        // During MakeVehicle's deferred materialization, keep only the
+        // ownership/survival state asserted. Do not mark the RoadVehicle as
+        // fully calculated or clear PH_NeedPreCalc until OMSI has attached the
+        // visual graph; those callbacks are part of the initialization path.
+        return WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) &&
+               WriteByte(vehiclePointer, PaiOffset, disabled) &&
+               WriteValue(vehiclePointer, AiVarOffset, networkAiActive)
+            ? 1
+            : 0;
+    }
 
     // Bit 0 means the keepalive succeeded. The higher bits report what OMSI
     // had changed before NavBR reasserted ownership, giving the real-game log
