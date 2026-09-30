@@ -117,9 +117,18 @@ internal static class PhysicalVehicleLifecycleSupervisor
             var physicalSections =
                 normalized.RearSections ??
                 entry.DesiredSpawn.RearSections;
+            var receiverVehiclePath =
+                !string.IsNullOrWhiteSpace(entry.DesiredSpawn.VehiclePath)
+                    ? entry.DesiredSpawn.VehiclePath
+                    : normalized.VehiclePath;
 
             entry.DesiredSpawn = normalized with
             {
+                // VehiclePath on the admitted command was resolved locally by
+                // fingerprint. Never replace it with the sender's installation
+                // path from the raw telemetry feed, or a later materialization
+                // retry can fail on otherwise identical bus content.
+                VehiclePath = receiverVehiclePath,
                 GridX = physicalGridX,
                 GridY = physicalGridY,
                 MapTileIndex = null,
