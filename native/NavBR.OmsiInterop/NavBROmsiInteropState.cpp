@@ -2907,10 +2907,15 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         vehiclePointer,
         &position,
         &rotation);
-    // Match the state replicated by Omsi-Extensions multiplayer_quickstart.
-    // The ODE body itself remains kinematic/disabled, but OMSI's RoadVehicle
-    // calculation still reads these velocity/acceleration fields.
-    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, networkVelocity)) return FailVehicleTransform(28);
+    // Keep the actual ODE/PhysObj velocity zero. The remote vehicle is
+    // network-driven and its pose is applied explicitly; putting the sender's
+    // velocity back into OmsiPhysObjInst.Velocity lets a later active-simulation
+    // pass integrate the bus away from the authoritative network pose. Preserve
+    // Last_Velocity for RoadVehicle-side derivative/animation bookkeeping and
+    // keep Acc_Local neutral until a verified consumer needs the replicated
+    // acceleration. Groundspeed/Tacho below continue to expose visible speed.
+    const Vec3 zeroPhysicsVelocity{};
+    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroPhysicsVelocity)) return FailVehicleTransform(28);
     if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, networkVelocity)) return FailVehicleTransform(29);
     if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, accelerationLocal)) return FailVehicleTransform(30);
     if (effectiveTilePointer != 0 &&
@@ -3212,10 +3217,16 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleNetworkMotion(
             velocityY,
             velocityZ
         };
+        const Vec3 zeroPhysicsVelocity{};
+
+        // Never re-introduce linear physics velocity after the ODE body has
+        // been made kinematic. Last_Velocity remains a replicated RoadVehicle
+        // state value, while actual movement comes only from the buffered
+        // network transform.
         if (!WriteValue(
                 vehiclePointer,
                 PhysicsVelocityOffset,
-                velocity) ||
+                zeroPhysicsVelocity) ||
             !WriteValue(
                 vehiclePointer,
                 RoadVehicleLastVelocityOffset,
