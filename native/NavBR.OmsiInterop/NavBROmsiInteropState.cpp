@@ -280,6 +280,15 @@ namespace
             return 4;
         }
 
+        // Neutralize OMSI-side dynamic accumulators before any keepalive
+        // early return. Even an already-disabled ODE body can carry stale
+        // force/moment fields that become relevant again if OMSI recreates or
+        // re-enables the body later in the same simulation frame.
+        const Vec3 zero{};
+        (void)WriteValue(vehiclePointer, PhysicsVelocityOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastForceOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastMomentOffset, zero);
+
         auto& ode = GetOdeApi();
         if (ode.module == nullptr)
         {
@@ -346,11 +355,6 @@ namespace
         ode.setLinearVelocity(body, 0.0f, 0.0f, 0.0f);
         ode.setAngularVelocity(body, 0.0f, 0.0f, 0.0f);
         ode.disable(body);
-
-        const Vec3 zero{};
-        (void)WriteValue(vehiclePointer, PhysicsVelocityOffset, zero);
-        (void)WriteValue(vehiclePointer, PhysicsLastForceOffset, zero);
-        (void)WriteValue(vehiclePointer, PhysicsLastMomentOffset, zero);
 
         InterlockedExchange(&LastVehiclePhysicsSyncStatus, 1);
         return 1;
