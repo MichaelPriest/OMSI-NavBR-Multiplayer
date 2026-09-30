@@ -25,6 +25,7 @@ public sealed partial class MultiplayerPage : UserControl
     private string? _lastInviteRoomId;
     private string _lastInviteMode = "peer-host";
     private string? _lastChatSignature;
+    private string? _lastPublicRoomsSignature;
 
     public MultiplayerPage()
     {
@@ -267,21 +268,52 @@ public sealed partial class MultiplayerPage : UserControl
             ?? _publicRoomServerUrl;
 
         var error = JsonState.String(directory, "error");
-        _publicRooms.Clear();
-
-        foreach (var room in JsonState.Array(directory, "rooms"))
-        {
-            var roomId = JsonState.String(room, "roomId");
-            if (string.IsNullOrWhiteSpace(roomId))
+        var nextRooms = JsonState.Array(directory, "rooms")
+            .Select(room =>
             {
-                continue;
+                var roomId = JsonState.String(room, "roomId");
+                return string.IsNullOrWhiteSpace(roomId)
+                    ? null
+                    : new NativePublicRoomRow(
+                        roomId,
+                        $"{JsonState.Int(room, "playerCount") ?? 0} jogadores",
+                        JsonState.String(room, "mapName") ?? "Mapa não informado",
+                        JsonState.Bool(room, "favorite") ? "★" : string.Empty);
+            })
+            .Where(room => room is not null)
+            .Cast<NativePublicRoomRow>()
+            .ToArray();
+
+        // The native shell receives full state snapshots at telemetry cadence.
+        // Rebuilding the ListView on every frame clears WinUI selection/focus,
+        // which made a public room visibly blink and nearly impossible to
+        // select. Only rebuild when the visible directory contents changed.
+        var nextSignature = string.Join(
+            "\u001F",
+            nextRooms.Select(room =>
+                $"{room.RoomId}\u001E{room.Players}\u001E{room.MapName}\u001E{room.Favorite}"));
+        if (!string.Equals(
+                nextSignature,
+                _lastPublicRoomsSignature,
+                StringComparison.Ordinal))
+        {
+            var selectedRoomId =
+                (PublicRoomsList.SelectedItem as NativePublicRoomRow)?.RoomId;
+            _lastPublicRoomsSignature = nextSignature;
+            _publicRooms.Clear();
+            foreach (var room in nextRooms)
+            {
+                _publicRooms.Add(room);
             }
 
-            _publicRooms.Add(new NativePublicRoomRow(
-                roomId,
-                $"{JsonState.Int(room, "playerCount") ?? 0} jogadores",
-                JsonState.String(room, "mapName") ?? "Mapa não informado",
-                JsonState.Bool(room, "favorite") ? "★" : string.Empty));
+            if (!string.IsNullOrWhiteSpace(selectedRoomId))
+            {
+                PublicRoomsList.SelectedItem = _publicRooms.FirstOrDefault(room =>
+                    string.Equals(
+                        room.RoomId,
+                        selectedRoomId,
+                        StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         PublicRoomStatusText.Text = !string.IsNullOrWhiteSpace(error)
