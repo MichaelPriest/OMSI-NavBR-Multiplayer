@@ -538,12 +538,23 @@ internal static class PhysicalVehicleMotionController
                     out var bodyEnabled))
             {
                 state.LastPhysicsBodyLogTickMs = now;
+                var motionSummary =
+                    OmsiNativeInterop.TryReadRoadVehicleMotionDiagnostics(
+                        instance.VehiclePointer,
+                        out var motion)
+                        ? $"phVel=({motion.PhysicsVelocityX:F3},{motion.PhysicsVelocityY:F3},{motion.PhysicsVelocityZ:F3}) " +
+                          $"lastVel=({motion.LastVelocityX:F3},{motion.LastVelocityY:F3},{motion.LastVelocityZ:F3}) " +
+                          $"accLocal=({motion.AccelerationLocalX:F3},{motion.AccelerationLocalY:F3},{motion.AccelerationLocalZ:F3}) " +
+                          $"groundSpeed={motion.GroundSpeed:F3} tacho={motion.Tacho:F3}"
+                        : "motion=unavailable";
+
                 PluginLogWriter.Enqueue(
                     $"physical-body-compare id={instanceId} pointer=0x{instance.VehiclePointer:X8} " +
                     $"object=({objectX:F2},{objectY:F2},{objectZ:F2}) " +
                     $"body=({bodyX:F2},{bodyY:F2},{bodyZ:F2}) " +
                     $"bodyEnabled={(bodyEnabled ? 1 : 0)} " +
-                    $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2})");
+                    $"delta=({bodyX - objectX:F2},{bodyY - objectY:F2},{bodyZ - objectZ:F2}) " +
+                    motionSummary);
             }
 
             LogConsistPartPositions(instance, state, now);
