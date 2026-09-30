@@ -2936,8 +2936,15 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     // Remote velocity/acceleration are intentionally not derived into OMSI's
     // physics state here. Managed sender-time interpolation owns motion; only
     // script-facing Groundspeed/Tacho retain the replicated speed.
-
+    //
+    // Prime OMSI's AI/script ownership flags BEFORE the heavier render/matrix
+    // writes. A freshly-created RoadVehicle can still be attaching its visual
+    // graph; if a later field is transiently unavailable, returning before
+    // AI_var is set leaves the object outside the same AI materialization path
+    // used by the Omsi-Extensions multiplayer quickstart.
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
+    if (!WriteByte(vehiclePointer, PaiOffset, disabled)) return FailVehicleTransform(23);
+    if (!WriteValue(vehiclePointer, AiVarOffset, networkAiActive)) return FailVehicleTransform(32);
     if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
     if (!WriteValue(vehiclePointer, RotationOffset, rotation)) return FailVehicleTransform(12);
     if (!WriteValue(vehiclePointer, LastPositionOffset, position)) return FailVehicleTransform(13);
