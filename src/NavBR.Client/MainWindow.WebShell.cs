@@ -154,6 +154,7 @@ public partial class MainWindow
 
         var includeNavigation = IncludeScope("navigation");
         var includeGhost = IncludeScope("ghost");
+        var includeDriver = IncludeScope("driver");
         var includeOperations = IncludeScope("cco");
         var includeHardware = IncludeScope("hardware");
         var includeNetwork =
@@ -290,6 +291,9 @@ public partial class MainWindow
                 : null,
             operations = includeOperations
                 ? BuildWebOperationsState()
+                : null,
+            driver = includeDriver
+                ? BuildWebDriverState()
                 : null,
             system = BuildWebSystemState(multiplayerSettings, scope),
             roadmapStudio = fullSnapshot

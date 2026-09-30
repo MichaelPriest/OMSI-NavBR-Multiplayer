@@ -57,6 +57,8 @@ public partial class App : Application
                             System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("ghost").ValueKind !=
                             System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("driver").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("hardware").ValueKind !=
                             System.Text.Json.JsonValueKind.Null ||
                         payload.GetProperty("network").ValueKind !=
@@ -163,6 +165,28 @@ public partial class App : Application
                     {
                         throw new InvalidOperationException(
                             "Runtime Host scoped company state smoke did not include Company Node details.");
+                    }
+                }
+
+                using (var driverState = await runtime.GetStateAsync("driver"))
+                {
+                    var payload = driverState.RootElement.GetProperty("payload");
+                    var driver = payload.GetProperty("driver");
+                    if (driver.ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        driver.GetProperty("profile").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        driver.GetProperty("tripHistory").ValueKind !=
+                            System.Text.Json.JsonValueKind.Array ||
+                        driver.GetProperty("profileTransfer").ValueKind !=
+                            System.Text.Json.JsonValueKind.Object ||
+                        payload.GetProperty("operations").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null ||
+                        payload.GetProperty("ghost").ValueKind !=
+                            System.Text.Json.JsonValueKind.Null)
+                    {
+                        throw new InvalidOperationException(
+                            "Runtime Host scoped driver state smoke did not isolate the Driver module.");
                     }
                 }
 

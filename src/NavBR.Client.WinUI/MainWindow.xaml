@@ -88,6 +88,9 @@
                 <NavigationViewItem Content="Empresa" Tag="company">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE77B;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Motorista" Tag="driver">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE13D;"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="Navegação" Tag="navigation">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE707;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -379,6 +382,9 @@
 
                 <local:CompanyPage x:Name="NativeCompanyPage"
                                    Visibility="Collapsed"/>
+
+                <local:DriverPage x:Name="NativeDriverPage"
+                                  Visibility="Collapsed"/>
 
                 <ScrollViewer x:Name="ModulePage"
                               Visibility="Collapsed"

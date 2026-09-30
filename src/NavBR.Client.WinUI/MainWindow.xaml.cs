@@ -33,6 +33,7 @@ public sealed partial class MainWindow : Window
         NativeMultiplayerPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeOperationsPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeCompanyPage.CommandHandler = ExecuteNativeCommandAsync;
+        NativeDriverPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeGhostPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeRoleplayPage.CommandHandler = ExecuteNativeCommandAsync;
         NativeHudPage.CommandHandler = ExecuteNativeCommandAsync;
@@ -282,6 +283,9 @@ public sealed partial class MainWindow : Window
             case "company":
                 NativeCompanyPage.ApplyState(state);
                 break;
+            case "driver":
+                NativeDriverPage.ApplyState(state);
+                break;
             case "navigation":
                 NativeNavigationPage.ApplyState(state);
                 break;
@@ -372,6 +376,9 @@ public sealed partial class MainWindow : Window
         NativeCompanyPage.Visibility = tag == "company"
             ? Visibility.Visible
             : Visibility.Collapsed;
+        NativeDriverPage.Visibility = tag == "driver"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         NativeNavigationPage.Visibility = tag == "navigation"
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -400,6 +407,7 @@ public sealed partial class MainWindow : Window
             "multiplayer" or
             "cco" or
             "company" or
+            "driver" or
             "navigation" or
             "ghost" or
             "roleplay" or

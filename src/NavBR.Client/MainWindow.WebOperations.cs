@@ -181,6 +181,58 @@ public partial class MainWindow
         };
     }
 
+    private object BuildWebDriverState()
+    {
+        var profile = DriverProfileStore.Load();
+        var tripHistory = DriverTripHistoryStore.Load();
+
+        return new
+        {
+            profile = new
+            {
+                displayName = profile.DisplayName,
+                companyName = profile.CompanyName,
+                totalDrivingSeconds = profile.TotalDrivingSeconds,
+                totalDistanceKm = profile.TotalDistanceKm,
+                trips = profile.Trips,
+                highestSpeedKph = profile.HighestSpeedKph,
+                averageMovingSpeedKph = profile.AverageMovingSpeedKph,
+                lastMap = profile.LastMap,
+                lastLine = profile.LastLine,
+                lastRoute = profile.LastRoute,
+                lastDrivenAt = profile.LastDrivenAt
+            },
+            tripHistory = tripHistory
+                .Select(trip => new
+                {
+                    startedAtUtc = trip.StartedAtUtc,
+                    endedAtUtc = trip.EndedAtUtc,
+                    drivingSeconds = trip.DrivingSeconds,
+                    distanceKm = trip.DistanceKm,
+                    highestSpeedKph = trip.HighestSpeedKph,
+                    mapName = trip.MapName,
+                    line = trip.Line,
+                    route = trip.Route,
+                    vehicleName = trip.VehicleName
+                })
+                .ToArray(),
+            profileTransfer = new
+            {
+                notice = _webDriverProfileTransferNotice,
+                pending = _webPendingDriverProfileImport is null
+                    ? null
+                    : new
+                    {
+                        displayName = _webPendingDriverProfileImport.Profile.DisplayName,
+                        companyName = _webPendingDriverProfileImport.Profile.CompanyName,
+                        includesTripHistory = _webPendingDriverProfileImport.IncludesTripHistory,
+                        tripCount = _webPendingDriverProfileImport.TripHistory?.Count ?? 0,
+                        sourceVersion = _webPendingDriverProfileImport.SourceVersion
+                    }
+            }
+        };
+    }
+
     private static async Task HandleWebOperationalReportAsync(string reportId, bool resolve)
     {
         if (string.IsNullOrWhiteSpace(reportId))
