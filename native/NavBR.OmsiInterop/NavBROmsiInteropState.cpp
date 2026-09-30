@@ -2907,17 +2907,16 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         vehiclePointer,
         &position,
         &rotation);
-    // Keep the actual ODE/PhysObj velocity zero. The remote vehicle is
-    // network-driven and its pose is applied explicitly; putting the sender's
-    // velocity back into OmsiPhysObjInst.Velocity lets a later active-simulation
-    // pass integrate the bus away from the authoritative network pose. Preserve
-    // Last_Velocity for RoadVehicle-side derivative/animation bookkeeping and
-    // keep Acc_Local neutral until a verified consumer needs the replicated
-    // acceleration. Groundspeed/Tacho below continue to expose visible speed.
-    const Vec3 zeroPhysicsVelocity{};
-    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroPhysicsVelocity)) return FailVehicleTransform(28);
-    if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, networkVelocity)) return FailVehicleTransform(29);
-    if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, accelerationLocal)) return FailVehicleTransform(30);
+    // Keep all OMSI dynamics neutral for a network-owned vehicle. Its motion
+    // is kinematic: the buffered multiplayer pose is applied explicitly every
+    // callback. Groundspeed/Tacho below remain authoritative for script-facing
+    // speed, while PH_Velocity, Last_Velocity and Acc_Local must not seed a
+    // later OMSI physics/derivative pass that can move the bus off its network
+    // pose while simulation is running.
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroDynamics)) return FailVehicleTransform(28);
+    if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, zeroDynamics)) return FailVehicleTransform(29);
+    if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, zeroDynamics)) return FailVehicleTransform(30);
     if (effectiveTilePointer != 0 &&
         !WriteValue(
             vehiclePointer,
@@ -3210,46 +3209,25 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleNetworkMotion(
         }
     }
 
-    if (hasVelocity != 0)
+    // The vectors above are validated because they remain part of the network
+    // protocol and managed interpolation, but they must not become active OMSI
+    // dynamics on a remote RoadVehicle. Groundspeed/Tacho are written by the
+    // transform path; all physical/derivative vectors stay neutral.
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(
+            vehiclePointer,
+            PhysicsVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleLastVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleAccelerationLocalOffset,
+            zeroDynamics))
     {
-        const Vec3 velocity{
-            velocityX,
-            velocityY,
-            velocityZ
-        };
-        const Vec3 zeroPhysicsVelocity{};
-
-        // Never re-introduce linear physics velocity after the ODE body has
-        // been made kinematic. Last_Velocity remains a replicated RoadVehicle
-        // state value, while actual movement comes only from the buffered
-        // network transform.
-        if (!WriteValue(
-                vehiclePointer,
-                PhysicsVelocityOffset,
-                zeroPhysicsVelocity) ||
-            !WriteValue(
-                vehiclePointer,
-                RoadVehicleLastVelocityOffset,
-                velocity))
-        {
-            return 0;
-        }
-    }
-
-    if (hasAccelerationLocal != 0)
-    {
-        const Vec3 accelerationLocal{
-            accelerationLocalX,
-            accelerationLocalY,
-            accelerationLocalZ
-        };
-        if (!WriteValue(
-                vehiclePointer,
-                RoadVehicleAccelerationLocalOffset,
-                accelerationLocal))
-        {
-            return 0;
-        }
+        return 0;
     }
 
     return 1;
@@ -3272,6 +3250,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const Vec3 zeroDynamics{};
     const auto base = static_cast<std::uintptr_t>(vehiclePointer);
 
     // Bit 0 means the keepalive succeeded. The higher bits report what OMSI
@@ -3325,7 +3304,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
         !WriteByte(vehiclePointer, PaiOffset, disabled) ||
         !WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled) ||
-        !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled))
+        !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled) ||
+        !WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroDynamics) ||
+        !WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, zeroDynamics) ||
+        !WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, zeroDynamics))
     {
         return 0;
     }
