@@ -3019,6 +3019,21 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
             base + UsedRelativeVectorOffset,
             sizeof(Vec3)) ||
         !IsReadableRange(
+            base + PositionOffset,
+            sizeof(Vec3)) ||
+        !IsReadableRange(
+            base + RotationOffset,
+            sizeof(Quaternion)) ||
+        !IsReadableRange(
+            base + PaiOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + RoadVehicleWasCalculatedOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + RoadVehiclePhysicsNeedPreCalcOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
             base + VisibleLogicalOffset,
             sizeof(unsigned char)) ||
         !IsReadableRange(
@@ -3105,6 +3120,60 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
         }
     }
 
+    const Vec3 logicalPosition =
+        *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    const Quaternion logicalRotation =
+        *reinterpret_cast<const Quaternion*>(base + RotationOffset);
+    constexpr float LogicalPositionTolerance = 0.05f;
+    const float logicalDx = logicalPosition.x - localPosition.x;
+    const float logicalDy = logicalPosition.y - localPosition.y;
+    const float logicalDz = logicalPosition.z - localPosition.z;
+    if (!std::isfinite(logicalPosition.x) ||
+        !std::isfinite(logicalPosition.y) ||
+        !std::isfinite(logicalPosition.z) ||
+        logicalDx * logicalDx +
+            logicalDy * logicalDy +
+            logicalDz * logicalDz >
+            LogicalPositionTolerance * LogicalPositionTolerance)
+    {
+        needsCorrection = true;
+    }
+
+    const float logicalRotationLength = std::sqrt(
+        logicalRotation.x * logicalRotation.x +
+        logicalRotation.y * logicalRotation.y +
+        logicalRotation.z * logicalRotation.z +
+        logicalRotation.w * logicalRotation.w);
+    if (!std::isfinite(logicalRotationLength) ||
+        logicalRotationLength < 0.0001f)
+    {
+        needsCorrection = true;
+    }
+    else
+    {
+        const float inverseLogicalLength = 1.0f / logicalRotationLength;
+        const float rotationDot = std::fabs(
+            logicalRotation.x * inverseLogicalLength * rotation.x +
+            logicalRotation.y * inverseLogicalLength * rotation.y +
+            logicalRotation.z * inverseLogicalLength * rotation.z +
+            logicalRotation.w * inverseLogicalLength * rotation.w);
+        constexpr float RotationDotTolerance = 0.001f;
+        if (!std::isfinite(rotationDot) ||
+            1.0f - rotationDot > RotationDotTolerance)
+        {
+            needsCorrection = true;
+        }
+    }
+
+    if (*reinterpret_cast<const unsigned char*>(base + PaiOffset) != 0 ||
+        *reinterpret_cast<const unsigned char*>(
+            base + RoadVehicleWasCalculatedOffset) == 0 ||
+        *reinterpret_cast<const unsigned char*>(
+            base + RoadVehiclePhysicsNeedPreCalcOffset) != 0)
+    {
+        needsCorrection = true;
+    }
+
     if (*reinterpret_cast<const unsigned char*>(
             base + VisibleLogicalOffset) == 0 ||
         *reinterpret_cast<const unsigned char*>(
@@ -3144,8 +3213,58 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
         return 1;
     }
 
+    const unsigned char disabled = 0;
     const unsigned char enabled = 1;
-    if (!WriteRenderMatrices(
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(
+            vehiclePointer,
+            PositionOffset,
+            localPosition) ||
+        !WriteValue(
+            vehiclePointer,
+            RotationOffset,
+            rotation) ||
+        !WriteValue(
+            vehiclePointer,
+            LastPositionOffset,
+            localPosition) ||
+        !WriteValue(
+            vehiclePointer,
+            LastRotationOffset,
+            rotation) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsLastForceOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsLastMomentOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleLastVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleAccelerationLocalOffset,
+            zeroDynamics) ||
+        !WriteByte(
+            vehiclePointer,
+            PaiOffset,
+            disabled) ||
+        !WriteByte(
+            vehiclePointer,
+            RoadVehicleWasCalculatedOffset,
+            enabled) ||
+        !WriteByte(
+            vehiclePointer,
+            RoadVehiclePhysicsNeedPreCalcOffset,
+            disabled) ||
+        !WriteRenderMatrices(
             vehiclePointer,
             localPosition,
             worldPosition,
