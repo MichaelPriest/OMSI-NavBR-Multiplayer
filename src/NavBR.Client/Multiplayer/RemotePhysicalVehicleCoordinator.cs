@@ -208,7 +208,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         if (!IsPhysicalMultiplayerAvailable)
         {
-            SetStatus(playerId, "plugin-unavailable");
+            var (pluginErrorCode, pluginErrorMessage) =
+                DescribePluginAvailabilityFailure();
+            SetStatus(
+                playerId,
+                "plugin-unavailable",
+                pluginErrorCode,
+                pluginErrorMessage);
             if (_spawned.ContainsKey(playerId))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
@@ -224,7 +230,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // VehiclePath is only a location hint and can differ between installs.
         if (string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
         {
-            SetStatus(playerId, "identity-missing");
+            SetStatus(
+                playerId,
+                "identity-missing",
+                "vehicle-compatibility-id-missing",
+                string.IsNullOrWhiteSpace(remoteManifest.VehiclePath)
+                    ? "Remote telemetry has neither a usable vehicle path nor the required SHA-256 vehicle compatibility id."
+                    : $"Remote telemetry reported '{remoteManifest.VehiclePath}', but no SHA-256 vehicle compatibility id was available. The sender could not fingerprint the active OMSI vehicle definition.");
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
@@ -239,7 +251,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             !localTelemetry.IsInGame ||
             DateTimeOffset.UtcNow - localTelemetry.Timestamp > LocalTelemetryFreshness)
         {
-            SetStatus(playerId, "local-state-unavailable");
+            var localStateDetail = localManifest is null
+                ? "Local compatibility manifest is unavailable."
+                : localTelemetry is null
+                    ? "Local OMSI telemetry has not been received yet."
+                    : !localTelemetry.IsInGame
+                        ? "Local OMSI telemetry says the player is not in game."
+                        : $"Local OMSI telemetry is stale by {(DateTimeOffset.UtcNow - localTelemetry.Timestamp).TotalSeconds:F1}s (limit {LocalTelemetryFreshness.TotalSeconds:F0}s).";
+            SetStatus(
+                playerId,
+                "local-state-unavailable",
+                "local-telemetry-unavailable",
+                localStateDetail);
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
@@ -469,11 +492,15 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 cancellationToken);
             if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
             {
-                SetStatus(playerId, "asset-unresolved");
+                SetStatus(
+                    playerId,
+                    "asset-unresolved",
+                    "vehicle-asset-unresolved",
+                    $"No local Vehicles\\*.bus/ovh matched {DescribeCompatibilityId(remoteVehicleCompatibilityId)}. Reported sender path: {remoteManifest.VehiclePath ?? "-"}. The receiver must have the same vehicle definition content.");
                 ReportFailureOnce(
                     playerId,
                     "asset",
-                    "physical-vehicle-asset-unresolved");
+                    $"physical-vehicle-asset-unresolved compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)} reported-path={remoteManifest.VehiclePath ?? "-"}");
                 return;
             }
 
@@ -582,7 +609,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             {
                 if (_spawnInFlight.TryAdd(playerId, 0))
                 {
-                    SetStatus(playerId, "spawning");
+                    SetStatus(
+                        playerId,
+                        "spawning",
+                        "spawn-command-sent",
+                        $"All desktop gates passed. grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) asset={resolvedVehiclePath}.");
+                    NavBRAppLog.Info(
+                        "physical-spawn-gates-passed",
+                        $"coordinator={_coordinatorId} player={playerId} " +
+                        $"grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} " +
+                        $"local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) " +
+                        $"asset={resolvedVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)} " +
+                        $"pluginConnected=1 spawnCapability=1 transformCapability=1");
                     var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
                         spawnFrame,
                         cancellationToken);
@@ -1206,6 +1244,49 @@ internal sealed class RemotePhysicalVehicleCoordinator
             playerId,
             operation,
             $"{operation}-failed error={errorCode} parts={result?.RemoteVehicleCount?.ToString() ?? "n/a"} expected-parts={expectedPartCount?.ToString() ?? "n/a"} detail={detail}");
+    }
+
+    private static (string ErrorCode, string ErrorMessage)
+        DescribePluginAvailabilityFailure()
+    {
+        if (Application.Current is not App app)
+        {
+            return (
+                "plugin-app-context-unavailable",
+                "The desktop OMSI plugin bridge is not available in the current application context.");
+        }
+
+        var info = app.PluginBridge.GetConnectionInfo();
+        if (!info.IsConnected)
+        {
+            return (
+                "plugin-disconnected",
+                "The OMSI x86 plugin is not connected. If NavBR was updated while OMSI was open, close OMSI, restart NavBR so the plugin DLL can be replaced, then start OMSI again.");
+        }
+
+        var missing = new List<string>(2);
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityVehicleSpawn))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityVehicleSpawn);
+        }
+
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityVehicleTransform))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
+        }
+
+        if (missing.Count > 0)
+        {
+            return (
+                "plugin-capability-missing",
+                $"Connected OMSI plugin is missing required capability/capabilities: {string.Join(", ", missing)}. The loaded plugin may be older than the desktop build; update it with OMSI closed.");
+        }
+
+        return (
+            "plugin-unavailable",
+            "The OMSI plugin bridge is connected but physical multiplayer is not currently available.");
     }
 
     private void SetStatus(
