@@ -1173,10 +1173,13 @@ internal static class PhysicalVehicleBackend
             ? (float)Math.Clamp(Math.Abs(speedKph) / 3.6d, 0d, 150d)
             : 0f;
 
+        var worldX = command.X ?? 0d;
+        var worldY = command.Y ?? 0d;
+        var worldZ = command.Z ?? 0d;
         var hasWorldPosition =
-            command.X is double worldX &&
-            command.Y is double worldY &&
-            command.Z is double worldZ &&
+            command.X.HasValue &&
+            command.Y.HasValue &&
+            command.Z.HasValue &&
             double.IsFinite(worldX) &&
             double.IsFinite(worldY) &&
             double.IsFinite(worldZ) &&
