@@ -26,6 +26,7 @@ public partial class MultiplayerWindow : Window
     private readonly Dictionary<string, PlayerPresence> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, VehicleTelemetry> _remoteTelemetry = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RoleplayCharacterFrame> _remoteRoleplayCharacters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RemoteRoleplayTimeline> _remoteRoleplayTimelines = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTimeOffset> _voiceActivity = new(StringComparer.OrdinalIgnoreCase);
     private RoleplayCharacterState? _localRoleplayCharacter;
     private readonly List<ChatMessage> _chatMessages = [];
@@ -363,6 +364,7 @@ public partial class MultiplayerWindow : Window
         _players.Clear();
         _remoteTelemetry.Clear();
         _remoteRoleplayCharacters.Clear();
+        _remoteRoleplayTimelines.Clear();
         _voiceActivity.Clear();
         SetInputsEnabled(true);
         RemotePlayersReset?.Invoke();
@@ -376,6 +378,7 @@ public partial class MultiplayerWindow : Window
     {
         UpdatePublishTimerCadence();
         await PublishLocalTelemetryAsync();
+        RefreshRemoteRoleplayPresentation();
         UpdateLocalMapText();
         RenderPlayers();
     }
@@ -679,8 +682,19 @@ public partial class MultiplayerWindow : Window
 
     private void ApplyRemoteRoleplayCharacter(RoleplayCharacterFrame frame)
     {
-        _players[frame.Player.PlayerId] = frame.Player;
-        _remoteRoleplayCharacters[frame.Player.PlayerId] = frame;
+        var playerId = frame.Player.PlayerId;
+        _players[playerId] = frame.Player;
+
+        if (!_remoteRoleplayTimelines.TryGetValue(playerId, out var timeline))
+        {
+            timeline = new RemoteRoleplayTimeline();
+            _remoteRoleplayTimelines[playerId] = timeline;
+        }
+
+        timeline.Push(frame, DateTimeOffset.UtcNow);
+        _remoteRoleplayCharacters[playerId] =
+            timeline.Sample(DateTimeOffset.UtcNow) ?? frame;
+
         RenderPlayers();
         RenderLiveSessionView();
     }
@@ -688,7 +702,28 @@ public partial class MultiplayerWindow : Window
     private void RemoveRemoteRoleplayCharacter(string playerId)
     {
         _remoteRoleplayCharacters.Remove(playerId);
+        _remoteRoleplayTimelines.Remove(playerId);
         RenderPlayers();
+        RenderLiveSessionView();
+    }
+
+    private void RefreshRemoteRoleplayPresentation()
+    {
+        if (_remoteRoleplayTimelines.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (playerId, timeline) in _remoteRoleplayTimelines)
+        {
+            var sampled = timeline.Sample(now);
+            if (sampled is not null)
+            {
+                _remoteRoleplayCharacters[playerId] = sampled;
+            }
+        }
+
         RenderLiveSessionView();
     }
 
@@ -705,6 +740,7 @@ public partial class MultiplayerWindow : Window
         _players.Remove(playerId);
         _remoteTelemetry.Remove(playerId);
         _remoteRoleplayCharacters.Remove(playerId);
+        _remoteRoleplayTimelines.Remove(playerId);
         _voiceActivity.Remove(playerId);
         _voiceChat.RemoveRemotePlayer(playerId);
         RemotePlayerLeft?.Invoke(playerId);
@@ -1024,6 +1060,226 @@ public partial class MultiplayerWindow : Window
             "Avanzado",
             "Erweitert",
             "Avancé");
+    }
+
+
+    private sealed class RemoteRoleplayTimeline
+    {
+        private const int MaximumSamples = 40;
+        private const double MinimumDelayMs = 120d;
+        private const double MaximumDelayMs = 450d;
+        private const double SafetyDelayMs = 20d;
+        private const double MaximumExtrapolationMs = 300d;
+        private const double ClockOffsetCreep = 0.01d;
+        private const double TeleportDistanceMeters = 12d;
+
+        private readonly List<TimedRoleplayFrame> _samples = [];
+        private double? _sourceToLocalOffsetMs;
+
+        public void Push(
+            RoleplayCharacterFrame frame,
+            DateTimeOffset arrivedUtc)
+        {
+            var sourceMs = frame.Character.Timestamp.ToUnixTimeMilliseconds();
+            var arrivedMs = arrivedUtc.ToUnixTimeMilliseconds();
+
+            if (_samples.Count > 0 &&
+                sourceMs <= _samples[^1].SourceMs)
+            {
+                return;
+            }
+
+            var observedOffset = arrivedMs - sourceMs;
+            _sourceToLocalOffsetMs = _sourceToLocalOffsetMs switch
+            {
+                null => observedOffset,
+                var current when observedOffset < current => observedOffset,
+                var current => current.Value +
+                               (observedOffset - current.Value) *
+                               ClockOffsetCreep
+            };
+
+            _samples.Add(new TimedRoleplayFrame(sourceMs, frame));
+            if (_samples.Count > MaximumSamples)
+            {
+                _samples.RemoveRange(
+                    0,
+                    _samples.Count - MaximumSamples);
+            }
+        }
+
+        public RoleplayCharacterFrame? Sample(DateTimeOffset nowUtc)
+        {
+            if (_samples.Count == 0)
+            {
+                return null;
+            }
+
+            if (_samples.Count == 1 ||
+                _sourceToLocalOffsetMs is not double offset)
+            {
+                return _samples[^1].Frame;
+            }
+
+            var delayMs = ResolveDelayMs();
+            var targetSourceMs =
+                nowUtc.ToUnixTimeMilliseconds() -
+                offset -
+                delayMs;
+
+            for (var i = 1; i < _samples.Count; i++)
+            {
+                var left = _samples[i - 1];
+                var right = _samples[i];
+                if (targetSourceMs > right.SourceMs)
+                {
+                    continue;
+                }
+
+                if (IsDiscontinuity(left.Frame.Character, right.Frame.Character))
+                {
+                    return targetSourceMs < right.SourceMs
+                        ? left.Frame
+                        : right.Frame;
+                }
+
+                var spanMs = right.SourceMs - left.SourceMs;
+                if (spanMs <= 0d)
+                {
+                    return right.Frame;
+                }
+
+                var amount = Math.Clamp(
+                    (targetSourceMs - left.SourceMs) / spanMs,
+                    0d,
+                    1d);
+                return Interpolate(left.Frame, right.Frame, amount);
+            }
+
+            var latest = _samples[^1];
+            var aheadMs = targetSourceMs - latest.SourceMs;
+            if (aheadMs <= 0d ||
+                aheadMs > MaximumExtrapolationMs)
+            {
+                return latest.Frame;
+            }
+
+            return Extrapolate(latest.Frame, aheadMs / 1000d);
+        }
+
+        private double ResolveDelayMs()
+        {
+            var maxGapMs = MinimumDelayMs;
+            var start = Math.Max(1, _samples.Count - 4);
+            for (var i = start; i < _samples.Count; i++)
+            {
+                maxGapMs = Math.Max(
+                    maxGapMs,
+                    _samples[i].SourceMs -
+                    _samples[i - 1].SourceMs);
+            }
+
+            return Math.Clamp(
+                maxGapMs * 2d + SafetyDelayMs,
+                MinimumDelayMs,
+                MaximumDelayMs);
+        }
+
+        private static RoleplayCharacterFrame Interpolate(
+            RoleplayCharacterFrame left,
+            RoleplayCharacterFrame right,
+            double amount)
+        {
+            var a = left.Character;
+            var b = right.Character;
+            var headingDelta =
+                ((b.HeadingDegrees - a.HeadingDegrees + 540d) % 360d) - 180d;
+
+            var state = b with
+            {
+                Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(
+                    (long)Math.Round(
+                        a.Timestamp.ToUnixTimeMilliseconds() +
+                        (b.Timestamp.ToUnixTimeMilliseconds() -
+                         a.Timestamp.ToUnixTimeMilliseconds()) *
+                        amount)),
+                LocalX = Lerp(a.LocalX, b.LocalX, amount),
+                LocalY = Lerp(a.LocalY, b.LocalY, amount),
+                LocalZ = Lerp(a.LocalZ, b.LocalZ, amount),
+                HeadingDegrees = NormalizeHeading(
+                    a.HeadingDegrees + headingDelta * amount),
+                SpeedMps = Lerp(a.SpeedMps, b.SpeedMps, amount),
+                Activity = amount < 0.5d ? a.Activity : b.Activity
+            };
+
+            return right with { Character = state };
+        }
+
+        private static RoleplayCharacterFrame Extrapolate(
+            RoleplayCharacterFrame frame,
+            double seconds)
+        {
+            var state = frame.Character;
+            if (!double.IsFinite(state.SpeedMps) ||
+                state.SpeedMps <= 0.01d)
+            {
+                return frame;
+            }
+
+            var headingRadians =
+                state.HeadingDegrees * Math.PI / 180d;
+            var distance =
+                Math.Clamp(seconds, 0d, MaximumExtrapolationMs / 1000d) *
+                state.SpeedMps;
+
+            return frame with
+            {
+                Character = state with
+                {
+                    LocalX = state.LocalX +
+                             Math.Sin(headingRadians) * distance,
+                    LocalY = state.LocalY +
+                             Math.Cos(headingRadians) * distance
+                }
+            };
+        }
+
+        private static bool IsDiscontinuity(
+            RoleplayCharacterState left,
+            RoleplayCharacterState right)
+        {
+            if (!string.Equals(
+                    left.MapCompatibilityId,
+                    right.MapCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var dx = right.LocalX - left.LocalX;
+            var dy = right.LocalY - left.LocalY;
+            var dz = right.LocalZ - left.LocalZ;
+            return dx * dx + dy * dy + dz * dz >=
+                   TeleportDistanceMeters * TeleportDistanceMeters;
+        }
+
+        private static double Lerp(
+            double left,
+            double right,
+            double amount) =>
+            left + (right - left) * amount;
+
+        private static double NormalizeHeading(double heading)
+        {
+            var normalized = heading % 360d;
+            return normalized < 0d
+                ? normalized + 360d
+                : normalized;
+        }
+
+        private sealed record TimedRoleplayFrame(
+            double SourceMs,
+            RoleplayCharacterFrame Frame);
     }
 
     private static string MultiplayerTabText(
