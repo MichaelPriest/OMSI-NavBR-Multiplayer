@@ -65,7 +65,8 @@ var pluginStatus = new PluginBridgeMessage(
     [
         PluginBridgeProtocol.CapabilityAdvancedTelemetry,
         PluginBridgeProtocol.CapabilityCharacterPossession,
-        PluginBridgeProtocol.CapabilityCharacterTransform
+        PluginBridgeProtocol.CapabilityCharacterTransform,
+        PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25
     ]);
 
 await writer.WriteLineAsync(JsonSerializer.Serialize(pluginStatus));
@@ -98,6 +99,8 @@ Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterPosses
     "runtime character-possession capability was not refreshed from plugin status");
 Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityCharacterTransform),
     "runtime character-transform capability was not refreshed from plugin status");
+Require(server.SupportsCapability(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25),
+    "runtime physical-multiplayer-v25 capability was not refreshed from plugin status");
 
 Require(
     PluginBridgeProtocol.IsRecoverablePhysicalMotionError(
@@ -122,6 +125,8 @@ Require(
 var motionVectorMessage = new PluginBridgeMessage(
     PluginBridgeProtocol.UpdateRemoteVehicle,
     PluginBridgeProtocol.Version,
+    PhysicalGridX: 17,
+    PhysicalGridY: -23,
     VelocityX: 1.25,
     VelocityY: -0.5,
     VelocityZ: 3.75,
@@ -131,6 +136,8 @@ var motionVectorMessage = new PluginBridgeMessage(
 var motionVectorJson = JsonSerializer.Serialize(motionVectorMessage);
 var motionVectorRoundTrip =
     JsonSerializer.Deserialize<PluginBridgeMessage>(motionVectorJson);
+Require(motionVectorRoundTrip?.PhysicalGridX == 17, "physical grid X did not round-trip");
+Require(motionVectorRoundTrip?.PhysicalGridY == -23, "physical grid Y did not round-trip");
 Require(motionVectorRoundTrip?.VelocityX == 1.25, "velocity X did not round-trip");
 Require(motionVectorRoundTrip?.VelocityY == -0.5, "velocity Y did not round-trip");
 Require(motionVectorRoundTrip?.VelocityZ == 3.75, "velocity Z did not round-trip");
