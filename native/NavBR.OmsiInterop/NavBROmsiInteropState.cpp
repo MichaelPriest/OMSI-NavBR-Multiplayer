@@ -2825,70 +2825,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         return FailVehicleTransform(31);
     }
 
-    Vec3 previousPosition = position;
-    if (IsReadableRange(vehicleBase + PositionOffset, sizeof(Vec3)))
-    {
-        previousPosition =
-            *reinterpret_cast<const Vec3*>(vehicleBase + PositionOffset);
-    }
-    Vec3 networkVelocity{};
-    const bool sameLocalCoordinateFrame =
-        previousTilePointer != 0 &&
-        effectiveTilePointer != 0 &&
-        previousTilePointer == effectiveTilePointer;
-    const Vec3 displacement{
-        position.x - previousPosition.x,
-        position.y - previousPosition.y,
-        position.z - previousPosition.z
-    };
-    const float displacementLength = std::sqrt(
-        displacement.x * displacement.x +
-        displacement.y * displacement.y +
-        displacement.z * displacement.z);
-
-    // Position is local to Kachel. Never derive a velocity vector by
-    // subtracting local coordinates that belong to two different tiles.
-    // Leave the replicated physics vector at zero for the transition frame;
-    // the next update on the new Kachel resumes normal velocity derivation.
-    if (sameLocalCoordinateFrame &&
-        speedMps > 0.001f &&
-        std::isfinite(displacementLength) &&
-        displacementLength > 0.001f)
-    {
-        const float scale = speedMps / displacementLength;
-        networkVelocity = Vec3{
-            displacement.x * scale,
-            displacement.y * scale,
-            displacement.z * scale
-        };
-    }
-    else if (sameLocalCoordinateFrame &&
-             speedMps > 0.001f &&
-             IsReadableRange(vehicleBase + PhysicsLongOffset, sizeof(Vec3)))
-    {
-        const Vec3 longitudinal =
-            *reinterpret_cast<const Vec3*>(vehicleBase + PhysicsLongOffset);
-        const float longitudinalLength = std::sqrt(
-            longitudinal.x * longitudinal.x +
-            longitudinal.y * longitudinal.y +
-            longitudinal.z * longitudinal.z);
-        if (std::isfinite(longitudinalLength) &&
-            longitudinalLength > 0.001f)
-        {
-            const float scale = speedMps / longitudinalLength;
-            networkVelocity = Vec3{
-                longitudinal.x * scale,
-                longitudinal.y * scale,
-                longitudinal.z * scale
-            };
-        }
-    }
-
-    // The historical multiplayer prototype copied Acc_Local from the source
-    // player. NavBR does not transmit that local-space vector yet, so do not
-    // synthesize it from world-space deltas. Zero is safer than stale/wrong
-    // acceleration feeding OMSI's active RoadVehicle calculation.
-    const Vec3 accelerationLocal{};
+    // Remote velocity/acceleration are intentionally not derived into OMSI's
+    // physics state here. Managed sender-time interpolation owns motion; only
+    // script-facing Groundspeed/Tacho retain the replicated speed.
 
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
     if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
