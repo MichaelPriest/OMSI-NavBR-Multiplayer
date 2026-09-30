@@ -1173,11 +1173,30 @@ internal static class PhysicalVehicleBackend
             ? (float)Math.Clamp(Math.Abs(speedKph) / 3.6d, 0d, 150d)
             : 0f;
 
+        var hasWorldPosition =
+            command.X is double worldX &&
+            command.Y is double worldY &&
+            command.Z is double worldZ &&
+            double.IsFinite(worldX) &&
+            double.IsFinite(worldY) &&
+            double.IsFinite(worldZ) &&
+            Math.Abs(worldX) <= 10_000_000d &&
+            Math.Abs(worldY) <= 10_000_000d &&
+            Math.Abs(worldZ) <= 10_000_000d;
+        if (!hasWorldPosition)
+        {
+            worldX = worldY = worldZ = 0d;
+        }
+
         if (OmsiNativeInterop.SetVehicleTransform(
                 instance.VehiclePointer,
                 pose.X,
                 pose.Y,
                 pose.Z,
+                hasWorldPosition ? 1 : 0,
+                (float)worldX,
+                (float)worldY,
+                (float)worldZ,
                 pose.RotationX,
                 pose.RotationY,
                 pose.RotationZ,

@@ -1298,6 +1298,10 @@ internal static class PhysicalVehicleMotionController
                 snapshot.X,
                 snapshot.Y,
                 snapshot.Z,
+                snapshot.HasWorldPosition ? 1 : 0,
+                snapshot.WorldX,
+                snapshot.WorldY,
+                snapshot.WorldZ,
                 snapshot.RotationX,
                 snapshot.RotationY,
                 snapshot.RotationZ,
@@ -1373,6 +1377,10 @@ internal static class PhysicalVehicleMotionController
                     section.X,
                     section.Y,
                     section.Z,
+                    0,
+                    0f,
+                    0f,
+                    0f,
                     section.RotationX,
                     section.RotationY,
                     section.RotationZ,
@@ -1599,6 +1607,21 @@ internal static class PhysicalVehicleMotionController
             return false;
         }
 
+        var hasWorldPosition =
+            command.X is double worldX &&
+            command.Y is double worldY &&
+            command.Z is double worldZ &&
+            double.IsFinite(worldX) &&
+            double.IsFinite(worldY) &&
+            double.IsFinite(worldZ) &&
+            Math.Abs(worldX) <= 10_000_000d &&
+            Math.Abs(worldY) <= 10_000_000d &&
+            Math.Abs(worldZ) <= 10_000_000d;
+        if (!hasWorldPosition)
+        {
+            worldX = worldY = worldZ = 0d;
+        }
+
         var length = Math.Sqrt(
             rotationX * rotationX +
             rotationY * rotationY +
@@ -1647,6 +1670,10 @@ internal static class PhysicalVehicleMotionController
             (float)x,
             (float)y,
             (float)z,
+            hasWorldPosition,
+            (float)worldX,
+            (float)worldY,
+            (float)worldZ,
             (float)(rotationX * inverse),
             (float)(rotationY * inverse),
             (float)(rotationZ * inverse),
@@ -1761,6 +1788,9 @@ internal static class PhysicalVehicleMotionController
             qw = to.RotationW;
         }
 
+        var interpolateWorldPosition =
+            from.HasWorldPosition &&
+            to.HasWorldPosition;
         var interpolateVelocity =
             from.HasVelocity &&
             to.HasVelocity;
@@ -1772,6 +1802,16 @@ internal static class PhysicalVehicleMotionController
             Lerp(from.X, to.X, t),
             Lerp(from.Y, to.Y, t),
             Lerp(from.Z, to.Z, t),
+            to.HasWorldPosition,
+            interpolateWorldPosition
+                ? Lerp(from.WorldX, to.WorldX, t)
+                : to.WorldX,
+            interpolateWorldPosition
+                ? Lerp(from.WorldY, to.WorldY, t)
+                : to.WorldY,
+            interpolateWorldPosition
+                ? Lerp(from.WorldZ, to.WorldZ, t)
+                : to.WorldZ,
             qx,
             qy,
             qz,
@@ -1984,6 +2024,10 @@ internal static class PhysicalVehicleMotionController
         float X,
         float Y,
         float Z,
+        bool HasWorldPosition,
+        float WorldX,
+        float WorldY,
+        float WorldZ,
         float RotationX,
         float RotationY,
         float RotationZ,

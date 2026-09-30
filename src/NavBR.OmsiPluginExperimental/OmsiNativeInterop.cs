@@ -13,7 +13,7 @@ internal static class OmsiNativeInterop
 {
     private const string LibraryName = "NavBR.OmsiInterop.dll";
     private const int ExpectedAbiVersion = 1;
-    private const int ExpectedStateInteropVersion = 24;
+    private const int ExpectedStateInteropVersion = 25;
     internal const int HostPlayerTileSentinel = -2;
     private const int MaxReasonableHumans = 8192;
     private const int MaxReasonableRoadVehicles = 4096;
@@ -1164,6 +1164,10 @@ internal static class OmsiNativeInterop
         float x,
         float y,
         float z,
+        int hasWorldPosition,
+        float worldX,
+        float worldY,
+        float worldZ,
         float rotationX,
         float rotationY,
         float rotationZ,

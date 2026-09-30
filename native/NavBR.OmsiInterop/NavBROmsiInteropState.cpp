@@ -51,6 +51,11 @@ namespace
     constexpr int OutsideMatrixOffset = 0x44C;
     constexpr int OutsideMatrixThreadFreeOffset = 0x48C;
     constexpr int PaiOffset = 0x624;
+    // OmsiVehicleInst.AI_var, verified against OmsiHook. The original-OMSI
+    // multiplayer quickstart explicitly keeps this at 1 for a network-owned
+    // RoadVehicle so its vehicle/model scripts remain in the AI render path
+    // even though NavBR owns the actual kinematic pose.
+    constexpr int AiVarOffset = 0x62C;
     constexpr int AiLightOffset = 0x634;
     constexpr int AiInteriorLightOffset = 0x638;
     constexpr int AiBlinkerLeftOffset = 0x63C;
@@ -1601,7 +1606,7 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 24;
+    return 25;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleMotionDiagnostics(
@@ -2737,6 +2742,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     float x,
     float y,
     float z,
+    int hasWorldPosition,
+    float worldX,
+    float worldY,
+    float worldZ,
     float rotationX,
     float rotationY,
     float rotationZ,
@@ -2748,6 +2757,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
 
     if (!IsRoadVehiclePointer(vehiclePointer) ||
         !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
+        (hasWorldPosition != 0 &&
+         (!std::isfinite(worldX) ||
+          !std::isfinite(worldY) ||
+          !std::isfinite(worldZ))) ||
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
         !std::isfinite(rotationZ) || !std::isfinite(rotationW) ||
         !std::isfinite(groundSpeedMps) ||
@@ -2876,8 +2889,18 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     const unsigned int zeroTimer = 0;
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
 
-    Vec3 worldPosition = position;
+    // VehicleTelemetry.X/Y/Z already carry the sender's OMSI AbsPosition
+    // translation. Prefer that authoritative world-space pose when available.
+    // This mirrors the original-OMSI multiplayer quickstart, which transmits
+    // the relation/absolute transform instead of reconstructing it on the
+    // receiving client. The legacy local-reference resolver remains as a
+    // compatibility fallback for Ghost/simulator/older commands.
+    const bool hasSuppliedWorldPosition = hasWorldPosition != 0;
+    Vec3 worldPosition = hasSuppliedWorldPosition
+        ? Vec3{ worldX, worldY, worldZ }
+        : position;
     const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
     int previousTilePointer = 0;
     if (IsReadableRange(vehicleBase + KachelOffset, sizeof(int)))
@@ -2892,6 +2915,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         previousTilePointer != effectiveTilePointer;
 
     const bool hasWorldTranslation =
+        hasSuppliedWorldPosition ||
         effectiveTilePointer == 0 ||
         TryResolveWorldTranslation(
             vehiclePointer,
@@ -2956,6 +2980,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     if (!WriteValue(vehiclePointer, TachoOffset, tachoKph)) return FailVehicleTransform(21);
     if (!WriteValue(vehiclePointer, GroundspeedOffset, speedMps)) return FailVehicleTransform(22);
     if (!WriteByte(vehiclePointer, PaiOffset, disabled)) return FailVehicleTransform(23);
+    if (!WriteValue(vehiclePointer, AiVarOffset, networkAiActive)) return FailVehicleTransform(32);
     if (writeExplicitTile)
     {
         if (!WriteValue(vehiclePointer, KachelOffset, mapTilePointer)) return FailVehicleTransform(24);
@@ -3027,6 +3052,9 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
         !IsReadableRange(
             base + PaiOffset,
             sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + AiVarOffset,
+            sizeof(float)) ||
         !IsReadableRange(
             base + RoadVehicleWasCalculatedOffset,
             sizeof(unsigned char)) ||
@@ -3165,7 +3193,11 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
         }
     }
 
+    const float aiVar =
+        *reinterpret_cast<const float*>(base + AiVarOffset);
     if (*reinterpret_cast<const unsigned char*>(base + PaiOffset) != 0 ||
+        !std::isfinite(aiVar) ||
+        std::fabs(aiVar - 1.0f) > 0.001f ||
         *reinterpret_cast<const unsigned char*>(
             base + RoadVehicleWasCalculatedOffset) == 0 ||
         *reinterpret_cast<const unsigned char*>(
@@ -3215,6 +3247,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
 
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
     const Vec3 zeroDynamics{};
     if (!WriteValue(
             vehiclePointer,
@@ -3256,6 +3289,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
             vehiclePointer,
             PaiOffset,
             disabled) ||
+        !WriteValue(
+            vehiclePointer,
+            AiVarOffset,
+            networkAiActive) ||
         !WriteByte(
             vehiclePointer,
             RoadVehicleWasCalculatedOffset,
@@ -3392,6 +3429,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
     const Vec3 zeroDynamics{};
     const auto base = static_cast<std::uintptr_t>(vehiclePointer);
 
@@ -3445,6 +3483,7 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
         !WriteByte(vehiclePointer, PaiOffset, disabled) ||
+        !WriteValue(vehiclePointer, AiVarOffset, networkAiActive) ||
         !WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled) ||
         !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled) ||
         !WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroDynamics) ||
