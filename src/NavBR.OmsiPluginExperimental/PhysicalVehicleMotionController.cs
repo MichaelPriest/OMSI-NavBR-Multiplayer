@@ -22,7 +22,10 @@ internal static class PhysicalVehicleMotionController
     private const long SourceClockResetThresholdMs = 30_000;
     private const double TeleportDistanceMeters = 30d;
     private const long TeleportGapMs = 1_500;
-    private const long StaleTargetAfterMs = 5_000;
+    // Match the multiplayer peer timeout used by openOMSI. Five seconds was
+    // short enough for a transient relay/Wi-Fi reconnect to destroy and respawn
+    // an otherwise healthy physical bus while SignalR was still reconnecting.
+    private const long StaleTargetAfterMs = 15_000;
     private const long ReadbackIntervalMs = 1_000;
     private const double ReadbackToleranceMeters = 3d;
     private const int ExternalControlSuccessBit = 1 << 0;
