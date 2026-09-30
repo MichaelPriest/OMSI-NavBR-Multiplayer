@@ -1,9 +1,38 @@
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+
+var identityReaderType = typeof(OmsiPluginBridgeServer).Assembly.GetType(
+    "NavBR.Client.Telemetry.OmsiVehicleIdentityReader",
+    throwOnError: true)!;
+var normalizeVehiclePath = identityReaderType.GetMethod(
+    "NormalizeVehiclePath",
+    BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException("vehicle identity normalizer not found");
+
+var splitOmsiIdentity = (string?)normalizeVehiclePath.Invoke(
+    null,
+    [@"C:\\Program Files (x86)\\OMSI 2", "MAN_EN92_main.bus", @"Vehicles\\MAN_NL_NG"]);
+Require(
+    string.Equals(
+        splitOmsiIdentity,
+        @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus",
+        StringComparison.OrdinalIgnoreCase),
+    "split OMSI MyPath + Obj vehicle identity was not normalized");
+
+var completeOmsiIdentity = (string?)normalizeVehiclePath.Invoke(
+    null,
+    [@"C:\\Program Files (x86)\\OMSI 2", @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus", @"Vehicles\\MAN_NL_NG"]);
+Require(
+    string.Equals(
+        completeOmsiIdentity,
+        @"Vehicles\\MAN_NL_NG\\MAN_EN92_main.bus",
+        StringComparison.OrdinalIgnoreCase),
+    "complete OMSI vehicle identity path regressed");
 
 await using var server = new OmsiPluginBridgeServer();
 server.Start();
