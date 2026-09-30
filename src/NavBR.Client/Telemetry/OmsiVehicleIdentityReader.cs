@@ -96,24 +96,56 @@ internal static class OmsiVehicleIdentityReader
         var source = NormalizeSeparators(sourceObject);
         var definition = NormalizeSeparators(definitionPath);
 
-        string? candidate = null;
+        // OMSI commonly exposes the active bus identity split across two
+        // objects: OmsiFileObject.Obj contains only the definition filename
+        // (for example MAN_EN92_main.bus), while OmsiComplMapObj.MyPath
+        // contains its Vehicles\\... directory. The previous code accepted
+        // the bare filename first, then rejected it for lacking the Vehicles
+        // anchor, which made physical multiplayer publish neither VehiclePath
+        // nor VehicleCompatibilityId.
+        var candidates = new List<string>(capacity: 3);
         if (LooksLikeVehicleDefinition(source))
         {
-            candidate = source;
-        }
-        else if (LooksLikeVehicleDefinition(definition))
-        {
-            candidate = definition;
-        }
-        else if (!string.IsNullOrWhiteSpace(source) &&
-                 !string.IsNullOrWhiteSpace(definition) &&
-                 (source.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-                  source.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
-        {
-            candidate = Path.Combine(definition, source);
+            candidates.Add(source!);
+
+            if (!string.IsNullOrWhiteSpace(definition) &&
+                !LooksLikeVehicleDefinition(definition))
+            {
+                var sourceFileName = source!
+                    .Replace('/', '\\')
+                    .Split('\\', StringSplitOptions.RemoveEmptyEntries)
+                    .LastOrDefault();
+                if (!string.IsNullOrWhiteSpace(sourceFileName))
+                {
+                    candidates.Add(Path.Combine(definition!, sourceFileName));
+                }
+            }
         }
 
-        if (string.IsNullOrWhiteSpace(candidate))
+        if (LooksLikeVehicleDefinition(definition))
+        {
+            candidates.Add(definition!);
+        }
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var normalized = NormalizeVehicleCandidate(omsiRoot, candidate);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return normalized;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeVehicleCandidate(
+        string? omsiRoot,
+        string? value)
+    {
+        var candidate = NormalizeSeparators(value);
+        if (string.IsNullOrWhiteSpace(candidate) ||
+            !LooksLikeVehicleDefinition(candidate))
         {
             return null;
         }
@@ -132,7 +164,7 @@ internal static class OmsiVehicleIdentityReader
         }
         catch
         {
-            // Keep the source text and try the Vehicles\ anchor below.
+            // Keep the source text and try the Vehicles\\ anchor below.
         }
 
         candidate = NormalizeSeparators(candidate)?.TrimStart('\\');
