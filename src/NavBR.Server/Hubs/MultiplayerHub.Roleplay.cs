@@ -31,10 +31,17 @@ public sealed partial class MultiplayerHub
             throw new HubException("Roleplay character does not match the current room map.");
         }
 
+        var sourceTimestamp = character.Timestamp == default
+            ? DateTimeOffset.UtcNow
+            : character.Timestamp.ToUniversalTime();
+
         var safe = character with
         {
             PlayerId = presence.PlayerId,
-            Timestamp = DateTimeOffset.UtcNow,
+            // Preserve sender time for interpolation. It is never used as a
+            // trust/authorization signal; old/default clients still receive a
+            // server timestamp fallback.
+            Timestamp = sourceTimestamp,
             MapName = mapName ?? presence.MapName,
             MapCompatibilityId = mapCompatibilityId ?? presence.MapCompatibilityId,
             SpeedMps = Math.Clamp(character.SpeedMps, 0d, MaxRoleplayCharacterSpeedMps),
