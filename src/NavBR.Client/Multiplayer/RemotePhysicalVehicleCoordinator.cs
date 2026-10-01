@@ -286,6 +286,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var remoteIsOpenOmsi =
+            IsOpenOmsiSource(remoteManifest);
+        if (remoteIsOpenOmsi &&
+            !HasCoherentPhysicalPose(frame.Telemetry) &&
+            _physicalRoadAnchorResolver
+                .TryResolveOpenOmsiWorldAnchor(
+                    frame.Telemetry,
+                    out var openOmsiWorldAnchor))
+        {
+            frame =
+                ApplyOpenOmsiWorldAnchor(
+                    frame,
+                    openOmsiWorldAnchor);
+        }
+
         double? currentDistanceMeters = null;
         if (TryGetLocalDistanceMeters(frame.Telemetry, out var distanceMeters))
         {
@@ -395,20 +410,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
         }
 
         var hasCoherentPhysicalPose =
-            frame.Telemetry.LocalX is double localX &&
-            double.IsFinite(localX) &&
-            frame.Telemetry.LocalY is double localY &&
-            double.IsFinite(localY) &&
-            frame.Telemetry.LocalZ is double localZ &&
-            double.IsFinite(localZ) &&
-            frame.Telemetry.RotationX is double rotationX &&
-            double.IsFinite(rotationX) &&
-            frame.Telemetry.RotationY is double rotationY &&
-            double.IsFinite(rotationY) &&
-            frame.Telemetry.RotationZ is double rotationZ &&
-            double.IsFinite(rotationZ) &&
-            frame.Telemetry.RotationW is double rotationW &&
-            double.IsFinite(rotationW);
+            HasCoherentPhysicalPose(
+                frame.Telemetry);
 
         if (!hasCoherentPhysicalPose)
         {
@@ -416,14 +419,19 @@ internal sealed class RemotePhysicalVehicleCoordinator
             // read-only telemetry poll while the simulation is running. The
             // provider withholds LocalX/Y/Z + quaternion for that transient
             // frame rather than pairing coordinates from different Kacheln.
-            // Hold the last physical pose and wait for the next coherent frame;
-            // never turn a tile-boundary race into an invalid transform,
-            // resync loop or despawn/spawn cycle.
+            // For openOMSI senders, a world pose is converted above using the
+            // receiver's real global.cfg TileSize and loaded map tile catalog.
             SetStatus(
                 playerId,
-                "waiting-coherent-pose",
-                "physical-pose-unstable",
-                "Holding the last physical pose while OMSI completes a Kachel transition.");
+                remoteIsOpenOmsi
+                    ? "waiting-openomsi-world-pose"
+                    : "waiting-coherent-pose",
+                remoteIsOpenOmsi
+                    ? "openomsi-world-pose-unresolved"
+                    : "physical-pose-unstable",
+                remoteIsOpenOmsi
+                    ? "The openOMSI world pose could not be mapped to a real local OMSI Kachel. Verify map fingerprint, tile coverage and world coordinates."
+                    : "Holding the last physical pose while OMSI completes a Kachel transition.");
             return;
         }
 
@@ -1392,6 +1400,79 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
+    }
+
+    private static bool IsOpenOmsiSource(
+        OmsiCompatibilityManifest manifest) =>
+        string.Equals(
+            manifest.PluginDeployment,
+            "OPENOMSI-X64",
+            StringComparison.OrdinalIgnoreCase) ||
+        manifest.Capabilities?.Contains(
+            PluginBridgeProtocol
+                .CapabilityOpenOmsiStandardPlugin,
+            StringComparer.OrdinalIgnoreCase) == true;
+
+    private static bool HasCoherentPhysicalPose(
+        VehicleTelemetry telemetry) =>
+        telemetry.LocalX is double localX &&
+        double.IsFinite(localX) &&
+        telemetry.LocalY is double localY &&
+        double.IsFinite(localY) &&
+        telemetry.LocalZ is double localZ &&
+        double.IsFinite(localZ) &&
+        telemetry.RotationX is double rotationX &&
+        double.IsFinite(rotationX) &&
+        telemetry.RotationY is double rotationY &&
+        double.IsFinite(rotationY) &&
+        telemetry.RotationZ is double rotationZ &&
+        double.IsFinite(rotationZ) &&
+        telemetry.RotationW is double rotationW &&
+        double.IsFinite(rotationW);
+
+    private static PlayerTelemetryFrame ApplyOpenOmsiWorldAnchor(
+        PlayerTelemetryFrame frame,
+        OmsiPhysicalRoadAnchor anchor)
+    {
+        var telemetry = frame.Telemetry;
+
+        return frame with
+        {
+            Telemetry = telemetry with
+            {
+                // Convert openOMSI's Z-up world convention into OMSI/D3D's
+                // Y-up convention for every downstream OMSI 2 calculation.
+                X = telemetry.X,
+                Y = telemetry.Z,
+                Z = telemetry.Y,
+                GridX = anchor.GridX,
+                GridY = anchor.GridY,
+                PhysicalGridX = anchor.GridX,
+                PhysicalGridY = anchor.GridY,
+                TileX = anchor.LocalX,
+                TileY = anchor.LocalZ,
+                LocalX = anchor.LocalX,
+                LocalY = anchor.LocalY,
+                LocalZ = anchor.LocalZ,
+                MapTileIndex = null,
+                HeadingDegrees =
+                    anchor.HeadingDegrees,
+                RotationX =
+                    anchor.RotationX,
+                RotationY =
+                    anchor.RotationY,
+                RotationZ =
+                    anchor.RotationZ,
+                RotationW =
+                    anchor.RotationW,
+                VelocityX =
+                    telemetry.VelocityX,
+                VelocityY =
+                    telemetry.VelocityZ,
+                VelocityZ =
+                    telemetry.VelocityY
             }
         };
     }
