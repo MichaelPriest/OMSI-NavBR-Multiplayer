@@ -52,6 +52,8 @@ public partial class MultiplayerWindow : Window
     public event Action? RoleplayActionRequested;
 
     public bool IsConnected => _client.IsConnected;
+    public bool IsTrafficAuthority => _client.IsTrafficAuthority;
+    public string CurrentPlayerId => _settings.PlayerId;
     public string CurrentDisplayName => _settings.DisplayName;
     public string CurrentRoomId => _settings.RoomId;
 
