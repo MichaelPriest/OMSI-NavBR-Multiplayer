@@ -402,7 +402,7 @@ public partial class HudOverlayWindow
         }
     }
 
-    public void UpdateInGameRoleplayOptions(
+    internal void UpdateInGameRoleplayOptions(
         IReadOnlyList<RoleplayCharacterOption> options,
         string? selectedId,
         bool active)
