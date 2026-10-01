@@ -619,7 +619,40 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 await _physicalVehicles.DespawnAsync(playerId);
             }
 
-            await OpenOmsiLanGateway.Shared.UpsertRemoteAsync(frame);
+            var reportedVehiclePath =
+                frame.Telemetry.VehiclePath ??
+                frame.Player.Compatibility?.VehiclePath;
+            var remoteVehicleCompatibilityId =
+                frame.Telemetry.VehicleCompatibilityId ??
+                frame.Player.Compatibility?.VehicleCompatibilityId;
+
+            var resolvedVehiclePath =
+                await _openOmsiVehicleAssets.ResolveAsync(
+                    reportedVehiclePath,
+                    remoteVehicleCompatibilityId);
+
+            if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
+            {
+                // Fail closed exactly like the OMSI 2 physical backend:
+                // an unverified path must never be advertised to openOMSI as
+                // though the local receiver owned the same vehicle content.
+                await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(
+                    playerId);
+                return;
+            }
+
+            var resolvedFrame = frame with
+            {
+                Telemetry = frame.Telemetry with
+                {
+                    VehiclePath = resolvedVehiclePath,
+                    VehicleCompatibilityId =
+                        remoteVehicleCompatibilityId
+                }
+            };
+
+            await OpenOmsiLanGateway.Shared.UpsertRemoteAsync(
+                resolvedFrame);
             return;
         }
 
