@@ -276,7 +276,7 @@ public static class OpenOmsiLanProtocol
         string? value,
         IReadOnlyCollection<string> allowedExtensions)
     {
-        var path = value?.Trim().Replace('\', '/');
+        var path = value?.Trim().Replace('\\', '/');
         if (string.IsNullOrWhiteSpace(path) ||
             path.Length > 260 ||
             path.StartsWith('/') ||
