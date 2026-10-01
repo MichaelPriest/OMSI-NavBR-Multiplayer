@@ -120,6 +120,40 @@ using (var localTimeout = new CancellationTokenSource(
     Require(localTelemetry.WipersActive, "Local wiper state was not mapped.");
 }
 
+await Task.Delay(55);
+var secondLocalState = localState with
+{
+    Sequence = 12,
+    X = 202.42,
+    SentMilliseconds = 12400
+};
+await SendBytesAsync(
+    client,
+    gatewayEndpoint,
+    OpenOmsiLanStateCodec.Encode(secondLocalState));
+
+var stateDeadline =
+    DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2);
+while (gateway.GetStatus().LocalStateFrames < 2 &&
+       DateTimeOffset.UtcNow < stateDeadline)
+{
+    await Task.Delay(20);
+}
+
+var streamingStatus = gateway.GetStatus();
+Require(
+    streamingStatus.LocalStateFrames >= 2,
+    "Gateway STATE diagnostics did not count local frames.");
+Require(
+    streamingStatus.LastLocalStateSequence == 12,
+    "Gateway STATE diagnostics did not retain the latest sequence.");
+Require(
+    streamingStatus.LocalStateRateHz is > 0d and <= 240d,
+    "Gateway STATE diagnostics did not expose a valid receive rate.");
+Require(
+    streamingStatus.LastLocalStateUtc is not null,
+    "Gateway STATE diagnostics did not expose the last STATE timestamp.");
+
 await SendTextAsync(
     client,
     gatewayEndpoint,
@@ -335,6 +369,10 @@ Require(status.Port == port, "Gateway status port changed.");
 Require(status.ClientName == "Local Driver", "Gateway client name mismatch.");
 Require(status.VehiclePath == "Vehicles/MAN_NL_NG/MAN_EN92_main.bus", "Gateway status vehicle path mismatch.");
 Require(status.RemotePlayers == 0, "Gateway status retained removed remotes.");
+Require(status.LocalStateFrames >= 2, "Gateway status lost local STATE frame count.");
+Require(status.LastLocalStateSequence == 12, "Gateway status lost latest local STATE sequence.");
+Require(status.LocalStateRateHz is > 0d, "Gateway status lost local STATE rate.");
+Require(status.LastLocalStateUtc is not null, "Gateway status lost local STATE timestamp.");
 Require(string.IsNullOrWhiteSpace(status.LastError), $"Gateway reported an error: {status.LastError}");
 
 Console.WriteLine(
