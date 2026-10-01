@@ -151,6 +151,7 @@ jobs:
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
           dotnet restore src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj
+          dotnet restore src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
@@ -175,6 +176,17 @@ jobs:
             -c Release `
             --no-restore
           if ($LASTEXITCODE -ne 0) { throw "openOMSI LAN v6 codec smoke failed." }
+
+      - name: Smoke-test openOMSI loopback gateway
+        shell: pwsh
+        run: |
+          Remove-Item Env:__DOTNET_ADD_32BIT -ErrorAction SilentlyContinue
+          Remove-Item Env:__DOTNET_PREFERRED_BITNESS -ErrorAction SilentlyContinue
+          & "C:\Program Files\dotnet\dotnet.exe" run `
+            --project src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj `
+            -c Release `
+            --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "openOMSI loopback gateway smoke failed." }
 
       - name: Build OMSI native interop x86
         shell: pwsh
