@@ -331,6 +331,7 @@ jobs:
           foreach ($required in @(
             "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.dll",
             "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl",
+            "artifacts/NavBR.OpenOmsiPlugin/main.lua",
             "artifacts/NavBR.OpenOmsiPlugin/Install-NavBROpenOmsiPlugin.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/Remove-NavBROpenOmsiPlugin.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/README.md"
@@ -386,6 +387,7 @@ jobs:
           foreach ($installed in @(
             (Join-Path $target "NavBR.OpenOmsiPlugin.dll"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.opl"),
+            (Join-Path $target "main.lua"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt")
           )) {
             if (-not (Test-Path $installed)) {
