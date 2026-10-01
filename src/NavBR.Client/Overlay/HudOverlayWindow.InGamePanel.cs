@@ -27,6 +27,7 @@ public partial class HudOverlayWindow
     private Button? _inGameDispatchAcknowledgeButton;
     private Button? _inGameDispatchResolveButton;
     private string? _inGameDispatchReportId;
+    private string? _inGameConnectionNotice;
     private bool _inGamePanelOpen;
 
     public event Action? InGamePanelOpened;
@@ -291,6 +292,14 @@ public partial class HudOverlayWindow
             dispatchReport: null);
     }
 
+    internal void SetInGameConnectionNotice(string? message)
+    {
+        _inGameConnectionNotice =
+            string.IsNullOrWhiteSpace(message)
+                ? null
+                : message.Trim();
+    }
+
     public void UpdateInGamePanelState(
         bool connected,
         string? roomId,
@@ -316,12 +325,25 @@ public partial class HudOverlayWindow
                     $"SESIÓN • {roomId ?? "-"} • {displayName ?? "Driver"}",
                     $"SITZUNG • {roomId ?? "-"} • {displayName ?? "Driver"}",
                     $"SESSION • {roomId ?? "-"} • {displayName ?? "Driver"}")
-                : InGameText(
-                    "SESSÃO • offline",
-                    "SESSION • offline",
-                    "SESIÓN • sin conexión",
-                    "SITZUNG • offline",
-                    "SESSION • hors ligne");
+                : !string.IsNullOrWhiteSpace(_inGameConnectionNotice)
+                    ? InGameText(
+                        $"SESSÃO • {_inGameConnectionNotice}",
+                        $"SESSION • {_inGameConnectionNotice}",
+                        $"SESIÓN • {_inGameConnectionNotice}",
+                        $"SITZUNG • {_inGameConnectionNotice}",
+                        $"SESSION • {_inGameConnectionNotice}")
+                    : InGameText(
+                        "SESSÃO • offline",
+                        "SESSION • offline",
+                        "SESIÓN • sin conexión",
+                        "SITZUNG • offline",
+                        "SESSION • hors ligne");
+
+            _inGameSessionText.Foreground = connected
+                ? new SolidColorBrush(Color.FromRgb(82, 215, 145))
+                : !string.IsNullOrWhiteSpace(_inGameConnectionNotice)
+                    ? new SolidColorBrush(Color.FromRgb(239, 112, 93))
+                    : new SolidColorBrush(Color.FromRgb(237, 184, 75));
         }
 
         if (_inGameRuntimeText is not null)
