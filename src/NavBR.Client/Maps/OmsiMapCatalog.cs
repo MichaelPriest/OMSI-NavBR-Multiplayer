@@ -121,9 +121,18 @@ public sealed class OmsiMapCatalog
 
     internal static string? TryFingerprintInstalledMap(
         string? contentRoot,
+        string? mapNameOrPath) =>
+        string.IsNullOrWhiteSpace(contentRoot)
+            ? null
+            : TryFingerprintInstalledMap(
+                [contentRoot],
+                mapNameOrPath);
+
+    internal static string? TryFingerprintInstalledMap(
+        IReadOnlyList<string> contentRoots,
         string? mapNameOrPath)
     {
-        if (string.IsNullOrWhiteSpace(contentRoot) ||
+        if (contentRoots.Count == 0 ||
             string.IsNullOrWhiteSpace(mapNameOrPath))
         {
             return null;
@@ -131,14 +140,6 @@ public sealed class OmsiMapCatalog
 
         try
         {
-            var root = Path.TrimEndingDirectorySeparator(
-                Path.GetFullPath(contentRoot));
-            var mapsRoot = Path.Combine(root, "maps");
-            var mapsRootPrefix =
-                Path.TrimEndingDirectorySeparator(
-                    Path.GetFullPath(mapsRoot)) +
-                Path.DirectorySeparatorChar;
-
             var value = mapNameOrPath.Trim()
                 .Replace('\\', '/')
                 .Trim('/');
@@ -165,34 +166,78 @@ public sealed class OmsiMapCatalog
                 return null;
             }
 
-            var mapDirectory = Path.GetFullPath(
-                Path.Combine(
-                    mapsRoot,
-                    value.Replace(
-                        '/',
-                        Path.DirectorySeparatorChar)));
-            var directoryPrefix =
-                Path.TrimEndingDirectorySeparator(mapDirectory) +
-                Path.DirectorySeparatorChar;
-            if (!directoryPrefix.StartsWith(
-                    mapsRootPrefix,
-                    StringComparison.OrdinalIgnoreCase))
+            string? globalCfg = null;
+            var tiles =
+                new Dictionary<string, string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            foreach (var rawRoot in contentRoots)
+            {
+                if (string.IsNullOrWhiteSpace(rawRoot))
+                {
+                    continue;
+                }
+
+                var root =
+                    Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(rawRoot));
+                var mapsRoot =
+                    Path.GetFullPath(
+                        Path.Combine(root, "maps"));
+                var mapsRootPrefix =
+                    Path.TrimEndingDirectorySeparator(
+                        mapsRoot) +
+                    Path.DirectorySeparatorChar;
+                var mapDirectory =
+                    Path.GetFullPath(
+                        Path.Combine(
+                            mapsRoot,
+                            value.Replace(
+                                '/',
+                                Path.DirectorySeparatorChar)));
+                var directoryPrefix =
+                    Path.TrimEndingDirectorySeparator(
+                        mapDirectory) +
+                    Path.DirectorySeparatorChar;
+                if (!directoryPrefix.StartsWith(
+                        mapsRootPrefix,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !Directory.Exists(mapDirectory))
+                {
+                    continue;
+                }
+
+                var candidateGlobal =
+                    Path.Combine(
+                        mapDirectory,
+                        "global.cfg");
+                if (globalCfg is null &&
+                    File.Exists(candidateGlobal))
+                {
+                    globalCfg = candidateGlobal;
+                }
+
+                foreach (var tileFile in Directory.EnumerateFiles(
+                             mapDirectory,
+                             "tile_*.map",
+                             SearchOption.TopDirectoryOnly))
+                {
+                    var name =
+                        Path.GetFileName(tileFile);
+                    if (!tiles.ContainsKey(name))
+                    {
+                        tiles[name] = tileFile;
+                    }
+                }
+            }
+
+            if (globalCfg is null)
             {
                 return null;
             }
 
-            var globalCfg =
-                Path.Combine(mapDirectory, "global.cfg");
-            if (!File.Exists(globalCfg))
-            {
-                return null;
-            }
-
-            var tileFiles = Directory
-                .EnumerateFiles(
-                    mapDirectory,
-                    "tile_*.map",
-                    SearchOption.TopDirectoryOnly)
+            var tileFiles = tiles
+                .Values
                 .OrderBy(
                     path => Path.GetFileName(path),
                     StringComparer.OrdinalIgnoreCase)
