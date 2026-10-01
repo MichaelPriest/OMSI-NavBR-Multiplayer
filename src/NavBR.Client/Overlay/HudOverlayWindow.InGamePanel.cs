@@ -15,15 +15,21 @@ public partial class HudOverlayWindow
     private TextBlock? _inGameSessionText;
     private TextBlock? _inGameCompanyText;
     private TextBlock? _inGameOperationsText;
+    private TextBlock? _inGameDispatchText;
     private Button? _inGameAssistanceButton;
     private Button? _inGameIncidentButton;
     private Button? _inGameResolvedButton;
+    private Button? _inGameDispatchAcknowledgeButton;
+    private Button? _inGameDispatchResolveButton;
+    private string? _inGameDispatchReportId;
     private bool _inGamePanelOpen;
 
     public event Action? InGamePanelOpened;
     public event Action? InGameAssistanceRequested;
     public event Action? InGameIncidentRequested;
     public event Action? InGameOperationalResolvedRequested;
+    public event Action<string>? InGameDispatchAcknowledgeRequested;
+    public event Action<string>? InGameDispatchResolveRequested;
 
     public bool IsInGamePanelOpen => _inGamePanelOpen;
 
@@ -80,6 +86,7 @@ public partial class HudOverlayWindow
         _inGameSessionText = BuildInGameStatusText();
         _inGameCompanyText = BuildInGameStatusText();
         _inGameOperationsText = BuildInGameStatusText();
+        _inGameDispatchText = BuildInGameStatusText();
 
         var actionGrid = new UniformGrid
         {
@@ -140,6 +147,40 @@ public partial class HudOverlayWindow
             new SolidColorBrush(Color.FromRgb(26, 91, 65)),
             () => InGameOperationalResolvedRequested?.Invoke());
 
+        _inGameDispatchAcknowledgeButton = BuildInGameButton(
+            InGameText(
+                "CCO • RECONHECER",
+                "DISPATCH • ACKNOWLEDGE",
+                "CCO • RECONOCER",
+                "LEITSTELLE • BESTÄTIGEN",
+                "PCC • PRENDRE EN CHARGE"),
+            new SolidColorBrush(Color.FromRgb(65, 92, 135)),
+            () =>
+            {
+                if (!string.IsNullOrWhiteSpace(_inGameDispatchReportId))
+                {
+                    InGameDispatchAcknowledgeRequested?.Invoke(_inGameDispatchReportId);
+                }
+            });
+        _inGameDispatchAcknowledgeButton.Visibility = Visibility.Collapsed;
+
+        _inGameDispatchResolveButton = BuildInGameButton(
+            InGameText(
+                "CCO • RESOLVER",
+                "DISPATCH • RESOLVE",
+                "CCO • RESOLVER",
+                "LEITSTELLE • LÖSEN",
+                "PCC • RÉSOUDRE"),
+            new SolidColorBrush(Color.FromRgb(37, 100, 72)),
+            () =>
+            {
+                if (!string.IsNullOrWhiteSpace(_inGameDispatchReportId))
+                {
+                    InGameDispatchResolveRequested?.Invoke(_inGameDispatchReportId);
+                }
+            });
+        _inGameDispatchResolveButton.Visibility = Visibility.Collapsed;
+
         var hideButton = BuildInGameButton(
             InGameText(
                 "VOLTAR AO JOGO",
@@ -156,6 +197,8 @@ public partial class HudOverlayWindow
         actionGrid.Children.Add(_inGameIncidentButton);
         actionGrid.Children.Add(_inGameResolvedButton);
         actionGrid.Children.Add(hideButton);
+        actionGrid.Children.Add(_inGameDispatchAcknowledgeButton);
+        actionGrid.Children.Add(_inGameDispatchResolveButton);
 
         var body = new StackPanel();
         body.Children.Add(header);
@@ -174,6 +217,7 @@ public partial class HudOverlayWindow
         body.Children.Add(_inGameSessionText);
         body.Children.Add(_inGameCompanyText);
         body.Children.Add(_inGameOperationsText);
+        body.Children.Add(_inGameDispatchText);
         body.Children.Add(actionGrid);
 
         _inGamePanel = new Border
@@ -199,7 +243,9 @@ public partial class HudOverlayWindow
             roomId: null,
             displayName: null,
             operationalReport: null,
-            companyLabel: null);
+            companyLabel: null,
+            canManageDispatch: false,
+            dispatchReport: null);
     }
 
     public void UpdateInGamePanelState(
@@ -207,7 +253,9 @@ public partial class HudOverlayWindow
         string? roomId,
         string? displayName,
         OperationalReport? operationalReport,
-        string? companyLabel)
+        string? companyLabel,
+        bool canManageDispatch,
+        OperationalReport? dispatchReport)
     {
         if (_inGamePanel is null)
         {
@@ -278,6 +326,54 @@ public partial class HudOverlayWindow
                 connected &&
                 operationalReport is not null &&
                 operationalReport.Status != OperationalReportStatus.Resolved;
+        }
+
+        _inGameDispatchReportId = canManageDispatch &&
+                                  dispatchReport is not null &&
+                                  dispatchReport.Status != OperationalReportStatus.Resolved
+            ? dispatchReport.ReportId
+            : null;
+
+        if (_inGameDispatchText is not null)
+        {
+            _inGameDispatchText.Visibility = canManageDispatch
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            _inGameDispatchText.Text = !canManageDispatch
+                ? string.Empty
+                : dispatchReport is null ||
+                  dispatchReport.Status == OperationalReportStatus.Resolved
+                    ? InGameText(
+                        "CCO OPERADOR • nenhum chamado pendente",
+                        "DISPATCH OPERATOR • no pending requests",
+                        "OPERADOR CCO • sin solicitudes pendientes",
+                        "LEITSTELLE • keine offenen Meldungen",
+                        "OPÉRATEUR PCC • aucune demande en attente")
+                    : InGameText(
+                        $"CCO OPERADOR • {dispatchReport.DisplayName} • {dispatchReport.Kind} • {dispatchReport.Status}",
+                        $"DISPATCH OPERATOR • {dispatchReport.DisplayName} • {dispatchReport.Kind} • {dispatchReport.Status}",
+                        $"OPERADOR CCO • {dispatchReport.DisplayName} • {dispatchReport.Kind} • {dispatchReport.Status}",
+                        $"LEITSTELLE • {dispatchReport.DisplayName} • {dispatchReport.Kind} • {dispatchReport.Status}",
+                        $"OPÉRATEUR PCC • {dispatchReport.DisplayName} • {dispatchReport.Kind} • {dispatchReport.Status}");
+        }
+
+        if (_inGameDispatchAcknowledgeButton is not null)
+        {
+            _inGameDispatchAcknowledgeButton.Visibility = canManageDispatch
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            _inGameDispatchAcknowledgeButton.IsEnabled =
+                !string.IsNullOrWhiteSpace(_inGameDispatchReportId) &&
+                dispatchReport?.Status == OperationalReportStatus.Open;
+        }
+
+        if (_inGameDispatchResolveButton is not null)
+        {
+            _inGameDispatchResolveButton.Visibility = canManageDispatch
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            _inGameDispatchResolveButton.IsEnabled =
+                !string.IsNullOrWhiteSpace(_inGameDispatchReportId);
         }
     }
 
