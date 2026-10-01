@@ -3384,6 +3384,11 @@ function Settings({
               <span><small>OMSI</small><strong>{system.sessionHealth.omsiActive ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Aguardando", "Waiting", "Esperando", "Wartet", "En attente")}</strong></span>
               <span><small>MULTIPLAYER</small><strong>{system.sessionHealth.multiplayerConnected ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté") : pick("Desconectado", "Disconnected", "Desconectado", "Getrennt", "Déconnecté")}</strong></span>
               <span><small>BRIDGE / PLUGIN</small><strong>{system.sessionHealth.pluginConnected ? `${pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")}${system.sessionHealth.pluginVersion ? ` · ${system.sessionHealth.pluginVersion}` : ""}` : pick("Offline opcional", "Optional offline", "Offline opcional", "Optional offline", "Hors ligne optionnel")}</strong></span>
+              <span><small>{pick("OTIMIZADOR", "OPTIMIZER", "OPTIMIZADOR", "OPTIMIERER", "OPTIMISEUR")}</small><strong>{system.sessionHealth.pluginPerformance.pressureLevel == null ? "—" : system.sessionHealth.pluginPerformance.pressureLevel === 0 ? pick("Normal", "Normal", "Normal", "Normal", "Normal") : `${pick("Pressão", "Pressure", "Presión", "Druck", "Pression")} ${system.sessionHealth.pluginPerformance.pressureLevel}`}</strong></span>
+              <span><small>{pick("PERFIL", "PROFILE", "PERFIL", "PROFIL", "PROFIL")}</small><strong>{(system.sessionHealth.pluginPerformance.activeProfile || system.sessionHealth.pluginPerformance.configuredProfile).toUpperCase()}</strong></span>
+              <span><small>{pick("TRABALHO PLUGIN", "PLUGIN WORK", "TRABAJO PLUGIN", "PLUGIN-ARBEIT", "TRAVAIL PLUGIN")}</small><strong>{system.sessionHealth.pluginPerformance.averageWorkMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageWorkMilliseconds, 2)} ms`}</strong></span>
+              <span><small>{pick("FRAME MÉDIO", "AVG FRAME", "FRAME MEDIO", "Ø FRAME", "FRAME MOYEN")}</small><strong>{system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds, 1)} ms`}</strong></span>
+              <span><small>{pick("STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS")}</small><strong>{system.sessionHealth.pluginPerformance.frameStallCount ?? "—"}</strong></span>
               <span><small>{pick("MOTORISTAS REMOTOS", "REMOTE DRIVERS", "CONDUCTORES REMOTOS", "REMOTE-FAHRER", "CONDUCTEURS DISTANTS")}</small><strong>{system.sessionHealth.multiplayerConnected ? system.sessionHealth.remoteDrivers : "—"}</strong></span>
               <span><small>{pick("TELEMETRIA REMOTA", "REMOTE TELEMETRY", "TELEMETRÍA REMOTA", "REMOTE-TELEMETRIE", "TÉLÉMÉTRIE DISTANTE")}</small><strong>{system.sessionHealth.remoteTelemetryAgeSeconds == null ? "—" : system.sessionHealth.remoteTelemetryAgeSeconds < 1 ? pick("Agora", "Now", "Ahora", "Jetzt", "Maintenant") : `${format(system.sessionHealth.remoteTelemetryAgeSeconds, 0)} s`}</strong></span>
               <span><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{system.sessionHealth.latencyMs == null ? "—" : `${format(system.sessionHealth.latencyMs, 0)} ms`}</strong></span>
@@ -3391,7 +3396,33 @@ function Settings({
               <span><small>{pick("PERDA EST.", "EST. LOSS", "PÉRDIDA EST.", "GESCH. VERLUST", "PERTE EST.")}</small><strong>{system.sessionHealth.lossPercent == null ? "—" : `${format(system.sessionHealth.lossPercent, 1)}%`}</strong></span>
               <span><small>{pick("TAXA DE TELEMETRIA", "TELEMETRY RATE", "TASA DE TELEMETRÍA", "TELEMETRIE-RATE", "TAUX TÉLÉMÉTRIE")}</small><strong>{system.sessionHealth.telemetryRateHz == null ? "—" : `~${format(system.sessionHealth.telemetryRateHz, 1)} Hz`}</strong></span>
             </div>
-            <p>{pick("Os valores de rede vêm de sondas reais ao mesmo peer-host NavBR. A frequência de telemetria se adapta automaticamente à qualidade da conexão.", "Network values come from real probes to the same NavBR peer-host. Telemetry frequency adapts automatically to connection quality.", "Los valores de red vienen de sondas reales al mismo peer-host NavBR. La frecuencia de telemetría se adapta automáticamente.", "Netzwerkwerte stammen aus echten Messungen zum selben NavBR-Peer-Host. Die Telemetrierate passt sich automatisch an.", "Les valeurs réseau viennent de sondes réelles vers le même peer-host NavBR. La fréquence de télémétrie s’adapte automatiquement.")}</p>
+            <div className="room-actions">
+              {(["auto", "stability", "multiplayer", "quality", "diagnostics"] as const).map(profile => (
+                <button
+                  key={profile}
+                  className={`button ${system.sessionHealth.pluginPerformance.configuredProfile === profile ? "primary" : "ghost"} compact`}
+                  onClick={() => sendCommand("setPerformanceProfile", { profile })}
+                >
+                  {profile === "auto" ? pick("Automático", "Automatic", "Automático", "Automatisch", "Automatique") :
+                   profile === "stability" ? pick("Estabilidade", "Stability", "Estabilidad", "Stabilität", "Stabilité") :
+                   profile === "multiplayer" ? "Multiplayer" :
+                   profile === "quality" ? pick("Qualidade", "Quality", "Calidad", "Qualität", "Qualité") :
+                   pick("Diagnóstico", "Diagnostics", "Diagnóstico", "Diagnose", "Diagnostic")}
+                </button>
+              ))}
+            </div>
+            {system.sessionHealth.pluginPerformance.queueBackpressureActive && (
+              <div className="network-message">
+                {pick(
+                  "O otimizador reduziu temporariamente a carga do NavBR para proteger o frame time do OMSI.",
+                  "The optimizer temporarily reduced NavBR workload to protect OMSI frame time.",
+                  "El optimizador redujo temporalmente la carga de NavBR para proteger el tiempo de frame de OMSI.",
+                  "Der Optimierer hat die NavBR-Last vorübergehend reduziert, um die OMSI-Framezeit zu schützen.",
+                  "L’optimiseur a temporairement réduit la charge NavBR afin de protéger le temps de trame d’OMSI."
+                )}
+              </div>
+            )}
+            <p>{pick("Os valores de rede vêm de sondas reais ao mesmo peer-host NavBR. O otimizador também reduz automaticamente o trabalho do plugin quando o OMSI entra sob pressão.", "Network values come from real probes to the same NavBR peer-host. The optimizer also automatically reduces plugin work when OMSI comes under pressure.", "Los valores de red vienen de sondas reales al mismo peer-host NavBR. El optimizador también reduce automáticamente el trabajo del plugin cuando OMSI está bajo presión.", "Netzwerkwerte stammen aus echten Messungen zum selben NavBR-Peer-Host. Der Optimierer reduziert außerdem automatisch die Plugin-Arbeit, wenn OMSI unter Druck gerät.", "Les valeurs réseau viennent de sondes réelles vers le même peer-host NavBR. L’optimiseur réduit aussi automatiquement le travail du plugin lorsqu’OMSI est sous pression.")}</p>
           </article>
           <article className="card diagnostics-log-card">
             <span className="eyebrow">{pick("LOG LOCAL", "LOCAL LOG", "LOG LOCAL", "LOKALES LOG", "JOURNAL LOCAL")}</span>
