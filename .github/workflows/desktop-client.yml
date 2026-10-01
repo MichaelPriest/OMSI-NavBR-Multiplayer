@@ -88,6 +88,7 @@ jobs:
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+          dotnet restore src/NavBR.OpenOmsiSignalRSmokeTest/NavBR.OpenOmsiSignalRSmokeTest.csproj -r win-x86
 
       - name: Build native OMSI interop x86
         shell: pwsh
@@ -154,6 +155,23 @@ jobs:
             -c Release `
             -r win-x86 `
             --no-restore
+
+      - name: Smoke-test SignalR to openOMSI physical gateway
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OpenOmsiSignalRSmokeTest/NavBR.OpenOmsiSignalRSmokeTest.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained true `
+            --no-restore `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/NavBR.OpenOmsiSignalRSmokeTest
+          & "artifacts/NavBR.OpenOmsiSignalRSmokeTest/NavBR.OpenOmsiSignalRSmokeTest.exe"
+          if ($LASTEXITCODE -ne 0) {
+            throw "SignalR to openOMSI physical gateway smoke failed."
+          }
 
       - name: Publish desktop client x86
         shell: pwsh
