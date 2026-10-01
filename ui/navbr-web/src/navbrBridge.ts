@@ -555,6 +555,25 @@ export interface NavBrSystemState {
     map?: string | null;
     vehiclePath?: string | null;
     remotePlayers: number;
+    runtimeStatusAvailable: boolean;
+    runtimeStatusFresh: boolean;
+    runtimeConnected: boolean;
+    runtimeStatusPath?: string | null;
+    runtimeUpdatedAtUtc?: string | null;
+    drawnRemotePlayers: number;
+    remotes: Array<{
+      playerId: string;
+      lanId: number;
+      name?: string | null;
+      vehiclePath?: string | null;
+      hasInfo: boolean;
+      hasState: boolean;
+      drawn: boolean;
+      materializationStatus: "waiting-info" | "waiting-state" | "drawn" | "sent-not-drawn" | "sent-unconfirmed";
+      runtimeBus?: string | null;
+      runtimeName?: string | null;
+      lastSeenUtc: string;
+    }>;
     localStateFrames: number;
     lastLocalStateSequence?: number | null;
     localStateRateHz?: number | null;
