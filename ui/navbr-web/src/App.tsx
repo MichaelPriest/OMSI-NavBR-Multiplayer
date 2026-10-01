@@ -1028,6 +1028,22 @@ function physicalVehicleStatusLabel(
         "openOMSI 3D bestätigt · drawn=true",
         "openOMSI 3D confirmé · drawn=true"
       );
+    case "openomsi-identity-pending":
+      return pick(
+        "Identidade do ônibus pendente · INFO/STATE bloqueados",
+        "Bus identity pending · INFO/STATE blocked",
+        "Identidad del autobús pendiente · INFO/STATE bloqueados",
+        "Bus-Identität ausstehend · INFO/STATE blockiert",
+        "Identité du bus en attente · INFO/STATE bloqués"
+      );
+    case "openomsi-asset-missing":
+      return pick(
+        "Addon do ônibus não instalado neste PC",
+        "Bus addon is not installed on this PC",
+        "El addon del autobús no está instalado en este PC",
+        "Bus-Add-on ist auf diesem PC nicht installiert",
+        "L’addon du bus n’est pas installé sur ce PC"
+      );
     case "openomsi-sent-unconfirmed":
       return pick(
         "openOMSI recebeu envio · aguardando status LAN",
