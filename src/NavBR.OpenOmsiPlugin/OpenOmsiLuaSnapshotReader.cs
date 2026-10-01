@@ -181,7 +181,7 @@ internal static class OpenOmsiLuaSnapshotReader
             Decode(fields[8]),
             Decode(fields[9]),
             Decode(fields[10]),
-            ParseInt(fields[11]),
+            ParseRoundedInt(fields[11]),
             Decode(fields[12]),
             Decode(fields[13]),
             Decode(fields[14]),
