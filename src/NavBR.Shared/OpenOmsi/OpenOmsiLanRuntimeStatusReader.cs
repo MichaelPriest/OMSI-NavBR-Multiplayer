@@ -8,6 +8,8 @@ public sealed record OpenOmsiLanRuntimePeer(
     string? Bus,
     string? Line,
     string? Destination,
+    int? PassengerCount,
+    string? RelativePosition,
     bool Drawn);
 
 public sealed record OpenOmsiLanRuntimeStatus(
@@ -300,6 +302,17 @@ public static class OpenOmsiLanRuntimeStatusReader
                             JsonValueKind.False &&
                         drawnNode.GetBoolean();
 
+                    int? passengerCount = null;
+                    if (player.TryGetProperty(
+                            "passengers",
+                            out var passengersNode) &&
+                        passengersNode.TryGetInt32(
+                            out var parsedPassengers))
+                    {
+                        passengerCount =
+                            Math.Max(0, parsedPassengers);
+                    }
+
                     players.Add(
                         new OpenOmsiLanRuntimePeer(
                             id,
@@ -309,6 +322,8 @@ public static class OpenOmsiLanRuntimeStatusReader
                             ReadString(
                                 player,
                                 "destination"),
+                            passengerCount,
+                            ReadString(player, "where"),
                             drawn));
                 }
             }
