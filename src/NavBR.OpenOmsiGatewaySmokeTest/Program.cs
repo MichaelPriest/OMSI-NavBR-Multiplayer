@@ -539,7 +539,7 @@ try
         "navbr-smoke.json");
     await File.WriteAllTextAsync(
         statusPath,
-        $"""
+        $$"""
         {
           "pid": 4242,
           "role": "client",
@@ -587,7 +587,7 @@ try
         "navbr-stale.json");
     await File.WriteAllTextAsync(
         stalePath,
-        $"""
+        $$"""
         {
           "pid": 4243,
           "role": "client",
