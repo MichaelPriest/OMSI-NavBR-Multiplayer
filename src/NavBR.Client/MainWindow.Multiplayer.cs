@@ -97,7 +97,8 @@ public partial class MainWindow
             () => _lastTelemetry,
             GetActiveMapForMultiplayer,
             _telemetryProvider.ReadRoleplayCharacterOptions,
-            () => _currentOmsi?.InstallDirectory);
+            () => _currentOmsi?.InstallDirectory,
+            () => _openOmsiVehicleIdentityRoots);
 
         var hud = EnsureHudOverlay();
         hud.SetLocalDisplayName(window.CurrentDisplayName);
