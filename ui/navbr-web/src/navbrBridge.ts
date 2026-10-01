@@ -541,6 +541,20 @@ export interface NavBrSystemState {
     multiplayerConnected: boolean;
     pluginConnected: boolean;
     pluginVersion?: string | null;
+    pluginPerformance: {
+      pressureLevel?: number | null;
+      workMilliseconds?: number | null;
+      averageWorkMilliseconds?: number | null;
+      averageFrameIntervalMilliseconds?: number | null;
+      minimumWorkIntervalMilliseconds?: number | null;
+      maxCommandsPerSlice?: number | null;
+      lastFrameIntervalMilliseconds?: number | null;
+      peakFrameIntervalMilliseconds?: number | null;
+      frameStallCount?: number | null;
+      configuredProfile: "auto" | "stability" | "multiplayer" | "quality" | "diagnostics";
+      activeProfile?: string | null;
+      queueBackpressureActive: boolean;
+    };
     remoteDrivers: number;
     remoteTelemetryAgeSeconds?: number | null;
     latencyMs?: number | null;
