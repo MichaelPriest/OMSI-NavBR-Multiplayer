@@ -114,11 +114,11 @@ internal static class OpenOmsiPluginInstallationService
 
                 var installedPath = Path.Combine(pluginDirectory, required);
                 var exists = File.Exists(installedPath);
-                string? installedHash = null;
+                string? installedFileHash = null;
                 if (exists)
                 {
                     using var stream = File.OpenRead(installedPath);
-                    installedHash = ToSha256(SHA256.HashData(stream));
+                    installedFileHash = ToSha256(SHA256.HashData(stream));
                 }
 
                 files.Add(new(
@@ -127,10 +127,10 @@ internal static class OpenOmsiPluginInstallationService
                     exists &&
                     string.Equals(
                         expectedHash,
-                        installedHash,
+                        installedFileHash,
                         StringComparison.OrdinalIgnoreCase),
                     expectedHash,
-                    installedHash));
+                    installedFileHash));
             }
 
             var found = files.Count(file => file.Exists);
