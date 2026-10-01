@@ -57,6 +57,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityLocalVehicleTrigger = "local-vehicle-trigger";
     public const string CapabilityPerformanceGovernor = "performance-governor";
     public const string CapabilityOpenOmsiStandardPlugin = "openomsi-standard-plugin";
+    public const string CapabilityOpenOmsiLuaSnapshot = "openomsi-lua-snapshot";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
