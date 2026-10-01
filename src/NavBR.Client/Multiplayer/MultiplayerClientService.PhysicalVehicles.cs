@@ -53,6 +53,38 @@ public sealed partial class MultiplayerClientService
                             playerId,
                             StringComparison.OrdinalIgnoreCase));
 
+            if (gatewayRemote is null ||
+                !gatewayRemote.HasInfo ||
+                !gatewayRemote.HasState ||
+                string.IsNullOrWhiteSpace(
+                    gatewayRemote.VehiclePath))
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "openomsi-identity-pending",
+                    ErrorCode: "openomsi-vehicle-path-pending",
+                    ErrorMessage:
+                        "O jogador está online, mas o NavBR ainda não recebeu um caminho .bus/.ovh utilizável. INFO/STATE não são enviados ao openOMSI até a identidade resolver.",
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
+            var installedVehicle =
+                OpenOmsiPluginInstallationService
+                    .ResolveInstalledVehicleFile(
+                        gatewayRemote.VehiclePath);
+            if (installedVehicle is null)
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "openomsi-asset-missing",
+                    ErrorCode: "openomsi-local-bus-missing",
+                    ErrorMessage:
+                        $"O ônibus remoto {gatewayRemote.VehiclePath} não foi encontrado nos content roots locais do openOMSI/OMSI 2. Instale o mesmo addon para permitir drawn=true.",
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
             var runtime =
                 OpenOmsiLanRuntimeStatusReader.Read(
                     OpenOmsiPluginInstallationService
