@@ -997,6 +997,7 @@ export type NavBrCommand =
   | "purgeDiagnostics"
   | "openFeedback"
   | "exportSessionHealth"
+  | "setPerformanceProfile"
   | "saveLegacyPreferences"
   | "completeFirstRun"
   | "connectHardware"
