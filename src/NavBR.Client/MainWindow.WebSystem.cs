@@ -16,6 +16,7 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
+    private string? _webOpenOmsiNotice;
     private string? _webSessionHealthNotice;
     private const long OmsiProcessProbeCacheMs = 3_000;
     private long _webOmsiProcessProbeTickMs;
@@ -126,6 +127,7 @@ public partial class MainWindow
                 },
                 mobileCompanion = (object?)null,
                 pluginInstallation = (object?)null,
+                openOmsiPlugin = (object?)null,
                 installations = (object?)null,
                 hud = (object?)null,
                 diagnostics = (object?)null,
