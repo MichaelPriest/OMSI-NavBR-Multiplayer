@@ -12,6 +12,7 @@ public partial class MainWindow
 {
     private int? _openOmsiProcessId;
     private bool _openOmsiBridgeHooked;
+    private string[] _openOmsiVehicleIdentityRoots = [];
 
     private void InitializeOpenOmsiRuntimeBridge()
     {
@@ -24,6 +25,7 @@ public partial class MainWindow
         _openOmsiBridgeHooked = true;
         app.PluginBridge.ConnectionStateChanged +=
             OpenOmsiPluginBridge_ConnectionStateChanged;
+        RefreshOpenOmsiVehicleIdentityRoots();
         OpenOmsiLanGateway.Shared.Start();
         OpenOmsiLanGateway.Shared.LocalTelemetryReceived +=
             OpenOmsiLanGateway_LocalTelemetryReceived;
@@ -56,10 +58,81 @@ public partial class MainWindow
 
             _openOmsiProcessId =
                 OpenOmsiPluginInstallationService.GetRunningProcessId();
-            ApplyLocalTelemetrySnapshot(telemetry);
-            UpdateTelemetryPollingCadence(telemetry);
+            var identified =
+                EnrichOpenOmsiVehicleIdentity(telemetry);
+            ApplyLocalTelemetrySnapshot(identified);
+            UpdateTelemetryPollingCadence(identified);
             RenderCurrentState();
         }));
+    }
+
+    private VehicleTelemetry EnrichOpenOmsiVehicleIdentity(
+        VehicleTelemetry telemetry)
+    {
+        if (!string.IsNullOrWhiteSpace(
+                telemetry.VehicleCompatibilityId) ||
+            string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            return telemetry;
+        }
+
+        foreach (var root in _openOmsiVehicleIdentityRoots)
+        {
+            var compatibilityId =
+                OmsiVehicleIdentityReader.TryFingerprintInstalledVehicle(
+                    root,
+                    telemetry.VehiclePath);
+            if (!string.IsNullOrWhiteSpace(compatibilityId))
+            {
+                return telemetry with
+                {
+                    VehicleCompatibilityId = compatibilityId
+                };
+            }
+        }
+
+        return telemetry;
+    }
+
+    private void RefreshOpenOmsiVehicleIdentityRoots()
+    {
+        try
+        {
+            var verification =
+                OpenOmsiPluginInstallationService.Verify();
+            var roots = new List<string>(2);
+            if (!string.IsNullOrWhiteSpace(
+                    verification.ContentRoot))
+            {
+                roots.Add(
+                    Path.GetFullPath(
+                        verification.ContentRoot));
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                    verification.ExecutablePath))
+            {
+                var executableDirectory =
+                    Path.GetDirectoryName(
+                        verification.ExecutablePath);
+                if (!string.IsNullOrWhiteSpace(
+                        executableDirectory))
+                {
+                    roots.Add(
+                        Path.GetFullPath(
+                            executableDirectory));
+                }
+            }
+
+            _openOmsiVehicleIdentityRoots = roots
+                .Distinct(
+                    StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            _openOmsiVehicleIdentityRoots = [];
+        }
     }
 
     private void OpenOmsiPluginBridge_ConnectionStateChanged(bool connected)
