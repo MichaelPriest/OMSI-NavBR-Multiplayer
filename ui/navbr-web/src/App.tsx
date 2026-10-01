@@ -1019,7 +1019,48 @@ function physicalVehicleStatusLabel(
 ) {
   switch (state) {
     case "active": return pick("OMSI 2 3D ativo · movimento suavizado", "OMSI 2 3D active · smoothed motion", "OMSI 2 3D activo · movimiento suavizado", "OMSI 2 3D aktiv · geglättete Bewegung", "OMSI 2 3D actif · mouvement lissé");
-    case "active-openomsi": return pick("openOMSI 3D ativo · LAN v6", "openOMSI 3D active · LAN v6", "openOMSI 3D activo · LAN v6", "openOMSI 3D aktiv · LAN v6", "openOMSI 3D actif · LAN v6");
+    case "active-openomsi":
+    case "active-openomsi-drawn":
+      return pick(
+        "openOMSI 3D confirmado · drawn=true",
+        "openOMSI 3D confirmed · drawn=true",
+        "openOMSI 3D confirmado · drawn=true",
+        "openOMSI 3D bestätigt · drawn=true",
+        "openOMSI 3D confirmé · drawn=true"
+      );
+    case "openomsi-sent-unconfirmed":
+      return pick(
+        "openOMSI recebeu envio · aguardando status LAN",
+        "openOMSI sent · waiting for LAN status",
+        "openOMSI enviado · esperando estado LAN",
+        "openOMSI gesendet · wartet auf LAN-Status",
+        "openOMSI envoyé · attente du statut LAN"
+      );
+    case "openomsi-peer-missing":
+      return pick(
+        "openOMSI ainda não listou o peer",
+        "openOMSI has not listed the peer yet",
+        "openOMSI aún no lista el peer",
+        "openOMSI listet den Peer noch nicht",
+        "openOMSI ne liste pas encore le pair"
+      );
+    case "openomsi-bus-path-mismatch":
+      return pick(
+        "openOMSI recebeu outro caminho de ônibus",
+        "openOMSI reported a different bus path",
+        "openOMSI informó otra ruta de autobús",
+        "openOMSI meldet einen anderen Buspfad",
+        "openOMSI signale un autre chemin de bus"
+      );
+    case "openomsi-peer-not-drawn":
+    case "openomsi-sent-not-drawn":
+      return pick(
+        "openOMSI recebeu o peer · drawn=false",
+        "openOMSI received peer · drawn=false",
+        "openOMSI recibió el peer · drawn=false",
+        "openOMSI hat den Peer · drawn=false",
+        "openOMSI a reçu le pair · drawn=false"
+      );
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
     case "consist-unsupported":
@@ -4976,7 +5017,8 @@ function Multiplayer({
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleErrorMessage &&
                       player.physicalVehicleState !== "active" &&
-                      player.physicalVehicleState !== "active-openomsi" && (
+                      player.physicalVehicleState !== "active-openomsi" &&
+                       player.physicalVehicleState !== "active-openomsi-drawn" && (
                         <small className="physical-error-detail">
                           {player.physicalVehicleErrorMessage}
                         </small>
@@ -4985,6 +5027,7 @@ function Multiplayer({
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleState !== "active" &&
                       player.physicalVehicleState !== "active-openomsi" &&
+                       player.physicalVehicleState !== "active-openomsi-drawn" &&
                       (player.physicalTelemetryGridX != null ||
                        player.physicalTelemetryGridY != null ||
                        player.physicalTelemetryNavigationGridX != null ||
