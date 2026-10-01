@@ -74,8 +74,10 @@ public partial class MainWindow
             WorkingDirectory =
                 Path.GetDirectoryName(executable) ??
                 Environment.CurrentDirectory,
-            UseShellExecute = true
+            UseShellExecute = false
         };
+        start.Environment["OMSI_INSTANCE"] =
+            _openOmsiInstanceId;
         start.ArgumentList.Add("--lan-join");
         start.ArgumentList.Add($"127.0.0.1:{port}");
 
