@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using NavBR.Client.Hardware;
 using NavBR.Client.PluginInstaller;
+using NavBR.Client.Multiplayer;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
 
@@ -23,6 +24,9 @@ public partial class MainWindow
         _openOmsiBridgeHooked = true;
         app.PluginBridge.ConnectionStateChanged +=
             OpenOmsiPluginBridge_ConnectionStateChanged;
+        OpenOmsiLanGateway.Shared.Start();
+        OpenOmsiLanGateway.Shared.LocalTelemetryReceived +=
+            OpenOmsiLanGateway_LocalTelemetryReceived;
     }
 
     private void DisposeOpenOmsiRuntimeBridge()
@@ -35,7 +39,27 @@ public partial class MainWindow
 
         app.PluginBridge.ConnectionStateChanged -=
             OpenOmsiPluginBridge_ConnectionStateChanged;
+        OpenOmsiLanGateway.Shared.LocalTelemetryReceived -=
+            OpenOmsiLanGateway_LocalTelemetryReceived;
         _openOmsiBridgeHooked = false;
+    }
+
+    private void OpenOmsiLanGateway_LocalTelemetryReceived(
+        VehicleTelemetry telemetry)
+    {
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_telemetryProvider.IsAttached)
+            {
+                return;
+            }
+
+            _openOmsiProcessId =
+                OpenOmsiPluginInstallationService.GetRunningProcessId();
+            ApplyLocalTelemetrySnapshot(telemetry);
+            UpdateTelemetryPollingCadence(telemetry);
+            RenderCurrentState();
+        }));
     }
 
     private void OpenOmsiPluginBridge_ConnectionStateChanged(bool connected)
@@ -81,13 +105,17 @@ public partial class MainWindow
             .GetConnectionInfo();
         var bridgeReady =
             OpenOmsiBridgeTelemetryProvider.IsOpenOmsiRuntime(connection);
+        var gatewayReady =
+            OpenOmsiLanGateway.Shared.IsClientConnected;
 
-        if (_openOmsiProcessId is null && !bridgeReady)
+        if (_openOmsiProcessId is null &&
+            !bridgeReady &&
+            !gatewayReady)
         {
             return false;
         }
 
-        _statusKey = bridgeReady
+        _statusKey = bridgeReady || gatewayReady
             ? "TelemetryConnected"
             : "TelemetryConnecting";
         _telemetryStatusKey = "TelemetryWaiting";
@@ -111,8 +139,17 @@ public partial class MainWindow
         var connection = (Application.Current as App)?
             .PluginBridge
             .GetConnectionInfo();
+
+        var gatewayTelemetry =
+            OpenOmsiLanGateway.Shared.LatestLocalTelemetry;
         var telemetry =
-            OpenOmsiBridgeTelemetryProvider.Read("local", connection);
+            gatewayTelemetry is not null &&
+            DateTimeOffset.UtcNow - gatewayTelemetry.Timestamp <=
+                TimeSpan.FromSeconds(2)
+                ? gatewayTelemetry
+                : OpenOmsiBridgeTelemetryProvider.Read(
+                    "local",
+                    connection);
 
         if (telemetry is not null)
         {
@@ -124,11 +161,15 @@ public partial class MainWindow
 
         var bridgeReady =
             OpenOmsiBridgeTelemetryProvider.IsOpenOmsiRuntime(connection);
+        var gatewayReady =
+            OpenOmsiLanGateway.Shared.IsClientConnected;
         _openOmsiProcessId =
             GetLiveProcessId(_openOmsiProcessId) ??
             OpenOmsiPluginInstallationService.GetRunningProcessId();
 
-        if (_openOmsiProcessId is null && !bridgeReady)
+        if (_openOmsiProcessId is null &&
+            !bridgeReady &&
+            !gatewayReady)
         {
             _lastTelemetry = null;
             _telemetryTimer.Stop();
@@ -139,7 +180,7 @@ public partial class MainWindow
             return false;
         }
 
-        _statusKey = bridgeReady
+        _statusKey = bridgeReady || gatewayReady
             ? "TelemetryConnected"
             : "TelemetryConnecting";
         _telemetryStatusKey = "TelemetryWaiting";
