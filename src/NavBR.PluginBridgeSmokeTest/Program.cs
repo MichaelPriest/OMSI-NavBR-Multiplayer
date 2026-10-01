@@ -92,6 +92,95 @@ finally
     Directory.Delete(fingerprintRoot, recursive: true);
 }
 
+var mapCatalogType =
+    typeof(NavBR.Client.Maps.OmsiMapCatalog);
+var fingerprintMap = mapCatalogType.GetMethod(
+    "TryFingerprintInstalledMap",
+    BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "installed map fingerprint helper not found");
+var mapRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-map-fingerprint-" +
+    Guid.NewGuid().ToString("N"));
+var mapDirectory = Path.Combine(
+    mapRoot,
+    "maps",
+    "Grundorf");
+Directory.CreateDirectory(mapDirectory);
+var globalCfgPath =
+    Path.Combine(mapDirectory, "global.cfg");
+var tileAPath =
+    Path.Combine(mapDirectory, "tile_-1_0.map");
+var tileBPath =
+    Path.Combine(mapDirectory, "tile_0_0.map");
+var globalCfgBytes = Encoding.UTF8.GetBytes(
+    "[name]\r\nGrundorf\r\n[friendlyname]\r\nGrundorf Smoke\r\n");
+File.WriteAllBytes(globalCfgPath, globalCfgBytes);
+File.WriteAllBytes(tileAPath, new byte[17]);
+File.WriteAllBytes(tileBPath, new byte[29]);
+try
+{
+    using var mapHash =
+        IncrementalHash.CreateHash(
+            HashAlgorithmName.SHA256);
+    mapHash.AppendData(globalCfgBytes);
+    foreach (var tilePath in new[]
+             {
+                 tileAPath,
+                 tileBPath
+             }
+             .OrderBy(
+                 path => Path.GetFileName(path),
+                 StringComparer.OrdinalIgnoreCase))
+    {
+        var name =
+            Path.GetFileName(tilePath)
+                .ToUpperInvariant();
+        var length =
+            new FileInfo(tilePath).Length;
+        mapHash.AppendData(
+            Encoding.UTF8.GetBytes(
+                $"\n{name}:{length}"));
+    }
+
+    var expectedMapFingerprint =
+        Convert.ToHexString(
+            mapHash.GetHashAndReset())
+        .ToLowerInvariant();
+
+    var actualMapFingerprint = (string?)fingerprintMap.Invoke(
+        null,
+        [mapRoot, "maps/Grundorf/global.cfg"]);
+    Require(
+        string.Equals(
+            actualMapFingerprint,
+            expectedMapFingerprint,
+            StringComparison.Ordinal),
+        "openOMSI installed map fingerprint regressed");
+
+    var mapByFolderFingerprint = (string?)fingerprintMap.Invoke(
+        null,
+        [mapRoot, "Grundorf"]);
+    Require(
+        string.Equals(
+            mapByFolderFingerprint,
+            expectedMapFingerprint,
+            StringComparison.Ordinal),
+        "openOMSI map folder fingerprint did not match raw LAN map path");
+
+    var escapedMapFingerprint = (string?)fingerprintMap.Invoke(
+        null,
+        [mapRoot, @"..\outside"]);
+    Require(
+        escapedMapFingerprint is null,
+        "map fingerprint helper accepted a path outside the content root");
+}
+finally
+{
+    Directory.Delete(mapRoot, recursive: true);
+}
+
 await using var server = new OmsiPluginBridgeServer();
 server.Start();
 
