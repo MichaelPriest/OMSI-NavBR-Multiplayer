@@ -77,6 +77,10 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleFileObjectOffset = 0x1E8;
     public const int FileObjectPathOffset = 0x018;
     public const int RoadVehicleDefinitionOffset = 0x710;
+    // OmsiRoadVehicle inherits OmsiPhysObj.FileName at +0x004. Reading this
+    // directly is more reliable for player buses than depending on
+    // OmsiComplMapObjInst.MyFileObject.Obj being populated.
+    public const int RoadVehicleFileNameOffset = 0x004;
     public const int RoadVehicleFriendlyNameOffset = 0x19C;
     public const int RoadVehicleMyPathOffset = 0x1A8;
 
