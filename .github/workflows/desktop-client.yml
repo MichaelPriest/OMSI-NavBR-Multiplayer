@@ -49,14 +49,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: ui/navbr-web/package-lock.json
 
       - name: Build React desktop UI
         shell: pwsh
         run: |
           Push-Location ui/navbr-web
-          npm ci
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "NavBR React dependency install failed." }
           npm run build
           if ($LASTEXITCODE -ne 0) { throw "NavBR React build failed." }
           Pop-Location
