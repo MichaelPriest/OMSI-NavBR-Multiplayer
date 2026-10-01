@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Microsoft.Win32;
 using NavBR.Client.PluginInstaller;
+using NavBR.Shared.OpenOmsi;
 
 namespace NavBR.Client;
 
@@ -36,6 +38,51 @@ public partial class MainWindow
             OpenOmsiPluginInstallationService.Verify(dialog.FileName);
         _webOpenOmsiNotice =
             $"openOMSI reconhecido. Content root: {verification.ContentRoot ?? "-"}";
+    }
+
+    private void LaunchOpenOmsiWithNavBrGatewayFromWeb()
+    {
+        if (OpenOmsiPluginInstallationService.IsOpenOmsiRunning())
+        {
+            throw new InvalidOperationException(
+                "O openOMSI já está em execução. Feche-o antes de iniciar uma nova sessão ligada ao gateway NavBR.");
+        }
+
+        OpenOmsiLanGateway.Shared.Start();
+        var status = OpenOmsiLanGateway.Shared.GetStatus();
+        if (status.Port is not int port)
+        {
+            throw new InvalidOperationException(
+                "O gateway LAN v6 do NavBR não conseguiu abrir uma porta local.");
+        }
+
+        var verification =
+            OpenOmsiPluginInstallationService.Verify();
+        if (string.IsNullOrWhiteSpace(verification.ExecutablePath) ||
+            !File.Exists(verification.ExecutablePath))
+        {
+            throw new FileNotFoundException(
+                "openomsi.exe não foi localizado. Selecione o executável do openOMSI primeiro.");
+        }
+
+        var executable = verification.ExecutablePath;
+        var start = new ProcessStartInfo
+        {
+            FileName = executable,
+            WorkingDirectory =
+                Path.GetDirectoryName(executable) ??
+                Environment.CurrentDirectory,
+            UseShellExecute = true
+        };
+        start.ArgumentList.Add("--lan-join");
+        start.ArgumentList.Add($"127.0.0.1:{port}");
+
+        Process.Start(start)
+            ?? throw new InvalidOperationException(
+                "O Windows não iniciou o openOMSI.");
+
+        _webOpenOmsiNotice =
+            $"openOMSI iniciado e apontado ao gateway NavBR em 127.0.0.1:{port}.";
     }
 
     private void VerifyOpenOmsiPluginFromWeb()
