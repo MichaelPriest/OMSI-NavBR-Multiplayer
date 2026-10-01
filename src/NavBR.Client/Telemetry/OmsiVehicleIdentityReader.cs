@@ -25,6 +25,7 @@ internal static class OmsiVehicleIdentityReader
         nint vehicleAddress)
     {
         string? sourceObject = null;
+        string? definitionFileName = null;
         string? definitionPath = null;
         string? friendlyName = null;
 
@@ -55,6 +56,10 @@ internal static class OmsiVehicleIdentityReader
             if (definitionAddress > 0x10000u)
             {
                 var definitionPointer = ReadOnlyProcessMemory.PointerFromUInt32(definitionAddress);
+                definitionFileName = memory.ReadDelphiAnsiStringField(nint.Add(
+                    definitionPointer,
+                    Omsi23004MemoryProfile.RoadVehicleFileNameOffset),
+                    maxCharacters: 1024);
                 friendlyName = memory.ReadDelphiAnsiStringField(nint.Add(
                     definitionPointer,
                     Omsi23004MemoryProfile.RoadVehicleFriendlyNameOffset),
@@ -74,6 +79,7 @@ internal static class OmsiVehicleIdentityReader
         var relativePath = NormalizeVehiclePath(
             processInfo?.InstallDirectory,
             sourceObject,
+            definitionFileName,
             definitionPath);
         var compatibilityId = TryFingerprintVehicle(processInfo?.InstallDirectory, relativePath);
 
@@ -91,36 +97,21 @@ internal static class OmsiVehicleIdentityReader
     private static string? NormalizeVehiclePath(
         string? omsiRoot,
         string? sourceObject,
+        string? definitionFileName,
         string? definitionPath)
     {
         var source = NormalizeSeparators(sourceObject);
+        var fileName = NormalizeSeparators(definitionFileName);
         var definition = NormalizeSeparators(definitionPath);
 
-        // OMSI commonly exposes the active bus identity split across two
-        // objects: OmsiFileObject.Obj contains only the definition filename
-        // (for example MAN_EN92_main.bus), while OmsiComplMapObj.MyPath
-        // contains its Vehicles\\... directory. The previous code accepted
-        // the bare filename first, then rejected it for lacking the Vehicles
-        // anchor, which made physical multiplayer publish neither VehiclePath
-        // nor VehicleCompatibilityId.
-        var candidates = new List<string>(capacity: 3);
-        if (LooksLikeVehicleDefinition(source))
-        {
-            candidates.Add(source!);
+        // OmsiRoadVehicle.FileName is authoritative for the loaded .bus/.ovh
+        // definition. MyPath commonly contains only its Vehicles\\... folder.
+        // MyFileObject.Obj is retained as a compatibility fallback because it
+        // can be absent for the player bus even while RoadVehicle is valid.
+        var candidates = new List<string>(capacity: 5);
 
-            if (!string.IsNullOrWhiteSpace(definition) &&
-                !LooksLikeVehicleDefinition(definition))
-            {
-                var sourceFileName = source!
-                    .Replace('/', '\\')
-                    .Split('\\', StringSplitOptions.RemoveEmptyEntries)
-                    .LastOrDefault();
-                if (!string.IsNullOrWhiteSpace(sourceFileName))
-                {
-                    candidates.Add(Path.Combine(definition!, sourceFileName));
-                }
-            }
-        }
+        AddVehicleDefinitionCandidates(candidates, fileName, definition);
+        AddVehicleDefinitionCandidates(candidates, source, definition);
 
         if (LooksLikeVehicleDefinition(definition))
         {
@@ -137,6 +128,34 @@ internal static class OmsiVehicleIdentityReader
         }
 
         return null;
+    }
+
+    private static void AddVehicleDefinitionCandidates(
+        List<string> candidates,
+        string? fileValue,
+        string? definitionPath)
+    {
+        if (!LooksLikeVehicleDefinition(fileValue))
+        {
+            return;
+        }
+
+        candidates.Add(fileValue!);
+
+        if (string.IsNullOrWhiteSpace(definitionPath) ||
+            LooksLikeVehicleDefinition(definitionPath))
+        {
+            return;
+        }
+
+        var fileName = fileValue!
+            .Replace('/', '\\')
+            .Split('\\', StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            candidates.Add(Path.Combine(definitionPath!, fileName));
+        }
     }
 
     private static string? NormalizeVehicleCandidate(
