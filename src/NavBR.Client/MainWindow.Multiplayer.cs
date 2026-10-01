@@ -207,6 +207,8 @@ public partial class MainWindow
         hud.InGameAssistanceRequested += HandleHudInGameAssistanceRequested;
         hud.InGameIncidentRequested += HandleHudInGameIncidentRequested;
         hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
+        hud.InGameDispatchAcknowledgeRequested += HandleHudInGameDispatchAcknowledgeRequested;
+        hud.InGameDispatchResolveRequested += HandleHudInGameDispatchResolveRequested;
         var processId = _currentOmsi?.ProcessId;
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -219,6 +221,8 @@ public partial class MainWindow
             hud.InGameAssistanceRequested -= HandleHudInGameAssistanceRequested;
             hud.InGameIncidentRequested -= HandleHudInGameIncidentRequested;
             hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
+            hud.InGameDispatchAcknowledgeRequested -= HandleHudInGameDispatchAcknowledgeRequested;
+            hud.InGameDispatchResolveRequested -= HandleHudInGameDispatchResolveRequested;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -355,6 +359,32 @@ public partial class MainWindow
         UpdateHudInGamePanelState();
     }
 
+    private async void HandleHudInGameDispatchAcknowledgeRequested(string reportId)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow?.IsTrafficAuthority != true ||
+            string.IsNullOrWhiteSpace(reportId))
+        {
+            return;
+        }
+
+        await _multiplayerWindow.AcknowledgeOperationalReportFromShellAsync(reportId);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGameDispatchResolveRequested(string reportId)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow?.IsTrafficAuthority != true ||
+            string.IsNullOrWhiteSpace(reportId))
+        {
+            return;
+        }
+
+        await _multiplayerWindow.ResolveOperationalReportFromShellAsync(reportId);
+        UpdateHudInGamePanelState();
+    }
+
     private void UpdateHudInGamePanelState()
     {
         if (_hudOverlay is null)
@@ -370,12 +400,32 @@ public partial class MainWindow
             ? null
             : $"{badge.CompanyShortName} • #{badge.EmployeeNumber} • {badge.Role}";
 
+        var canManageDispatch =
+            multiplayer?.IsConnected == true &&
+            multiplayer.IsTrafficAuthority &&
+            (badge is null ||
+             (badge.Permissions & NavBR.Shared.Network.CompanyPermission.UseDispatcher) != 0);
+        var dispatchReport = canManageDispatch
+            ? multiplayer!.CurrentOperationalReportsForShell
+                .Where(report =>
+                    report.Status != OperationalReportStatus.Resolved &&
+                    !string.Equals(
+                        report.PlayerId,
+                        multiplayer.CurrentPlayerId,
+                        StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(report => report.Severity)
+                .ThenBy(report => report.CreatedAtUtc)
+                .FirstOrDefault()
+            : null;
+
         _hudOverlay.UpdateInGamePanelState(
             connected: multiplayer?.IsConnected == true,
             roomId: multiplayer?.CurrentRoomId,
             displayName: multiplayer?.CurrentDisplayName,
             operationalReport: multiplayer?.CurrentOwnOperationalReportForShell,
-            companyLabel: companyLabel);
+            companyLabel: companyLabel,
+            canManageDispatch: canManageDispatch,
+            dispatchReport: dispatchReport);
     }
 
     private void UpdateHudRefreshCadence()
