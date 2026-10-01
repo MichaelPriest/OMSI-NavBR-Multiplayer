@@ -6,7 +6,7 @@ namespace NavBR.Client.Multiplayer;
 public sealed partial class MultiplayerClientService
 {
     /// <summary>
-    /// True when the user opted into the Alpha.12 physical remote-bus test and
+    /// True when the user opted into the physical remote-bus test and
     /// the connected OMSI plugin reports the spawn/transform capabilities.
     /// </summary>
     public bool IsPhysicalMultiplayerAvailable =>
@@ -19,8 +19,21 @@ public sealed partial class MultiplayerClientService
         OpenOmsiLanGateway.Shared.HasRemote(playerId);
 
     internal RemotePhysicalVehicleStatus GetRemotePhysicalVehicleStatus(
-        string playerId) =>
-        _physicalVehicles.GetStatus(playerId);
+        string playerId)
+    {
+        if (OpenOmsiLanGateway.Shared.HasRemote(playerId))
+        {
+            return new RemotePhysicalVehicleStatus(
+                "active-openomsi",
+                ErrorCode: null,
+                ErrorMessage: null,
+                PartCount: null,
+                ExpectedPartCount: null,
+                DateTimeOffset.UtcNow);
+        }
+
+        return _physicalVehicles.GetStatus(playerId);
+    }
 
     /// <summary>
     /// Removes every NavBR-owned physical remote bus from OMSI without ending
