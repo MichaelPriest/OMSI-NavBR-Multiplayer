@@ -3353,6 +3353,19 @@ function Settings({
             )}
             <div className="plugin-update-actions">
               <div className="discovery-actions">
+                <button
+                  className="button primary"
+                  disabled={!system.openOmsiLanGateway?.joinTarget || system.openOmsiPlugin.running}
+                  onClick={() => sendCommand("launchOpenOmsiNavBrGateway")}
+                >
+                  {pick(
+                    "Abrir openOMSI conectado ao NavBR",
+                    "Open openOMSI connected to NavBR",
+                    "Abrir openOMSI conectado a NavBR",
+                    "openOMSI mit NavBR verbunden starten",
+                    "Ouvrir openOMSI connecté à NavBR"
+                  )}
+                </button>
                 <button className="button ghost" onClick={() => sendCommand("selectOpenOmsiExecutable")}>
                   {pick("Selecionar openomsi.exe", "Select openomsi.exe", "Seleccionar openomsi.exe", "openomsi.exe wählen", "Sélectionner openomsi.exe")}
                 </button>
