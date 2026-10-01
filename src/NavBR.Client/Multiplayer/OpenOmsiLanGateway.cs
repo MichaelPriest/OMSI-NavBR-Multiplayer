@@ -73,6 +73,23 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
         }
     }
 
+    public bool HasRemote(string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return false;
+        }
+
+        lock (_sync)
+        {
+            return IsClientConnectedCore(DateTimeOffset.UtcNow) &&
+                   _remotes.TryGetValue(playerId, out var remote) &&
+                   remote.LastState is not null &&
+                   !string.IsNullOrWhiteSpace(remote.LastInfo) &&
+                   remote.LastInfo.Contains("|Vehicles/", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     public VehicleTelemetry? LatestLocalTelemetry
     {
         get
@@ -117,6 +134,14 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(frame);
+
+        if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled)
+        {
+            await RemoveRemoteAsync(
+                frame.Player.PlayerId,
+                cancellationToken);
+            return;
+        }
 
         IPEndPoint? endpoint;
         OpenOmsiLanVehicleInfo? info = null;
