@@ -286,11 +286,14 @@ public partial class MainWindow
                 runtimeUpdatedAtUtc =
                     openOmsiLanRuntime?.UpdatedUtc,
                 drawnRemotePlayers =
-                    openOmsiLanGateway.Remotes.Count(remote =>
-                        openOmsiRuntimePeers.TryGetValue(
-                            remote.LanId,
-                            out var runtimePeer) &&
-                        runtimePeer.Drawn),
+                    openOmsiLanRuntime?.Fresh == true &&
+                    openOmsiLanRuntime.Connected
+                        ? openOmsiLanGateway.Remotes.Count(remote =>
+                            openOmsiRuntimePeers.TryGetValue(
+                                remote.LanId,
+                                out var runtimePeer) &&
+                            runtimePeer.Drawn)
+                        : 0,
                 remotes = openOmsiLanGateway.Remotes.Select(remote =>
                 {
                     openOmsiRuntimePeers.TryGetValue(
