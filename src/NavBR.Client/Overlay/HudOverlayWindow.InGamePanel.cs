@@ -117,6 +117,12 @@ public partial class HudOverlayWindow
             new SolidColorBrush(Color.FromRgb(31, 83, 116)),
             () =>
             {
+                if (_roleplayHudActive)
+                {
+                    RoleplayButtonRequested?.Invoke();
+                    return;
+                }
+
                 if (_inGameRoleplayCombo?.SelectedItem is RoleplayCharacterOption option)
                 {
                     InGameRoleplaySelectionRequested?.Invoke(option.Id);
