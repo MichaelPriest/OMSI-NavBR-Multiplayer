@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using NavBR.Client.Localization;
+using NavBR.Client.Multiplayer;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client.Overlay;
@@ -16,6 +17,8 @@ public partial class HudOverlayWindow
     private TextBlock? _inGameCompanyText;
     private TextBlock? _inGameOperationsText;
     private TextBlock? _inGameDispatchText;
+    private ComboBox? _inGameRoleplayCombo;
+    private Button? _inGameRoleplayButton;
     private Button? _inGameAssistanceButton;
     private Button? _inGameIncidentButton;
     private Button? _inGameResolvedButton;
@@ -30,6 +33,7 @@ public partial class HudOverlayWindow
     public event Action? InGameOperationalResolvedRequested;
     public event Action<string>? InGameDispatchAcknowledgeRequested;
     public event Action<string>? InGameDispatchResolveRequested;
+    public event Action<string>? InGameRoleplaySelectionRequested;
 
     public bool IsInGamePanelOpen => _inGamePanelOpen;
 
@@ -103,7 +107,7 @@ public partial class HudOverlayWindow
                 OpenChatInput();
             });
 
-        var roleplayButton = BuildInGameButton(
+        _inGameRoleplayButton = BuildInGameButton(
             InGameText(
                 "♙ PERSONAGEM / RP",
                 "♙ CHARACTER / RP",
@@ -113,7 +117,12 @@ public partial class HudOverlayWindow
             new SolidColorBrush(Color.FromRgb(31, 83, 116)),
             () =>
             {
-                CloseInGamePanel();
+                if (_inGameRoleplayCombo?.SelectedItem is RoleplayCharacterOption option)
+                {
+                    InGameRoleplaySelectionRequested?.Invoke(option.Id);
+                    return;
+                }
+
                 RoleplayButtonRequested?.Invoke();
             });
 
@@ -192,13 +201,22 @@ public partial class HudOverlayWindow
             () => CloseInGamePanel());
 
         actionGrid.Children.Add(chatButton);
-        actionGrid.Children.Add(roleplayButton);
+        actionGrid.Children.Add(_inGameRoleplayButton);
         actionGrid.Children.Add(_inGameAssistanceButton);
         actionGrid.Children.Add(_inGameIncidentButton);
         actionGrid.Children.Add(_inGameResolvedButton);
         actionGrid.Children.Add(hideButton);
         actionGrid.Children.Add(_inGameDispatchAcknowledgeButton);
         actionGrid.Children.Add(_inGameDispatchResolveButton);
+
+        _inGameRoleplayCombo = new ComboBox
+        {
+            Margin = new Thickness(0d, 10d, 0d, 0d),
+            Height = 36d,
+            Padding = new Thickness(8d, 4d, 8d, 4d),
+            DisplayMemberPath = nameof(RoleplayCharacterOption.DisplayLabel),
+            Visibility = Visibility.Collapsed
+        };
 
         var body = new StackPanel();
         body.Children.Add(header);
@@ -218,6 +236,7 @@ public partial class HudOverlayWindow
         body.Children.Add(_inGameCompanyText);
         body.Children.Add(_inGameOperationsText);
         body.Children.Add(_inGameDispatchText);
+        body.Children.Add(_inGameRoleplayCombo);
         body.Children.Add(actionGrid);
 
         _inGamePanel = new Border
@@ -375,6 +394,47 @@ public partial class HudOverlayWindow
             _inGameDispatchResolveButton.IsEnabled =
                 !string.IsNullOrWhiteSpace(_inGameDispatchReportId);
         }
+    }
+
+    public void UpdateInGameRoleplayOptions(
+        IReadOnlyList<RoleplayCharacterOption> options,
+        string? selectedId,
+        bool active)
+    {
+        if (_inGameRoleplayCombo is null || _inGameRoleplayButton is null)
+        {
+            return;
+        }
+
+        _inGameRoleplayCombo.ItemsSource = options;
+        _inGameRoleplayCombo.Visibility = options.Count > 0 && !active
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        var selected = options.FirstOrDefault(option =>
+            string.Equals(option.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+        _inGameRoleplayCombo.SelectedItem = selected;
+
+        _inGameRoleplayButton.Content = active
+            ? InGameText(
+                "♙ VOLTAR AO ÔNIBUS",
+                "♙ RETURN TO BUS",
+                "♙ VOLVER AL AUTOBÚS",
+                "♙ ZUM BUS ZURÜCK",
+                "♙ RETOUR AU BUS")
+            : selected is not null
+                ? InGameText(
+                    $"♙ ATIVAR {selected.DisplayName}",
+                    $"♙ ACTIVATE {selected.DisplayName}",
+                    $"♙ ACTIVAR {selected.DisplayName}",
+                    $"♙ {selected.DisplayName} AKTIVIEREN",
+                    $"♙ ACTIVER {selected.DisplayName}")
+                : InGameText(
+                    "♙ PERSONAGEM / RP",
+                    "♙ CHARACTER / RP",
+                    "♙ PERSONAJE / RP",
+                    "♙ CHARAKTER / RP",
+                    "♙ PERSONNAGE / RP");
     }
 
     internal void ToggleInGamePanel()
