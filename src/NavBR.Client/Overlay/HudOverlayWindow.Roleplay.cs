@@ -109,7 +109,7 @@ public partial class HudOverlayWindow
 
     private void RefreshRoleplayButtonInteraction()
     {
-        if (_chatInteractive || _hudLayoutEditMode)
+        if (_chatInteractive || _inGamePanelOpen || _hudLayoutEditMode)
         {
             return;
         }
