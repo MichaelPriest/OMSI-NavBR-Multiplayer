@@ -206,7 +206,9 @@ public static class PluginExports
             ProcessId: Environment.ProcessId,
             ComponentVersion: typeof(PluginExports).Assembly.GetName().Version?.ToString(),
             MapName: snapshot?.MapName,
-            TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            TimestampUnixMilliseconds:
+                snapshot?.CapturedAtUtc.ToUnixTimeMilliseconds() ??
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             X: snapshot?.X,
             Y: snapshot?.Y,
             Z: snapshot?.Z,
