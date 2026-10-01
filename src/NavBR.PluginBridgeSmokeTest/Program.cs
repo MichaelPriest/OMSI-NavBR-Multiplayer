@@ -6,6 +6,7 @@ using System.Text.Json;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
+using NavBR.Shared.Telemetry;
 
 var identityReaderType = typeof(OmsiPluginBridgeServer).Assembly.GetType(
     "NavBR.Client.Telemetry.OmsiVehicleIdentityReader",
@@ -482,6 +483,302 @@ try
 finally
 {
     Directory.Delete(mapRoot, recursive: true);
+}
+
+var openOmsiPoseRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-world-pose-" +
+    Guid.NewGuid().ToString("N"));
+var openOmsiPoseMapDirectory = Path.Combine(
+    openOmsiPoseRoot,
+    "maps",
+    "WorldPoseSmoke");
+Directory.CreateDirectory(
+    openOmsiPoseMapDirectory);
+var openOmsiPoseGlobal = Path.Combine(
+    openOmsiPoseMapDirectory,
+    "global.cfg");
+var openOmsiPoseTile = Path.Combine(
+    openOmsiPoseMapDirectory,
+    "tile_1_1.map");
+File.WriteAllText(
+    openOmsiPoseGlobal,
+    """
+    [name]
+    WorldPoseSmoke
+    [friendlyname]
+    World Pose Smoke
+    [map]
+    1
+    1
+    tile_1_1.map
+    """);
+File.WriteAllText(
+    openOmsiPoseTile,
+    "; NavBR openOMSI world-pose smoke tile");
+try
+{
+    var poseMap =
+        new NavBR.Client.Maps.OmsiMapCatalog()
+            .Discover(openOmsiPoseRoot)
+            .Single();
+    Require(
+        !string.IsNullOrWhiteSpace(
+            poseMap.CompatibilityId),
+        "World-pose smoke map did not produce a compatibility fingerprint.");
+
+    var openOmsiWorldTelemetry =
+        new VehicleTelemetry(
+            PlayerId: "openomsi-world",
+            Timestamp: DateTimeOffset.UtcNow,
+            MapName: "WorldPoseSmoke",
+            VehicleName: "World Pose Bus",
+            Line: null,
+            Route: null,
+            X: 325.0,
+            Y: 442.0,
+            Z: 1.5,
+            HeadingDegrees: 45.0,
+            SpeedKph: 18.0,
+            IsInGame: true,
+            MapCompatibilityId:
+                poseMap.CompatibilityId);
+
+    var roadResolverType =
+        typeof(OmsiPluginBridgeServer).Assembly.GetType(
+            "NavBR.Client.Maps.OmsiPhysicalRoadAnchorResolver",
+            throwOnError: true)!;
+    Func<string?> poseRootSource =
+        () => openOmsiPoseRoot;
+    var roadResolver =
+        Activator.CreateInstance(
+            roadResolverType,
+            poseRootSource)
+        ?? throw new InvalidOperationException(
+            "openOMSI world-pose resolver could not be created.");
+    var resolveOpenOmsiWorldAnchor =
+        roadResolverType.GetMethod(
+            "TryResolveOpenOmsiWorldAnchor",
+            BindingFlags.Public |
+            BindingFlags.Instance)
+        ?? throw new InvalidOperationException(
+            "openOMSI world-pose resolver method not found.");
+
+    object?[] poseResolveArguments =
+        [openOmsiWorldTelemetry, null];
+    var poseResolved =
+        (bool)(resolveOpenOmsiWorldAnchor.Invoke(
+            roadResolver,
+            poseResolveArguments)
+            ?? false);
+    Require(
+        poseResolved &&
+        poseResolveArguments[1] is not null,
+        "openOMSI world pose did not resolve into a real OMSI Kachel.");
+
+    var anchorValue =
+        poseResolveArguments[1]!;
+    var anchorType =
+        anchorValue.GetType();
+    static double ReadAnchorDouble(
+        Type type,
+        object value,
+        string name) =>
+        Convert.ToDouble(
+            type.GetProperty(name)!
+                .GetValue(value),
+            System.Globalization.CultureInfo.InvariantCulture);
+    static int ReadAnchorInt(
+        Type type,
+        object value,
+        string name) =>
+        Convert.ToInt32(
+            type.GetProperty(name)!
+                .GetValue(value),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    Require(
+        ReadAnchorInt(
+            anchorType,
+            anchorValue,
+            "GridX") == 1 &&
+        ReadAnchorInt(
+            anchorType,
+            anchorValue,
+            "GridY") == 1,
+        "openOMSI world pose resolved to the wrong OMSI Kachel.");
+    Near(
+        ReadAnchorDouble(
+            anchorType,
+            anchorValue,
+            "LocalX"),
+        25.0,
+        0.001,
+        "openOMSI local X");
+    Near(
+        ReadAnchorDouble(
+            anchorType,
+            anchorValue,
+            "LocalY"),
+        1.5,
+        0.001,
+        "openOMSI local height Y");
+    Near(
+        ReadAnchorDouble(
+            anchorType,
+            anchorValue,
+            "LocalZ"),
+        142.0,
+        0.001,
+        "openOMSI local Z");
+    Near(
+        ReadAnchorDouble(
+            anchorType,
+            anchorValue,
+            "HeadingDegrees"),
+        45.0,
+        0.001,
+        "openOMSI anchor heading");
+
+    var openOmsiPresence =
+        new PlayerPresence(
+            "openomsi-world",
+            "openOMSI World Driver",
+            "ci-world-pose",
+            "WorldPoseSmoke",
+            DateTimeOffset.UtcNow,
+            MapCompatibilityId:
+                poseMap.CompatibilityId,
+            Compatibility:
+                new OmsiCompatibilityManifest(
+                    OmsiVersion: "openOMSI",
+                    NavBRVersion: "ci",
+                    MapName: "WorldPoseSmoke",
+                    MapCompatibilityId:
+                        poseMap.CompatibilityId,
+                    VehiclePath: null,
+                    VehicleCompatibilityId: null,
+                    HofName: null,
+                    HofCompatibilityId: null,
+                    PluginProtocolVersion:
+                        PluginBridgeProtocol.Version,
+                    PluginDeployment:
+                        "OPENOMSI-X64",
+                    Capabilities:
+                    [
+                        PluginBridgeProtocol
+                            .CapabilityOpenOmsiStandardPlugin
+                    ]));
+    var openOmsiFrame =
+        new PlayerTelemetryFrame(
+            openOmsiPresence,
+            openOmsiWorldTelemetry);
+
+    var coordinatorType =
+        typeof(OmsiPluginBridgeServer).Assembly.GetType(
+            "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
+            throwOnError: true)!;
+    var applyOpenOmsiWorldAnchor =
+        coordinatorType.GetMethod(
+            "ApplyOpenOmsiWorldAnchor",
+            BindingFlags.NonPublic |
+            BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "openOMSI -> OMSI2 pose converter not found.");
+    var convertedFrame =
+        (PlayerTelemetryFrame)(
+            applyOpenOmsiWorldAnchor.Invoke(
+                null,
+                [openOmsiFrame, anchorValue])
+            ?? throw new InvalidOperationException(
+                "openOMSI -> OMSI2 pose converter returned null."));
+    var convertedTelemetry =
+        convertedFrame.Telemetry;
+
+    Near(
+        convertedTelemetry.X,
+        325.0,
+        0.001,
+        "converted OMSI world X");
+    Near(
+        convertedTelemetry.Y,
+        1.5,
+        0.001,
+        "converted OMSI vertical Y");
+    Near(
+        convertedTelemetry.Z,
+        442.0,
+        0.001,
+        "converted OMSI world Z");
+    Require(
+        convertedTelemetry.PhysicalGridX == 1 &&
+        convertedTelemetry.PhysicalGridY == 1,
+        "Converted openOMSI pose lost physical OMSI GridX/GridY.");
+    Near(
+        convertedTelemetry.LocalX ?? double.NaN,
+        25.0,
+        0.001,
+        "converted OMSI LocalX");
+    Near(
+        convertedTelemetry.LocalY ?? double.NaN,
+        1.5,
+        0.001,
+        "converted OMSI LocalY");
+    Near(
+        convertedTelemetry.LocalZ ?? double.NaN,
+        142.0,
+        0.001,
+        "converted OMSI LocalZ");
+
+    var headingHalfRadians =
+        45.0 * Math.PI / 360.0;
+    Near(
+        convertedTelemetry.RotationX ??
+            double.NaN,
+        0.0,
+        0.000001,
+        "converted rotation X");
+    Near(
+        convertedTelemetry.RotationY ??
+            double.NaN,
+        Math.Sin(
+            headingHalfRadians),
+        0.000001,
+        "converted rotation Y");
+    Near(
+        convertedTelemetry.RotationZ ??
+            double.NaN,
+        0.0,
+        0.000001,
+        "converted rotation Z");
+    Near(
+        convertedTelemetry.RotationW ??
+            double.NaN,
+        Math.Cos(
+            headingHalfRadians),
+        0.000001,
+        "converted rotation W");
+
+    var outsideTileTelemetry =
+        openOmsiWorldTelemetry with
+        {
+            X = 625.0,
+            Y = 442.0
+        };
+    object?[] outsideArguments =
+        [outsideTileTelemetry, null];
+    Require(
+        !(bool)(resolveOpenOmsiWorldAnchor.Invoke(
+            roadResolver,
+            outsideArguments)
+            ?? false),
+        "openOMSI world-pose resolver accepted a world point outside loaded OMSI tiles.");
+}
+finally
+{
+    Directory.Delete(
+        openOmsiPoseRoot,
+        recursive: true);
 }
 
 await using var server = new OmsiPluginBridgeServer();
