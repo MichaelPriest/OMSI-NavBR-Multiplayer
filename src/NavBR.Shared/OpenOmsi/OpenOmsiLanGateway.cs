@@ -330,6 +330,74 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         PublishStatus();
     }
 
+    public async Task SetRemotePendingAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        IPEndPoint? endpoint;
+        ushort? removeActiveLanId = null;
+
+        lock (_sync)
+        {
+            endpoint = GetConnectedEndpointCore(
+                DateTimeOffset.UtcNow);
+            if (endpoint is null)
+            {
+                return;
+            }
+
+            if (!_remotes.TryGetValue(
+                    playerId,
+                    out var remote))
+            {
+                remote = new RemotePeer(
+                    AllocateRemoteId(),
+                    playerId);
+                _remotes[playerId] = remote;
+            }
+
+            if (remote.LastInfo is not null ||
+                remote.LastState is not null)
+            {
+                removeActiveLanId = remote.Id;
+            }
+
+            remote.LastName =
+                frame.Player.DisplayName;
+            remote.LastVehiclePath =
+                frame.Telemetry.VehiclePath ??
+                frame.Player.Compatibility?.VehiclePath;
+            remote.ExpectedVehicleCompatibilityId =
+                frame.Telemetry.VehicleCompatibilityId ??
+                frame.Player.Compatibility?
+                    .VehicleCompatibilityId;
+            remote.LastInfo = null;
+            remote.LastState = null;
+            remote.LastSeenUtc =
+                DateTimeOffset.UtcNow;
+        }
+
+        // If this peer was already materialized, explicitly remove the old
+        // instance before keeping it in NavBR diagnostics as pending.
+        if (removeActiveLanId is ushort lanId)
+        {
+            await SendTextAsync(
+                $"BYE|{lanId}",
+                endpoint,
+                cancellationToken);
+        }
+
+        PublishStatus();
+    }
+
     public async Task RemoveRemoteAsync(
         string playerId,
         CancellationToken cancellationToken = default)
