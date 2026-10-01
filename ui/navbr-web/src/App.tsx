@@ -1018,7 +1018,8 @@ function physicalVehicleStatusLabel(
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
-    case "active": return pick("OMSI 3D ativo · movimento suavizado", "OMSI 3D active · smoothed motion", "OMSI 3D activo · movimiento suavizado", "OMSI 3D aktiv · geglättete Bewegung", "OMSI 3D actif · mouvement lissé");
+    case "active": return pick("OMSI 2 3D ativo · movimento suavizado", "OMSI 2 3D active · smoothed motion", "OMSI 2 3D activo · movimiento suavizado", "OMSI 2 3D aktiv · geglättete Bewegung", "OMSI 2 3D actif · mouvement lissé");
+    case "active-openomsi": return pick("openOMSI 3D ativo · LAN v6", "openOMSI 3D active · LAN v6", "openOMSI 3D activo · LAN v6", "openOMSI 3D aktiv · LAN v6", "openOMSI 3D actif · LAN v6");
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
     case "consist-unsupported":
@@ -4933,7 +4934,8 @@ function Multiplayer({
                     {!player.isLocal &&
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleErrorMessage &&
-                      player.physicalVehicleState !== "active" && (
+                      player.physicalVehicleState !== "active" &&
+                      player.physicalVehicleState !== "active-openomsi" && (
                         <small className="physical-error-detail">
                           {player.physicalVehicleErrorMessage}
                         </small>
