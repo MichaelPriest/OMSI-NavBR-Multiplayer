@@ -241,7 +241,7 @@ public partial class HudOverlayWindow
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
             var foregroundBelongsToNavBr = WindowBelongsToProcess(foreground, Environment.ProcessId);
-            var overlayOwnsForeground = _chatInteractive &&
+            var overlayOwnsForeground = (_chatInteractive || _inGamePanelOpen) &&
                                         overlayHandle != IntPtr.Zero &&
                                         foreground == overlayHandle;
 
