@@ -207,6 +207,7 @@ public partial class MainWindow
         var hud = new HudOverlayWindow();
         hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
         hud.InGamePanelOpened += HandleHudInGamePanelOpened;
+        hud.InGameConnectRequested += HandleHudInGameConnectRequested;
         hud.InGameAssistanceRequested += HandleHudInGameAssistanceRequested;
         hud.InGameIncidentRequested += HandleHudInGameIncidentRequested;
         hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
@@ -222,6 +223,7 @@ public partial class MainWindow
         {
             hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
             hud.InGamePanelOpened -= HandleHudInGamePanelOpened;
+            hud.InGameConnectRequested -= HandleHudInGameConnectRequested;
             hud.InGameAssistanceRequested -= HandleHudInGameAssistanceRequested;
             hud.InGameIncidentRequested -= HandleHudInGameIncidentRequested;
             hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
@@ -339,6 +341,54 @@ public partial class MainWindow
         OpenMultiplayerCentralForShell(showWindow: false);
         UpdateHudInGamePanelState();
         UpdateHudInGameRoleplayOptionsForShell();
+    }
+
+    private async void HandleHudInGameConnectRequested()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is null)
+        {
+            return;
+        }
+
+        if (_multiplayerWindow.IsConnected)
+        {
+            _hudOverlay?.SetInGameConnectionNotice(null);
+            UpdateHudInGamePanelState();
+            return;
+        }
+
+        try
+        {
+            _hudOverlay?.SetInGameConnectionNotice(
+                "conectando ao último servidor/sala...");
+            UpdateHudInGamePanelState();
+
+            await _multiplayerWindow.ConnectFromWebAsync(
+                serverUrl: null,
+                roomId: null,
+                displayName: null,
+                roomPassword: null);
+
+            _hudOverlay?.SetInGameConnectionNotice(null);
+        }
+        catch (Exception ex)
+        {
+            var message = string.IsNullOrWhiteSpace(ex.Message)
+                ? "falha ao conectar"
+                : ex.Message.Trim();
+            if (message.Length > 120)
+            {
+                message = message[..120] + "…";
+            }
+
+            _hudOverlay?.SetInGameConnectionNotice(
+                $"falha ao conectar • {message}");
+        }
+        finally
+        {
+            UpdateHudInGamePanelState();
+        }
     }
 
     private async void HandleHudInGameAssistanceRequested()
