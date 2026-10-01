@@ -29,8 +29,14 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     private const int PortAttempts = 8;
     private const ushort LocalOpenOmsiPlayerId = 2;
     private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan DefaultRemotePeerTimeout =
+        TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ClockBroadcastInterval =
+        TimeSpan.FromSeconds(3);
 
     private readonly object _sync = new();
+    private readonly TimeSpan _remotePeerTimeout;
+    private readonly TimeSpan _maintenanceInterval;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly Dictionary<string, RemotePeer> _remotes =
         new(StringComparer.OrdinalIgnoreCase);
@@ -56,6 +62,25 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     private long _startedTickMs;
 
     public static OpenOmsiLanGateway Shared { get; } = new();
+
+    public OpenOmsiLanGateway(TimeSpan? remotePeerTimeout = null)
+    {
+        var timeout =
+            remotePeerTimeout ?? DefaultRemotePeerTimeout;
+        if (timeout < TimeSpan.FromMilliseconds(100) ||
+            timeout > TimeSpan.FromMinutes(5))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(remotePeerTimeout));
+        }
+
+        _remotePeerTimeout = timeout;
+        _maintenanceInterval = TimeSpan.FromMilliseconds(
+            Math.Clamp(
+                timeout.TotalMilliseconds * 0.5d,
+                50d,
+                ClockBroadcastInterval.TotalMilliseconds));
+    }
 
     public event Action<VehicleTelemetry>? LocalTelemetryReceived;
     public event Action<OpenOmsiLanGatewayStatus>? StatusChanged;
@@ -417,16 +442,22 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         _ = udp;
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        using var timer =
+            new PeriodicTimer(_maintenanceInterval);
+        var lastClockBroadcastUtc =
+            DateTimeOffset.MinValue;
+
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
             IPEndPoint? endpoint;
             OpenOmsiLanWorld world;
+            List<ushort> staleRemoteIds = [];
             bool timedOut = false;
+            var now = DateTimeOffset.UtcNow;
 
             lock (_sync)
             {
-                endpoint = GetConnectedEndpointCore(DateTimeOffset.UtcNow);
+                endpoint = GetConnectedEndpointCore(now);
                 world = _world;
                 if (endpoint is null && _clientEndpoint is not null)
                 {
@@ -436,17 +467,42 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                     _localInfo = null;
                     _latestLocalTelemetry = null;
                 }
+
+                foreach (var pair in _remotes.ToArray())
+                {
+                    if (now - pair.Value.LastSeenUtc <=
+                        _remotePeerTimeout)
+                    {
+                        continue;
+                    }
+
+                    staleRemoteIds.Add(pair.Value.Id);
+                    _remotes.Remove(pair.Key);
+                }
             }
 
             if (endpoint is not null)
             {
-                await SendTextAsync(
-                    OpenOmsiLanProtocol.EncodeClock(world),
-                    endpoint,
-                    cancellationToken);
+                foreach (var staleId in staleRemoteIds)
+                {
+                    await SendTextAsync(
+                        $"BYE|{staleId}",
+                        endpoint,
+                        cancellationToken);
+                }
+
+                if (now - lastClockBroadcastUtc >=
+                    ClockBroadcastInterval)
+                {
+                    await SendTextAsync(
+                        OpenOmsiLanProtocol.EncodeClock(world),
+                        endpoint,
+                        cancellationToken);
+                    lastClockBroadcastUtc = now;
+                }
             }
 
-            if (timedOut)
+            if (timedOut || staleRemoteIds.Count > 0)
             {
                 PublishStatus();
             }
