@@ -276,7 +276,7 @@ public partial class MainWindow
                             0d,
                             (DateTimeOffset.UtcNow - lastStateUtc)
                                 .TotalMilliseconds)
-                        : null,
+                        : (double?)null,
                 vehicleIdentityReady =
                     !string.IsNullOrWhiteSpace(
                         _lastTelemetry?.VehicleCompatibilityId),
