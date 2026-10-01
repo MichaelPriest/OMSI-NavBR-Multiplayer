@@ -29,7 +29,7 @@ public sealed partial class MultiplayerClientService
                 ErrorMessage: null,
                 PartCount: null,
                 ExpectedPartCount: null,
-                DateTimeOffset.UtcNow);
+                UpdatedAtUtc: DateTimeOffset.UtcNow);
         }
 
         return _physicalVehicles.GetStatus(playerId);
