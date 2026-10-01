@@ -191,19 +191,41 @@ public static class PluginExports
         };
     }
 
-    internal static PluginBridgeMessage BuildStatus() =>
-        new(
+    internal static PluginBridgeMessage BuildStatus()
+    {
+        var paused = ReadBool(_simulationPaused);
+        var snapshot = OpenOmsiLuaSnapshotReader.ReadLatest(
+            allowPausedStale: paused == true);
+        var ibisLine = Volatile.Read(ref _ibisLineCourse);
+        var ibisRoute = Volatile.Read(ref _ibisRouteCode);
+        var ibisTerminus = Volatile.Read(ref _ibisTerminusName);
+
+        return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
             PluginBridgeProtocol.Version,
             ProcessId: Environment.ProcessId,
             ComponentVersion: typeof(PluginExports).Assembly.GetName().Version?.ToString(),
+            MapName: snapshot?.MapName,
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            X: snapshot?.X,
+            Y: snapshot?.Y,
+            Z: snapshot?.Z,
+            HeadingDegrees: snapshot?.HeadingDegrees,
             SpeedKph: ReadFinite(_speedKph),
+            IsInGame: snapshot is null
+                ? null
+                : snapshot.HasPosition && !snapshot.OnFoot,
             SystemVariableCallbacks: Interlocked.Read(ref _systemCallbacks),
             RemoteVehicleCount: 0,
             CompatibleRemoteVehicleCount: 0,
             StaleRemovedCount: 0,
             LastSystemVariableIndex: 0,
+            VehicleName: snapshot?.VehicleName,
+            Line: snapshot?.Line ?? ibisLine,
+            Route: ibisRoute ?? snapshot?.Tour,
+            NextStopName: snapshot?.NextStop,
+            DestinationName: snapshot?.Terminus ?? ibisTerminus,
+            DelaySeconds: snapshot?.DelaySeconds,
             StopRequested: ReadBool(_stopRequested),
             CabinTemperatureC: ReadFinite(_cabinTemperatureC),
             PassengerCount: ReadInt(_passengerCount),
@@ -212,10 +234,10 @@ public static class PluginExports
             SimulationDay: ReadInt(_simulationDay),
             SimulationMonth: ReadInt(_simulationMonth),
             SimulationYear: ReadInt(_simulationYear),
-            SimulationPaused: ReadBool(_simulationPaused),
-            IbisLineCourse: Volatile.Read(ref _ibisLineCourse),
-            IbisRouteCode: Volatile.Read(ref _ibisRouteCode),
-            IbisTerminusName: Volatile.Read(ref _ibisTerminusName),
+            SimulationPaused: paused,
+            IbisLineCourse: ibisLine,
+            IbisRouteCode: ibisRoute,
+            IbisTerminusName: ibisTerminus,
             IbisDelayMinutes: Volatile.Read(ref _ibisDelayMinutes),
             IbisDelaySeconds: Volatile.Read(ref _ibisDelaySeconds),
             IbisDelayState: Volatile.Read(ref _ibisDelayState),
@@ -232,8 +254,10 @@ public static class PluginExports
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
                 PluginBridgeProtocol.CapabilityPerformanceGovernor,
-                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot
             ]);
+    }
 
     internal static long StatusIntervalMilliseconds => PerformanceProfile switch
     {
