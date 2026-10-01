@@ -842,6 +842,10 @@ public partial class MainWindow
                 SelectOpenOmsiExecutableFromWeb();
                 break;
 
+            case "launchOpenOmsiNavBrGateway":
+                LaunchOpenOmsiWithNavBrGatewayFromWeb();
+                break;
+
             case "verifyOpenOmsiPlugin":
                 VerifyOpenOmsiPluginFromWeb();
                 break;
