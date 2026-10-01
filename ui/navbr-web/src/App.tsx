@@ -3358,10 +3358,10 @@ function Settings({
                     {system.openOmsiLanGateway.remotes.map(remote => (
                       <span
                         key={remote.playerId}
-                        className={remote.drawn ? "verified" : "mismatch"}
+                        className={remote.drawn && remote.vehicleAssetStatus === "match" ? "verified" : "mismatch"}
                         title={remote.vehiclePath || remote.runtimeBus || remote.playerId}
                       >
-                        <NavBrIcon name={remote.drawn ? "bus" : "hazard"} size={13} />
+                        <NavBrIcon name={remote.drawn && remote.vehicleAssetStatus === "match" ? "bus" : "hazard"} size={13} />
                         #{remote.lanId} {remote.name || remote.runtimeName || remote.playerId} · {
                           remote.materializationStatus === "drawn"
                             ? pick("DESENHADO", "DRAWN", "DIBUJADO", "GEZEICHNET", "DESSINÉ")
@@ -3372,6 +3372,16 @@ function Settings({
                                 : remote.materializationStatus === "waiting-state"
                                   ? pick("AGUARDANDO STATE", "WAITING FOR STATE", "ESPERANDO STATE", "WARTE AUF STATE", "EN ATTENTE DE STATE")
                                   : pick("AGUARDANDO INFO", "WAITING FOR INFO", "ESPERANDO INFO", "WARTE AUF INFO", "EN ATTENTE D’INFO")
+                        } · {
+                          remote.vehicleAssetStatus === "match"
+                            ? "MATCH"
+                            : remote.vehicleAssetStatus === "missing"
+                              ? "MISSING"
+                              : remote.vehicleAssetStatus === "mismatch"
+                                ? "MISMATCH"
+                                : remote.vehicleAssetStatus === "unverified"
+                                  ? "UNVERIFIED"
+                                  : "NO PATH"
                         }
                       </span>
                     ))}
