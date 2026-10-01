@@ -34,6 +34,7 @@ public partial class MainWindow
 
         OpenOmsiPluginInstallationService.SavePreferredExecutable(
             dialog.FileName);
+        RefreshOpenOmsiVehicleIdentityRoots();
         var verification =
             OpenOmsiPluginInstallationService.Verify(dialog.FileName);
         _webOpenOmsiNotice =
@@ -48,6 +49,7 @@ public partial class MainWindow
                 "O openOMSI já está em execução. Feche-o antes de iniciar uma nova sessão ligada ao gateway NavBR.");
         }
 
+        RefreshOpenOmsiVehicleIdentityRoots();
         OpenOmsiLanGateway.Shared.Start();
         var status = OpenOmsiLanGateway.Shared.GetStatus();
         if (status.Port is not int port)
