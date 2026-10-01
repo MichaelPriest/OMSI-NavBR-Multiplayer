@@ -15,7 +15,8 @@ New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
 $required = @(
     'NavBR.OpenOmsiPlugin.dll',
-    'NavBR.OpenOmsiPlugin.opl'
+    'NavBR.OpenOmsiPlugin.opl',
+    'main.lua'
 )
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("NavBR-OpenOmsiPayload-" + [Guid]::NewGuid().ToString('N'))
