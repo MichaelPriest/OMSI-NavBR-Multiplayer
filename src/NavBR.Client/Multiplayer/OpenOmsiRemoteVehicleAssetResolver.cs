@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NavBR.Client.Telemetry;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -48,13 +49,84 @@ internal sealed class OpenOmsiRemoteVehicleAssetResolver
                 reportedPath,
                 compatibilityId,
                 cancellationToken);
-            if (!string.IsNullOrWhiteSpace(resolved))
+            if (!string.IsNullOrWhiteSpace(resolved) &&
+                IsVisibleWithExpectedFingerprint(
+                    roots,
+                    resolved,
+                    compatibilityId))
             {
                 return resolved;
             }
         }
 
         return null;
+    }
+
+    private static bool IsVisibleWithExpectedFingerprint(
+        IReadOnlyList<string> roots,
+        string relativePath,
+        string compatibilityId)
+    {
+        // openOMSI resolves content roots in priority order. The first root
+        // containing this relative path is the file the renderer will load.
+        // Never accept a correct lower-priority file when a mod/content root
+        // shadows it with different bytes.
+        foreach (var root in roots)
+        {
+            string candidate;
+            try
+            {
+                var normalizedRoot =
+                    Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(root));
+                candidate = Path.GetFullPath(
+                    Path.Combine(
+                        normalizedRoot,
+                        relativePath));
+                var relativeCheck =
+                    Path.GetRelativePath(
+                        normalizedRoot,
+                        candidate);
+                if (Path.IsPathRooted(relativeCheck) ||
+                    relativeCheck.Equals(
+                        "..",
+                        StringComparison.Ordinal) ||
+                    relativeCheck.StartsWith(
+                        ".." +
+                        Path.DirectorySeparatorChar,
+                        StringComparison.Ordinal) ||
+                    relativeCheck.StartsWith(
+                        ".." +
+                        Path.AltDirectorySeparatorChar,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            var visibleFingerprint =
+                OmsiVehicleIdentityReader
+                    .TryFingerprintInstalledVehicle(
+                        root,
+                        relativePath);
+            return !string.IsNullOrWhiteSpace(
+                       visibleFingerprint) &&
+                   string.Equals(
+                       visibleFingerprint,
+                       compatibilityId,
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     private string[] ReadRoots()
