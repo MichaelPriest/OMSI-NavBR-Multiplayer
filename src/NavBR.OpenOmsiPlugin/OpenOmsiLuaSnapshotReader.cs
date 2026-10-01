@@ -25,7 +25,7 @@ internal sealed record OpenOmsiLuaSnapshot(
 internal static class OpenOmsiLuaSnapshotReader
 {
     private const long MinimumProbeIntervalMs = 400;
-    private const string SnapshotPrefix = "navbr_snapshot = \\"";
+    private const string SnapshotPrefix = "navbr_snapshot = \"";
 
     private static readonly object Sync = new();
     private static long _lastProbeTickMs;
