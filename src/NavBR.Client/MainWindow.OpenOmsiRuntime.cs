@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using NavBR.Client.Hardware;
 using NavBR.Client.Maps;
+using NavBR.Client.Omsi;
 using NavBR.Client.PluginInstaller;
 using NavBR.Shared.OpenOmsi;
 using NavBR.Client.Telemetry;
@@ -105,22 +106,16 @@ public partial class MainWindow
                     ? result.MapName
                     : gatewayMap;
 
-            foreach (var root in _openOmsiVehicleIdentityRoots)
+            var compatibilityId =
+                OmsiMapCatalog.TryFingerprintInstalledMap(
+                    _openOmsiVehicleIdentityRoots,
+                    mapReference);
+            if (!string.IsNullOrWhiteSpace(compatibilityId))
             {
-                var compatibilityId =
-                    OmsiMapCatalog.TryFingerprintInstalledMap(
-                        root,
-                        mapReference);
-                if (string.IsNullOrWhiteSpace(compatibilityId))
-                {
-                    continue;
-                }
-
                 result = result with
                 {
                     MapCompatibilityId = compatibilityId
                 };
-                break;
             }
         }
 
@@ -133,27 +128,32 @@ public partial class MainWindow
         {
             var verification =
                 OpenOmsiPluginInstallationService.Verify();
-            var roots = new List<string>(2);
-            if (!string.IsNullOrWhiteSpace(
-                    verification.ContentRoot))
-            {
-                roots.Add(
-                    Path.GetFullPath(
-                        verification.ContentRoot));
-            }
+            var roots =
+                new List<string>(
+                    OpenOmsiPluginInstallationService
+                        .ResolveContentSearchRoots(
+                            verification.ExecutablePath));
 
-            if (!string.IsNullOrWhiteSpace(
-                    verification.ExecutablePath))
+            foreach (var profile in
+                     OmsiInstallationProfileStore.Load())
             {
-                var executableDirectory =
-                    Path.GetDirectoryName(
-                        verification.ExecutablePath);
-                if (!string.IsNullOrWhiteSpace(
-                        executableDirectory))
+                if (string.IsNullOrWhiteSpace(
+                        profile.InstallDirectory) ||
+                    !Directory.Exists(
+                        profile.InstallDirectory))
                 {
-                    roots.Add(
+                    continue;
+                }
+
+                var full =
+                    Path.TrimEndingDirectorySeparator(
                         Path.GetFullPath(
-                            executableDirectory));
+                            profile.InstallDirectory));
+                if (!roots.Contains(
+                        full,
+                        StringComparer.OrdinalIgnoreCase))
+                {
+                    roots.Add(full);
                 }
             }
 
