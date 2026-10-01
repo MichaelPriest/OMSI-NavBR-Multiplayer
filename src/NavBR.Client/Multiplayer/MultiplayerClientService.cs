@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.Network;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.Network;
 using NavBR.Shared.Telemetry;
 
