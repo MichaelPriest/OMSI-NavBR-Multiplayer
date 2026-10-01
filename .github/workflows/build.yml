@@ -151,6 +151,10 @@ jobs:
         shell: pwsh
         run: dotnet run --project src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj -c Release --no-restore
 
+      - name: Smoke-test live multiplayer presence identity
+        shell: pwsh
+        run: dotnet run --project src/NavBR.ServerPresenceSmokeTest/NavBR.ServerPresenceSmokeTest.csproj -c Release
+
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
