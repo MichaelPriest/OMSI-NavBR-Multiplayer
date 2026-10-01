@@ -714,10 +714,23 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             world = _world;
             var replayCutoff =
                 DateTimeOffset.UtcNow - RemoteReplayFreshness;
-            remotes = _remotes.Values
-                .Where(remote =>
-                    remote.LastSeenUtc >= replayCutoff)
-                .ToArray();
+            var replay = new List<RemotePeer>();
+            foreach (var remote in _remotes.Values)
+            {
+                if (remote.LastSeenUtc >= replayCutoff)
+                {
+                    replay.Add(remote);
+                    continue;
+                }
+
+                // Do not replay an old pose into the newly connected
+                // openOMSI client. Clear the advertised state so the next
+                // fresh SignalR frame is forced to send INFO before STATE.
+                remote.LastInfo = null;
+                remote.LastState = null;
+            }
+
+            remotes = replay.ToArray();
             players = remotes.Length + 1;
         }
 
@@ -1343,7 +1356,11 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             _clientName,
             EmptyToNull(_world.Map),
             _localInfo?.VehiclePath,
-            _remotes.Count,
+            _remotes.Values.Count(remote =>
+                remote.LastInfo is not null &&
+                remote.LastState is not null &&
+                now - remote.LastSeenUtc <=
+                    _remotePeerTimeout),
             _localStateFrames,
             _lastLocalStateSequence,
             _localStateRateHz,
