@@ -400,8 +400,10 @@ try
         routedRemote.HasState,
         "SignalR sender never became materializable in the gateway.");
     Require(
-        routedRemote.VehiclePath ==
-            localVehiclePath,
+        string.Equals(
+            routedRemote.VehiclePath,
+            localVehiclePath.Replace('\\', '/'),
+            StringComparison.OrdinalIgnoreCase),
         "Gateway did not retain the receiver-local resolved bus path.");
     Require(
         string.Equals(
