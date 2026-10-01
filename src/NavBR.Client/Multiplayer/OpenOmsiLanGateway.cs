@@ -119,10 +119,12 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(frame);
 
         IPEndPoint? endpoint;
-        OpenOmsiLanVehicleInfo info;
-        OpenOmsiLanVehicleState state;
-        string? previousInfo;
-        RemotePeer remote;
+        OpenOmsiLanVehicleInfo? info = null;
+        OpenOmsiLanVehicleState? state = null;
+        string? previousInfo = null;
+        RemotePeer? remote = null;
+        ushort? removedId = null;
+        var shouldRemove = false;
 
         lock (_sync)
         {
@@ -135,28 +137,53 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
             if (!frame.Telemetry.IsInGame ||
                 !MapsMatch(_world.Map, frame.Telemetry.MapName))
             {
-                _ = RemoveRemoteCoreAsync(
-                    frame.Player.PlayerId,
+                shouldRemove = true;
+                if (_remotes.Remove(
+                        frame.Player.PlayerId,
+                        out var removed))
+                {
+                    removedId = removed.Id;
+                }
+            }
+            else
+            {
+                if (!_remotes.TryGetValue(
+                        frame.Player.PlayerId,
+                        out remote))
+                {
+                    remote = new RemotePeer(AllocateRemoteId());
+                    _remotes[frame.Player.PlayerId] = remote;
+                }
+
+                info = BuildRemoteInfo(remote.Id, frame);
+                state = BuildRemoteState(
+                    remote.Id,
+                    remote.NextSequence(),
+                    frame.Telemetry);
+                previousInfo = remote.LastInfo;
+                remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
+                remote.LastState = state;
+                remote.LastSeenUtc = DateTimeOffset.UtcNow;
+            }
+        }
+
+        if (shouldRemove)
+        {
+            if (removedId is ushort id)
+            {
+                await SendTextAsync(
+                    $"BYE|{id}",
                     endpoint,
                     cancellationToken);
-                return;
             }
 
-            if (!_remotes.TryGetValue(frame.Player.PlayerId, out remote!))
-            {
-                remote = new RemotePeer(AllocateRemoteId());
-                _remotes[frame.Player.PlayerId] = remote;
-            }
+            PublishStatus();
+            return;
+        }
 
-            info = BuildRemoteInfo(remote.Id, frame);
-            state = BuildRemoteState(
-                remote.Id,
-                remote.NextSequence(),
-                frame.Telemetry);
-            previousInfo = remote.LastInfo;
-            remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
-            remote.LastState = state;
-            remote.LastSeenUtc = DateTimeOffset.UtcNow;
+        if (info is null || state is null || remote is null)
+        {
+            return;
         }
 
         if (!string.Equals(
@@ -731,7 +758,7 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
             state.SpeedKph,
             (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0,
             DestinationName: EmptyToNull(info?.Destination),
-            VehiclePath: vehiclePath?.Replace('/', '\'),
+            VehiclePath: vehiclePath?.Replace('/', '\\'),
             ThrottlePercent: state.Throttle * 100d,
             BrakePercent: state.Brake * 100d,
             SteeringDegrees: state.SteeringDegrees,
@@ -1088,7 +1115,7 @@ internal sealed class OpenOmsiLanGateway : IAsyncDisposable
 
     private static string? ExtractMapName(string? map)
     {
-        var normalized = map?.Trim().Replace('\', '/');
+        var normalized = map?.Trim().Replace('\\', '/');
         if (string.IsNullOrWhiteSpace(normalized))
         {
             return null;
