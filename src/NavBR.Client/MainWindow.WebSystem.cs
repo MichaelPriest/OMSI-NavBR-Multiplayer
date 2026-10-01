@@ -266,6 +266,22 @@ public partial class MainWindow
                 map = openOmsiLanGateway.Map,
                 vehiclePath = openOmsiLanGateway.VehiclePath,
                 remotePlayers = openOmsiLanGateway.RemotePlayers,
+                localStateFrames = openOmsiLanGateway.LocalStateFrames,
+                lastLocalStateSequence = openOmsiLanGateway.LastLocalStateSequence,
+                localStateRateHz = openOmsiLanGateway.LocalStateRateHz,
+                lastLocalStateUtc = openOmsiLanGateway.LastLocalStateUtc,
+                localStateAgeMilliseconds =
+                    openOmsiLanGateway.LastLocalStateUtc is DateTimeOffset lastStateUtc
+                        ? Math.Max(
+                            0d,
+                            (DateTimeOffset.UtcNow - lastStateUtc)
+                                .TotalMilliseconds)
+                        : null,
+                vehicleIdentityReady =
+                    !string.IsNullOrWhiteSpace(
+                        _lastTelemetry?.VehicleCompatibilityId),
+                vehicleCompatibilityId =
+                    _lastTelemetry?.VehicleCompatibilityId,
                 lastClientPacketUtc = openOmsiLanGateway.LastClientPacketUtc,
                 lastError = openOmsiLanGateway.LastError
             },
