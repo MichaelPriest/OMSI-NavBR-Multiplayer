@@ -1018,6 +1018,7 @@ export type NavBrCommand =
   | "verifyOmsiPlugin"
   | "installOmsiPlugin"
   | "selectOpenOmsiExecutable"
+  | "launchOpenOmsiNavBrGateway"
   | "verifyOpenOmsiPlugin"
   | "installOpenOmsiPlugin"
   | "removeOpenOmsiPlugin"
