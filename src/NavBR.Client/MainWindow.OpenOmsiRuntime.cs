@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using NavBR.Client.Hardware;
+using NavBR.Client.Maps;
 using NavBR.Client.PluginInstaller;
 using NavBR.Shared.OpenOmsi;
 using NavBR.Client.Telemetry;
@@ -59,39 +60,71 @@ public partial class MainWindow
             _openOmsiProcessId =
                 OpenOmsiPluginInstallationService.GetRunningProcessId();
             var identified =
-                EnrichOpenOmsiVehicleIdentity(telemetry);
+                EnrichOpenOmsiCompatibilityIdentity(telemetry);
             ApplyLocalTelemetrySnapshot(identified);
             UpdateTelemetryPollingCadence(identified);
             RenderCurrentState();
         }));
     }
 
-    private VehicleTelemetry EnrichOpenOmsiVehicleIdentity(
+    private VehicleTelemetry EnrichOpenOmsiCompatibilityIdentity(
         VehicleTelemetry telemetry)
     {
-        if (!string.IsNullOrWhiteSpace(
-                telemetry.VehicleCompatibilityId) ||
-            string.IsNullOrWhiteSpace(telemetry.VehiclePath))
-        {
-            return telemetry;
-        }
+        var result = telemetry;
 
-        foreach (var root in _openOmsiVehicleIdentityRoots)
+        if (string.IsNullOrWhiteSpace(
+                result.VehicleCompatibilityId) &&
+            !string.IsNullOrWhiteSpace(result.VehiclePath))
         {
-            var compatibilityId =
-                OmsiVehicleIdentityReader.TryFingerprintInstalledVehicle(
-                    root,
-                    telemetry.VehiclePath);
-            if (!string.IsNullOrWhiteSpace(compatibilityId))
+            foreach (var root in _openOmsiVehicleIdentityRoots)
             {
-                return telemetry with
+                var compatibilityId =
+                    OmsiVehicleIdentityReader.TryFingerprintInstalledVehicle(
+                        root,
+                        result.VehiclePath);
+                if (string.IsNullOrWhiteSpace(compatibilityId))
+                {
+                    continue;
+                }
+
+                result = result with
                 {
                     VehicleCompatibilityId = compatibilityId
                 };
+                break;
             }
         }
 
-        return telemetry;
+        if (string.IsNullOrWhiteSpace(
+                result.MapCompatibilityId))
+        {
+            var gatewayMap =
+                OpenOmsiLanGateway.Shared.GetStatus().Map;
+            var mapReference =
+                string.IsNullOrWhiteSpace(gatewayMap)
+                    ? result.MapName
+                    : gatewayMap;
+
+            foreach (var root in _openOmsiVehicleIdentityRoots)
+            {
+                var compatibilityId =
+                    OmsiMapCatalog.TryFingerprintInstalledMap(
+                        root,
+                        mapReference);
+                if (string.IsNullOrWhiteSpace(compatibilityId))
+                {
+                    continue;
+                }
+
+                result = result with
+                {
+                    MapCompatibilityId = compatibilityId
+                };
+                break;
+            }
+        }
+
+        return result;
     }
 
     private void RefreshOpenOmsiVehicleIdentityRoots()
@@ -227,7 +260,7 @@ public partial class MainWindow
         if (telemetry is not null)
         {
             telemetry =
-                EnrichOpenOmsiVehicleIdentity(telemetry);
+                EnrichOpenOmsiCompatibilityIdentity(telemetry);
             ApplyLocalTelemetrySnapshot(telemetry);
             UpdateTelemetryPollingCadence(telemetry);
             RenderCurrentState();
