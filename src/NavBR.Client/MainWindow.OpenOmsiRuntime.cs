@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using NavBR.Client.Hardware;
 using NavBR.Client.PluginInstaller;
-using NavBR.Client.Multiplayer;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
 
