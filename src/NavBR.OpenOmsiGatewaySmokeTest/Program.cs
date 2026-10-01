@@ -164,6 +164,145 @@ var near = await ReceiveUntilTextAsync(
     TimeSpan.FromSeconds(4));
 Require(near == "NEAR|2|", "Gateway should return an empty safe NEAR list in the first bridge.");
 
+var pendingPresence = new PlayerPresence(
+    "pending-identity",
+    "Pending Identity",
+    "navbr-smoke",
+    "Grundorf",
+    DateTimeOffset.UtcNow,
+    Compatibility: new OmsiCompatibilityManifest(
+        OmsiVersion: null,
+        NavBRVersion: "smoke",
+        MapName: "Grundorf",
+        MapCompatibilityId: null,
+        VehiclePath: null,
+        VehicleCompatibilityId: null,
+        HofName: null,
+        HofCompatibilityId: null,
+        PluginProtocolVersion: 3,
+        PluginDeployment: "OPENOMSI-X64",
+        Capabilities: []));
+var pendingTelemetry = new VehicleTelemetry(
+    "pending-identity",
+    DateTimeOffset.UtcNow,
+    "Grundorf",
+    "Bus identity pending",
+    null,
+    null,
+    210.0,
+    140.0,
+    1.2,
+    90.0,
+    0.0,
+    true);
+
+await gateway.UpsertRemoteAsync(
+    new PlayerTelemetryFrame(
+        pendingPresence,
+        pendingTelemetry));
+
+var pendingStatus = gateway.GetStatus();
+var pendingRemote = pendingStatus.Remotes.SingleOrDefault(
+    remote => remote.PlayerId == "pending-identity");
+Require(
+    pendingRemote is not null,
+    "Pending-identity remote was not retained for diagnostics.");
+Require(
+    !pendingRemote!.HasInfo && !pendingRemote.HasState,
+    "Pending-identity remote incorrectly advertised INFO/STATE readiness.");
+Require(
+    pendingStatus.RemotePlayers == 0,
+    "Pending-identity remote incorrectly counted as a materializable player.");
+
+await RequireNoRemoteAnnouncementAsync(
+    client,
+    pendingRemote.LanId,
+    "Pending Identity",
+    TimeSpan.FromMilliseconds(700));
+
+var resolvedPendingPresence = pendingPresence with
+{
+    Compatibility = pendingPresence.Compatibility! with
+    {
+        VehiclePath =
+            @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+        VehicleCompatibilityId =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+};
+var resolvedPendingTelemetry = pendingTelemetry with
+{
+    VehicleName = "NL202 - EN92",
+    VehiclePath =
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+    VehicleCompatibilityId =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    SpeedKph = 12.0
+};
+
+await gateway.UpsertRemoteAsync(
+    new PlayerTelemetryFrame(
+        resolvedPendingPresence,
+        resolvedPendingTelemetry));
+
+var pendingInfoText = await ReceiveUntilTextAsync(
+    client,
+    text =>
+        text.StartsWith(
+            $"INFO|{pendingRemote.LanId}|",
+            StringComparison.Ordinal),
+    TimeSpan.FromSeconds(4));
+Require(
+    OpenOmsiLanProtocol.TryDecodeInfo(
+        pendingInfoText,
+        out var resolvedPendingInfo),
+    "Resolved pending remote INFO did not decode.");
+Require(
+    resolvedPendingInfo.VehiclePath ==
+        "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
+    "Resolved pending remote INFO lost the vehicle path.");
+
+var pendingStateBytes = await ReceiveUntilBytesAsync(
+    client,
+    bytes =>
+        bytes.Length >=
+            OpenOmsiLanProtocol.StateHeaderBytes &&
+        bytes[0] ==
+            OpenOmsiLanProtocol.StateMagic &&
+        BitConverter.ToUInt16(bytes, 2) ==
+            pendingRemote.LanId,
+    TimeSpan.FromSeconds(4));
+Require(
+    OpenOmsiLanStateCodec.TryDecode(
+        pendingStateBytes,
+        out _),
+    "Resolved pending remote STATE did not decode.");
+
+var resolvedPendingStatus = gateway.GetStatus();
+var resolvedPendingRemote =
+    resolvedPendingStatus.Remotes.Single(
+        remote =>
+            remote.PlayerId == "pending-identity");
+Require(
+    resolvedPendingRemote.HasInfo &&
+    resolvedPendingRemote.HasState,
+    "Resolved pending remote did not become INFO/STATE ready.");
+Require(
+    resolvedPendingStatus.RemotePlayers == 1,
+    "Resolved pending remote was not counted as materializable.");
+
+await gateway.RemoveRemoteAsync("pending-identity");
+var pendingBye = await ReceiveUntilTextAsync(
+    client,
+    text =>
+        text ==
+        $"BYE|{pendingRemote.LanId}",
+    TimeSpan.FromSeconds(4));
+Require(
+    pendingBye ==
+        $"BYE|{pendingRemote.LanId}",
+    "Resolved pending remote did not receive BYE.");
+
 var remotePresence = new PlayerPresence(
     "remote-1",
     "Remote Driver",
@@ -624,7 +763,7 @@ finally
 }
 
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + official drawn status + fresh-only reconnect replay + stale peer expiry + BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + pending identity gate + canonical remote + native OMSI D3D axis/articulation + live diagnostics + official drawn status + fresh-only reconnect replay + stale peer expiry + BYE.");
 
 static async Task SendTextAsync(
     UdpClient client,
@@ -677,6 +816,71 @@ static async Task RequireNoMatchingTextAsync(
             if (predicate(text))
             {
                 throw new InvalidOperationException(message);
+            }
+        }
+    }
+    catch (OperationCanceledException)
+        when (cts.IsCancellationRequested)
+    {
+    }
+}
+
+static async Task RequireNoRemoteAnnouncementAsync(
+    UdpClient client,
+    ushort lanId,
+    string displayName,
+    TimeSpan timeout)
+{
+    using var cts =
+        new CancellationTokenSource(timeout);
+    try
+    {
+        while (true)
+        {
+            var result =
+                await client.ReceiveAsync(cts.Token);
+            if (result.Buffer.Length == 0)
+            {
+                continue;
+            }
+
+            if (result.Buffer[0] ==
+                OpenOmsiLanProtocol.StateMagic)
+            {
+                if (result.Buffer.Length >=
+                        OpenOmsiLanProtocol.StateHeaderBytes &&
+                    BitConverter.ToUInt16(
+                        result.Buffer,
+                        2) == lanId)
+                {
+                    throw new InvalidOperationException(
+                        "Pending-identity remote emitted STATE before a vehicle path existed.");
+                }
+
+                continue;
+            }
+
+            string text;
+            try
+            {
+                text =
+                    new UTF8Encoding(false, true)
+                        .GetString(result.Buffer);
+            }
+            catch (DecoderFallbackException)
+            {
+                continue;
+            }
+
+            if (text.StartsWith(
+                    $"INFO|{lanId}|",
+                    StringComparison.Ordinal) ||
+                text.Contains(
+                    $"|{displayName}|",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Pending-identity remote emitted INFO before a vehicle path existed.");
             }
         }
     }
