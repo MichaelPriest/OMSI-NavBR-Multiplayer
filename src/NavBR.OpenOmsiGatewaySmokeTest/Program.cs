@@ -517,8 +517,114 @@ await using (var staleGateway =
         "Stale openOMSI remote remained registered.");
 }
 
+var previousHome = Environment.GetEnvironmentVariable("HOME");
+var previousUserProfile =
+    Environment.GetEnvironmentVariable("USERPROFILE");
+var statusHome = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-status-" + Guid.NewGuid().ToString("N"));
+var lanStatusDirectory = Path.Combine(
+    statusHome,
+    ".openomsi",
+    "lan");
+Directory.CreateDirectory(lanStatusDirectory);
+Environment.SetEnvironmentVariable("HOME", statusHome);
+Environment.SetEnvironmentVariable("USERPROFILE", statusHome);
+try
+{
+    var nowUnix =
+        DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    var statusPath = Path.Combine(
+        lanStatusDirectory,
+        "navbr-smoke.json");
+    await File.WriteAllTextAsync(
+        statusPath,
+        $"""
+        {
+          "pid": 4242,
+          "role": "client",
+          "connected": true,
+          "map": "maps/Grundorf/global.cfg",
+          "updated": {{nowUnix}},
+          "players": [
+            {
+              "id": 7,
+              "name": "Remote Driver",
+              "bus": "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
+              "line": "76",
+              "destination": "Rathaus Spandau",
+              "drawn": true
+            },
+            {
+              "id": 8,
+              "name": "Waiting Driver",
+              "bus": "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
+              "line": "77",
+              "destination": "Bahnhof",
+              "drawn": false
+            }
+          ]
+        }
+        """);
+
+    var runtimeStatus =
+        OpenOmsiLanRuntimeStatusReader.Read(
+            4242,
+            "navbr-smoke");
+    Require(runtimeStatus is not null, "openOMSI LAN runtime status was not read.");
+    Require(runtimeStatus!.Fresh, "Fresh openOMSI LAN runtime status was marked stale.");
+    Require(runtimeStatus.Connected, "Connected openOMSI LAN runtime status was lost.");
+    Require(runtimeStatus.Map == "maps/Grundorf/global.cfg", "openOMSI LAN runtime map mismatch.");
+    Require(runtimeStatus.IsDrawn(7), "drawn=true peer was not confirmed.");
+    Require(!runtimeStatus.IsDrawn(8), "drawn=false peer was incorrectly confirmed.");
+    Require(
+        runtimeStatus.Players.Single(player => player.Id == 7).Bus ==
+            "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
+        "openOMSI LAN runtime bus path mismatch.");
+
+    var stalePath = Path.Combine(
+        lanStatusDirectory,
+        "navbr-stale.json");
+    await File.WriteAllTextAsync(
+        stalePath,
+        $"""
+        {
+          "pid": 4243,
+          "role": "client",
+          "connected": true,
+          "map": "maps/Grundorf/global.cfg",
+          "updated": {{nowUnix - 60}},
+          "players": [
+            { "id": 7, "drawn": true }
+          ]
+        }
+        """);
+
+    var staleStatus =
+        OpenOmsiLanRuntimeStatusReader.Read(
+            4243,
+            "navbr-stale");
+    Require(staleStatus is not null, "Stale openOMSI LAN runtime status was not readable.");
+    Require(!staleStatus!.Fresh, "Old openOMSI LAN runtime status was marked fresh.");
+    Require(!staleStatus.IsDrawn(7), "Stale drawn=true status was accepted as physical confirmation.");
+}
+finally
+{
+    Environment.SetEnvironmentVariable("HOME", previousHome);
+    Environment.SetEnvironmentVariable(
+        "USERPROFILE",
+        previousUserProfile);
+    try
+    {
+        Directory.Delete(statusHome, recursive: true);
+    }
+    catch
+    {
+    }
+}
+
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + fresh-only reconnect replay + stale peer expiry + BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + official drawn status + fresh-only reconnect replay + stale peer expiry + BYE.");
 
 static async Task SendTextAsync(
     UdpClient client,
