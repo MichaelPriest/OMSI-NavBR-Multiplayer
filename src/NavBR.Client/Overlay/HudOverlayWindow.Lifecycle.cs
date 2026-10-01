@@ -41,6 +41,7 @@ public partial class HudOverlayWindow
         // Single owner for HUD startup. The constructor no longer installs a
         // second keyboard hook/timer set through an anonymous Loaded handler.
         InitializeImmersiveOperationHud();
+        InitializeInGamePanel();
         _presenceTimer.Start();
         FollowOmsiWindow();
 
@@ -134,7 +135,7 @@ public partial class HudOverlayWindow
                 "WASD andar • Shift correr • Espacio saltar • ←/→ girar • E autobús • Esc volver",
                 "WASD laufen • Shift rennen • Leertaste springen • ←/→ drehen • E Bus • Esc zurück",
                 "WASD marcher • Shift courir • Espace sauter • ←/→ tourner • E bus • Échap retour")
-            : $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
+            : $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+N: NavBR  •  Ctrl+Alt+H: HUD";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
@@ -362,6 +363,11 @@ public partial class HudOverlayWindow
 
     private void HideHudForOmsiState()
     {
+        if (_inGamePanelOpen)
+        {
+            CloseInGamePanel(restoreFocus: false);
+        }
+
         if (_localPushToTalk)
         {
             SetLocalPushToTalk(false);
