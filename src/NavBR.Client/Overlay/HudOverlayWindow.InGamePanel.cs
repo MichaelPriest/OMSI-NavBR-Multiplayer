@@ -14,6 +14,7 @@ public partial class HudOverlayWindow
     private Border? _inGameInputShield;
     private Border? _inGamePanel;
     private TextBlock? _inGameSessionText;
+    private TextBlock? _inGameRuntimeText;
     private TextBlock? _inGameCompanyText;
     private TextBlock? _inGameOperationsText;
     private TextBlock? _inGameDispatchText;
@@ -88,6 +89,7 @@ public partial class HudOverlayWindow
         header.Children.Add(headerTitle);
 
         _inGameSessionText = BuildInGameStatusText();
+        _inGameRuntimeText = BuildInGameStatusText();
         _inGameCompanyText = BuildInGameStatusText();
         _inGameOperationsText = BuildInGameStatusText();
         _inGameDispatchText = BuildInGameStatusText();
@@ -239,6 +241,7 @@ public partial class HudOverlayWindow
             Margin = new Thickness(0d, 3d, 0d, 10d)
         });
         body.Children.Add(_inGameSessionText);
+        body.Children.Add(_inGameRuntimeText);
         body.Children.Add(_inGameCompanyText);
         body.Children.Add(_inGameOperationsText);
         body.Children.Add(_inGameDispatchText);
@@ -267,6 +270,8 @@ public partial class HudOverlayWindow
             connected: false,
             roomId: null,
             displayName: null,
+            runtimeStatus: null,
+            runtimeHealthy: false,
             operationalReport: null,
             companyLabel: null,
             canManageDispatch: false,
@@ -277,6 +282,8 @@ public partial class HudOverlayWindow
         bool connected,
         string? roomId,
         string? displayName,
+        string? runtimeStatus,
+        bool runtimeHealthy,
         OperationalReport? operationalReport,
         string? companyLabel,
         bool canManageDispatch,
@@ -302,6 +309,21 @@ public partial class HudOverlayWindow
                     "SESIÓN • sin conexión",
                     "SITZUNG • offline",
                     "SESSION • hors ligne");
+        }
+
+        if (_inGameRuntimeText is not null)
+        {
+            _inGameRuntimeText.Text = string.IsNullOrWhiteSpace(runtimeStatus)
+                ? InGameText(
+                    "RUNTIME • aguardando simulador",
+                    "RUNTIME • waiting for simulator",
+                    "RUNTIME • esperando simulador",
+                    "RUNTIME • warte auf Simulator",
+                    "RUNTIME • attente du simulateur")
+                : runtimeStatus;
+            _inGameRuntimeText.Foreground = runtimeHealthy
+                ? new SolidColorBrush(Color.FromRgb(82, 215, 145))
+                : new SolidColorBrush(Color.FromRgb(237, 184, 75));
         }
 
         if (_inGameCompanyText is not null)
