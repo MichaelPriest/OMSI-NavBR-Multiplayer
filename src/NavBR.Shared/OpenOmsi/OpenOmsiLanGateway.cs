@@ -8,6 +8,15 @@ using NavBR.Shared.Telemetry;
 
 namespace NavBR.Shared.OpenOmsi;
 
+public sealed record OpenOmsiLanGatewayRemoteStatus(
+    string PlayerId,
+    ushort LanId,
+    string? Name,
+    string? VehiclePath,
+    bool HasInfo,
+    bool HasState,
+    DateTimeOffset LastSeenUtc);
+
 public sealed record OpenOmsiLanGatewayStatus(
     bool Running,
     int? Port,
@@ -16,6 +25,7 @@ public sealed record OpenOmsiLanGatewayStatus(
     string? Map,
     string? VehiclePath,
     int RemotePlayers,
+    IReadOnlyList<OpenOmsiLanGatewayRemoteStatus> Remotes,
     long LocalStateFrames,
     ushort? LastLocalStateSequence,
     double? LocalStateRateHz,
@@ -126,6 +136,28 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         }
     }
 
+    public bool TryGetRemoteLanId(
+        string playerId,
+        out ushort lanId)
+    {
+        lanId = 0;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return false;
+        }
+
+        lock (_sync)
+        {
+            if (!_remotes.TryGetValue(playerId, out var remote))
+            {
+                return false;
+            }
+
+            lanId = remote.Id;
+            return lanId != 0;
+        }
+    }
+
     public VehicleTelemetry? LatestLocalTelemetry
     {
         get
@@ -217,7 +249,9 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                         frame.Player.PlayerId,
                         out remote))
                 {
-                    remote = new RemotePeer(AllocateRemoteId());
+                    remote = new RemotePeer(
+                        AllocateRemoteId(),
+                        frame.Player.PlayerId);
                     _remotes[frame.Player.PlayerId] = remote;
                 }
 
@@ -230,6 +264,8 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                 previousInfo = remote.LastInfo;
                 remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
                 remote.LastState = state;
+                remote.LastName = frame.Player.DisplayName;
+                remote.LastVehiclePath = info.VehiclePath;
                 remote.LastSeenUtc = DateTimeOffset.UtcNow;
             }
         }
@@ -1348,25 +1384,40 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         _lastClientPacketUtc is DateTimeOffset last &&
         now - last <= ClientTimeout;
 
-    private OpenOmsiLanGatewayStatus BuildStatusCore(DateTimeOffset now) =>
-        new(
+    private OpenOmsiLanGatewayStatus BuildStatusCore(DateTimeOffset now)
+    {
+        var remotes = _remotes.Values
+            .Where(remote =>
+                now - remote.LastSeenUtc <= _remotePeerTimeout)
+            .OrderBy(remote => remote.Id)
+            .Select(remote =>
+                new OpenOmsiLanGatewayRemoteStatus(
+                    remote.PlayerId,
+                    remote.Id,
+                    EmptyToNull(remote.LastName),
+                    EmptyToNull(remote.LastVehiclePath),
+                    remote.LastInfo is not null,
+                    remote.LastState is not null,
+                    remote.LastSeenUtc))
+            .ToArray();
+
+        return new(
             _udp is not null,
             (_udp?.Client.LocalEndPoint as IPEndPoint)?.Port,
             IsClientConnectedCore(now),
             _clientName,
             EmptyToNull(_world.Map),
             _localInfo?.VehiclePath,
-            _remotes.Values.Count(remote =>
-                remote.LastInfo is not null &&
-                remote.LastState is not null &&
-                now - remote.LastSeenUtc <=
-                    _remotePeerTimeout),
+            remotes.Count(remote =>
+                remote.HasInfo && remote.HasState),
+            remotes,
             _localStateFrames,
             _lastLocalStateSequence,
             _localStateRateHz,
             _lastLocalStateUtc,
             _lastClientPacketUtc,
             _lastError);
+    }
 
     private void PublishStatus()
     {
@@ -1518,12 +1569,21 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     {
         private ushort _sequence;
 
-        public RemotePeer(ushort id)
+        public RemotePeer(
+            ushort id,
+            string playerId)
         {
             Id = id;
+            PlayerId = playerId;
         }
 
         public ushort Id { get; }
+
+        public string PlayerId { get; }
+
+        public string? LastName { get; set; }
+
+        public string? LastVehiclePath { get; set; }
 
         public string? LastInfo { get; set; }
 
