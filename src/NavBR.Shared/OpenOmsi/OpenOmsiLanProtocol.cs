@@ -107,30 +107,41 @@ public static class OpenOmsiLanProtocol
     public static string EncodeInfo(OpenOmsiLanVehicleInfo info)
     {
         var bus = NormalizeVehiclePath(info.VehiclePath);
-        var head = string.Join(
-            "|",
-            "INFO",
-            info.PlayerId.ToString(CultureInfo.InvariantCulture),
-            CleanText(info.Name, 32),
-            bus ?? string.Empty,
-            CleanText(info.Paint, 64),
-            CleanText(info.Line, 16),
-            CleanText(info.Destination, 64),
-            FormatFinite(info.LengthMeters, 0d, 60d),
-            FormatFinite(info.WidthMeters, 0d, 8d),
-            FormatFinite(info.BoxOffsetMeters, -40d, 40d),
-            info.SyncTableHash.ToString("X8", CultureInfo.InvariantCulture),
-            CleanText(info.Tour, 64),
-            EncodeHexTexts(info.DisplayTexts, 12, 32, 720),
-            NormalizeHumanPath(info.FigurePath) ?? string.Empty);
+        var head =
+            $"INFO|{info.PlayerId.ToString(CultureInfo.InvariantCulture)}|" +
+            $"{CleanText(info.Name, 32)}|" +
+            $"{bus ?? string.Empty}|" +
+            $"{CleanText(info.Paint, 64)}|" +
+            $"{CleanText(info.Line, 16)}|" +
+            $"{CleanText(info.Destination, 64)}|" +
+            $"{FormatFinite(info.LengthMeters, 0d, 60d)}|" +
+            $"{FormatFinite(info.WidthMeters, 0d, 8d)}|" +
+            $"{FormatFinite(info.BoxOffsetMeters, -40d, 40d)}|" +
+            $"{info.SyncTableHash.ToString("X8", CultureInfo.InvariantCulture)}|" +
+            $"{CleanText(info.Tour, 64)}|";
 
-        var freetex = EncodeHexTexts(
+        var figure =
+            NormalizeHumanPath(info.FigurePath) ?? string.Empty;
+        var displayRoom = Math.Max(
+            0,
+            MaxDatagramBytes - head.Length - figure.Length - 1);
+        var displayTexts = EncodeHexTexts(
+            info.DisplayTexts,
+            12,
+            32,
+            displayRoom);
+        var withFigure = $"{head}{displayTexts}|{figure}";
+
+        var freeTextureRoom = Math.Max(
+            0,
+            MaxDatagramBytes - withFigure.Length - 1);
+        var freeTextures = EncodeHexTexts(
             info.FreeTextures,
             8,
             128,
-            Math.Max(0, MaxDatagramBytes - head.Length - 1));
+            freeTextureRoom);
 
-        return $"{head}|{freetex}";
+        return $"{withFigure}|{freeTextures}";
     }
 
     public static bool TryDecodeHello(
