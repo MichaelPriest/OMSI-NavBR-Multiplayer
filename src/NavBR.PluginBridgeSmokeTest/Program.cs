@@ -1,5 +1,6 @@
 using System.IO.Pipes;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using NavBR.Client.PluginBridge;
@@ -43,6 +44,53 @@ Require(
         @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
         StringComparison.OrdinalIgnoreCase),
     "complete OMSI vehicle identity path regressed");
+
+var fingerprintVehicle = identityReaderType.GetMethod(
+    "TryFingerprintInstalledVehicle",
+    BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException("installed vehicle fingerprint helper not found");
+var fingerprintRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-fingerprint-" + Guid.NewGuid().ToString("N"));
+var fingerprintRelative = Path.Combine(
+    "Vehicles",
+    "MAN_NL_NG",
+    "MAN_EN92_main.bus");
+var fingerprintPath = Path.Combine(
+    fingerprintRoot,
+    fingerprintRelative);
+Directory.CreateDirectory(Path.GetDirectoryName(fingerprintPath)!);
+var fingerprintBytes = Encoding.UTF8.GetBytes(
+    "[friendlyname]\r\nNavBR openOMSI fingerprint smoke\r\n");
+File.WriteAllBytes(fingerprintPath, fingerprintBytes);
+try
+{
+    var expectedFingerprint =
+        "sha256:" +
+        Convert.ToHexString(
+            SHA256.HashData(fingerprintBytes))
+        .ToLowerInvariant();
+    var actualFingerprint = (string?)fingerprintVehicle.Invoke(
+        null,
+        [fingerprintRoot, fingerprintRelative.Replace('\\', '/')]);
+    Require(
+        string.Equals(
+            actualFingerprint,
+            expectedFingerprint,
+            StringComparison.Ordinal),
+        "openOMSI installed vehicle SHA-256 fingerprint regressed");
+
+    var escapedFingerprint = (string?)fingerprintVehicle.Invoke(
+        null,
+        [fingerprintRoot, @"..\outside.bus"]);
+    Require(
+        escapedFingerprint is null,
+        "vehicle fingerprint helper accepted a path outside the content root");
+}
+finally
+{
+    Directory.Delete(fingerprintRoot, recursive: true);
+}
 
 await using var server = new OmsiPluginBridgeServer();
 server.Start();
