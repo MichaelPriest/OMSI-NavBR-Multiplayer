@@ -63,6 +63,8 @@ jobs:
       - name: Restore openOMSI LAN smoke projects
         shell: pwsh
         run: |
+          dotnet restore src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj
+          dotnet restore src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj
 
       - name: Smoke-test openOMSI LAN v6 codec
         shell: pwsh
