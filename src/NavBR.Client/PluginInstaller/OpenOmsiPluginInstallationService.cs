@@ -537,6 +537,109 @@ internal static class OpenOmsiPluginInstallationService
         }
     }
 
+    public static IReadOnlyList<string> ResolveContentSearchRoots(
+        string? executablePath = null)
+    {
+        var roots =
+            new List<string>();
+
+        void AddRoot(string? candidate)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return;
+            }
+
+            try
+            {
+                var full =
+                    Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(
+                            candidate.Trim().Trim('"')));
+                if (!Directory.Exists(full) ||
+                    roots.Contains(
+                        full,
+                        StringComparer.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                roots.Add(full);
+            }
+            catch
+            {
+            }
+        }
+
+        var executable =
+            ResolveOpenOmsiExecutable(executablePath);
+        if (!string.IsNullOrWhiteSpace(executable))
+        {
+            AddRoot(ResolveContentRoot(executable));
+
+            var binaryDirectory =
+                Path.GetDirectoryName(executable);
+            if (!string.IsNullOrWhiteSpace(binaryDirectory) &&
+                File.Exists(
+                    Path.Combine(
+                        binaryDirectory,
+                        "Omsi.exe")))
+            {
+                AddRoot(binaryDirectory);
+            }
+        }
+
+        AddRoot(
+            Environment.GetEnvironmentVariable(
+                "OMSI_ROOT"));
+
+        try
+        {
+            var dataDirectory =
+                GetOpenOmsiDataDirectory();
+            var home =
+                Directory.GetParent(dataDirectory)?
+                    .FullName;
+            if (!string.IsNullOrWhiteSpace(home))
+            {
+                var memo =
+                    Path.Combine(
+                        home,
+                        ".openomsi-root");
+                if (File.Exists(memo))
+                {
+                    AddRoot(
+                        File.ReadAllText(memo).Trim());
+                }
+            }
+
+            var launcher =
+                Path.Combine(
+                    dataDirectory,
+                    "launcher.json");
+            if (File.Exists(launcher))
+            {
+                using var json =
+                    JsonDocument.Parse(
+                        File.ReadAllText(launcher));
+                if (json.RootElement.TryGetProperty(
+                        "root",
+                        out var rootValue) &&
+                    rootValue.ValueKind ==
+                        JsonValueKind.String)
+                {
+                    AddRoot(
+                        rootValue.GetString());
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return roots;
+    }
+
     public static bool IsOpenOmsiRunning() =>
         GetRunningProcessId() is not null;
 
