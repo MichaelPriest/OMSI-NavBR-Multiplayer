@@ -472,8 +472,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
             TelemetryReceived?.Invoke(frame);
             _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
-            _ = _physicalVehicles.ApplyAsync(frame);
-            _ = OpenOmsiLanGateway.Shared.UpsertRemoteAsync(frame);
+            _ = RouteRemotePhysicalTelemetryAsync(frame);
         });
         connection.On<TrafficSnapshot>("trafficSnapshot", snapshot =>
         {
@@ -529,6 +528,39 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
+    }
+
+    private async Task RouteRemotePhysicalTelemetryAsync(
+        PlayerTelemetryFrame frame)
+    {
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        if (OpenOmsiLanGateway.Shared.IsClientConnected)
+        {
+            // openOMSI owns the physical renderer through its native LAN v6
+            // client. Never let the OMSI 2 x86 coordinator keep another copy
+            // of the same remote player alive while this backend is active.
+            if (_physicalVehicles.IsSpawned(playerId))
+            {
+                await _physicalVehicles.DespawnAsync(playerId);
+            }
+
+            await OpenOmsiLanGateway.Shared.UpsertRemoteAsync(frame);
+            return;
+        }
+
+        // If the openOMSI client went away and the user returned to OMSI 2,
+        // retire any stale LAN peer before the x86 backend takes ownership.
+        if (OpenOmsiLanGateway.Shared.HasRemote(playerId))
+        {
+            await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(playerId);
+        }
+
+        await _physicalVehicles.ApplyAsync(frame);
     }
 
     private bool TryAcceptRemoteTelemetry(PlayerTelemetryFrame frame)
