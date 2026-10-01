@@ -375,6 +375,92 @@ Require(status.LocalStateRateHz is > 0d, "Gateway status lost local STATE rate."
 Require(status.LastLocalStateUtc is not null, "Gateway status lost local STATE timestamp.");
 Require(string.IsNullOrWhiteSpace(status.LastError), $"Gateway reported an error: {status.LastError}");
 
+await using (var replayGateway =
+             new OpenOmsiLanGateway(TimeSpan.FromSeconds(5)))
+{
+    replayGateway.Start();
+    var replayPort = replayGateway.Port
+        ?? throw new InvalidOperationException(
+            "Replay-freshness gateway did not bind a loopback UDP port.");
+    using var replayClient = new UdpClient(
+        new IPEndPoint(IPAddress.Loopback, 0));
+    var replayEndpoint =
+        new IPEndPoint(IPAddress.Loopback, replayPort);
+
+    await SendTextAsync(replayClient, replayEndpoint, hello);
+    _ = await ReceiveUntilTextAsync(
+        replayClient,
+        text => text.StartsWith(
+            "WELCOME|6|2|",
+            StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+
+    await replayGateway.UpsertRemoteAsync(remoteFrame);
+    var replayInfoText = await ReceiveUntilTextAsync(
+        replayClient,
+        text =>
+            text.StartsWith("INFO|", StringComparison.Ordinal) &&
+            text.Contains(
+                "|Remote Driver|",
+                StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+    Require(
+        OpenOmsiLanProtocol.TryDecodeInfo(
+            replayInfoText,
+            out var replayInfo),
+        "Replay-freshness INFO did not decode.");
+
+    _ = await ReceiveUntilBytesAsync(
+        replayClient,
+        bytes =>
+            bytes.Length >= OpenOmsiLanProtocol.StateHeaderBytes &&
+            bytes[0] == OpenOmsiLanProtocol.StateMagic &&
+            BitConverter.ToUInt16(bytes, 2) ==
+                replayInfo.PlayerId,
+        TimeSpan.FromSeconds(2));
+
+    await Task.Delay(TimeSpan.FromMilliseconds(2150));
+
+    await SendTextAsync(replayClient, replayEndpoint, hello);
+    _ = await ReceiveUntilTextAsync(
+        replayClient,
+        text => text.StartsWith(
+            "WELCOME|6|2|",
+            StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+
+    await RequireNoMatchingTextAsync(
+        replayClient,
+        text =>
+            text.StartsWith("INFO|", StringComparison.Ordinal) &&
+            text.Contains(
+                "|Remote Driver|",
+                StringComparison.Ordinal),
+        TimeSpan.FromMilliseconds(450),
+        "Reconnect replayed a stale openOMSI remote pose.");
+
+    await replayGateway.UpsertRemoteAsync(
+        remoteFrame with
+        {
+            Telemetry = remoteFrame.Telemetry with
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                X = remoteFrame.Telemetry.X + 1d,
+                SourceTimestampUnixMilliseconds =
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            }
+        });
+
+    _ = await ReceiveUntilTextAsync(
+        replayClient,
+        text =>
+            text.StartsWith("INFO|", StringComparison.Ordinal) &&
+            text.Contains(
+                "|Remote Driver|",
+                StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+}
+
 await using (var staleGateway =
              new OpenOmsiLanGateway(TimeSpan.FromMilliseconds(300)))
 {
@@ -432,7 +518,7 @@ await using (var staleGateway =
 }
 
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + stale peer expiry + BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + fresh-only reconnect replay + stale peer expiry + BYE.");
 
 static async Task SendTextAsync(
     UdpClient client,
@@ -448,6 +534,51 @@ static async Task SendBytesAsync(
     IPEndPoint endpoint,
     byte[] bytes) =>
     await client.SendAsync(bytes, endpoint);
+
+static async Task RequireNoMatchingTextAsync(
+    UdpClient client,
+    Func<string, bool> predicate,
+    TimeSpan timeout,
+    string message)
+{
+    using var cts =
+        new CancellationTokenSource(timeout);
+    try
+    {
+        while (true)
+        {
+            var result =
+                await client.ReceiveAsync(cts.Token);
+            if (result.Buffer.Length == 0 ||
+                result.Buffer[0] ==
+                    OpenOmsiLanProtocol.StateMagic)
+            {
+                continue;
+            }
+
+            string text;
+            try
+            {
+                text =
+                    new UTF8Encoding(false, true)
+                        .GetString(result.Buffer);
+            }
+            catch (DecoderFallbackException)
+            {
+                continue;
+            }
+
+            if (predicate(text))
+            {
+                throw new InvalidOperationException(message);
+            }
+        }
+    }
+    catch (OperationCanceledException)
+        when (cts.IsCancellationRequested)
+    {
+    }
+}
 
 static async Task<string> ReceiveUntilTextAsync(
     UdpClient client,
