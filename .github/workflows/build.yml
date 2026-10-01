@@ -167,7 +167,14 @@ jobs:
 
       - name: Smoke-test openOMSI LAN v6 codec
         shell: pwsh
-        run: dotnet run --project src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj -c Release --no-restore
+        run: |
+          Remove-Item Env:__DOTNET_ADD_32BIT -ErrorAction SilentlyContinue
+          Remove-Item Env:__DOTNET_PREFERRED_BITNESS -ErrorAction SilentlyContinue
+          & "C:\Program Files\dotnet\dotnet.exe" run `
+            --project src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj `
+            -c Release `
+            --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "openOMSI LAN v6 codec smoke failed." }
 
       - name: Build OMSI native interop x86
         shell: pwsh
