@@ -1,3 +1,6 @@
+using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
+
 namespace NavBR.Client.Multiplayer;
 
 public sealed partial class MultiplayerClientService
