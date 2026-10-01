@@ -3309,6 +3309,48 @@ function Settings({
             {system.openOmsiPlugin.message && (
               <div className="network-message">{system.openOmsiPlugin.message}</div>
             )}
+            {system.openOmsiLanGateway && (
+              <>
+                <div className="details-grid">
+                  <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? "LINKED" : "WAITING"}</strong></div>
+                  <div><small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small><strong>{system.openOmsiLanGateway.port ?? "—"}</strong></div>
+                  <div><small>{pick("REMOTOS", "REMOTES", "REMOTOS", "REMOTES", "DISTANTS")}</small><strong>{system.openOmsiLanGateway.remotePlayers}</strong></div>
+                  <div><small>{pick("MAPA LAN", "LAN MAP", "MAPA LAN", "LAN-KARTE", "CARTE LAN")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
+                </div>
+                {system.openOmsiLanGateway.joinTarget && (
+                  <div className="plugin-file-verification">
+                    <span
+                      className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}
+                      onClick={() => void navigator.clipboard?.writeText(system.openOmsiLanGateway?.joinTarget || "")}
+                      title={pick("Clique para copiar", "Click to copy", "Haz clic para copiar", "Zum Kopieren klicken", "Cliquer pour copier")}
+                    >
+                      <NavBrIcon name="network" size={13} />
+                      {pick("Entrar no openOMSI em", "Join openOMSI at", "Entrar en openOMSI en", "openOMSI verbinden mit", "Rejoindre openOMSI sur")} {system.openOmsiLanGateway.joinTarget}
+                    </span>
+                  </div>
+                )}
+                <small className="plugin-update-hint">
+                  {system.openOmsiLanGateway.clientConnected
+                    ? pick(
+                        "openOMSI conectado ao gateway LAN v6 do NavBR. Os jogadores remotos compatíveis podem ser materializados pelo próprio renderer multiplayer do openOMSI.",
+                        "openOMSI is linked to NavBR's LAN v6 gateway. Compatible remote players can be materialized by openOMSI's own multiplayer renderer.",
+                        "openOMSI está conectado al gateway LAN v6 de NavBR. Los jugadores remotos compatibles pueden materializarse con el renderer multijugador de openOMSI.",
+                        "openOMSI ist mit dem LAN-v6-Gateway von NavBR verbunden. Kompatible Remote-Spieler können vom Multiplayer-Renderer von openOMSI dargestellt werden.",
+                        "openOMSI est relié à la passerelle LAN v6 de NavBR. Les joueurs distants compatibles peuvent être matérialisés par le moteur multijoueur d’openOMSI."
+                      )
+                    : pick(
+                        "Para o ônibus online físico no openOMSI, entre na sessão LAN usando o endereço local acima. O gateway aceita apenas loopback neste PC.",
+                        "For physical online buses in openOMSI, join the LAN session using the local address above. The gateway only accepts loopback on this PC.",
+                        "Para autobuses online físicos en openOMSI, entra en la sesión LAN usando la dirección local indicada. El gateway solo acepta loopback en este PC.",
+                        "Für physische Online-Busse in openOMSI der LAN-Sitzung über die lokale Adresse oben beitreten. Das Gateway akzeptiert nur Loopback auf diesem PC.",
+                        "Pour les bus en ligne physiques dans openOMSI, rejoignez la session LAN avec l’adresse locale ci-dessus. La passerelle n’accepte que le loopback sur ce PC."
+                      )}
+                </small>
+                {system.openOmsiLanGateway.lastError && (
+                  <div className="network-message">{system.openOmsiLanGateway.lastError}</div>
+                )}
+              </>
+            )}
             <div className="plugin-update-actions">
               <div className="discovery-actions">
                 <button className="button ghost" onClick={() => sendCommand("selectOpenOmsiExecutable")}>
