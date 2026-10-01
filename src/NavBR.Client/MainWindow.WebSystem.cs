@@ -221,6 +221,35 @@ public partial class MainWindow
                 }).ToArray(),
                 omsiRunning = omsiRunningForPluginUpdate
             },
+            openOmsiPlugin = new
+            {
+                state = openOmsiPlugin.Status,
+                executablePath = openOmsiPlugin.ExecutablePath,
+                contentRoot = openOmsiPlugin.ContentRoot,
+                pluginDirectory = openOmsiPlugin.PluginDirectory,
+                embeddedPackageAvailable =
+                    OpenOmsiPluginInstallationService.HasEmbeddedPackage,
+                installAvailable = openOmsiInstallBlockReason is null,
+                installBlockReason = openOmsiInstallBlockReason,
+                verificationAvailable =
+                    OpenOmsiPluginInstallationService.HasEmbeddedPackage &&
+                    !string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath),
+                updateRequired = openOmsiPlugin.UpdateRequired,
+                expectedVersion = openOmsiPlugin.ExpectedVersion,
+                installedVersion = openOmsiPlugin.InstalledVersion,
+                requiredFilesFound = openOmsiPlugin.RequiredFilesFound,
+                requiredFilesTotal = openOmsiPlugin.RequiredFilesTotal,
+                verifiedFiles = openOmsiPlugin.VerifiedFiles,
+                checkedAtUtc = openOmsiPlugin.CheckedAtUtc,
+                message = _webOpenOmsiNotice ?? openOmsiPlugin.Message,
+                files = openOmsiPlugin.Files.Select(file => new
+                {
+                    name = file.Name,
+                    exists = file.Exists,
+                    hashMatches = file.HashMatches
+                }).ToArray(),
+                running = openOmsiRunning
+            },
             installations = profiles
                 .Select(profile => new
                 {
