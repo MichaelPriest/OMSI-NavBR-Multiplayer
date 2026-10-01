@@ -156,6 +156,17 @@ public partial class MultiplayerWindow
     internal Task ResolveOwnOperationalReportsFromWebAsync() =>
         ResolveMyOperationalReportsAsync();
 
+    internal OperationalReport? CurrentOwnOperationalReportForShell =>
+        _client.CurrentOperationalReports
+            .Where(report => string.Equals(
+                report.PlayerId,
+                _settings.PlayerId,
+                StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(report =>
+                report.Status != OperationalReportStatus.Resolved)
+            .ThenByDescending(report => report.UpdatedAtUtc)
+            .FirstOrDefault();
+
     private async Task SubmitQuickOperationalReportAsync(
         OperationalReportKind kind,
         OperationalReportSeverity severity)
