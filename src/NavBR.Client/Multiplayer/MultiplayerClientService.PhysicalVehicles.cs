@@ -43,11 +43,63 @@ public sealed partial class MultiplayerClientService
                 playerId,
                 out var lanId))
         {
+            var gatewayRemote =
+                OpenOmsiLanGateway.Shared
+                    .GetStatus()
+                    .Remotes
+                    .FirstOrDefault(remote =>
+                        string.Equals(
+                            remote.PlayerId,
+                            playerId,
+                            StringComparison.OrdinalIgnoreCase));
+
             var runtime =
                 OpenOmsiLanRuntimeStatusReader.Read(
                     OpenOmsiPluginInstallationService
                         .GetRunningProcessId());
-            if (runtime?.IsDrawn(lanId) == true)
+
+            if (runtime?.Fresh != true)
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "openomsi-sent-unconfirmed",
+                    ErrorCode: "openomsi-status-unavailable",
+                    ErrorMessage:
+                        "INFO/STATE foram enviados, mas o status LAN oficial do openOMSI ainda não está disponível ou está desatualizado.",
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
+            var runtimePeer =
+                runtime.Players.FirstOrDefault(peer =>
+                    peer.Id == lanId);
+            if (runtimePeer is null)
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "openomsi-peer-missing",
+                    ErrorCode: "openomsi-peer-missing",
+                    ErrorMessage:
+                        $"NavBR enviou INFO/STATE para LAN id {lanId}, mas o openOMSI ainda não listou esse peer no status oficial.",
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
+            if (!VehiclePathsEquivalent(
+                    gatewayRemote?.VehiclePath,
+                    runtimePeer.Bus))
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "openomsi-bus-path-mismatch",
+                    ErrorCode: "openomsi-bus-path-mismatch",
+                    ErrorMessage:
+                        $"O openOMSI recebeu o peer {lanId}, mas o ônibus reportado não coincide com o enviado pelo NavBR. Enviado: {gatewayRemote?.VehiclePath ?? "—"}; openOMSI: {runtimePeer.Bus ?? "—"}.",
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
+            if (runtimePeer.Drawn)
             {
                 return new RemotePhysicalVehicleStatus(
                     "active-openomsi-drawn",
@@ -59,23 +111,44 @@ public sealed partial class MultiplayerClientService
             }
 
             return new RemotePhysicalVehicleStatus(
-                runtime?.Fresh == true
-                    ? "openomsi-sent-not-drawn"
-                    : "openomsi-sent-unconfirmed",
-                ErrorCode:
-                    runtime?.Fresh == true
-                        ? "openomsi-not-drawn"
-                        : "openomsi-status-unavailable",
+                "openomsi-peer-not-drawn",
+                ErrorCode: "openomsi-not-drawn",
                 ErrorMessage:
-                    runtime?.Fresh == true
-                        ? "INFO/STATE foram enviados, mas o openOMSI ainda não confirmou drawn=true para este ônibus."
-                        : "INFO/STATE foram enviados, mas o status LAN oficial do openOMSI ainda não está disponível ou está desatualizado.",
+                    $"O openOMSI listou o peer {lanId} ({runtimePeer.Name ?? playerId}) e reconheceu o ônibus {runtimePeer.Bus ?? gatewayRemote?.VehiclePath ?? "—"}, mas drawn=false.",
                 PartCount: null,
                 ExpectedPartCount: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow);
         }
 
         return _physicalVehicles.GetStatus(playerId);
+    }
+
+    private static bool VehiclePathsEquivalent(
+        string? expected,
+        string? actual)
+    {
+        static string? Normalize(string? value)
+        {
+            var normalized =
+                value?.Trim()
+                    .Replace('\\', '/')
+                    .TrimStart('/');
+            return string.IsNullOrWhiteSpace(normalized)
+                ? null
+                : normalized;
+        }
+
+        var left = Normalize(expected);
+        var right = Normalize(actual);
+        if (left is null || right is null)
+        {
+            return left is null && right is null;
+        }
+
+        return string.Equals(
+            left,
+            right,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
