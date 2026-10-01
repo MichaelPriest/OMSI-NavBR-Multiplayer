@@ -3316,6 +3316,8 @@ function Settings({
                   <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? (system.openOmsiLanGateway.localStateFrames > 0 ? "STREAMING" : "LINKED") : "WAITING"}</strong></div>
                   <div><small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small><strong>{system.openOmsiLanGateway.port ?? "—"}</strong></div>
                   <div><small>{pick("REMOTOS", "REMOTES", "REMOTOS", "REMOTES", "DISTANTS")}</small><strong>{system.openOmsiLanGateway.remotePlayers}</strong></div>
+                  <div><small>{pick("DESENHADOS", "DRAWN", "DIBUJADOS", "GEZEICHNET", "DESSINÉS")}</small><strong>{system.openOmsiLanGateway.drawnRemotePlayers}/{system.openOmsiLanGateway.remotePlayers}</strong></div>
+                  <div><small>{pick("STATUS OPENOMSI", "OPENOMSI STATUS", "ESTADO OPENOMSI", "OPENOMSI-STATUS", "ÉTAT OPENOMSI")}</small><strong>{system.openOmsiLanGateway.runtimeStatusFresh ? (system.openOmsiLanGateway.runtimeConnected ? "LIVE" : "OFFLINE") : "STALE"}</strong></div>
                   <div><small>{pick("MAPA LAN", "LAN MAP", "MAPA LAN", "LAN-KARTE", "CARTE LAN")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
                   <div><small>{pick("FRAMES STATE", "STATE FRAMES", "FRAMES STATE", "STATE-FRAMES", "TRAMES STATE")}</small><strong>{system.openOmsiLanGateway.localStateFrames}</strong></div>
                   <div><small>{pick("TAXA STATE", "STATE RATE", "TASA STATE", "STATE-RATE", "TAUX STATE")}</small><strong>{system.openOmsiLanGateway.localStateRateHz != null ? `${system.openOmsiLanGateway.localStateRateHz.toFixed(1)} Hz` : "—"}</strong></div>
@@ -3350,6 +3352,35 @@ function Settings({
                       ? `${system.openOmsiLanGateway.vehicleCompatibilityId.slice(0, 34)}…`
                       : system.openOmsiLanGateway.vehicleCompatibilityId}
                   </code>
+                )}
+                {system.openOmsiLanGateway.remotes.length > 0 && (
+                  <div className="plugin-file-verification">
+                    {system.openOmsiLanGateway.remotes.map(remote => (
+                      <span
+                        key={remote.playerId}
+                        className={remote.drawn ? "verified" : "mismatch"}
+                        title={remote.vehiclePath || remote.runtimeBus || remote.playerId}
+                      >
+                        <NavBrIcon name={remote.drawn ? "bus" : "hazard"} size={13} />
+                        #{remote.lanId} {remote.name || remote.runtimeName || remote.playerId} · {
+                          remote.materializationStatus === "drawn"
+                            ? pick("DESENHADO", "DRAWN", "DIBUJADO", "GEZEICHNET", "DESSINÉ")
+                            : remote.materializationStatus === "sent-not-drawn"
+                              ? pick("ENVIADO, NÃO DESENHADO", "SENT, NOT DRAWN", "ENVIADO, NO DIBUJADO", "GESENDET, NICHT GEZEICHNET", "ENVOYÉ, NON DESSINÉ")
+                              : remote.materializationStatus === "sent-unconfirmed"
+                                ? pick("ENVIADO, SEM CONFIRMAÇÃO", "SENT, UNCONFIRMED", "ENVIADO, SIN CONFIRMACIÓN", "GESENDET, UNBESTÄTIGT", "ENVOYÉ, NON CONFIRMÉ")
+                                : remote.materializationStatus === "waiting-state"
+                                  ? pick("AGUARDANDO STATE", "WAITING FOR STATE", "ESPERANDO STATE", "WARTE AUF STATE", "EN ATTENTE DE STATE")
+                                  : pick("AGUARDANDO INFO", "WAITING FOR INFO", "ESPERANDO INFO", "WARTE AUF INFO", "EN ATTENTE D’INFO")
+                        }
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {system.openOmsiLanGateway.runtimeStatusPath && (
+                  <small className="plugin-update-hint">
+                    {pick("Status oficial openOMSI", "Official openOMSI status", "Estado oficial openOMSI", "Offizieller openOMSI-Status", "État officiel openOMSI")}: {system.openOmsiLanGateway.runtimeStatusPath}
+                  </small>
                 )}
                 {system.openOmsiLanGateway.joinTarget && (
                   <div className="plugin-file-verification">
