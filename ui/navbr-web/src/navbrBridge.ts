@@ -546,6 +546,18 @@ export interface NavBrSystemState {
     files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
     running: boolean;
   };
+  openOmsiLanGateway: {
+    running: boolean;
+    port?: number | null;
+    joinTarget?: string | null;
+    clientConnected: boolean;
+    clientName?: string | null;
+    map?: string | null;
+    vehiclePath?: string | null;
+    remotePlayers: number;
+    lastClientPacketUtc?: string | null;
+    lastError?: string | null;
+  } | null;
   installations: NavBrOmsiInstallation[];
   hud: NavBrHudState;
   diagnostics: {
