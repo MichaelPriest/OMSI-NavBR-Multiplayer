@@ -155,16 +155,51 @@ public sealed class MultiplayerRoomRegistry
             var normalizedMap = NormalizeOptional(mapName);
             var normalizedMapCompatibilityId =
                 NormalizeOptional(mapCompatibilityId);
-            var normalizedVehiclePath =
+            var incomingVehiclePath =
                 NormalizeOptional(vehiclePath);
-            var normalizedVehicleCompatibilityId =
+            var incomingVehicleCompatibilityId =
                 NormalizeOptional(vehicleCompatibilityId);
-            var normalizedHofName =
+            var incomingHofName =
                 NormalizeOptional(hofName);
-            var normalizedHofCompatibilityId =
+            var incomingHofCompatibilityId =
                 NormalizeOptional(hofCompatibilityId);
 
             var currentCompatibility = current.Compatibility;
+
+            var currentVehiclePath =
+                NormalizeOptional(currentCompatibility?.VehiclePath);
+            var vehiclePathChanged =
+                incomingVehiclePath is not null &&
+                !string.Equals(
+                    currentVehiclePath,
+                    incomingVehiclePath,
+                    StringComparison.OrdinalIgnoreCase);
+            var nextVehiclePath =
+                incomingVehiclePath ?? currentVehiclePath;
+            var nextVehicleCompatibilityId =
+                vehiclePathChanged
+                    ? incomingVehicleCompatibilityId
+                    : incomingVehicleCompatibilityId ??
+                      NormalizeOptional(
+                          currentCompatibility?.VehicleCompatibilityId);
+
+            var currentHofName =
+                NormalizeOptional(currentCompatibility?.HofName);
+            var hofChanged =
+                incomingHofName is not null &&
+                !string.Equals(
+                    currentHofName,
+                    incomingHofName,
+                    StringComparison.OrdinalIgnoreCase);
+            var nextHofName =
+                incomingHofName ?? currentHofName;
+            var nextHofCompatibilityId =
+                hofChanged
+                    ? incomingHofCompatibilityId
+                    : incomingHofCompatibilityId ??
+                      NormalizeOptional(
+                          currentCompatibility?.HofCompatibilityId);
+
             var identityUnchanged =
                 string.Equals(
                     current.MapName,
@@ -175,20 +210,20 @@ public sealed class MultiplayerRoomRegistry
                     normalizedMapCompatibilityId,
                     StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(
-                    currentCompatibility?.VehiclePath,
-                    normalizedVehiclePath,
+                    currentVehiclePath,
+                    nextVehiclePath,
                     StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(
                     currentCompatibility?.VehicleCompatibilityId,
-                    normalizedVehicleCompatibilityId,
+                    nextVehicleCompatibilityId,
                     StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(
-                    currentCompatibility?.HofName,
-                    normalizedHofName,
+                    currentHofName,
+                    nextHofName,
                     StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(
                     currentCompatibility?.HofCompatibilityId,
-                    normalizedHofCompatibilityId,
+                    nextHofCompatibilityId,
                     StringComparison.OrdinalIgnoreCase);
 
             if (identityUnchanged)
@@ -203,12 +238,12 @@ public sealed class MultiplayerRoomRegistry
                     MapName = normalizedMap,
                     MapCompatibilityId =
                         normalizedMapCompatibilityId,
-                    VehiclePath = normalizedVehiclePath,
+                    VehiclePath = nextVehiclePath,
                     VehicleCompatibilityId =
-                        normalizedVehicleCompatibilityId,
-                    HofName = normalizedHofName,
+                        nextVehicleCompatibilityId,
+                    HofName = nextHofName,
                     HofCompatibilityId =
-                        normalizedHofCompatibilityId
+                        nextHofCompatibilityId
                 };
 
             var updated = current with
