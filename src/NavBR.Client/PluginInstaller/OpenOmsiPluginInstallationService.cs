@@ -263,31 +263,128 @@ internal static class OpenOmsiPluginInstallationService
 
         foreach (var required in RequiredPluginFiles)
         {
-            if (!entries.TryGetValue(required, out var entry))
+            if (!entries.ContainsKey(required))
             {
                 throw new InvalidOperationException(
                     $"Pacote openOMSI incompleto: {required}");
             }
-
-            entry.ExtractToFile(
-                Path.Combine(pluginDirectory, required),
-                overwrite: true);
         }
 
-        var packageHash = GetEmbeddedPackageHash()
-            ?? throw new InvalidOperationException(
-                "Não foi possível calcular o hash do pacote openOMSI.");
-        var version = GetCurrentPackageVersion();
-        File.WriteAllLines(
-            manifestPath,
-            [
-                "# NavBR for openOMSI - arquivos instalados",
-                $"# Instalado em: {DateTimeOffset.Now:O}",
-                $"# NavBR: {version}",
-                $"# Package-SHA256: {packageHash}",
-                "# Deployment: Native AOT win-x64 + standard OMSI .opl ABI",
-                .. RequiredPluginFiles
-            ]);
+        var staging = Path.Combine(
+            Path.GetTempPath(),
+            "NavBR-OpenOmsiInstall-" + Guid.NewGuid().ToString("N"));
+        var backup = Path.Combine(staging, "backup");
+        Directory.CreateDirectory(staging);
+
+        try
+        {
+            foreach (var required in RequiredPluginFiles)
+            {
+                entries[required].ExtractToFile(
+                    Path.Combine(staging, required),
+                    overwrite: true);
+            }
+
+            var existing = RequiredPluginFiles
+                .Where(name =>
+                    File.Exists(Path.Combine(pluginDirectory, name)))
+                .ToArray();
+            var manifestExisted = File.Exists(manifestPath);
+            if (existing.Length > 0 || manifestExisted)
+            {
+                Directory.CreateDirectory(backup);
+                foreach (var name in existing)
+                {
+                    File.Copy(
+                        Path.Combine(pluginDirectory, name),
+                        Path.Combine(backup, name),
+                        overwrite: true);
+                }
+
+                if (manifestExisted)
+                {
+                    File.Copy(
+                        manifestPath,
+                        Path.Combine(
+                            backup,
+                            Path.GetFileName(manifestPath)),
+                        overwrite: true);
+                }
+            }
+
+            try
+            {
+                foreach (var required in RequiredPluginFiles)
+                {
+                    File.Copy(
+                        Path.Combine(staging, required),
+                        Path.Combine(pluginDirectory, required),
+                        overwrite: true);
+                }
+
+                var packageHash = GetEmbeddedPackageHash()
+                    ?? throw new InvalidOperationException(
+                        "Não foi possível calcular o hash do pacote openOMSI.");
+                var version = GetCurrentPackageVersion();
+                File.WriteAllLines(
+                    manifestPath,
+                    [
+                        "# NavBR for openOMSI - arquivos instalados",
+                        $"# Instalado em: {DateTimeOffset.Now:O}",
+                        $"# NavBR: {version}",
+                        $"# Package-SHA256: {packageHash}",
+                        "# Deployment: Native AOT win-x64 + standard OMSI .opl ABI",
+                        .. RequiredPluginFiles
+                    ]);
+            }
+            catch
+            {
+                foreach (var required in RequiredPluginFiles)
+                {
+                    var destination =
+                        Path.Combine(pluginDirectory, required);
+                    var backupFile = Path.Combine(backup, required);
+                    if (File.Exists(backupFile))
+                    {
+                        File.Copy(
+                            backupFile,
+                            destination,
+                            overwrite: true);
+                    }
+                    else if (File.Exists(destination))
+                    {
+                        File.Delete(destination);
+                    }
+                }
+
+                var manifestBackup = Path.Combine(
+                    backup,
+                    Path.GetFileName(manifestPath));
+                if (File.Exists(manifestBackup))
+                {
+                    File.Copy(
+                        manifestBackup,
+                        manifestPath,
+                        overwrite: true);
+                }
+                else if (File.Exists(manifestPath))
+                {
+                    File.Delete(manifestPath);
+                }
+
+                throw;
+            }
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(staging, recursive: true);
+            }
+            catch
+            {
+            }
+        }
 
         EnsureContentMarker(contentRoot);
 
