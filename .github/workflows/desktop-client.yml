@@ -69,9 +69,14 @@ jobs:
         shell: pwsh
         run: |
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
+
+      - name: Smoke-test openOMSI LAN v6 codec
+        shell: pwsh
+        run: dotnet run --project src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj -c Release --no-restore
 
       - name: Build native OMSI interop x86
         shell: pwsh
