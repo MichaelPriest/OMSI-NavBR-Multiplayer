@@ -3270,6 +3270,77 @@ function Settings({
           <article className="card discovery-card">
             <div className="section-heading">
               <div>
+                <span className="eyebrow">NAVBR FOR OPENOMSI</span>
+                <h3>{pick("Plugin x64 instalável", "Installable x64 plugin", "Plugin x64 instalable", "Installierbares x64-Plugin", "Plugin x64 installable")}</h3>
+              </div>
+              <span className={`compatibility-badge ${system.openOmsiPlugin.state === "ready" ? "compatible" : system.openOmsiPlugin.state === "outdated" || system.openOmsiPlugin.state === "partial" ? "warning" : "blocked"}`}>
+                {system.openOmsiPlugin.state.toUpperCase()}
+              </span>
+            </div>
+            <p>
+              {pick(
+                "Integração própria para openOMSI usando o ABI oficial de plugins OMSI (.opl + DLL), sem offsets de memória do OMSI 2 original.",
+                "Dedicated openOMSI integration using the official OMSI plugin ABI (.opl + DLL), without original OMSI 2 memory offsets.",
+                "Integración propia para openOMSI usando el ABI oficial de plugins OMSI (.opl + DLL), sin offsets de memoria del OMSI 2 original.",
+                "Eigene openOMSI-Integration über die offizielle OMSI-Plugin-ABI (.opl + DLL), ohne Speicher-Offsets des originalen OMSI 2.",
+                "Intégration dédiée à openOMSI via l’ABI officielle des plugins OMSI (.opl + DLL), sans offsets mémoire d’OMSI 2 original."
+              )}
+            </p>
+            <div className="details-grid">
+              <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.openOmsiPlugin.requiredFilesFound}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
+              <div><small>SHA-256 OK</small><strong>{system.openOmsiPlugin.verifiedFiles}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
+              <div><small>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</small><strong>{system.openOmsiPlugin.installedVersion || "—"}</strong></div>
+              <div><small>openOMSI</small><strong>{system.openOmsiPlugin.running ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
+            </div>
+            {system.openOmsiPlugin.executablePath && <code>{system.openOmsiPlugin.executablePath}</code>}
+            {system.openOmsiPlugin.contentRoot && (
+              <small className="plugin-update-hint">
+                {pick("Content root", "Content root", "Content root", "Content-Root", "Content root")}: {system.openOmsiPlugin.contentRoot}
+              </small>
+            )}
+            <div className="plugin-file-verification">
+              {system.openOmsiPlugin.files.map(file => (
+                <span key={file.name} className={file.exists && file.hashMatches ? "verified" : "mismatch"}>
+                  <NavBrIcon name={file.exists && file.hashMatches ? "info" : "hazard"} size={13} />
+                  {file.name}
+                </span>
+              ))}
+            </div>
+            {system.openOmsiPlugin.message && (
+              <div className="network-message">{system.openOmsiPlugin.message}</div>
+            )}
+            <div className="plugin-update-actions">
+              <div className="discovery-actions">
+                <button className="button ghost" onClick={() => sendCommand("selectOpenOmsiExecutable")}>
+                  {pick("Selecionar openomsi.exe", "Select openomsi.exe", "Seleccionar openomsi.exe", "openomsi.exe wählen", "Sélectionner openomsi.exe")}
+                </button>
+                <button className="button ghost" disabled={!system.openOmsiPlugin.verificationAvailable} onClick={() => sendCommand("verifyOpenOmsiPlugin")}>
+                  {pick("Verificar", "Verify", "Verificar", "Prüfen", "Vérifier")}
+                </button>
+                <button className="button primary" disabled={!system.openOmsiPlugin.installAvailable} onClick={() => sendCommand("installOpenOmsiPlugin")}>
+                  {system.openOmsiPlugin.state === "ready"
+                    ? pick("Reinstalar", "Reinstall", "Reinstalar", "Neu installieren", "Réinstaller")
+                    : pick("Instalar / atualizar", "Install / update", "Instalar / actualizar", "Installieren / aktualisieren", "Installer / mettre à jour")}
+                </button>
+                <button
+                  className="button ghost danger"
+                  disabled={system.openOmsiPlugin.running || system.openOmsiPlugin.requiredFilesFound === 0}
+                  onClick={() => sendCommand("removeOpenOmsiPlugin")}
+                >
+                  {pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}
+                </button>
+              </div>
+              {system.openOmsiPlugin.installBlockReason === "openomsi-running" && (
+                <small className="plugin-update-hint">
+                  {pick("Feche o openOMSI para instalar, atualizar ou remover a DLL.", "Close openOMSI to install, update, or remove the DLL.", "Cierra openOMSI para instalar, actualizar o eliminar la DLL.", "openOMSI schließen, um die DLL zu installieren, zu aktualisieren oder zu entfernen.", "Fermez openOMSI pour installer, mettre à jour ou supprimer la DLL.")}
+                </small>
+              )}
+            </div>
+          </article>
+
+          <article className="card discovery-card">
+            <div className="section-heading">
+              <div>
                 <span className="eyebrow">MOBILE COMPANION</span>
                 <h3>{pick("Celular como GPS / IBIS", "Phone as GPS / IBIS", "Móvil como GPS / IBIS", "Smartphone als GPS / IBIS", "Téléphone comme GPS / IBIS")}</h3>
               </div>
