@@ -263,11 +263,18 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                     frame,
                     CurrentSentMillisecondsCore());
                 previousInfo = remote.LastInfo;
-                remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
-                remote.LastState =
-                    string.IsNullOrWhiteSpace(info.VehiclePath)
-                        ? null
-                        : state;
+                if (string.IsNullOrWhiteSpace(info.VehiclePath))
+                {
+                    remote.LastInfo = null;
+                    remote.LastState = null;
+                }
+                else
+                {
+                    remote.LastInfo =
+                        OpenOmsiLanProtocol.EncodeInfo(info);
+                    remote.LastState = state;
+                }
+
                 remote.LastName = frame.Player.DisplayName;
                 remote.LastVehiclePath = info.VehiclePath;
                 remote.ExpectedVehicleCompatibilityId =
