@@ -33,6 +33,8 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         TimeSpan.FromSeconds(15);
     private static readonly TimeSpan ClockBroadcastInterval =
         TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan RemoteReplayFreshness =
+        TimeSpan.FromSeconds(2);
 
     private readonly object _sync = new();
     private readonly TimeSpan _remotePeerTimeout;
@@ -710,8 +712,13 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         lock (_sync)
         {
             world = _world;
-            players = _remotes.Count + 1;
-            remotes = _remotes.Values.ToArray();
+            var replayCutoff =
+                DateTimeOffset.UtcNow - RemoteReplayFreshness;
+            remotes = _remotes.Values
+                .Where(remote =>
+                    remote.LastSeenUtc >= replayCutoff)
+                .ToArray();
+            players = remotes.Length + 1;
         }
 
         await SendTextAsync(
