@@ -403,6 +403,11 @@ jobs:
           Remove-Item $fakeOpenOmsi -Recurse -Force
           Write-Host "openOMSI plugin install/remove smoke passed."
 
+      - name: Restore MSVC x86 environment after openOMSI validation
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
       - name: Prepare embedded OMSI plugin payload
         shell: pwsh
         run: >-
