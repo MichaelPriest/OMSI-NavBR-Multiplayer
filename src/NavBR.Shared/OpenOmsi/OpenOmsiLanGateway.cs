@@ -264,7 +264,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                     CurrentSentMillisecondsCore());
                 previousInfo = remote.LastInfo;
                 remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
-                remote.LastState = state;
+                remote.LastState =
+                    string.IsNullOrWhiteSpace(info.VehiclePath)
+                        ? null
+                        : state;
                 remote.LastName = frame.Player.DisplayName;
                 remote.LastVehiclePath = info.VehiclePath;
                 remote.ExpectedVehicleCompatibilityId =
@@ -293,6 +296,15 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             return;
         }
 
+        // A vehicle path is mandatory for openOMSI to materialize the remote.
+        // Keep the pending NavBR peer visible in our diagnostics, but do not
+        // advertise an empty INFO or STATE to openOMSI before identity resolves.
+        if (string.IsNullOrWhiteSpace(info.VehiclePath))
+        {
+            PublishStatus();
+            return;
+        }
+
         if (!string.Equals(
                 previousInfo,
                 remote.LastInfo,
@@ -302,15 +314,6 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                 remote.LastInfo!,
                 endpoint,
                 cancellationToken);
-        }
-
-        // A vehicle path is mandatory for openOMSI to materialize the remote.
-        // Keep the peer visible in diagnostics but do not send a vehicle STATE
-        // that would claim physical readiness without an actual .bus/.ovh path.
-        if (string.IsNullOrWhiteSpace(info.VehiclePath))
-        {
-            PublishStatus();
-            return;
         }
 
         await SendBytesAsync(
