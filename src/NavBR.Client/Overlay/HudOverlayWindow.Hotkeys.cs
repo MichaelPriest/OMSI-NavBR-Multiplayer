@@ -20,6 +20,8 @@ public partial class HudOverlayWindow
     private const int VkF8 = 0x77;
     private const int VkK = 0x4B;
     private const int VkH = 0x48;
+    private const int VkN = 0x4E;
+    private const int VkEscape = 0x1B;
 
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
@@ -229,6 +231,12 @@ public partial class HudOverlayWindow
 
         var modifierMask = GetCurrentOmsiModifierMask();
 
+        if (isDown && virtualKey == VkEscape && _inGamePanelOpen)
+        {
+            CloseInGamePanel();
+            return;
+        }
+
         if (isDown && virtualKey == VkK)
         {
             if (TelematrixConfigPanel.Visibility == System.Windows.Visibility.Visible)
@@ -252,6 +260,12 @@ public partial class HudOverlayWindow
             IsOmsiForeground() &&
             IsCtrlAltChordActive())
         {
+            if (virtualKey == VkN)
+            {
+                ToggleInGamePanel();
+                return;
+            }
+
             if (virtualKey == VkH)
             {
                 ToggleHudEnabled();
