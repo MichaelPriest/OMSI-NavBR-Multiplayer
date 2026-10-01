@@ -619,17 +619,27 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 await _physicalVehicles.DespawnAsync(playerId);
             }
 
-            var reportedVehiclePath =
-                frame.Telemetry.VehiclePath ??
-                frame.Player.Compatibility?.VehiclePath;
-            var remoteVehicleCompatibilityId =
-                frame.Telemetry.VehicleCompatibilityId ??
-                frame.Player.Compatibility?.VehicleCompatibilityId;
+            var localManifest = _joinRequest?.Compatibility;
+            var remoteManifest = BuildLiveRemoteManifest(frame);
+            var compatibilityReport =
+                OmsiCompatibilityEvaluator.Compare(
+                    localManifest,
+                    remoteManifest,
+                    requireVehicleForPhysicalMultiplayer: false);
+            if (!compatibilityReport.IsCompatible)
+            {
+                // Physical rendering must fail closed on a missing/mismatched
+                // map fingerprint or protocol mismatch. Same display name is
+                // not enough to prove both clients are in the same world.
+                await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(
+                    playerId);
+                return;
+            }
 
             var resolvedVehiclePath =
                 await _openOmsiVehicleAssets.ResolveAsync(
-                    reportedVehiclePath,
-                    remoteVehicleCompatibilityId);
+                    remoteManifest.VehiclePath,
+                    remoteManifest.VehicleCompatibilityId);
 
             if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
             {
@@ -647,7 +657,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 {
                     VehiclePath = resolvedVehiclePath,
                     VehicleCompatibilityId =
-                        remoteVehicleCompatibilityId
+                        remoteManifest.VehicleCompatibilityId
                 }
             };
 
@@ -664,6 +674,53 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         }
 
         await _physicalVehicles.ApplyAsync(frame);
+    }
+
+    private static OmsiCompatibilityManifest BuildLiveRemoteManifest(
+        PlayerTelemetryFrame frame)
+    {
+        var telemetry = frame.Telemetry;
+        var reported = frame.Player.Compatibility;
+        if (reported is not null)
+        {
+            return reported with
+            {
+                MapName = telemetry.MapName ?? reported.MapName,
+                MapCompatibilityId =
+                    telemetry.MapCompatibilityId ??
+                    reported.MapCompatibilityId,
+                VehiclePath =
+                    telemetry.VehiclePath ??
+                    reported.VehiclePath,
+                VehicleCompatibilityId =
+                    telemetry.VehicleCompatibilityId ??
+                    reported.VehicleCompatibilityId,
+                HofName =
+                    telemetry.HofName ??
+                    reported.HofName,
+                HofCompatibilityId =
+                    telemetry.HofCompatibilityId ??
+                    reported.HofCompatibilityId
+            };
+        }
+
+        return new OmsiCompatibilityManifest(
+            OmsiVersion: null,
+            NavBRVersion: null,
+            MapName: telemetry.MapName ?? frame.Player.MapName,
+            MapCompatibilityId:
+                telemetry.MapCompatibilityId ??
+                frame.Player.MapCompatibilityId,
+            VehiclePath: telemetry.VehiclePath,
+            VehicleCompatibilityId:
+                telemetry.VehicleCompatibilityId,
+            HofName: telemetry.HofName,
+            HofCompatibilityId:
+                telemetry.HofCompatibilityId,
+            PluginProtocolVersion:
+                PluginBridgeProtocol.Version,
+            PluginDeployment: null,
+            Capabilities: Array.Empty<string>());
     }
 
     private bool TryAcceptRemoteTelemetry(PlayerTelemetryFrame frame)
