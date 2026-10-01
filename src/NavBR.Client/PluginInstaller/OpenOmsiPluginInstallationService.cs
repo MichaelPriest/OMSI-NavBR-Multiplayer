@@ -14,7 +14,8 @@ internal static class OpenOmsiPluginInstallationService
     private static readonly string[] RequiredPluginFiles =
     [
         "NavBR.OpenOmsiPlugin.dll",
-        "NavBR.OpenOmsiPlugin.opl"
+        "NavBR.OpenOmsiPlugin.opl",
+        "main.lua"
     ];
 
     public static bool HasEmbeddedPackage =>
