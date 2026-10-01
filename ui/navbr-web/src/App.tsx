@@ -4943,6 +4943,7 @@ function Multiplayer({
                     {!player.isLocal &&
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleState !== "active" &&
+                      player.physicalVehicleState !== "active-openomsi" &&
                       (player.physicalTelemetryGridX != null ||
                        player.physicalTelemetryGridY != null ||
                        player.physicalTelemetryNavigationGridX != null ||
