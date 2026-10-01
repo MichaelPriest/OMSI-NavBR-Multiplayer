@@ -226,6 +226,8 @@ public partial class MainWindow
 
         if (telemetry is not null)
         {
+            telemetry =
+                EnrichOpenOmsiVehicleIdentity(telemetry);
             ApplyLocalTelemetrySnapshot(telemetry);
             UpdateTelemetryPollingCadence(telemetry);
             RenderCurrentState();
