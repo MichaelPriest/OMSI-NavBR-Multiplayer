@@ -153,7 +153,6 @@ jobs:
           dotnet restore src/NavBR.Server/NavBR.Server.csproj
           dotnet restore src/NavBR.MultiplayerSimulator/NavBR.MultiplayerSimulator.csproj -r win-x86
           dotnet restore src/NavBR.Client/NavBR.Client.csproj -r win-x86
-          dotnet restore src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj -r win-x64
           dotnet restore src/NavBR.PluginBridgeSmokeTest/NavBR.PluginBridgeSmokeTest.csproj -r win-x86
           dotnet restore src/NavBR.OmsiPluginExperimental/NavBR.OmsiPluginExperimental.csproj -r win-x86
 
@@ -323,17 +322,6 @@ jobs:
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
 
-      - name: Build WinUI 3 x64 shell
-        shell: pwsh
-        run: |
-          dotnet build src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
-            -c Release `
-            -r win-x64 `
-            -p:Platform=x64 `
-            --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "NavBR WinUI x64 build failed." }
-
-
       - name: Validate embedded plugin resource without loading x86 assembly
         shell: pwsh
         run: |
@@ -372,82 +360,6 @@ jobs:
               throw "Complete client output missing: $required"
             }
           }
-
-      - name: Publish WinUI 3 x64 desktop
-        shell: pwsh
-        run: |
-          dotnet publish src/NavBR.Client.WinUI/NavBR.Client.WinUI.csproj `
-            -c Release `
-            -r win-x64 `
-            -p:Platform=x64 `
-            --self-contained true `
-            --no-restore `
-            -p:WindowsAppSDKSelfContained=true `
-            -p:PublishSingleFile=false `
-            -p:UseAppHost=true `
-            -o artifacts/NavBR.Client.WinUI
-
-          $runtimeHost = "artifacts/NavBR.Client.WinUI/RuntimeHost"
-          New-Item -ItemType Directory -Path $runtimeHost -Force | Out-Null
-          Copy-Item "artifacts/NavBR.Client/*" $runtimeHost -Recurse -Force
-
-          foreach ($required in @(
-            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe",
-            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.dll",
-            "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.pri",
-            "artifacts/NavBR.Client.WinUI/RuntimeHost/OMSI.NavBR.Multiplayer.exe"
-          )) {
-            if (-not (Test-Path $required)) {
-              throw "WinUI desktop package incomplete: $required"
-            }
-          }
-
-      - name: Smoke-test WinUI XAML startup
-        shell: pwsh
-        run: |
-          $process = Start-Process `
-            -FilePath "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe" `
-            -ArgumentList "--xaml-smoke" `
-            -Wait `
-            -PassThru
-          if ($process.ExitCode -ne 0) {
-            $log = Join-Path $env:LOCALAPPDATA "OMSI NavBR Multiplayer/navbr-winui.log"
-            if (Test-Path $log) { Get-Content $log | Write-Host }
-            throw "WinUI XAML startup smoke failed with exit code $($process.ExitCode)."
-          }
-          Write-Host "WinUI 3 XAML startup smoke passed."
-
-      - name: Smoke-test WinUI x64 to RuntimeHost x86 IPC
-        shell: pwsh
-        run: |
-          $log = Join-Path $env:LOCALAPPDATA "OMSI NavBR Multiplayer/navbr-winui.log"
-          if (Test-Path $log) { Remove-Item $log -Force }
-
-          $process = Start-Process `
-            -FilePath "artifacts/NavBR.Client.WinUI/OMSI.NavBR.Multiplayer.WinUI.exe" `
-            -ArgumentList "--runtime-smoke" `
-            -PassThru
-
-          if (-not $process.WaitForExit(30000)) {
-            try { $process.Kill($true) } catch {}
-            if (Test-Path $log) { Get-Content $log | Write-Host }
-            Get-Process -Name "OMSI.NavBR.Multiplayer" -ErrorAction SilentlyContinue |
-              Stop-Process -Force -ErrorAction SilentlyContinue
-            throw "WinUI x64 to RuntimeHost x86 IPC smoke timed out after 30 seconds."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            if (Test-Path $log) { Get-Content $log | Write-Host }
-            throw "WinUI x64 to RuntimeHost x86 IPC smoke failed with exit code $($process.ExitCode)."
-          }
-
-          $orphan = Get-Process -Name "OMSI.NavBR.Multiplayer" -ErrorAction SilentlyContinue
-          if ($orphan) {
-            $orphan | Stop-Process -Force
-            throw "RuntimeHost x86 remained alive after IPC shutdown."
-          }
-
-          Write-Host "WinUI x64 -> RuntimeHost x86 ping/state/shutdown smoke passed."
 
       - name: Publish standalone Windows x86 EXE
         shell: pwsh
@@ -583,7 +495,7 @@ jobs:
           $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
 
-          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client.WinUI").Path
+          $sourceRoot = (Resolve-Path "artifacts/NavBR.Client").Path
           $simulatorRoot = (Resolve-Path "artifacts/NavBR.MultiplayerSimulator").Path
           $pluginRoot = (Resolve-Path "artifacts/NavBR.OmsiPlugin.Experimental").Path
           $setupIcon = (Resolve-Path "src/NavBR.Client/Assets/NavBR.ico").Path
@@ -598,14 +510,14 @@ jobs:
             "installer/NavBR.Multiplayer.iss"
           if ($LASTEXITCODE -ne 0) { throw "NavBR installer compilation failed." }
 
-          $installer = Get-ChildItem $output -File -Filter "*-Setup-win-x64.exe" | Select-Object -First 1
+          $installer = Get-ChildItem $output -File -Filter "*-Setup-React-win-x86.exe" | Select-Object -First 1
           if (-not $installer) { throw "NavBR installer EXE was not generated." }
           Write-Host "Installer generated: $($installer.FullName)"
 
       - name: Smoke-test installer and uninstaller
         shell: pwsh
         run: |
-          $installer = Get-ChildItem "artifacts/NavBR.Installer" -File -Filter "*-Setup-win-x64.exe" | Select-Object -First 1
+          $installer = Get-ChildItem "artifacts/NavBR.Installer" -File -Filter "*-Setup-React-win-x86.exe" | Select-Object -First 1
           if (-not $installer) { throw "Installer artifact missing." }
 
           $testRoot = Join-Path $env:RUNNER_TEMP "NavBR-Installer-Smoke"
@@ -626,8 +538,8 @@ jobs:
           }
 
           foreach ($required in @(
-            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.WinUI.exe"),
-            (Join-Path $testRoot "RuntimeHost\OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe"),
+            (Join-Path $testRoot "WebUI\dist\index.html"),
             (Join-Path $testRoot "Simulator\NavBR.MultiplayerSimulator.exe"),
             (Join-Path $testRoot "Plugin\NavBR.OmsiPlugin.dll"),
             (Join-Path $testRoot "unins000.exe")
@@ -652,8 +564,8 @@ jobs:
           }
 
           Start-Sleep -Seconds 2
-          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.WinUI.exe")) {
-            throw "Uninstaller left the main NavBR WinUI executable behind."
+          if (Test-Path (Join-Path $testRoot "OMSI.NavBR.Multiplayer.exe")) {
+            throw "Uninstaller left the main NavBR React desktop host executable behind."
           }
           Write-Host "Installer/uninstaller smoke test passed."
 
@@ -734,14 +646,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload WinUI 3 x64 desktop
-        uses: actions/upload-artifact@v4
-        with:
-          name: OMSI-NavBR-Multiplayer-WinUI-win-x64
-          path: artifacts/NavBR.Client.WinUI
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Upload standalone NavBR EXE
         uses: actions/upload-artifact@v4
         with:
@@ -777,7 +681,7 @@ jobs:
       - name: Upload Windows test installer
         uses: actions/upload-artifact@v4
         with:
-          name: OMSI-NavBR-Multiplayer-Setup-win-x64
-          path: artifacts/NavBR.Installer/*-Setup-win-x64.exe
+          name: OMSI-NavBR-Multiplayer-Setup-React-win-x86
+          path: artifacts/NavBR.Installer/*-Setup-React-win-x86.exe
           if-no-files-found: error
           retention-days: 14
