@@ -226,6 +226,98 @@ Require(
     "Remote wiper flag was not mapped.");
 Require(gateway.HasRemote("remote-1"), "Gateway did not report the remote bus.");
 
+var nativePresence = new PlayerPresence(
+    "native-omsi2",
+    "Native OMSI Driver",
+    "navbr-smoke",
+    "Grundorf",
+    DateTimeOffset.UtcNow,
+    Compatibility: new OmsiCompatibilityManifest(
+        OmsiVersion: "2.3.004",
+        NavBRVersion: "smoke",
+        MapName: "Grundorf",
+        MapCompatibilityId: null,
+        VehiclePath: @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+        VehicleCompatibilityId: null,
+        HofName: null,
+        HofCompatibilityId: null,
+        PluginProtocolVersion: 3,
+        PluginDeployment: "NATIVE-AOT-X86",
+        Capabilities: []));
+var nativeTelemetry = new VehicleTelemetry(
+    "native-omsi2",
+    DateTimeOffset.UtcNow,
+    "Grundorf",
+    "NL202 - EN92",
+    "76",
+    "76/1",
+    X: 325.0,
+    Y: 1.5,
+    Z: 442.0,
+    HeadingDegrees: 45.0,
+    SpeedKph: 12.0,
+    IsInGame: true,
+    VehiclePath: @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+    LocalX: 25.0,
+    LocalY: 1.5,
+    LocalZ: 142.0,
+    PhysicalGridX: 1,
+    PhysicalGridY: 1,
+    RearSections:
+    [
+        new VehicleSectionPose(
+            LocalX: 298.0,
+            LocalY: 1.4,
+            LocalZ: 140.0,
+            RotationX: 0.0,
+            RotationY: 0.0,
+            RotationZ: 0.0,
+            RotationW: 1.0,
+            GridX: 0,
+            GridY: 1,
+            MapTileIndex: 0)
+    ]);
+await gateway.UpsertRemoteAsync(
+    new PlayerTelemetryFrame(nativePresence, nativeTelemetry));
+
+var nativeInfoText = await ReceiveUntilTextAsync(
+    client,
+    text =>
+        text.StartsWith("INFO|", StringComparison.Ordinal) &&
+        text.Contains("|Native OMSI Driver|", StringComparison.Ordinal),
+    TimeSpan.FromSeconds(4));
+Require(
+    OpenOmsiLanProtocol.TryDecodeInfo(nativeInfoText, out var nativeInfo),
+    "Native OMSI remote INFO did not decode.");
+
+var nativeStateBytes = await ReceiveUntilBytesAsync(
+    client,
+    bytes =>
+        bytes.Length >= OpenOmsiLanProtocol.StateHeaderBytes &&
+        bytes[0] == OpenOmsiLanProtocol.StateMagic &&
+        BitConverter.ToUInt16(bytes, 2) == nativeInfo.PlayerId,
+    TimeSpan.FromSeconds(4));
+Require(
+    OpenOmsiLanStateCodec.TryDecode(nativeStateBytes, out var nativeState),
+    "Native OMSI remote STATE did not decode.");
+Near(nativeState.X, 325.0, 0.006, "native world x");
+Near(nativeState.Y, 442.0, 0.006, "native world ground y");
+Near(nativeState.Z, 1.5, 0.006, "native world height z");
+Require(nativeState.RearSections.Count == 1, "Native articulated rear section was lost.");
+Near(nativeState.RearSections[0].X, 298.0, 0.02, "native rear world x");
+Near(nativeState.RearSections[0].Y, 440.0, 0.02, "native rear world y");
+Near(nativeState.RearSections[0].Z, 1.4, 0.02, "native rear height");
+Near(nativeState.RearSections[0].HeadingDegrees, 0.0, 0.01, "native rear heading");
+
+await gateway.RemoveRemoteAsync("native-omsi2");
+var nativeBye = await ReceiveUntilTextAsync(
+    client,
+    text => text == $"BYE|{nativeInfo.PlayerId}",
+    TimeSpan.FromSeconds(4));
+Require(
+    nativeBye == $"BYE|{nativeInfo.PlayerId}",
+    "Native OMSI remote BYE did not carry the assigned LAN id.");
+
 await gateway.RemoveRemoteAsync("remote-1");
 var bye = await ReceiveUntilTextAsync(
     client,
@@ -246,7 +338,7 @@ Require(status.RemotePlayers == 0, "Gateway status retained removed remotes.");
 Require(string.IsNullOrWhiteSpace(status.LastError), $"Gateway reported an error: {status.LastError}");
 
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + remote INFO/STATE/BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + BYE.");
 
 static async Task SendTextAsync(
     UdpClient client,
