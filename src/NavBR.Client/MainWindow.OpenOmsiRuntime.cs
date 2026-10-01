@@ -83,15 +83,17 @@ public partial class MainWindow
         {
             var normalizedVehiclePath =
                 result.VehiclePath.Trim();
-            var compatibilityId =
+            var cachedVehiclePathMatches =
                 string.Equals(
                     _openOmsiCachedVehiclePath,
                     normalizedVehiclePath,
-                    StringComparison.OrdinalIgnoreCase)
+                    StringComparison.OrdinalIgnoreCase);
+            var compatibilityId =
+                cachedVehiclePathMatches
                     ? _openOmsiCachedVehicleCompatibilityId
                     : null;
 
-            if (string.IsNullOrWhiteSpace(compatibilityId))
+            if (!cachedVehiclePathMatches)
             {
                 foreach (var root in _openOmsiVehicleIdentityRoots)
                 {
@@ -133,15 +135,17 @@ public partial class MainWindow
 
             var normalizedMapReference =
                 mapReference?.Trim();
-            var compatibilityId =
+            var cachedMapReferenceMatches =
                 string.Equals(
                     _openOmsiCachedMapReference,
                     normalizedMapReference,
-                    StringComparison.OrdinalIgnoreCase)
+                    StringComparison.OrdinalIgnoreCase);
+            var compatibilityId =
+                cachedMapReferenceMatches
                     ? _openOmsiCachedMapCompatibilityId
                     : null;
 
-            if (string.IsNullOrWhiteSpace(compatibilityId) &&
+            if (!cachedMapReferenceMatches &&
                 !string.IsNullOrWhiteSpace(
                     normalizedMapReference))
             {
