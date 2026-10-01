@@ -64,6 +64,7 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(_telemetryPollIntervalMs)
         };
         _telemetryTimer.Tick += (_, _) => PollTelemetry();
+        InitializeOpenOmsiRuntimeBridge();
 
         // Driver statistics are a native background service, not a WPF-screen
         // concern. Start them directly so the retired profile installer no
@@ -80,6 +81,7 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            DisposeOpenOmsiRuntimeBridge();
             _driverStatisticsService.Dispose();
             HardwareCockpitBridgeController.Shared.Dispose();
             _telemetryProvider.Dispose();
@@ -210,6 +212,7 @@ public partial class MainWindow : Window
         _telemetryProvider.Dispose();
         _lastTelemetry = null;
         _currentOmsi = null;
+        _openOmsiProcessId = null;
         _installedMaps = Array.Empty<OmsiMapInfo>();
         ClearRoadmap();
 
@@ -220,6 +223,12 @@ public partial class MainWindow : Window
         var instances = _detector.FindRunningInstances();
         if (instances.Count == 0)
         {
+            if (TryStartOpenOmsiRuntimeMonitoring())
+            {
+                RenderCurrentState();
+                return;
+            }
+
             _statusKey = "OmsiNotRunning";
             _telemetryStatusKey = "TelemetryWaiting";
             RenderCurrentState();
@@ -260,7 +269,7 @@ public partial class MainWindow : Window
     {
         if (!_telemetryProvider.IsAttached)
         {
-            _telemetryTimer.Stop();
+            PollOpenOmsiTelemetry();
             return;
         }
 
@@ -285,18 +294,7 @@ public partial class MainWindow : Window
 
         if (telemetry is not null)
         {
-            _lastTelemetry = telemetry;
-            var hardwareCockpit =
-                HardwareCockpitBridgeController.Shared;
-            if (hardwareCockpit.WantsTelemetry)
-            {
-                hardwareCockpit.PublishTelemetry(
-                    GetCurrentTelemetryForAlpha11());
-            }
-            _statusKey = "TelemetryConnected";
-            _telemetryStatusKey = telemetry.IsInGame
-                ? "TelemetryConnected"
-                : "TelemetryReadError";
+            ApplyLocalTelemetrySnapshot(telemetry);
         }
         else
         {
