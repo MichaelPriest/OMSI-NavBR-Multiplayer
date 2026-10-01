@@ -561,6 +561,7 @@ export interface NavBrSystemState {
     multiplayerConnected: boolean;
     pluginConnected: boolean;
     pluginVersion?: string | null;
+    pluginRuntime?: "omsi2" | "openomsi" | null;
     pluginPerformance: {
       pressureLevel?: number | null;
       workMilliseconds?: number | null;
