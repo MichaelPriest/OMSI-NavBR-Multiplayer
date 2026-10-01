@@ -15,6 +15,10 @@ public partial class MainWindow
     private int? _openOmsiProcessId;
     private bool _openOmsiBridgeHooked;
     private string[] _openOmsiVehicleIdentityRoots = [];
+    private string? _openOmsiCachedVehiclePath;
+    private string? _openOmsiCachedVehicleCompatibilityId;
+    private string? _openOmsiCachedMapReference;
+    private string? _openOmsiCachedMapCompatibilityId;
 
     private void InitializeOpenOmsiRuntimeBridge()
     {
@@ -77,22 +81,43 @@ public partial class MainWindow
                 result.VehicleCompatibilityId) &&
             !string.IsNullOrWhiteSpace(result.VehiclePath))
         {
-            foreach (var root in _openOmsiVehicleIdentityRoots)
+            var normalizedVehiclePath =
+                result.VehiclePath.Trim();
+            var compatibilityId =
+                string.Equals(
+                    _openOmsiCachedVehiclePath,
+                    normalizedVehiclePath,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? _openOmsiCachedVehicleCompatibilityId
+                    : null;
+
+            if (string.IsNullOrWhiteSpace(compatibilityId))
             {
-                var compatibilityId =
-                    OmsiVehicleIdentityReader.TryFingerprintInstalledVehicle(
-                        root,
-                        result.VehiclePath);
-                if (string.IsNullOrWhiteSpace(compatibilityId))
+                foreach (var root in _openOmsiVehicleIdentityRoots)
                 {
-                    continue;
+                    compatibilityId =
+                        OmsiVehicleIdentityReader
+                            .TryFingerprintInstalledVehicle(
+                                root,
+                                normalizedVehiclePath);
+                    if (!string.IsNullOrWhiteSpace(compatibilityId))
+                    {
+                        break;
+                    }
                 }
 
+                _openOmsiCachedVehiclePath =
+                    normalizedVehiclePath;
+                _openOmsiCachedVehicleCompatibilityId =
+                    compatibilityId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(compatibilityId))
+            {
                 result = result with
                 {
                     VehicleCompatibilityId = compatibilityId
                 };
-                break;
             }
         }
 
@@ -106,10 +131,30 @@ public partial class MainWindow
                     ? result.MapName
                     : gatewayMap;
 
+            var normalizedMapReference =
+                mapReference?.Trim();
             var compatibilityId =
-                OmsiMapCatalog.TryFingerprintInstalledMap(
-                    _openOmsiVehicleIdentityRoots,
-                    mapReference);
+                string.Equals(
+                    _openOmsiCachedMapReference,
+                    normalizedMapReference,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? _openOmsiCachedMapCompatibilityId
+                    : null;
+
+            if (string.IsNullOrWhiteSpace(compatibilityId) &&
+                !string.IsNullOrWhiteSpace(
+                    normalizedMapReference))
+            {
+                compatibilityId =
+                    OmsiMapCatalog.TryFingerprintInstalledMap(
+                        _openOmsiVehicleIdentityRoots,
+                        normalizedMapReference);
+                _openOmsiCachedMapReference =
+                    normalizedMapReference;
+                _openOmsiCachedMapCompatibilityId =
+                    compatibilityId;
+            }
+
             if (!string.IsNullOrWhiteSpace(compatibilityId))
             {
                 result = result with
@@ -161,11 +206,21 @@ public partial class MainWindow
                 .Distinct(
                     StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+            ClearOpenOmsiCompatibilityIdentityCache();
         }
         catch
         {
             _openOmsiVehicleIdentityRoots = [];
+            ClearOpenOmsiCompatibilityIdentityCache();
         }
+    }
+
+    private void ClearOpenOmsiCompatibilityIdentityCache()
+    {
+        _openOmsiCachedVehiclePath = null;
+        _openOmsiCachedVehicleCompatibilityId = null;
+        _openOmsiCachedMapReference = null;
+        _openOmsiCachedMapCompatibilityId = null;
     }
 
     private void OpenOmsiPluginBridge_ConnectionStateChanged(bool connected)
