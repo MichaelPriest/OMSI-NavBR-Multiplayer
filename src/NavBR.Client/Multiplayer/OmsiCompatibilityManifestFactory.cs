@@ -50,6 +50,12 @@ internal static class OmsiCompatibilityManifestFactory
             PluginBridgeProtocol.CapabilityGhostReplay,
             PluginBridgeProtocol.CapabilityTimetableState
         };
+        var openOmsiRuntime =
+            capabilities.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin) ||
+            connection?.LastStatus?.Capabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true;
 
         return new OmsiCompatibilityManifest(
             OmsiVersion: Normalize(omsiVersion),
@@ -61,7 +67,11 @@ internal static class OmsiCompatibilityManifestFactory
             HofName: Normalize(telemetry?.HofName),
             HofCompatibilityId: Normalize(telemetry?.HofCompatibilityId),
             PluginProtocolVersion: PluginBridgeProtocol.Version,
-            PluginDeployment: connection?.IsConnected == true ? "NATIVE-AOT-X86" : null,
+            PluginDeployment: connection?.IsConnected == true
+                ? openOmsiRuntime
+                    ? "OPENOMSI-X64"
+                    : "NATIVE-AOT-X86"
+                : null,
             Capabilities: capabilities.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray());
     }
 
