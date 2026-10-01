@@ -524,6 +524,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             ClearRemoteTelemetryOrder();
             ClearRoleplayCharacters();
             _ = _physicalVehicles.ClearAsync();
+            _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
