@@ -566,6 +566,9 @@ export interface NavBrSystemState {
       lanId: number;
       name?: string | null;
       vehiclePath?: string | null;
+      expectedVehicleCompatibilityId?: string | null;
+      localVehicleCompatibilityId?: string | null;
+      vehicleAssetStatus: "missing-path" | "missing" | "unverified" | "match" | "mismatch";
       hasInfo: boolean;
       hasState: boolean;
       drawn: boolean;
