@@ -146,7 +146,14 @@ public sealed partial class MultiplayerClientService
                 "openomsi-peer-not-drawn",
                 ErrorCode: "openomsi-not-drawn",
                 ErrorMessage:
-                    $"O openOMSI listou o peer {lanId} ({runtimePeer.Name ?? playerId}) e reconheceu o ônibus {runtimePeer.Bus ?? gatewayRemote?.VehiclePath ?? "—"}, mas drawn=false.",
+                    $"O openOMSI listou o peer {lanId} ({runtimePeer.Name ?? playerId}) e reconheceu o ônibus {runtimePeer.Bus ?? gatewayRemote?.VehiclePath ?? "—"}, mas drawn=false." +
+                    (string.IsNullOrWhiteSpace(
+                        runtimePeer.RelativePosition)
+                        ? string.Empty
+                        : $" Posição relativa reportada: {runtimePeer.RelativePosition}.") +
+                    (runtimePeer.PassengerCount is int passengers
+                        ? $" Passageiros reportados: {passengers}."
+                        : string.Empty),
                 PartCount: null,
                 ExpectedPartCount: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow);
