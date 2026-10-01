@@ -250,9 +250,40 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         // Keep physical rendering compatibility synchronized with the actual
         // live OMSI state. Players often connect before the final map/bus/HOF
         // identity is available, and may change vehicles without reconnecting.
-        _physicalVehicles.SetLocalManifest(
-            OmsiCompatibilityManifestFactory.Create(outgoing, activeMap: null));
+        var liveManifest =
+            OmsiCompatibilityManifestFactory.Create(
+                outgoing,
+                activeMap: null);
+        _physicalVehicles.SetLocalManifest(liveManifest);
         _physicalVehicles.SetLocalTelemetry(outgoing);
+
+        // Automatic SignalR reconnect reuses _joinRequest. Keep it aligned with
+        // the live identity so a reconnect cannot temporarily revert the room
+        // presence to the bus/HOF that existed when JoinRoom first ran.
+        if (_joinRequest is { } joinRequest &&
+            (!string.Equals(
+                 joinRequest.MapName,
+                 outgoing.MapName,
+                 StringComparison.OrdinalIgnoreCase) ||
+             !string.Equals(
+                 joinRequest.MapCompatibilityId,
+                 compatibilityId,
+                 StringComparison.OrdinalIgnoreCase) ||
+             !CompatibilityManifestEquivalent(
+                 joinRequest.Compatibility,
+                 liveManifest)))
+        {
+            _joinRequest = joinRequest with
+            {
+                MapName =
+                    outgoing.MapName ??
+                    joinRequest.MapName,
+                MapCompatibilityId =
+                    compatibilityId ??
+                    joinRequest.MapCompatibilityId,
+                Compatibility = liveManifest
+            };
+        }
 
         _ = OmsiPluginBridgeRelay.ForwardLocalTelemetryAsync(
             outgoing,
@@ -325,6 +356,39 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             voiceEnabled,
             latencyMs,
             cancellationToken);
+    }
+
+    private static bool CompatibilityManifestEquivalent(
+        OmsiCompatibilityManifest? left,
+        OmsiCompatibilityManifest? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left is null || right is null)
+        {
+            return false;
+        }
+
+        return
+            string.Equals(left.OmsiVersion, right.OmsiVersion, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.NavBRVersion, right.NavBRVersion, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.MapName, right.MapName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.MapCompatibilityId, right.MapCompatibilityId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.VehiclePath, right.VehiclePath, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.VehicleCompatibilityId, right.VehicleCompatibilityId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.HofName, right.HofName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.HofCompatibilityId, right.HofCompatibilityId, StringComparison.OrdinalIgnoreCase) &&
+            left.PluginProtocolVersion == right.PluginProtocolVersion &&
+            string.Equals(left.PluginDeployment, right.PluginDeployment, StringComparison.OrdinalIgnoreCase) &&
+            (left.Capabilities ?? Array.Empty<string>())
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .SequenceEqual(
+                    (right.Capabilities ?? Array.Empty<string>())
+                        .OrderBy(value => value, StringComparer.OrdinalIgnoreCase),
+                    StringComparer.OrdinalIgnoreCase);
     }
 
     private void QueuePhysicalVehicleSetPublish(
