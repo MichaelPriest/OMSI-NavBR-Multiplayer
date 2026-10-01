@@ -15,6 +15,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     private const long RemoteSourceClockResetThresholdMs = 30_000;
 
     private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
+    private readonly OpenOmsiRemoteVehicleAssetResolver _openOmsiVehicleAssets;
     private readonly SemaphoreSlim _physicalVehicleStatusPublishGate = new(1, 1);
     private readonly object _remoteTelemetryOrderSync = new();
     private readonly Dictionary<string, long> _lastRemoteSourceTimestampByPlayer =
@@ -24,10 +25,14 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     private JoinRoomRequest? _joinRequest;
 
     public MultiplayerClientService(
-        Func<string?>? omsiInstallDirectorySource = null)
+        Func<string?>? omsiInstallDirectorySource = null,
+        Func<IReadOnlyList<string>>? openOmsiContentRootsSource = null)
     {
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
             omsiInstallDirectorySource);
+        _openOmsiVehicleAssets =
+            new OpenOmsiRemoteVehicleAssetResolver(
+                openOmsiContentRootsSource);
         _physicalVehicles.PhysicalVehicleSetChanged += QueuePhysicalVehicleSetPublish;
     }
 
