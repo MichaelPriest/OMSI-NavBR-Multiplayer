@@ -146,6 +146,64 @@ public partial class MainWindow
             characterName: selected?.DisplayName);
     }
 
+    internal void UpdateHudInGameRoleplayOptionsForShell()
+    {
+        if (_hudOverlay is null)
+        {
+            return;
+        }
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        var selected = RoleplayCharacterSelectionStore.Get(mapKey);
+        var options =
+            ExperimentalFeatureFlags.RoleplayCharacterEnabled &&
+            IsRoleplayMapReadyForShell()
+                ? GetRoleplayCharacterOptionsForShell()
+                : Array.Empty<RoleplayCharacterOption>();
+
+        _hudOverlay.UpdateInGameRoleplayOptions(
+            options,
+            selected?.Id,
+            _roleplayCharacterController?.IsActive == true);
+    }
+
+    internal async void HandleHudInGameRoleplaySelectionRequestedForShell(
+        string optionId)
+    {
+        if (!ExperimentalFeatureFlags.RoleplayCharacterEnabled ||
+            !IsRoleplayMapReadyForShell() ||
+            string.IsNullOrWhiteSpace(optionId))
+        {
+            return;
+        }
+
+        var mapKey = GetRoleplayMapKeyForShell();
+        if (string.IsNullOrWhiteSpace(mapKey))
+        {
+            return;
+        }
+
+        var selected = GetRoleplayCharacterOptionsForShell()
+            .FirstOrDefault(option => string.Equals(
+                option.Id,
+                optionId,
+                StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+        {
+            return;
+        }
+
+        RoleplayCharacterSelectionStore.Set(mapKey, selected);
+        var controller = GetRoleplayControllerForShell();
+        if (!controller.IsActive)
+        {
+            await controller.StartAsync();
+        }
+
+        UpdateHudRoleplayStateForShell();
+        UpdateHudInGameRoleplayOptionsForShell();
+    }
+
     internal async void HandleHudRoleplayButtonRequestedForShell()
     {
         var mapKey = GetRoleplayMapKeyForShell();
@@ -165,11 +223,13 @@ public partial class MainWindow
         {
             await controller.StopAsync("roleplay-returned-to-bus");
             UpdateHudRoleplayStateForShell();
+            UpdateHudInGameRoleplayOptionsForShell();
             return;
         }
 
         var started = await controller.StartAsync();
         UpdateHudRoleplayStateForShell();
+        UpdateHudInGameRoleplayOptionsForShell();
 
         if (!started)
         {
