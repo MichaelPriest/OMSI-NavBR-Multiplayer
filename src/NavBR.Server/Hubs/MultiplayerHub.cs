@@ -148,10 +148,15 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
                 "destination")
         };
 
-        var updatedPresence = registry.UpdateMap(
-            Context.ConnectionId,
-            safeTelemetry.MapName,
-            safeTelemetry.MapCompatibilityId);
+        var updatedPresence =
+            registry.UpdateTelemetryIdentity(
+                Context.ConnectionId,
+                safeTelemetry.MapName,
+                safeTelemetry.MapCompatibilityId,
+                safeTelemetry.VehiclePath,
+                safeTelemetry.VehicleCompatibilityId,
+                safeTelemetry.HofName,
+                safeTelemetry.HofCompatibilityId);
         var currentPresence = updatedPresence ?? presence;
 
         if (updatedPresence is not null)
