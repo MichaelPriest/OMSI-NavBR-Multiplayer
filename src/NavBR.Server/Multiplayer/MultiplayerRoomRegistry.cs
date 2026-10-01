@@ -141,37 +141,88 @@ public sealed class MultiplayerRoomRegistry
                    StringComparison.OrdinalIgnoreCase);
     }
 
-    public PlayerPresence? UpdateMap(
+    public PlayerPresence? UpdateTelemetryIdentity(
         string connectionId,
         string? mapName,
-        string? mapCompatibilityId = null)
+        string? mapCompatibilityId,
+        string? vehiclePath,
+        string? vehicleCompatibilityId,
+        string? hofName,
+        string? hofCompatibilityId)
     {
         while (_connections.TryGetValue(connectionId, out var current))
         {
             var normalizedMap = NormalizeOptional(mapName);
-            var normalizedCompatibilityId = NormalizeOptional(mapCompatibilityId);
-            if (string.Equals(current.MapName, normalizedMap, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(current.MapCompatibilityId, normalizedCompatibilityId, StringComparison.OrdinalIgnoreCase))
+            var normalizedMapCompatibilityId =
+                NormalizeOptional(mapCompatibilityId);
+            var normalizedVehiclePath =
+                NormalizeOptional(vehiclePath);
+            var normalizedVehicleCompatibilityId =
+                NormalizeOptional(vehicleCompatibilityId);
+            var normalizedHofName =
+                NormalizeOptional(hofName);
+            var normalizedHofCompatibilityId =
+                NormalizeOptional(hofCompatibilityId);
+
+            var currentCompatibility = current.Compatibility;
+            var identityUnchanged =
+                string.Equals(
+                    current.MapName,
+                    normalizedMap,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    current.MapCompatibilityId,
+                    normalizedMapCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.VehiclePath,
+                    normalizedVehiclePath,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.VehicleCompatibilityId,
+                    normalizedVehicleCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.HofName,
+                    normalizedHofName,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.HofCompatibilityId,
+                    normalizedHofCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (identityUnchanged)
             {
                 return null;
             }
 
-            var compatibility = current.Compatibility is null
+            var compatibility = currentCompatibility is null
                 ? null
-                : current.Compatibility with
+                : currentCompatibility with
                 {
                     MapName = normalizedMap,
-                    MapCompatibilityId = normalizedCompatibilityId
+                    MapCompatibilityId =
+                        normalizedMapCompatibilityId,
+                    VehiclePath = normalizedVehiclePath,
+                    VehicleCompatibilityId =
+                        normalizedVehicleCompatibilityId,
+                    HofName = normalizedHofName,
+                    HofCompatibilityId =
+                        normalizedHofCompatibilityId
                 };
 
             var updated = current with
             {
                 MapName = normalizedMap,
-                MapCompatibilityId = normalizedCompatibilityId,
+                MapCompatibilityId =
+                    normalizedMapCompatibilityId,
                 Compatibility = compatibility
             };
 
-            if (_connections.TryUpdate(connectionId, updated, current))
+            if (_connections.TryUpdate(
+                    connectionId,
+                    updated,
+                    current))
             {
                 return updated;
             }
