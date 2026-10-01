@@ -167,6 +167,17 @@ public partial class MultiplayerWindow
             .ThenByDescending(report => report.UpdatedAtUtc)
             .FirstOrDefault();
 
+    internal IReadOnlyList<OperationalReport> CurrentOperationalReportsForShell =>
+        _client.CurrentOperationalReports;
+
+    internal Task<OperationalReport> AcknowledgeOperationalReportFromShellAsync(
+        string reportId) =>
+        _client.AcknowledgeOperationalReportAsync(reportId);
+
+    internal Task<OperationalReport> ResolveOperationalReportFromShellAsync(
+        string reportId) =>
+        _client.ResolveOperationalReportAsync(reportId);
+
     private async Task SubmitQuickOperationalReportAsync(
         OperationalReportKind kind,
         OperationalReportSeverity severity)
