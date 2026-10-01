@@ -300,6 +300,27 @@ public partial class MainWindow
                         openOmsiLanRuntime?.Fresh == true &&
                         openOmsiLanRuntime.Connected &&
                         runtimePeer?.Drawn == true;
+                    var localVehicleCompatibilityId =
+                        ResolveOpenOmsiVehicleCompatibilityId(
+                            remote.VehiclePath);
+                    var expectedVehicleCompatibilityId =
+                        remote.ExpectedVehicleCompatibilityId;
+                    var vehicleAssetStatus =
+                        string.IsNullOrWhiteSpace(
+                            remote.VehiclePath)
+                            ? "missing-path"
+                            : string.IsNullOrWhiteSpace(
+                                localVehicleCompatibilityId)
+                                ? "missing"
+                                : string.IsNullOrWhiteSpace(
+                                    expectedVehicleCompatibilityId)
+                                    ? "unverified"
+                                    : string.Equals(
+                                        localVehicleCompatibilityId,
+                                        expectedVehicleCompatibilityId,
+                                        StringComparison.OrdinalIgnoreCase)
+                                        ? "match"
+                                        : "mismatch";
                     var status =
                         !remote.HasInfo
                             ? "waiting-info"
@@ -317,6 +338,9 @@ public partial class MainWindow
                         name = remote.Name,
                         vehiclePath =
                             remote.VehiclePath,
+                        expectedVehicleCompatibilityId,
+                        localVehicleCompatibilityId,
+                        vehicleAssetStatus,
                         hasInfo = remote.HasInfo,
                         hasState = remote.HasState,
                         drawn,
