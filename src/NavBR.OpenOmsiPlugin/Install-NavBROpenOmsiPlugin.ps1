@@ -7,11 +7,16 @@ $ErrorActionPreference = "Stop"
 
 $root = [System.IO.Path]::GetFullPath($OpenOmsiRoot)
 if (-not (Test-Path -LiteralPath $root -PathType Container)) {
-    throw "Pasta do openOMSI não encontrada: $root"
+    throw "Content root do openOMSI não encontrado: $root"
+}
+
+$marker = Join-Path $root ".openomsi-content"
+if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+    Write-Warning "O marcador .openomsi-content não foi encontrado. Confirme que este é o content root do openOMSI."
 }
 
 $source = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pluginsRoot = Join-Path $root "plugins"
+$pluginsRoot = Join-Path $root "Plugins"
 $target = Join-Path $pluginsRoot "NavBR.OpenOmsi"
 $manifest = Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt"
 $files = @(
