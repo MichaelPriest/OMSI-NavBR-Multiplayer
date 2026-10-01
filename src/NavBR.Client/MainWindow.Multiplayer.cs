@@ -210,7 +210,7 @@ public partial class MainWindow
         hud.InGameDispatchAcknowledgeRequested += HandleHudInGameDispatchAcknowledgeRequested;
         hud.InGameDispatchResolveRequested += HandleHudInGameDispatchResolveRequested;
         hud.InGameRoleplaySelectionRequested += HandleHudInGameRoleplaySelectionRequestedForShell;
-        var processId = _currentOmsi?.ProcessId;
+        var processId = GetActiveSimulatorProcessIdForHud();
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
         hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
@@ -281,7 +281,7 @@ public partial class MainWindow
             }
         }
 
-        var processId = _currentOmsi?.ProcessId;
+        var processId = GetActiveSimulatorProcessIdForHud();
         if (_hudAttachedOmsiProcessId != processId)
         {
             _hudOverlay.AttachOmsiProcess(processId);
