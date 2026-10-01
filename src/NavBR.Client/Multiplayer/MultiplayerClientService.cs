@@ -647,8 +647,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 // Fail closed exactly like the OMSI 2 physical backend:
                 // an unverified path must never be advertised to openOMSI as
                 // though the local receiver owned the same vehicle content.
-                await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(
-                    playerId);
+                // Keep the peer pending so React can report missing/mismatched
+                // local content instead of making the player disappear.
+                await OpenOmsiLanGateway.Shared.SetRemotePendingAsync(
+                    frame);
                 return;
             }
 
