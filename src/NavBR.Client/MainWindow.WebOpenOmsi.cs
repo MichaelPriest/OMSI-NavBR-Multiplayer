@@ -77,7 +77,7 @@ public partial class MainWindow
         start.ArgumentList.Add("--lan-join");
         start.ArgumentList.Add($"127.0.0.1:{port}");
 
-        Process.Start(start)
+        _ = Process.Start(start)
             ?? throw new InvalidOperationException(
                 "O Windows não iniciou o openOMSI.");
 
