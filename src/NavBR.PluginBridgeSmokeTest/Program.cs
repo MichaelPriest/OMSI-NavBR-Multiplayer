@@ -94,11 +94,32 @@ finally
 
 var mapCatalogType =
     typeof(NavBR.Client.Maps.OmsiMapCatalog);
-var fingerprintMap = mapCatalogType.GetMethod(
-    "TryFingerprintInstalledMap",
-    BindingFlags.NonPublic | BindingFlags.Static)
+var fingerprintMap = mapCatalogType
+    .GetMethods(
+        BindingFlags.NonPublic |
+        BindingFlags.Static)
+    .SingleOrDefault(method =>
+        method.Name ==
+            "TryFingerprintInstalledMap" &&
+        method.GetParameters() is var parameters &&
+        parameters.Length == 2 &&
+        parameters[0].ParameterType ==
+            typeof(string))
     ?? throw new InvalidOperationException(
-        "installed map fingerprint helper not found");
+        "single-root installed map fingerprint helper not found");
+var fingerprintMergedMap = mapCatalogType
+    .GetMethods(
+        BindingFlags.NonPublic |
+        BindingFlags.Static)
+    .SingleOrDefault(method =>
+        method.Name ==
+            "TryFingerprintInstalledMap" &&
+        method.GetParameters() is var parameters &&
+        parameters.Length == 2 &&
+        parameters[0].ParameterType ==
+            typeof(IReadOnlyList<string>))
+    ?? throw new InvalidOperationException(
+        "multi-root installed map fingerprint helper not found");
 var mapRoot = Path.Combine(
     Path.GetTempPath(),
     "NavBR-openOMSI-map-fingerprint-" +
@@ -175,6 +196,76 @@ try
     Require(
         escapedMapFingerprint is null,
         "map fingerprint helper accepted a path outside the content root");
+
+    var overlayRoot = Path.Combine(
+        Path.GetTempPath(),
+        "NavBR-openOMSI-map-overlay-" +
+        Guid.NewGuid().ToString("N"));
+    var overlayDirectory = Path.Combine(
+        overlayRoot,
+        "maps",
+        "Grundorf");
+    Directory.CreateDirectory(overlayDirectory);
+    var overlayTileB =
+        Path.Combine(
+            overlayDirectory,
+            "tile_0_0.map");
+    File.WriteAllBytes(
+        overlayTileB,
+        new byte[41]);
+    try
+    {
+        using var mergedHash =
+            IncrementalHash.CreateHash(
+                HashAlgorithmName.SHA256);
+        mergedHash.AppendData(globalCfgBytes);
+        foreach (var item in new[]
+                 {
+                     (
+                         Name: "tile_-1_0.map",
+                         Length: 17L),
+                     (
+                         Name: "tile_0_0.map",
+                         Length: 41L)
+                 }
+                 .OrderBy(
+                     item => item.Name,
+                     StringComparer.OrdinalIgnoreCase))
+        {
+            mergedHash.AppendData(
+                Encoding.UTF8.GetBytes(
+                    $"\n{item.Name.ToUpperInvariant()}:{item.Length}"));
+        }
+
+        var expectedMergedMapFingerprint =
+            Convert.ToHexString(
+                mergedHash.GetHashAndReset())
+            .ToLowerInvariant();
+
+        var actualMergedMapFingerprint =
+            (string?)fingerprintMergedMap.Invoke(
+                null,
+                [
+                    new[]
+                    {
+                        overlayRoot,
+                        mapRoot
+                    },
+                    "maps/Grundorf/global.cfg"
+                ]);
+        Require(
+            string.Equals(
+                actualMergedMapFingerprint,
+                expectedMergedMapFingerprint,
+                StringComparison.Ordinal),
+            "openOMSI merged content-root map fingerprint did not honor overlay priority");
+    }
+    finally
+    {
+        Directory.Delete(
+            overlayRoot,
+            recursive: true);
+    }
 }
 finally
 {
