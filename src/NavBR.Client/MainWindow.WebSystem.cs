@@ -845,6 +845,17 @@ public partial class MainWindow
         var session = DispatcherSessionFeed.Snapshot();
         var network = SessionNetworkQualityFeed.Snapshot();
         var plugin = (System.Windows.Application.Current as App)?.PluginBridge.GetConnectionInfo();
+        var pluginCapabilities =
+            plugin?.LastCapabilities?.Capabilities ??
+            plugin?.LastStatus?.Capabilities;
+        var pluginRuntime =
+            pluginCapabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true
+                ? "openomsi"
+                : plugin?.IsConnected == true
+                    ? "omsi2"
+                    : null;
         var now = DateTimeOffset.UtcNow;
         double? freshnessSeconds = null;
         if (session.Connected && session.RemoteDrivers.Count > 0)
@@ -871,6 +882,7 @@ public partial class MainWindow
             multiplayerConnected = session.Connected,
             pluginConnected = plugin?.IsConnected == true,
             pluginVersion = plugin?.PluginComponentVersion,
+            pluginRuntime,
             pluginPerformance = new
             {
                 pressureLevel = plugin?.LastStatus?.PluginPressureLevel,
