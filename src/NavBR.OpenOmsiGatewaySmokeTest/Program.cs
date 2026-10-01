@@ -291,7 +291,10 @@ Require(
     resolvedPendingStatus.RemotePlayers == 1,
     "Resolved pending remote was not counted as materializable.");
 
-await gateway.RemoveRemoteAsync("pending-identity");
+await gateway.SetRemotePendingAsync(
+    new PlayerTelemetryFrame(
+        resolvedPendingPresence,
+        resolvedPendingTelemetry));
 var pendingBye = await ReceiveUntilTextAsync(
     client,
     text =>
@@ -301,7 +304,35 @@ var pendingBye = await ReceiveUntilTextAsync(
 Require(
     pendingBye ==
         $"BYE|{pendingRemote.LanId}",
-    "Resolved pending remote did not receive BYE.");
+    "Active remote was not removed from openOMSI when it became pending.");
+
+var rependingStatus = gateway.GetStatus();
+var rependingRemote =
+    rependingStatus.Remotes.Single(
+        remote =>
+            remote.PlayerId == "pending-identity");
+Require(
+    !rependingRemote.HasInfo &&
+    !rependingRemote.HasState,
+    "Pending transition retained materialization readiness.");
+Require(
+    rependingStatus.RemotePlayers == 0,
+    "Pending transition remained counted as a materializable player.");
+Require(
+    rependingRemote.VehiclePath ==
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+    "Pending transition lost the reported remote vehicle path.");
+Require(
+    rependingRemote.ExpectedVehicleCompatibilityId ==
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "Pending transition lost the expected remote vehicle fingerprint.");
+
+await gateway.RemoveRemoteAsync("pending-identity");
+Require(
+    gateway.GetStatus().Remotes.All(
+        remote =>
+            remote.PlayerId != "pending-identity"),
+    "Pending remote remained registered after explicit removal.");
 
 var remotePresence = new PlayerPresence(
     "remote-1",
