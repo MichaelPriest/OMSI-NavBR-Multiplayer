@@ -247,6 +247,56 @@ try
     Require(
         await mismatchTask is null,
         "openOMSI SHA resolver accepted a locally different vehicle definition");
+
+    var shadowedRelative =
+        Path.Combine(
+            "Vehicles",
+            "ShadowPack",
+            "Shadowed.bus");
+    var shadowingPath =
+        Path.Combine(
+            multiRootA,
+            shadowedRelative);
+    var shadowedCorrectPath =
+        Path.Combine(
+            multiRootB,
+            shadowedRelative);
+    Directory.CreateDirectory(
+        Path.GetDirectoryName(shadowingPath)!);
+    Directory.CreateDirectory(
+        Path.GetDirectoryName(shadowedCorrectPath)!);
+    var shadowingBytes =
+        Encoding.UTF8.GetBytes(
+            "[friendlyname]\r\nHigher-priority wrong override\r\n");
+    var shadowedCorrectBytes =
+        Encoding.UTF8.GetBytes(
+            "[friendlyname]\r\nLower-priority correct vehicle\r\n");
+    File.WriteAllBytes(
+        shadowingPath,
+        shadowingBytes);
+    File.WriteAllBytes(
+        shadowedCorrectPath,
+        shadowedCorrectBytes);
+    var shadowedExpectedFingerprint =
+        "sha256:" +
+        Convert.ToHexString(
+            SHA256.HashData(
+                shadowedCorrectBytes))
+        .ToLowerInvariant();
+
+    var shadowedTask =
+        multiRootResolve.Invoke(
+            resolver,
+            [
+                shadowedRelative,
+                shadowedExpectedFingerprint,
+                CancellationToken.None
+            ]) as Task<string?>
+        ?? throw new InvalidOperationException(
+            "openOMSI shadowed SHA resolver did not return Task<string?>");
+    Require(
+        await shadowedTask is null,
+        "openOMSI SHA resolver accepted a lower-priority vehicle hidden by different content.");
 }
 finally
 {
