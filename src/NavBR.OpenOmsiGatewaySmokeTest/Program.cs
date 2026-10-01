@@ -375,8 +375,64 @@ Require(status.LocalStateRateHz is > 0d, "Gateway status lost local STATE rate."
 Require(status.LastLocalStateUtc is not null, "Gateway status lost local STATE timestamp.");
 Require(string.IsNullOrWhiteSpace(status.LastError), $"Gateway reported an error: {status.LastError}");
 
+await using (var staleGateway =
+             new OpenOmsiLanGateway(TimeSpan.FromMilliseconds(300)))
+{
+    staleGateway.Start();
+    var stalePort = staleGateway.Port
+        ?? throw new InvalidOperationException(
+            "Stale-peer gateway did not bind a loopback UDP port.");
+    using var staleClient = new UdpClient(
+        new IPEndPoint(IPAddress.Loopback, 0));
+    var staleEndpoint =
+        new IPEndPoint(IPAddress.Loopback, stalePort);
+
+    await SendTextAsync(staleClient, staleEndpoint, hello);
+    _ = await ReceiveUntilTextAsync(
+        staleClient,
+        text => text.StartsWith(
+            "WELCOME|6|2|",
+            StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+
+    await staleGateway.UpsertRemoteAsync(remoteFrame);
+    var staleInfoText = await ReceiveUntilTextAsync(
+        staleClient,
+        text =>
+            text.StartsWith("INFO|", StringComparison.Ordinal) &&
+            text.Contains(
+                "|Remote Driver|",
+                StringComparison.Ordinal),
+        TimeSpan.FromSeconds(2));
+    Require(
+        OpenOmsiLanProtocol.TryDecodeInfo(
+            staleInfoText,
+            out var staleInfo),
+        "Stale-peer INFO did not decode.");
+
+    _ = await ReceiveUntilBytesAsync(
+        staleClient,
+        bytes =>
+            bytes.Length >= OpenOmsiLanProtocol.StateHeaderBytes &&
+            bytes[0] == OpenOmsiLanProtocol.StateMagic &&
+            BitConverter.ToUInt16(bytes, 2) ==
+                staleInfo.PlayerId,
+        TimeSpan.FromSeconds(2));
+
+    var staleBye = await ReceiveUntilTextAsync(
+        staleClient,
+        text => text == $"BYE|{staleInfo.PlayerId}",
+        TimeSpan.FromSeconds(3));
+    Require(
+        staleBye == $"BYE|{staleInfo.PlayerId}",
+        "Stale openOMSI remote was not retired with BYE.");
+    Require(
+        !staleGateway.HasRemote("remote-1"),
+        "Stale openOMSI remote remained registered.");
+}
+
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + canonical remote + native OMSI D3D axis/articulation + live diagnostics + stale peer expiry + BYE.");
 
 static async Task SendTextAsync(
     UdpClient client,
