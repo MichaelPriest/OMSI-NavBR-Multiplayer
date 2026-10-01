@@ -187,6 +187,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _physicalVehicles.SetLocalManifest(null);
             _physicalVehicles.SetLocalTelemetry(null);
             _ = _physicalVehicles.ClearAsync();
+            _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
 
@@ -417,6 +418,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
+        _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
@@ -457,6 +459,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             PlayerLeft?.Invoke(playerId);
             RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
+            _ = OpenOmsiLanGateway.Shared.RemoveRemoteAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
         connection.On<PlayerTelemetryFrame>("telemetry", frame =>
@@ -469,6 +472,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             TelemetryReceived?.Invoke(frame);
             _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
             _ = _physicalVehicles.ApplyAsync(frame);
+            _ = OpenOmsiLanGateway.Shared.UpsertRemoteAsync(frame);
         });
         connection.On<TrafficSnapshot>("trafficSnapshot", snapshot =>
         {
