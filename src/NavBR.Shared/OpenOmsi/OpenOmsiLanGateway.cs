@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Shared.OpenOmsi;
@@ -185,7 +186,7 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                 state = BuildRemoteState(
                     remote.Id,
                     remote.NextSequence(),
-                    frame.Telemetry,
+                    frame,
                     CurrentSentMillisecondsCore());
                 previousInfo = remote.LastInfo;
                 remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
@@ -833,9 +834,12 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     private static OpenOmsiLanVehicleState BuildRemoteState(
         ushort id,
         ushort sequence,
-        VehicleTelemetry telemetry,
+        PlayerTelemetryFrame frame,
         uint sentMilliseconds)
     {
+        var telemetry = frame.Telemetry;
+        var nativeOmsiD3d = IsNativeOmsiD3dSource(frame);
+
         var flags =
             OpenOmsiLanProtocol.FlagVehicle |
             OpenOmsiLanProtocol.FlagEngine |
@@ -897,13 +901,25 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         doors[4] =
             (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
 
+        var worldX = telemetry.X;
+        var worldY = nativeOmsiD3d
+            ? telemetry.Z
+            : telemetry.Y;
+        var worldZ = nativeOmsiD3d
+            ? telemetry.Y
+            : telemetry.Z;
+
+        var rearSections = nativeOmsiD3d
+            ? BuildNativeOmsiRearSections(telemetry)
+            : Array.Empty<OpenOmsiLanPartPose>();
+
         return new OpenOmsiLanVehicleState(
             id,
             sequence,
             flags,
-            telemetry.X,
-            telemetry.Y,
-            telemetry.Z,
+            worldX,
+            worldY,
+            worldZ,
             (float)telemetry.HeadingDegrees,
             0f,
             0f,
@@ -924,12 +940,194 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             0,
             doors,
             [],
-            [],
+            rearSections,
             [],
             [],
             [],
             null,
             sentMilliseconds);
+    }
+
+    private static bool IsNativeOmsiD3dSource(
+        PlayerTelemetryFrame frame)
+    {
+        var compatibility = frame.Player.Compatibility;
+        if (string.Equals(
+                compatibility?.PluginDeployment,
+                "OPENOMSI-X64",
+                StringComparison.OrdinalIgnoreCase) ||
+            compatibility?.Capabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true)
+        {
+            return false;
+        }
+
+        if (string.Equals(
+                compatibility?.PluginDeployment,
+                "NATIVE-AOT-X86",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var telemetry = frame.Telemetry;
+        return telemetry.PhysicalGridX is int &&
+               telemetry.PhysicalGridY is int &&
+               telemetry.LocalX is double &&
+               telemetry.LocalY is double &&
+               telemetry.LocalZ is double;
+    }
+
+    private static IReadOnlyList<OpenOmsiLanPartPose>
+        BuildNativeOmsiRearSections(VehicleTelemetry telemetry)
+    {
+        if (telemetry.RearSections is not { Length: > 0 } sections ||
+            telemetry.LocalX is not double frontLocalX ||
+            telemetry.LocalY is not double frontLocalY ||
+            telemetry.LocalZ is not double frontLocalZ)
+        {
+            return [];
+        }
+
+        var frontGridX =
+            telemetry.PhysicalGridX ?? telemetry.GridX;
+        var frontGridY =
+            telemetry.PhysicalGridY ?? telemetry.GridY;
+        if (frontGridX is not int gx ||
+            frontGridY is not int gy)
+        {
+            return [];
+        }
+
+        var tileSize = TryInferNativeTileSize(
+            telemetry,
+            gx,
+            gy,
+            frontLocalX,
+            frontLocalZ);
+
+        var result =
+            new List<OpenOmsiLanPartPose>(
+                Math.Min(
+                    sections.Length,
+                    OpenOmsiLanProtocol.MaxRearSections));
+        foreach (var section in sections.Take(
+                     OpenOmsiLanProtocol.MaxRearSections))
+        {
+            var gridDeltaX = section.GridX - gx;
+            var gridDeltaY = section.GridY - gy;
+
+            if ((gridDeltaX != 0 || gridDeltaY != 0) &&
+                tileSize is null)
+            {
+                continue;
+            }
+
+            var dx =
+                section.LocalX - frontLocalX +
+                gridDeltaX * (tileSize ?? 0d);
+            var dyGround =
+                section.LocalZ - frontLocalZ +
+                gridDeltaY * (tileSize ?? 0d);
+            var dz =
+                section.LocalY - frontLocalY;
+
+            var heading = QuaternionToHeadingDegrees(
+                section.RotationX,
+                section.RotationY,
+                section.RotationZ,
+                section.RotationW);
+
+            if (!double.IsFinite(dx) ||
+                !double.IsFinite(dyGround) ||
+                !double.IsFinite(dz) ||
+                !double.IsFinite(heading))
+            {
+                continue;
+            }
+
+            result.Add(
+                new OpenOmsiLanPartPose(
+                    telemetry.X + dx,
+                    telemetry.Z + dyGround,
+                    telemetry.Y + dz,
+                    (float)heading));
+        }
+
+        return result;
+    }
+
+    private static double? TryInferNativeTileSize(
+        VehicleTelemetry telemetry,
+        int gridX,
+        int gridY,
+        double localX,
+        double localZ)
+    {
+        Span<double> candidates = stackalloc double[2];
+        var count = 0;
+
+        if (gridX != 0)
+        {
+            var value =
+                (telemetry.X - localX) / gridX;
+            if (IsPlausibleOmsiTileSize(value))
+            {
+                candidates[count++] = Math.Abs(value);
+            }
+        }
+
+        if (gridY != 0)
+        {
+            var value =
+                (telemetry.Z - localZ) / gridY;
+            if (IsPlausibleOmsiTileSize(value))
+            {
+                candidates[count++] = Math.Abs(value);
+            }
+        }
+
+        return count switch
+        {
+            0 => null,
+            1 => candidates[0],
+            _ => Math.Abs(candidates[0] - candidates[1]) <= 2d
+                ? (candidates[0] + candidates[1]) * 0.5d
+                : null
+        };
+    }
+
+    private static bool IsPlausibleOmsiTileSize(double value) =>
+        double.IsFinite(value) &&
+        Math.Abs(value) is >= 250d and <= 500d;
+
+    private static double QuaternionToHeadingDegrees(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var lengthSquared =
+            x * x + y * y + z * z + w * w;
+        if (!double.IsFinite(lengthSquared) ||
+            lengthSquared < 0.00000001d)
+        {
+            return double.NaN;
+        }
+
+        var inverseLength = 1d / Math.Sqrt(lengthSquared);
+        x *= inverseLength;
+        y *= inverseLength;
+        z *= inverseLength;
+        w *= inverseLength;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        var degrees =
+            Math.Atan2(sinYaw, cosYaw) *
+            (180d / Math.PI);
+        return (degrees + 360d) % 360d;
     }
 
     private async Task RemoveRemoteCoreAsync(
