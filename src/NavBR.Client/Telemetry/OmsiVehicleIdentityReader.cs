@@ -207,6 +207,17 @@ internal static class OmsiVehicleIdentityReader
         return candidate;
     }
 
+    internal static string? TryFingerprintInstalledVehicle(
+        string? contentRoot,
+        string? vehiclePath)
+    {
+        var normalizedPath =
+            NormalizeVehicleCandidate(contentRoot, vehiclePath);
+        return TryFingerprintVehicle(
+            contentRoot,
+            normalizedPath);
+    }
+
     private static string? TryFingerprintVehicle(string? omsiRoot, string? relativePath)
     {
         if (string.IsNullOrWhiteSpace(omsiRoot) || string.IsNullOrWhiteSpace(relativePath))
