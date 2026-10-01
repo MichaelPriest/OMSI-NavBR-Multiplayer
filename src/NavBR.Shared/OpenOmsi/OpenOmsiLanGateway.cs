@@ -44,6 +44,7 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     private string? _lastError;
     private ushort _nextRemoteId = 3;
     private ulong _session;
+    private long _startedTickMs;
 
     public static OpenOmsiLanGateway Shared { get; } = new();
 
@@ -118,6 +119,7 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             }
 
             _session = CreateSessionId();
+            _startedTickMs = Environment.TickCount64;
             _lastError = null;
             _udp = BindLoopback();
             _cts = new CancellationTokenSource();
@@ -183,7 +185,8 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                 state = BuildRemoteState(
                     remote.Id,
                     remote.NextSequence(),
-                    frame.Telemetry);
+                    frame.Telemetry,
+                    CurrentSentMillisecondsCore());
                 previousInfo = remote.LastInfo;
                 remote.LastInfo = OpenOmsiLanProtocol.EncodeInfo(info);
                 remote.LastState = state;
@@ -830,7 +833,8 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
     private static OpenOmsiLanVehicleState BuildRemoteState(
         ushort id,
         ushort sequence,
-        VehicleTelemetry telemetry)
+        VehicleTelemetry telemetry,
+        uint sentMilliseconds)
     {
         var flags =
             OpenOmsiLanProtocol.FlagVehicle |
@@ -893,9 +897,6 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         doors[4] =
             (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
 
-        var sent = unchecked(
-            (uint)telemetry.Timestamp.ToUnixTimeMilliseconds());
-
         return new OpenOmsiLanVehicleState(
             id,
             sequence,
@@ -928,7 +929,7 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             [],
             [],
             null,
-            sent);
+            sentMilliseconds);
     }
 
     private async Task RemoveRemoteCoreAsync(
@@ -1058,6 +1059,19 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         }
 
         PublishStatus();
+    }
+
+    private uint CurrentSentMillisecondsCore()
+    {
+        var elapsed = Environment.TickCount64 - _startedTickMs;
+        if (elapsed <= 0)
+        {
+            return 1;
+        }
+
+        return elapsed >= uint.MaxValue
+            ? uint.MaxValue
+            : (uint)elapsed;
     }
 
     private ushort AllocateRemoteId()
