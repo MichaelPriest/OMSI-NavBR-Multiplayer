@@ -3312,11 +3312,44 @@ function Settings({
             {system.openOmsiLanGateway && (
               <>
                 <div className="details-grid">
-                  <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? "LINKED" : "WAITING"}</strong></div>
+                  <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? (system.openOmsiLanGateway.localStateFrames > 0 ? "STREAMING" : "LINKED") : "WAITING"}</strong></div>
                   <div><small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small><strong>{system.openOmsiLanGateway.port ?? "—"}</strong></div>
                   <div><small>{pick("REMOTOS", "REMOTES", "REMOTOS", "REMOTES", "DISTANTS")}</small><strong>{system.openOmsiLanGateway.remotePlayers}</strong></div>
                   <div><small>{pick("MAPA LAN", "LAN MAP", "MAPA LAN", "LAN-KARTE", "CARTE LAN")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
+                  <div><small>{pick("FRAMES STATE", "STATE FRAMES", "FRAMES STATE", "STATE-FRAMES", "TRAMES STATE")}</small><strong>{system.openOmsiLanGateway.localStateFrames}</strong></div>
+                  <div><small>{pick("TAXA STATE", "STATE RATE", "TASA STATE", "STATE-RATE", "TAUX STATE")}</small><strong>{system.openOmsiLanGateway.localStateRateHz != null ? `${system.openOmsiLanGateway.localStateRateHz.toFixed(1)} Hz` : "—"}</strong></div>
+                  <div><small>{pick("IDADE TELEMETRIA", "TELEMETRY AGE", "EDAD TELEMETRÍA", "TELEMETRIE-ALTER", "ÂGE TÉLÉMÉTRIE")}</small><strong>{system.openOmsiLanGateway.localStateAgeMilliseconds != null ? `${Math.round(system.openOmsiLanGateway.localStateAgeMilliseconds)} ms` : "—"}</strong></div>
+                  <div><small>{pick("IDENTIDADE", "IDENTITY", "IDENTIDAD", "IDENTITÄT", "IDENTITÉ")}</small><strong>{system.openOmsiLanGateway.vehicleIdentityReady ? "SHA OK" : "PENDING"}</strong></div>
                 </div>
+                {(system.openOmsiLanGateway.clientName || system.openOmsiLanGateway.vehiclePath) && (
+                  <div className="plugin-file-verification">
+                    {system.openOmsiLanGateway.clientName && (
+                      <span className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}>
+                        <NavBrIcon name="person" size={13} />
+                        {system.openOmsiLanGateway.clientName}
+                      </span>
+                    )}
+                    {system.openOmsiLanGateway.vehiclePath && (
+                      <span className={system.openOmsiLanGateway.vehicleIdentityReady ? "verified" : "mismatch"}>
+                        <NavBrIcon name="bus" size={13} />
+                        {system.openOmsiLanGateway.vehiclePath}
+                      </span>
+                    )}
+                    {system.openOmsiLanGateway.lastLocalStateSequence != null && (
+                      <span className="verified">
+                        <NavBrIcon name="info" size={13} />
+                        STATE #{system.openOmsiLanGateway.lastLocalStateSequence}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {system.openOmsiLanGateway.vehicleCompatibilityId && (
+                  <code title={system.openOmsiLanGateway.vehicleCompatibilityId}>
+                    {system.openOmsiLanGateway.vehicleCompatibilityId.length > 34
+                      ? `${system.openOmsiLanGateway.vehicleCompatibilityId.slice(0, 34)}…`
+                      : system.openOmsiLanGateway.vehicleCompatibilityId}
+                  </code>
+                )}
                 {system.openOmsiLanGateway.joinTarget && (
                   <div className="plugin-file-verification">
                     <span
