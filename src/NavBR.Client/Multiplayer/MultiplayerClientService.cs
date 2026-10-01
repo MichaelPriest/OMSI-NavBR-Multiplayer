@@ -205,6 +205,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
             _joinRequest = null;
             ResetRoomMetadata();
+            ClearRemoteTelemetryOrder();
             _physicalVehicles.SetLocalManifest(null);
             _physicalVehicles.SetLocalTelemetry(null);
             _ = _physicalVehicles.ClearAsync();
@@ -499,6 +500,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _connection = null;
         _joinRequest = null;
         ResetRoomMetadata();
+        ClearRemoteTelemetryOrder();
         _physicalVehicles.SetLocalManifest(null);
         _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
