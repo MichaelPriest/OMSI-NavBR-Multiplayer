@@ -237,6 +237,15 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (isDown &&
+            virtualKey == VkN &&
+            _inGamePanelOpen &&
+            IsCtrlAltChordActive())
+        {
+            CloseInGamePanel();
+            return;
+        }
+
         if (isDown && virtualKey == VkK)
         {
             if (TelematrixConfigPanel.Visibility == System.Windows.Visibility.Visible)
