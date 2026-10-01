@@ -144,6 +144,18 @@ public partial class MainWindow
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
         var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
+        var openOmsiPlugin =
+            OpenOmsiPluginInstallationService.Verify();
+        var openOmsiRunning =
+            OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
+        var openOmsiInstallBlockReason =
+            !OpenOmsiPluginInstallationService.HasEmbeddedPackage
+                ? "package-missing"
+                : string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath)
+                    ? "openomsi-not-found"
+                    : openOmsiRunning
+                        ? "openomsi-running"
+                        : null;
         var pluginInstallBlockReason =
             !OmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
