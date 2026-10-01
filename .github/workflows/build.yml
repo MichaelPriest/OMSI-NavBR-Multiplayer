@@ -410,6 +410,13 @@ jobs:
           -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental"
           -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
 
+      - name: Prepare embedded openOMSI plugin payload
+        shell: pwsh
+        run: >-
+          .\scripts\prepare-embedded-openomsi-plugin.ps1
+          -PluginDirectory "artifacts/NavBR.OpenOmsiPlugin"
+          -OutputPath "src/NavBR.Client/Assets/NavBR.OpenOmsiPlugin.bundle.zip"
+
       - name: Build client
         shell: pwsh
         run: dotnet build src/NavBR.Client/NavBR.Client.csproj -c Release -r win-x86 --no-restore
@@ -424,7 +431,10 @@ jobs:
           if (-not $text.Contains("NavBR.Client.Assets.NavBROmsiPlugin.bundle.zip")) {
             throw "Client metadata does not contain the embedded OMSI plugin payload."
           }
-          Write-Host "Embedded Native AOT plugin resource validated."
+          if (-not $text.Contains("NavBR.Client.Assets.NavBROpenOmsiPlugin.bundle.zip")) {
+            throw "Client metadata does not contain the embedded openOMSI plugin payload."
+          }
+          Write-Host "Embedded OMSI + openOMSI plugin resources validated."
 
       - name: Smoke-test plugin bridge handshake and status
         shell: pwsh
