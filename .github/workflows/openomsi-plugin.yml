@@ -56,6 +56,7 @@ jobs:
           foreach ($required in @(
             "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.dll",
             "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl",
+            "artifacts/NavBR.OpenOmsiPlugin/main.lua",
             "artifacts/NavBR.OpenOmsiPlugin/Install-NavBROpenOmsiPlugin.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/Remove-NavBROpenOmsiPlugin.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/README.md"
@@ -96,6 +97,13 @@ jobs:
             }
           }
 
+          $lua = Get-Content "artifacts/NavBR.OpenOmsiPlugin/main.lua" -Raw
+          foreach ($requiredLuaApi in @('omsi.position()', 'omsi.info()', 'omsi.save()', 'omsi.every(1.0')) {
+            if (-not $lua.Contains($requiredLuaApi)) {
+              throw "Lua companion is missing documented openOMSI API usage: $requiredLuaApi"
+            }
+          }
+
           $opl = Get-Content "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl" -Raw
           if ($opl -notmatch '(?i)\[dll\]\s*NavBR\.OpenOmsi\\NavBR\.OpenOmsiPlugin\.dll') {
             throw "OPL DLL path is not relative to the openOMSI Plugins root."
@@ -119,6 +127,7 @@ jobs:
           foreach ($required in @(
             (Join-Path $target "NavBR.OpenOmsiPlugin.dll"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.opl"),
+            (Join-Path $target "main.lua"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt")
           )) {
             if (-not (Test-Path $required)) {
@@ -136,6 +145,7 @@ jobs:
           foreach ($removed in @(
             (Join-Path $target "NavBR.OpenOmsiPlugin.dll"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.opl"),
+            (Join-Path $target "main.lua"),
             (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt")
           )) {
             if (Test-Path $removed) {
