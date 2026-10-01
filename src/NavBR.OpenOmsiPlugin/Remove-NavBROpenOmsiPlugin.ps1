@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = [System.IO.Path]::GetFullPath($OpenOmsiRoot)
-$target = Join-Path (Join-Path $root "plugins") "NavBR.OpenOmsi"
+$target = Join-Path (Join-Path $root "Plugins") "NavBR.OpenOmsi"
 $manifest = Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt"
 
 if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
