@@ -42,21 +42,26 @@ Esses recursos ficam desativados até existir uma API segura equivalente no open
 
 ## Instalação
 
-Feche o openOMSI, extraia o artefato e execute:
+A instalação normal será feita pelo próprio aplicativo NavBR React. Para teste manual,
+feche o openOMSI, extraia o artefato e execute:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\Install-NavBROpenOmsiPlugin.ps1 -OpenOmsiRoot "C:\caminho\para\openOMSI"
+.\Install-NavBROpenOmsiPlugin.ps1 -OpenOmsiRoot "C:\caminho\para\content-root-do-openOMSI"
 ```
 
-O instalador cria:
+O parâmetro aponta para o **content root do openOMSI**, não para a instalação original do OMSI 2.
+O plugin é instalado em:
 
 ```text
-<openOMSI>\plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.opl
-<openOMSI>\plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.dll
+<content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.opl
+<content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.dll
 ```
 
-O `.opl` referencia a DLL a partir da raiz `plugins`, conforme o carregador do openOMSI.
+O `.opl` referencia a DLL a partir da raiz `Plugins`, conforme o carregador do openOMSI.
+
+> Importante: o botão **Mods** do launcher não é usado para habilitar este plugin. O próprio
+> openOMSI mantém plugins recebidos como mods em `Mods/plugins-not-enabled` por segurança.
 
 ## Remoção
 
@@ -68,7 +73,7 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 
 ## Próximas etapas
 
-1. detectar automaticamente instalações do openOMSI no React;
+1. detectar automaticamente o binário e content root do openOMSI no React;
 2. botão Instalar/Atualizar/Remover na tela de Plugins;
 3. telemetria posicional nativa do openOMSI por API segura;
 4. integração NavBR multiplayer/CCO/empresa dentro da janela do openOMSI;
