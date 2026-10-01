@@ -1,3 +1,4 @@
+using NavBR.Client.PluginInstaller;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.OpenOmsi;
 
@@ -14,19 +15,61 @@ public sealed partial class MultiplayerClientService
         (ExperimentalFeatureFlags.PhysicalVehiclesEnabled &&
          OpenOmsiLanGateway.Shared.IsClientConnected);
 
-    public bool IsRemotePhysicalVehicleSpawned(string playerId) =>
-        _physicalVehicles.IsSpawned(playerId) ||
-        OpenOmsiLanGateway.Shared.HasRemote(playerId);
+    public bool IsRemotePhysicalVehicleSpawned(string playerId)
+    {
+        if (_physicalVehicles.IsSpawned(playerId))
+        {
+            return true;
+        }
+
+        if (!OpenOmsiLanGateway.Shared.TryGetRemoteLanId(
+                playerId,
+                out var lanId))
+        {
+            return false;
+        }
+
+        var runtime =
+            OpenOmsiLanRuntimeStatusReader.Read(
+                OpenOmsiPluginInstallationService
+                    .GetRunningProcessId());
+        return runtime?.IsDrawn(lanId) == true;
+    }
 
     internal RemotePhysicalVehicleStatus GetRemotePhysicalVehicleStatus(
         string playerId)
     {
-        if (OpenOmsiLanGateway.Shared.HasRemote(playerId))
+        if (OpenOmsiLanGateway.Shared.TryGetRemoteLanId(
+                playerId,
+                out var lanId))
         {
+            var runtime =
+                OpenOmsiLanRuntimeStatusReader.Read(
+                    OpenOmsiPluginInstallationService
+                        .GetRunningProcessId());
+            if (runtime?.IsDrawn(lanId) == true)
+            {
+                return new RemotePhysicalVehicleStatus(
+                    "active-openomsi-drawn",
+                    ErrorCode: null,
+                    ErrorMessage: null,
+                    PartCount: null,
+                    ExpectedPartCount: null,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow);
+            }
+
             return new RemotePhysicalVehicleStatus(
-                "active-openomsi",
-                ErrorCode: null,
-                ErrorMessage: null,
+                runtime?.Fresh == true
+                    ? "openomsi-sent-not-drawn"
+                    : "openomsi-sent-unconfirmed",
+                ErrorCode:
+                    runtime?.Fresh == true
+                        ? "openomsi-not-drawn"
+                        : "openomsi-status-unavailable",
+                ErrorMessage:
+                    runtime?.Fresh == true
+                        ? "INFO/STATE foram enviados, mas o openOMSI ainda não confirmou drawn=true para este ônibus."
+                        : "INFO/STATE foram enviados, mas o status LAN oficial do openOMSI ainda não está disponível ou está desatualizado.",
                 PartCount: null,
                 ExpectedPartCount: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow);
