@@ -216,7 +216,8 @@ public static class OpenOmsiLanRuntimeStatusReader
                     return null;
                 }
 
-                bytes = new byte[stream.Length];
+                var length = checked((int)stream.Length);
+                bytes = new byte[length];
                 var offset = 0;
                 while (offset < bytes.Length)
                 {
