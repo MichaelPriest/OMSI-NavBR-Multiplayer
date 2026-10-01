@@ -20,6 +20,8 @@ A DLL é Native AOT x64 para Windows e comunica com o aplicativo NavBR pelo mesm
 Disponível:
 
 - telemetria de velocidade;
+- mapa, posição XYZ e heading via companion Lua oficial do openOMSI;
+- linha/tour, próxima parada, destino, visão, estado on-foot e atraso via `omsi.info()`;
 - pedido de parada;
 - temperatura da cabine;
 - passageiros;
@@ -56,6 +58,7 @@ O plugin é instalado em:
 ```text
 <content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.opl
 <content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.dll
+<content-root>\Plugins\NavBR.OpenOmsi\main.lua
 ```
 
 O `.opl` referencia a DLL a partir da raiz `Plugins`, conforme o carregador do openOMSI.
@@ -73,8 +76,8 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 
 ## Próximas etapas
 
-1. detectar automaticamente o binário e content root do openOMSI no React;
-2. botão Instalar/Atualizar/Remover na tela de Plugins;
-3. telemetria posicional nativa do openOMSI por API segura;
-4. integração NavBR multiplayer/CCO/empresa dentro da janela do openOMSI;
-5. avaliar companion Lua somente para recursos de HUD que façam sentido sem duplicar o bridge nativo.
+1. validar o snapshot Lua em uma sessão real do openOMSI;
+2. transformar o snapshot seguro em telemetria NavBR local para mapa/CCO/navegação;
+3. integrar multiplayer/CCO/empresa dentro da janela do openOMSI;
+4. definir com o upstream uma API de alta frequência para spawn/movimento físico remoto sem offsets;
+5. expandir o HUD in-game sem duplicar o bridge nativo.
