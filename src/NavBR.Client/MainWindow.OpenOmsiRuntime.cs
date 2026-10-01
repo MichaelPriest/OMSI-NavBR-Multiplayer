@@ -13,6 +13,8 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private int? _openOmsiProcessId;
+    private readonly string _openOmsiInstanceId =
+        $"navbr-{Environment.ProcessId}";
     private bool _openOmsiBridgeHooked;
     private string[] _openOmsiVehicleIdentityRoots = [];
     private string? _openOmsiCachedVehiclePath;
