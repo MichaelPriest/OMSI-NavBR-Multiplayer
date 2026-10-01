@@ -20,6 +20,7 @@ public partial class HudOverlayWindow
     private TextBlock? _inGameDispatchText;
     private ComboBox? _inGameRoleplayCombo;
     private Button? _inGameRoleplayButton;
+    private Button? _inGameConnectButton;
     private Button? _inGameAssistanceButton;
     private Button? _inGameIncidentButton;
     private Button? _inGameResolvedButton;
@@ -29,6 +30,7 @@ public partial class HudOverlayWindow
     private bool _inGamePanelOpen;
 
     public event Action? InGamePanelOpened;
+    public event Action? InGameConnectRequested;
     public event Action? InGameAssistanceRequested;
     public event Action? InGameIncidentRequested;
     public event Action? InGameOperationalResolvedRequested;
@@ -134,6 +136,16 @@ public partial class HudOverlayWindow
                 RoleplayButtonRequested?.Invoke();
             });
 
+        _inGameConnectButton = BuildInGameButton(
+            InGameText(
+                "🌐 CONECTAR ONLINE",
+                "🌐 CONNECT ONLINE",
+                "🌐 CONECTAR ONLINE",
+                "🌐 ONLINE VERBINDEN",
+                "🌐 CONNEXION EN LIGNE"),
+            new SolidColorBrush(Color.FromRgb(22, 98, 118)),
+            () => InGameConnectRequested?.Invoke());
+
         _inGameAssistanceButton = BuildInGameButton(
             InGameText(
                 "PEDIR APOIO CCO",
@@ -210,6 +222,7 @@ public partial class HudOverlayWindow
 
         actionGrid.Children.Add(chatButton);
         actionGrid.Children.Add(_inGameRoleplayButton);
+        actionGrid.Children.Add(_inGameConnectButton);
         actionGrid.Children.Add(_inGameAssistanceButton);
         actionGrid.Children.Add(_inGameIncidentButton);
         actionGrid.Children.Add(_inGameResolvedButton);
@@ -355,6 +368,24 @@ public partial class HudOverlayWindow
                   operationalReport.Status != OperationalReportStatus.Resolved
                     ? new SolidColorBrush(Color.FromRgb(237, 184, 75))
                     : new SolidColorBrush(Color.FromRgb(82, 215, 145));
+        }
+
+        if (_inGameConnectButton is not null)
+        {
+            _inGameConnectButton.Content = connected
+                ? InGameText(
+                    "✓ ONLINE CONECTADO",
+                    "✓ ONLINE CONNECTED",
+                    "✓ ONLINE CONECTADO",
+                    "✓ ONLINE VERBUNDEN",
+                    "✓ EN LIGNE CONNECTÉ")
+                : InGameText(
+                    "🌐 CONECTAR ONLINE",
+                    "🌐 CONNECT ONLINE",
+                    "🌐 CONECTAR ONLINE",
+                    "🌐 ONLINE VERBINDEN",
+                    "🌐 CONNEXION EN LIGNE");
+            _inGameConnectButton.IsEnabled = !connected;
         }
 
         if (_inGameAssistanceButton is not null)
