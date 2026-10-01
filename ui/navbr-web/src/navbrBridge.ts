@@ -506,7 +506,7 @@ export interface NavBrSystemState {
     vehicleControlsAvailable: boolean;
   };
   pluginInstallation: {
-    state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
+    state: "missing" | "partial" | "outdated" | "installed" | "ready" | "untracked" | "unknown" | "error";
     requiredFilesFound: number;
     requiredFilesTotal: number;
     verifiedFiles: number;
@@ -525,6 +525,26 @@ export interface NavBrSystemState {
     message?: string | null;
     files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
     omsiRunning: boolean;
+  };
+  openOmsiPlugin: {
+    state: "package-missing" | "openomsi-not-found" | "missing" | "partial" | "outdated" | "ready" | "error";
+    executablePath?: string | null;
+    contentRoot?: string | null;
+    pluginDirectory?: string | null;
+    embeddedPackageAvailable: boolean;
+    installAvailable: boolean;
+    installBlockReason?: "package-missing" | "openomsi-not-found" | "openomsi-running" | null;
+    verificationAvailable: boolean;
+    updateRequired: boolean;
+    expectedVersion?: string | null;
+    installedVersion?: string | null;
+    requiredFilesFound: number;
+    requiredFilesTotal: number;
+    verifiedFiles: number;
+    checkedAtUtc: string;
+    message?: string | null;
+    files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
+    running: boolean;
   };
   installations: NavBrOmsiInstallation[];
   hud: NavBrHudState;
@@ -984,6 +1004,10 @@ export type NavBrCommand =
   | "cancelDriverProfileImport"
   | "verifyOmsiPlugin"
   | "installOmsiPlugin"
+  | "selectOpenOmsiExecutable"
+  | "verifyOpenOmsiPlugin"
+  | "installOpenOmsiPlugin"
+  | "removeOpenOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
   | "selectOmsiExecutable"
