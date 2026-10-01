@@ -402,6 +402,26 @@ jobs:
           Remove-Item $fakeOpenOmsi -Recurse -Force
           Write-Host "openOMSI plugin install/remove smoke passed."
 
+      - name: Package NavBR as openOMSI launcher mod
+        shell: pwsh
+        run: |
+          $modRoot = "artifacts/NavBR.OpenOmsiMod"
+          $pluginRoot = Join-Path $modRoot "plugins\NavBR.OpenOmsi"
+          if (Test-Path $modRoot) { Remove-Item $modRoot -Recurse -Force }
+          New-Item -ItemType Directory -Path $pluginRoot -Force | Out-Null
+
+          Copy-Item "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.dll" $pluginRoot -Force
+          Copy-Item "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl" $pluginRoot -Force
+          Copy-Item "artifacts/NavBR.OpenOmsiPlugin/README.md" (Join-Path $pluginRoot "README-NavBR-openOMSI.md") -Force
+
+          $zip = "artifacts/OMSI-NavBR-OpenOMSI-Plugin-win-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $modRoot "*") -DestinationPath $zip -CompressionLevel Optimal
+
+          if (-not (Test-Path $zip)) {
+            throw "openOMSI NavBR mod ZIP was not generated."
+          }
+
       - name: Prepare embedded OMSI plugin payload
         shell: pwsh
         run: >-
@@ -757,7 +777,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OMSI-NavBR-OpenOMSI-Plugin-win-x64
-          path: artifacts/NavBR.OpenOmsiPlugin
+          path: |
+            artifacts/NavBR.OpenOmsiPlugin
+            artifacts/OMSI-NavBR-OpenOMSI-Plugin-win-x64.zip
           if-no-files-found: error
           retention-days: 14
 
