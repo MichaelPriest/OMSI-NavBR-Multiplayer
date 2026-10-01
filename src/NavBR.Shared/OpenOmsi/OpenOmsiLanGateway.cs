@@ -13,6 +13,7 @@ public sealed record OpenOmsiLanGatewayRemoteStatus(
     ushort LanId,
     string? Name,
     string? VehiclePath,
+    string? ExpectedVehicleCompatibilityId,
     bool HasInfo,
     bool HasState,
     DateTimeOffset LastSeenUtc);
@@ -266,6 +267,9 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                 remote.LastState = state;
                 remote.LastName = frame.Player.DisplayName;
                 remote.LastVehiclePath = info.VehiclePath;
+                remote.ExpectedVehicleCompatibilityId =
+                    frame.Telemetry.VehicleCompatibilityId ??
+                    frame.Player.Compatibility?.VehicleCompatibilityId;
                 remote.LastSeenUtc = DateTimeOffset.UtcNow;
             }
         }
@@ -1396,6 +1400,7 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                     remote.Id,
                     EmptyToNull(remote.LastName),
                     EmptyToNull(remote.LastVehiclePath),
+                    EmptyToNull(remote.ExpectedVehicleCompatibilityId),
                     remote.LastInfo is not null,
                     remote.LastState is not null,
                     remote.LastSeenUtc))
@@ -1584,6 +1589,8 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         public string? LastName { get; set; }
 
         public string? LastVehiclePath { get; set; }
+
+        public string? ExpectedVehicleCompatibilityId { get; set; }
 
         public string? LastInfo { get; set; }
 
