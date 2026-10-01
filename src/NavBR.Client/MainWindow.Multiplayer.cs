@@ -209,6 +209,7 @@ public partial class MainWindow
         hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
         hud.InGameDispatchAcknowledgeRequested += HandleHudInGameDispatchAcknowledgeRequested;
         hud.InGameDispatchResolveRequested += HandleHudInGameDispatchResolveRequested;
+        hud.InGameRoleplaySelectionRequested += HandleHudInGameRoleplaySelectionRequestedForShell;
         var processId = _currentOmsi?.ProcessId;
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -223,6 +224,7 @@ public partial class MainWindow
             hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
             hud.InGameDispatchAcknowledgeRequested -= HandleHudInGameDispatchAcknowledgeRequested;
             hud.InGameDispatchResolveRequested -= HandleHudInGameDispatchResolveRequested;
+            hud.InGameRoleplaySelectionRequested -= HandleHudInGameRoleplaySelectionRequestedForShell;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -321,6 +323,7 @@ public partial class MainWindow
         // It must never require the React window to have been opened first.
         OpenMultiplayerCentralForShell(showWindow: false);
         UpdateHudInGamePanelState();
+        UpdateHudInGameRoleplayOptionsForShell();
     }
 
     private async void HandleHudInGameAssistanceRequested()
