@@ -119,6 +119,107 @@ public sealed class OmsiMapCatalog
         return (null, null);
     }
 
+    internal static string? TryFingerprintInstalledMap(
+        string? contentRoot,
+        string? mapNameOrPath)
+    {
+        if (string.IsNullOrWhiteSpace(contentRoot) ||
+            string.IsNullOrWhiteSpace(mapNameOrPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var root = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(contentRoot));
+            var mapsRoot = Path.Combine(root, "maps");
+            var mapsRootPrefix =
+                Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(mapsRoot)) +
+                Path.DirectorySeparatorChar;
+
+            var value = mapNameOrPath.Trim()
+                .Replace('\\', '/')
+                .Trim('/');
+            if (value.StartsWith(
+                    "maps/",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[5..];
+            }
+
+            if (value.EndsWith(
+                    "/global.cfg",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[..^11];
+            }
+
+            if (string.IsNullOrWhiteSpace(value) ||
+                value.Contains(':') ||
+                value.Split('/').Any(part =>
+                    string.IsNullOrWhiteSpace(part) ||
+                    part is "." or ".."))
+            {
+                return null;
+            }
+
+            var mapDirectory = Path.GetFullPath(
+                Path.Combine(
+                    mapsRoot,
+                    value.Replace(
+                        '/',
+                        Path.DirectorySeparatorChar)));
+            var directoryPrefix =
+                Path.TrimEndingDirectorySeparator(mapDirectory) +
+                Path.DirectorySeparatorChar;
+            if (!directoryPrefix.StartsWith(
+                    mapsRootPrefix,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var globalCfg =
+                Path.Combine(mapDirectory, "global.cfg");
+            if (!File.Exists(globalCfg))
+            {
+                return null;
+            }
+
+            var tileFiles = Directory
+                .EnumerateFiles(
+                    mapDirectory,
+                    "tile_*.map",
+                    SearchOption.TopDirectoryOnly)
+                .OrderBy(
+                    path => Path.GetFileName(path),
+                    StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            return TryBuildCompatibilityId(
+                globalCfg,
+                tileFiles);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private static string? TryBuildCompatibilityId(string globalCfg, IReadOnlyList<string> tileFiles)
     {
         try
