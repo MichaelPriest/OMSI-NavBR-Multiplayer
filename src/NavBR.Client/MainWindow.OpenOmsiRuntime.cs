@@ -19,6 +19,9 @@ public partial class MainWindow
     private string[] _openOmsiVehicleIdentityRoots = [];
     private string? _openOmsiCachedVehiclePath;
     private string? _openOmsiCachedVehicleCompatibilityId;
+    private readonly Dictionary<string, string?>
+        _openOmsiVehicleFingerprintCache =
+            new(StringComparer.OrdinalIgnoreCase);
     private string? _openOmsiCachedMapReference;
     private string? _openOmsiCachedMapCompatibilityId;
 
@@ -85,36 +88,13 @@ public partial class MainWindow
         {
             var normalizedVehiclePath =
                 result.VehiclePath.Trim();
-            var cachedVehiclePathMatches =
-                string.Equals(
-                    _openOmsiCachedVehiclePath,
-                    normalizedVehiclePath,
-                    StringComparison.OrdinalIgnoreCase);
             var compatibilityId =
-                cachedVehiclePathMatches
-                    ? _openOmsiCachedVehicleCompatibilityId
-                    : null;
-
-            if (!cachedVehiclePathMatches)
-            {
-                foreach (var root in _openOmsiVehicleIdentityRoots)
-                {
-                    compatibilityId =
-                        OmsiVehicleIdentityReader
-                            .TryFingerprintInstalledVehicle(
-                                root,
-                                normalizedVehiclePath);
-                    if (!string.IsNullOrWhiteSpace(compatibilityId))
-                    {
-                        break;
-                    }
-                }
-
-                _openOmsiCachedVehiclePath =
-                    normalizedVehiclePath;
-                _openOmsiCachedVehicleCompatibilityId =
-                    compatibilityId;
-            }
+                ResolveOpenOmsiVehicleCompatibilityId(
+                    normalizedVehiclePath);
+            _openOmsiCachedVehiclePath =
+                normalizedVehiclePath;
+            _openOmsiCachedVehicleCompatibilityId =
+                compatibilityId;
 
             if (!string.IsNullOrWhiteSpace(compatibilityId))
             {
@@ -173,6 +153,42 @@ public partial class MainWindow
         return result;
     }
 
+    private string? ResolveOpenOmsiVehicleCompatibilityId(
+        string? vehiclePath)
+    {
+        var normalized =
+            vehiclePath?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        if (_openOmsiVehicleFingerprintCache.TryGetValue(
+                normalized,
+                out var cached))
+        {
+            return cached;
+        }
+
+        string? compatibilityId = null;
+        foreach (var root in _openOmsiVehicleIdentityRoots)
+        {
+            compatibilityId =
+                OmsiVehicleIdentityReader
+                    .TryFingerprintInstalledVehicle(
+                        root,
+                        normalized);
+            if (!string.IsNullOrWhiteSpace(compatibilityId))
+            {
+                break;
+            }
+        }
+
+        _openOmsiVehicleFingerprintCache[normalized] =
+            compatibilityId;
+        return compatibilityId;
+    }
+
     private void RefreshOpenOmsiVehicleIdentityRoots()
     {
         try
@@ -225,6 +241,7 @@ public partial class MainWindow
     {
         _openOmsiCachedVehiclePath = null;
         _openOmsiCachedVehicleCompatibilityId = null;
+        _openOmsiVehicleFingerprintCache.Clear();
         _openOmsiCachedMapReference = null;
         _openOmsiCachedMapCompatibilityId = null;
     }
