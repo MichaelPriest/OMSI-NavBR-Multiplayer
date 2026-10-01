@@ -555,6 +555,13 @@ export interface NavBrSystemState {
     map?: string | null;
     vehiclePath?: string | null;
     remotePlayers: number;
+    localStateFrames: number;
+    lastLocalStateSequence?: number | null;
+    localStateRateHz?: number | null;
+    lastLocalStateUtc?: string | null;
+    localStateAgeMilliseconds?: number | null;
+    vehicleIdentityReady: boolean;
+    vehicleCompatibilityId?: string | null;
     lastClientPacketUtc?: string | null;
     lastError?: string | null;
   } | null;
