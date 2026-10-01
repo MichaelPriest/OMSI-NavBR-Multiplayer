@@ -1,6 +1,6 @@
 #define MyAppName "OMSI NavBR Multiplayer"
 #define MyAppPublisher "NavBR"
-#define MyAppExeName "OMSI.NavBR.Multiplayer.WinUI.exe"
+#define MyAppExeName "OMSI.NavBR.Multiplayer.exe"
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.3.0-alpha.16"
@@ -28,12 +28,12 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 VersionInfoVersion=0.3.0.0
 VersionInfoProductName={#MyAppName}
-VersionInfoDescription=NavBR WinUI 3 x64 operations platform with OMSI x86 runtime host
+VersionInfoDescription=NavBR React/WebView2 desktop interface with native OMSI x86 integration
 DefaultDirName={localappdata}\Programs\OMSI NavBR Multiplayer
 DefaultGroupName=OMSI NavBR Multiplayer
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=OMSI-NavBR-Multiplayer-{#MyAppVersion}-Setup-win-x64
+OutputBaseFilename=OMSI-NavBR-Multiplayer-{#MyAppVersion}-Setup-React-win-x86
 SetupIconFile={#SetupIcon}
 Compression=lzma2
 SolidCompression=yes
