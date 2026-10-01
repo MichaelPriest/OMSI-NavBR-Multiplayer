@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/NavBR.Server/**'
       - 'src/NavBR.Shared/**'
+      - 'src/NavBR.ServerPresenceSmokeTest/**'
       - 'Directory.Build.props'
       - 'Dockerfile.render'
       - '.dockerignore'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'src/NavBR.Server/**'
       - 'src/NavBR.Shared/**'
+      - 'src/NavBR.ServerPresenceSmokeTest/**'
       - 'Directory.Build.props'
       - 'Dockerfile.render'
       - '.dockerignore'
@@ -26,6 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Smoke-test live multiplayer presence identity
+        run: dotnet run --project src/NavBR.ServerPresenceSmokeTest/NavBR.ServerPresenceSmokeTest.csproj -c Release
 
       - name: Build Render Docker image
         run: docker build -f Dockerfile.render -t navbr-render-server .
