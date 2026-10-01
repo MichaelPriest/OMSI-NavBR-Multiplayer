@@ -16,6 +16,10 @@ public sealed record OpenOmsiLanGatewayStatus(
     string? Map,
     string? VehiclePath,
     int RemotePlayers,
+    long LocalStateFrames,
+    ushort? LastLocalStateSequence,
+    double? LocalStateRateHz,
+    DateTimeOffset? LastLocalStateUtc,
     DateTimeOffset? LastClientPacketUtc,
     string? LastError);
 
@@ -41,6 +45,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         new(string.Empty, string.Empty, 0d, string.Empty, string.Empty);
     private OpenOmsiLanVehicleInfo? _localInfo;
     private VehicleTelemetry? _latestLocalTelemetry;
+    private long _localStateFrames;
+    private ushort? _lastLocalStateSequence;
+    private double? _localStateRateHz;
+    private DateTimeOffset? _lastLocalStateUtc;
     private DateTimeOffset? _lastClientPacketUtc;
     private string? _lastError;
     private ushort _nextRemoteId = 3;
@@ -121,6 +129,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
 
             _session = CreateSessionId();
             _startedTickMs = Environment.TickCount64;
+            _localStateFrames = 0;
+            _lastLocalStateSequence = null;
+            _localStateRateHz = null;
+            _lastLocalStateUtc = null;
             _lastError = null;
             _udp = BindLoopback();
             _cts = new CancellationTokenSource();
@@ -314,6 +326,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             _udp = null;
             _clientEndpoint = null;
             _latestLocalTelemetry = null;
+            _localStateFrames = 0;
+            _lastLocalStateSequence = null;
+            _localStateRateHz = null;
+            _lastLocalStateUtc = null;
             _remotes.Clear();
         }
 
@@ -595,6 +611,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
                     : hello.Name;
                 _world = hello.World;
                 _lastClientPacketUtc = DateTimeOffset.UtcNow;
+                _localStateFrames = 0;
+                _lastLocalStateSequence = null;
+                _localStateRateHz = null;
+                _lastLocalStateUtc = null;
                 _lastError = null;
 
                 if (!string.IsNullOrWhiteSpace(hello.VehiclePath))
@@ -688,7 +708,33 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
         VehicleTelemetry telemetry;
         lock (_sync)
         {
-            _lastClientPacketUtc = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow;
+            if (_lastLocalStateUtc is DateTimeOffset previousStateUtc)
+            {
+                var seconds =
+                    (now - previousStateUtc).TotalSeconds;
+                if (double.IsFinite(seconds) &&
+                    seconds is > 0.001d and < 5d)
+                {
+                    var instantaneousHz =
+                        Math.Clamp(1d / seconds, 0d, 240d);
+                    _localStateRateHz =
+                        _localStateRateHz is double currentRate &&
+                        double.IsFinite(currentRate)
+                            ? currentRate +
+                              (instantaneousHz - currentRate) * 0.18d
+                            : instantaneousHz;
+                }
+                else
+                {
+                    _localStateRateHz = null;
+                }
+            }
+
+            _localStateFrames++;
+            _lastLocalStateSequence = state.Sequence;
+            _lastLocalStateUtc = now;
+            _lastClientPacketUtc = now;
             telemetry = BuildLocalTelemetry(state);
             _latestLocalTelemetry = telemetry;
         }
@@ -1235,6 +1281,10 @@ public sealed class OpenOmsiLanGateway : IAsyncDisposable
             EmptyToNull(_world.Map),
             _localInfo?.VehiclePath,
             _remotes.Count,
+            _localStateFrames,
+            _lastLocalStateSequence,
+            _localStateRateHz,
+            _lastLocalStateUtc,
             _lastClientPacketUtc,
             _lastError);
 
