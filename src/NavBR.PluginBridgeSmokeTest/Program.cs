@@ -92,6 +92,78 @@ finally
     Directory.Delete(fingerprintRoot, recursive: true);
 }
 
+var openOmsiInstallerType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
+        throwOnError: true)!;
+var resolveInstalledVehicle =
+    openOmsiInstallerType.GetMethod(
+        "ResolveInstalledVehicleFile",
+        BindingFlags.Public |
+        BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "openOMSI installed vehicle resolver not found");
+var assetRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-asset-" +
+    Guid.NewGuid().ToString("N"));
+var assetRelative = Path.Combine(
+    "Vehicles",
+    "NavBR_Smoke",
+    "Smoke.bus");
+var assetPath = Path.Combine(
+    assetRoot,
+    assetRelative);
+Directory.CreateDirectory(
+    Path.GetDirectoryName(assetPath)!);
+File.WriteAllText(
+    assetPath,
+    "[friendlyname]\r\nNavBR Asset Smoke\r\n");
+var previousOmsiRoot =
+    Environment.GetEnvironmentVariable("OMSI_ROOT");
+try
+{
+    Environment.SetEnvironmentVariable(
+        "OMSI_ROOT",
+        assetRoot);
+
+    var resolvedAsset = (string?)resolveInstalledVehicle.Invoke(
+        null,
+        [
+            assetRelative.Replace('\\', '/'),
+            null
+        ]);
+    Require(
+        string.Equals(
+            Path.GetFullPath(resolvedAsset ?? string.Empty),
+            Path.GetFullPath(assetPath),
+            StringComparison.OrdinalIgnoreCase),
+        "openOMSI content-root vehicle resolver did not find an installed .bus.");
+
+    var escapedAsset = (string?)resolveInstalledVehicle.Invoke(
+        null,
+        [@"..\outside.bus", null]);
+    Require(
+        escapedAsset is null,
+        "openOMSI content-root vehicle resolver accepted path traversal.");
+
+    var invalidAsset = (string?)resolveInstalledVehicle.Invoke(
+        null,
+        [@"Vehicles\NavBR_Smoke\Smoke.cfg", null]);
+    Require(
+        invalidAsset is null,
+        "openOMSI content-root vehicle resolver accepted a non-vehicle extension.");
+}
+finally
+{
+    Environment.SetEnvironmentVariable(
+        "OMSI_ROOT",
+        previousOmsiRoot);
+    Directory.Delete(
+        assetRoot,
+        recursive: true);
+}
+
 var mapCatalogType =
     typeof(NavBR.Client.Maps.OmsiMapCatalog);
 var fingerprintMap = mapCatalogType
