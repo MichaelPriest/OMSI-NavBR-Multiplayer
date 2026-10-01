@@ -3325,7 +3325,7 @@ function Settings({
                   <div className="plugin-file-verification">
                     {system.openOmsiLanGateway.clientName && (
                       <span className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}>
-                        <NavBrIcon name="person" size={13} />
+                        <NavBrIcon name="multiplayer" size={13} />
                         {system.openOmsiLanGateway.clientName}
                       </span>
                     )}
