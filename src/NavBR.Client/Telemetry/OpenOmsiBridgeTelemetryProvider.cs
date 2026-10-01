@@ -74,39 +74,25 @@ internal static class OpenOmsiBridgeTelemetryProvider
 
         return new VehicleTelemetry(
             playerId,
+            capturedAt.Value,
             status.MapName.Trim(),
+            TrimOrNull(status.VehicleName),
+            TrimOrNull(status.Line ?? status.IbisLineCourse),
+            TrimOrNull(status.Route ?? status.IbisRouteCode),
             x,
             y,
             z,
             normalizedHeading,
             speed,
-            capturedAt.Value,
             status.IsInGame ?? true,
-            VehicleName: TrimOrNull(status.VehicleName),
-            Line: TrimOrNull(status.Line ?? status.IbisLineCourse),
-            Route: TrimOrNull(status.Route ?? status.IbisRouteCode),
             NextStopName: TrimOrNull(status.NextStopName),
             DestinationName: TrimOrNull(
                 status.DestinationName ?? status.IbisTerminusName),
             DelaySeconds: status.DelaySeconds,
-            StopRequested: status.StopRequested,
-            CabinTemperatureC: FiniteOrNull(status.CabinTemperatureC),
-            PassengerCount: status.PassengerCount,
-            ScheduleActive: status.ScheduleActive,
-            SimulationTime: FiniteOrNull(status.SimulationTime),
-            SimulationDay: status.SimulationDay,
-            SimulationMonth: status.SimulationMonth,
-            SimulationYear: status.SimulationYear,
-            SimulationPaused: status.SimulationPaused,
-            IbisLineCourse: TrimOrNull(status.IbisLineCourse),
-            IbisRouteCode: TrimOrNull(status.IbisRouteCode),
-            IbisTerminusName: TrimOrNull(status.IbisTerminusName),
-            IbisDelayMinutes: TrimOrNull(status.IbisDelayMinutes),
-            IbisDelaySeconds: TrimOrNull(status.IbisDelaySeconds),
-            IbisDelayState: TrimOrNull(status.IbisDelayState),
             LocalX: x,
             LocalY: y,
             LocalZ: z,
+            StopRequested: status.StopRequested == true,
             SourceTimestampUnixMilliseconds:
                 status.TimestampUnixMilliseconds);
     }
@@ -134,11 +120,6 @@ internal static class OpenOmsiBridgeTelemetryProvider
             return null;
         }
     }
-
-    private static double? FiniteOrNull(double? value) =>
-        value is double number && double.IsFinite(number)
-            ? number
-            : null;
 
     private static string? TrimOrNull(string? value) =>
         string.IsNullOrWhiteSpace(value)
