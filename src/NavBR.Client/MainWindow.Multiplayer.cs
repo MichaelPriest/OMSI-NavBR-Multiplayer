@@ -6,6 +6,8 @@ using NavBR.Client.Multiplayer;
 using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
+using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client;
 
@@ -290,12 +292,24 @@ public partial class MainWindow
         }
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
-        _hudOverlay.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
 
-        var pluginStatus = (System.Windows.Application.Current as App)?
+        var pluginConnection = (System.Windows.Application.Current as App)?
             .PluginBridge
-            .GetConnectionInfo()
-            .LastStatus;
+            .GetConnectionInfo();
+        var pluginStatus = pluginConnection?.LastStatus;
+        var openOmsiRuntime =
+            OpenOmsiLanGateway.Shared.IsClientConnected ||
+            pluginStatus?.Capabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true;
+
+        // openOMSI does not currently expose a public camera projection matrix.
+        // Clear any stale OMSI 2 matrix instead of projecting 3D nameplates
+        // against the wrong simulator. 2D HUD/minimap surfaces remain active.
+        _hudOverlay.UpdateCameraProjection(
+            openOmsiRuntime
+                ? null
+                : _telemetryProvider.ReadCameraProjection());
         var averageFrameIntervalMs =
             pluginStatus?.PluginAverageFrameIntervalMilliseconds;
         double? fps =
@@ -422,10 +436,58 @@ public partial class MainWindow
                 .FirstOrDefault()
             : null;
 
+        var pluginConnection = (System.Windows.Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo();
+        var pluginStatus = pluginConnection?.LastStatus;
+        var gateway = OpenOmsiLanGateway.Shared.GetStatus();
+        var openOmsiRuntime =
+            gateway.ClientConnected ||
+            pluginStatus?.Capabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true;
+
+        string runtimeStatus;
+        bool runtimeHealthy;
+        if (openOmsiRuntime)
+        {
+            var streamState = !gateway.ClientConnected
+                ? "WAITING"
+                : gateway.LocalStateFrames > 0
+                    ? "STREAMING"
+                    : "LINKED";
+            var rate = gateway.LocalStateRateHz is double hz &&
+                       double.IsFinite(hz)
+                ? $" • {hz:F1} Hz"
+                : string.Empty;
+            var identity = !string.IsNullOrWhiteSpace(
+                    _lastTelemetry?.VehicleCompatibilityId)
+                ? " • SHA OK"
+                : " • SHA PENDING";
+
+            runtimeStatus =
+                $"RUNTIME • openOMSI • {streamState}{rate} • REMOTOS {gateway.RemotePlayers}{identity}";
+            runtimeHealthy =
+                gateway.ClientConnected &&
+                gateway.LocalStateFrames > 0;
+        }
+        else
+        {
+            var pluginConnected = pluginConnection?.IsConnected == true;
+            var physicalCount =
+                pluginStatus?.RemoteVehicleCount ?? 0;
+            runtimeStatus = pluginConnected
+                ? $"RUNTIME • OMSI 2 • PLUGIN X86 • FÍSICOS {physicalCount}"
+                : "RUNTIME • OMSI 2 • PLUGIN OFFLINE";
+            runtimeHealthy = pluginConnected;
+        }
+
         _hudOverlay.UpdateInGamePanelState(
             connected: multiplayer?.IsConnected == true,
             roomId: multiplayer?.CurrentRoomId,
             displayName: multiplayer?.CurrentDisplayName,
+            runtimeStatus: runtimeStatus,
+            runtimeHealthy: runtimeHealthy,
             operationalReport: multiplayer?.CurrentOwnOperationalReportForShell,
             companyLabel: companyLabel,
             canManageDispatch: canManageDispatch,
