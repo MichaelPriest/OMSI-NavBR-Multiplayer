@@ -164,6 +164,96 @@ finally
         recursive: true);
 }
 
+var multiRootResolverType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.OpenOmsiRemoteVehicleAssetResolver",
+        throwOnError: true)!;
+var multiRootResolve = multiRootResolverType.GetMethod(
+    "ResolveAsync",
+    BindingFlags.Public | BindingFlags.Instance)
+    ?? throw new InvalidOperationException(
+        "openOMSI multi-root SHA vehicle resolver not found");
+var multiRootA = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-multi-a-" +
+    Guid.NewGuid().ToString("N"));
+var multiRootB = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-multi-b-" +
+    Guid.NewGuid().ToString("N"));
+var reportedRelative =
+    Path.Combine("Vehicles", "RemotePack", "Remote.bus");
+var relocatedRelative =
+    Path.Combine("Vehicles", "LocalPack", "RenamedRemote.bus");
+var wrongPath = Path.Combine(
+    multiRootA,
+    reportedRelative);
+var correctPath = Path.Combine(
+    multiRootB,
+    relocatedRelative);
+Directory.CreateDirectory(
+    Path.GetDirectoryName(wrongPath)!);
+Directory.CreateDirectory(
+    Path.GetDirectoryName(correctPath)!);
+var wrongBytes = Encoding.UTF8.GetBytes(
+    "[friendlyname]\r\nWrong local content\r\n");
+var correctBytes = Encoding.UTF8.GetBytes(
+    "[friendlyname]\r\nSame remote content under another path\r\n");
+File.WriteAllBytes(wrongPath, wrongBytes);
+File.WriteAllBytes(correctPath, correctBytes);
+try
+{
+    var expectedRemoteFingerprint =
+        "sha256:" +
+        Convert.ToHexString(
+            SHA256.HashData(correctBytes))
+        .ToLowerInvariant();
+    Func<IReadOnlyList<string>> rootsSource =
+        () => new[] { multiRootA, multiRootB };
+    var resolver = Activator.CreateInstance(
+        multiRootResolverType,
+        rootsSource)
+        ?? throw new InvalidOperationException(
+            "openOMSI multi-root SHA resolver could not be created");
+
+    var resolveTask = multiRootResolve.Invoke(
+        resolver,
+        [
+            reportedRelative,
+            expectedRemoteFingerprint,
+            CancellationToken.None
+        ]) as Task<string?>
+        ?? throw new InvalidOperationException(
+            "openOMSI multi-root SHA resolver did not return Task<string?>");
+    var resolvedRemotePath = await resolveTask;
+    Require(
+        string.Equals(
+            resolvedRemotePath,
+            relocatedRelative.Replace('/', '\\'),
+            StringComparison.OrdinalIgnoreCase),
+        $"openOMSI SHA resolver did not relocate the remote vehicle. Got '{resolvedRemotePath}'.");
+
+    var mismatchedFingerprint =
+        "sha256:" + new string('0', 64);
+    var mismatchTask = multiRootResolve.Invoke(
+        resolver,
+        [
+            reportedRelative,
+            mismatchedFingerprint,
+            CancellationToken.None
+        ]) as Task<string?>
+        ?? throw new InvalidOperationException(
+            "openOMSI multi-root mismatch resolver did not return Task<string?>");
+    Require(
+        await mismatchTask is null,
+        "openOMSI SHA resolver accepted a locally different vehicle definition");
+}
+finally
+{
+    Directory.Delete(multiRootA, recursive: true);
+    Directory.Delete(multiRootB, recursive: true);
+}
+
 var mapCatalogType =
     typeof(NavBR.Client.Maps.OmsiMapCatalog);
 var fingerprintMap = mapCatalogType
