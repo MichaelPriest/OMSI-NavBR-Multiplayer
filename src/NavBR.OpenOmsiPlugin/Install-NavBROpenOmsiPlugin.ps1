@@ -21,7 +21,8 @@ $target = Join-Path $pluginsRoot "NavBR.OpenOmsi"
 $manifest = Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt"
 $files = @(
     "NavBR.OpenOmsiPlugin.dll",
-    "NavBR.OpenOmsiPlugin.opl"
+    "NavBR.OpenOmsiPlugin.opl",
+    "main.lua"
 )
 
 foreach ($file in $files) {
@@ -49,7 +50,8 @@ foreach ($file in $files) {
     "# Instalado em: $([DateTimeOffset]::Now.ToString('O'))",
     "# Deployment: Native AOT win-x64 + standard OMSI .opl ABI",
     "NavBR.OpenOmsiPlugin.dll",
-    "NavBR.OpenOmsiPlugin.opl"
+    "NavBR.OpenOmsiPlugin.opl",
+    "main.lua"
 ) | Set-Content -LiteralPath $manifest -Encoding UTF8
 
 Write-Host "NavBR for openOMSI instalado em: $target"
