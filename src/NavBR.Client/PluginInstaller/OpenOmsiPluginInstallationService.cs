@@ -538,18 +538,30 @@ internal static class OpenOmsiPluginInstallationService
     }
 
     public static bool IsOpenOmsiRunning() =>
-        Process.GetProcessesByName("openomsi")
-            .Any(process =>
+        GetRunningProcessId() is not null;
+
+    public static int? GetRunningProcessId()
+    {
+        foreach (var process in Process.GetProcessesByName("openomsi"))
+        {
+            try
             {
-                try
+                if (!process.HasExited)
                 {
-                    return !process.HasExited;
+                    return process.Id;
                 }
-                finally
-                {
-                    process.Dispose();
-                }
-            });
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return null;
+    }
 
     public static void SavePreferredExecutable(string executablePath)
     {
