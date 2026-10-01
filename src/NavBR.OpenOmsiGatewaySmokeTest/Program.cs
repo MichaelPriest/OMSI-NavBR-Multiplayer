@@ -692,6 +692,8 @@ try
               "bus": "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
               "line": "76",
               "destination": "Rathaus Spandau",
+              "passengers": 23,
+              "where": "35 m ahead",
               "drawn": true
             },
             {
@@ -700,6 +702,8 @@ try
               "bus": "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
               "line": "77",
               "destination": "Bahnhof",
+              "passengers": 4,
+              "where": "1.2 km behind",
               "drawn": false
             }
           ]
@@ -716,10 +720,29 @@ try
     Require(runtimeStatus.Map == "maps/Grundorf/global.cfg", "openOMSI LAN runtime map mismatch.");
     Require(runtimeStatus.IsDrawn(7), "drawn=true peer was not confirmed.");
     Require(!runtimeStatus.IsDrawn(8), "drawn=false peer was incorrectly confirmed.");
+    var drawnPeer =
+        runtimeStatus.Players.Single(
+            player => player.Id == 7);
     Require(
-        runtimeStatus.Players.Single(player => player.Id == 7).Bus ==
+        drawnPeer.Bus ==
             "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
         "openOMSI LAN runtime bus path mismatch.");
+    Require(
+        drawnPeer.PassengerCount == 23,
+        "openOMSI LAN runtime passenger count mismatch.");
+    Require(
+        drawnPeer.RelativePosition == "35 m ahead",
+        "openOMSI LAN runtime relative-position text mismatch.");
+
+    var waitingPeer =
+        runtimeStatus.Players.Single(
+            player => player.Id == 8);
+    Require(
+        waitingPeer.PassengerCount == 4,
+        "drawn=false peer passenger count mismatch.");
+    Require(
+        waitingPeer.RelativePosition == "1.2 km behind",
+        "drawn=false peer relative-position text mismatch.");
 
     var stalePath = Path.Combine(
         lanStatusDirectory,
