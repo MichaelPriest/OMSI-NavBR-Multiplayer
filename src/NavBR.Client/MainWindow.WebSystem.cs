@@ -128,6 +128,7 @@ public partial class MainWindow
                 mobileCompanion = (object?)null,
                 pluginInstallation = (object?)null,
                 openOmsiPlugin = (object?)null,
+                openOmsiLanGateway = (object?)null,
                 installations = (object?)null,
                 hud = (object?)null,
                 diagnostics = (object?)null,
@@ -148,6 +149,8 @@ public partial class MainWindow
             OpenOmsiPluginInstallationService.Verify();
         var openOmsiRunning =
             OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
+        var openOmsiLanGateway =
+            OpenOmsiLanGateway.Shared.GetStatus();
         var openOmsiInstallBlockReason =
             !OpenOmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
@@ -249,6 +252,21 @@ public partial class MainWindow
                     hashMatches = file.HashMatches
                 }).ToArray(),
                 running = openOmsiRunning
+            },
+            openOmsiLanGateway = new
+            {
+                running = openOmsiLanGateway.Running,
+                port = openOmsiLanGateway.Port,
+                joinTarget = openOmsiLanGateway.Port is int gatewayPort
+                    ? $"127.0.0.1:{gatewayPort}"
+                    : null,
+                clientConnected = openOmsiLanGateway.ClientConnected,
+                clientName = openOmsiLanGateway.ClientName,
+                map = openOmsiLanGateway.Map,
+                vehiclePath = openOmsiLanGateway.VehiclePath,
+                remotePlayers = openOmsiLanGateway.RemotePlayers,
+                lastClientPacketUtc = openOmsiLanGateway.LastClientPacketUtc,
+                lastError = openOmsiLanGateway.LastError
             },
             installations = profiles
                 .Select(profile => new
