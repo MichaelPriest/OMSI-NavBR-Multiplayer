@@ -203,6 +203,10 @@ public partial class MainWindow
 
         var hud = new HudOverlayWindow();
         hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
+        hud.InGamePanelOpened += HandleHudInGamePanelOpened;
+        hud.InGameAssistanceRequested += HandleHudInGameAssistanceRequested;
+        hud.InGameIncidentRequested += HandleHudInGameIncidentRequested;
+        hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
         var processId = _currentOmsi?.ProcessId;
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -211,6 +215,10 @@ public partial class MainWindow
         hud.Closed += (_, _) =>
         {
             hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
+            hud.InGamePanelOpened -= HandleHudInGamePanelOpened;
+            hud.InGameAssistanceRequested -= HandleHudInGameAssistanceRequested;
+            hud.InGameIncidentRequested -= HandleHudInGameIncidentRequested;
+            hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -299,7 +307,75 @@ public partial class MainWindow
             networkReady ? network.JitterMs : null);
 
         UpdateHudRoleplayStateForShell();
+        UpdateHudInGamePanelState();
         UpdateHudRefreshCadence();
+    }
+
+    private void HandleHudInGamePanelOpened()
+    {
+        // The in-game menu is allowed to bootstrap the controller silently.
+        // It must never require the React window to have been opened first.
+        OpenMultiplayerCentralForShell(showWindow: false);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGameAssistanceRequested()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is null)
+        {
+            return;
+        }
+
+        await _multiplayerWindow.SubmitOperationalReportFromWebAsync(incident: false);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGameIncidentRequested()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is null)
+        {
+            return;
+        }
+
+        await _multiplayerWindow.SubmitOperationalReportFromWebAsync(incident: true);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGameOperationalResolvedRequested()
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is null)
+        {
+            return;
+        }
+
+        await _multiplayerWindow.ResolveOwnOperationalReportsFromWebAsync();
+        UpdateHudInGamePanelState();
+    }
+
+    private void UpdateHudInGamePanelState()
+    {
+        if (_hudOverlay is null)
+        {
+            return;
+        }
+
+        var multiplayer = _multiplayerWindow;
+        var badge = (System.Windows.Application.Current as App)?
+            .NetworkRuntime
+            .CurrentBadge;
+        var companyLabel = badge is null
+            ? null
+            : $"{badge.CompanyShortName} • #{badge.EmployeeNumber} • {badge.Role}";
+
+        _hudOverlay.UpdateInGamePanelState(
+            connected: multiplayer?.IsConnected == true,
+            roomId: multiplayer?.CurrentRoomId,
+            displayName: multiplayer?.CurrentDisplayName,
+            operationalReport: multiplayer?.CurrentOwnOperationalReportForShell,
+            companyLabel: companyLabel);
     }
 
     private void UpdateHudRefreshCadence()
