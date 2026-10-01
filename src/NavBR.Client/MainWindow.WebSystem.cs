@@ -152,6 +152,15 @@ public partial class MainWindow
             OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
         var openOmsiLanGateway =
             OpenOmsiLanGateway.Shared.GetStatus();
+        var openOmsiLanRuntime =
+            OpenOmsiLanRuntimeStatusReader.Read(
+                _openOmsiProcessId ??
+                OpenOmsiPluginInstallationService.GetRunningProcessId(),
+                _openOmsiInstanceId);
+        var openOmsiRuntimePeers =
+            openOmsiLanRuntime?.Players.ToDictionary(
+                player => player.Id) ??
+            new Dictionary<uint, OpenOmsiLanRuntimePeer>();
         var openOmsiInstallBlockReason =
             !OpenOmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
@@ -266,6 +275,61 @@ public partial class MainWindow
                 map = openOmsiLanGateway.Map,
                 vehiclePath = openOmsiLanGateway.VehiclePath,
                 remotePlayers = openOmsiLanGateway.RemotePlayers,
+                runtimeStatusAvailable =
+                    openOmsiLanRuntime is not null,
+                runtimeStatusFresh =
+                    openOmsiLanRuntime?.Fresh == true,
+                runtimeConnected =
+                    openOmsiLanRuntime?.Connected == true,
+                runtimeStatusPath =
+                    openOmsiLanRuntime?.SourcePath,
+                runtimeUpdatedAtUtc =
+                    openOmsiLanRuntime?.UpdatedUtc,
+                drawnRemotePlayers =
+                    openOmsiLanGateway.Remotes.Count(remote =>
+                        openOmsiRuntimePeers.TryGetValue(
+                            remote.LanId,
+                            out var runtimePeer) &&
+                        runtimePeer.Drawn),
+                remotes = openOmsiLanGateway.Remotes.Select(remote =>
+                {
+                    openOmsiRuntimePeers.TryGetValue(
+                        remote.LanId,
+                        out var runtimePeer);
+                    var drawn =
+                        openOmsiLanRuntime?.Fresh == true &&
+                        openOmsiLanRuntime.Connected &&
+                        runtimePeer?.Drawn == true;
+                    var status =
+                        !remote.HasInfo
+                            ? "waiting-info"
+                            : !remote.HasState
+                                ? "waiting-state"
+                                : drawn
+                                    ? "drawn"
+                                    : openOmsiLanRuntime?.Fresh == true
+                                        ? "sent-not-drawn"
+                                        : "sent-unconfirmed";
+                    return new
+                    {
+                        playerId = remote.PlayerId,
+                        lanId = remote.LanId,
+                        name = remote.Name,
+                        vehiclePath =
+                            remote.VehiclePath,
+                        hasInfo = remote.HasInfo,
+                        hasState = remote.HasState,
+                        drawn,
+                        materializationStatus =
+                            status,
+                        runtimeBus =
+                            runtimePeer?.Bus,
+                        runtimeName =
+                            runtimePeer?.Name,
+                        lastSeenUtc =
+                            remote.LastSeenUtc
+                    };
+                }).ToArray(),
                 localStateFrames = openOmsiLanGateway.LocalStateFrames,
                 lastLocalStateSequence = openOmsiLanGateway.LastLocalStateSequence,
                 localStateRateHz = openOmsiLanGateway.LocalStateRateHz,
