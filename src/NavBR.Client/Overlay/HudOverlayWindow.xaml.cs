@@ -34,6 +34,8 @@ public partial class HudOverlayWindow : Window
     private IntPtr _omsiWindowHandle;
     private bool _chatInteractive;
     private bool _localPushToTalk;
+    private string? _voiceErrorMessage;
+    private DateTimeOffset _voiceErrorUntilUtc = DateTimeOffset.MinValue;
     private string _localDisplayName = "Driver";
     private VehicleTelemetry? _localTelemetry;
     private OmsiMapInfo? _activeMap;
@@ -194,9 +196,13 @@ public partial class HudOverlayWindow : Window
 
     public void SetVoiceError(string message)
     {
-        VoiceDot.Fill = Brushes.OrangeRed;
-        VoiceStatusText.Text = $"Voz: {message}";
-        VoicePanel.Visibility = Visibility.Visible;
+        _voiceErrorMessage = string.IsNullOrWhiteSpace(message)
+            ? null
+            : message.Trim();
+        _voiceErrorUntilUtc = _voiceErrorMessage is null
+            ? DateTimeOffset.MinValue
+            : DateTimeOffset.UtcNow.AddSeconds(4);
+        RenderVoiceState();
     }
 
     private void SetLocalPushToTalk(bool active)
@@ -266,6 +272,21 @@ public partial class HudOverlayWindow : Window
                      .ToArray())
         {
             _speakers.Remove(stale);
+        }
+
+        if (_voiceErrorMessage is not null &&
+            now < _voiceErrorUntilUtc)
+        {
+            VoiceDot.Fill = Brushes.OrangeRed;
+            VoiceStatusText.Text = $"Voz: {_voiceErrorMessage}";
+            VoicePanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (_voiceErrorMessage is not null)
+        {
+            _voiceErrorMessage = null;
+            _voiceErrorUntilUtc = DateTimeOffset.MinValue;
         }
 
         if (_localPushToTalk)
