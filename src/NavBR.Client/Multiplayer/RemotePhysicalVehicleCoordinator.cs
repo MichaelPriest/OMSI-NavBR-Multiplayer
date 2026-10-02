@@ -413,6 +413,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             HasCoherentPhysicalPose(
                 frame.Telemetry);
 
+        if (!hasCoherentPhysicalPose &&
+            TryRecoverExplicitPhysicalPose(
+                frame.Telemetry,
+                out var recoveredTelemetry))
+        {
+            frame = frame with
+            {
+                Telemetry = recoveredTelemetry
+            };
+            hasCoherentPhysicalPose = true;
+        }
+
         if (!hasCoherentPhysicalPose)
         {
             // OMSI can switch RoadVehicle.Kachel in the middle of one
@@ -1431,6 +1443,106 @@ internal sealed class RemotePhysicalVehicleCoordinator
         double.IsFinite(rotationZ) &&
         telemetry.RotationW is double rotationW &&
         double.IsFinite(rotationW);
+
+    private static bool TryRecoverExplicitPhysicalPose(
+        VehicleTelemetry telemetry,
+        out VehicleTelemetry recovered)
+    {
+        recovered = telemetry;
+
+        // PhysicalGridX/Y is only published by the OMSI reader after it has
+        // verified RoadVehicle.Kachel and Position against the same tile
+        // pointer. Therefore this is safe to use as a recovery source when
+        // nullable local/quaternion fields were lost in transport.
+        if (telemetry.PhysicalGridX is not int ||
+            telemetry.PhysicalGridY is not int ||
+            telemetry.TileX is not double tileX ||
+            !double.IsFinite(tileX) ||
+            telemetry.TileY is not double tileY ||
+            !double.IsFinite(tileY) ||
+            Math.Abs(tileX) > 1_200d ||
+            Math.Abs(tileY) > 1_200d)
+        {
+            return false;
+        }
+
+        var localX =
+            telemetry.LocalX is double existingLocalX &&
+            double.IsFinite(existingLocalX)
+                ? existingLocalX
+                : tileX;
+        var localZ =
+            telemetry.LocalZ is double existingLocalZ &&
+            double.IsFinite(existingLocalZ)
+                ? existingLocalZ
+                : tileY;
+        var localY =
+            telemetry.LocalY is double existingLocalY &&
+            double.IsFinite(existingLocalY)
+                ? existingLocalY
+                : double.IsFinite(telemetry.Y)
+                    ? telemetry.Y
+                    : double.NaN;
+
+        if (!double.IsFinite(localY))
+        {
+            return false;
+        }
+
+        double rotationX;
+        double rotationY;
+        double rotationZ;
+        double rotationW;
+
+        var hasQuaternion =
+            telemetry.RotationX is double existingRotationX &&
+            double.IsFinite(existingRotationX) &&
+            telemetry.RotationY is double existingRotationY &&
+            double.IsFinite(existingRotationY) &&
+            telemetry.RotationZ is double existingRotationZ &&
+            double.IsFinite(existingRotationZ) &&
+            telemetry.RotationW is double existingRotationW &&
+            double.IsFinite(existingRotationW);
+
+        if (hasQuaternion)
+        {
+            rotationX = existingRotationX;
+            rotationY = existingRotationY;
+            rotationZ = existingRotationZ;
+            rotationW = existingRotationW;
+        }
+        else
+        {
+            if (!double.IsFinite(telemetry.HeadingDegrees))
+            {
+                return false;
+            }
+
+            var headingRadians =
+                telemetry.HeadingDegrees *
+                (Math.PI / 180d);
+            var halfHeading = headingRadians * 0.5d;
+
+            // OMSI/D3D uses Y-up; a heading is a pure yaw around Y.
+            rotationX = 0d;
+            rotationY = Math.Sin(halfHeading);
+            rotationZ = 0d;
+            rotationW = Math.Cos(halfHeading);
+        }
+
+        recovered = telemetry with
+        {
+            LocalX = localX,
+            LocalY = localY,
+            LocalZ = localZ,
+            RotationX = rotationX,
+            RotationY = rotationY,
+            RotationZ = rotationZ,
+            RotationW = rotationW
+        };
+
+        return HasCoherentPhysicalPose(recovered);
+    }
 
     private static PlayerTelemetryFrame ApplyOpenOmsiWorldAnchor(
         PlayerTelemetryFrame frame,
