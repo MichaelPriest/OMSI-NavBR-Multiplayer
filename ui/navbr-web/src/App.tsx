@@ -2462,7 +2462,10 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     minimapStyle: draft.minimapStyle,
     multiplayerScale: draft.multiplayerScale,
     alertsScale: draft.alertsScale,
-    sideIndicatorsScale: draft.sideIndicatorsScale
+    sideIndicatorsScale: draft.sideIndicatorsScale,
+    telematrixEnabled: draft.telematrixEnabled,
+    telematrixTheme: draft.telematrixTheme,
+    telematrixSize: draft.telematrixSize
   }), [
     draft.enabled,
     draft.preset,
@@ -2484,7 +2487,10 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     draft.minimapStyle,
     draft.multiplayerScale,
     draft.alertsScale,
-    draft.sideIndicatorsScale
+    draft.sideIndicatorsScale,
+    draft.telematrixEnabled,
+    draft.telematrixTheme,
+    draft.telematrixSize
   ]);
 
   useEffect(() => {
@@ -2804,6 +2810,53 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
             </label>
           ))}
         </div>
+
+        <div className="hud-telematrix-config">
+          <label className="diagnostics-toggle compact-toggle">
+            <input
+              type="checkbox"
+              checked={draft.telematrixEnabled}
+              onChange={event => patch({ telematrixEnabled: event.target.checked })}
+            />
+            <span>{pick("NavBR TP/TS · TeleMatrix", "NavBR TP/TS · TeleMatrix", "NavBR TP/TS · TeleMatrix", "NavBR TP/TS · TeleMatrix", "NavBR TP/TS · TeleMatrix")}</span>
+          </label>
+          {draft.telematrixEnabled && (
+            <div className="voice-device-grid hud-telematrix-options">
+              <label className="voice-field">
+                <span>{pick("Tema", "Theme", "Tema", "Design", "Thème")}</span>
+                <select
+                  value={draft.telematrixTheme}
+                  onChange={event => patch({ telematrixTheme: Number(event.target.value) })}
+                >
+                  <option value={0}>{pick("NavBR moderno", "NavBR modern", "NavBR moderno", "NavBR modern", "NavBR moderne")}</option>
+                  <option value={1}>{pick("Âmbar OMSI", "OMSI amber", "Ámbar OMSI", "OMSI Bernstein", "Ambre OMSI")}</option>
+                  <option value={2}>{pick("Azul digital", "Digital blue", "Azul digital", "Digitalblau", "Bleu numérique")}</option>
+                </select>
+              </label>
+              <label className="voice-field">
+                <span>{pick("Tamanho", "Size", "Tamaño", "Größe", "Taille")}</span>
+                <select
+                  value={draft.telematrixSize}
+                  onChange={event => patch({ telematrixSize: Number(event.target.value) })}
+                >
+                  <option value={0}>{pick("Normal", "Normal", "Normal", "Normal", "Normal")}</option>
+                  <option value={1}>{pick("Grande", "Large", "Grande", "Groß", "Grand")}</option>
+                  <option value={2}>{pick("Compacto", "Compact", "Compacto", "Kompakt", "Compact")}</option>
+                </select>
+              </label>
+            </div>
+          )}
+          <small className="hud-module-help">
+            {pick(
+              "Fica desligado por padrão para manter o HUD limpo. Ative quando quiser o painel operacional TP/TS.",
+              "Off by default to keep the HUD clean. Enable it when you want the TP/TS operational panel.",
+              "Está desactivado por defecto para mantener limpio el HUD. Actívalo cuando quieras el panel operativo TP/TS.",
+              "Standardmäßig aus, damit das HUD sauber bleibt. Bei Bedarf kann das TP/TS-Betriebspanel aktiviert werden.",
+              "Désactivé par défaut pour garder le HUD épuré. Activez-le lorsque vous souhaitez le panneau opérationnel TP/TS."
+            )}
+          </small>
+        </div>
+
         {draft.showMinimap && (
           <div className="hud-minimap-style">
             <span className="eyebrow">{pick("FORMATO DO MINIMAPA", "MINIMAP SHAPE", "FORMA DEL MINIMAPA", "MINIKARTENFORM", "FORME DE LA MINICARTE")}</span>
@@ -2910,16 +2963,6 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
                 "Utilisez Déplacer le HUD pour positionner librement les modules dans OMSI. La position personnalisée est enregistrée séparément du preset visuel."
               )}</small>
             </div>
-          </div>
-          <div className="hud-contextual-note">
-            <strong>{pick("ATALHOS", "HOTKEYS", "ATAJOS", "HOTKEYS", "RACCOURCIS")}</strong>
-            <span>{pick(
-              "Chat e PTT continuam em Multiplayer → Avançado → Atalhos; aqui ficam somente posição e comportamento visual do HUD.",
-              "Chat and PTT remain under Multiplayer → Advanced → Hotkeys; this section only controls HUD position and visual behavior.",
-              "Chat y PTT siguen en Multijugador → Avanzado → Atajos; aquí solo se controla la posición y el comportamiento visual del HUD.",
-              "Chat und PTT bleiben unter Multiplayer → Erweitert → Hotkeys; hier werden nur HUD-Position und visuelles Verhalten gesteuert.",
-              "Chat et PTT restent dans Multijoueur → Avancé → Raccourcis ; cette section contrôle uniquement la position et le comportement visuel du HUD."
-            )}</span>
           </div>
         </article>
       )}
