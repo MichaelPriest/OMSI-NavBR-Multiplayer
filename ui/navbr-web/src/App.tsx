@@ -6335,7 +6335,7 @@ export default function App() {
       <main>
         {commandError && (
           <div className="global-command-toast" role="alert">
-            <NavBrIcon name="warning" size={16} />
+            <NavBrIcon name="hazard" size={16} />
             <span>{commandError}</span>
             <button type="button" onClick={() => setCommandError(null)} aria-label="Fechar">×</button>
           </div>
