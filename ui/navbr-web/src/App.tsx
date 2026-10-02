@@ -5209,7 +5209,15 @@ function Multiplayer({
                 <span className="eyebrow">{pick("SALAS PÚBLICAS", "PUBLIC ROOMS", "SALAS PÚBLICAS", "ÖFFENTLICHE RÄUME", "SALLES PUBLIQUES")}</span>
                 <h3>{pick("Encontrar uma sala ativa", "Find an active room", "Encontrar una sala activa", "Aktiven Raum finden", "Trouver une salle active")}</h3>
               </div>
-              <button className="button ghost" onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}>{pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}</button>
+              <button
+                className="button ghost"
+                disabled={Boolean(state?.roomDirectory.refreshing)}
+                onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}
+              >
+                {state?.roomDirectory.refreshing
+                  ? pick("Atualizando…", "Refreshing…", "Actualizando…", "Wird aktualisiert…", "Actualisation…")
+                  : pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}
+              </button>
             </div>
 
             <input
@@ -5221,7 +5229,11 @@ function Multiplayer({
             {state?.roomDirectory.error && <div className="directory-error">{state.roomDirectory.error}</div>}
 
             <div className="public-room-list">
-              {publicRooms.length === 0 ? (
+              {state?.roomDirectory.refreshing ? (
+                <div className="empty-state compact-empty">
+                  {pick("Buscando salas públicas…", "Loading public rooms…", "Buscando salas públicas…", "Öffentliche Räume werden geladen…", "Chargement des salles publiques…")}
+                </div>
+              ) : publicRooms.length === 0 ? (
                 <div className="empty-state compact-empty">{pick("Nenhuma sala pública carregada.", "No public room loaded.", "No hay salas públicas cargadas.", "Keine öffentlichen Räume geladen.", "Aucune salle publique chargée.")}</div>
               ) : publicRooms.map(room => (
                 <div className="public-room-row" key={room.roomId}>
