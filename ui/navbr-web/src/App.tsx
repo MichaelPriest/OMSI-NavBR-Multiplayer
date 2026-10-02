@@ -1682,6 +1682,17 @@ function Operations({
                         "Cet ancien fichier ne contient pas d’historique. Le profil sera remplacé et l’historique local conservé."
                       )}
                 </p>
+                {operations.operatorBadgeVerified && (
+                  <div className="network-message">
+                    {pick(
+                      "O histórico e as estatísticas serão importados, mas nome e empresa continuarão seguindo o crachá verificado.",
+                      "History and statistics will be imported, but name and company will continue to follow the verified badge.",
+                      "Se importarán historial y estadísticas, pero nombre y empresa seguirán la credencial verificada.",
+                      "Verlauf und Statistiken werden importiert; Name und Unternehmen folgen weiterhin dem verifizierten Ausweis.",
+                      "L’historique et les statistiques seront importés, mais le nom et l’entreprise resteront liés au badge vérifié."
+                    )}
+                  </div>
+                )}
                 <div className="room-actions">
                   <button className="button primary" onClick={() => sendCommand("applyDriverProfileImport")}>{pick("Importar agora", "Import now", "Importar ahora", "Jetzt importieren", "Importer maintenant")}</button>
                   <button className="button ghost" onClick={() => sendCommand("cancelDriverProfileImport")}>{pick("Cancelar", "Cancel", "Cancelar", "Abbrechen", "Annuler")}</button>
