@@ -351,6 +351,7 @@ export default function App() {
   const [roadmapObjectUrl, setRoadmapObjectUrl] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("gps");
   const [operationLineDraft, setOperationLineDraft] = useState("");
+  const [operationLineDirty, setOperationLineDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
@@ -527,8 +528,20 @@ export default function App() {
 
 
   useEffect(() => {
-    setOperationLineDraft(state?.hud?.navBrTpTsManualLine || "");
-  }, [state?.hud?.navBrTpTsManualLine]);
+    const backendLine = state?.hud?.navBrTpTsManualLine || "";
+    if (operationLineDirty) {
+      if (backendLine === operationLineDraft) {
+        setOperationLineDirty(false);
+      }
+      return;
+    }
+
+    setOperationLineDraft(backendLine);
+  }, [
+    state?.hud?.navBrTpTsManualLine,
+    operationLineDirty,
+    operationLineDraft
+  ]);
 
   useEffect(() => {
     if (!pttHeld) return;
@@ -836,7 +849,7 @@ export default function App() {
             <button className={hud?.navBrTpTsAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: !hud?.navBrTpTsAutoDirection })}>{hud?.navBrTpTsAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
           </div>
           <div className="ops-manual">
-            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => setOperationLineDraft(e.target.value.slice(0, 24))} placeholder={vehicle?.line || "Ex.: 76"} /></label>
+            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => { setOperationLineDraft(e.target.value.slice(0, 24)); setOperationLineDirty(true); }} placeholder={vehicle?.line || "Ex.: 76"} /></label>
             <div className="ops-direction">
               <button className={hud?.navBrTpTsManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
               <button className={hud?.navBrTpTsManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
@@ -850,7 +863,7 @@ export default function App() {
           <div className="player-list">
             {(op?.hofRoutes || []).slice(0, 64).map(route => (
               <button className="player-card" key={`${route.line}|${route.route}`}
-                onClick={() => { setOperationLineDraft(route.line); void sendCommand("navbr-tpts-configure", { line: route.line, autoDirection: false }); }}>
+                onClick={() => { setOperationLineDraft(route.line); setOperationLineDirty(true); void sendCommand("navbr-tpts-configure", { line: route.line, autoDirection: false }); }}>
                 <div className="player-main"><strong>{route.line} · rota {route.route}</strong><span>{route.description || "Sem descrição"}</span><small>{route.hofFile}{route.destinationCode ? ` · destino ${route.destinationCode}` : ""}</small></div>
               </button>
             ))}
