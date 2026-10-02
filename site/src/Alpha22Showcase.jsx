@@ -1,10 +1,14 @@
 import React from "react";
 
 const highlights = [
-  {icon:"◉", title:"Multiplayer físico", text:"A Alpha.22 consolidou o fluxo de veículos remotos físicos e a validação com bots/AI seguindo o host dentro de uma sessão real do OMSI."},
-  {icon:"▣", title:"HUD no contexto certo", text:"O HUD passou a respeitar melhor a janela de gameplay do OMSI, evitando aparecer por cima de outras janelas do jogo."},
-  {icon:"⌁", title:"NavBR TP/TS", text:"Linha, sentido e rotas vindas do HOF entram no fluxo operacional, com atalhos próprios e integração ao HUD."},
-  {icon:"▯", title:"Mobile Companion", text:"PWA e APK continuam integrados à telemetria, mapa, IBIS, voz e controles experimentais do ônibus na rede local."}
+  {icon:"▣", title:"Multiplayer físico OMSI 2", text:"A Alpha.25 reforça o fluxo físico com identidade real do veículo, transição de Kachel e telemetria móvel a 20 Hz. O teste ponta a ponta com dois jogadores reais continua pendente."},
+  {icon:"◈", title:"NavBR para openOMSI", text:"Gateway LAN v6 e plugin dedicado mantêm o openOMSI como caminho paralelo de integração, sem substituir a compatibilidade com o OMSI 2 x86."},
+  {icon:"⇄", title:"React + WebView2", text:"A interface oficial desktop usa React/WebView2 consumindo o estado real do backend, preservando os recursos novos trazidos durante a evolução da plataforma."},
+  {icon:"◎", title:"HUD NavBR In-Game", text:"HUD configurável, presets e módulos voltados ao contexto da janela do jogo, com aplicação ao vivo pelo estado nativo do cliente."},
+  {icon:"⌁", title:"Operações, CCO e Empresa", text:"Ferramentas de operação, ocorrências, perfil, empresa, frota e suporte ao motorista reunidas no mesmo ecossistema NavBR."},
+  {icon:"◇", title:"Ghost e Replay", text:"Gravação, biblioteca, analytics, prévia e replay físico fazem parte das ferramentas experimentais conectadas ao Plugin Bridge."},
+  {icon:"⚙", title:"Hardware Cockpit", text:"Integração de cockpit e telemetria de hardware continuam disponíveis junto do controle de desempenho e das rotinas nativas."},
+  {icon:"▯", title:"Mobile Companion", text:"PWA e APK acompanham GPS, mapa, IBIS, voz, multiplayer e telemetria pela mesma rede local, com controles experimentais protegidos."}
 ];
 
 const shots = [
@@ -34,10 +38,10 @@ export default function Alpha22Showcase() {
       <div className="v4-shell">
         <div className="a22-heading">
           <div>
-            <span className="a22-kicker">ALPHA.22 • ESTADO ATUAL</span>
-            <h2 id="alpha22-title">NavBR mais integrado ao OMSI, sem esconder o que ainda está em teste.</h2>
+            <span className="a22-kicker">ALPHA.25 • ESTADO ATUAL</span>
+            <h2 id="alpha22-title">Alpha.25 reúne OMSI 2, openOMSI, multiplayer, operação, HUD e Mobile em uma plataforma única.</h2>
           </div>
-          <p>O teste online com bots/AI seguindo o host já funcionou. A próxima validação importante continua sendo com jogadores reais em dois PCs e duas sessões OMSI.</p>
+          <p>Os smokes automatizados do multiplayer físico passaram, incluindo transição de Kachel, telemetria em movimento a 20 Hz e HOF não bloqueante. O teste ponta a ponta com jogadores reais em dois PCs e duas sessões OMSI ainda está pendente.</p>
         </div>
 
         <div className="a22-highlight-grid">
@@ -52,9 +56,9 @@ export default function Alpha22Showcase() {
         <div className="a22-gallery-head">
           <div>
             <span className="a22-kicker">TELAS REAIS DO APP</span>
-            <h3>Alpha.22 por dentro</h3>
+            <h3>Capturas reais da linha Alpha.22</h3>
           </div>
-          <p>Estas imagens são capturas reais do aplicativo Windows. Estados sem telemetria refletem o OMSI fechado no momento da captura; não são dados simulados.</p>
+          <p>Estas imagens continuam como capturas reais de referência da Alpha.22. Elas mostram módulos que permanecem no projeto, mas não devem ser interpretadas como screenshots atualizadas da Alpha.25.</p>
         </div>
 
         <div className="a22-gallery">

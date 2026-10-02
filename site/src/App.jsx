@@ -120,16 +120,24 @@ function ValidationNotice({ t }) {
 }
 
 function FeatureStrip({ t }) {
-  const icons = ["♟", "▣", "▯", "◉", "⚙", "◆"];
+  const icons = ["▣", "◈", "⇄", "◎", "⌁", "◇", "▤", "♟", "◉", "⚙", "▯", "◆"];
   return (
     <section id="recursos" className="v4-shell v4-feature-strip">
-      {t.cards.map(([title, text], index) => (
-        <article key={title}>
-          <div className="v4-feature-icon">{icons[index]}</div>
-          <h3>{title}</h3>
-          <p>{text}</p>
-        </article>
-      ))}
+      <div className="v4-feature-heading">
+        <span>{t.features.eyebrow}</span>
+        <h2>{t.features.title}</h2>
+        <p>{t.features.intro}</p>
+      </div>
+      <div className="v4-feature-grid">
+        {t.cards.map(([category, title, text], index) => (
+          <article key={category + title}>
+            <div className="v4-feature-icon">{icons[index % icons.length]}</div>
+            <span className="v4-feature-category">{category}</span>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
