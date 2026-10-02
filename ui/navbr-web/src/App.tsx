@@ -6036,7 +6036,47 @@ function Help({ state }: { state: NavBrState | null }) {
       )
     },
     {
-      title: pick("5. Ônibus remoto físico — EXPERIMENTAL", "5. Physical remote bus — EXPERIMENTAL", "5. Autobús remoto físico — EXPERIMENTAL", "5. Physischer Remote-Bus — EXPERIMENTELL", "5. Bus distant physique — EXPÉRIMENTAL"),
+      title: pick("5. Atualizações automáticas", "5. Automatic updates", "5. Actualizaciones automáticas", "5. Automatische Updates", "5. Mises à jour automatiques"),
+      body: pick(
+        "O NavBR verifica releases oficiais ao abrir. Quando há versão nova, baixa o instalador, valida o SHA-256 publicado e libera Atualizar e reiniciar. Em Configurações > Atualizações você pode verificar novamente e acompanhar o status.",
+        "NavBR checks official releases at startup. When a newer version exists, it downloads the installer, validates the published SHA-256 and enables Update & restart. Use Settings > Updates to check again and monitor status.",
+        "NavBR comprueba las releases oficiales al iniciar. Si hay una versión nueva, descarga el instalador, valida el SHA-256 publicado y permite Actualizar y reiniciar.",
+        "NavBR prüft beim Start offizielle Releases. Eine neue Version wird heruntergeladen, per SHA-256 geprüft und anschließend zur Installation freigegeben.",
+        "NavBR vérifie les releases officielles au démarrage. Une nouvelle version est téléchargée, validée par SHA-256 puis proposée à l’installation."
+      )
+    },
+    {
+      title: pick("6. openOMSI é um plugin separado", "6. openOMSI is a separate plugin", "6. openOMSI es un plugin separado", "6. openOMSI ist ein separates Plugin", "6. openOMSI est un plugin séparé"),
+      body: pick(
+        "O NavBR App não instala, atualiza, remove nem inicia o openOMSI. O plugin NavBR para openOMSI é distribuído separadamente no ambiente/launcher do openOMSI. O App apenas mantém o gateway local e recebe a conexão desse plugin externo.",
+        "The NavBR App does not install, update, remove or launch openOMSI. The NavBR plugin for openOMSI is distributed separately in the openOMSI environment/launcher. The App only exposes the local gateway for that external plugin.",
+        "La app NavBR no instala, actualiza, elimina ni inicia openOMSI. El plugin NavBR para openOMSI se distribuye por separado en el entorno/launcher de openOMSI.",
+        "Die NavBR-App installiert, aktualisiert, entfernt oder startet openOMSI nicht. Das NavBR-Plugin für openOMSI wird separat in dessen Umgebung/Launcher verteilt.",
+        "L’app NavBR n’installe, ne met à jour, ne supprime ni ne lance openOMSI. Le plugin NavBR pour openOMSI est distribué séparément dans son environnement/launcher."
+      )
+    },
+    {
+      title: pick("7. HUD e minimapa circular", "7. HUD and circular minimap", "7. HUD y minimapa circular", "7. HUD und runde Minikarte", "7. HUD et minicarte circulaire"),
+      body: pick(
+        "Em Configurações > HUD escolha minimapa Retangular ou Circular · GTA. O formato é aplicado ao overlay real dentro do OMSI e também aos HUDs compostos; rota, heading, posição e paradas continuam usando os mesmos dados reais.",
+        "Under Settings > HUD choose Rectangular or Circular · GTA minimap. The shape is applied to the real OMSI overlay and composed HUDs while route, heading, position and stops keep using the same live data.",
+        "En Configuración > HUD elige minimapa Rectangular o Circular · GTA. La forma se aplica al overlay real de OMSI manteniendo ruta, rumbo, posición y paradas.",
+        "Unter Einstellungen > HUD kann die Minikarte Rechteckig oder Rund · GTA gewählt werden. Route, Heading, Position und Haltestellen bleiben unverändert.",
+        "Dans Paramètres > HUD choisissez une minicarte Rectangulaire ou Circulaire · GTA. L’itinéraire, le cap, la position et les arrêts utilisent toujours les mêmes données."
+      )
+    },
+    {
+      title: pick("8. Mobile, Hardware e suporte", "8. Mobile, Hardware and support", "8. Mobile, Hardware y soporte", "8. Mobile, Hardware und Support", "8. Mobile, Hardware et support"),
+      body: pick(
+        "O Mobile Companion usa o roadmap real do OMSI, recupera a conexão ao voltar do bloqueio e libera o PTT ao suspender. Hardware Cockpit mostra reconexão da COM. Em Configurações > Diagnóstico use Gerar pacote de diagnóstico para exportar um ZIP sanitizado sem senhas, tokens, IDs, IPs ou caminhos pessoais.",
+        "Mobile Companion uses the real OMSI roadmap, reconnects after resume and releases PTT on suspend. Hardware Cockpit shows COM reconnect state. Under Settings > Diagnostics use Generate diagnostic bundle for a sanitized ZIP without passwords, tokens, IDs, IPs or personal paths.",
+        "Mobile Companion usa el roadmap real de OMSI, recupera la conexión al volver y libera PTT al suspender. Hardware Cockpit muestra la reconexión COM. Diagnóstico genera un ZIP sanitizado.",
+        "Mobile Companion nutzt die echte OMSI-Roadmap, verbindet sich nach dem Fortsetzen neu und löst PTT beim Suspend. Hardware Cockpit zeigt den COM-Reconnect. Diagnose exportiert ein bereinigtes ZIP.",
+        "Mobile Companion utilise le vrai roadmap OMSI, se reconnecte après reprise et libère le PTT en suspension. Hardware Cockpit affiche la reconnexion COM. Diagnostic exporte un ZIP assaini."
+      )
+    },
+    {
+      title: pick("9. Ônibus remoto físico — EXPERIMENTAL", "9. Physical remote bus — EXPERIMENTAL", "9. Autobús remoto físico — EXPERIMENTAL", "9. Physischer Remote-Bus — EXPERIMENTELL", "9. Bus distant physique — EXPÉRIMENTAL"),
       body: pick(
         "O teste físico vem desligado por padrão. Ambos os PCs precisam de mapa/ônibus compatíveis e do Plugin Bridge suportado. O NavBR não transfere conteúdo pago ou proprietário. Os smokes automatizados estão ativos, mas o E2E real com dois PCs/duas sessões OMSI continua pendente e será tratado por último nesta linha de desenvolvimento.",
         "The physical test is off by default. Both PCs need compatible map/bus content and a supported Plugin Bridge. NavBR does not transfer paid or proprietary content. The UI reports the plugin’s real capability before spawning remote buses.",
@@ -6046,7 +6086,7 @@ function Help({ state }: { state: NavBrState | null }) {
       )
     },
     {
-      title: pick("6. Diagnósticos automáticos", "6. Automatic diagnostics", "6. Diagnósticos automáticos", "6. Automatische Diagnose", "6. Diagnostics automatiques"),
+      title: pick("10. Diagnósticos automáticos", "10. Automatic diagnostics", "10. Diagnósticos automáticos", "10. Automatische Diagnose", "10. Diagnostics automatiques"),
       body: pick(
         "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Para suporte, use Gerar pacote de diagnóstico: ele exporta saúde da sessão, versões, plugin OMSI, updater, gateway openOMSI e log sanitizado, removendo senhas, tokens, IDs, IPs, e-mails e caminhos locais. A tela também mostra poll efetivo, custo de leitura, refresh do HUD, pressão do plugin e perfil ativo do otimizador.",
         "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. Generate diagnostic bundle exports session health, versions, OMSI plugin, updater, openOMSI gateway and a sanitized log while removing passwords, tokens, IDs, IP addresses, email addresses and local paths. The page also shows effective poll, read cost, HUD refresh, plugin pressure and the active optimizer profile.",
@@ -6056,7 +6096,7 @@ function Help({ state }: { state: NavBrState | null }) {
       )
     },
     {
-      title: pick("7. Se algo não funcionar", "7. Troubleshooting", "7. Si algo no funciona", "7. Wenn etwas nicht funktioniert", "7. Si quelque chose ne fonctionne pas"),
+      title: pick("11. Se algo não funcionar", "11. Troubleshooting", "11. Si algo no funciona", "11. Wenn etwas nicht funktioniert", "11. Si quelque chose ne fonctionne pas"),
       body: pick(
         "OMSI não detectado: confira a instalação e se Omsi.exe está aberto. HUD sem dados: entre no gameplay. Mapa/rota ausente: confira roadmap e viagem ativa. Multiplayer sem conexão: confira servidor/sala/senha, TCP 27730 e Rede. Ônibus físico ausente: valide mapa, modelo e plugin.",
         "OMSI not detected: check the installation and that Omsi.exe is running. HUD without data: enter gameplay. Missing map/route: check roadmap and active trip. Multiplayer connection: verify server/room/password, TCP 27730 and Network. Missing physical bus: validate map, model and plugin.",
@@ -6066,9 +6106,9 @@ function Help({ state }: { state: NavBrState | null }) {
       )
     },
     {
-      title: pick("8. Teste da comunidade", "8. Community testing", "8. Prueba comunitaria", "8. Community-Test", "8. Test communautaire"),
+      title: pick("12. Teste da comunidade", "12. Community testing", "12. Prueba comunitaria", "12. Community-Test", "12. Test communautaire"),
       body: pick(
-        "Ao relatar um erro, informe o que estava fazendo, mapa, ônibus, sala, se RP/ônibus físico estavam ativos e, quando possível, anexe prints e logs. Isso ajuda a reproduzir a falha sem usar dados simulados.",
+        "Ao relatar um erro, informe o que estava fazendo, mapa e ônibus. Use Configurações > Diagnóstico > Gerar pacote de diagnóstico para anexar o ZIP sanitizado quando possível. Para multiplayer físico, o teste real entre dois PCs ficará para a etapa final.",
         "When reporting a problem, include what you were doing, map, bus, room, whether RP/physical buses were active, and screenshots/logs when possible. This helps reproduce the issue without simulated data.",
         "Al reportar un problema, indica qué hacías, mapa, autobús, sala, si RP/autobús físico estaban activos y adjunta capturas/logs cuando sea posible.",
         "Bei Fehlerberichten bitte Aktion, Karte, Bus, Raum, RP/physische Busse sowie möglichst Screenshots/Logs angeben.",
