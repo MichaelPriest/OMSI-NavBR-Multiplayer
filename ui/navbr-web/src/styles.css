@@ -3116,3 +3116,47 @@ h3 { margin:6px 0 16px; font-size:19px; }
     grid-template-columns:1fr;
   }
 }
+
+
+/* Updater release details */
+.application-update-progress-wrap {
+  display:grid;
+  gap:6px;
+  margin:10px 0 2px;
+}
+.application-update-progress-wrap .application-update-progress {
+  margin:0;
+}
+.application-update-progress-wrap > small {
+  color:#88a8bb;
+  font-size:9px;
+  font-variant-numeric:tabular-nums;
+}
+.update-release-notes {
+  margin:12px 0 2px;
+  border:1px solid #1f4053;
+  border-radius:9px;
+  background:#081923;
+  overflow:hidden;
+}
+.update-release-notes summary {
+  padding:9px 11px;
+  cursor:pointer;
+  color:#b9d7e9;
+  font-size:10px;
+  font-weight:800;
+  user-select:none;
+}
+.update-release-notes pre {
+  margin:0;
+  padding:11px;
+  max-height:260px;
+  overflow:auto;
+  border-top:1px solid #173447;
+  color:#9eb9c9;
+  font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size:9px;
+  line-height:1.55;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
