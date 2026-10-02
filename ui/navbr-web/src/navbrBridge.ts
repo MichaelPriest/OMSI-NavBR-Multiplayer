@@ -191,6 +191,7 @@ export interface NavBrPublicRoom {
 export interface NavBrRoomDirectory {
   serverUrl?: string | null;
   error?: string | null;
+  refreshing: boolean;
   rooms: NavBrPublicRoom[];
 }
 
