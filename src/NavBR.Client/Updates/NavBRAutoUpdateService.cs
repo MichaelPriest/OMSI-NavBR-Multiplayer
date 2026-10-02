@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -581,7 +583,6 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         }
 
         var partialPath = finalPath + ".download";
-        TryDelete(partialPath);
 
         await DownloadInstallerAsync(
             candidate.InstallerUrl,
@@ -623,76 +624,160 @@ internal sealed class NavBRAutoUpdateService : IDisposable
     {
         EnsureTrustedReleaseUrl(url);
 
-        using var response = await _httpClient.GetAsync(
-            url,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var length = response.Content.Headers.ContentLength;
-        if (length is > MaximumInstallerBytes)
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            throw new InvalidDataException(
-                "Release installer exceeds the updater size limit.");
-        }
-
-        await using var input =
-            await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var output = new FileStream(
-            destination,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            bufferSize: 64 * 1024,
-            FileOptions.Asynchronous |
-            FileOptions.SequentialScan);
-
-        var buffer = new byte[64 * 1024];
-        long written = 0;
-        var lastProgress = -1;
-
-        while (true)
-        {
-            var read = await input.ReadAsync(
-                buffer,
-                cancellationToken);
-            if (read == 0)
+            var existingLength =
+                File.Exists(destination)
+                    ? new FileInfo(destination).Length
+                    : 0L;
+            if (existingLength > MaximumInstallerBytes)
             {
-                break;
+                TryDelete(destination);
+                existingLength = 0L;
             }
 
-            await output.WriteAsync(
-                buffer.AsMemory(0, read),
-                cancellationToken);
-            written += read;
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                url);
+            if (existingLength > 0)
+            {
+                request.Headers.Range =
+                    new RangeHeaderValue(
+                        existingLength,
+                        null);
+            }
 
-            if (written > MaximumInstallerBytes)
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (response.StatusCode ==
+                    HttpStatusCode.RequestedRangeNotSatisfiable &&
+                existingLength > 0 &&
+                attempt == 0)
+            {
+                TryDelete(destination);
+                continue;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var append =
+                existingLength > 0 &&
+                response.StatusCode == HttpStatusCode.PartialContent;
+            if (existingLength > 0 && !append)
+            {
+                existingLength = 0L;
+            }
+
+            var responseLength =
+                response.Content.Headers.ContentLength;
+            var totalLength =
+                response.Content.Headers.ContentRange?.Length ??
+                (responseLength is long contentLength
+                    ? existingLength + contentLength
+                    : (long?)null);
+
+            if (totalLength is > MaximumInstallerBytes)
             {
                 throw new InvalidDataException(
-                    "Release installer exceeded the updater size limit.");
+                    "Release installer exceeds the updater size limit.");
             }
 
-            if (length is > 0)
+            if (existingLength > 0)
             {
-                var progress = Math.Clamp(
-                    (int)Math.Round(
-                        written * 100d / length.Value),
-                    0,
-                    99);
-                if (progress != lastProgress)
+                var initialProgress =
+                    totalLength is > 0
+                        ? Math.Clamp(
+                            (int)Math.Round(
+                                existingLength * 100d /
+                                totalLength.Value),
+                            0,
+                            99)
+                        : 0;
+                SetSnapshot(GetSnapshot() with
                 {
-                    lastProgress = progress;
-                    SetSnapshot(GetSnapshot() with
+                    Status = "downloading",
+                    ProgressPercent = initialProgress,
+                    Message =
+                        $"Retomando atualização… {initialProgress}%"
+                });
+            }
+
+            await using var input =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken);
+            await using var output = new FileStream(
+                destination,
+                append ? FileMode.Append : FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous |
+                FileOptions.SequentialScan);
+
+            var buffer = new byte[64 * 1024];
+            var written = existingLength;
+            var lastProgress = -1;
+
+            while (true)
+            {
+                var read = await input.ReadAsync(
+                    buffer,
+                    cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                await output.WriteAsync(
+                    buffer.AsMemory(0, read),
+                    cancellationToken);
+                written += read;
+
+                if (written > MaximumInstallerBytes)
+                {
+                    throw new InvalidDataException(
+                        "Release installer exceeded the updater size limit.");
+                }
+
+                if (totalLength is > 0)
+                {
+                    var progress = Math.Clamp(
+                        (int)Math.Round(
+                            written * 100d /
+                            totalLength.Value),
+                        0,
+                        99);
+                    if (progress != lastProgress)
                     {
-                        Status = "downloading",
-                        ProgressPercent = progress,
-                        Message = $"Baixando atualização… {progress}%"
-                    });
+                        lastProgress = progress;
+                        SetSnapshot(GetSnapshot() with
+                        {
+                            Status = "downloading",
+                            ProgressPercent = progress,
+                            Message =
+                                $"Baixando atualização… {progress}%"
+                        });
+                    }
                 }
             }
+
+            await output.FlushAsync(cancellationToken);
+
+            if (totalLength is long expectedLength &&
+                written != expectedLength)
+            {
+                throw new IOException(
+                    $"Incomplete update download: {written}/{expectedLength} bytes.");
+            }
+
+            return;
         }
 
-        await output.FlushAsync(cancellationToken);
+        throw new IOException(
+            "Unable to resume the update download.");
     }
 
     private static async Task<string> ComputeSha256Async(
