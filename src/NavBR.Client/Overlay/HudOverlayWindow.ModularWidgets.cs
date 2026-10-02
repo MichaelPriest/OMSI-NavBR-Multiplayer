@@ -36,6 +36,7 @@ public partial class HudOverlayWindow
 {
     private Border? _modularWidgetsRoot;
     private Border? _modularMinimapWidget;
+    private Border? _modularMinimapMapFrame;
     private Border? _modularMultiplayerWidget;
     private Border? _modularAlertsWidget;
     private Border? _modularSideIndicatorsWidget;
@@ -129,18 +130,20 @@ public partial class HudOverlayWindow
         grid.Children.Add(_modularMinimapTitle);
 
         var map = new Grid { Margin = new Thickness(0d, 6d, 0d, 0d) };
-        map.Children.Add(new Border
+        _modularMinimapMapFrame = new Border
         {
             CornerRadius = new CornerRadius(7d),
             BorderBrush = new SolidColorBrush(Color.FromArgb(75, 255, 255, 255)),
             BorderThickness = new Thickness(1d),
+            ClipToBounds = true,
             Background = new VisualBrush(MiniMapCanvas)
             {
                 Stretch = Stretch.UniformToFill,
                 AlignmentX = AlignmentX.Center,
                 AlignmentY = AlignmentY.Center
             }
-        });
+        };
+        map.Children.Add(_modularMinimapMapFrame);
         map.Children.Add(new TextBlock
         {
             Text = "▲",
@@ -264,6 +267,39 @@ public partial class HudOverlayWindow
             : Visibility.Collapsed;
 
         _modularMinimapWidget.Height = Math.Clamp(132d * settings.DashboardMinimapScale, 78d, 264d);
+        if (_modularMinimapMapFrame is not null)
+        {
+            var circular = string.Equals(
+                settings.DashboardMinimapStyle,
+                "circular",
+                StringComparison.OrdinalIgnoreCase);
+            if (circular)
+            {
+                var diameter = Math.Clamp(
+                    94d * settings.DashboardMinimapScale,
+                    54d,
+                    190d);
+                _modularMinimapMapFrame.Width = diameter;
+                _modularMinimapMapFrame.Height = diameter;
+                _modularMinimapMapFrame.HorizontalAlignment =
+                    HorizontalAlignment.Center;
+                _modularMinimapMapFrame.VerticalAlignment =
+                    VerticalAlignment.Center;
+                _modularMinimapMapFrame.CornerRadius =
+                    new CornerRadius(diameter / 2d);
+            }
+            else
+            {
+                _modularMinimapMapFrame.ClearValue(WidthProperty);
+                _modularMinimapMapFrame.ClearValue(HeightProperty);
+                _modularMinimapMapFrame.HorizontalAlignment =
+                    HorizontalAlignment.Stretch;
+                _modularMinimapMapFrame.VerticalAlignment =
+                    VerticalAlignment.Stretch;
+                _modularMinimapMapFrame.CornerRadius =
+                    new CornerRadius(7d);
+            }
+        }
         _modularMultiplayerWidget.MinHeight = Math.Clamp(132d * settings.DashboardMultiplayerScale, 78d, 264d);
         _modularMultiplayerText!.FontSize = Math.Clamp(10d * settings.DashboardMultiplayerScale, 8d, 18d);
         _modularAlertsText!.FontSize = Math.Clamp(10d * settings.DashboardAlertsScale, 8d, 18d);
