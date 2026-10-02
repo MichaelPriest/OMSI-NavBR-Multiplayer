@@ -398,6 +398,8 @@ public partial class MainWindow
                 showAlerts = hudSettings.DashboardShowAlerts,
                 showSideIndicators = hudSettings.DashboardShowSideIndicators,
                 minimapScale = hudSettings.DashboardMinimapScale,
+                minimapStyle = NormalizeDashboardMinimapStyle(
+                    hudSettings.DashboardMinimapStyle),
                 multiplayerScale = hudSettings.DashboardMultiplayerScale,
                 alertsScale = hudSettings.DashboardAlertsScale,
                 sideIndicatorsScale = hudSettings.DashboardSideIndicatorsScale,
@@ -841,6 +843,14 @@ public partial class MainWindow
         }
     }
 
+    private static string NormalizeDashboardMinimapStyle(string? value) =>
+        string.Equals(
+            value?.Trim(),
+            "circular",
+            StringComparison.OrdinalIgnoreCase)
+            ? "circular"
+            : "rectangular";
+
     private static MultiplayerSettings BuildHudSettingsFromWeb(JsonElement? payload)
     {
         var current = MultiplayerSettingsStore.Load();
@@ -882,6 +892,9 @@ public partial class MainWindow
                 GetWebPayloadDouble(payload, "minimapScale") ?? current.DashboardMinimapScale,
                 0.55d,
                 2d),
+            DashboardMinimapStyle = NormalizeDashboardMinimapStyle(
+                GetWebPayloadString(payload, "minimapStyle") ??
+                current.DashboardMinimapStyle),
             DashboardMultiplayerScale = Math.Clamp(
                 GetWebPayloadDouble(payload, "multiplayerScale") ?? current.DashboardMultiplayerScale,
                 0.55d,
@@ -929,6 +942,7 @@ public partial class MainWindow
             DashboardHeight = 0d,
             DashboardAutoScale = true,
             DashboardMinimapScale = 1d,
+            DashboardMinimapStyle = "rectangular",
             DashboardMultiplayerScale = 1d,
             DashboardAlertsScale = 1d,
             DashboardSideIndicatorsScale = 1d
