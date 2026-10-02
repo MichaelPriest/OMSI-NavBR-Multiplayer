@@ -4,6 +4,7 @@ using System.Windows;
 using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Windows;
+using NavBR.Client.Updates;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
