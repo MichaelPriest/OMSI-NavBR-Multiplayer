@@ -743,6 +743,11 @@ public partial class MainWindow
 
             case "refreshPublicRooms":
             {
+                if (_webPublicRoomDirectoryRefreshing)
+                {
+                    break;
+                }
+
                 var serverUrl = GetWebPayloadString(payload, "serverUrl")
                     ?? MultiplayerSettingsStore.Load().ServerUrl;
                 _webPublicRoomDirectoryServerUrl = serverUrl;
