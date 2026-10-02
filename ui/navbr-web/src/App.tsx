@@ -4433,8 +4433,10 @@ function Multiplayer({
   const [voiceMixerDrafts, setVoiceMixerDrafts] = useState<Record<string, number>>({});
   const [relayEnabled, setRelayEnabled] = useState(false);
   const [relayServerUrl, setRelayServerUrl] = useState("");
+  const [relayServerDirty, setRelayServerDirty] = useState(false);
   const [chatHotkey, setChatHotkey] = useState("F9");
   const [voiceHotkey, setVoiceHotkey] = useState("F10");
+  const [hotkeysDirty, setHotkeysDirty] = useState(false);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [roomIntent, setRoomIntent] = useState<"create" | "join">("create");
   const [createRoomMode, setCreateRoomMode] = useState<"navbr" | "lan" | "host">("navbr");
@@ -4495,14 +4497,45 @@ function Multiplayer({
 
   useEffect(() => {
     setRelayEnabled(multiplayer.relayEnabled);
-    setRelayServerUrl(multiplayer.relayServerUrl || "");
-    setChatHotkey(multiplayer.chatHotkey || "F9");
-    setVoiceHotkey(multiplayer.voiceHotkey || "F10");
+  }, [multiplayer.relayEnabled]);
+
+  useEffect(() => {
+    const backendRelayUrl = multiplayer.relayServerUrl || "";
+    if (relayServerDirty) {
+      if (backendRelayUrl === relayServerUrl) {
+        setRelayServerDirty(false);
+      }
+      return;
+    }
+
+    setRelayServerUrl(backendRelayUrl);
   }, [
-    multiplayer.relayEnabled,
     multiplayer.relayServerUrl,
+    relayServerDirty,
+    relayServerUrl
+  ]);
+
+  useEffect(() => {
+    const backendChatHotkey = multiplayer.chatHotkey || "F9";
+    const backendVoiceHotkey = multiplayer.voiceHotkey || "F10";
+    if (hotkeysDirty) {
+      if (
+        backendChatHotkey === chatHotkey &&
+        backendVoiceHotkey === voiceHotkey
+      ) {
+        setHotkeysDirty(false);
+      }
+      return;
+    }
+
+    setChatHotkey(backendChatHotkey);
+    setVoiceHotkey(backendVoiceHotkey);
+  }, [
     multiplayer.chatHotkey,
-    multiplayer.voiceHotkey
+    multiplayer.voiceHotkey,
+    hotkeysDirty,
+    chatHotkey,
+    voiceHotkey
   ]);
 
   const statusLabel = multiplayer.connected
@@ -4623,6 +4656,7 @@ function Multiplayer({
       if (mode === "relay" || mode === "dedicated-server") {
         setRelayEnabled(true);
         setRelayServerUrl(importedServer);
+        setRelayServerDirty(true);
         sendCommand("configureRelay", { enabled: true, relayServerUrl: importedServer });
       }
       setInviteNotice(pick("Convite importado para os campos da sala.", "Invite imported into the room fields.", "Invitación importada en los campos de la sala.", "Einladung in die Raumfelder übernommen.", "Invitation importée dans les champs de la salle."));
@@ -4965,6 +4999,7 @@ function Multiplayer({
                           const onlineUrl = relayServerUrl || defaultOnlineServer;
                           setRelayEnabled(true);
                           setRelayServerUrl(onlineUrl);
+                          setRelayServerDirty(true);
                           setServerUrl(onlineUrl);
                           sendCommand("createOnlineRoom", {
                             roomId,
@@ -5006,7 +5041,10 @@ function Multiplayer({
                           <span>{pick("URL do servidor", "Server URL", "URL del servidor", "Server-URL", "URL du serveur")}</span>
                           <input
                             value={relayServerUrl}
-                            onChange={event => setRelayServerUrl(event.target.value)}
+                            onChange={event => {
+                              setRelayServerUrl(event.target.value);
+                              setRelayServerDirty(true);
+                            }}
                             onBlur={() => sendCommand("configureRelay", { enabled: true, relayServerUrl })}
                             placeholder={defaultOnlineServer}
                           />
@@ -5408,6 +5446,20 @@ function Multiplayer({
                     proximityMeters: voiceRadius,
                     deafened: voiceDeafened
                   })}
+                  onKeyUp={event => {
+                    if (
+                      event.key === "ArrowLeft" ||
+                      event.key === "ArrowRight" ||
+                      event.key === "Home" ||
+                      event.key === "End"
+                    ) {
+                      sendCommand("configureVoice", {
+                        channel: voiceChannel,
+                        proximityMeters: voiceRadius,
+                        deafened: voiceDeafened
+                      });
+                    }
+                  }}
                 />
               </label>
             )}
@@ -5581,6 +5633,7 @@ function Multiplayer({
                   onChange={event => {
                     const value = event.target.value;
                     setChatHotkey(value);
+                    setHotkeysDirty(true);
                     sendCommand("configureMultiplayerHotkeys", { chatHotkey: value, voiceHotkey });
                   }}
                 >
@@ -5594,6 +5647,7 @@ function Multiplayer({
                   onChange={event => {
                     const value = event.target.value;
                     setVoiceHotkey(value);
+                    setHotkeysDirty(true);
                     sendCommand("configureMultiplayerHotkeys", { chatHotkey, voiceHotkey: value });
                   }}
                 >
