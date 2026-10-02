@@ -396,10 +396,38 @@ public partial class MainWindow
 
         var includesHistory = _webPendingDriverProfileImport.IncludesTripHistory;
         DriverProfilePortability.ApplyImport(_webPendingDriverProfileImport);
+
+        var badge = (Application.Current as App)?.NetworkRuntime.CurrentBadge;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var member = onlineCompany?.Members.FirstOrDefault(item =>
+            badge is not null &&
+            string.Equals(
+                item.PlayerId,
+                badge.PlayerId,
+                StringComparison.OrdinalIgnoreCase));
+        var verified = CompanyEmployeeBadgeFactory.MatchesMember(
+            badge,
+            onlineCompany,
+            member);
+
+        if (verified && badge is not null)
+        {
+            var importedProfile = DriverProfileStore.Load();
+            DriverProfileStore.Save(importedProfile with
+            {
+                DisplayName = badge.DisplayName,
+                CompanyName = badge.CompanyName
+            });
+        }
+
         _webPendingDriverProfileImport = null;
-        _webDriverProfileTransferNotice = includesHistory
-            ? "Perfil do motorista e histórico de viagens importados com sucesso."
-            : "Perfil importado com sucesso; o histórico local existente foi preservado.";
+        _webDriverProfileTransferNotice = verified
+            ? includesHistory
+                ? "Perfil e histórico importados; nome e empresa foram preservados pelo crachá verificado."
+                : "Perfil importado; histórico local preservado e identidade mantida pelo crachá verificado."
+            : includesHistory
+                ? "Perfil do motorista e histórico de viagens importados com sucesso."
+                : "Perfil importado com sucesso; o histórico local existente foi preservado.";
     }
 
     private void CancelDriverProfileImportFromWeb()
