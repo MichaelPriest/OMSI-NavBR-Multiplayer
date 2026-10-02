@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using NavBR.Client.Multiplayer;
+using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -289,6 +290,14 @@ Require(
     reactHudSettings.TelematrixTheme == 2 &&
     reactHudSettings.TelematrixSize == 1,
     "React HUD settings builder lost TeleMatrix settings");
+
+var appliedHudPreset =
+    HudProfileCatalog.ApplyPreset(
+        MultiplayerSettings.CreateDefault(),
+        HudProfileCatalog.DefaultPreset);
+Require(
+    appliedHudPreset.DashboardSettingsVersion == 4,
+    "HUD preset application regressed to a legacy dashboard settings version");
 
 var normalizeMultiplayerSettings =
     typeof(MultiplayerSettingsStore).GetMethod(
