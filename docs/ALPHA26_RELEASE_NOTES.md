@@ -68,6 +68,9 @@ Quando existe crachá verificado:
 ## HUD e minimapa
 
 - layout padrão limpo para evitar sobreposição entre o HUD principal e o painel modular;
+- minimapa integrado oculta visualmente o minimapa legado, mantendo-o apenas como fonte invisível do VisualBrush;
+- Alertas modulares ficam totalmente ocultos durante operação normal e só surgem quando existe alerta real;
+- Resetar HUD volta para o layout limpo v4 da Alpha.26;
 - painel modular padrão migra para o canto inferior direito quando ainda usa a posição antiga intocada;
 - minimapa, multiplayer e indicadores laterais duplicados deixam de vir ativados dentro do painel modular padrão;
 - layouts personalizados pelo usuário são preservados;
@@ -75,6 +78,8 @@ Quando existe crachá verificado:
 - chips fixos CHAT/PTT foram removidos da barra superior;
 - erros de voz no HUD agora são temporários e somem automaticamente;
 - TeleMatrix passa a ser opt-in no layout padrão; personalizações existentes são preservadas;
+- TeleMatrix agora pode ser ligada/desligada e ter tema/tamanho ajustados em Configurações > HUD > Módulos no React;
+- prévia do HUD também pré-visualiza TeleMatrix e restaura o estado salvo ao ser fechada;
 - painel de viagem vazio fica oculto até existir linha/rota/destino/parada;
 - minimapa sem roadmap/layout real fica oculto até os dados estarem disponíveis;
 - textos fixos de instrução do minimapa foram removidos e o zoom só aparece durante a edição do HUD;
