@@ -169,7 +169,8 @@ public partial class App : Application
         {
             var companion = new MobileCompanionHostService(
                 nativeHost.BuildMobileCompanionStateAsync,
-                nativeHost.ExecuteMobileCompanionCommandAsync);
+                nativeHost.ExecuteMobileCompanionCommandAsync,
+                nativeHost.ResolveMobileCompanionRoadmapPath);
 
             MobileCompanion = companion;
             await companion.StartAsync();
