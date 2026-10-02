@@ -1494,14 +1494,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
         double rotationZ;
         double rotationW;
 
+        var existingRotationX =
+            telemetry.RotationX ?? double.NaN;
+        var existingRotationY =
+            telemetry.RotationY ?? double.NaN;
+        var existingRotationZ =
+            telemetry.RotationZ ?? double.NaN;
+        var existingRotationW =
+            telemetry.RotationW ?? double.NaN;
         var hasQuaternion =
-            telemetry.RotationX is double existingRotationX &&
             double.IsFinite(existingRotationX) &&
-            telemetry.RotationY is double existingRotationY &&
             double.IsFinite(existingRotationY) &&
-            telemetry.RotationZ is double existingRotationZ &&
             double.IsFinite(existingRotationZ) &&
-            telemetry.RotationW is double existingRotationW &&
             double.IsFinite(existingRotationW);
 
         if (hasQuaternion)
