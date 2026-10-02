@@ -247,6 +247,49 @@ Require(
     sanitizedDiagnosticText.Contains("[path]", StringComparison.Ordinal),
     "diagnostic sanitizer did not emit expected privacy markers");
 
+var buildHudSettingsFromWeb =
+    mainWindowType.GetMethod(
+        "BuildHudSettingsFromWeb",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder not found");
+using var hudPayloadDocument = JsonDocument.Parse(
+    """
+    {
+      "enabled": true,
+      "preset": "normal",
+      "theme": "navbr-modern",
+      "anchor": "bottom-right",
+      "autoScale": true,
+      "showFuel": true,
+      "showPedals": false,
+      "showStatus": true,
+      "showMinimap": false,
+      "showMultiplayer": false,
+      "showAlerts": true,
+      "showSideIndicators": false,
+      "telematrixEnabled": true,
+      "telematrixTheme": 2,
+      "telematrixSize": 1
+    }
+    """);
+var hudPayload = hudPayloadDocument.RootElement.Clone();
+var reactHudSettings =
+    (MultiplayerSettings?)buildHudSettingsFromWeb.Invoke(
+        null,
+        [hudPayload])
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder returned null");
+Require(
+    reactHudSettings.DashboardSettingsVersion == 4,
+    "React HUD settings builder regressed to a legacy dashboard version");
+Require(
+    reactHudSettings.TelematrixSettingsVersion == 1 &&
+    reactHudSettings.TelematrixWidgetEnabled &&
+    reactHudSettings.TelematrixTheme == 2 &&
+    reactHudSettings.TelematrixSize == 1,
+    "React HUD settings builder lost TeleMatrix settings");
+
 var normalizeMultiplayerSettings =
     typeof(MultiplayerSettingsStore).GetMethod(
         "Normalize",
