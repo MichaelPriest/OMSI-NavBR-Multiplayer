@@ -93,6 +93,85 @@ finally
     Directory.Delete(fingerprintRoot, recursive: true);
 }
 
+var coordinatorType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
+        throwOnError: true)!;
+var recoverPhysicalPose = coordinatorType.GetMethod(
+    "TryRecoverExplicitPhysicalPose",
+    BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "physical pose recovery helper not found");
+
+var sparsePhysicalTelemetry = new VehicleTelemetry(
+    PlayerId: "remote-smoke",
+    Timestamp: DateTimeOffset.UtcNow,
+    MapName: "Grundorf",
+    VehicleName: "NL202 - EN92",
+    Line: null,
+    Route: null,
+    X: 325d,
+    Y: 1.5d,
+    Z: 442d,
+    HeadingDegrees: 45d,
+    SpeedKph: 0d,
+    IsInGame: true,
+    GridX: 1,
+    GridY: 2,
+    TileX: 201.6d,
+    TileY: 164.1d,
+    PhysicalGridX: 1,
+    PhysicalGridY: 2);
+
+object?[] recoverArgs =
+[
+    sparsePhysicalTelemetry,
+    null
+];
+var recoveredPhysicalPose =
+    (bool)(recoverPhysicalPose.Invoke(
+        null,
+        recoverArgs)
+        ?? false);
+Require(
+    recoveredPhysicalPose,
+    "explicit PhysicalGrid + TileXY pose was not recovered");
+var recoveredTelemetry =
+    recoverArgs[1] as VehicleTelemetry
+    ?? throw new InvalidOperationException(
+        "physical pose recovery did not return telemetry");
+Require(
+    Math.Abs((recoveredTelemetry.LocalX ?? double.NaN) - 201.6d) < 0.001d &&
+    Math.Abs((recoveredTelemetry.LocalY ?? double.NaN) - 1.5d) < 0.001d &&
+    Math.Abs((recoveredTelemetry.LocalZ ?? double.NaN) - 164.1d) < 0.001d,
+    "physical pose recovery did not preserve the proven Kachel-local position");
+Require(
+    recoveredTelemetry.RotationX is double &&
+    recoveredTelemetry.RotationY is double recoveredRotationY &&
+    recoveredTelemetry.RotationZ is double &&
+    recoveredTelemetry.RotationW is double recoveredRotationW &&
+    double.IsFinite(recoveredRotationY) &&
+    double.IsFinite(recoveredRotationW),
+    "physical pose recovery did not reconstruct a finite yaw quaternion");
+
+var ambiguousPhysicalTelemetry =
+    sparsePhysicalTelemetry with
+    {
+        PhysicalGridX = null,
+        PhysicalGridY = null
+    };
+object?[] ambiguousArgs =
+[
+    ambiguousPhysicalTelemetry,
+    null
+];
+Require(
+    !(bool)(recoverPhysicalPose.Invoke(
+        null,
+        ambiguousArgs)
+        ?? true),
+    "physical pose recovery accepted TileXY without explicit PhysicalGrid");
+
 var openOmsiInstallerType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
