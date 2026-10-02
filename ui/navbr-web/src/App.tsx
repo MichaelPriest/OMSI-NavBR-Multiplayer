@@ -3434,7 +3434,7 @@ function Settings({
                 <span className="eyebrow">{pick("NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE")}</span>
                 <h3>{pick("Atualizações automáticas", "Automatic updates", "Actualizaciones automáticas", "Automatische Updates", "Mises à jour automatiques")}</h3>
               </div>
-              <span className={`compatibility-badge ${system.applicationUpdate?.status === "ready" ? "warning" : system.applicationUpdate?.status === "failed" ? "blocked" : "compatible"}`}>
+              <span className={`compatibility-badge ${system.applicationUpdate?.status === "ready" || system.applicationUpdate?.status === "available" ? "warning" : system.applicationUpdate?.status === "failed" ? "blocked" : "compatible"}`}>
                 {(system.applicationUpdate?.status || "idle").toUpperCase()}
               </span>
             </div>
@@ -3447,6 +3447,55 @@ function Settings({
                 "NavBR vérifie les releases officielles au démarrage. Lorsqu’une nouvelle version est trouvée, l’installeur est téléchargé puis validé avec le SHA-256 publié avant toute installation."
               )}
             </p>
+            <div className="update-preferences-grid">
+              <label className="voice-field">
+                <span>{pick("CANAL DE ATUALIZAÇÃO", "UPDATE CHANNEL", "CANAL DE ACTUALIZACIÓN", "UPDATE-KANAL", "CANAL DE MISE À JOUR")}</span>
+                <select
+                  value={system.applicationUpdate?.channel || "alpha"}
+                  onChange={event => sendCommand("saveApplicationUpdatePreferences", {
+                    channel: event.target.value,
+                    checkAtStartup: system.applicationUpdate?.checkAtStartup ?? true,
+                    autoDownload: system.applicationUpdate?.autoDownload ?? true
+                  })}
+                >
+                  <option value="alpha">{pick("Alpha pública", "Public Alpha", "Alpha pública", "Öffentliche Alpha", "Alpha publique")}</option>
+                  <option value="stable">{pick("Estável", "Stable", "Estable", "Stabil", "Stable")}</option>
+                </select>
+              </label>
+
+              <label className="settings-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={system.applicationUpdate?.checkAtStartup ?? true}
+                  onChange={event => sendCommand("saveApplicationUpdatePreferences", {
+                    channel: system.applicationUpdate?.channel || "alpha",
+                    checkAtStartup: event.target.checked,
+                    autoDownload: system.applicationUpdate?.autoDownload ?? true
+                  })}
+                />
+                <span>
+                  <strong>{pick("Verificar ao iniciar", "Check at startup", "Comprobar al iniciar", "Beim Start prüfen", "Vérifier au démarrage")}</strong>
+                  <small>{pick("Consulta releases oficiais ao abrir o NavBR.", "Checks official releases when NavBR starts.", "Consulta releases oficiales al iniciar.", "Prüft offizielle Releases beim Start.", "Vérifie les releases officielles au démarrage.")}</small>
+                </span>
+              </label>
+
+              <label className="settings-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={system.applicationUpdate?.autoDownload ?? true}
+                  onChange={event => sendCommand("saveApplicationUpdatePreferences", {
+                    channel: system.applicationUpdate?.channel || "alpha",
+                    checkAtStartup: system.applicationUpdate?.checkAtStartup ?? true,
+                    autoDownload: event.target.checked
+                  })}
+                />
+                <span>
+                  <strong>{pick("Baixar automaticamente", "Download automatically", "Descargar automáticamente", "Automatisch herunterladen", "Télécharger automatiquement")}</strong>
+                  <small>{pick("O instalador só fica pronto depois da validação SHA-256.", "Installer becomes ready only after SHA-256 validation.", "El instalador solo queda listo tras validar SHA-256.", "Der Installer ist erst nach SHA-256-Prüfung bereit.", "L’installeur n’est prêt qu’après validation SHA-256.")}</small>
+                </span>
+              </label>
+            </div>
+
             <div className="details-grid">
               <div><small>{pick("VERSÃO ATUAL", "CURRENT VERSION", "VERSIÓN ACTUAL", "AKTUELLE VERSION", "VERSION ACTUELLE")}</small><strong>{system.applicationUpdate?.currentVersion || state?.appVersion || "—"}</strong></div>
               <div><small>{pick("NOVA VERSÃO", "NEW VERSION", "NUEVA VERSIÓN", "NEUE VERSION", "NOUVELLE VERSION")}</small><strong>{system.applicationUpdate?.availableVersion || "—"}</strong></div>
@@ -3463,6 +3512,11 @@ function Settings({
               <button className="button ghost icon-button" onClick={() => sendCommand("checkApplicationUpdate")}>
                 <NavBrIcon name="refresh" size={16} />{pick("Verificar agora", "Check now", "Comprobar ahora", "Jetzt prüfen", "Vérifier maintenant")}
               </button>
+              {system.applicationUpdate?.status === "available" && (
+                <button className="button primary" onClick={() => sendCommand("downloadApplicationUpdate")}>
+                  <NavBrIcon name="download" size={16} />{pick("Baixar atualização", "Download update", "Descargar actualización", "Update herunterladen", "Télécharger la mise à jour")}
+                </button>
+              )}
               {system.applicationUpdate?.readyToInstall && (
                 <button className="button primary" onClick={() => sendCommand("installApplicationUpdate")}>
                   {pick("Atualizar e reiniciar", "Update & restart", "Actualizar y reiniciar", "Aktualisieren & neu starten", "Mettre à jour et redémarrer")}
@@ -6222,6 +6276,7 @@ function ApplicationUpdatePrompt({
 
   const busy = update.status === "downloading" || update.status === "verifying";
   const ready = update.status === "ready" && update.readyToInstall;
+  const available = update.status === "available" && update.updateAvailable;
   const installing = update.status === "installing";
   const progress = Math.max(0, Math.min(100, update.progressPercent ?? 0));
 
@@ -6262,6 +6317,11 @@ function ApplicationUpdatePrompt({
       )}
 
       <div className="room-actions">
+        {available && (
+          <button className="button primary" onClick={() => sendCommand("downloadApplicationUpdate")}>
+            {pick("Baixar atualização", "Download update", "Descargar actualización", "Update herunterladen", "Télécharger la mise à jour")}
+          </button>
+        )}
         {ready && (
           <button className="button primary" onClick={() => sendCommand("installApplicationUpdate")}>
             {pick("Atualizar e reiniciar", "Update & restart", "Actualizar y reiniciar", "Aktualisieren & neu starten", "Mettre à jour et redémarrer")}
