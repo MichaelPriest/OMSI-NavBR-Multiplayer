@@ -375,7 +375,7 @@ jobs:
             "installer/NavBR.Multiplayer.iss"
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed." }
 
-          $setup = Get-ChildItem $output -Filter "*-Setup-win-x86.exe" | Select-Object -First 1
+          $setup = Get-ChildItem $output -File -Filter "*.exe" | Where-Object { $_.Name -like "*-Setup-win-x86.exe" -or $_.Name -like "*-Setup-*-win-x86.exe" } | Select-Object -First 1
           if (-not $setup) { throw "Installer EXE was not generated." }
           $releaseSetup = "OMSI-NavBR-Multiplayer-v$version-Setup-win-x86.exe"
           Copy-Item $setup.FullName $releaseSetup -Force
