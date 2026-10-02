@@ -1853,6 +1853,7 @@ function CompanyNetwork({
     }
   }, [requestedTab?.id]);
   const [nodeUrl, setNodeUrl] = useState("");
+  const [nodeUrlDirty, setNodeUrlDirty] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteRole, setInviteRole] = useState("Driver");
   const refreshRequested = useRef(false);
@@ -1865,9 +1866,30 @@ function CompanyNetwork({
 
   useEffect(() => {
     if (!companyNetwork) return;
-    setNodeUrl(current => current || companyNetwork.membership?.nodeUrl || "");
-    if (!companyNetwork.assignableRoles.includes(inviteRole)) setInviteRole(companyNetwork.assignableRoles.includes("Driver") ? "Driver" : companyNetwork.assignableRoles[0] || "Driver");
-  }, [companyNetwork?.membership?.nodeUrl, companyNetwork?.assignableRoles]);
+
+    const backendNodeUrl = companyNetwork.membership?.nodeUrl || "";
+    if (nodeUrlDirty) {
+      if (backendNodeUrl && backendNodeUrl === nodeUrl) {
+        setNodeUrlDirty(false);
+      }
+    } else {
+      setNodeUrl(backendNodeUrl);
+    }
+
+    if (!companyNetwork.assignableRoles.includes(inviteRole)) {
+      setInviteRole(
+        companyNetwork.assignableRoles.includes("Driver")
+          ? "Driver"
+          : companyNetwork.assignableRoles[0] || "Driver"
+      );
+    }
+  }, [
+    companyNetwork?.membership?.nodeUrl,
+    companyNetwork?.assignableRoles,
+    inviteRole,
+    nodeUrl,
+    nodeUrlDirty
+  ]);
 
   if (!companyNetwork?.available) return <div className="card empty-state">{pick("Carregando Rede da Empresa…", "Loading Company Network…", "Cargando Red de Empresa…", "Unternehmensnetz wird geladen…", "Chargement du Réseau Entreprise…")}</div>;
 
@@ -1919,7 +1941,7 @@ function CompanyNetwork({
           )}
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("Sua identidade fica protegida neste computador.", "Your identity stays protected on this computer.", "Tu identidad permanece protegida en este equipo.", "Deine Identität bleibt auf diesem Computer geschützt.", "Votre identité reste protégée sur cet ordinateur.")}</p></article>
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
-          <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
+          <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => { setNodeUrl(event.target.value); setNodeUrlDirty(true); }} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
           <article className="card company-invite-card"><span className="eyebrow">{pick("CONVIDAR", "INVITE", "INVITAR", "EINLADEN", "INVITER")}</span><h3>{pick("Novo membro", "New member", "Nuevo miembro", "Neues Mitglied", "Nouveau membre")}</h3><p>{pick("Convites expiram em 7 dias e são criados para um único uso.", "Invites expire in 7 days and are created for one-time use.", "Las invitaciones caducan en 7 días y son de un solo uso.", "Einladungen laufen nach 7 Tagen ab und sind einmalig.", "Les invitations expirent après 7 jours et sont à usage unique.")}</p><label><span>{pick("Cargo inicial", "Initial role", "Cargo inicial", "Anfangsrolle", "Rôle initial")}</span><select value={inviteRole} disabled={!canCreateInvite} onChange={event => setInviteRole(event.target.value)}>{companyNetwork.assignableRoles.map(role => <option key={role} value={role}>{companyRoleLabel(role, pick)}</option>)}</select></label><button className="button ghost" disabled={!canCreateInvite} onClick={() => sendCommand("createCompanyInvite", { role: inviteRole })}>{pick("Criar convite", "Create invite", "Crear invitación", "Einladung erstellen", "Créer une invitation")}</button>{companyNetwork.invite && <div className="company-invite-result"><strong>{companyNetwork.invite.code}</strong><pre>{companyNetwork.invite.payload}</pre><button className="button ghost compact" onClick={() => { if (companyNetwork.invite?.payload) void navigator.clipboard?.writeText(companyNetwork.invite.payload); }}>{pick("Copiar convite", "Copy invite", "Copiar invitación", "Einladung kopieren", "Copier l’invitation")}</button></div>}</article>
         </section>
       )}
