@@ -175,11 +175,14 @@ public partial class HudOverlayWindow : Window
             _chatMessages.RemoveRange(0, _chatMessages.Count - 6);
         }
 
-        _lastChatActivity = DateTimeOffset.UtcNow;
         ChatLinesText.Text = string.Join(
             Environment.NewLine,
             _chatMessages.Select(item => $"{item.DisplayName}: {item.Text}"));
-        ChatPanel.Visibility = Visibility.Visible;
+
+        // Incoming messages never open the gameplay chat by themselves.
+        // They remain queued and appear the next time the driver explicitly
+        // opens chat.
+        RenderChatVisibility();
     }
 
     public void MarkRemoteSpeaker(string playerId, string? displayName)
@@ -213,7 +216,9 @@ public partial class HudOverlayWindow : Window
     {
         SetLocalPushToTalk(false);
         _chatInteractive = true;
+        ChatPanel.Visibility = Visibility.Visible;
         ChatInputPanel.Visibility = Visibility.Visible;
+        RefreshVisualChat(force: true);
         SetInteractive(true);
         Show();
         Activate();
@@ -225,6 +230,7 @@ public partial class HudOverlayWindow : Window
         ChatInputBox.Clear();
         ChatInputPanel.Visibility = Visibility.Collapsed;
         _chatInteractive = false;
+        ChatPanel.Visibility = Visibility.Collapsed;
         SetInteractive(false);
     }
 
@@ -284,17 +290,9 @@ public partial class HudOverlayWindow : Window
 
     private void RenderChatVisibility()
     {
-        if (_chatInteractive)
-        {
-            ChatPanel.Visibility = Visibility.Visible;
-            return;
-        }
-
-        if (_chatMessages.Count == 0 ||
-            DateTimeOffset.UtcNow - _lastChatActivity > TimeSpan.FromSeconds(12))
-        {
-            ChatPanel.Visibility = Visibility.Collapsed;
-        }
+        ChatPanel.Visibility = _chatInteractive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void EnsureRoadmapLoaded(OmsiMapInfo? map)
