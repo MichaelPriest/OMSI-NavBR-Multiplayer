@@ -42,6 +42,17 @@ public partial class HudOverlayWindow
         MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
         UpdateTripInfo(telemetry, map);
 
+        var hasRoadmapSurface =
+            map is not null &&
+            bitmap is not null &&
+            layout is not null;
+        if (!_immersiveOperationActive)
+        {
+            MiniMapHudPanel.Visibility = hasRoadmapSurface
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
         if (telemetry is not null)
         {
             LocalMarkerRotation.Angle = 0d;
