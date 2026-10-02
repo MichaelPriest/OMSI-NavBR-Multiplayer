@@ -305,14 +305,7 @@ public partial class HudOverlayWindow
         _modularAlertsText!.FontSize = Math.Clamp(10d * settings.DashboardAlertsScale, 8d, 18d);
         _modularSideIndicatorsText!.FontSize = Math.Clamp(10d * settings.DashboardSideIndicatorsScale, 8d, 18d);
 
-        _modularWidgetsRoot.Visibility =
-            settings.DashboardShowMinimap ||
-            settings.DashboardShowMultiplayer ||
-            settings.DashboardShowAlerts ||
-            settings.DashboardShowSideIndicators
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-
+        UpdateModularWidgetsRootVisibility();
         ApplyModularWidgetTheme(settings.DashboardTheme);
     }
 
@@ -333,6 +326,24 @@ public partial class HudOverlayWindow
                 ? "MINIMAPA"
                 : $"MINIMAPA • {_localTelemetry.MapName}";
         }
+
+        UpdateModularWidgetsRootVisibility();
+    }
+
+    private void UpdateModularWidgetsRootVisibility()
+    {
+        if (_modularWidgetsRoot is null)
+        {
+            return;
+        }
+
+        var anyVisible =
+            _modularMinimapWidget?.Visibility == Visibility.Visible ||
+            _modularMultiplayerWidget?.Visibility == Visibility.Visible ||
+            _modularAlertsWidget?.Visibility == Visibility.Visible ||
+            _modularSideIndicatorsWidget?.Visibility == Visibility.Visible;
+        _modularWidgetsRoot.Visibility =
+            anyVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RenderModularMultiplayerWidget()
@@ -395,11 +406,17 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (!_hudSettings.DashboardShowAlerts)
+        {
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         var telemetry = _localTelemetry;
         if (telemetry is null)
         {
-            _modularAlertsText.Text = DashboardText("Sem telemetria do ônibus", "No bus telemetry");
-            _modularAlertsText.Foreground = new SolidColorBrush(Color.FromRgb(135, 154, 168));
+            _modularAlertsText.Text = string.Empty;
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -433,11 +450,12 @@ public partial class HudOverlayWindow
 
         if (alerts.Count == 0)
         {
-            _modularAlertsText.Text = DashboardText("Operação normal", "Normal operation");
-            _modularAlertsText.Foreground = new SolidColorBrush(Color.FromRgb(91, 214, 141));
+            _modularAlertsText.Text = string.Empty;
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
             return;
         }
 
+        _modularAlertsWidget!.Visibility = Visibility.Visible;
         _modularAlertsText.Text = string.Join("  •  ", alerts.Take(4));
         _modularAlertsText.Foreground = critical
             ? new SolidColorBrush(Color.FromRgb(255, 104, 104))
