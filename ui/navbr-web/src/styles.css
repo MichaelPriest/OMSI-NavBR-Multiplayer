@@ -3074,3 +3074,45 @@ h3 { margin:6px 0 16px; font-size:19px; }
 @media (max-width:760px) {
   .first-run-readiness { grid-template-columns:1fr; }
 }
+
+
+/* Update preferences */
+.update-preferences-grid {
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) repeat(2,minmax(210px,1fr));
+  gap:10px;
+  margin:14px 0;
+}
+.settings-toggle-card {
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  min-width:0;
+  padding:10px 11px;
+  border:1px solid #294858;
+  border-radius:10px;
+  background:#0a1a24;
+  cursor:pointer;
+}
+.settings-toggle-card input {
+  margin-top:2px;
+  accent-color:#4db9f2;
+}
+.settings-toggle-card > span {
+  display:grid;
+  gap:3px;
+}
+.settings-toggle-card strong {
+  color:#e4f4fc;
+  font-size:10px;
+}
+.settings-toggle-card small {
+  color:#7e99aa;
+  font-size:9px;
+  line-height:1.4;
+}
+@media (max-width:980px) {
+  .update-preferences-grid {
+    grid-template-columns:1fr;
+  }
+}
