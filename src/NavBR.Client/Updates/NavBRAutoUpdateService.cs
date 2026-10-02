@@ -945,25 +945,33 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                     directory.LastWriteTimeUtc)
                 .ToArray();
 
-            var retained = 0;
+            var keep = new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
+            if (protectedFullPath is not null &&
+                Directory.Exists(protectedFullPath))
+            {
+                keep.Add(protectedFullPath);
+            }
+
+            foreach (var directory in directories)
+            {
+                if (keep.Count >= RetainedUpdateDirectories)
+                {
+                    break;
+                }
+
+                keep.Add(
+                    Path.TrimEndingDirectorySeparator(
+                        directory.FullName));
+            }
+
             foreach (var directory in directories)
             {
                 var fullPath =
                     Path.TrimEndingDirectorySeparator(
                         directory.FullName);
-                if (protectedFullPath is not null &&
-                    string.Equals(
-                        fullPath,
-                        protectedFullPath,
-                        StringComparison.OrdinalIgnoreCase))
+                if (keep.Contains(fullPath))
                 {
-                    retained++;
-                    continue;
-                }
-
-                if (retained < RetainedUpdateDirectories)
-                {
-                    retained++;
                     continue;
                 }
 
