@@ -5974,8 +5974,8 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("4. Chat e voz", "4. Chat and voice", "4. Chat y voz", "4. Chat und Sprache", "4. Chat et voix"),
       body: pick(
-        `O atalho atual do chat é ${multiplayer.chatHotkey || "F9"} e o PTT é ${multiplayer.voiceHotkey || "F10"}. Em Multiplayer > Chat & Voz você configura canal, proximidade, microfone, saída, mute/volume por jogador e acompanha jitter/perda/FEC.`,
-        `The current chat hotkey is ${multiplayer.chatHotkey || "F9"} and PTT is ${multiplayer.voiceHotkey || "F10"}. In Multiplayer > Chat & Voice you can configure channel, proximity, microphone, output, per-player mute/volume and monitor jitter/loss/FEC.`,
+        `O atalho atual do chat é ${multiplayer.chatHotkey || "F9"} e o PTT é ${multiplayer.voiceHotkey || "F10"}. Em Multiplayer > Chat & Voz você configura canal, proximidade, microfone, saída, mute/volume por jogador e acompanha jitter/perda/FEC. Sliders usam edição local e confirmam no fim do ajuste para evitar travadas/piscadas por polling.`,
+        `The current chat hotkey is ${multiplayer.chatHotkey || "F9"} and PTT is ${multiplayer.voiceHotkey || "F10"}. In Multiplayer > Chat & Voice you can configure channel, proximity, microphone, output, per-player mute/volume and monitor jitter/loss/FEC. Sliders edit locally and commit at the end of the adjustment to avoid polling flicker.`,
         `El atajo actual del chat es ${multiplayer.chatHotkey || "F9"} y PTT es ${multiplayer.voiceHotkey || "F10"}. En Multiplayer > Chat y Voz configuras canal, proximidad, dispositivos y mixer.`,
         `Der aktuelle Chat-Hotkey ist ${multiplayer.chatHotkey || "F9"}, PTT ist ${multiplayer.voiceHotkey || "F10"}. Unter Multiplayer > Chat & Sprache werden Kanal, Nähe, Geräte und Mixer eingestellt.`,
         `Le raccourci chat actuel est ${multiplayer.chatHotkey || "F9"} et le PTT ${multiplayer.voiceHotkey || "F10"}. Dans Multijoueur > Chat & Voix, configurez canal, proximité, périphériques et mixage.`
@@ -5994,8 +5994,8 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("6. Diagnósticos automáticos", "6. Automatic diagnostics", "6. Diagnósticos automáticos", "6. Automatische Diagnose", "6. Diagnostics automatiques"),
       body: pick(
-        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Para suporte, use Gerar pacote de diagnóstico: ele exporta resumo técnico e log sanitizado, removendo senhas, tokens, IDs, IPs, e-mails e caminhos locais. A fila local também pode ser apagada.",
-        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. For support, use Generate diagnostic bundle: it exports a technical summary and sanitized log while removing passwords, tokens, IDs, IPs, email addresses and local paths. The local queue can also be purged.",
+        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Para suporte, use Gerar pacote de diagnóstico: ele exporta saúde da sessão, versões, plugin OMSI, updater, gateway openOMSI e log sanitizado, removendo senhas, tokens, IDs, IPs, e-mails e caminhos locais. A tela também mostra poll efetivo, custo de leitura, refresh do HUD, pressão do plugin e perfil ativo do otimizador.",
+        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. Generate diagnostic bundle exports session health, versions, OMSI plugin, updater, openOMSI gateway and a sanitized log while removing passwords, tokens, IDs, IP addresses, email addresses and local paths. The page also shows effective poll, read cost, HUD refresh, plugin pressure and the active optimizer profile.",
         "Los diagnósticos son opcionales y se controlan en Configuración > Diagnóstico. No deben incluir chat, audio, contraseñas, tokens ni archivos personales.",
         "Diagnosen sind optional und unter Einstellungen > Diagnose steuerbar. Chat, Audio, Passwörter, Tokens oder persönliche Dateien sollen nicht enthalten sein.",
         "Les diagnostics sont facultatifs et se règlent dans Paramètres > Diagnostic. Ils ne doivent pas contenir chat, audio, mots de passe, jetons ou fichiers personnels."
@@ -6051,6 +6051,16 @@ function Help({ state }: { state: NavBrState | null }) {
         "Mobile Companion utilise la découverte LAN et un code d’appairage, affiche la vraie roadmap OMSI et reprend après suspension. Le RP utilise W/A/S/D, flèches, Shift, Espace, E et Échap."
       )
     }
+    {
+      title: pick("12. Hardware Cockpit e desempenho", "12. Hardware Cockpit and performance", "12. Hardware Cockpit y rendimiento", "12. Hardware Cockpit und Leistung", "12. Hardware Cockpit et performances"),
+      body: pick(
+        "O Hardware Cockpit nunca troca silenciosamente de porta COM. O app mostra a porta configurada, se ela está disponível, tentativa atual do auto-reconnect e próxima tentativa. O governor de desempenho continua ajustando telemetria/HUD conforme custo de leitura e pressão do plugin.",
+        "Hardware Cockpit never silently switches COM ports. The app shows the configured port, whether it is available, current auto-reconnect attempt and next retry. The performance governor continues adapting telemetry/HUD based on read cost and plugin pressure.",
+        "Hardware Cockpit nunca cambia silenciosamente de puerto COM. La app muestra puerto configurado, disponibilidad, intento de reconexión y próximo reintento.",
+        "Hardware Cockpit wechselt nie unbemerkt den COM-Port. Die App zeigt konfigurierten Port, Verfügbarkeit, Wiederverbindungsversuch und nächsten Retry.",
+        "Hardware Cockpit ne change jamais silencieusement de port COM. L’app affiche le port configuré, sa disponibilité, la tentative de reconnexion et le prochain essai."
+      )
+    },
   ];
 
   return (
