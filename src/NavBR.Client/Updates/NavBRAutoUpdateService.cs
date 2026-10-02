@@ -23,7 +23,10 @@ internal sealed record NavBRAutoUpdateSnapshot(
     string? Message,
     string? LastInstalledFromVersion = null,
     string? LastInstalledToVersion = null,
-    DateTimeOffset? LastInstallCompletedAtUtc = null);
+    DateTimeOffset? LastInstallCompletedAtUtc = null,
+    string? ReleaseNotes = null,
+    long? DownloadedBytes = null,
+    long? TotalBytes = null);
 
 internal sealed class NavBRAutoUpdateService : IDisposable
 {
@@ -135,7 +138,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                 UpdateAvailable = false,
                 ReadyToInstall = false,
                 CheckedAtUtc = DateTimeOffset.UtcNow,
-                Message = null
+                Message = null,
+                ReleaseNotes = null,
+                DownloadedBytes = null,
+                TotalBytes = null
             });
             _preparedSha256 = null;
 
@@ -172,7 +178,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                     UpdateAvailable = true,
                     ReadyToInstall = false,
                     CheckedAtUtc = DateTimeOffset.UtcNow,
-                    Message = "Nova versão encontrada. Download automático está desativado."
+                    Message = "Nova versão encontrada. Download automático está desativado.",
+                    ReleaseNotes = candidate.ReleaseNotes,
+                    DownloadedBytes = null,
+                    TotalBytes = null
                 });
                 return GetSnapshot();
             }
@@ -186,7 +195,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                 UpdateAvailable = true,
                 ReadyToInstall = false,
                 CheckedAtUtc = DateTimeOffset.UtcNow,
-                Message = "Nova versão encontrada. Baixando o instalador oficial."
+                Message = "Nova versão encontrada. Baixando o instalador oficial.",
+                ReleaseNotes = candidate.ReleaseNotes,
+                DownloadedBytes = 0,
+                TotalBytes = null
             });
 
             var prepared = await PrepareInstallerAsync(
@@ -194,6 +206,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                 cancellationToken);
 
             _preparedSha256 = prepared.ExpectedSha256;
+            var preparedBytes =
+                new FileInfo(prepared.InstallerPath).Length;
             SetSnapshot(GetSnapshot() with
             {
                 Status = "ready",
@@ -204,7 +218,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                 UpdateAvailable = true,
                 ReadyToInstall = true,
                 CheckedAtUtc = DateTimeOffset.UtcNow,
-                Message = "Atualização baixada e validada pelo SHA-256 oficial."
+                Message = "Atualização baixada e validada pelo SHA-256 oficial.",
+                ReleaseNotes = candidate.ReleaseNotes,
+                DownloadedBytes = preparedBytes,
+                TotalBytes = preparedBytes
             });
 
             return GetSnapshot();
@@ -570,7 +587,9 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                     $"https://github.com/MichaelPriest/OMSI-NavBR-Multiplayer/releases/tag/{tagName}",
                 InstallerName: installer.Name,
                 InstallerUrl: installer.Url,
-                ChecksumsUrl: checksums.Url);
+                ChecksumsUrl: checksums.Url,
+                ReleaseNotes: NormalizeReleaseNotes(
+                    GetString(release, "body")));
 
             if (newest is null ||
                 CompareReleaseVersions(
@@ -756,6 +775,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                 {
                     Status = "downloading",
                     ProgressPercent = initialProgress,
+                    DownloadedBytes = existingLength,
+                    TotalBytes = totalLength,
                     Message =
                         $"Retomando atualização… {initialProgress}%"
                 });
@@ -813,6 +834,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                         {
                             Status = "downloading",
                             ProgressPercent = progress,
+                            DownloadedBytes = written,
+                            TotalBytes = totalLength,
                             Message =
                                 $"Baixando atualização… {progress}%"
                         });
@@ -1082,6 +1105,24 @@ internal sealed class NavBRAutoUpdateService : IDisposable
     private static string NormalizeVersion(string version) =>
         version.Trim().TrimStart('v', 'V').Split('+')[0];
 
+    private static string? NormalizeReleaseNotes(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        const int maximumCharacters = 8_000;
+        var normalized = value
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Trim();
+
+        return normalized.Length <= maximumCharacters
+            ? normalized
+            : normalized[..maximumCharacters].TrimEnd() + "\n…";
+    }
+
     private static string SanitizeTag(string tag)
     {
         var invalid = Path.GetInvalidFileNameChars();
@@ -1288,7 +1329,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         string ReleaseUrl,
         string InstallerName,
         string InstallerUrl,
-        string ChecksumsUrl);
+        string ChecksumsUrl,
+        string? ReleaseNotes);
 
     private sealed record PreparedInstaller(
         string InstallerPath,
