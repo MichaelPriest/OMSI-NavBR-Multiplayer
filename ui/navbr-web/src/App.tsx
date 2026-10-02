@@ -3501,6 +3501,7 @@ function Settings({
               <div><small>{pick("NOVA VERSÃO", "NEW VERSION", "NUEVA VERSIÓN", "NEUE VERSION", "NOUVELLE VERSION")}</small><strong>{system.applicationUpdate?.availableVersion || "—"}</strong></div>
               <div><small>{pick("STATUS", "STATUS", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{system.applicationUpdate?.status || "idle"}</strong></div>
               <div><small>{pick("ÚLTIMA VERIFICAÇÃO", "LAST CHECK", "ÚLTIMA COMPROBACIÓN", "LETZTE PRÜFUNG", "DERNIÈRE VÉRIFICATION")}</small><strong>{system.applicationUpdate?.checkedAtUtc ? new Date(system.applicationUpdate.checkedAtUtc).toLocaleString() : "—"}</strong></div>
+              <div><small>{pick("ÚLTIMA ATUALIZAÇÃO", "LAST UPDATE", "ÚLTIMA ACTUALIZACIÓN", "LETZTES UPDATE", "DERNIÈRE MISE À JOUR")}</small><strong>{system.applicationUpdate?.lastInstalledToVersion ? `${system.applicationUpdate.lastInstalledFromVersion || "?"} → ${system.applicationUpdate.lastInstalledToVersion}` : "—"}</strong></div>
             </div>
             {system.applicationUpdate?.message && <div className="network-message">{system.applicationUpdate.message}</div>}
             {(system.applicationUpdate?.status === "downloading" || system.applicationUpdate?.status === "verifying") && (
@@ -3520,6 +3521,11 @@ function Settings({
               {system.applicationUpdate?.readyToInstall && (
                 <button className="button primary" onClick={() => sendCommand("installApplicationUpdate")}>
                   {pick("Atualizar e reiniciar", "Update & restart", "Actualizar y reiniciar", "Aktualisieren & neu starten", "Mettre à jour et redémarrer")}
+                </button>
+              )}
+              {system.applicationUpdate?.status === "offline" && (
+                <button className="button ghost" onClick={() => sendCommand("checkApplicationUpdate")}>
+                  {pick("Tentar novamente", "Try again", "Intentar de nuevo", "Erneut versuchen", "Réessayer")}
                 </button>
               )}
               {system.applicationUpdate?.releaseUrl && (
