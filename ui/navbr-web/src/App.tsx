@@ -3302,6 +3302,13 @@ function Settings({
     ? `${(system.diagnostics.logSizeBytes / (1024 * 1024)).toFixed(1)} MB`
     : `${Math.max(0, system.diagnostics.logSizeBytes / 1024).toFixed(1)} KB`;
 
+  const applicationUpdateBusy = [
+    "checking",
+    "downloading",
+    "verifying",
+    "installing"
+  ].includes(system.applicationUpdate?.status || "idle");
+
   const formatUpdateBytes = (bytes?: number | null) => {
     if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
     if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -3493,6 +3500,7 @@ function Settings({
                 <span>{pick("CANAL DE ATUALIZAÇÃO", "UPDATE CHANNEL", "CANAL DE ACTUALIZACIÓN", "UPDATE-KANAL", "CANAL DE MISE À JOUR")}</span>
                 <select
                   value={system.applicationUpdate?.channel || "alpha"}
+                  disabled={applicationUpdateBusy}
                   onChange={event => sendCommand("saveApplicationUpdatePreferences", {
                     channel: event.target.value,
                     checkAtStartup: system.applicationUpdate?.checkAtStartup ?? true,
@@ -3508,6 +3516,7 @@ function Settings({
                 <input
                   type="checkbox"
                   checked={system.applicationUpdate?.checkAtStartup ?? true}
+                  disabled={applicationUpdateBusy}
                   onChange={event => sendCommand("saveApplicationUpdatePreferences", {
                     channel: system.applicationUpdate?.channel || "alpha",
                     checkAtStartup: event.target.checked,
@@ -3524,6 +3533,7 @@ function Settings({
                 <input
                   type="checkbox"
                   checked={system.applicationUpdate?.autoDownload ?? true}
+                  disabled={applicationUpdateBusy}
                   onChange={event => sendCommand("saveApplicationUpdatePreferences", {
                     channel: system.applicationUpdate?.channel || "alpha",
                     checkAtStartup: system.applicationUpdate?.checkAtStartup ?? true,
@@ -3568,7 +3578,7 @@ function Settings({
               </details>
             )}
             <div className="discovery-actions">
-              <button className="button ghost icon-button" onClick={() => sendCommand("checkApplicationUpdate")}>
+              <button className="button ghost icon-button" disabled={applicationUpdateBusy} onClick={() => sendCommand("checkApplicationUpdate")}>
                 <NavBrIcon name="refresh" size={16} />{pick("Verificar agora", "Check now", "Comprobar ahora", "Jetzt prüfen", "Vérifier maintenant")}
               </button>
               {system.applicationUpdate?.status === "available" && (
