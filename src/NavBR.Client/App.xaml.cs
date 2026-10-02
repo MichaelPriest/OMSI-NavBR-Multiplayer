@@ -14,6 +14,7 @@ using NavBR.Client.Operations;
 using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.PluginInstaller;
+using NavBR.Client.Updates;
 using NavBR.Client.Windows;
 using NavBR.Client.WinUIBridge;
 using NavBR.Shared.PluginBridge;
@@ -25,9 +26,11 @@ public partial class App : Application
     internal OmsiPluginBridgeServer PluginBridge { get; } = new();
     internal NavBRTrayIconService TrayIcon { get; } = new();
     internal NavBRNetworkRuntime NetworkRuntime { get; } = new();
+    internal NavBRAutoUpdateService AutoUpdater { get; } = new();
     internal MobileCompanionHostService? MobileCompanion { get; private set; }
 
     private CancellationTokenSource? _deferredPluginUpdateCts;
+    private CancellationTokenSource? _autoUpdateCts;
     private string? _deferredPluginUpdateRoot;
     private NativeShellBridgeServer? _nativeShellBridge;
 
@@ -127,6 +130,36 @@ public partial class App : Application
         else
         {
             nativeHost.OpenPrimaryWebShell();
+            _autoUpdateCts = new CancellationTokenSource();
+            _ = CheckForApplicationUpdatesAsync(_autoUpdateCts.Token);
+        }
+    }
+
+    private async Task CheckForApplicationUpdatesAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result =
+                await AutoUpdater.CheckAndPrepareAsync(cancellationToken);
+            NavBRAppLog.Info(
+                $"app-update status={result.Status} current={result.CurrentVersion} " +
+                $"available={result.AvailableVersion ?? "-"} ready={result.ReadyToInstall}");
+            RemoteDiagnosticsService.Record(
+                "app-update",
+                result.Status == "failed" ? "warning" : "info",
+                $"status={result.Status} current={result.CurrentVersion} available={result.AvailableVersion ?? "-"}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("app-update-check-error", ex);
+            RemoteDiagnosticsService.Record(
+                "app-update",
+                "warning",
+                $"status=failed type={ex.GetType().Name}");
         }
     }
 
@@ -158,6 +191,11 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _autoUpdateCts?.Cancel();
+        _autoUpdateCts?.Dispose();
+        _autoUpdateCts = null;
+        AutoUpdater.Dispose();
+
         _deferredPluginUpdateCts?.Cancel();
         _deferredPluginUpdateCts?.Dispose();
         _deferredPluginUpdateCts = null;
