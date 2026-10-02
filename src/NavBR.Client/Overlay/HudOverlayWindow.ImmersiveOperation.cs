@@ -575,13 +575,14 @@ public partial class HudOverlayWindow
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 9d,
             TextWrapping = TextWrapping.Wrap,
-            MaxHeight = 48d
+            MaxHeight = 48d,
+            Visibility = Visibility.Collapsed
         };
         stack.Children.Add(_immersiveChatText);
 
         _immersiveVoiceText = new TextBlock
         {
-            Text = "PTT • F10",
+            Text = "PTT",
             Foreground = new SolidColorBrush(Color.FromRgb(111, 234, 168)),
             FontSize = 10d,
             FontWeight = FontWeights.SemiBold
@@ -595,16 +596,6 @@ public partial class HudOverlayWindow
             Child = _immersiveVoiceText
         };
         stack.Children.Add(_immersiveVoiceStatusCell);
-
-        _immersiveMultiplayerShortcutText = new TextBlock
-        {
-            Text = ImmersiveText("F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT"),
-            Margin = new Thickness(0d, 8d, 0d, 0d),
-            Foreground = new SolidColorBrush(Color.FromRgb(118, 151, 172)),
-            FontSize = 9d,
-            FontWeight = FontWeights.SemiBold
-        };
-        stack.Children.Add(_immersiveMultiplayerShortcutText);
 
         return new Border
         {
@@ -2102,7 +2093,12 @@ public partial class HudOverlayWindow
         }
         if (_immersiveChatText is not null)
         {
-            _immersiveChatText.Text = BuildImmersiveChatText();
+            _immersiveChatText.Visibility =
+                _chatInteractive ? Visibility.Visible : Visibility.Collapsed;
+            if (_chatInteractive)
+            {
+                _immersiveChatText.Text = BuildImmersiveChatText();
+            }
         }
         if (_immersiveVoiceText is not null)
         {
@@ -2872,7 +2868,7 @@ public partial class HudOverlayWindow
 
         return activeSpeakers.Length > 0
             ? $"{string.Join(", ", activeSpeakers)} {ImmersiveText("falando", "speaking", "hablando", "spricht", "parle")}"
-            : "PTT • F10";
+            : "PTT";
     }
 
     private static string ImmersiveText(
