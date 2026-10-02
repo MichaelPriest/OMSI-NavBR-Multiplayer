@@ -6257,6 +6257,7 @@ export default function App() {
   const [state, setState] = useState<NavBrState | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [commandError, setCommandError] = useState<string | null>(null);
+  const commandErrorTimer = useRef<number | null>(null);
   const [settingsTabRequest, setSettingsTabRequest] = useState<SettingsTab | null>(null);
   const [navigationViewRequest, setNavigationViewRequest] = useState<{ id: number; view: "2d" | "3d" } | null>(null);
   const [operationsTabRequest, setOperationsTabRequest] = useState<{ id: number; tab: OperationsTab } | null>(null);
@@ -6273,7 +6274,6 @@ export default function App() {
   useEffect(() => subscribeToNavBrState(
     next => {
       setState(next);
-      setCommandError(null);
 
       const navigationRequest = next.navigationRequest;
       if (navigationRequest && navigationRequest.id !== lastNavigationRequestId.current) {
@@ -6282,7 +6282,7 @@ export default function App() {
         const requestedSettingsTab = requested?.startsWith("settings-")
           ? requested.slice("settings-".length) as SettingsTab
           : null;
-        if (requestedSettingsTab && ["general", "installations", "hud", "roadmap", "diagnostics", "network"].includes(requestedSettingsTab)) {
+        if (requestedSettingsTab && ["general", "updates", "installations", "hud", "roadmap", "diagnostics", "network"].includes(requestedSettingsTab)) {
           setSettingsTabRequest(requestedSettingsTab);
           setScreen("settings");
         } else if (requested === "navigation-3d") {
@@ -6310,14 +6310,45 @@ export default function App() {
         }
       }
     },
-    setCommandError
+    message => {
+      setCommandError(message);
+      if (commandErrorTimer.current != null) {
+        window.clearTimeout(commandErrorTimer.current);
+      }
+      commandErrorTimer.current = window.setTimeout(() => {
+        setCommandError(null);
+        commandErrorTimer.current = null;
+      }, 8000);
+    }
   ), []);
+
+  useEffect(() => () => {
+    if (commandErrorTimer.current != null) {
+      window.clearTimeout(commandErrorTimer.current);
+    }
+  }, []);
 
   return (
     <I18nProvider cultureName={state?.cultureName} languages={state?.supportedLanguages}>
     <div className="app-shell">
       <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
+        {commandError && (
+          <div className="global-command-toast" role="alert">
+            <NavBrIcon name="warning" size={16} />
+            <span>{commandError}</span>
+            <button type="button" onClick={() => setCommandError(null)} aria-label="Fechar">×</button>
+          </div>
+        )}
+        {!state && (
+          <section className="card app-loading-state" aria-live="polite">
+            <span className="app-loading-spinner" />
+            <div>
+              <strong>NavBR</strong>
+              <small>Inicializando serviços e sincronizando o estado do OMSI…</small>
+            </div>
+          </section>
+        )}
         <ApplicationUpdatePrompt
           state={state}
           dismissed={updatePromptDismissed}
