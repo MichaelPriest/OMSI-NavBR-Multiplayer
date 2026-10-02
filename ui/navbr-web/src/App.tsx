@@ -4463,6 +4463,7 @@ function Multiplayer({
   const mobileControls = state?.system?.mobileCompanion;
   const [tab, setTab] = useState<MultiplayerTab>("overview");
   const [chatText, setChatText] = useState("");
+  const chatLogRef = useRef<HTMLDivElement>(null);
   const [serverUrl, setServerUrl] = useState("");
   const [roomId, setRoomId] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -4490,6 +4491,32 @@ function Multiplayer({
     setRoomId(current => current || multiplayer.roomId || "");
     setDisplayName(current => current || multiplayer.displayName || "");
   }, [multiplayer.serverUrl, multiplayer.roomId, multiplayer.displayName]);
+
+  useEffect(() => {
+    if (tab !== "chat") return;
+    const log = chatLogRef.current;
+    if (!log) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      log.scrollTop = log.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== "chat") return;
+    const log = chatLogRef.current;
+    if (!log) return;
+
+    const distanceFromBottom =
+      log.scrollHeight - log.scrollTop - log.clientHeight;
+    if (distanceFromBottom <= 120) {
+      const frame = window.requestAnimationFrame(() => {
+        log.scrollTop = log.scrollHeight;
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [tab, multiplayer.chat.length]);
 
   useEffect(() => {
     const backendChannel = multiplayer.voiceChannel || "general";
@@ -5433,7 +5460,16 @@ function Multiplayer({
             <div className="section-heading">
               <div><span className="eyebrow">CHAT</span><h3>{pick("Mensagens da sala", "Room messages", "Mensajes de sala", "Raumnachrichten", "Messages de la salle")}</h3></div>
             </div>
-            <div className="chat-log">
+            <div className="chat-status-row">
+              <span className={multiplayer.connected ? "online" : "offline"}>
+                {multiplayer.connected
+                  ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")
+                  : pick("Desconectado", "Disconnected", "Desconectado", "Getrennt", "Déconnecté")}
+              </span>
+              <span>{multiplayer.chat.length} {pick("mensagens", "messages", "mensajes", "Nachrichten", "messages")}</span>
+              <span>{pick("Canal", "Channel", "Canal", "Kanal", "Canal")}: {voiceChannel}</span>
+            </div>
+            <div className="chat-log" ref={chatLogRef} aria-live="polite">
               {multiplayer.chat.length === 0 ? (
                 <div className="empty-state">{pick("Nenhuma mensagem recebida.", "No message received.", "Ningún mensaje recibido.", "Keine Nachricht empfangen.", "Aucun message reçu.")}</div>
               ) : multiplayer.chat.map((message, index) => (
