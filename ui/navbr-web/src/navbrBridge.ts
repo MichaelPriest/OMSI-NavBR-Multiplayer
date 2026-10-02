@@ -1052,6 +1052,7 @@ export type NavBrCommand =
   | "purgeDiagnostics"
   | "openFeedback"
   | "exportSessionHealth"
+  | "exportDiagnosticBundle"
   | "setPerformanceProfile"
   | "saveLegacyPreferences"
   | "completeFirstRun"
