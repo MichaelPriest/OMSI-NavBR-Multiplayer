@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NavBR.Client.Multiplayer;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -245,6 +246,60 @@ Require(
     sanitizedDiagnosticText.Contains("[email]", StringComparison.Ordinal) &&
     sanitizedDiagnosticText.Contains("[path]", StringComparison.Ordinal),
     "diagnostic sanitizer did not emit expected privacy markers");
+
+var normalizeMultiplayerSettings =
+    typeof(MultiplayerSettingsStore).GetMethod(
+        "Normalize",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "multiplayer settings normalizer not found");
+var legacyDefaultHud = MultiplayerSettings.CreateDefault() with
+{
+    DashboardSettingsVersion = 3,
+    DashboardAnchor = "free",
+    DashboardX = 0.02d,
+    DashboardY = 0.58d,
+    DashboardShowMinimap = true,
+    DashboardShowMultiplayer = true,
+    DashboardShowAlerts = true,
+    DashboardShowSideIndicators = true,
+    DashboardMinimapScale = 1d,
+    DashboardMultiplayerScale = 1d,
+    DashboardAlertsScale = 1d,
+    DashboardSideIndicatorsScale = 1d
+};
+var migratedDefaultHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud])
+    ?? throw new InvalidOperationException(
+        "HUD settings migration returned null");
+Require(
+    migratedDefaultHud.DashboardSettingsVersion == 4 &&
+    string.Equals(
+        migratedDefaultHud.DashboardAnchor,
+        "bottom-right",
+        StringComparison.OrdinalIgnoreCase) &&
+    !migratedDefaultHud.DashboardShowMinimap &&
+    !migratedDefaultHud.DashboardShowMultiplayer &&
+    !migratedDefaultHud.DashboardShowSideIndicators,
+    "default Alpha.26 HUD layout was not migrated away from overlapping duplicate widgets");
+
+var customizedHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud with { DashboardX = 0.42d }])
+    ?? throw new InvalidOperationException(
+        "custom HUD settings migration returned null");
+Require(
+    string.Equals(
+        customizedHud.DashboardAnchor,
+        "free",
+        StringComparison.OrdinalIgnoreCase) &&
+    customizedHud.DashboardShowMinimap &&
+    customizedHud.DashboardShowMultiplayer &&
+    customizedHud.DashboardShowSideIndicators,
+    "HUD cleanup migration overwrote a customized layout");
 
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
