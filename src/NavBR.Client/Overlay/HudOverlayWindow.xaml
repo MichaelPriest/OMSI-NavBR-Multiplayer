@@ -507,7 +507,8 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Grid Width="300" Height="190" HorizontalAlignment="Left">
+                <Grid x:Name="MiniMapViewport"
+                      Width="300" Height="190" HorizontalAlignment="Left">
                     <Border x:Name="MiniMapFrame"
                             Background="#D60D1319"
                             BorderBrush="#78FFFFFF"
@@ -562,6 +563,17 @@
                                       Visibility="Collapsed" />
                         </Canvas>
                     </Border>
+
+                    <Ellipse x:Name="MiniMapCircularBorder"
+                             Width="186"
+                             Height="186"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Stroke="#BFFFFFFF"
+                             StrokeThickness="2"
+                             Fill="Transparent"
+                             IsHitTestVisible="False"
+                             Visibility="Collapsed" />
 
                     <Grid x:Name="LocalMarker"
                           Width="42" Height="42"
