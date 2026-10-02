@@ -49,7 +49,11 @@ O plugin NavBR para openOMSI agora é tratado como pacote independente:
   - estado do plugin OMSI 2;
   - Empresa/Crachá;
   - Mobile Companion;
-  - atualizações.
+  - atualizações;
+- criação/entrada em salas agora valida sala, apelido e senha privada mínima antes de enviar comandos;
+- navegador de salas públicas mostra estado real de atualização e evita refresh duplicado;
+- URL do Company Node usa draft/ack e não fica presa em vínculo antigo;
+- preferências do updater ficam bloqueadas durante check/download/verificação/instalação para evitar comandos concorrentes.
 
 ## CCO / Empresa / Crachá
 
@@ -58,7 +62,8 @@ Quando existe crachá verificado:
 - nome do motorista passa a seguir o crachá;
 - empresa/sigla passam a seguir o crachá;
 - campos conflitantes ficam bloqueados na UI;
-- Perfil do Motorista, Empresa/Frota e Rede da Empresa permanecem coerentes.
+- Perfil do Motorista, Empresa/Frota e Rede da Empresa permanecem coerentes;
+- importação de perfil pode trazer histórico/estatísticas, mas não substitui nome/empresa de um crachá verificado.
 
 ## HUD e minimapa
 
@@ -76,6 +81,7 @@ Quando existe crachá verificado:
 - retomada imediata ao voltar de bloqueio/suspensão;
 - polling suspenso quando a página não está visível;
 - PTT é liberado ao suspender o aplicativo;
+- `voice-ptt=false` é enviado com `fetch keepalive` em ocultação/pagehide para reduzir risco de transmissão presa;
 - linha manual TP/TS não é mais sobrescrita pelo polling enquanto o usuário edita;
 - PWA e APK continuam no pipeline oficial.
 
