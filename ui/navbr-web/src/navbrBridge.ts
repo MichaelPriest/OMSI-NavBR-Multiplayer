@@ -510,6 +510,9 @@ export interface NavBrSystemState {
     availableVersion?: string | null;
     releaseUrl?: string | null;
     progressPercent?: number | null;
+    downloadedBytes?: number | null;
+    totalBytes?: number | null;
+    releaseNotes?: string | null;
     updateAvailable: boolean;
     readyToInstall: boolean;
     checkedAtUtc?: string | null;
