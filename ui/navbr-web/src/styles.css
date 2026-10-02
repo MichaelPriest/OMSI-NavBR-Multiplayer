@@ -3002,3 +3002,47 @@ h3 { margin:6px 0 16px; font-size:19px; }
   font-size:9px;
   line-height:1.45;
 }
+
+
+/* Stable shell feedback */
+.global-command-toast {
+  position:sticky;
+  top:10px;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border:1px solid #7b4b27;
+  border-radius:10px;
+  background:#24180f;
+  box-shadow:0 10px 30px rgba(0,0,0,.28);
+  color:#ffd9b8;
+}
+.global-command-toast span { flex:1; font-size:11px; line-height:1.45; }
+.global-command-toast button {
+  border:0;
+  background:transparent;
+  color:inherit;
+  font-size:19px;
+  cursor:pointer;
+}
+.app-loading-state {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:76px;
+  margin-bottom:12px;
+}
+.app-loading-state div { display:grid; gap:3px; }
+.app-loading-state small { color:#7893a5; }
+.app-loading-spinner {
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  border:2px solid #24475c;
+  border-top-color:#6cc8ff;
+  animation:navbr-spin .8s linear infinite;
+}
+@keyframes navbr-spin { to { transform:rotate(360deg); } }
