@@ -35,7 +35,6 @@ public partial class HudOverlayWindow : Window
     private bool _chatInteractive;
     private bool _localPushToTalk;
     private string _localDisplayName = "Driver";
-    private DateTimeOffset _lastChatActivity = DateTimeOffset.MinValue;
     private VehicleTelemetry? _localTelemetry;
     private OmsiMapInfo? _activeMap;
     private BitmapImage? _mapBitmap;
