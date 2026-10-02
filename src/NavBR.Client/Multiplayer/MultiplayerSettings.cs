@@ -59,6 +59,7 @@ public sealed record MultiplayerSettings(
     string? TelematrixManualLine = null,
     string TelematrixManualDirection = "TP",
     string PerformanceProfile = "auto",
+    string DashboardMinimapStyle = "rectangular",
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
