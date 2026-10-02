@@ -354,12 +354,12 @@ Require(
         issue.Severity == CompatibilityIssueSeverity.Warning),
     "HOF mismatch must remain visible as a warning without blocking spawn.");
 
-var openOmsiInstallerType =
+var openOmsiEnvironmentType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
-        "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
+        "NavBR.Client.OpenOmsi.OpenOmsiEnvironmentLocator",
         throwOnError: true)!;
 var resolveInstalledVehicle =
-    openOmsiInstallerType.GetMethod(
+    openOmsiEnvironmentType.GetMethod(
         "ResolveInstalledVehicleFile",
         BindingFlags.Public |
         BindingFlags.Static)
@@ -391,10 +391,7 @@ try
 
     var resolvedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [
-            assetRelative.Replace('\\', '/'),
-            null
-        ]);
+        [assetRelative.Replace('\\', '/')]);
     Require(
         string.Equals(
             Path.GetFullPath(resolvedAsset ?? string.Empty),
@@ -404,14 +401,14 @@ try
 
     var escapedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"..\outside.bus", null]);
+        [@"..\outside.bus"]);
     Require(
         escapedAsset is null,
         "openOMSI content-root vehicle resolver accepted path traversal.");
 
     var invalidAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"Vehicles\NavBR_Smoke\Smoke.cfg", null]);
+        [@"Vehicles\NavBR_Smoke\Smoke.cfg"]);
     Require(
         invalidAsset is null,
         "openOMSI content-root vehicle resolver accepted a non-vehicle extension.");
