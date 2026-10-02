@@ -175,7 +175,7 @@ public partial class MainWindow
         var openOmsiLanRuntime =
             OpenOmsiLanRuntimeStatusReader.Read(
                 _openOmsiProcessId ??
-                OpenOmsiPluginInstallationService.GetRunningProcessId(),
+                OpenOmsiEnvironmentLocator.GetRunningProcessId(),
                 _openOmsiInstanceId);
         var openOmsiRuntimePeers =
             openOmsiLanRuntime?.Players.ToDictionary(
@@ -1172,7 +1172,8 @@ public partial class MainWindow
                     remotePlayers = gateway.RemotePlayers,
                     localStateFrames = gateway.LocalStateFrames,
                     localStateRateHz = gateway.LocalStateRateHz,
-                    vehicleIdentityReady = gateway.VehicleIdentityReady,
+                    vehicleIdentityReady =
+                        !string.IsNullOrWhiteSpace(gateway.VehiclePath),
                     hasLastError = !string.IsNullOrWhiteSpace(gateway.LastError)
                 },
                 hardware = new
