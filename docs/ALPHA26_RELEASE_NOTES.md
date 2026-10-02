@@ -73,6 +73,11 @@ Quando existe crachá verificado:
 - layouts personalizados pelo usuário são preservados;
 - dicas/legendas de atalhos de teclado foram removidas do overlay do OMSI;
 - chips fixos CHAT/PTT foram removidos da barra superior;
+- erros de voz no HUD agora são temporários e somem automaticamente;
+- TeleMatrix passa a ser opt-in no layout padrão; personalizações existentes são preservadas;
+- painel de viagem vazio fica oculto até existir linha/rota/destino/parada;
+- minimapa sem roadmap/layout real fica oculto até os dados estarem disponíveis;
+- textos fixos de instrução do minimapa foram removidos e o zoom só aparece durante a edição do HUD;
 - minimapa **Retangular**;
 - minimapa **Circular · GTA**;
 - escolha persistida no perfil do HUD;
@@ -94,6 +99,7 @@ Quando existe crachá verificado:
 ## Chat e Voz
 
 - chat in-game fica oculto por padrão e não abre automaticamente ao receber mensagens;
+- tela React de Chat & Voz ficou mais compacta, com estado de conexão/canal e auto-scroll controlado;
 - mensagens continuam armazenadas e aparecem quando o motorista ativa o chat;
 - ao fechar com Enter/Esc, painel e campo de digitação somem imediatamente;
 - chat foi destacado do `HudDock` para não deslocar/reorganizar os demais HUDs;
