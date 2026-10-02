@@ -301,6 +301,42 @@ Require(
     customizedHud.DashboardShowSideIndicators,
     "HUD cleanup migration overwrote a customized layout");
 
+var untouchedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 0,
+            TelematrixSize = 0,
+            TelematrixAutoDirection = true,
+            TelematrixManualLine = null,
+            TelematrixManualDirection = "TP"
+        }])
+    ?? throw new InvalidOperationException(
+        "TeleMatrix settings migration returned null");
+Require(
+    untouchedLegacyTelematrix.TelematrixSettingsVersion == 1 &&
+    !untouchedLegacyTelematrix.TelematrixWidgetEnabled,
+    "untouched legacy TeleMatrix was not migrated to opt-in");
+
+var customizedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 1
+        }])
+    ?? throw new InvalidOperationException(
+        "custom TeleMatrix settings migration returned null");
+Require(
+    customizedLegacyTelematrix.TelematrixWidgetEnabled &&
+    customizedLegacyTelematrix.TelematrixTheme == 1,
+    "TeleMatrix cleanup migration overwrote customized settings");
+
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
