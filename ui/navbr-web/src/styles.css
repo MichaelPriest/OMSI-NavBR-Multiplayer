@@ -2971,3 +2971,34 @@ h3 { margin:6px 0 16px; font-size:19px; }
 @media (max-width: 760px) {
   .home-system-grid { grid-template-columns: 1fr; }
 }
+
+
+/* HUD minimap shape */
+.hud-app-map.circular {
+  width:min(150px,42%);
+  aspect-ratio:1;
+  justify-self:start;
+  border-radius:50%;
+  overflow:hidden;
+}
+.hud-app-map.circular > small {
+  max-width:72%;
+  text-align:center;
+}
+.hud-minimap-style {
+  display:grid;
+  gap:8px;
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #193447;
+}
+.hud-minimap-style .hud-mode-switch.compact {
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.hud-minimap-style > small {
+  color:#7893a5;
+  font-size:9px;
+  line-height:1.45;
+}
