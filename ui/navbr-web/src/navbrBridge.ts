@@ -496,6 +496,17 @@ export interface NavBrHudState {
 
 export interface NavBrSystemState {
   installationsNotice?: string | null;
+  applicationUpdate?: {
+    status: "idle" | "checking" | "current" | "downloading" | "verifying" | "ready" | "installing" | "failed";
+    currentVersion: string;
+    availableVersion?: string | null;
+    releaseUrl?: string | null;
+    progressPercent?: number | null;
+    updateAvailable: boolean;
+    readyToInstall: boolean;
+    checkedAtUtc?: string | null;
+    message?: string | null;
+  } | null;
   mobileCompanion: {
     running: boolean;
     port: number;
@@ -983,6 +994,8 @@ export interface NavBrState {
 }
 
 export type NavBrCommand =
+  | "checkApplicationUpdate"
+  | "installApplicationUpdate"
   | "launchOmsi"
   | "refreshState"
   | "setLanguage"
