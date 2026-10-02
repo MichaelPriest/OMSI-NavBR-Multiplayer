@@ -3269,6 +3269,14 @@ function Settings({
     ? `${(system.diagnostics.logSizeBytes / (1024 * 1024)).toFixed(1)} MB`
     : `${Math.max(0, system.diagnostics.logSizeBytes / 1024).toFixed(1)} KB`;
 
+  const formatUpdateBytes = (bytes?: number | null) => {
+    if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${Math.round(bytes)} B`;
+  };
+
   return (
     <>
       <header className="topbar settings-header">
@@ -3505,9 +3513,26 @@ function Settings({
             </div>
             {system.applicationUpdate?.message && <div className="network-message">{system.applicationUpdate.message}</div>}
             {(system.applicationUpdate?.status === "downloading" || system.applicationUpdate?.status === "verifying") && (
-              <div className="application-update-progress" aria-label={`${system.applicationUpdate.progressPercent ?? 0}%`}>
-                <span style={{ width: `${Math.max(0, Math.min(100, system.applicationUpdate.progressPercent ?? 0))}%` }} />
+              <div className="application-update-progress-wrap">
+                <div className="application-update-progress" aria-label={`${system.applicationUpdate.progressPercent ?? 0}%`}>
+                  <span style={{ width: `${Math.max(0, Math.min(100, system.applicationUpdate.progressPercent ?? 0))}%` }} />
+                </div>
+                <small>
+                  {system.applicationUpdate.progressPercent ?? 0}%
+                  {formatUpdateBytes(system.applicationUpdate.downloadedBytes)
+                    ? ` · ${formatUpdateBytes(system.applicationUpdate.downloadedBytes)}`
+                    : ""}
+                  {formatUpdateBytes(system.applicationUpdate.totalBytes)
+                    ? ` / ${formatUpdateBytes(system.applicationUpdate.totalBytes)}`
+                    : ""}
+                </small>
               </div>
+            )}
+            {system.applicationUpdate?.releaseNotes && (
+              <details className="update-release-notes">
+                <summary>{pick("O que mudou nesta versão", "What changed in this version", "Qué cambió en esta versión", "Was ist neu in dieser Version", "Nouveautés de cette version")}</summary>
+                <pre>{system.applicationUpdate.releaseNotes}</pre>
+              </details>
             )}
             <div className="discovery-actions">
               <button className="button ghost icon-button" onClick={() => sendCommand("checkApplicationUpdate")}>
