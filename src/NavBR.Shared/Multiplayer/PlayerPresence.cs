@@ -1,3 +1,5 @@
+using NavBR.Shared.Network;
+
 namespace NavBR.Shared.Multiplayer;
 
 public sealed record PlayerPresence(
@@ -7,7 +9,8 @@ public sealed record PlayerPresence(
     string? MapName,
     DateTimeOffset ConnectedAtUtc,
     string? MapCompatibilityId = null,
-    OmsiCompatibilityManifest? Compatibility = null)
+    OmsiCompatibilityManifest? Compatibility = null,
+    CompanyEmployeeBadge? CompanyBadge = null)
 {
     public bool? VoiceEnabled { get; init; }
 

@@ -41,6 +41,7 @@ public partial class HudOverlayWindow
         // Single owner for HUD startup. The constructor no longer installs a
         // second keyboard hook/timer set through an anonymous Loaded handler.
         InitializeImmersiveOperationHud();
+        InitializeInGamePanel();
         _presenceTimer.Start();
         FollowOmsiWindow();
 
@@ -127,8 +128,14 @@ public partial class HudOverlayWindow
         var voiceShortcut = _voiceHotkeyAvailable
             ? $"{_voiceHotkey.Name}: PTT"
             : $"{_voiceHotkey.Name}: OMSI";
-        HudShortcutsText.Text =
-            $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+H: HUD";
+        HudShortcutsText.Text = _roleplayHudActive
+            ? HudRpText(
+                "WASD andar • Shift correr • Espaço pular • ←/→ virar • E ônibus • Esc retorno",
+                "WASD walk • Shift run • Space jump • ←/→ turn • E bus • Esc return",
+                "WASD andar • Shift correr • Espacio saltar • ←/→ girar • E autobús • Esc volver",
+                "WASD laufen • Shift rennen • Leertaste springen • ←/→ drehen • E Bus • Esc zurück",
+                "WASD marcher • Shift courir • Espace sauter • ←/→ tourner • E bus • Échap retour")
+            : $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+N: NavBR  •  Ctrl+Alt+H: HUD";
 
         var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
         HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
@@ -234,7 +241,7 @@ public partial class HudOverlayWindow
             var overlayHandle = new WindowInteropHelper(this).Handle;
             var foregroundBelongsToOmsi = WindowBelongsToProcess(foreground, processId);
             var foregroundBelongsToNavBr = WindowBelongsToProcess(foreground, Environment.ProcessId);
-            var overlayOwnsForeground = _chatInteractive &&
+            var overlayOwnsForeground = (_chatInteractive || _inGamePanelOpen) &&
                                         overlayHandle != IntPtr.Zero &&
                                         foreground == overlayHandle;
 
@@ -356,6 +363,11 @@ public partial class HudOverlayWindow
 
     private void HideHudForOmsiState()
     {
+        if (_inGamePanelOpen)
+        {
+            CloseInGamePanel(restoreFocus: false);
+        }
+
         if (_localPushToTalk)
         {
             SetLocalPushToTalk(false);

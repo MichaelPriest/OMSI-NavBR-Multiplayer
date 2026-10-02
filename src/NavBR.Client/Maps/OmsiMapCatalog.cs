@@ -119,6 +119,152 @@ public sealed class OmsiMapCatalog
         return (null, null);
     }
 
+    internal static string? TryFingerprintInstalledMap(
+        string? contentRoot,
+        string? mapNameOrPath) =>
+        string.IsNullOrWhiteSpace(contentRoot)
+            ? null
+            : TryFingerprintInstalledMap(
+                [contentRoot],
+                mapNameOrPath);
+
+    internal static string? TryFingerprintInstalledMap(
+        IReadOnlyList<string> contentRoots,
+        string? mapNameOrPath)
+    {
+        if (contentRoots.Count == 0 ||
+            string.IsNullOrWhiteSpace(mapNameOrPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var value = mapNameOrPath.Trim()
+                .Replace('\\', '/')
+                .Trim('/');
+            if (value.StartsWith(
+                    "maps/",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[5..];
+            }
+
+            if (value.EndsWith(
+                    "/global.cfg",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[..^11];
+            }
+
+            if (string.IsNullOrWhiteSpace(value) ||
+                value.Contains(':') ||
+                value.Split('/').Any(part =>
+                    string.IsNullOrWhiteSpace(part) ||
+                    part is "." or ".."))
+            {
+                return null;
+            }
+
+            string? globalCfg = null;
+            var tiles =
+                new Dictionary<string, string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            foreach (var rawRoot in contentRoots)
+            {
+                if (string.IsNullOrWhiteSpace(rawRoot))
+                {
+                    continue;
+                }
+
+                var root =
+                    Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(rawRoot));
+                var mapsRoot =
+                    Path.GetFullPath(
+                        Path.Combine(root, "maps"));
+                var mapsRootPrefix =
+                    Path.TrimEndingDirectorySeparator(
+                        mapsRoot) +
+                    Path.DirectorySeparatorChar;
+                var mapDirectory =
+                    Path.GetFullPath(
+                        Path.Combine(
+                            mapsRoot,
+                            value.Replace(
+                                '/',
+                                Path.DirectorySeparatorChar)));
+                var directoryPrefix =
+                    Path.TrimEndingDirectorySeparator(
+                        mapDirectory) +
+                    Path.DirectorySeparatorChar;
+                if (!directoryPrefix.StartsWith(
+                        mapsRootPrefix,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !Directory.Exists(mapDirectory))
+                {
+                    continue;
+                }
+
+                var candidateGlobal =
+                    Path.Combine(
+                        mapDirectory,
+                        "global.cfg");
+                if (globalCfg is null &&
+                    File.Exists(candidateGlobal))
+                {
+                    globalCfg = candidateGlobal;
+                }
+
+                foreach (var tileFile in Directory.EnumerateFiles(
+                             mapDirectory,
+                             "tile_*.map",
+                             SearchOption.TopDirectoryOnly))
+                {
+                    var name =
+                        Path.GetFileName(tileFile);
+                    if (!tiles.ContainsKey(name))
+                    {
+                        tiles[name] = tileFile;
+                    }
+                }
+            }
+
+            if (globalCfg is null)
+            {
+                return null;
+            }
+
+            var tileFiles = tiles
+                .Values
+                .OrderBy(
+                    path => Path.GetFileName(path),
+                    StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            return TryBuildCompatibilityId(
+                globalCfg,
+                tileFiles);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private static string? TryBuildCompatibilityId(string globalCfg, IReadOnlyList<string> tileFiles)
     {
         try

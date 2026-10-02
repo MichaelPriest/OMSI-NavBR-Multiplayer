@@ -76,7 +76,12 @@ public sealed record CompanyMemberRecord(
     CompanyRole Role,
     CompanyPermission Permissions,
     DateTimeOffset JoinedAtUtc,
-    DateTimeOffset LastSeenAtUtc);
+    DateTimeOffset LastSeenAtUtc)
+{
+    public string? EmployeeNumber { get; init; }
+
+    public DateTimeOffset? BadgeIssuedAtUtc { get; init; }
+}
 
 public sealed record CompanyNodeSnapshot(
     int SchemaVersion,

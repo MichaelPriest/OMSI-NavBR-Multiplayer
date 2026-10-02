@@ -484,7 +484,9 @@ jobs:
             "--title", "OMSI NavBR Multiplayer $tag — alpha pública de teste"
           )
 
-          if ($tag -eq "v0.3.0-alpha.22" -and (Test-Path "docs/ALPHA22_RELEASE_NOTES.md")) {
+          if ($tag -eq "v0.3.0-alpha.25" -and (Test-Path "docs/ALPHA25_RELEASE_NOTES.md")) {
+            $args += @("--notes-file", "docs/ALPHA25_RELEASE_NOTES.md")
+          } elseif ($tag -eq "v0.3.0-alpha.22" -and (Test-Path "docs/ALPHA22_RELEASE_NOTES.md")) {
             $args += @("--notes-file", "docs/ALPHA22_RELEASE_NOTES.md")
           } elseif ($tag -eq "v0.3.0-alpha.20" -and (Test-Path "docs/ALPHA20_RELEASE_NOTES.md")) {
             $args += @("--notes-file", "docs/ALPHA20_RELEASE_NOTES.md")

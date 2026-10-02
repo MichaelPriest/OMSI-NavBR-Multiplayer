@@ -35,6 +35,21 @@ internal sealed class HardwareCockpitBridgeController : IDisposable
     public static HardwareCockpitBridgeController Shared { get; } = new();
 
     public bool IsConnected => _transport.IsConnected;
+    public bool WantsTelemetry
+    {
+        get
+        {
+            if (_transport.IsConnected)
+            {
+                return true;
+            }
+
+            var settings =
+                HardwareCockpitConnectionSettingsStore.Load();
+            return settings.AutoReconnect &&
+                   !string.IsNullOrWhiteSpace(settings.PortName);
+        }
+    }
     public string? PortName => _transport.PortName;
     public int? BaudRate => _transport.BaudRate;
 
@@ -129,6 +144,21 @@ internal sealed class HardwareCockpitBridgeController : IDisposable
         if (telemetry is null)
         {
             return;
+        }
+
+        // In the default/no-hardware case, avoid taking the controller lock
+        // and running reconnect logic on every telemetry poll. Settings are
+        // immutable cached records, so this fast path stays coherent with
+        // Connect/Disconnect/SaveSelection while preserving exact-port
+        // auto-reconnect behavior when it is enabled.
+        if (!_transport.IsConnected)
+        {
+            var settings = HardwareCockpitConnectionSettingsStore.Load();
+            if (!settings.AutoReconnect ||
+                string.IsNullOrWhiteSpace(settings.PortName))
+            {
+                return;
+            }
         }
 
         lock (_sync)

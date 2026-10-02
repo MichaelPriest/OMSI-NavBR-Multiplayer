@@ -1,0 +1,495 @@
+<UserControl
+    x:Class="NavBR.Client.WinUI.MultiplayerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Multiplayer"
+                               Foreground="White"
+                               FontSize="32"
+                               FontWeight="Bold"/>
+                    <TextBlock x:Name="SubtitleText"
+                               Text="Salas, jogadores e ônibus físicos."
+                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ConnectButton"
+                            Content="Executar"
+                            Click="Connect_Click"/>
+                    <Button x:Name="StopHostButton"
+                            Content="Parar hospedagem"
+                            Visibility="Collapsed"
+                            Click="StopHost_Click"/>
+                    <Button x:Name="DisconnectButton"
+                            Content="Desconectar"
+                            Click="Disconnect_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Modo de conexão"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.15*"/>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox x:Name="ConnectionModeComboBox"
+                                  Header="Modo"
+                                  SelectionChanged="ConnectionMode_SelectionChanged">
+                            <ComboBoxItem Content="Entrar em servidor / sala" Tag="join-server"/>
+                            <ComboBoxItem Content="Criar sala online (Servidor NavBR)" Tag="create-online"/>
+                            <ComboBoxItem Content="Hospedar na LAN" Tag="lan-host"/>
+                            <ComboBoxItem Content="Hospedar pela Internet (UPnP)" Tag="internet-host"/>
+                            <ComboBoxItem Content="Hospedar via Relay" Tag="relay-host"/>
+                        </ComboBox>
+
+                        <TextBox x:Name="ServerTextBox"
+                                 Grid.Column="1"
+                                 Header="Servidor / Relay"/>
+                        <TextBox x:Name="RoomTextBox"
+                                 Grid.Column="2"
+                                 Header="Sala"/>
+                        <TextBox x:Name="DisplayNameTextBox"
+                                 Grid.Column="3"
+                                 Header="Nome"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox x:Name="PrivateRoomCheckBox"
+                                  Content="Sala privada"/>
+                        <PasswordBox x:Name="PasswordTextBox"
+                                     Grid.Column="1"
+                                     Header="Senha da sala"/>
+                        <TextBlock x:Name="ModeDetailText"
+                                   Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource NavBRMutedBrush}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="ESTADO" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="ConnectionText"
+                                   Text="OFFLINE"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="JOGADORES" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="PlayerCountText"
+                                   Text="0"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="REDE" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="NetworkText"
+                                   Text="—"
+                                   Foreground="White"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="ÔNIBUS FÍSICOS" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <ToggleSwitch x:Name="PhysicalVehiclesToggle"
+                                      OffContent="Desativados"
+                                      OnContent="Ativados"
+                                      Toggled="PhysicalVehicles_Toggled"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Hospedagem / convite"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="HostStatusText"
+                                       Text="Nenhuma hospedagem local ativa."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Copiar convite"
+                                Margin="0,0,8,0"
+                                Click="CopyInvite_Click"/>
+                        <Button Grid.Column="2"
+                                Content="Colar convite"
+                                Click="PasteInvite_Click"/>
+                    </Grid>
+                    <TextBlock x:Name="InviteText"
+                               Text="—"
+                               TextWrapping="Wrap"
+                               Foreground="White"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Rede / NAT"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ConnectivityStatusText"
+                                       Text="Diagnóstico ainda não executado."
+                                       Foreground="{StaticResource NavBRMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="AutomaticUpnpToggle"
+                                      Grid.Column="1"
+                                      Header="UPnP automático"
+                                      OffContent="Desativado"
+                                      OnContent="Ativado"
+                                      Toggled="AutomaticUpnp_Toggled"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Atualizar diagnóstico"
+                                Click="RefreshNetworkDiagnostics_Click"/>
+                        <Button Content="Configurar Firewall TCP 27730"
+                                Click="ApplyFirewall_Click"/>
+                        <Button x:Name="ExternalPortProbeButton"
+                                Content="Testar porta externa"
+                                Click="RunExternalPortProbe_Click"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="ConnectivityDetailText"
+                               Text="—"
+                               Foreground="White"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Salas públicas"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PublicRoomStatusText"
+                                       Text="Use Atualizar para consultar o servidor selecionado."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Atualizar"
+                                Margin="0,0,8,0"
+                                Click="RefreshPublicRooms_Click"/>
+                        <Button Grid.Column="2"
+                                Content="Favoritar"
+                                Margin="0,0,8,0"
+                                Click="TogglePublicRoomFavorite_Click"/>
+                        <Button Grid.Column="3"
+                                Content="Entrar na selecionada"
+                                Click="JoinPublicRoom_Click"/>
+                    </Grid>
+
+                    <ListView x:Name="PublicRoomsList" Height="180">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,7" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.4*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="1.6*"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding RoomId}"
+                                               Foreground="White"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Players}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding MapName}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Favorite}"
+                                               Foreground="{StaticResource NavBRAccentBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Voz"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="VoiceStatusText"
+                                       Text="Configure o canal e os dispositivos."
+                                       Foreground="{StaticResource NavBRMutedBrush}"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="VoiceEnabledToggle"
+                                      Grid.Column="1"
+                                      OffContent="Desativada"
+                                      OnContent="Ativada"
+                                      Toggled="VoiceEnabled_Toggled"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="VoiceChannelComboBox"
+                                  Header="Canal de voz">
+                            <ComboBoxItem Content="Geral" Tag="general"/>
+                            <ComboBoxItem Content="Empresa / equipe" Tag="company"/>
+                            <ComboBoxItem Content="CCO / Dispatcher" Tag="dispatch"/>
+                            <ComboBoxItem Content="Proximidade" Tag="proximity"/>
+                        </ComboBox>
+                        <NumberBox x:Name="VoiceProximityNumberBox"
+                                   Grid.Column="1"
+                                   Header="Raio de proximidade (m)"
+                                   Minimum="20"
+                                   Maximum="1000"
+                                   SmallChange="10"
+                                   Value="120"
+                                   SpinButtonPlacementMode="Compact"/>
+                        <ToggleSwitch x:Name="VoiceDeafenedToggle"
+                                      Grid.Column="2"
+                                      Header="Recepção"
+                                      OffContent="Escutando"
+                                      OnContent="Silenciada"/>
+                        <Button Grid.Column="3"
+                                VerticalAlignment="Bottom"
+                                Content="Aplicar voz"
+                                Click="ApplyVoiceSettings_Click"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="VoiceInputComboBox"
+                                  Header="Microfone"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="DeviceNumber"/>
+                        <ComboBox x:Name="VoiceOutputComboBox"
+                                  Grid.Column="1"
+                                  Header="Saída de áudio"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="DeviceNumber"/>
+                    </Grid>
+
+                    <TextBlock x:Name="VoiceQualityText"
+                               Text="Qualidade: aguardando voz."
+                               Foreground="{StaticResource NavBRMutedBrush}"
+                               TextWrapping="Wrap"/>
+
+                    <TextBlock Text="Volume por jogador"
+                               Foreground="White"
+                               FontWeight="SemiBold"/>
+                    <ListView x:Name="VoiceMixersList" Height="130">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="90"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Foreground="White"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding State}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding GainText}"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{StaticResource NavBRAccentBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <NumberBox x:Name="RemoteVoiceGainNumberBox"
+                                   Header="Ganho selecionado"
+                                   Minimum="0"
+                                   Maximum="2"
+                                   SmallChange="0.05"
+                                   Value="1"
+                                   Width="180"/>
+                        <Button Content="Aplicar ganho"
+                                VerticalAlignment="Bottom"
+                                Click="ApplyRemoteVoiceGain_Click"/>
+                        <Button Content="Alternar mute"
+                                VerticalAlignment="Bottom"
+                                Click="ToggleRemoteVoiceMute_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Chat da sala"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ListView x:Name="ChatList" Height="220">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Foreground="{StaticResource NavBRAccentBrush}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Text}"
+                                               Foreground="White"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Time}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ChatTextBox"
+                                 PlaceholderText="Mensagem para a sala"/>
+                        <Button Grid.Column="1"
+                                Content="Enviar"
+                                Click="SendChat_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Jogadores na sessão"
+                               Foreground="White"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ListView x:Name="PlayersList" Height="360">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,8" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.2*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                        <ColumnDefinition Width="1.4*"/>
+                                        <ColumnDefinition Width="1.8*"/>
+                                        <ColumnDefinition Width="90"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Badge}"
+                                                   Foreground="{StaticResource NavBRAccentBrush}"
+                                                   FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Service}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Vehicle}"
+                                               Foreground="{StaticResource NavBRMutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Grid.Column="3" Spacing="2">
+                                        <TextBlock Text="{Binding PhysicalState}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding PhysicalDetail}"
+                                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding Latency}"
+                                               Foreground="White"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

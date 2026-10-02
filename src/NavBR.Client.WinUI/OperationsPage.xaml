@@ -1,0 +1,109 @@
+<UserControl
+    x:Class="NavBR.Client.WinUI.OperationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16">
+            <TextBlock Text="Centro de Controle Operacional"
+                       Foreground="White"
+                       FontSize="32"
+                       FontWeight="Bold"/>
+            <TextBlock x:Name="SubtitleText"
+                       Text="Aguardando uma sessão operacional."
+                       Foreground="{StaticResource NavBRMutedBrush}"/>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="2*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="SALA" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="RoomText" Text="OFFLINE" Foreground="White" FontSize="22" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="CRACHÁ DO OPERADOR" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="OperatorBadgeText" Text="—" Foreground="White" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="OperatorVerificationText" Text="—" Foreground="{StaticResource NavBRMutedBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="OPERAÇÃO LOCAL" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="LocalOperationText" Text="Sem telemetria" Foreground="White" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.2*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Motoristas online" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <ListView x:Name="DriversList" Height="330">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="4,8" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.2*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="90"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="White" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Badge}" Foreground="{StaticResource NavBRAccentBrush}" FontSize="11"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding Service}" Foreground="{StaticResource NavBRMutedBrush}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Vehicle}" Foreground="{StaticResource NavBRMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding Speed}" Foreground="White" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Ocorrências" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <Button x:Name="AcknowledgeButton" Content="Reconhecer" Click="Acknowledge_Click"/>
+                                <Button x:Name="ResolveButton" Content="Resolver" Click="Resolve_Click"/>
+                            </StackPanel>
+                        </Grid>
+                        <ListView x:Name="ReportsList" Height="330">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Padding="4,8" Spacing="2">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding Severity}" Foreground="{StaticResource NavBRAccentBrush}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Status}" Foreground="{StaticResource NavBRMutedBrush}"/>
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Message}" Foreground="{StaticResource NavBRMutedBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

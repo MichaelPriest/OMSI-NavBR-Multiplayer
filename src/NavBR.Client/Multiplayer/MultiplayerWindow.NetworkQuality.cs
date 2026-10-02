@@ -41,15 +41,11 @@ public partial class MultiplayerWindow
 
     private void NetworkQuality_Changed(SessionNetworkQualitySnapshot snapshot)
     {
-        _ = Dispatcher.BeginInvoke(() =>
-        {
-            _publishTimer.Interval = snapshot.Level switch
-            {
-                SessionNetworkQualityLevel.Poor => TimeSpan.FromMilliseconds(650d),
-                SessionNetworkQualityLevel.Degraded => TimeSpan.FromMilliseconds(400d),
-                _ => TimeSpan.FromMilliseconds(250d)
-            };
-        });
+        // Publish cadence has one owner: UpdatePublishTimerCadence combines
+        // motion, network quality and OMSI callback pressure. Mutating the
+        // DispatcherTimer independently here made the two governors overwrite
+        // each other every tick.
+        _ = Dispatcher.BeginInvoke(UpdatePublishTimerCadence);
 
         if (snapshot.Samples >= 2)
         {

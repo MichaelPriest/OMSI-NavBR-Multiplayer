@@ -94,6 +94,35 @@ public partial class HudOverlayWindow : Window
             : "NavBR offline";
     }
 
+    public void SetRuntimeMetrics(
+        double? fps,
+        double? roundTripMilliseconds,
+        double? jitterMilliseconds)
+    {
+        var fpsText =
+            fps is double fpsValue &&
+            double.IsFinite(fpsValue) &&
+            fpsValue > 0d
+                ? $"FPS {Math.Clamp(fpsValue, 0d, 999d):0}"
+                : "FPS —";
+        var networkText =
+            roundTripMilliseconds is double rtt &&
+            double.IsFinite(rtt) &&
+            rtt >= 0d
+                ? $"NET {Math.Clamp(rtt, 0d, 9999d):0} ms"
+                : "NET —";
+        var jitterText =
+            jitterMilliseconds is double jitter &&
+            double.IsFinite(jitter) &&
+            jitter >= 0d
+                ? $"J {Math.Clamp(jitter, 0d, 9999d):0}"
+                : null;
+
+        RuntimeMetricsText.Text = jitterText is null
+            ? $"{fpsText} • {networkText}"
+            : $"{fpsText} • {networkText} • {jitterText}";
+    }
+
     public void UpdateLocalTelemetry(VehicleTelemetry? telemetry, OmsiMapInfo? activeMap)
     {
         _localTelemetry = telemetry;

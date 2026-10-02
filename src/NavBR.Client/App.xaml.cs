@@ -15,6 +15,7 @@ using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Client.PluginInstaller;
 using NavBR.Client.Windows;
+using NavBR.Client.WinUIBridge;
 using NavBR.Shared.PluginBridge;
 
 namespace NavBR.Client;
@@ -28,6 +29,7 @@ public partial class App : Application
 
     private CancellationTokenSource? _deferredPluginUpdateCts;
     private string? _deferredPluginUpdateRoot;
+    private NativeShellBridgeServer? _nativeShellBridge;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -87,33 +89,65 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        var nativeHostOnly = e.Args.Any(argument =>
+            string.Equals(
+                argument,
+                "--native-host",
+                StringComparison.OrdinalIgnoreCase));
+
         // The historical WPF MainWindow is now only an in-memory native-service
-        // host. Do not Show() it: React/WebView2 is the only desktop window
-        // exposed to the user. Explicit shutdown keeps the tray/runtime alive
-        // when the React shell is closed.
+        // host. In WinUI mode it skips retired visual initialization while
+        // preserving telemetry, HUD, multiplayer and companion services.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        var nativeHost = new MainWindow();
+        var nativeHost = new MainWindow(nativeHostOnly);
         MainWindow = nativeHost;
+
+        // Bring IPC online before any optional/legacy runtime service. The WinUI
+        // process must be able to handshake even if RP, tray, HUD or OMSI probes
+        // take longer on a user's machine.
+        _nativeShellBridge = new NativeShellBridgeServer(nativeHost);
+        _nativeShellBridge.Start();
+        NavBRAppLog.Info("native-shell-bridge-start");
+
         nativeHost.InitializeRoleplayForShell();
-        TrayIcon.Attach(nativeHost);
+        if (!nativeHostOnly)
+        {
+            TrayIcon.Attach(nativeHost);
+        }
         nativeHost.StartNativeRuntimeForReact();
 
+        _ = StartMobileCompanionAsync(nativeHost);
+
+        if (nativeHostOnly)
+        {
+            NavBRAppLog.Info("desktop-mode=native-host");
+            nativeHost.ShowInTaskbar = false;
+            nativeHost.Hide();
+        }
+        else
+        {
+            nativeHost.OpenPrimaryWebShell();
+        }
+    }
+
+    private async Task StartMobileCompanionAsync(MainWindow nativeHost)
+    {
         try
         {
-            MobileCompanion = new MobileCompanionHostService(
+            var companion = new MobileCompanionHostService(
                 nativeHost.BuildMobileCompanionStateAsync,
                 nativeHost.ExecuteMobileCompanionCommandAsync);
-            MobileCompanion.StartAsync().GetAwaiter().GetResult();
+
+            MobileCompanion = companion;
+            await companion.StartAsync();
             NavBRAppLog.Info(
-                $"mobile-companion-start port={MobileCompanion.Port} urls={string.Join(",", MobileCompanion.AccessUrls)}");
+                $"mobile-companion-start port={companion.Port} urls={string.Join(",", companion.AccessUrls)}");
         }
         catch (Exception ex)
         {
             NavBRAppLog.Error("mobile-companion-start-error", ex);
             MobileCompanion = null;
         }
-
-        nativeHost.OpenPrimaryWebShell();
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
@@ -147,6 +181,23 @@ public partial class App : Application
             finally
             {
                 MobileCompanion = null;
+            }
+        }
+
+        if (_nativeShellBridge is not null)
+        {
+            try
+            {
+                _nativeShellBridge.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                NavBRAppLog.Info("native-shell-bridge-stop");
+            }
+            catch (Exception ex)
+            {
+                NavBRAppLog.Error("native-shell-bridge-stop-error", ex);
+            }
+            finally
+            {
+                _nativeShellBridge = null;
             }
         }
 
@@ -308,12 +359,39 @@ public partial class App : Application
         }
     }
 
-    private static void PluginBridge_ConnectionStateChanged(bool connected)
+    private async void PluginBridge_ConnectionStateChanged(bool connected)
     {
         RemoteDiagnosticsService.Record(
             "plugin-bridge",
             connected ? "info" : "warning",
             connected ? "connected" : "disconnected");
+
+        if (!connected)
+        {
+            return;
+        }
+
+        try
+        {
+            var profile = MultiplayerSettingsStore.Load().PerformanceProfile;
+            await PluginBridge.SendMessageAsync(new PluginBridgeMessage(
+                PluginBridgeProtocol.SetPerformanceProfile,
+                PluginBridgeProtocol.Version,
+                PerformanceProfile: profile));
+
+            RemoteDiagnosticsService.Record(
+                "plugin-performance",
+                "info",
+                $"profile={profile}");
+        }
+        catch (Exception ex)
+        {
+            NavBRAppLog.Error("plugin-performance-profile-apply-error", ex);
+            RemoteDiagnosticsService.Record(
+                "plugin-performance",
+                "warning",
+                $"profile-apply-failed type={ex.GetType().Name}");
+        }
     }
 
     private static void PluginBridge_CommandResultReceived(PluginBridgeMessage message)

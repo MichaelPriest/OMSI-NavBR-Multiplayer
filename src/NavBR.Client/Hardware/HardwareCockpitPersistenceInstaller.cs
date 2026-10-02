@@ -25,6 +25,12 @@ internal static class HardwareCockpitConnectionSettingsStore
 
     public static HardwareCockpitConnectionSettings Load()
     {
+        var cached = Volatile.Read(ref _cached);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
         lock (Sync)
         {
             _cached ??= LoadCore();
@@ -37,7 +43,7 @@ internal static class HardwareCockpitConnectionSettingsStore
         settings = Normalize(settings);
         lock (Sync)
         {
-            _cached = settings;
+            Volatile.Write(ref _cached, settings);
             try
             {
                 Directory.CreateDirectory(DirectoryPath);

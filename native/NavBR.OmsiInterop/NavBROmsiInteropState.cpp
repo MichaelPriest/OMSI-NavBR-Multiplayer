@@ -51,6 +51,11 @@ namespace
     constexpr int OutsideMatrixOffset = 0x44C;
     constexpr int OutsideMatrixThreadFreeOffset = 0x48C;
     constexpr int PaiOffset = 0x624;
+    // OmsiVehicleInst.AI_var, verified against OmsiHook. The original-OMSI
+    // multiplayer quickstart explicitly keeps this at 1 for a network-owned
+    // RoadVehicle so its vehicle/model scripts remain in the AI render path
+    // even though NavBR owns the actual kinematic pose.
+    constexpr int AiVarOffset = 0x62C;
     constexpr int AiLightOffset = 0x634;
     constexpr int AiInteriorLightOffset = 0x638;
     constexpr int AiBlinkerLeftOffset = 0x63C;
@@ -74,6 +79,9 @@ namespace
     constexpr int RoadVehicleLastVelocityOffset = 0x721;
     constexpr int RoadVehicleAccelerationLocalOffset = 0x72D;
     constexpr int RoadVehiclePhysicsNeedPreCalcOffset = 0x75C;
+    // OmsiRoadVehicleInst.ScriptParent, verified against public OmsiHook
+    // layout. NavBR reads this pointer only to order articulated sections.
+    constexpr int RoadVehicleScriptParentOffset = 0x8C0;
     // OmsiMovingMapObjInst / OmsiPathInfo offsets verified against OmsiHook.
     // Diagnostics below are deliberately read-only; NavBR does not yet write
     // PathFixed or PathInfo.
@@ -277,6 +285,15 @@ namespace
             return 4;
         }
 
+        // Neutralize OMSI-side dynamic accumulators before any keepalive
+        // early return. Even an already-disabled ODE body can carry stale
+        // force/moment fields that become relevant again if OMSI recreates or
+        // re-enables the body later in the same simulation frame.
+        const Vec3 zero{};
+        (void)WriteValue(vehiclePointer, PhysicsVelocityOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastForceOffset, zero);
+        (void)WriteValue(vehiclePointer, PhysicsLastMomentOffset, zero);
+
         auto& ode = GetOdeApi();
         if (ode.module == nullptr)
         {
@@ -343,11 +360,6 @@ namespace
         ode.setLinearVelocity(body, 0.0f, 0.0f, 0.0f);
         ode.setAngularVelocity(body, 0.0f, 0.0f, 0.0f);
         ode.disable(body);
-
-        const Vec3 zero{};
-        (void)WriteValue(vehiclePointer, PhysicsVelocityOffset, zero);
-        (void)WriteValue(vehiclePointer, PhysicsLastForceOffset, zero);
-        (void)WriteValue(vehiclePointer, PhysicsLastMomentOffset, zero);
 
         InterlockedExchange(&LastVehiclePhysicsSyncStatus, 1);
         return 1;
@@ -1210,6 +1222,129 @@ namespace
             std::isfinite(matrix.m32);
     }
 
+    bool TryResolveWorldTranslationFromRoadVehicle(
+        int referenceVehiclePointer,
+        int targetTilePointer,
+        const Vec3& targetPosition,
+        Vec3& worldPosition)
+    {
+        if (referenceVehiclePointer <= 0)
+        {
+            return false;
+        }
+
+        const auto referenceBase =
+            static_cast<std::uintptr_t>(referenceVehiclePointer);
+        if (!IsReadableRange(
+                referenceBase + KachelOffset,
+                sizeof(int)) ||
+            *reinterpret_cast<const int*>(
+                referenceBase + KachelOffset) != targetTilePointer ||
+            !IsReadableRange(
+                referenceBase + PositionOffset,
+                sizeof(Vec3)))
+        {
+            return false;
+        }
+
+        const auto referencePosition =
+            *reinterpret_cast<const Vec3*>(
+                referenceBase + PositionOffset);
+        if (!std::isfinite(referencePosition.x) ||
+            !std::isfinite(referencePosition.y) ||
+            !std::isfinite(referencePosition.z))
+        {
+            return false;
+        }
+
+        Matrix4 referenceAbsolute{};
+        if (!TryReadMatrix(
+                referenceVehiclePointer,
+                AbsolutePositionOffset,
+                referenceAbsolute))
+        {
+            return false;
+        }
+
+        // The reference RoadVehicle can itself cross a Kachel while this
+        // snapshot is being read. Re-check the tile after Position/AbsPosition
+        // so a mixed old/new reference can never become the world origin for a
+        // NavBR remote bus.
+        if (!IsReadableRange(
+                referenceBase + KachelOffset,
+                sizeof(int)) ||
+            *reinterpret_cast<const int*>(
+                referenceBase + KachelOffset) != targetTilePointer)
+        {
+            return false;
+        }
+
+        const Vec3 candidate{
+            targetPosition.x +
+                (referenceAbsolute.m30 - referencePosition.x),
+            targetPosition.y +
+                (referenceAbsolute.m31 - referencePosition.y),
+            targetPosition.z +
+                (referenceAbsolute.m32 - referencePosition.z)
+        };
+        if (!std::isfinite(candidate.x) ||
+            !std::isfinite(candidate.y) ||
+            !std::isfinite(candidate.z))
+        {
+            return false;
+        }
+
+        worldPosition = candidate;
+        return true;
+    }
+
+    bool IsPreferredWorldOriginReference(
+        int vehiclePointer,
+        int targetTilePointer)
+    {
+        if (vehiclePointer <= 0)
+        {
+            return false;
+        }
+
+        const auto base =
+            static_cast<std::uintptr_t>(vehiclePointer);
+        if (!IsReadableRange(base + KachelOffset, sizeof(int)) ||
+            !IsReadableRange(base + MarkedForKillingOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + VisibleLogicalOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + RoadVehicleOnLoadedKachelOffset, sizeof(unsigned char)) ||
+            !IsReadableRange(base + PaiOffset, sizeof(unsigned char)))
+        {
+            return false;
+        }
+
+        const int tilePointer =
+            *reinterpret_cast<const int*>(base + KachelOffset);
+        const auto marked =
+            *reinterpret_cast<const unsigned char*>(
+                base + MarkedForKillingOffset);
+        const auto visible =
+            *reinterpret_cast<const unsigned char*>(
+                base + VisibleLogicalOffset);
+        const auto loadedTile =
+            *reinterpret_cast<const unsigned char*>(
+                base + RoadVehicleOnLoadedKachelOffset);
+        const auto pai =
+            *reinterpret_cast<const unsigned char*>(
+                base + PaiOffset);
+
+        // NavBR-owned physical buses deliberately force PAI=0. Prefer a
+        // healthy OMSI-controlled RoadVehicle when deriving a new Kachel
+        // world origin so one remote bus cannot propagate a stale render
+        // matrix into another. We still retain a second-pass fallback below
+        // for sparse maps where no native AI happens to occupy the tile.
+        return tilePointer == targetTilePointer &&
+               marked == 0 &&
+               visible != 0 &&
+               loadedTile != 0 &&
+               pai != 0;
+    }
+
     bool TryResolveWorldTranslation(
         int objectPointer,
         int targetTilePointer,
@@ -1222,64 +1357,90 @@ namespace
         // same Kachel. This preserves OMSI's current tile/center offset without
         // guessing the map's absolute coordinate convention.
         const int playerVehicle = GetPlayerVehiclePointer();
-        if (IsRoadVehiclePointer(playerVehicle))
+        if (IsRoadVehiclePointer(playerVehicle) &&
+            TryResolveWorldTranslationFromRoadVehicle(
+                playerVehicle,
+                targetTilePointer,
+                targetPosition,
+                worldPosition))
         {
-            const auto playerBase =
-                static_cast<std::uintptr_t>(playerVehicle);
-            if (IsReadableRange(playerBase + KachelOffset, sizeof(int)) &&
-                *reinterpret_cast<const int*>(playerBase + KachelOffset) ==
-                    targetTilePointer &&
-                IsReadableRange(playerBase + PositionOffset, sizeof(Vec3)))
-            {
-                const auto playerPosition =
-                    *reinterpret_cast<const Vec3*>(
-                        playerBase + PositionOffset);
-                Matrix4 playerAbsolute{};
-                if (TryReadMatrix(
-                        playerVehicle,
-                        AbsolutePositionOffset,
-                        playerAbsolute))
-                {
-                    worldPosition.x =
-                        targetPosition.x +
-                        (playerAbsolute.m30 - playerPosition.x);
-                    worldPosition.y =
-                        targetPosition.y +
-                        (playerAbsolute.m31 - playerPosition.y);
-                    worldPosition.z =
-                        targetPosition.z +
-                        (playerAbsolute.m32 - playerPosition.z);
-                    return true;
-                }
-            }
+            return true;
         }
 
         // Once an owned object is already on the target Kachel, retain its
         // existing OMSI render-space origin and only change the local delta.
-        const auto base =
-            static_cast<std::uintptr_t>(objectPointer);
-        if (IsReadableRange(base + KachelOffset, sizeof(int)) &&
-            *reinterpret_cast<const int*>(base + KachelOffset) ==
-                targetTilePointer &&
-            IsReadableRange(base + PositionOffset, sizeof(Vec3)))
+        if (TryResolveWorldTranslationFromRoadVehicle(
+                objectPointer,
+                targetTilePointer,
+                targetPosition,
+                worldPosition))
         {
-            const auto previousPosition =
-                *reinterpret_cast<const Vec3*>(base + PositionOffset);
-            Matrix4 previousAbsolute{};
-            if (TryReadMatrix(
-                    objectPointer,
-                    AbsolutePositionOffset,
-                    previousAbsolute))
+            return true;
+        }
+
+        // On a Kachel boundary the player can already be on another tile while
+        // the remote bus needs to enter this target tile. Reuse any live
+        // RoadVehicle that OMSI already placed on that exact Kachel. Its
+        // AbsPosition - Position delta is the authoritative render-space tile
+        // origin and works for both Cartesian and real-coordinate maps.
+        int count = 0;
+        int items = 0;
+        if (!TryGetRoadVehicleItems(count, items))
+        {
+            return false;
+        }
+
+        // First pass: prefer an OMSI-controlled RoadVehicle with a live AI
+        // state. NavBR physical buses intentionally force PAI=0 and therefore
+        // will not bootstrap one another while a native reference is available.
+        for (int index = 0; index < count; ++index)
+        {
+            const int candidate =
+                *reinterpret_cast<const int*>(
+                    static_cast<std::uintptr_t>(items) +
+                    static_cast<std::uintptr_t>(index) * sizeof(int));
+            if (candidate == 0 ||
+                candidate == objectPointer ||
+                candidate == playerVehicle ||
+                !IsPreferredWorldOriginReference(
+                    candidate,
+                    targetTilePointer))
             {
-                worldPosition.x =
-                    targetPosition.x +
-                    (previousAbsolute.m30 - previousPosition.x);
-                worldPosition.y =
-                    targetPosition.y +
-                    (previousAbsolute.m31 - previousPosition.y);
-                worldPosition.z =
-                    targetPosition.z +
-                    (previousAbsolute.m32 - previousPosition.z);
+                continue;
+            }
+
+            if (TryResolveWorldTranslationFromRoadVehicle(
+                    candidate,
+                    targetTilePointer,
+                    targetPosition,
+                    worldPosition))
+            {
+                return true;
+            }
+        }
+
+        // Sparse maps can legitimately have no native AI on the target tile.
+        // Preserve the previous guarded fallback in that case rather than
+        // inventing a tile-size formula that would break real-coordinate maps.
+        for (int index = 0; index < count; ++index)
+        {
+            const int candidate =
+                *reinterpret_cast<const int*>(
+                    static_cast<std::uintptr_t>(items) +
+                    static_cast<std::uintptr_t>(index) * sizeof(int));
+            if (candidate == 0 ||
+                candidate == objectPointer ||
+                candidate == playerVehicle)
+            {
+                continue;
+            }
+
+            if (TryResolveWorldTranslationFromRoadVehicle(
+                    candidate,
+                    targetTilePointer,
+                    targetPosition,
+                    worldPosition))
+            {
                 return true;
             }
         }
@@ -1445,7 +1606,87 @@ namespace
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetStateInteropVersion()
 {
-    return 20;
+    return 25;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleMotionDiagnostics(
+    int vehiclePointer,
+    float* physicsVelocityX,
+    float* physicsVelocityY,
+    float* physicsVelocityZ,
+    float* lastVelocityX,
+    float* lastVelocityY,
+    float* lastVelocityZ,
+    float* accelerationLocalX,
+    float* accelerationLocalY,
+    float* accelerationLocalZ,
+    float* groundSpeed,
+    float* tacho)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        physicsVelocityX == nullptr ||
+        physicsVelocityY == nullptr ||
+        physicsVelocityZ == nullptr ||
+        lastVelocityX == nullptr ||
+        lastVelocityY == nullptr ||
+        lastVelocityZ == nullptr ||
+        accelerationLocalX == nullptr ||
+        accelerationLocalY == nullptr ||
+        accelerationLocalZ == nullptr ||
+        groundSpeed == nullptr ||
+        tacho == nullptr)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + PhysicsVelocityOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + RoadVehicleLastVelocityOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + RoadVehicleAccelerationLocalOffset, sizeof(Vec3)) ||
+        !IsReadableRange(base + GroundspeedOffset, sizeof(float)) ||
+        !IsReadableRange(base + TachoOffset, sizeof(float)))
+    {
+        return 0;
+    }
+
+    const auto physicsVelocity =
+        *reinterpret_cast<const Vec3*>(base + PhysicsVelocityOffset);
+    const auto lastVelocity =
+        *reinterpret_cast<const Vec3*>(base + RoadVehicleLastVelocityOffset);
+    const auto accelerationLocal =
+        *reinterpret_cast<const Vec3*>(base + RoadVehicleAccelerationLocalOffset);
+    const float readGroundSpeed =
+        *reinterpret_cast<const float*>(base + GroundspeedOffset);
+    const float readTacho =
+        *reinterpret_cast<const float*>(base + TachoOffset);
+
+    if (!std::isfinite(physicsVelocity.x) ||
+        !std::isfinite(physicsVelocity.y) ||
+        !std::isfinite(physicsVelocity.z) ||
+        !std::isfinite(lastVelocity.x) ||
+        !std::isfinite(lastVelocity.y) ||
+        !std::isfinite(lastVelocity.z) ||
+        !std::isfinite(accelerationLocal.x) ||
+        !std::isfinite(accelerationLocal.y) ||
+        !std::isfinite(accelerationLocal.z) ||
+        !std::isfinite(readGroundSpeed) ||
+        !std::isfinite(readTacho))
+    {
+        return 0;
+    }
+
+    *physicsVelocityX = physicsVelocity.x;
+    *physicsVelocityY = physicsVelocity.y;
+    *physicsVelocityZ = physicsVelocity.z;
+    *lastVelocityX = lastVelocity.x;
+    *lastVelocityY = lastVelocity.y;
+    *lastVelocityZ = lastVelocity.z;
+    *accelerationLocalX = accelerationLocal.x;
+    *accelerationLocalY = accelerationLocal.y;
+    *accelerationLocalZ = accelerationLocal.z;
+    *groundSpeed = readGroundSpeed;
+    *tacho = readTacho;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePhysicsBodyPosition(
@@ -1542,6 +1783,29 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ProbeRoleplayHumanControl()
 extern "C" __declspec(dllexport) int __cdecl NavBR_IsRoadVehiclePointer(int vehiclePointer)
 {
     return IsRoadVehiclePointer(vehiclePointer) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleScriptParent(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const auto address =
+        static_cast<std::uintptr_t>(vehiclePointer) +
+        RoadVehicleScriptParentOffset;
+    if (!IsReadableRange(address, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int parent =
+        *reinterpret_cast<const int*>(address);
+    return parent != 0 && IsRoadVehiclePointer(parent)
+        ? parent
+        : 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleMaterializationFlags(
@@ -2478,6 +2742,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     float x,
     float y,
     float z,
+    int hasWorldPosition,
+    float worldX,
+    float worldY,
+    float worldZ,
     float rotationX,
     float rotationY,
     float rotationZ,
@@ -2489,6 +2757,10 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
 
     if (!IsRoadVehiclePointer(vehiclePointer) ||
         !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
+        (hasWorldPosition != 0 &&
+         (!std::isfinite(worldX) ||
+          !std::isfinite(worldY) ||
+          !std::isfinite(worldZ))) ||
         !std::isfinite(rotationX) || !std::isfinite(rotationY) ||
         !std::isfinite(rotationZ) || !std::isfinite(rotationW) ||
         !std::isfinite(groundSpeedMps) ||
@@ -2617,73 +2889,62 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     const unsigned int zeroTimer = 0;
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
 
-    Vec3 worldPosition = position;
-    if (effectiveTilePointer != 0)
+    // VehicleTelemetry.X/Y/Z already carry the sender's OMSI AbsPosition
+    // translation. Prefer that authoritative world-space pose when available.
+    // This mirrors the original-OMSI multiplayer quickstart, which transmits
+    // the relation/absolute transform instead of reconstructing it on the
+    // receiving client. The legacy local-reference resolver remains as a
+    // compatibility fallback for Ghost/simulator/older commands.
+    const bool hasSuppliedWorldPosition = hasWorldPosition != 0;
+    Vec3 worldPosition = hasSuppliedWorldPosition
+        ? Vec3{ worldX, worldY, worldZ }
+        : position;
+    const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
+    int previousTilePointer = 0;
+    if (IsReadableRange(vehicleBase + KachelOffset, sizeof(int)))
     {
-        (void)TryResolveWorldTranslation(
+        previousTilePointer =
+            *reinterpret_cast<const int*>(vehicleBase + KachelOffset);
+    }
+
+    const bool needsReliableWorldTranslation =
+        writeExplicitTile &&
+        effectiveTilePointer != 0 &&
+        previousTilePointer != effectiveTilePointer;
+
+    const bool hasWorldTranslation =
+        hasSuppliedWorldPosition ||
+        effectiveTilePointer == 0 ||
+        TryResolveWorldTranslation(
             vehiclePointer,
             effectiveTilePointer,
             position,
             worldPosition);
+
+    // Never substitute local Kachel coordinates for render/world coordinates
+    // while assigning a new tile. This also covers a freshly materialized
+    // RoadVehicle whose Kachel pointer is still zero: keep the exact owned
+    // pointer alive and retry after OMSI finishes attaching its tile/render
+    // state instead of writing a zero-origin matrix.
+    if (needsReliableWorldTranslation && !hasWorldTranslation)
+    {
+        return FailVehicleTransform(31);
     }
 
-    Vec3 previousPosition = position;
-    const auto vehicleBase = static_cast<std::uintptr_t>(vehiclePointer);
-    if (IsReadableRange(vehicleBase + PositionOffset, sizeof(Vec3)))
-    {
-        previousPosition =
-            *reinterpret_cast<const Vec3*>(vehicleBase + PositionOffset);
-    }
-    Vec3 networkVelocity{};
-    const Vec3 displacement{
-        position.x - previousPosition.x,
-        position.y - previousPosition.y,
-        position.z - previousPosition.z
-    };
-    const float displacementLength = std::sqrt(
-        displacement.x * displacement.x +
-        displacement.y * displacement.y +
-        displacement.z * displacement.z);
-    if (speedMps > 0.001f &&
-        std::isfinite(displacementLength) &&
-        displacementLength > 0.001f)
-    {
-        const float scale = speedMps / displacementLength;
-        networkVelocity = Vec3{
-            displacement.x * scale,
-            displacement.y * scale,
-            displacement.z * scale
-        };
-    }
-    else if (speedMps > 0.001f &&
-             IsReadableRange(vehicleBase + PhysicsLongOffset, sizeof(Vec3)))
-    {
-        const Vec3 longitudinal =
-            *reinterpret_cast<const Vec3*>(vehicleBase + PhysicsLongOffset);
-        const float longitudinalLength = std::sqrt(
-            longitudinal.x * longitudinal.x +
-            longitudinal.y * longitudinal.y +
-            longitudinal.z * longitudinal.z);
-        if (std::isfinite(longitudinalLength) &&
-            longitudinalLength > 0.001f)
-        {
-            const float scale = speedMps / longitudinalLength;
-            networkVelocity = Vec3{
-                longitudinal.x * scale,
-                longitudinal.y * scale,
-                longitudinal.z * scale
-            };
-        }
-    }
-
-    // The historical multiplayer prototype copied Acc_Local from the source
-    // player. NavBR does not transmit that local-space vector yet, so do not
-    // synthesize it from world-space deltas. Zero is safer than stale/wrong
-    // acceleration feeding OMSI's active RoadVehicle calculation.
-    const Vec3 accelerationLocal{};
-
+    // Remote velocity/acceleration are intentionally not derived into OMSI's
+    // physics state here. Managed sender-time interpolation owns motion; only
+    // script-facing Groundspeed/Tacho retain the replicated speed.
+    //
+    // Prime OMSI's AI/script ownership flags BEFORE the heavier render/matrix
+    // writes. A freshly-created RoadVehicle can still be attaching its visual
+    // graph; if a later field is transiently unavailable, returning before
+    // AI_var is set leaves the object outside the same AI materialization path
+    // used by the Omsi-Extensions multiplayer quickstart.
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled)) return FailVehicleTransform(10);
+    if (!WriteByte(vehiclePointer, PaiOffset, disabled)) return FailVehicleTransform(23);
+    if (!WriteValue(vehiclePointer, AiVarOffset, networkAiActive)) return FailVehicleTransform(32);
     if (!WriteValue(vehiclePointer, PositionOffset, position)) return FailVehicleTransform(11);
     if (!WriteValue(vehiclePointer, RotationOffset, rotation)) return FailVehicleTransform(12);
     if (!WriteValue(vehiclePointer, LastPositionOffset, position)) return FailVehicleTransform(13);
@@ -2700,12 +2961,16 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
         vehiclePointer,
         &position,
         &rotation);
-    // Match the state replicated by Omsi-Extensions multiplayer_quickstart.
-    // The ODE body itself remains kinematic/disabled, but OMSI's RoadVehicle
-    // calculation still reads these velocity/acceleration fields.
-    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, networkVelocity)) return FailVehicleTransform(28);
-    if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, networkVelocity)) return FailVehicleTransform(29);
-    if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, accelerationLocal)) return FailVehicleTransform(30);
+    // Keep all OMSI dynamics neutral for a network-owned vehicle. Its motion
+    // is kinematic: the buffered multiplayer pose is applied explicitly every
+    // callback. Groundspeed/Tacho below remain authoritative for script-facing
+    // speed, while PH_Velocity, Last_Velocity and Acc_Local must not seed a
+    // later OMSI physics/derivative pass that can move the bus off its network
+    // pose while simulation is running.
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroDynamics)) return FailVehicleTransform(28);
+    if (!WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, zeroDynamics)) return FailVehicleTransform(29);
+    if (!WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, zeroDynamics)) return FailVehicleTransform(30);
     if (effectiveTilePointer != 0 &&
         !WriteValue(
             vehiclePointer,
@@ -2722,20 +2987,485 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleTransform(
     if (!WriteValue(vehiclePointer, TachoOffset, tachoKph)) return FailVehicleTransform(21);
     if (!WriteValue(vehiclePointer, GroundspeedOffset, speedMps)) return FailVehicleTransform(22);
     if (!WriteByte(vehiclePointer, PaiOffset, disabled)) return FailVehicleTransform(23);
+    if (!WriteValue(vehiclePointer, AiVarOffset, networkAiActive)) return FailVehicleTransform(32);
     if (writeExplicitTile)
     {
         if (!WriteValue(vehiclePointer, KachelOffset, mapTilePointer)) return FailVehicleTransform(24);
         if (!WriteByte(vehiclePointer, RoadVehicleOnLoadedKachelOffset, enabled)) return FailVehicleTransform(25);
     }
 
-    // NavBR owns this remote RoadVehicle's world transform. Leaving
-    // WasCalculated=false / PH_NeedPreCalc=true hands it back to OMSI's
-    // RoadVehicle calculation later in the active frame, which can overwrite
-    // the network pose. Mark the externally supplied state as complete instead.
-    if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled)) return FailVehicleTransform(26);
-    if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
+    // Do not lock OMSI's calculation flags until the deferred vehicle/model
+    // graph is really attached. The public Omsi-Extensions multiplayer
+    // quickstart lets OMSI finish that phase naturally; forcing WasCalculated
+    // and PH_NeedPreCalc too early can starve the callback that materializes
+    // ComplObj/model and leave a valid RoadVehicle permanently invisible.
+    constexpr int RequiredExternalControlMaterializationFlags =
+        (1 << 0) | // main list
+        (1 << 1) | // RoadVehicle definition
+        (1 << 2) | // ComplMapObj definition
+        (1 << 3) | // ComplObj instance
+        (1 << 5);  // model string
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredExternalControlMaterializationFlags) ==
+        RequiredExternalControlMaterializationFlags;
+
+    if (visualGraphReady)
+    {
+        // Once the visual graph exists, NavBR owns this remote RoadVehicle's
+        // world transform. Leaving WasCalculated=false / PH_NeedPreCalc=true
+        // after this point hands it back to a later OMSI RoadVehicle pass,
+        // which can overwrite the network pose while the simulation is active.
+        if (!WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled)) return FailVehicleTransform(26);
+        if (!WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled)) return FailVehicleTransform(27);
+    }
 
     InterlockedExchange(&LastVehicleTransformFailureStage, 0);
+    return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleRenderControl(
+    int vehiclePointer,
+    float x,
+    float y,
+    float z,
+    float rotationX,
+    float rotationY,
+    float rotationZ,
+    float rotationW)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer) ||
+        !std::isfinite(x) ||
+        !std::isfinite(y) ||
+        !std::isfinite(z) ||
+        !std::isfinite(rotationX) ||
+        !std::isfinite(rotationY) ||
+        !std::isfinite(rotationZ) ||
+        !std::isfinite(rotationW))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    const float quaternionLength = std::sqrt(
+        rotationX * rotationX +
+        rotationY * rotationY +
+        rotationZ * rotationZ +
+        rotationW * rotationW);
+    if (!std::isfinite(quaternionLength) ||
+        quaternionLength < 0.0001f)
+    {
+        return 0;
+    }
+
+    const auto base =
+        static_cast<std::uintptr_t>(vehiclePointer);
+
+    constexpr int RequiredRenderControlMaterializationFlags =
+        (1 << 0) |
+        (1 << 1) |
+        (1 << 2) |
+        (1 << 3) |
+        (1 << 5);
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredRenderControlMaterializationFlags) ==
+        RequiredRenderControlMaterializationFlags;
+
+    if (!visualGraphReady)
+    {
+        // Keep the object alive and in the same AI/script ownership mode as
+        // the working Omsi-Extensions multiplayer example, but deliberately
+        // avoid touching calculation/render flags while OMSI is still
+        // attaching its deferred ComplObj/model graph.
+        const unsigned char disabled = 0;
+        const float networkAiActive = 1.0f;
+        if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
+            !WriteByte(vehiclePointer, PaiOffset, disabled) ||
+            !WriteValue(vehiclePointer, AiVarOffset, networkAiActive))
+        {
+            return 0;
+        }
+        return 1;
+    }
+
+    if (!IsReadableRange(
+            base + UsedRelativeVectorOffset,
+            sizeof(Vec3)) ||
+        !IsReadableRange(
+            base + PositionOffset,
+            sizeof(Vec3)) ||
+        !IsReadableRange(
+            base + RotationOffset,
+            sizeof(Quaternion)) ||
+        !IsReadableRange(
+            base + PaiOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + AiVarOffset,
+            sizeof(float)) ||
+        !IsReadableRange(
+            base + RoadVehicleWasCalculatedOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + RoadVehiclePhysicsNeedPreCalcOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + VisibleLogicalOffset,
+            sizeof(unsigned char)) ||
+        !IsReadableRange(
+            base + VisibleLogicalRenderThreadOffset,
+            sizeof(unsigned char)))
+    {
+        return 0;
+    }
+
+    const Vec3 relationTranslation =
+        *reinterpret_cast<const Vec3*>(
+            base + UsedRelativeVectorOffset);
+    if (!std::isfinite(relationTranslation.x) ||
+        !std::isfinite(relationTranslation.y) ||
+        !std::isfinite(relationTranslation.z))
+    {
+        return 0;
+    }
+
+    const Vec3 localPosition{ x, y, z };
+    const Vec3 worldPosition{
+        x + relationTranslation.x,
+        y + relationTranslation.y,
+        z + relationTranslation.z
+    };
+    if (!std::isfinite(worldPosition.x) ||
+        !std::isfinite(worldPosition.y) ||
+        !std::isfinite(worldPosition.z))
+    {
+        return 0;
+    }
+
+    const float inverseLength = 1.0f / quaternionLength;
+    const Quaternion rotation{
+        rotationX * inverseLength,
+        rotationY * inverseLength,
+        rotationZ * inverseLength,
+        rotationW * inverseLength
+    };
+    const Matrix4 expected =
+        BuildTransformMatrix(rotation, worldPosition);
+
+    bool needsCorrection = false;
+    Matrix4 current{};
+    if (!TryReadMatrix(
+            vehiclePointer,
+            OutsideMatrixThreadFreeOffset,
+            current))
+    {
+        needsCorrection = true;
+    }
+    else
+    {
+        const float dx = current.m30 - expected.m30;
+        const float dy = current.m31 - expected.m31;
+        const float dz = current.m32 - expected.m32;
+        constexpr float PositionTolerance = 0.05f;
+        needsCorrection =
+            dx * dx + dy * dy + dz * dz >
+            PositionTolerance * PositionTolerance;
+
+        constexpr float MatrixTolerance = 0.001f;
+        if (!needsCorrection)
+        {
+            needsCorrection =
+                !std::isfinite(current.m00) ||
+                !std::isfinite(current.m01) ||
+                !std::isfinite(current.m02) ||
+                !std::isfinite(current.m10) ||
+                !std::isfinite(current.m11) ||
+                !std::isfinite(current.m12) ||
+                !std::isfinite(current.m20) ||
+                !std::isfinite(current.m21) ||
+                !std::isfinite(current.m22) ||
+                std::fabs(current.m00 - expected.m00) > MatrixTolerance ||
+                std::fabs(current.m01 - expected.m01) > MatrixTolerance ||
+                std::fabs(current.m02 - expected.m02) > MatrixTolerance ||
+                std::fabs(current.m10 - expected.m10) > MatrixTolerance ||
+                std::fabs(current.m11 - expected.m11) > MatrixTolerance ||
+                std::fabs(current.m12 - expected.m12) > MatrixTolerance ||
+                std::fabs(current.m20 - expected.m20) > MatrixTolerance ||
+                std::fabs(current.m21 - expected.m21) > MatrixTolerance ||
+                std::fabs(current.m22 - expected.m22) > MatrixTolerance;
+        }
+    }
+
+    const Vec3 logicalPosition =
+        *reinterpret_cast<const Vec3*>(base + PositionOffset);
+    const Quaternion logicalRotation =
+        *reinterpret_cast<const Quaternion*>(base + RotationOffset);
+    constexpr float LogicalPositionTolerance = 0.05f;
+    const float logicalDx = logicalPosition.x - localPosition.x;
+    const float logicalDy = logicalPosition.y - localPosition.y;
+    const float logicalDz = logicalPosition.z - localPosition.z;
+    if (!std::isfinite(logicalPosition.x) ||
+        !std::isfinite(logicalPosition.y) ||
+        !std::isfinite(logicalPosition.z) ||
+        logicalDx * logicalDx +
+            logicalDy * logicalDy +
+            logicalDz * logicalDz >
+            LogicalPositionTolerance * LogicalPositionTolerance)
+    {
+        needsCorrection = true;
+    }
+
+    const float logicalRotationLength = std::sqrt(
+        logicalRotation.x * logicalRotation.x +
+        logicalRotation.y * logicalRotation.y +
+        logicalRotation.z * logicalRotation.z +
+        logicalRotation.w * logicalRotation.w);
+    if (!std::isfinite(logicalRotationLength) ||
+        logicalRotationLength < 0.0001f)
+    {
+        needsCorrection = true;
+    }
+    else
+    {
+        const float inverseLogicalLength = 1.0f / logicalRotationLength;
+        const float rotationDot = std::fabs(
+            logicalRotation.x * inverseLogicalLength * rotation.x +
+            logicalRotation.y * inverseLogicalLength * rotation.y +
+            logicalRotation.z * inverseLogicalLength * rotation.z +
+            logicalRotation.w * inverseLogicalLength * rotation.w);
+        constexpr float RotationDotTolerance = 0.001f;
+        if (!std::isfinite(rotationDot) ||
+            1.0f - rotationDot > RotationDotTolerance)
+        {
+            needsCorrection = true;
+        }
+    }
+
+    const float aiVar =
+        *reinterpret_cast<const float*>(base + AiVarOffset);
+    if (*reinterpret_cast<const unsigned char*>(base + PaiOffset) != 0 ||
+        !std::isfinite(aiVar) ||
+        std::fabs(aiVar - 1.0f) > 0.001f ||
+        *reinterpret_cast<const unsigned char*>(
+            base + RoadVehicleWasCalculatedOffset) == 0 ||
+        *reinterpret_cast<const unsigned char*>(
+            base + RoadVehiclePhysicsNeedPreCalcOffset) != 0)
+    {
+        needsCorrection = true;
+    }
+
+    if (*reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalOffset) == 0 ||
+        *reinterpret_cast<const unsigned char*>(
+            base + VisibleLogicalRenderThreadOffset) == 0)
+    {
+        needsCorrection = true;
+    }
+
+    const int complObjInstance =
+        IsReadableRange(
+            base + ComplObjInstanceOffset,
+            sizeof(int))
+            ? *reinterpret_cast<const int*>(
+                base + ComplObjInstanceOffset)
+            : 0;
+    if (complObjInstance != 0)
+    {
+        const auto complBase =
+            static_cast<std::uintptr_t>(complObjInstance);
+        if ((IsReadableRange(
+                 complBase + ComplObjInstanceVisibleOffset,
+                 sizeof(unsigned char)) &&
+             *reinterpret_cast<const unsigned char*>(
+                 complBase + ComplObjInstanceVisibleOffset) == 0) ||
+            (IsReadableRange(
+                 complBase + ComplObjInstanceRenderMeOffset,
+                 sizeof(unsigned char)) &&
+             *reinterpret_cast<const unsigned char*>(
+                 complBase + ComplObjInstanceRenderMeOffset) == 0))
+        {
+            needsCorrection = true;
+        }
+    }
+
+    if (!needsCorrection)
+    {
+        return 1;
+    }
+
+    const unsigned char disabled = 0;
+    const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(
+            vehiclePointer,
+            PositionOffset,
+            localPosition) ||
+        !WriteValue(
+            vehiclePointer,
+            RotationOffset,
+            rotation) ||
+        !WriteValue(
+            vehiclePointer,
+            LastPositionOffset,
+            localPosition) ||
+        !WriteValue(
+            vehiclePointer,
+            LastRotationOffset,
+            rotation) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsLastForceOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            PhysicsLastMomentOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleLastVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleAccelerationLocalOffset,
+            zeroDynamics) ||
+        !WriteByte(
+            vehiclePointer,
+            PaiOffset,
+            disabled) ||
+        !WriteValue(
+            vehiclePointer,
+            AiVarOffset,
+            networkAiActive) ||
+        !WriteByte(
+            vehiclePointer,
+            RoadVehicleWasCalculatedOffset,
+            enabled) ||
+        !WriteByte(
+            vehiclePointer,
+            RoadVehiclePhysicsNeedPreCalcOffset,
+            disabled) ||
+        !WriteRenderMatrices(
+            vehiclePointer,
+            localPosition,
+            worldPosition,
+            rotation) ||
+        !WriteByte(
+            vehiclePointer,
+            VisibleLogicalOffset,
+            enabled) ||
+        !WriteByte(
+            vehiclePointer,
+            VisibleLogicalRenderThreadOffset,
+            enabled))
+    {
+        return 0;
+    }
+
+    // Bit 0 = probe/write succeeded; bit 1 = render state was corrected.
+    return 1 | (1 << 1);
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleNetworkMotion(
+    int vehiclePointer,
+    int hasVelocity,
+    float velocityX,
+    float velocityY,
+    float velocityZ,
+    int hasAccelerationLocal,
+    float accelerationLocalX,
+    float accelerationLocalY,
+    float accelerationLocalZ)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    if (hasVelocity != 0)
+    {
+        if (!std::isfinite(velocityX) ||
+            !std::isfinite(velocityY) ||
+            !std::isfinite(velocityZ))
+        {
+            return 0;
+        }
+
+        const float velocitySquared =
+            velocityX * velocityX +
+            velocityY * velocityY +
+            velocityZ * velocityZ;
+        constexpr float MaxVelocityMps = 150.0f;
+        if (!std::isfinite(velocitySquared) ||
+            velocitySquared > MaxVelocityMps * MaxVelocityMps)
+        {
+            return 0;
+        }
+    }
+
+    if (hasAccelerationLocal != 0)
+    {
+        if (!std::isfinite(accelerationLocalX) ||
+            !std::isfinite(accelerationLocalY) ||
+            !std::isfinite(accelerationLocalZ))
+        {
+            return 0;
+        }
+
+        const float accelerationSquared =
+            accelerationLocalX * accelerationLocalX +
+            accelerationLocalY * accelerationLocalY +
+            accelerationLocalZ * accelerationLocalZ;
+        constexpr float MaxAccelerationMps2 = 100.0f;
+        if (!std::isfinite(accelerationSquared) ||
+            accelerationSquared >
+                MaxAccelerationMps2 * MaxAccelerationMps2)
+        {
+            return 0;
+        }
+    }
+
+    // The vectors above are validated because they remain part of the network
+    // protocol and managed interpolation, but they must not become active OMSI
+    // dynamics on a remote RoadVehicle. Groundspeed/Tacho are written by the
+    // transform path; all physical/derivative vectors stay neutral.
+    const Vec3 zeroDynamics{};
+    if (!WriteValue(
+            vehiclePointer,
+            PhysicsVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleLastVelocityOffset,
+            zeroDynamics) ||
+        !WriteValue(
+            vehiclePointer,
+            RoadVehicleAccelerationLocalOffset,
+            zeroDynamics))
+    {
+        return 0;
+    }
+
     return 1;
 }
 
@@ -2756,7 +3486,34 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     const unsigned char disabled = 0;
     const unsigned char enabled = 1;
+    const float networkAiActive = 1.0f;
+    const Vec3 zeroDynamics{};
     const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+
+    constexpr int RequiredKeepaliveMaterializationFlags =
+        (1 << 0) |
+        (1 << 1) |
+        (1 << 2) |
+        (1 << 3) |
+        (1 << 5);
+    const int materializationFlags =
+        NavBR_GetRoadVehicleMaterializationFlags(vehiclePointer);
+    const bool visualGraphReady =
+        (materializationFlags & RequiredKeepaliveMaterializationFlags) ==
+        RequiredKeepaliveMaterializationFlags;
+
+    if (!visualGraphReady)
+    {
+        // During MakeVehicle's deferred materialization, keep only the
+        // ownership/survival state asserted. Do not mark the RoadVehicle as
+        // fully calculated or clear PH_NeedPreCalc until OMSI has attached the
+        // visual graph; those callbacks are part of the initialization path.
+        return WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) &&
+               WriteByte(vehiclePointer, PaiOffset, disabled) &&
+               WriteValue(vehiclePointer, AiVarOffset, networkAiActive)
+            ? 1
+            : 0;
+    }
 
     // Bit 0 means the keepalive succeeded. The higher bits report what OMSI
     // had changed before NavBR reasserted ownership, giving the real-game log
@@ -2808,8 +3565,12 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
 
     if (!WriteByte(vehiclePointer, MarkedForKillingOffset, disabled) ||
         !WriteByte(vehiclePointer, PaiOffset, disabled) ||
+        !WriteValue(vehiclePointer, AiVarOffset, networkAiActive) ||
         !WriteByte(vehiclePointer, RoadVehicleWasCalculatedOffset, enabled) ||
-        !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled))
+        !WriteByte(vehiclePointer, RoadVehiclePhysicsNeedPreCalcOffset, disabled) ||
+        !WriteValue(vehiclePointer, PhysicsVelocityOffset, zeroDynamics) ||
+        !WriteValue(vehiclePointer, RoadVehicleLastVelocityOffset, zeroDynamics) ||
+        !WriteValue(vehiclePointer, RoadVehicleAccelerationLocalOffset, zeroDynamics))
     {
         return 0;
     }

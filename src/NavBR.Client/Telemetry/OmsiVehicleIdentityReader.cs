@@ -25,6 +25,7 @@ internal static class OmsiVehicleIdentityReader
         nint vehicleAddress)
     {
         string? sourceObject = null;
+        string? definitionFileName = null;
         string? definitionPath = null;
         string? friendlyName = null;
 
@@ -55,6 +56,10 @@ internal static class OmsiVehicleIdentityReader
             if (definitionAddress > 0x10000u)
             {
                 var definitionPointer = ReadOnlyProcessMemory.PointerFromUInt32(definitionAddress);
+                definitionFileName = memory.ReadDelphiAnsiStringField(nint.Add(
+                    definitionPointer,
+                    Omsi23004MemoryProfile.RoadVehicleFileNameOffset),
+                    maxCharacters: 1024);
                 friendlyName = memory.ReadDelphiAnsiStringField(nint.Add(
                     definitionPointer,
                     Omsi23004MemoryProfile.RoadVehicleFriendlyNameOffset),
@@ -74,6 +79,7 @@ internal static class OmsiVehicleIdentityReader
         var relativePath = NormalizeVehiclePath(
             processInfo?.InstallDirectory,
             sourceObject,
+            definitionFileName,
             definitionPath);
         var compatibilityId = TryFingerprintVehicle(processInfo?.InstallDirectory, relativePath);
 
@@ -91,29 +97,74 @@ internal static class OmsiVehicleIdentityReader
     private static string? NormalizeVehiclePath(
         string? omsiRoot,
         string? sourceObject,
+        string? definitionFileName,
         string? definitionPath)
     {
         var source = NormalizeSeparators(sourceObject);
+        var fileName = NormalizeSeparators(definitionFileName);
         var definition = NormalizeSeparators(definitionPath);
 
-        string? candidate = null;
-        if (LooksLikeVehicleDefinition(source))
+        // OmsiRoadVehicle.FileName is authoritative for the loaded .bus/.ovh
+        // definition. MyPath commonly contains only its Vehicles\\... folder.
+        // MyFileObject.Obj is retained as a compatibility fallback because it
+        // can be absent for the player bus even while RoadVehicle is valid.
+        var candidates = new List<string>(capacity: 5);
+
+        AddVehicleDefinitionCandidates(candidates, fileName, definition);
+        AddVehicleDefinitionCandidates(candidates, source, definition);
+
+        if (LooksLikeVehicleDefinition(definition))
         {
-            candidate = source;
-        }
-        else if (LooksLikeVehicleDefinition(definition))
-        {
-            candidate = definition;
-        }
-        else if (!string.IsNullOrWhiteSpace(source) &&
-                 !string.IsNullOrWhiteSpace(definition) &&
-                 (source.EndsWith(".bus", StringComparison.OrdinalIgnoreCase) ||
-                  source.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase)))
-        {
-            candidate = Path.Combine(definition, source);
+            candidates.Add(definition!);
         }
 
-        if (string.IsNullOrWhiteSpace(candidate))
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var normalized = NormalizeVehicleCandidate(omsiRoot, candidate);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return normalized;
+            }
+        }
+
+        return null;
+    }
+
+    private static void AddVehicleDefinitionCandidates(
+        List<string> candidates,
+        string? fileValue,
+        string? definitionPath)
+    {
+        if (!LooksLikeVehicleDefinition(fileValue))
+        {
+            return;
+        }
+
+        candidates.Add(fileValue!);
+
+        if (string.IsNullOrWhiteSpace(definitionPath) ||
+            LooksLikeVehicleDefinition(definitionPath))
+        {
+            return;
+        }
+
+        var fileName = fileValue!
+            .Replace('/', '\\')
+            .Split('\\', StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            candidates.Add(Path.Combine(definitionPath!, fileName));
+        }
+    }
+
+    private static string? NormalizeVehicleCandidate(
+        string? omsiRoot,
+        string? value)
+    {
+        var candidate = NormalizeSeparators(value);
+        if (string.IsNullOrWhiteSpace(candidate) ||
+            !LooksLikeVehicleDefinition(candidate))
         {
             return null;
         }
@@ -132,7 +183,7 @@ internal static class OmsiVehicleIdentityReader
         }
         catch
         {
-            // Keep the source text and try the Vehicles\ anchor below.
+            // Keep the source text and try the Vehicles\\ anchor below.
         }
 
         candidate = NormalizeSeparators(candidate)?.TrimStart('\\');
@@ -154,6 +205,17 @@ internal static class OmsiVehicleIdentityReader
         }
 
         return candidate;
+    }
+
+    internal static string? TryFingerprintInstalledVehicle(
+        string? contentRoot,
+        string? vehiclePath)
+    {
+        var normalizedPath =
+            NormalizeVehicleCandidate(contentRoot, vehiclePath);
+        return TryFingerprintVehicle(
+            contentRoot,
+            normalizedPath);
     }
 
     private static string? TryFingerprintVehicle(string? omsiRoot, string? relativePath)

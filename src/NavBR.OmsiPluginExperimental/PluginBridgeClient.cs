@@ -10,17 +10,19 @@ namespace NavBR.OmsiPluginExperimental;
 
 internal static class PluginBridgeClient
 {
-    private static readonly object LocalStateSync = new();
-    private static readonly object StatusSync = new();
     private static readonly RemoteVehicleRegistry RemoteVehicles = new();
     private static readonly TrafficVehicleRegistry TrafficVehicles = new();
     private static readonly ConcurrentQueue<PluginBridgeMessage> OutboundCommandResults = new();
+    private const long SuccessfulCommandLogIntervalMs = 5_000;
 
     private static CancellationTokenSource? _lifetimeCts;
     private static Task? _loopTask;
     private static Action<string>? _log;
     private static PluginBridgeMessage? _localState;
     private static PluginBridgeMessage? _pendingStatus;
+    private static string[]? _cachedCapabilities;
+    private static long _lastSuccessfulCommandLogTickMs;
+    private static long _successfulCommandResultsSinceLog;
 
     private static readonly string? ComponentVersion =
         typeof(PluginBridgeClient).Assembly
@@ -67,8 +69,19 @@ internal static class PluginBridgeClient
         ClearOutboundCommandResults();
     }
 
+    public static PluginRegistryStatus PruneAndSnapshotRemoteStates()
+    {
+        var remote =
+            RemoteVehicles.PruneAndCount(GetLocalState());
+        var trafficRemoved = TrafficVehicles.PruneStale();
+        return new PluginRegistryStatus(
+            remote.Removed + trafficRemoved,
+            remote.Total,
+            remote.Compatible);
+    }
+
     public static int PruneStaleRemoteStates() =>
-        RemoteVehicles.PruneStale() + TrafficVehicles.PruneStale();
+        PruneAndSnapshotRemoteStates().StaleRemoved;
 
     public static void QueueCommandResult(PluginBridgeMessage result)
     {
@@ -78,6 +91,39 @@ internal static class PluginBridgeClient
         }
 
         OutboundCommandResults.Enqueue(result);
+
+        // Successful pose/visual updates are high-frequency state, not useful
+        // as one log line per command. Keep every IPC result, but batch only the
+        // diagnostic log so string formatting/file-queue pressure stays off the
+        // OMSI callback thread. Errors remain fully logged below.
+        if (result.Success == true)
+        {
+            Interlocked.Increment(ref _successfulCommandResultsSinceLog);
+            var now = Environment.TickCount64;
+            var previous = Interlocked.Read(ref _lastSuccessfulCommandLogTickMs);
+            if (previous > 0 &&
+                now >= previous &&
+                now - previous < SuccessfulCommandLogIntervalMs)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref _lastSuccessfulCommandLogTickMs,
+                    now,
+                    previous) != previous)
+            {
+                return;
+            }
+
+            var batched = Interlocked.Exchange(
+                ref _successfulCommandResultsSinceLog,
+                0);
+            Log(
+                $"command-results success={batched} latest={result.CharacterInstanceId ?? result.VehicleInstanceId ?? result.PlayerId ?? "-"}");
+            return;
+        }
+
         var detail = string.IsNullOrWhiteSpace(result.ErrorMessage)
             ? "-"
             : result.ErrorMessage
@@ -98,6 +144,8 @@ internal static class PluginBridgeClient
         long systemVariableCallbacks,
         int lastSystemVariableIndex,
         int staleRemovedCount,
+        int remoteVehicleCount,
+        int compatibleRemoteVehicleCount,
         double? speedKph = null,
         bool? stopRequested = null,
         double? cabinTemperatureC = null,
@@ -113,24 +161,27 @@ internal static class PluginBridgeClient
         string? ibisTerminusName = null,
         string? ibisDelayMinutes = null,
         string? ibisDelaySeconds = null,
-        string? ibisDelayState = null)
+        string? ibisDelayState = null,
+        int? pluginPressureLevel = null,
+        double? pluginWorkMilliseconds = null,
+        double? pluginAverageWorkMilliseconds = null,
+        double? pluginAverageFrameIntervalMilliseconds = null,
+        long? pluginMinimumWorkIntervalMilliseconds = null,
+        int? pluginMaxCommandsPerSlice = null,
+        double? pluginLastFrameIntervalMilliseconds = null,
+        double? pluginPeakFrameIntervalMilliseconds = null,
+        long? pluginFrameStallCount = null,
+        string? performanceProfile = null)
     {
         int? physicalGridX = null;
         int? physicalGridY = null;
         int? physicalMapTileIndex = null;
         try
         {
-            var playerVehicle = OmsiNativeInterop.GetPlayerVehiclePointer();
-            if (playerVehicle != 0)
-            {
-                var directTileIndex =
-                    OmsiNativeInterop.ReadRoadVehicleTileIndex(playerVehicle);
-                if (directTileIndex >= 0)
-                {
-                    physicalMapTileIndex = directTileIndex;
-                }
-            }
-
+            // The grid helper already resolves PlayerVehicle, Kachel and the
+            // tile index. Use it as the normal single native call. Only fall
+            // back to the direct tile read when OMSI exposes a Kachel that can
+            // be indexed but whose grid cannot currently be resolved.
             if (OmsiNativeInterop.ReadPlayerVehicleGrid(
                     out var gridX,
                     out var gridY,
@@ -141,6 +192,21 @@ internal static class PluginBridgeClient
                 if (mapTileIndex >= 0)
                 {
                     physicalMapTileIndex = mapTileIndex;
+                }
+            }
+            else
+            {
+                var playerVehicle =
+                    OmsiNativeInterop.GetPlayerVehiclePointer();
+                if (playerVehicle != 0)
+                {
+                    var directTileIndex =
+                        OmsiNativeInterop.ReadRoadVehicleTileIndex(
+                            playerVehicle);
+                    if (directTileIndex >= 0)
+                    {
+                        physicalMapTileIndex = directTileIndex;
+                    }
                 }
             }
         }
@@ -162,8 +228,8 @@ internal static class PluginBridgeClient
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             SpeedKph: speedKph,
             SystemVariableCallbacks: systemVariableCallbacks,
-            RemoteVehicleCount: RemoteVehicleCount,
-            CompatibleRemoteVehicleCount: CompatibleRemoteVehicleCount,
+            RemoteVehicleCount: remoteVehicleCount,
+            CompatibleRemoteVehicleCount: compatibleRemoteVehicleCount,
             StaleRemovedCount: staleRemovedCount,
             LastSystemVariableIndex: lastSystemVariableIndex,
             StopRequested: stopRequested,
@@ -184,16 +250,25 @@ internal static class PluginBridgeClient
             GridX: physicalGridX,
             GridY: physicalGridY,
             MapTileIndex: physicalMapTileIndex,
+            PluginPressureLevel: pluginPressureLevel,
+            PluginWorkMilliseconds: pluginWorkMilliseconds,
+            PluginAverageWorkMilliseconds: pluginAverageWorkMilliseconds,
+            PluginAverageFrameIntervalMilliseconds: pluginAverageFrameIntervalMilliseconds,
+            PluginMinimumWorkIntervalMilliseconds: pluginMinimumWorkIntervalMilliseconds,
+            PluginMaxCommandsPerSlice: pluginMaxCommandsPerSlice,
+            PluginLastFrameIntervalMilliseconds: pluginLastFrameIntervalMilliseconds,
+            PluginPeakFrameIntervalMilliseconds: pluginPeakFrameIntervalMilliseconds,
+            PluginFrameStallCount: pluginFrameStallCount,
+            PerformanceProfile:
+                performanceProfile ??
+                OmsiPerformanceGovernor.CurrentProfile,
             ExperimentalWritesEnabled:
                 ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                 RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled ||
                 LocalVehicleCommandProcessor.ExperimentalWritesEnabled,
-            Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
+            Capabilities: GetCachedCapabilities());
 
-        lock (StatusSync)
-        {
-            _pendingStatus = status;
-        }
+        Interlocked.Exchange(ref _pendingStatus, status);
     }
 
     private static async Task RunAsync(CancellationToken cancellationToken)
@@ -256,7 +331,7 @@ internal static class PluginBridgeClient
                     ExperimentalWritesEnabled:
                         ExperimentalVehicleCommandProcessor.ExperimentalWritesEnabled ||
                         RoleplayCharacterCommandProcessor.ExperimentalWritesEnabled,
-                    Capabilities: ExperimentalVehicleCommandProcessor.GetCapabilities());
+                    Capabilities: GetCachedCapabilities());
                 await writer.WriteLineAsync(SerializeMessage(capabilities));
                 await writer.FlushAsync(cancellationToken);
 
@@ -376,23 +451,11 @@ internal static class PluginBridgeClient
         }
     }
 
-    private static PluginBridgeMessage? TakePendingStatus()
-    {
-        lock (StatusSync)
-        {
-            var pending = _pendingStatus;
-            _pendingStatus = null;
-            return pending;
-        }
-    }
+    private static PluginBridgeMessage? TakePendingStatus() =>
+        Interlocked.Exchange(ref _pendingStatus, null);
 
-    private static void ClearPendingStatus()
-    {
-        lock (StatusSync)
-        {
-            _pendingStatus = null;
-        }
-    }
+    private static void ClearPendingStatus() =>
+        Interlocked.Exchange(ref _pendingStatus, null);
 
     private static void ClearOutboundCommandResults()
     {
@@ -419,6 +482,13 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.ClearTrafficVehicles, StringComparison.Ordinal))
         {
             TrafficVehicles.Clear();
+            return null;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.SetPerformanceProfile, StringComparison.Ordinal))
+        {
+            OmsiPerformanceGovernor.SetProfile(message.PerformanceProfile);
+            Log($"performance-profile={OmsiPerformanceGovernor.CurrentProfile}");
             return null;
         }
 
@@ -534,21 +604,11 @@ internal static class PluginBridgeClient
         string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
 
-    private static PluginBridgeMessage? GetLocalState()
-    {
-        lock (LocalStateSync)
-        {
-            return _localState;
-        }
-    }
+    private static PluginBridgeMessage? GetLocalState() =>
+        Volatile.Read(ref _localState);
 
-    private static void SetLocalState(PluginBridgeMessage? state)
-    {
-        lock (LocalStateSync)
-        {
-            _localState = state;
-        }
-    }
+    private static void SetLocalState(PluginBridgeMessage? state) =>
+        Interlocked.Exchange(ref _localState, state);
 
     private static void ClearAllState()
     {
@@ -580,6 +640,26 @@ internal static class PluginBridgeClient
 
     private static bool IsFinite(double? value) =>
         value is double number && double.IsFinite(number);
+
+    private static string[] GetCachedCapabilities()
+    {
+        var cached = Volatile.Read(ref _cachedCapabilities);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        var built = ExperimentalVehicleCommandProcessor
+            .GetCapabilities()
+            .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Interlocked.CompareExchange(
+            ref _cachedCapabilities,
+            built,
+            null);
+        return _cachedCapabilities ?? built;
+    }
 
     private static string SerializeMessage(PluginBridgeMessage message) =>
         JsonSerializer.Serialize(
@@ -617,6 +697,11 @@ internal static class PluginBridgeClient
         {
         }
     }
+
+    public readonly record struct PluginRegistryStatus(
+        int StaleRemoved,
+        int RemoteTotal,
+        int RemoteCompatible);
 
     private static void Log(string message)
     {

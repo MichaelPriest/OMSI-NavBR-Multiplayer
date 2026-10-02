@@ -85,6 +85,93 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
         _omsiInstallDirectorySource = omsiInstallDirectorySource;
     }
 
+    public bool TryResolveOpenOmsiWorldAnchor(
+        VehicleTelemetry telemetry,
+        out OmsiPhysicalRoadAnchor anchor)
+    {
+        anchor = default;
+        if (!double.IsFinite(telemetry.X) ||
+            !double.IsFinite(telemetry.Y) ||
+            !double.IsFinite(telemetry.Z) ||
+            !double.IsFinite(telemetry.HeadingDegrees) ||
+            !TryResolveMap(telemetry, out var map) ||
+            !TryGetMapData(map, out var data) ||
+            !double.IsFinite(data.TileSize) ||
+            data.TileSize <= 0d)
+        {
+            return false;
+        }
+
+        // openOMSI LAN uses X/Y on the ground plane and Z as vertical.
+        // OMSI's physical Kachel space uses X/Z on the ground plane and Y
+        // as vertical. The world origin is the same map origin; only the
+        // axis convention differs.
+        var worldX = telemetry.X;
+        var worldGroundZ = telemetry.Y;
+        var verticalY = telemetry.Z;
+
+        var gridXDouble =
+            Math.Floor(worldX / data.TileSize);
+        var gridYDouble =
+            Math.Floor(worldGroundZ / data.TileSize);
+        if (gridXDouble < int.MinValue ||
+            gridXDouble > int.MaxValue ||
+            gridYDouble < int.MinValue ||
+            gridYDouble > int.MaxValue)
+        {
+            return false;
+        }
+
+        var gridX = (int)gridXDouble;
+        var gridY = (int)gridYDouble;
+        if (!data.TilesByGrid.TryGetValue(
+                (gridX, gridY),
+                out var tile))
+        {
+            return false;
+        }
+
+        var localX =
+            worldX -
+            gridX * data.TileSize;
+        var localZ =
+            worldGroundZ -
+            gridY * data.TileSize;
+        if (!double.IsFinite(localX) ||
+            !double.IsFinite(localZ) ||
+            localX < -0.01d ||
+            localZ < -0.01d ||
+            localX > data.TileSize + 0.01d ||
+            localZ > data.TileSize + 0.01d)
+        {
+            return false;
+        }
+
+        var heading =
+            NormalizeHeading(
+                telemetry.HeadingDegrees);
+        var headingRadians =
+            heading * Math.PI / 180d;
+        var half =
+            headingRadians * 0.5d;
+
+        anchor = new OmsiPhysicalRoadAnchor(
+            gridX,
+            gridY,
+            Math.Clamp(localX, 0d, data.TileSize),
+            verticalY,
+            Math.Clamp(localZ, 0d, data.TileSize),
+            0d,
+            Math.Sin(half),
+            0d,
+            Math.Cos(half),
+            heading,
+            0d,
+            "openomsi-world",
+            Path.GetFileName(tile.Path));
+        return true;
+    }
+
     public bool TryResolveRoadAnchor(
         VehicleTelemetry telemetry,
         out OmsiPhysicalRoadAnchor anchor)

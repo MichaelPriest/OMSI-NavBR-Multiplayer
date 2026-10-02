@@ -78,7 +78,7 @@ public partial class MainWindow
         }
 
         var window = new WebShellWindow(
-            BuildWebShellState,
+            () => BuildWebShellState(),
             () =>
             {
                 LaunchOmsiForShell();
@@ -134,14 +134,102 @@ public partial class MainWindow
         window.Activate();
     }
 
-    private object BuildWebShellState()
+    internal object BuildNativeShellState(string? scope = null) =>
+        BuildWebShellState(scope);
+
+    internal Task ExecuteNativeShellCommandAsync(
+        string command,
+        JsonElement? payload) =>
+        HandleWebShellCommandAsync(command, payload);
+
+    private object BuildWebShellState(string? scope = null)
     {
         var telemetry = _lastTelemetry;
         var omsi = _currentOmsi;
-        var localManifest = OmsiCompatibilityManifestFactory.Create(
-            telemetry,
-            GetActiveMapForMultiplayer(),
-            omsi?.FileVersion);
+        var multiplayerSettings = MultiplayerSettingsStore.Load();
+        var fullSnapshot = string.IsNullOrWhiteSpace(scope);
+        bool IncludeScope(string target) =>
+            fullSnapshot ||
+            string.Equals(scope, target, StringComparison.OrdinalIgnoreCase);
+
+        var includeNavigation = IncludeScope("navigation");
+        var includeGhost = IncludeScope("ghost");
+        var includeDriver = IncludeScope("driver");
+        var includeOperations = IncludeScope("cco");
+        var includeHardware = IncludeScope("hardware");
+        var includeNetwork =
+            IncludeScope("diagnostics") ||
+            IncludeScope("multiplayer");
+        var includeRoleplay = IncludeScope("roleplay");
+
+        // Public rooms are part of the native Multiplayer page again.
+        // Keep the expensive compatibility evaluation only for the legacy/full
+        // snapshot; the scoped WinUI page receives a lightweight cached room
+        // directory and performs the final compatibility check on join.
+        object? roomDirectory = null;
+        var includeScopedRoomDirectory =
+            string.Equals(scope, "multiplayer", StringComparison.OrdinalIgnoreCase);
+        if (fullSnapshot)
+        {
+            var localManifest = OmsiCompatibilityManifestFactory.Create(
+                telemetry,
+                GetActiveMapForMultiplayer(),
+                omsi?.FileVersion);
+            roomDirectory = new
+            {
+                serverUrl = _webPublicRoomDirectoryServerUrl,
+                error = _webPublicRoomDirectoryError,
+                rooms = _webPublicRooms
+                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+                    .ThenByDescending(room => room.PlayerCount)
+                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(room =>
+                    {
+                        var compatibility = EvaluateWebRoomCompatibility(localManifest, room);
+                        return new
+                        {
+                            roomId = room.RoomId,
+                            playerCount = room.PlayerCount,
+                            mapName = room.MapName,
+                            mapCompatibilityId = room.MapCompatibilityId,
+                            updatedAtUtc = room.UpdatedAtUtc,
+                            omsiVersion = room.OmsiVersion,
+                            navbrVersion = room.NavBRVersion,
+                            vehiclePath = room.VehiclePath,
+                            vehicleCompatibilityId = room.VehicleCompatibilityId,
+                            hofName = room.HofName,
+                            hofCompatibilityId = room.HofCompatibilityId,
+                            pluginProtocolVersion = room.PluginProtocolVersion,
+                            favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId),
+                            compatibility = compatibility.Level,
+                            compatibilityIssues = compatibility.Issues,
+                            directJoinAllowed = compatibility.DirectJoinAllowed
+                        };
+                    })
+                    .ToArray()
+            };
+        }
+        else if (includeScopedRoomDirectory)
+        {
+            roomDirectory = new
+            {
+                serverUrl = _webPublicRoomDirectoryServerUrl,
+                error = _webPublicRoomDirectoryError,
+                rooms = _webPublicRooms
+                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
+                    .ThenByDescending(room => room.PlayerCount)
+                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(room => new
+                    {
+                        roomId = room.RoomId,
+                        playerCount = room.PlayerCount,
+                        mapName = room.MapName,
+                        updatedAtUtc = room.UpdatedAtUtc,
+                        favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId)
+                    })
+                    .ToArray()
+            };
+        }
 
         return new
         {
@@ -176,7 +264,8 @@ public partial class MainWindow
                 processId = omsi?.ProcessId,
                 version = omsi?.FileVersion,
                 installDirectory = omsi?.InstallDirectory,
-                compatible = omsi?.IsOmsi23004 ?? false
+                compatible = omsi?.IsOmsi23004 ?? false,
+                memory = BuildWebOmsiMemoryState()
             },
             telemetry = telemetry is null
                 ? null
@@ -194,67 +283,86 @@ public partial class MainWindow
                     headingDegrees = telemetry.HeadingDegrees,
                     speedKph = telemetry.SpeedKph
                 },
-            navigation = BuildWebNavigationState(),
-            navigation3D = BuildWebNavigation3DState(),
-            operations = BuildWebOperationsState(),
-            system = BuildWebSystemState(),
-            roadmapStudio = BuildWebRoadmapState(),
-            ghost = BuildWebGhostState(),
-            hardware = BuildWebHardwareState(),
-            network = BuildWebNetworkState(),
-            companyNetwork = BuildWebCompanyNetworkState(),
-            roleplay = BuildWebRoleplayState(),
-            multiplayer = BuildWebMultiplayerState(),
-            roomDirectory = new
-            {
-                serverUrl = _webPublicRoomDirectoryServerUrl,
-                error = _webPublicRoomDirectoryError,
-                rooms = _webPublicRooms
-                    .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
-                    .ThenByDescending(room => room.PlayerCount)
-                    .ThenBy(room => room.RoomId, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(room =>
-                    {
-                        var compatibility = EvaluateWebRoomCompatibility(localManifest, room);
-                        return new
-                        {
-                            roomId = room.RoomId,
-                            playerCount = room.PlayerCount,
-                            mapName = room.MapName,
-                            mapCompatibilityId = room.MapCompatibilityId,
-                            updatedAtUtc = room.UpdatedAtUtc,
-                            omsiVersion = room.OmsiVersion,
-                            navbrVersion = room.NavBRVersion,
-                            vehiclePath = room.VehiclePath,
-                            vehicleCompatibilityId = room.VehicleCompatibilityId,
-                            hofName = room.HofName,
-                            hofCompatibilityId = room.HofCompatibilityId,
-                            pluginProtocolVersion = room.PluginProtocolVersion,
-                            favorite = PublicRoomFavoritesStore.IsFavorite(room.RoomId),
-                            compatibility = compatibility.Level,
-                            compatibilityIssues = compatibility.Issues,
-                            directJoinAllowed = compatibility.DirectJoinAllowed
-                        };
-                    })
-                    .ToArray()
-            }
+            navigation = includeNavigation
+                ? BuildWebNavigationState()
+                : null,
+            navigation3D = includeNavigation
+                ? BuildWebNavigation3DState()
+                : null,
+            operations = includeOperations
+                ? BuildWebOperationsState()
+                : null,
+            driver = includeDriver
+                ? BuildWebDriverState()
+                : null,
+            system = BuildWebSystemState(multiplayerSettings, scope),
+            roadmapStudio = fullSnapshot
+                ? BuildWebRoadmapState()
+                : null,
+            ghost = includeGhost
+                ? BuildWebGhostState()
+                : null,
+            hardware = includeHardware
+                ? BuildWebHardwareState()
+                : null,
+            network = includeNetwork
+                ? BuildWebNetworkState()
+                : null,
+            companyNetwork = BuildWebCompanyNetworkState(
+                summaryOnly: !fullSnapshot &&
+                             !string.Equals(
+                                 scope,
+                                 "company",
+                                 StringComparison.OrdinalIgnoreCase)),
+            roleplay = includeRoleplay
+                ? BuildWebRoleplayState()
+                : null,
+            multiplayer = BuildWebMultiplayerState(
+                multiplayerSettings,
+                summaryOnly: !fullSnapshot &&
+                             !string.Equals(
+                                 scope,
+                                 "multiplayer",
+                                 StringComparison.OrdinalIgnoreCase)),
+            roomDirectory
         };
     }
 
-    private object BuildWebMultiplayerState()
+    private object BuildWebMultiplayerState(
+        MultiplayerSettings? settings = null,
+        bool summaryOnly = false)
     {
         if (_multiplayerWindow is not null)
         {
-            return _multiplayerWindow.BuildWebBridgeState();
+            return summaryOnly
+                ? _multiplayerWindow.BuildWebBridgeSummaryState()
+                : _multiplayerWindow.BuildWebBridgeState();
         }
 
-        var settings = MultiplayerSettingsStore.Load();
+        settings ??= MultiplayerSettingsStore.Load();
+        if (summaryOnly)
+        {
+            return new
+            {
+                available = false,
+                connected = false,
+                connectionState = "Disconnected",
+                serverUrl = settings.ServerUrl,
+                defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+                relayServerUrl = settings.RelayServerUrl,
+                roomId = settings.RoomId,
+                displayName = settings.DisplayName,
+                playerCount = 0
+            };
+        }
         return new
         {
             available = false,
             connected = false,
             connectionState = "Disconnected",
             serverUrl = settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = settings.RelayServerUrl,
             roomId = settings.RoomId,
             displayName = settings.DisplayName,
             hostRunning = false,
@@ -291,7 +399,6 @@ public partial class MainWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = settings.EnableApplicationRelay,
-            relayServerUrl = settings.RelayServerUrl,
             physicalVehiclesEnabled = settings.ExperimentalPhysicalVehiclesEnabled,
             physicalVehiclesAvailable = false,
             networkQuality = new
@@ -349,6 +456,20 @@ public partial class MainWindow
 
             case "refreshOmsiDetection":
                 await RefreshOmsiStatusAsync();
+                break;
+
+            case "launchOmsi":
+                LaunchOmsiForShell();
+                await RefreshOmsiStatusAsync();
+                break;
+
+            case "openLegacyShell":
+                OpenPrimaryWebShell();
+                break;
+
+            case "setPerformanceProfile":
+                await SetPerformanceProfileFromWebAsync(
+                    GetWebPayloadString(payload, "profile"));
                 break;
 
             case "setShellTopmost":
@@ -474,7 +595,7 @@ public partial class MainWindow
                 break;
 
             case "playGhost":
-                await PlayGhostFromWebAsync(
+                StartGhostPlaybackForShell(
                     GetWebPayloadDouble(payload, "playbackSpeed"),
                     GetWebPayloadBool(payload, "loop"));
                 break;
@@ -715,6 +836,26 @@ public partial class MainWindow
 
             case "installOmsiPlugin":
                 InstallOmsiPluginFromWeb();
+                break;
+
+            case "selectOpenOmsiExecutable":
+                SelectOpenOmsiExecutableFromWeb();
+                break;
+
+            case "launchOpenOmsiNavBrGateway":
+                LaunchOpenOmsiWithNavBrGatewayFromWeb();
+                break;
+
+            case "verifyOpenOmsiPlugin":
+                VerifyOpenOmsiPluginFromWeb();
+                break;
+
+            case "installOpenOmsiPlugin":
+                InstallOpenOmsiPluginFromWeb();
+                break;
+
+            case "removeOpenOmsiPlugin":
+                RemoveOpenOmsiPluginFromWeb();
                 break;
 
             case "discoverOmsiProfiles":

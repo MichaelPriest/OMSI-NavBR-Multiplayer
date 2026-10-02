@@ -8,8 +8,8 @@ public static class PluginExports
 {
     private const long VehicleVariableFreshnessMs = 1_000;
 
-    private static DateTimeOffset _lastHeartbeat = DateTimeOffset.MinValue;
-    private static DateTimeOffset _lastStatusReport = DateTimeOffset.MinValue;
+    private static long _lastHeartbeatTickMs;
+    private static long _lastStatusReportTickMs;
     private static long _systemVariableCallbacks;
     private static float _pluginVelocityKph = float.NaN;
     private static int _stopRequested;
@@ -24,9 +24,10 @@ public static class PluginExports
     private static int _simulationMonth = -1;
     private static int _simulationYear = -1;
     private static int _simulationPaused = -1;
-    private static readonly object TelematrixStringSync = new();
     private static string? _ibisLineCourse;
     private static string? _ibisRouteCode;
+    private static float _ibisLineCourseNumeric = float.NaN;
+    private static float _ibisRouteCodeNumeric = float.NaN;
     private static string? _ibisTerminusName;
     private static string? _ibisDelayMinutes;
     private static string? _ibisDelaySeconds;
@@ -37,10 +38,11 @@ public static class PluginExports
     {
         try
         {
-            _lastHeartbeat = DateTimeOffset.MinValue;
-            _lastStatusReport = DateTimeOffset.MinValue;
+            Interlocked.Exchange(ref _lastHeartbeatTickMs, 0);
+            Interlocked.Exchange(ref _lastStatusReportTickMs, 0);
             Interlocked.Exchange(ref _systemVariableCallbacks, 0);
             Interlocked.Exchange(ref _lastOmsiWorkTickMs, 0);
+            OmsiPerformanceGovernor.Reset();
             PluginLogWriter.Start();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -66,6 +68,7 @@ public static class PluginExports
             RoleplayCharacterBackend.ReleaseAllBestEffort();
             PhysicalVehicleBackend.MarkAllOwnedVehiclesForRemoval();
             PhysicalVehicleLifecycleSupervisor.ClearManagedState();
+            OmsiPerformanceGovernor.Reset();
             PluginBridgeClient.Stop();
             Volatile.Write(ref _pluginVelocityKph, float.NaN);
             Volatile.Write(ref _stopRequested, 0);
@@ -134,16 +137,10 @@ public static class PluginExports
                     Volatile.Write(ref _scheduleActive, variableValue > 0.5f ? 1 : 0);
                     break;
                 case 7: // IBIS_LinieKurs
-                    lock (TelematrixStringSync)
-                    {
-                        _ibisLineCourse = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-                    }
+                    Volatile.Write(ref _ibisLineCourseNumeric, variableValue);
                     break;
                 case 8: // IBIS_Route
-                    lock (TelematrixStringSync)
-                    {
-                        _ibisRouteCode = variableValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-                    }
+                    Volatile.Write(ref _ibisRouteCodeNumeric, variableValue);
                     break;
             }
         }
@@ -175,16 +172,33 @@ public static class PluginExports
         try
         {
             var text = ReadOmsiAnsiString(firstCharacterAddress, 128);
-            lock (TelematrixStringSync)
+            switch (variableIndex)
             {
-                switch (variableIndex)
-                {
-                    case 2: _ibisLineCourse = NullIfWhiteSpace(text); break; // IBIS_Complex_Line
-                    case 3: _ibisDelayMinutes = NullIfWhiteSpace(text); break;
-                    case 4: _ibisDelaySeconds = NullIfWhiteSpace(text); break;
-                    case 5: _ibisDelayState = NullIfWhiteSpace(text); break;
-                    case 6: _ibisTerminusName = NullIfWhiteSpace(text); break;
-                }
+                case 2:
+                    Volatile.Write(
+                        ref _ibisLineCourse,
+                        NullIfWhiteSpace(text));
+                    break; // IBIS_Complex_Line
+                case 3:
+                    Volatile.Write(
+                        ref _ibisDelayMinutes,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 4:
+                    Volatile.Write(
+                        ref _ibisDelaySeconds,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 5:
+                    Volatile.Write(
+                        ref _ibisDelayState,
+                        NullIfWhiteSpace(text));
+                    break;
+                case 6:
+                    Volatile.Write(
+                        ref _ibisTerminusName,
+                        NullIfWhiteSpace(text));
+                    break;
             }
         }
         catch
@@ -245,55 +259,83 @@ public static class PluginExports
                 }
             }
 
-            // AccessSystemVariable can be called several times inside one OMSI
-            // render/update frame. Never drain the command queue on every
-            // variable callback: that multiplies native work on OMSI's main
-            // thread. The guard admits one bounded work slice at a time.
-            var workTick = Environment.TickCount64;
-            var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
-            var minimumWorkIntervalMs = activePhysicalVehicles switch
+            // Index 4 (simulation paused) is a later lightweight
+            // checkpoint in the normal OMSI system-variable callback sequence.
+            // Reconcile only render matrices here so a RoadVehicle calculation
+            // that ran after index 0 cannot leave a NavBR bus visually displaced
+            // for the frame. This intentionally does not repeat queues,
+            // lifecycle, interpolation, governor or ODE ownership work.
+            if (variableIndex == 4)
             {
-                >= 9 => 33L,
-                >= 5 => 24L,
-                _ => 16L
-            };
-
-            if (TryAcquireOmsiWorkSlot(workTick, minimumWorkIntervalMs))
-            {
-                var maxCommands = activePhysicalVehicles switch
-                {
-                    >= 9 => 2,
-                    >= 5 => 3,
-                    _ => 4
-                };
-
-                OmsiThreadCommandQueue.DrainFrame(
-                    maxCommands,
-                    PluginBridgeClient.QueueCommandResult);
-
-                // Keep physical ownership alive inside the OMSI callback even
-                // if the desktop misses a response or a pointer has to be
-                // recreated. At most one native retry is performed per tick.
-                PhysicalVehicleLifecycleSupervisor.Tick();
-
-                // Remote buses receive network targets at a lower cadence than
-                // OMSI's callback loop. The motion controller has its own
-                // adaptive rate and skips settled vehicles entirely.
-                PhysicalVehicleMotionController.Tick();
-
-                // RP targets come from the desktop at ~20 Hz, but OMSI can
-                // restore human/driver state inside the frames between bridge
-                // commands. Reassert the last confirmed target on this same
-                // OMSI callback loop so movement remains physically visible.
-                RoleplayCharacterBackend.Tick();
+                PhysicalVehicleMotionController.MaintainLateRenderControl();
             }
 
-            var now = DateTimeOffset.UtcNow;
-            var staleRemoved = 0;
-            if (now - _lastStatusReport >= TimeSpan.FromMilliseconds(200))
+            // OMSI requests several system variables during the same frame.
+            // Index 0 remains the sole frame anchor for all regular plugin work.
+            if (variableIndex != 0)
             {
-                _lastStatusReport = now;
-                staleRemoved = PluginBridgeClient.PruneStaleRemoteStates();
+                return;
+            }
+
+            var workTick = Environment.TickCount64;
+            var activePhysicalVehicles = PhysicalVehicleMotionController.ActiveCount;
+            var activeRoleplayCharacters = RoleplayCharacterBackend.ActiveCount;
+            var pendingCommands = OmsiThreadCommandQueue.Count;
+            var workBudget = OmsiPerformanceGovernor.ObserveFrameAndGetBudget(
+                workTick,
+                activePhysicalVehicles,
+                activeRoleplayCharacters,
+                pendingCommands);
+
+            if (TryAcquireOmsiWorkSlot(
+                    workTick,
+                    workBudget.MinimumWorkIntervalMs))
+            {
+                var workStart = OmsiPerformanceGovernor.BeginWorkSlice();
+                try
+                {
+                    OmsiThreadCommandQueue.DrainFrame(
+                        workBudget.MaxCommands,
+                        PluginBridgeClient.QueueCommandResult);
+
+                    // Keep physical ownership alive inside the OMSI callback even
+                    // if the desktop misses a response or a pointer has to be
+                    // recreated. At most one native retry is performed per tick.
+                    PhysicalVehicleLifecycleSupervisor.Tick();
+
+                    // Remote buses receive network targets at a lower cadence than
+                    // OMSI's callback loop. Under pressure, interpolation keeps
+                    // them visually moving while expensive native writes back off.
+                    PhysicalVehicleMotionController.Tick(
+                        workBudget.MotionMinimumIntervalMs);
+
+                    // RP targets come from the desktop at ~20 Hz, but OMSI can
+                    // restore human/driver state inside the frames between bridge
+                    // commands. Reassert the last confirmed target on this same
+                    // OMSI callback loop so movement remains physically visible.
+                    RoleplayCharacterBackend.Tick();
+                }
+                finally
+                {
+                    workBudget =
+                        OmsiPerformanceGovernor.EndWorkSliceAndGetBudget(
+                            workStart,
+                            activePhysicalVehicles,
+                            activeRoleplayCharacters,
+                            OmsiThreadCommandQueue.Count);
+                }
+            }
+
+            var staleRemoved = 0;
+            var lastStatusTick = Interlocked.Read(ref _lastStatusReportTickMs);
+            if (lastStatusTick <= 0 ||
+                workTick < lastStatusTick ||
+                workTick - lastStatusTick >= workBudget.StatusIntervalMs)
+            {
+                Interlocked.Exchange(ref _lastStatusReportTickMs, workTick);
+                var registryStatus =
+                    PluginBridgeClient.PruneAndSnapshotRemoteStates();
+                staleRemoved = registryStatus.StaleRemoved;
 
                 var tick = Environment.TickCount64;
                 var velocityAge = AgeMilliseconds(tick, Interlocked.Read(ref _lastVelocityTickMs));
@@ -307,21 +349,23 @@ public static class PluginExports
                     ? Volatile.Read(ref _stopRequested) != 0
                     : null;
 
-                string? ibisLineCourse;
-                string? ibisRouteCode;
-                string? ibisTerminusName;
-                string? ibisDelayMinutes;
-                string? ibisDelaySeconds;
-                string? ibisDelayState;
-                lock (TelematrixStringSync)
-                {
-                    ibisLineCourse = _ibisLineCourse;
-                    ibisRouteCode = _ibisRouteCode;
-                    ibisTerminusName = _ibisTerminusName;
-                    ibisDelayMinutes = _ibisDelayMinutes;
-                    ibisDelaySeconds = _ibisDelaySeconds;
-                    ibisDelayState = _ibisDelayState;
-                }
+                var ibisLineCourse =
+                    Volatile.Read(ref _ibisLineCourse);
+                var ibisRouteCode =
+                    Volatile.Read(ref _ibisRouteCode);
+                var ibisTerminusName =
+                    Volatile.Read(ref _ibisTerminusName);
+                var ibisDelayMinutes =
+                    Volatile.Read(ref _ibisDelayMinutes);
+                var ibisDelaySeconds =
+                    Volatile.Read(ref _ibisDelaySeconds);
+                var ibisDelayState =
+                    Volatile.Read(ref _ibisDelayState);
+
+                ibisLineCourse ??= FormatIbisNumeric(
+                    Volatile.Read(ref _ibisLineCourseNumeric));
+                ibisRouteCode ??= FormatIbisNumeric(
+                    Volatile.Read(ref _ibisRouteCodeNumeric));
 
                 var cabinTemperature = Volatile.Read(ref _cabinTemperatureC);
                 var passengers = Volatile.Read(ref _passengerCount);
@@ -336,6 +380,8 @@ public static class PluginExports
                     Interlocked.Read(ref _systemVariableCallbacks),
                     variableIndex,
                     staleRemoved,
+                    registryStatus.RemoteTotal,
+                    registryStatus.RemoteCompatible,
                     speedKph,
                     stopRequested,
                     float.IsFinite(cabinTemperature) ? cabinTemperature : null,
@@ -351,17 +397,30 @@ public static class PluginExports
                     ibisTerminusName,
                     ibisDelayMinutes,
                     ibisDelaySeconds,
-                    ibisDelayState);
+                    ibisDelayState,
+                    workBudget.PressureLevel,
+                    workBudget.LastWorkMilliseconds,
+                    workBudget.AverageWorkMilliseconds,
+                    workBudget.AverageFrameIntervalMilliseconds,
+                    workBudget.MinimumWorkIntervalMs,
+                    workBudget.MaxCommands,
+                    workBudget.LastFrameIntervalMilliseconds,
+                    workBudget.PeakFrameIntervalMilliseconds,
+                    workBudget.FrameStallCount,
+                    workBudget.PerformanceProfile);
             }
 
-            // Keep the verbose file heartbeat sparse. Hardware/status delivery is
-            // handled above at 5 Hz and is intentionally independent from logging.
-            if (now - _lastHeartbeat < TimeSpan.FromSeconds(5))
+            // Keep the verbose file heartbeat sparse. Use the same monotonic
+            // frame tick instead of sampling wall-clock time on every frame.
+            var lastHeartbeatTick = Interlocked.Read(ref _lastHeartbeatTickMs);
+            if (lastHeartbeatTick > 0 &&
+                workTick >= lastHeartbeatTick &&
+                workTick - lastHeartbeatTick < 5_000)
             {
                 return;
             }
 
-            _lastHeartbeat = now;
+            Interlocked.Exchange(ref _lastHeartbeatTickMs, workTick);
 
             float omsiTime = float.NaN;
             if (value != IntPtr.Zero)
@@ -421,6 +480,7 @@ public static class PluginExports
                 $"trafficAuthority={PluginBridgeClient.TrafficAuthorityPlayerId ?? "-"} " +
                 $"physicalQueue={OmsiThreadCommandQueue.Count} " +
                 $"physicalLifecycle={PhysicalVehicleLifecycleSupervisor.Summary} " +
+                $"performance={OmsiPerformanceGovernor.Summary} " +
                 $"hostKachel={hostTileIndex} {hostGridSummary} " +
                 $"staleRemoved={staleRemoved} {remoteSummary}");
         }
@@ -440,34 +500,48 @@ public static class PluginExports
         Volatile.Write(ref _simulationMonth, -1);
         Volatile.Write(ref _simulationYear, -1);
         Volatile.Write(ref _simulationPaused, -1);
-        lock (TelematrixStringSync)
-        {
-            _ibisLineCourse = null;
-            _ibisRouteCode = null;
-            _ibisTerminusName = null;
-            _ibisDelayMinutes = null;
-            _ibisDelaySeconds = null;
-            _ibisDelayState = null;
-        }
+        Volatile.Write(ref _ibisLineCourseNumeric, float.NaN);
+        Volatile.Write(ref _ibisRouteCodeNumeric, float.NaN);
+        Volatile.Write(ref _ibisLineCourse, null);
+        Volatile.Write(ref _ibisRouteCode, null);
+        Volatile.Write(ref _ibisTerminusName, null);
+        Volatile.Write(ref _ibisDelayMinutes, null);
+        Volatile.Write(ref _ibisDelaySeconds, null);
+        Volatile.Write(ref _ibisDelayState, null);
     }
 
     private static string ReadOmsiAnsiString(IntPtr address, int maxChars)
     {
-        var bytes = new List<byte>(Math.Min(maxChars, 128));
-        for (var index = 0; index < maxChars; index++)
+        if (maxChars <= 0)
         {
-            var value = Marshal.ReadByte(address, index);
+            return string.Empty;
+        }
+
+        var boundedLength = Math.Min(maxChars, 256);
+        Span<byte> bytes = stackalloc byte[boundedLength];
+        var count = 0;
+        for (; count < boundedLength; count++)
+        {
+            var value = Marshal.ReadByte(address, count);
             if (value == 0)
             {
                 break;
             }
-            bytes.Add(value);
+
+            bytes[count] = value;
         }
 
-        return bytes.Count == 0
+        return count == 0
             ? string.Empty
-            : System.Text.Encoding.Latin1.GetString(bytes.ToArray()).Trim();
+            : System.Text.Encoding.Latin1.GetString(bytes[..count]).Trim();
     }
+
+    private static string? FormatIbisNumeric(float value) =>
+        float.IsFinite(value)
+            ? value.ToString(
+                "0.###",
+                System.Globalization.CultureInfo.InvariantCulture)
+            : null;
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

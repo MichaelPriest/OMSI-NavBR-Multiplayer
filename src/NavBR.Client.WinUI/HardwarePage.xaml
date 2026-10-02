@@ -1,0 +1,65 @@
+<UserControl
+    x:Class="NavBR.Client.WinUI.HardwarePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16">
+            <TextBlock Text="Hardware Cockpit"
+                       Foreground="White"
+                       FontSize="32"
+                       FontWeight="Bold"/>
+            <TextBlock Text="Painéis físicos, Arduino/ESP32 e telemetria serial."
+                       Foreground="{StaticResource NavBRMutedBrush}"/>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="PortComboBox" Header="Porta serial"/>
+                    <ComboBox x:Name="BaudComboBox" Grid.Column="1" Header="Baud rate"/>
+                    <CheckBox x:Name="AutoReconnectCheckBox"
+                              Grid.Column="2"
+                              Content="Reconectar automaticamente"
+                              VerticalAlignment="Bottom"
+                              Margin="0,0,0,7"/>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                        <Button x:Name="ConnectButton" Content="Conectar" Click="Connect_Click"/>
+                        <Button x:Name="DisconnectButton" Content="Desconectar" Click="Disconnect_Click"/>
+                        <Button Content="Salvar" Click="Save_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="ESTADO" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="StateText" Text="OFFLINE" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="PROTOCOLO" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="ProtocolText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="ÚLTIMO FRAME" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="LastFrameText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Telemetria enviada" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TelemetryText" Text="Aguardando OMSI." Foreground="{StaticResource NavBRMutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="PayloadText" Text="—" Foreground="#647D8F" FontFamily="Consolas" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

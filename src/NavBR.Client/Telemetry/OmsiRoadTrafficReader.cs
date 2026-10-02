@@ -82,26 +82,14 @@ internal static class OmsiRoadTrafficReader
                         continue;
                     }
 
-                    var identity = OmsiVehicleIdentityReader.Read(memory, processInfo, vehicleAddress);
-                    if (string.IsNullOrWhiteSpace(identity.RelativePath) ||
-                        (!identity.RelativePath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) &&
-                         !identity.RelativePath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        continue;
-                    }
-
+                    // Distance is the cheapest high-rejection filter. Do it
+                    // before vehicle identity/file work so distant AI never
+                    // trigger string reads or filesystem fingerprint checks.
                     var absolute = memory.ReadVector3(nint.Add(
                         vehicleAddress,
                         Omsi23004MemoryProfile.VehicleAbsPositionOffset +
                         Omsi23004MemoryProfile.MatrixTranslationOffset));
-                    var local = memory.ReadVector3(nint.Add(
-                        vehicleAddress,
-                        Omsi23004MemoryProfile.VehiclePositionOffset));
-                    var rotation = memory.ReadQuaternion(nint.Add(
-                        vehicleAddress,
-                        Omsi23004MemoryProfile.VehicleRotationOffset));
-
-                    if (!IsFinite(absolute) || !IsFinite(local) || !IsFinite(rotation))
+                    if (!IsFinite(absolute))
                     {
                         continue;
                     }
@@ -115,6 +103,26 @@ internal static class OmsiRoadTrafficReader
                         continue;
                     }
 
+                    var identity = OmsiVehicleIdentityReader.Read(memory, processInfo, vehicleAddress);
+                    if (string.IsNullOrWhiteSpace(identity.RelativePath) ||
+                        (!identity.RelativePath.EndsWith(".ovh", StringComparison.OrdinalIgnoreCase) &&
+                         !identity.RelativePath.EndsWith(".bus", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
+                    var local = memory.ReadVector3(nint.Add(
+                        vehicleAddress,
+                        Omsi23004MemoryProfile.VehiclePositionOffset));
+                    var rotation = memory.ReadQuaternion(nint.Add(
+                        vehicleAddress,
+                        Omsi23004MemoryProfile.VehicleRotationOffset));
+
+                    if (!IsFinite(local) || !IsFinite(rotation))
+                    {
+                        continue;
+                    }
+
                     var speedKph = Math.Abs(memory.ReadSingle(nint.Add(
                         vehicleAddress,
                         Omsi23004MemoryProfile.VehicleGroundSpeedOffset))) * 3.6d;
@@ -123,8 +131,11 @@ internal static class OmsiRoadTrafficReader
                         speedKph = 0d;
                     }
 
-                    var lightFlags = ReadLightFlags(memory, vehicleAddress);
-                    var turnSignal = ReadTurnSignal(memory, vehicleAddress);
+                    ReadVisualState(
+                        memory,
+                        vehicleAddress,
+                        out var lightFlags,
+                        out var turnSignal);
                     var runtimeIndex = memory.ReadInt32(nint.Add(
                         vehicleAddress,
                         Omsi23004MemoryProfile.MovingVehicleIndexOffset));
@@ -159,11 +170,22 @@ internal static class OmsiRoadTrafficReader
                 }
             }
 
-            return candidates
-                .OrderBy(candidate => candidate.DistanceSquared)
-                .Take(maxVehicles)
-                .Select(candidate => candidate.Vehicle)
-                .ToArray();
+            candidates.Sort(
+                static (left, right) =>
+                    left.DistanceSquared.CompareTo(right.DistanceSquared));
+            var resultCount = Math.Min(maxVehicles, candidates.Count);
+            if (resultCount == 0)
+            {
+                return Array.Empty<TrafficVehicleState>();
+            }
+
+            var result = new TrafficVehicleState[resultCount];
+            for (var index = 0; index < resultCount; index++)
+            {
+                result[index] = candidates[index].Vehicle;
+            }
+
+            return result;
         }
         catch
         {
@@ -241,52 +263,95 @@ internal static class OmsiRoadTrafficReader
         return true;
     }
 
-    private static int ReadLightFlags(ReadOnlyProcessMemory memory, nint vehicleAddress)
+    private static void ReadVisualState(
+        ReadOnlyProcessMemory memory,
+        nint vehicleAddress,
+        out int lightFlags,
+        out int turnSignal)
     {
-        var flags = VehicleLightFlags.None;
+        bool external;
+        bool interior;
+        bool left;
+        bool right;
+        bool brake;
 
-        if (ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiLightOffset))
+        try
+        {
+            Span<float> values = stackalloc float[5];
+            memory.ReadSingles(
+                nint.Add(
+                    vehicleAddress,
+                    Omsi23004MemoryProfile.VehicleAiLightOffset),
+                values);
+            external = IsPositiveFloat(values[0]);
+            interior = IsPositiveFloat(values[1]);
+            left = IsPositiveFloat(values[2]);
+            right = IsPositiveFloat(values[3]);
+            brake = IsPositiveFloat(values[4]);
+        }
+        catch
+        {
+            external = ReadPositiveFloat(
+                memory,
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleAiLightOffset);
+            interior = ReadPositiveFloat(
+                memory,
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleAiInteriorLightOffset);
+            left = ReadPositiveFloat(
+                memory,
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset);
+            right = ReadPositiveFloat(
+                memory,
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset);
+            brake = ReadPositiveFloat(
+                memory,
+                vehicleAddress,
+                Omsi23004MemoryProfile.VehicleAiBrakeLightOffset);
+        }
+
+        var flags = VehicleLightFlags.None;
+        if (external)
         {
             flags |= VehicleLightFlags.Position | VehicleLightFlags.LowBeam;
         }
 
-        if (ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiInteriorLightOffset))
+        if (interior)
         {
             flags |= VehicleLightFlags.Interior;
         }
 
-        if (ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiBrakeLightOffset))
+        if (brake)
         {
             flags |= VehicleLightFlags.Brake;
         }
 
-        var left = ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset);
-        var right = ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset);
         if (left && right)
         {
             flags |= VehicleLightFlags.Hazard;
+            turnSignal = (int)TurnSignalState.Hazard;
+        }
+        else if (left)
+        {
+            turnSignal = (int)TurnSignalState.Left;
+        }
+        else if (right)
+        {
+            turnSignal = (int)TurnSignalState.Right;
+        }
+        else
+        {
+            turnSignal = (int)TurnSignalState.Off;
         }
 
-        return (int)flags;
+        lightFlags = (int)flags;
     }
 
-    private static int ReadTurnSignal(ReadOnlyProcessMemory memory, nint vehicleAddress)
-    {
-        var left = ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerLeftOffset);
-        var right = ReadPositiveFloat(memory, vehicleAddress, Omsi23004MemoryProfile.VehicleAiBlinkerRightOffset);
-
-        if (left && right)
-        {
-            return (int)TurnSignalState.Hazard;
-        }
-
-        if (left)
-        {
-            return (int)TurnSignalState.Left;
-        }
-
-        return right ? (int)TurnSignalState.Right : (int)TurnSignalState.Off;
-    }
+    private static bool IsPositiveFloat(float value) =>
+        float.IsFinite(value) && value > 0.05f;
 
     private static bool ReadPositiveFloat(
         ReadOnlyProcessMemory memory,

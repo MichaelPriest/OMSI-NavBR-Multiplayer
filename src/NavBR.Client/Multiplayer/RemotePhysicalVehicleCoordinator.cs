@@ -92,7 +92,8 @@ internal sealed class RemotePhysicalVehicleCoordinator
             }
 
             return app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleSpawn) &&
-                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleTransform);
+                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityVehicleTransform) &&
+                   app.PluginBridge.SupportsCapability(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25);
         }
     }
 
@@ -208,7 +209,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
 
         if (!IsPhysicalMultiplayerAvailable)
         {
-            SetStatus(playerId, "plugin-unavailable");
+            var (pluginErrorCode, pluginErrorMessage) =
+                DescribePluginAvailabilityFailure();
+            SetStatus(
+                playerId,
+                "plugin-unavailable",
+                pluginErrorCode,
+                pluginErrorMessage);
             if (_spawned.ContainsKey(playerId))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
@@ -224,7 +231,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // VehiclePath is only a location hint and can differ between installs.
         if (string.IsNullOrWhiteSpace(remoteManifest.VehicleCompatibilityId))
         {
-            SetStatus(playerId, "identity-missing");
+            SetStatus(
+                playerId,
+                "identity-missing",
+                "vehicle-compatibility-id-missing",
+                string.IsNullOrWhiteSpace(remoteManifest.VehiclePath)
+                    ? "Remote telemetry has neither a usable vehicle path nor the required SHA-256 vehicle compatibility id."
+                    : $"Remote telemetry reported '{remoteManifest.VehiclePath}', but no SHA-256 vehicle compatibility id was available. The sender could not fingerprint the active OMSI vehicle definition.");
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
@@ -239,7 +252,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             !localTelemetry.IsInGame ||
             DateTimeOffset.UtcNow - localTelemetry.Timestamp > LocalTelemetryFreshness)
         {
-            SetStatus(playerId, "local-state-unavailable");
+            var localStateDetail = localManifest is null
+                ? "Local compatibility manifest is unavailable."
+                : localTelemetry is null
+                    ? "Local OMSI telemetry has not been received yet."
+                    : !localTelemetry.IsInGame
+                        ? "Local OMSI telemetry says the player is not in game."
+                        : $"Local OMSI telemetry is stale by {(DateTimeOffset.UtcNow - localTelemetry.Timestamp).TotalSeconds:F1}s (limit {LocalTelemetryFreshness.TotalSeconds:F0}s).";
+            SetStatus(
+                playerId,
+                "local-state-unavailable",
+                "local-telemetry-unavailable",
+                localStateDetail);
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
         }
@@ -260,6 +284,21 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 report.Issues.FirstOrDefault()?.Code);
             await DespawnOwnedAsync(playerId, cancellationToken);
             return;
+        }
+
+        var remoteIsOpenOmsi =
+            IsOpenOmsiSource(remoteManifest);
+        if (remoteIsOpenOmsi &&
+            !HasCoherentPhysicalPose(frame.Telemetry) &&
+            _physicalRoadAnchorResolver
+                .TryResolveOpenOmsiWorldAnchor(
+                    frame.Telemetry,
+                    out var openOmsiWorldAnchor))
+        {
+            frame =
+                ApplyOpenOmsiWorldAnchor(
+                    frame,
+                    openOmsiWorldAnchor);
         }
 
         double? currentDistanceMeters = null;
@@ -370,13 +409,71 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return;
         }
 
+        var hasCoherentPhysicalPose =
+            HasCoherentPhysicalPose(
+                frame.Telemetry);
+
+        if (!hasCoherentPhysicalPose &&
+            TryRecoverExplicitPhysicalPose(
+                frame.Telemetry,
+                out var recoveredTelemetry))
+        {
+            frame = frame with
+            {
+                Telemetry = recoveredTelemetry
+            };
+            hasCoherentPhysicalPose = true;
+        }
+
+        if (!hasCoherentPhysicalPose)
+        {
+            // OMSI can switch RoadVehicle.Kachel in the middle of one
+            // read-only telemetry poll while the simulation is running. The
+            // provider withholds LocalX/Y/Z + quaternion for that transient
+            // frame rather than pairing coordinates from different Kacheln.
+            // For openOMSI senders, a world pose is converted above using the
+            // receiver's real global.cfg TileSize and loaded map tile catalog.
+            SetStatus(
+                playerId,
+                remoteIsOpenOmsi
+                    ? "waiting-openomsi-world-pose"
+                    : "waiting-coherent-pose",
+                remoteIsOpenOmsi
+                    ? "openomsi-world-pose-unresolved"
+                    : "physical-pose-unstable",
+                remoteIsOpenOmsi
+                    ? "The openOMSI world pose could not be mapped to a real local OMSI Kachel. Verify map fingerprint, tile coverage and world coordinates."
+                    : "Holding the last physical pose while OMSI completes a Kachel transition.");
+            return;
+        }
+
+        var stableLocalX = frame.Telemetry.LocalX!.Value;
+        var stableLocalZ = frame.Telemetry.LocalZ!.Value;
+
+        var hasExplicitPhysicalGrid =
+            frame.Telemetry.PhysicalGridX is int &&
+            frame.Telemetry.PhysicalGridY is int;
+
+        // Backward compatibility for an older server/shared payload that may
+        // strip PhysicalGridX/Y: only trust legacy GridX/Y when the transmitted
+        // TileX/TileY still prove they were derived from the same RoadVehicle
+        // local pose. Navigation GridX/Y + unrelated TileX/TileY must never be
+        // paired with LocalX/LocalZ for physical multiplayer.
+        var hasCoherentLegacyPhysicalGrid =
+            frame.Telemetry.PhysicalGridX is null &&
+            frame.Telemetry.PhysicalGridY is null &&
+            frame.Telemetry.GridX is int &&
+            frame.Telemetry.GridY is int &&
+            frame.Telemetry.TileX is double legacyTileX &&
+            double.IsFinite(legacyTileX) &&
+            frame.Telemetry.TileY is double legacyTileY &&
+            double.IsFinite(legacyTileY) &&
+            Math.Abs(legacyTileX - stableLocalX) <= 0.05d &&
+            Math.Abs(legacyTileY - stableLocalZ) <= 0.05d;
+
         var hasStablePhysicalGrid =
-            (frame.Telemetry.PhysicalGridX is int &&
-             frame.Telemetry.PhysicalGridY is int) ||
-            (frame.Telemetry.PhysicalGridX is null &&
-             frame.Telemetry.PhysicalGridY is null &&
-             frame.Telemetry.GridX is int &&
-             frame.Telemetry.GridY is int);
+            hasExplicitPhysicalGrid ||
+            hasCoherentLegacyPhysicalGrid;
         var hasSimulatorLocalTile =
             playerId.StartsWith("sim-", StringComparison.OrdinalIgnoreCase) &&
             frame.Telemetry.MapTileIndex is int simulatorTileIndex &&
@@ -390,7 +487,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 playerId,
                 "tile-unavailable",
                 "remote-grid-missing",
-                "Remote telemetry did not include any usable OMSI GridX/GridY identity. Current physical grid is preferred; legacy GridX/GridY is accepted only when the local plugin can resolve it to a loaded Kachel.");
+                "Remote telemetry did not include a Kachel-coherent OMSI GridX/GridY identity. PhysicalGridX/Y is preferred; legacy GridX/GridY is accepted only when TileX/TileY matches the same LocalX/LocalZ pose.");
             return;
         }
 
@@ -416,28 +513,50 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 cancellationToken);
             if (string.IsNullOrWhiteSpace(resolvedVehiclePath))
             {
-                SetStatus(playerId, "asset-unresolved");
+                SetStatus(
+                    playerId,
+                    "asset-unresolved",
+                    "vehicle-asset-unresolved",
+                    $"No local Vehicles\\*.bus/ovh matched {DescribeCompatibilityId(remoteVehicleCompatibilityId)}. Reported sender path: {remoteManifest.VehiclePath ?? "-"}. The receiver must have the same vehicle definition content.");
                 ReportFailureOnce(
                     playerId,
                     "asset",
-                    "physical-vehicle-asset-unresolved");
+                    $"physical-vehicle-asset-unresolved compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)} reported-path={remoteManifest.VehiclePath ?? "-"}");
                 return;
             }
 
             var consistInfo = await _vehicleAssetResolver.InspectConsistAsync(
                 resolvedVehiclePath,
                 cancellationToken);
-            if (consistInfo is { ExpectedPartCount: > 1 })
+            if (consistInfo is { ExpectedPartCount: > 1, IsComplete: false })
             {
                 SetStatus(
                     playerId,
-                    "consist-unsupported",
-                    "multi-vehicle-consist-declared",
+                    "consist-incomplete",
+                    "multi-vehicle-consist-incomplete",
                     expectedPartCount: consistInfo.ExpectedPartCount);
                 ReportFailureOnce(
                     playerId,
                     "consist",
-                    $"multi-vehicle-consist-declared expected-parts={consistInfo.ExpectedPartCount} complete={consistInfo.IsComplete}");
+                    $"multi-vehicle-consist-incomplete expected-parts={consistInfo.ExpectedPartCount}");
+                return;
+            }
+
+            // openOMSI carries up to three rear sections in addition to the
+            // main bus. Match that bounded shape for the first native OMSI
+            // consist pass; larger trains remain fail-closed until their
+            // ownership/lifecycle has been validated separately.
+            if (consistInfo is { ExpectedPartCount: > 4 })
+            {
+                SetStatus(
+                    playerId,
+                    "consist-unsupported",
+                    "multi-vehicle-consist-too-large",
+                    expectedPartCount: consistInfo.ExpectedPartCount);
+                ReportFailureOnce(
+                    playerId,
+                    "consist",
+                    $"multi-vehicle-consist-too-large expected-parts={consistInfo.ExpectedPartCount}");
                 return;
             }
 
@@ -511,7 +630,18 @@ internal sealed class RemotePhysicalVehicleCoordinator
             {
                 if (_spawnInFlight.TryAdd(playerId, 0))
                 {
-                    SetStatus(playerId, "spawning");
+                    SetStatus(
+                        playerId,
+                        "spawning",
+                        "spawn-command-sent",
+                        $"All desktop gates passed. grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) asset={resolvedVehiclePath}.");
+                    NavBRAppLog.Info(
+                        "physical-spawn-gates-passed",
+                        $"coordinator={_coordinatorId} player={playerId} " +
+                        $"grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} " +
+                        $"local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) " +
+                        $"asset={resolvedVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)} " +
+                        $"pluginConnected=1 spawnCapability=1 transformCapability=1");
                     var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
                         spawnFrame,
                         cancellationToken);
@@ -577,7 +707,11 @@ internal sealed class RemotePhysicalVehicleCoordinator
                     _lastFailureByPlayer.TryRemove(playerId, out _);
                     _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
 
-                    SetStatus(playerId, "active");
+                    SetStatus(
+                        playerId,
+                        "active",
+                        partCount: spawn.RemoteVehicleCount,
+                        expectedPartCount: consistInfo?.ExpectedPartCount);
                     PublishPhysicalVehicleSetIfChanged();
                     RemoteDiagnosticsService.Record(
                         "physical-vehicle",
@@ -636,7 +770,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 $"physical-vehicle-path-recovered player={playerId} path={localVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)}");
         }
 
-        var updateInterval = ResolvePhysicalUpdateInterval(currentDistanceMeters);
+        var updateInterval = ResolvePhysicalUpdateInterval(frame.Telemetry);
         if (_lastPhysicalUpdateAtByPlayer.TryGetValue(
                 playerId,
                 out var lastPhysicalUpdateAt) &&
@@ -678,33 +812,56 @@ internal sealed class RemotePhysicalVehicleCoordinator
         if (update?.Success != true)
         {
             var errorCode = update?.ErrorCode ?? "no-result";
-            var recoverableReadback =
+            var recoverableMotion =
                 IsRecoverableMotionReadbackFailure(errorCode);
-            var failureCount = _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
-                playerId,
-                1,
-                static (_, previous) => Math.Min(previous + 1, 10));
+
+            // Recoverable readback/tile/world-origin observations are part of
+            // normal Kachel transition recovery. They must not consume the
+            // consecutive hard-failure budget: otherwise several harmless
+            // origin waits can prime the counter so one later transient update
+            // failure despawns an otherwise healthy remote bus immediately.
+            var failureCount = recoverableMotion
+                ? 0
+                : _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
+                    playerId,
+                    1,
+                    static (_, previous) => Math.Min(previous + 1, 10));
+
+            if (recoverableMotion)
+            {
+                _consecutiveUpdateFailuresByPlayer.TryRemove(
+                    playerId,
+                    out _);
+            }
 
             if (IsFatalUpdateFailure(errorCode) ||
-                (!recoverableReadback && failureCount >= 3))
+                (!recoverableMotion && failureCount >= 3))
             {
                 await DespawnOwnedAsync(playerId, cancellationToken);
                 ReportCommandFailureOnce(playerId, "update", update);
                 return;
             }
 
-            // Readback/tile mismatches are recoverable observations, not proof
-            // that ownership is invalid. Keep the physical RoadVehicle alive
-            // and retry on later telemetry instead of entering a despawn/spawn
-            // loop that is visually worse and can race OMSI model callbacks.
+            // Readback/tile/world-origin mismatches are recoverable
+            // observations, not proof that ownership is invalid. Keep the
+            // exact physical RoadVehicle alive and retry on later telemetry
+            // instead of entering a despawn/spawn loop.
+            var recoverableState =
+                string.Equals(
+                    errorCode,
+                    PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable,
+                    StringComparison.Ordinal)
+                    ? "waiting-kachel-origin"
+                    : "motion-resyncing";
+
             SetStatus(
                 playerId,
-                recoverableReadback
-                    ? "motion-resyncing"
+                recoverableMotion
+                    ? recoverableState
                     : "update-retrying",
                 errorCode,
                 update?.ErrorMessage);
-            if (recoverableReadback)
+            if (recoverableMotion)
             {
                 _lastPhysicalUpdateAtByPlayer[playerId] =
                     DateTimeOffset.UtcNow;
@@ -1024,19 +1181,34 @@ internal sealed class RemotePhysicalVehicleCoordinator
     }
 
     private static TimeSpan ResolvePhysicalUpdateInterval(
-        double? distanceMeters)
+        VehicleTelemetry telemetry)
     {
-        if (distanceMeters is not double distance || !double.IsFinite(distance))
+        // Keep physical update cadence tied to whether the remote vehicle is
+        // actually moving, not to camera distance. A bus at the edge of the
+        // physical spawn radius still needs enough sender samples to cross
+        // Kacheln and articulate smoothly. This mirrors openOMSI's 20 Hz
+        // active / 5 Hz idle transport behavior while the existing network and
+        // plugin pressure governors remain free to back off upstream.
+        var active =
+            Math.Abs(telemetry.SpeedKph) > 0.35d ||
+            HasMeaningfulVelocity(telemetry);
+
+        return TimeSpan.FromMilliseconds(active ? 50d : 200d);
+    }
+
+    private static bool HasMeaningfulVelocity(VehicleTelemetry telemetry)
+    {
+        if (telemetry.VelocityX is not double vx ||
+            telemetry.VelocityY is not double vy ||
+            telemetry.VelocityZ is not double vz ||
+            !double.IsFinite(vx) ||
+            !double.IsFinite(vy) ||
+            !double.IsFinite(vz))
         {
-            return TimeSpan.FromMilliseconds(100);
+            return false;
         }
 
-        return distance switch
-        {
-            <= 150d => TimeSpan.FromMilliseconds(50),
-            <= 350d => TimeSpan.FromMilliseconds(100),
-            _ => TimeSpan.FromMilliseconds(200)
-        };
+        return vx * vx + vy * vy + vz * vz > 0.01d;
     }
 
     private static bool IsTileAvailabilityError(string? errorCode) =>
@@ -1064,9 +1236,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
         string.Equals(errorCode, "motion-transform-write-failed", StringComparison.Ordinal);
 
     private static bool IsRecoverableMotionReadbackFailure(string? errorCode) =>
-        string.Equals(errorCode, "motion-readback-unavailable", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-transform-mismatch", StringComparison.Ordinal) ||
-        string.Equals(errorCode, "motion-tile-mismatch", StringComparison.Ordinal);
+        PluginBridgeProtocol.IsRecoverablePhysicalMotionError(errorCode);
 
     private void ReportCommandFailureOnce(
         string playerId,
@@ -1095,6 +1265,55 @@ internal sealed class RemotePhysicalVehicleCoordinator
             playerId,
             operation,
             $"{operation}-failed error={errorCode} parts={result?.RemoteVehicleCount?.ToString() ?? "n/a"} expected-parts={expectedPartCount?.ToString() ?? "n/a"} detail={detail}");
+    }
+
+    private static (string ErrorCode, string ErrorMessage)
+        DescribePluginAvailabilityFailure()
+    {
+        if (Application.Current is not App app)
+        {
+            return (
+                "plugin-app-context-unavailable",
+                "The desktop OMSI plugin bridge is not available in the current application context.");
+        }
+
+        var info = app.PluginBridge.GetConnectionInfo();
+        if (!info.IsConnected)
+        {
+            return (
+                "plugin-disconnected",
+                "The OMSI x86 plugin is not connected. If NavBR was updated while OMSI was open, close OMSI, restart NavBR so the plugin DLL can be replaced, then start OMSI again.");
+        }
+
+        var missing = new List<string>(3);
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityVehicleSpawn))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityVehicleSpawn);
+        }
+
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityVehicleTransform))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityVehicleTransform);
+        }
+
+        if (!app.PluginBridge.SupportsCapability(
+                PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25))
+        {
+            missing.Add(PluginBridgeProtocol.CapabilityPhysicalMultiplayerV25);
+        }
+
+        if (missing.Count > 0)
+        {
+            return (
+                "plugin-capability-missing",
+                $"Connected OMSI plugin is missing required capability/capabilities: {string.Join(", ", missing)}. This build requires the state-interop-25 physical multiplayer path. Close OMSI completely, restart/install NavBR so the plugin DLL can be replaced, then start OMSI again.");
+        }
+
+        return (
+            "plugin-unavailable",
+            "The OMSI plugin bridge is connected but physical multiplayer is not currently available.");
     }
 
     private void SetStatus(
@@ -1193,6 +1412,202 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 VehicleCompatibilityId = remoteManifest.VehicleCompatibilityId,
                 HofName = remoteManifest.HofName,
                 HofCompatibilityId = remoteManifest.HofCompatibilityId
+            }
+        };
+    }
+
+    private static bool IsOpenOmsiSource(
+        OmsiCompatibilityManifest manifest) =>
+        string.Equals(
+            manifest.PluginDeployment,
+            "OPENOMSI-X64",
+            StringComparison.OrdinalIgnoreCase) ||
+        manifest.Capabilities?.Contains(
+            PluginBridgeProtocol
+                .CapabilityOpenOmsiStandardPlugin,
+            StringComparer.OrdinalIgnoreCase) == true;
+
+    private static bool HasCoherentPhysicalPose(
+        VehicleTelemetry telemetry) =>
+        telemetry.LocalX is double localX &&
+        double.IsFinite(localX) &&
+        telemetry.LocalY is double localY &&
+        double.IsFinite(localY) &&
+        telemetry.LocalZ is double localZ &&
+        double.IsFinite(localZ) &&
+        telemetry.RotationX is double rotationX &&
+        double.IsFinite(rotationX) &&
+        telemetry.RotationY is double rotationY &&
+        double.IsFinite(rotationY) &&
+        telemetry.RotationZ is double rotationZ &&
+        double.IsFinite(rotationZ) &&
+        telemetry.RotationW is double rotationW &&
+        double.IsFinite(rotationW);
+
+    private static bool TryRecoverExplicitPhysicalPose(
+        VehicleTelemetry telemetry,
+        out VehicleTelemetry recovered)
+    {
+        recovered = telemetry;
+
+        // PhysicalGridX/Y is only published by the OMSI reader after it has
+        // verified RoadVehicle.Kachel and Position against the same tile
+        // pointer. Therefore this is safe to use as a recovery source when
+        // nullable local/quaternion fields were lost in transport.
+        if (telemetry.PhysicalGridX is not int physicalGridX ||
+            telemetry.PhysicalGridY is not int physicalGridY ||
+            telemetry.TileX is not double tileX ||
+            !double.IsFinite(tileX) ||
+            telemetry.TileY is not double tileY ||
+            !double.IsFinite(tileY) ||
+            Math.Abs(tileX) > 1_200d ||
+            Math.Abs(tileY) > 1_200d)
+        {
+            return false;
+        }
+
+        // PublishTelemetryAsync can supplement PhysicalGridX/Y from the
+        // in-process plugin when the external reader catches OMSI exactly
+        // between two Kacheln. In that case TileX/TileY may still come from
+        // NavigationVehicle. They are safe recovery coordinates only when the
+        // navigation grid is complete and agrees with the physical grid (or
+        // when no navigation grid was supplied at all).
+        if (telemetry.GridX.HasValue != telemetry.GridY.HasValue)
+        {
+            return false;
+        }
+
+        if (telemetry.GridX is int navigationGridX &&
+            telemetry.GridY is int navigationGridY &&
+            (navigationGridX != physicalGridX ||
+             navigationGridY != physicalGridY))
+        {
+            return false;
+        }
+
+        var localX =
+            telemetry.LocalX is double existingLocalX &&
+            double.IsFinite(existingLocalX)
+                ? existingLocalX
+                : tileX;
+        var localZ =
+            telemetry.LocalZ is double existingLocalZ &&
+            double.IsFinite(existingLocalZ)
+                ? existingLocalZ
+                : tileY;
+        var localY =
+            telemetry.LocalY is double existingLocalY &&
+            double.IsFinite(existingLocalY)
+                ? existingLocalY
+                : double.IsFinite(telemetry.Y)
+                    ? telemetry.Y
+                    : double.NaN;
+
+        if (!double.IsFinite(localY))
+        {
+            return false;
+        }
+
+        double rotationX;
+        double rotationY;
+        double rotationZ;
+        double rotationW;
+
+        var existingRotationX =
+            telemetry.RotationX ?? double.NaN;
+        var existingRotationY =
+            telemetry.RotationY ?? double.NaN;
+        var existingRotationZ =
+            telemetry.RotationZ ?? double.NaN;
+        var existingRotationW =
+            telemetry.RotationW ?? double.NaN;
+        var hasQuaternion =
+            double.IsFinite(existingRotationX) &&
+            double.IsFinite(existingRotationY) &&
+            double.IsFinite(existingRotationZ) &&
+            double.IsFinite(existingRotationW);
+
+        if (hasQuaternion)
+        {
+            rotationX = existingRotationX;
+            rotationY = existingRotationY;
+            rotationZ = existingRotationZ;
+            rotationW = existingRotationW;
+        }
+        else
+        {
+            if (!double.IsFinite(telemetry.HeadingDegrees))
+            {
+                return false;
+            }
+
+            var headingRadians =
+                telemetry.HeadingDegrees *
+                (Math.PI / 180d);
+            var halfHeading = headingRadians * 0.5d;
+
+            // OMSI/D3D uses Y-up; a heading is a pure yaw around Y.
+            rotationX = 0d;
+            rotationY = Math.Sin(halfHeading);
+            rotationZ = 0d;
+            rotationW = Math.Cos(halfHeading);
+        }
+
+        recovered = telemetry with
+        {
+            LocalX = localX,
+            LocalY = localY,
+            LocalZ = localZ,
+            RotationX = rotationX,
+            RotationY = rotationY,
+            RotationZ = rotationZ,
+            RotationW = rotationW
+        };
+
+        return HasCoherentPhysicalPose(recovered);
+    }
+
+    private static PlayerTelemetryFrame ApplyOpenOmsiWorldAnchor(
+        PlayerTelemetryFrame frame,
+        OmsiPhysicalRoadAnchor anchor)
+    {
+        var telemetry = frame.Telemetry;
+
+        return frame with
+        {
+            Telemetry = telemetry with
+            {
+                // Convert openOMSI's Z-up world convention into OMSI/D3D's
+                // Y-up convention for every downstream OMSI 2 calculation.
+                X = telemetry.X,
+                Y = telemetry.Z,
+                Z = telemetry.Y,
+                GridX = anchor.GridX,
+                GridY = anchor.GridY,
+                PhysicalGridX = anchor.GridX,
+                PhysicalGridY = anchor.GridY,
+                TileX = anchor.LocalX,
+                TileY = anchor.LocalZ,
+                LocalX = anchor.LocalX,
+                LocalY = anchor.LocalY,
+                LocalZ = anchor.LocalZ,
+                MapTileIndex = null,
+                HeadingDegrees =
+                    anchor.HeadingDegrees,
+                RotationX =
+                    anchor.RotationX,
+                RotationY =
+                    anchor.RotationY,
+                RotationZ =
+                    anchor.RotationZ,
+                RotationW =
+                    anchor.RotationW,
+                VelocityX =
+                    telemetry.VelocityX,
+                VelocityY =
+                    telemetry.VelocityZ,
+                VelocityZ =
+                    telemetry.VelocityY
             }
         };
     }

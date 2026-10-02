@@ -10,25 +10,165 @@ using NavBR.Client.Windows;
 using NavBR.Client.Operations;
 using NavBR.Client.PluginInstaller;
 
+using NavBR.Shared.OpenOmsi;
+using NavBR.Shared.PluginBridge;
 namespace NavBR.Client;
 
 public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
+    private string? _webOpenOmsiNotice;
     private string? _webSessionHealthNotice;
     private const long OmsiProcessProbeCacheMs = 3_000;
     private long _webOmsiProcessProbeTickMs;
     private bool _webOmsiProcessRunningCached;
+    private long _webOmsiMemoryProbeTickMs;
+    private OmsiMemoryProbe? _webOmsiMemoryProbeCached;
 
-    private object BuildWebSystemState()
+    private object? BuildWebOmsiMemoryState()
     {
+        var omsi = _currentOmsi;
+        if (omsi is null || omsi.ProcessId <= 0)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = 0;
+            return null;
+        }
+
+        var nowTick = Environment.TickCount64;
+        if (_webOmsiMemoryProbeCached is not null &&
+            _webOmsiMemoryProbeCached.ProcessId == omsi.ProcessId &&
+            _webOmsiMemoryProbeTickMs > 0 &&
+            nowTick >= _webOmsiMemoryProbeTickMs &&
+            nowTick - _webOmsiMemoryProbeTickMs < 2_000)
+        {
+            return _webOmsiMemoryProbeCached.ToWebState();
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(omsi.ProcessId);
+            process.Refresh();
+
+            var privateBytes = Math.Max(0L, process.PrivateMemorySize64);
+            var workingSetBytes = Math.Max(0L, process.WorkingSet64);
+            var peakWorkingSetBytes = Math.Max(0L, process.PeakWorkingSet64);
+            var privateMiB = privateBytes / (1024d * 1024d);
+
+            // This is intentionally an advisory pressure scale, not a claim
+            // about the exact virtual-address limit of the user's OMSI build.
+            // It lets NavBR warn early without modifying or trimming OMSI memory.
+            var level = privateMiB switch
+            {
+                >= 2_800d => "critical",
+                >= 2_200d => "high",
+                >= 1_600d => "elevated",
+                _ => "normal"
+            };
+
+            var probe = new OmsiMemoryProbe(
+                omsi.ProcessId,
+                privateBytes,
+                workingSetBytes,
+                peakWorkingSetBytes,
+                level,
+                DateTimeOffset.UtcNow);
+
+            _webOmsiMemoryProbeCached = probe;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return probe.ToWebState();
+        }
+        catch (ArgumentException)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            _webOmsiMemoryProbeCached = null;
+            _webOmsiMemoryProbeTickMs = nowTick;
+            return null;
+        }
+    }
+
+    private object BuildWebSystemState(
+        MultiplayerSettings? hudSettings = null,
+        string? scope = null)
+    {
+        hudSettings ??= MultiplayerSettingsStore.Load();
+
+        var requiresDetailedSystemState =
+            string.IsNullOrWhiteSpace(scope) ||
+            string.Equals(scope, "hud", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(scope, "diagnostics", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(scope, "settings", StringComparison.OrdinalIgnoreCase);
+        if (!requiresDetailedSystemState)
+        {
+            // Most WinUI pages only consume the runtime cadence and Session
+            // Health fields rendered by MainWindow. Avoid probing plugin files,
+            // OMSI profiles, logs, Mobile Companion and the HUD catalog on
+            // every background state poll when those modules are not visible.
+            return new
+            {
+                installationsNotice = (string?)null,
+                runtimeHost = new
+                {
+                    nativeHostMode = _nativeHostMode,
+                    telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                    telemetryLastReadMilliseconds = _lastTelemetryPollMilliseconds,
+                    telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
+                    hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
+                },
+                mobileCompanion = (object?)null,
+                pluginInstallation = (object?)null,
+                openOmsiPlugin = (object?)null,
+                openOmsiLanGateway = (object?)null,
+                installations = (object?)null,
+                hud = (object?)null,
+                diagnostics = (object?)null,
+                sessionHealthNotice = _webSessionHealthNotice,
+                sessionHealth = BuildWebSessionHealthState(
+                    hudSettings.PerformanceProfile),
+                legacyPreferences = (object?)null
+            };
+        }
+
         var profiles = OmsiInstallationProfileStore.Load();
         var currentInstall = _currentOmsi?.InstallDirectory;
-        var hudSettings = MultiplayerSettingsStore.Load();
         var alpha12Preferences = Alpha12PreferencesStore.Load();
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
         var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
+        var openOmsiPlugin =
+            OpenOmsiPluginInstallationService.Verify();
+        var openOmsiRunning =
+            OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
+        var openOmsiLanGateway =
+            OpenOmsiLanGateway.Shared.GetStatus();
+        var openOmsiLanRuntime =
+            OpenOmsiLanRuntimeStatusReader.Read(
+                _openOmsiProcessId ??
+                OpenOmsiPluginInstallationService.GetRunningProcessId(),
+                _openOmsiInstanceId);
+        var openOmsiRuntimePeers =
+            openOmsiLanRuntime?.Players.ToDictionary(
+                player => player.Id) ??
+            new Dictionary<uint, OpenOmsiLanRuntimePeer>();
+        var openOmsiInstallBlockReason =
+            !OpenOmsiPluginInstallationService.HasEmbeddedPackage
+                ? "package-missing"
+                : string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath)
+                    ? "openomsi-not-found"
+                    : openOmsiRunning
+                        ? "openomsi-running"
+                        : null;
         var pluginInstallBlockReason =
             !OmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
@@ -54,6 +194,14 @@ public partial class MainWindow
         return new
         {
             installationsNotice = _webOmsiLaunchNotice,
+            runtimeHost = new
+            {
+                nativeHostMode = _nativeHostMode,
+                telemetryPollIntervalMilliseconds = _telemetryPollIntervalMs,
+                    telemetryLastReadMilliseconds = _lastTelemetryPollMilliseconds,
+                    telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
+                hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
+            },
             mobileCompanion = BuildMobileCompanionDesktopState(),
             pluginInstallation = new
             {
@@ -85,6 +233,148 @@ public partial class MainWindow
                     hashMatches = file.HashMatches
                 }).ToArray(),
                 omsiRunning = omsiRunningForPluginUpdate
+            },
+            openOmsiPlugin = new
+            {
+                state = openOmsiPlugin.Status,
+                executablePath = openOmsiPlugin.ExecutablePath,
+                contentRoot = openOmsiPlugin.ContentRoot,
+                pluginDirectory = openOmsiPlugin.PluginDirectory,
+                embeddedPackageAvailable =
+                    OpenOmsiPluginInstallationService.HasEmbeddedPackage,
+                installAvailable = openOmsiInstallBlockReason is null,
+                installBlockReason = openOmsiInstallBlockReason,
+                verificationAvailable =
+                    OpenOmsiPluginInstallationService.HasEmbeddedPackage &&
+                    !string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath),
+                updateRequired = openOmsiPlugin.UpdateRequired,
+                expectedVersion = openOmsiPlugin.ExpectedVersion,
+                installedVersion = openOmsiPlugin.InstalledVersion,
+                requiredFilesFound = openOmsiPlugin.RequiredFilesFound,
+                requiredFilesTotal = openOmsiPlugin.RequiredFilesTotal,
+                verifiedFiles = openOmsiPlugin.VerifiedFiles,
+                checkedAtUtc = openOmsiPlugin.CheckedAtUtc,
+                message = _webOpenOmsiNotice ?? openOmsiPlugin.Message,
+                files = openOmsiPlugin.Files.Select(file => new
+                {
+                    name = file.Name,
+                    exists = file.Exists,
+                    hashMatches = file.HashMatches
+                }).ToArray(),
+                running = openOmsiRunning
+            },
+            openOmsiLanGateway = new
+            {
+                running = openOmsiLanGateway.Running,
+                port = openOmsiLanGateway.Port,
+                joinTarget = openOmsiLanGateway.Port is int gatewayPort
+                    ? $"127.0.0.1:{gatewayPort}"
+                    : null,
+                clientConnected = openOmsiLanGateway.ClientConnected,
+                clientName = openOmsiLanGateway.ClientName,
+                map = openOmsiLanGateway.Map,
+                vehiclePath = openOmsiLanGateway.VehiclePath,
+                remotePlayers = openOmsiLanGateway.RemotePlayers,
+                runtimeStatusAvailable =
+                    openOmsiLanRuntime is not null,
+                runtimeStatusFresh =
+                    openOmsiLanRuntime?.Fresh == true,
+                runtimeConnected =
+                    openOmsiLanRuntime?.Connected == true,
+                runtimeStatusPath =
+                    openOmsiLanRuntime?.SourcePath,
+                runtimeUpdatedAtUtc =
+                    openOmsiLanRuntime?.UpdatedUtc,
+                drawnRemotePlayers =
+                    openOmsiLanRuntime?.Fresh == true &&
+                    openOmsiLanRuntime.Connected
+                        ? openOmsiLanGateway.Remotes.Count(remote =>
+                            openOmsiRuntimePeers.TryGetValue(
+                                remote.LanId,
+                                out var runtimePeer) &&
+                            runtimePeer.Drawn)
+                        : 0,
+                remotes = openOmsiLanGateway.Remotes.Select(remote =>
+                {
+                    openOmsiRuntimePeers.TryGetValue(
+                        remote.LanId,
+                        out var runtimePeer);
+                    var drawn =
+                        openOmsiLanRuntime?.Fresh == true &&
+                        openOmsiLanRuntime.Connected &&
+                        runtimePeer?.Drawn == true;
+                    var localVehicleCompatibilityId =
+                        ResolveOpenOmsiVehicleCompatibilityId(
+                            remote.VehiclePath);
+                    var expectedVehicleCompatibilityId =
+                        remote.ExpectedVehicleCompatibilityId;
+                    var vehicleAssetStatus =
+                        string.IsNullOrWhiteSpace(
+                            remote.VehiclePath)
+                            ? "missing-path"
+                            : string.IsNullOrWhiteSpace(
+                                localVehicleCompatibilityId)
+                                ? "missing"
+                                : string.IsNullOrWhiteSpace(
+                                    expectedVehicleCompatibilityId)
+                                    ? "unverified"
+                                    : string.Equals(
+                                        localVehicleCompatibilityId,
+                                        expectedVehicleCompatibilityId,
+                                        StringComparison.OrdinalIgnoreCase)
+                                        ? "match"
+                                        : "mismatch";
+                    var status =
+                        !remote.HasInfo
+                            ? "waiting-info"
+                            : !remote.HasState
+                                ? "waiting-state"
+                                : drawn
+                                    ? "drawn"
+                                    : openOmsiLanRuntime?.Fresh == true
+                                        ? "sent-not-drawn"
+                                        : "sent-unconfirmed";
+                    return new
+                    {
+                        playerId = remote.PlayerId,
+                        lanId = remote.LanId,
+                        name = remote.Name,
+                        vehiclePath =
+                            remote.VehiclePath,
+                        expectedVehicleCompatibilityId,
+                        localVehicleCompatibilityId,
+                        vehicleAssetStatus,
+                        hasInfo = remote.HasInfo,
+                        hasState = remote.HasState,
+                        drawn,
+                        materializationStatus =
+                            status,
+                        runtimeBus =
+                            runtimePeer?.Bus,
+                        runtimeName =
+                            runtimePeer?.Name,
+                        lastSeenUtc =
+                            remote.LastSeenUtc
+                    };
+                }).ToArray(),
+                localStateFrames = openOmsiLanGateway.LocalStateFrames,
+                lastLocalStateSequence = openOmsiLanGateway.LastLocalStateSequence,
+                localStateRateHz = openOmsiLanGateway.LocalStateRateHz,
+                lastLocalStateUtc = openOmsiLanGateway.LastLocalStateUtc,
+                localStateAgeMilliseconds =
+                    openOmsiLanGateway.LastLocalStateUtc is DateTimeOffset lastStateUtc
+                        ? Math.Max(
+                            0d,
+                            (DateTimeOffset.UtcNow - lastStateUtc)
+                                .TotalMilliseconds)
+                        : (double?)null,
+                vehicleIdentityReady =
+                    !string.IsNullOrWhiteSpace(
+                        _lastTelemetry?.VehicleCompatibilityId),
+                vehicleCompatibilityId =
+                    _lastTelemetry?.VehicleCompatibilityId,
+                lastClientPacketUtc = openOmsiLanGateway.LastClientPacketUtc,
+                lastError = openOmsiLanGateway.LastError
             },
             installations = profiles
                 .Select(profile => new
@@ -175,7 +465,7 @@ public partial class MainWindow
                 logUpdatedAtUtc = logInfo?.LastWriteTimeUtc
             },
             sessionHealthNotice = _webSessionHealthNotice,
-            sessionHealth = BuildWebSessionHealthState(),
+            sessionHealth = BuildWebSessionHealthState(hudSettings.PerformanceProfile),
             legacyPreferences = new
             {
                 firstRunCompleted = alpha12Preferences.FirstRunCompleted,
@@ -675,11 +965,23 @@ public partial class MainWindow
     private static void PurgeDiagnosticsFromWeb() =>
         RemoteDiagnosticsService.PurgeQueuedEvents();
 
-    private object BuildWebSessionHealthState()
+    private object BuildWebSessionHealthState(
+        string? configuredPerformanceProfile = null)
     {
         var session = DispatcherSessionFeed.Snapshot();
         var network = SessionNetworkQualityFeed.Snapshot();
         var plugin = (System.Windows.Application.Current as App)?.PluginBridge.GetConnectionInfo();
+        var pluginCapabilities =
+            plugin?.LastCapabilities?.Capabilities ??
+            plugin?.LastStatus?.Capabilities;
+        var pluginRuntime =
+            pluginCapabilities?.Contains(
+                PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
+                StringComparer.OrdinalIgnoreCase) == true
+                ? "openomsi"
+                : plugin?.IsConnected == true
+                    ? "omsi2"
+                    : null;
         var now = DateTimeOffset.UtcNow;
         double? freshnessSeconds = null;
         if (session.Connected && session.RemoteDrivers.Count > 0)
@@ -706,6 +1008,24 @@ public partial class MainWindow
             multiplayerConnected = session.Connected,
             pluginConnected = plugin?.IsConnected == true,
             pluginVersion = plugin?.PluginComponentVersion,
+            pluginRuntime,
+            pluginPerformance = new
+            {
+                pressureLevel = plugin?.LastStatus?.PluginPressureLevel,
+                workMilliseconds = plugin?.LastStatus?.PluginWorkMilliseconds,
+                averageWorkMilliseconds = plugin?.LastStatus?.PluginAverageWorkMilliseconds,
+                averageFrameIntervalMilliseconds = plugin?.LastStatus?.PluginAverageFrameIntervalMilliseconds,
+                minimumWorkIntervalMilliseconds = plugin?.LastStatus?.PluginMinimumWorkIntervalMilliseconds,
+                maxCommandsPerSlice = plugin?.LastStatus?.PluginMaxCommandsPerSlice,
+                lastFrameIntervalMilliseconds = plugin?.LastStatus?.PluginLastFrameIntervalMilliseconds,
+                peakFrameIntervalMilliseconds = plugin?.LastStatus?.PluginPeakFrameIntervalMilliseconds,
+                frameStallCount = plugin?.LastStatus?.PluginFrameStallCount,
+                configuredProfile =
+                    configuredPerformanceProfile
+                    ?? MultiplayerSettingsStore.Load().PerformanceProfile,
+                activeProfile = plugin?.LastStatus?.PerformanceProfile,
+                queueBackpressureActive = plugin?.LastStatus?.PluginPressureLevel is > 0
+            },
             remoteDrivers = session.Connected ? session.RemoteDrivers.Count : 0,
             remoteTelemetryAgeSeconds = freshnessSeconds,
             latencyMs = networkReady ? network.RoundTripMs : null,
@@ -716,6 +1036,38 @@ public partial class MainWindow
             samples = network.Samples,
             updatedAtUtc = now
         };
+    }
+
+    private static async Task SetPerformanceProfileFromWebAsync(string? profile)
+    {
+        var normalized = profile?.Trim().ToLowerInvariant() switch
+        {
+            "stability" => "stability",
+            "multiplayer" => "multiplayer",
+            "quality" => "quality",
+            "diagnostics" => "diagnostics",
+            _ => "auto"
+        };
+
+        var settings = MultiplayerSettingsStore.Load();
+        if (!string.Equals(settings.PerformanceProfile, normalized, StringComparison.Ordinal))
+        {
+            MultiplayerSettingsStore.Save(settings with
+            {
+                PerformanceProfile = normalized
+            });
+        }
+
+        if (Application.Current is not App app ||
+            !app.PluginBridge.GetConnectionInfo().IsConnected)
+        {
+            return;
+        }
+
+        await app.PluginBridge.SendMessageAsync(new PluginBridgeMessage(
+            PluginBridgeProtocol.SetPerformanceProfile,
+            PluginBridgeProtocol.Version,
+            PerformanceProfile: normalized));
     }
 
     private void ExportSessionHealthFromWeb()
@@ -784,4 +1136,27 @@ public partial class MainWindow
             UseShellExecute = true
         });
     }
+}
+
+
+internal sealed record OmsiMemoryProbe(
+    int ProcessId,
+    long PrivateBytes,
+    long WorkingSetBytes,
+    long PeakWorkingSetBytes,
+    string Level,
+    DateTimeOffset SampledAtUtc)
+{
+    public object ToWebState() => new
+    {
+        processId = ProcessId,
+        privateBytes = PrivateBytes,
+        workingSetBytes = WorkingSetBytes,
+        peakWorkingSetBytes = PeakWorkingSetBytes,
+        privateMiB = PrivateBytes / (1024d * 1024d),
+        workingSetMiB = WorkingSetBytes / (1024d * 1024d),
+        peakWorkingSetMiB = PeakWorkingSetBytes / (1024d * 1024d),
+        level = Level,
+        sampledAtUtc = SampledAtUtc
+    };
 }

@@ -1,8 +1,22 @@
+export interface NavBrCompanyBadge {
+  companyId: string;
+  companyName: string;
+  companyShortName: string;
+  playerId: string;
+  displayName: string;
+  employeeNumber: string;
+  role: string;
+  permissions: string | number;
+  issuedAtUtc: string;
+  updatedAtUtc: string;
+}
+
 export interface NavBrPlayer {
   playerId: string;
   displayName: string;
   roomId: string;
   mapName?: string | null;
+  companyBadge?: NavBrCompanyBadge | null;
   voiceEnabled?: boolean | null;
   latencyMs?: number | null;
   roleplayActive: boolean;
@@ -337,6 +351,8 @@ export interface NavBrRemoteDriver {
   headingDegrees: number;
   receivedAtUtc: string;
   stale: boolean;
+  companyBadge?: NavBrCompanyBadge | null;
+  companyBadgeVerified: boolean;
   latestReport?: {
     reportId: string;
     kind: string;
@@ -360,6 +376,8 @@ export interface NavBrOperationsState {
   roomId?: string | null;
   updatedAtUtc: string;
   canManageReports: boolean;
+  operatorBadge?: NavBrCompanyBadge | null;
+  operatorBadgeVerified: boolean;
   localOperation?: {
     inGame: boolean;
     mapName?: string | null;
@@ -488,7 +506,7 @@ export interface NavBrSystemState {
     vehicleControlsAvailable: boolean;
   };
   pluginInstallation: {
-    state: "missing" | "partial" | "outdated" | "installed" | "untracked" | "unknown" | "error";
+    state: "missing" | "partial" | "outdated" | "installed" | "ready" | "untracked" | "unknown" | "error";
     requiredFilesFound: number;
     requiredFilesTotal: number;
     verifiedFiles: number;
@@ -508,6 +526,67 @@ export interface NavBrSystemState {
     files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
     omsiRunning: boolean;
   };
+  openOmsiPlugin: {
+    state: "package-missing" | "openomsi-not-found" | "missing" | "partial" | "outdated" | "ready" | "error";
+    executablePath?: string | null;
+    contentRoot?: string | null;
+    pluginDirectory?: string | null;
+    embeddedPackageAvailable: boolean;
+    installAvailable: boolean;
+    installBlockReason?: "package-missing" | "openomsi-not-found" | "openomsi-running" | null;
+    verificationAvailable: boolean;
+    updateRequired: boolean;
+    expectedVersion?: string | null;
+    installedVersion?: string | null;
+    requiredFilesFound: number;
+    requiredFilesTotal: number;
+    verifiedFiles: number;
+    checkedAtUtc: string;
+    message?: string | null;
+    files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
+    running: boolean;
+  };
+  openOmsiLanGateway: {
+    running: boolean;
+    port?: number | null;
+    joinTarget?: string | null;
+    clientConnected: boolean;
+    clientName?: string | null;
+    map?: string | null;
+    vehiclePath?: string | null;
+    remotePlayers: number;
+    runtimeStatusAvailable: boolean;
+    runtimeStatusFresh: boolean;
+    runtimeConnected: boolean;
+    runtimeStatusPath?: string | null;
+    runtimeUpdatedAtUtc?: string | null;
+    drawnRemotePlayers: number;
+    remotes: Array<{
+      playerId: string;
+      lanId: number;
+      name?: string | null;
+      vehiclePath?: string | null;
+      expectedVehicleCompatibilityId?: string | null;
+      localVehicleCompatibilityId?: string | null;
+      vehicleAssetStatus: "missing-path" | "missing" | "unverified" | "match" | "mismatch";
+      hasInfo: boolean;
+      hasState: boolean;
+      drawn: boolean;
+      materializationStatus: "waiting-info" | "waiting-state" | "drawn" | "sent-not-drawn" | "sent-unconfirmed";
+      runtimeBus?: string | null;
+      runtimeName?: string | null;
+      lastSeenUtc: string;
+    }>;
+    localStateFrames: number;
+    lastLocalStateSequence?: number | null;
+    localStateRateHz?: number | null;
+    lastLocalStateUtc?: string | null;
+    localStateAgeMilliseconds?: number | null;
+    vehicleIdentityReady: boolean;
+    vehicleCompatibilityId?: string | null;
+    lastClientPacketUtc?: string | null;
+    lastError?: string | null;
+  } | null;
   installations: NavBrOmsiInstallation[];
   hud: NavBrHudState;
   diagnostics: {
@@ -523,6 +602,21 @@ export interface NavBrSystemState {
     multiplayerConnected: boolean;
     pluginConnected: boolean;
     pluginVersion?: string | null;
+    pluginRuntime?: "omsi2" | "openomsi" | null;
+    pluginPerformance: {
+      pressureLevel?: number | null;
+      workMilliseconds?: number | null;
+      averageWorkMilliseconds?: number | null;
+      averageFrameIntervalMilliseconds?: number | null;
+      minimumWorkIntervalMilliseconds?: number | null;
+      maxCommandsPerSlice?: number | null;
+      lastFrameIntervalMilliseconds?: number | null;
+      peakFrameIntervalMilliseconds?: number | null;
+      frameStallCount?: number | null;
+      configuredProfile: "auto" | "stability" | "multiplayer" | "quality" | "diagnostics";
+      activeProfile?: string | null;
+      queueBackpressureActive: boolean;
+    };
     remoteDrivers: number;
     remoteTelemetryAgeSeconds?: number | null;
     latencyMs?: number | null;
@@ -788,6 +882,8 @@ export interface NavBrCompanyMember {
   permissions: string;
   joinedAtUtc: string;
   lastSeenAtUtc: string;
+  employeeNumber?: string | null;
+  badgeIssuedAtUtc?: string | null;
   isSelf: boolean;
   isOwner: boolean;
   canChangeRole: boolean;
@@ -807,6 +903,7 @@ export interface NavBrCompanyNetworkState {
     nodeUrl: string;
     role: string;
     joinedAtUtc: string;
+    badge?: NavBrCompanyBadge | null;
   } | null;
   node?: {
     running: boolean;
@@ -823,6 +920,7 @@ export interface NavBrCompanyNetworkState {
     updatedAtUtc: string;
     memberCount: number;
     selfRole?: string | null;
+    selfBadge?: NavBrCompanyBadge | null;
     canInvite: boolean;
     canManageRoles: boolean;
     canRemoveMembers: boolean;
@@ -948,6 +1046,11 @@ export type NavBrCommand =
   | "cancelDriverProfileImport"
   | "verifyOmsiPlugin"
   | "installOmsiPlugin"
+  | "selectOpenOmsiExecutable"
+  | "launchOpenOmsiNavBrGateway"
+  | "verifyOpenOmsiPlugin"
+  | "installOpenOmsiPlugin"
+  | "removeOpenOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
   | "selectOmsiExecutable"
@@ -961,6 +1064,7 @@ export type NavBrCommand =
   | "purgeDiagnostics"
   | "openFeedback"
   | "exportSessionHealth"
+  | "setPerformanceProfile"
   | "saveLegacyPreferences"
   | "completeFirstRun"
   | "connectHardware"

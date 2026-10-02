@@ -338,6 +338,29 @@ public partial class MainWindow
             "Não foi possível gerar um nome único para o replay importado.");
     }
 
+    private void StartGhostPlaybackForShell(
+        double? playbackSpeed,
+        bool loop)
+    {
+        _ = RunDetachedGhostPlaybackAsync(playbackSpeed, loop);
+    }
+
+    private async Task RunDetachedGhostPlaybackAsync(
+        double? playbackSpeed,
+        bool loop)
+    {
+        try
+        {
+            await PlayGhostFromWebAsync(playbackSpeed, loop);
+        }
+        catch
+        {
+            // PlayGhostFromWebAsync already publishes status/error for the
+            // polling WinUI/Web shell. Keep the IPC command non-blocking for
+            // long replays without surfacing an unobserved Task exception.
+        }
+    }
+
     private async Task PlayGhostFromWebAsync(
         double? playbackSpeed,
         bool loop)

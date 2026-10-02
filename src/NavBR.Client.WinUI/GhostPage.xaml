@@ -1,0 +1,204 @@
+<UserControl
+    x:Class="NavBR.Client.WinUI.GhostPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16">
+            <TextBlock Text="Ghost / Replay"
+                       Foreground="White"
+                       FontSize="32"
+                       FontWeight="Bold"/>
+            <TextBlock Text="Grave trajetos reais do OMSI e reproduza o veículo Ghost 3D pelo Runtime Host x86."
+                       Foreground="{StaticResource NavBRMutedBrush}"
+                       TextWrapping="Wrap"/>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="GRAVAÇÃO" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="RecordingStateText" Text="PARADA" Foreground="White" FontSize="20"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="FRAMES" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="FrameCountText" Text="0" Foreground="White" FontSize="20"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="REPRODUÇÃO" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="PlaybackStateText" Text="PARADA" Foreground="White" FontSize="20"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="BIBLIOTECA" Foreground="{StaticResource NavBRMutedBrush}"/>
+                        <TextBlock x:Name="LibraryCountText" Text="0" Foreground="White" FontSize="20"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Nova gravação"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="RecordingNameTextBox"
+                                 Header="Nome do replay"
+                                 PlaceholderText="Ex.: Linha 92 · viagem noturna"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="StartRecordingButton"
+                                    Content="Iniciar gravação"
+                                    Click="StartRecording_Click"/>
+                            <Button x:Name="StopRecordingButton"
+                                    Content="Salvar"
+                                    Click="StopRecording_Click"/>
+                            <Button x:Name="CancelRecordingButton"
+                                    Content="Cancelar"
+                                    Click="CancelRecording_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="GhostDirectoryText"
+                                   Text="Pasta: —"
+                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Importar / carregar"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Use a biblioteca local ou carregue um arquivo Ghost existente."
+                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="SelectFileButton"
+                                    Content="Abrir arquivo"
+                                    Click="SelectFile_Click"/>
+                            <Button x:Name="ImportButton"
+                                    Content="Importar"
+                                    Click="Import_Click"/>
+                            <Button Content="Atualizar biblioteca"
+                                    Click="RefreshLibrary_Click"/>
+                            <Button Content="Abrir pasta"
+                                    Click="OpenFolder_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.25*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Biblioteca de replays"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"/>
+                        <ListView x:Name="GhostLibraryList"
+                                  MinHeight="240"
+                                  SelectionChanged="GhostLibraryList_SelectionChanged">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="4,8" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="White"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Context}"
+                                                       Foreground="{StaticResource NavBRMutedBrush}"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding RecordedAtText}"
+                                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding Stats}"
+                                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Right"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Replay selecionado"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock x:Name="SelectedReplayText"
+                                   Text="Nenhum replay selecionado."
+                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <NumberBox x:Name="PlaybackSpeedNumberBox"
+                                       Header="Velocidade"
+                                       Minimum="0.1"
+                                       Maximum="4"
+                                       SmallChange="0.1"
+                                       Value="1"/>
+                            <ToggleSwitch x:Name="LoopToggle"
+                                          Grid.Column="1"
+                                          Header="Loop"
+                                          OffContent="Desativado"
+                                          OnContent="Ativado"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="PlayButton"
+                                    Content="Reproduzir Ghost 3D"
+                                    Click="Play_Click"/>
+                            <Button x:Name="StopPlaybackButton"
+                                    Content="Parar"
+                                    Click="StopPlayback_Click"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="StatusText"
+                                   Text="Pronto."
+                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <InfoBar x:Name="NoticeBar"
+                     IsOpen="False"
+                     IsClosable="True"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

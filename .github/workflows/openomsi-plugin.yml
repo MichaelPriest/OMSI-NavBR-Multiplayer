@@ -1,0 +1,174 @@
+name: openOMSI plugin
+
+on:
+  push:
+    branches: [ feature/winui3-app-platform ]
+    paths:
+      - 'src/NavBR.OpenOmsiPlugin/**'
+      - 'src/NavBR.Shared/PluginBridge/**'
+      - '.github/workflows/openomsi-plugin.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/NavBR.OpenOmsiPlugin/**'
+      - 'src/NavBR.Shared/PluginBridge/**'
+      - '.github/workflows/openomsi-plugin.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: openomsi-plugin-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore openOMSI plugin
+        shell: pwsh
+        run: |
+          dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
+          dotnet restore src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj
+          dotnet restore src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj
+          dotnet restore src/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.csproj -r win-x64
+
+      - name: Smoke-test openOMSI LAN v6 codec
+        shell: pwsh
+        run: dotnet run --project src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj -c Release --no-restore
+
+      - name: Smoke-test openOMSI loopback gateway
+        shell: pwsh
+        run: dotnet run --project src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj -c Release --no-restore
+
+      - name: Publish Native AOT x64 plugin
+        shell: pwsh
+        run: |
+          dotnet publish src/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.csproj `
+            -c Release `
+            -r win-x64 `
+            --no-restore `
+            -p:PublishAot=true `
+            -p:NativeLib=Shared `
+            -o artifacts/NavBR.OpenOmsiPlugin
+
+          foreach ($required in @(
+            "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.dll",
+            "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl",
+            "artifacts/NavBR.OpenOmsiPlugin/main.lua",
+            "artifacts/NavBR.OpenOmsiPlugin/Install-NavBROpenOmsiPlugin.ps1",
+            "artifacts/NavBR.OpenOmsiPlugin/Remove-NavBROpenOmsiPlugin.ps1",
+            "artifacts/NavBR.OpenOmsiPlugin/README.md"
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "openOMSI package incomplete: $required"
+            }
+          }
+
+      - name: Validate standard OMSI ABI
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.dll"
+          $bytes = [System.IO.File]::ReadAllBytes($dll.Path)
+          if ([BitConverter]::ToUInt16($bytes, 0) -ne 0x5A4D) {
+            throw "Plugin is not PE/MZ."
+          }
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x00004550) {
+            throw "Plugin has invalid PE signature."
+          }
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0x8664) {
+            throw ("Plugin must be x64/AMD64; machine=0x{0:X4}" -f $machine)
+          }
+
+          $exports = (& dumpbin /nologo /exports $dll.Path) -join "`n"
+          foreach ($name in @(
+            'PluginStart',
+            'PluginFinalize',
+            'AccessVariable',
+            'AccessTrigger',
+            'AccessStringVariable',
+            'AccessSystemVariable'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
+              throw "Plugin is missing standard OMSI export: $name"
+            }
+          }
+
+          $lua = Get-Content "artifacts/NavBR.OpenOmsiPlugin/main.lua" -Raw
+          foreach ($requiredLuaApi in @('omsi.position()', 'omsi.info()', 'omsi.save()', 'omsi.every(1.0')) {
+            if (-not $lua.Contains($requiredLuaApi)) {
+              throw "Lua companion is missing documented openOMSI API usage: $requiredLuaApi"
+            }
+          }
+
+          $opl = Get-Content "artifacts/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.opl" -Raw
+          if ($opl -notmatch '(?i)\[dll\]\s*NavBR\.OpenOmsi\\NavBR\.OpenOmsiPlugin\.dll') {
+            throw "OPL DLL path is not relative to the openOMSI Plugins root."
+          }
+
+      - name: Smoke-test content-root install and removal
+        shell: pwsh
+        run: |
+          $fakeRoot = Join-Path $env:RUNNER_TEMP "NavBR-openOMSI-Plugin-CI"
+          if (Test-Path $fakeRoot) {
+            Remove-Item $fakeRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $fakeRoot -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $fakeRoot ".openomsi-content") `
+            -Value "openOMSI CI content root" -Encoding UTF8
+
+          $package = Resolve-Path "artifacts/NavBR.OpenOmsiPlugin"
+          & (Join-Path $package "Install-NavBROpenOmsiPlugin.ps1") -OpenOmsiRoot $fakeRoot
+
+          $target = Join-Path $fakeRoot "Plugins\NavBR.OpenOmsi"
+          foreach ($required in @(
+            (Join-Path $target "NavBR.OpenOmsiPlugin.dll"),
+            (Join-Path $target "NavBR.OpenOmsiPlugin.opl"),
+            (Join-Path $target "main.lua"),
+            (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt")
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "Installer did not create: $required"
+            }
+          }
+
+          $manifest = Get-Content (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt") -Raw
+          if ($manifest -notmatch 'Native AOT win-x64') {
+            throw "Manifest does not identify the x64 Native AOT deployment."
+          }
+
+          & (Join-Path $package "Remove-NavBROpenOmsiPlugin.ps1") -OpenOmsiRoot $fakeRoot
+
+          foreach ($removed in @(
+            (Join-Path $target "NavBR.OpenOmsiPlugin.dll"),
+            (Join-Path $target "NavBR.OpenOmsiPlugin.opl"),
+            (Join-Path $target "main.lua"),
+            (Join-Path $target "NavBR.OpenOmsiPlugin.install-manifest.txt")
+          )) {
+            if (Test-Path $removed) {
+              throw "Remover left file behind: $removed"
+            }
+          }
+
+          Remove-Item $fakeRoot -Recurse -Force
+
+      - name: Upload openOMSI plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-OpenOMSI-Plugin-win-x64
+          path: artifacts/NavBR.OpenOmsiPlugin
+          if-no-files-found: error
+          retention-days: 14

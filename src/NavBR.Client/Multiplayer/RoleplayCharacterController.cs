@@ -32,6 +32,9 @@ internal sealed record RoleplayNativeActivityObservation(
 internal sealed class RoleplayCharacterController : IAsyncDisposable
 {
     private const int VkEscape = 0x1B;
+    private const int VkSpace = 0x20;
+    private const int VkLeft = 0x25;
+    private const int VkRight = 0x27;
     private const int VkE = 0x45;
     private const int VkW = 0x57;
     private const int VkA = 0x41;
@@ -43,11 +46,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     private const double WalkSpeedMps = 1.45d;
     private const double RunSpeedMps = 3.25d;
-    private const double BackwardSpeedMps = 1.05d;
     private const double StandingTurnSpeedDegreesPerSecond = 120d;
     private const double MovingTurnSpeedDegreesPerSecond = 96d;
-    private const double MovementAccelerationMps2 = 4.25d;
-    private const double MovementBrakingMps2 = 6.5d;
+    private const double MovementResponsePerSecond = 9.5d;
+    private const double AirControlResponsePerSecond = 2.0d;
+    private const double JumpImpulseMps = 3.65d;
+    private const double GravityMps2 = 9.81d;
+    private const double JumpLandingToleranceMeters = 0.08d;
     private const double MaxDistanceFromBusMeters = 85d;
     private const double EnterBusDistanceMeters = 8d;
     private const double MaxVerticalFollowSpeedMps = 2.75d;
@@ -88,7 +93,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private double? _lastGroundHeight;
     private string? _lastErrorCode;
     private string? _lastErrorMessage;
-    private double _signedMovementSpeedMps;
+    private double _movementVelocityX;
+    private double _movementVelocityY;
+    private double _verticalVelocityMps;
+    private bool _jumpRequested;
+    private bool _jumpActive;
     private bool _focusStopApplied;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
@@ -506,7 +515,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
         Interlocked.Increment(ref _sessionGeneration);
         _consecutiveFailures = 0;
-        _signedMovementSpeedMps = 0d;
+        _movementVelocityX = 0d;
+        _movementVelocityY = 0d;
+        _verticalVelocityMps = 0d;
+        _jumpRequested = false;
+        _jumpActive = false;
         _focusStopApplied = false;
         _lastTickUtc = DateTimeOffset.UtcNow;
         _lastNetworkStateUtc = DateTimeOffset.MinValue;
@@ -541,7 +554,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _nativeAnimationDiagnostics = null;
             ResetNativeActivityObservation();
             _consecutiveFailures = 0;
-            _signedMovementSpeedMps = 0d;
+            _movementVelocityX = 0d;
+            _movementVelocityY = 0d;
+            _verticalVelocityMps = 0d;
+            _jumpRequested = false;
+            _jumpActive = false;
             _focusStopApplied = false;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
@@ -644,7 +661,11 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
             if (!RoleplayKeyboardHook.IsOmsiForeground())
             {
-                _signedMovementSpeedMps = 0d;
+                _movementVelocityX = 0d;
+                _movementVelocityY = 0d;
+                _verticalVelocityMps = 0d;
+                _jumpRequested = false;
+                _jumpActive = false;
                 _lastTickUtc = DateTimeOffset.UtcNow;
 
                 // Key-up messages may happen after OMSI loses focus and are then
@@ -724,18 +745,25 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
             bool forward;
             bool backward;
-            bool left;
-            bool right;
+            bool strafeLeft;
+            bool strafeRight;
+            bool turnLeft;
+            bool turnRight;
             bool running;
+            bool jumpRequested;
             lock (_inputSync)
             {
                 forward = _pressedKeys.Contains(VkW);
                 backward = _pressedKeys.Contains(VkS);
-                left = _pressedKeys.Contains(VkA);
-                right = _pressedKeys.Contains(VkD);
+                strafeLeft = _pressedKeys.Contains(VkA);
+                strafeRight = _pressedKeys.Contains(VkD);
+                turnLeft = _pressedKeys.Contains(VkLeft);
+                turnRight = _pressedKeys.Contains(VkRight);
                 running = _pressedKeys.Contains(VkShift) ||
                           _pressedKeys.Contains(VkLeftShift) ||
                           _pressedKeys.Contains(VkRightShift);
+                jumpRequested = _jumpRequested;
+                _jumpRequested = false;
             }
 
             // Low-level hooks can be blocked by overlays, privilege boundaries
@@ -744,103 +772,162 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             // reached NavBR. Hook state remains useful for consuming the keys.
             forward |= RoleplayKeyboardHook.IsKeyDown(VkW);
             backward |= RoleplayKeyboardHook.IsKeyDown(VkS);
-            left |= RoleplayKeyboardHook.IsKeyDown(VkA);
-            right |= RoleplayKeyboardHook.IsKeyDown(VkD);
+            strafeLeft |= RoleplayKeyboardHook.IsKeyDown(VkA);
+            strafeRight |= RoleplayKeyboardHook.IsKeyDown(VkD);
+            turnLeft |= RoleplayKeyboardHook.IsKeyDown(VkLeft);
+            turnRight |= RoleplayKeyboardHook.IsKeyDown(VkRight);
             running |= RoleplayKeyboardHook.IsKeyDown(VkShift) ||
                        RoleplayKeyboardHook.IsKeyDown(VkLeftShift) ||
                        RoleplayKeyboardHook.IsKeyDown(VkRightShift);
 
-            var direction = forward == backward ? 0d : forward ? 1d : -1d;
-            var targetVelocity = direction switch
-            {
-                > 0d => running ? RunSpeedMps : WalkSpeedMps,
-                < 0d => -BackwardSpeedMps,
-                _ => 0d
-            };
-
-            var changingDirection =
-                Math.Abs(_signedMovementSpeedMps) > 0.01d &&
-                Math.Abs(targetVelocity) > 0.01d &&
-                Math.Sign(_signedMovementSpeedMps) != Math.Sign(targetVelocity);
-            var slowingDown =
-                Math.Abs(targetVelocity) < Math.Abs(_signedMovementSpeedMps) ||
-                changingDirection;
-            var acceleration = slowingDown
-                ? MovementBrakingMps2
-                : MovementAccelerationMps2;
-
-            _signedMovementSpeedMps = MoveTowards(
-                _signedMovementSpeedMps,
-                changingDirection ? 0d : targetVelocity,
-                acceleration * deltaSeconds);
-
-            if (!changingDirection &&
-                Math.Abs(_signedMovementSpeedMps - targetVelocity) > 0.0001d)
-            {
-                _signedMovementSpeedMps = MoveTowards(
-                    _signedMovementSpeedMps,
-                    targetVelocity,
-                    MovementAccelerationMps2 * deltaSeconds);
-            }
-
-            if (Math.Abs(_signedMovementSpeedMps) < 0.005d)
-            {
-                _signedMovementSpeedMps = 0d;
-            }
-
-            var speed = Math.Abs(_signedMovementSpeedMps);
             var heading = current.HeadingDegrees;
-            if (left ^ right)
+            var currentHorizontalSpeed = Math.Sqrt(
+                _movementVelocityX * _movementVelocityX +
+                _movementVelocityY * _movementVelocityY);
+            if (turnLeft ^ turnRight)
             {
-                var turnSpeed = speed > 0.15d
+                var turnSpeed = currentHorizontalSpeed > 0.15d
                     ? MovingTurnSpeedDegreesPerSecond
                     : StandingTurnSpeedDegreesPerSecond;
-                heading += (right ? 1d : -1d) *
+                heading += (turnRight ? 1d : -1d) *
                            turnSpeed *
                            deltaSeconds;
                 heading = NormalizeHeading(heading);
             }
 
-            var x = current.LocalX;
-            var y = current.LocalY;
-            if (speed > 0.005d)
+            // openOMSI moves the on-foot avatar from a normalized WASD vector
+            // instead of treating A/D as steering. Keep the same behavior here:
+            // W/S move along the body heading, A/D strafe, and arrows rotate.
+            var forwardAxis = (forward ? 1d : 0d) - (backward ? 1d : 0d);
+            var rightAxis = (strafeRight ? 1d : 0d) - (strafeLeft ? 1d : 0d);
+            var inputLength = Math.Sqrt(
+                forwardAxis * forwardAxis +
+                rightAxis * rightAxis);
+            if (inputLength > 1d)
             {
-                var radians = heading * Math.PI / 180d;
-                var signedDistance = _signedMovementSpeedMps * deltaSeconds;
-                x += Math.Sin(radians) * signedDistance;
-                y += Math.Cos(radians) * signedDistance;
+                forwardAxis /= inputLength;
+                rightAxis /= inputLength;
+            }
 
-                var fromOriginX = x - _originX;
-                var fromOriginY = y - _originY;
-                var fromOrigin = Math.Sqrt(
-                    fromOriginX * fromOriginX +
-                    fromOriginY * fromOriginY);
-                if (fromOrigin > MaxDistanceFromBusMeters)
-                {
-                    var scale = MaxDistanceFromBusMeters / fromOrigin;
-                    x = _originX + fromOriginX * scale;
-                    y = _originY + fromOriginY * scale;
-                    _signedMovementSpeedMps = 0d;
-                    speed = 0d;
-                }
+            var targetSpeed = inputLength > 0d
+                ? running ? RunSpeedMps : WalkSpeedMps
+                : 0d;
+            var radians = heading * Math.PI / 180d;
+            var forwardX = Math.Sin(radians);
+            var forwardY = Math.Cos(radians);
+            var rightX = Math.Cos(radians);
+            var rightY = -Math.Sin(radians);
+            var targetVelocityX =
+                (forwardX * forwardAxis + rightX * rightAxis) *
+                targetSpeed;
+            var targetVelocityY =
+                (forwardY * forwardAxis + rightY * rightAxis) *
+                targetSpeed;
+
+            var response = _jumpActive
+                ? AirControlResponsePerSecond
+                : MovementResponsePerSecond;
+            var blend = 1d - Math.Exp(-Math.Max(0d, deltaSeconds) * response);
+            _movementVelocityX +=
+                (targetVelocityX - _movementVelocityX) * blend;
+            _movementVelocityY +=
+                (targetVelocityY - _movementVelocityY) * blend;
+            if (targetSpeed <= 0d &&
+                Math.Sqrt(
+                    _movementVelocityX * _movementVelocityX +
+                    _movementVelocityY * _movementVelocityY) < 0.02d)
+            {
+                _movementVelocityX = 0d;
+                _movementVelocityY = 0d;
+            }
+
+            var x = current.LocalX +
+                    _movementVelocityX * deltaSeconds;
+            var y = current.LocalY +
+                    _movementVelocityY * deltaSeconds;
+
+            var fromOriginX = x - _originX;
+            var fromOriginY = y - _originY;
+            var fromOrigin = Math.Sqrt(
+                fromOriginX * fromOriginX +
+                fromOriginY * fromOriginY);
+            if (fromOrigin > MaxDistanceFromBusMeters)
+            {
+                var scale = MaxDistanceFromBusMeters / fromOrigin;
+                x = _originX + fromOriginX * scale;
+                y = _originY + fromOriginY * scale;
+                _movementVelocityX = 0d;
+                _movementVelocityY = 0d;
             }
 
             var z = current.LocalZ;
-            if (TryFollowGround(
+            if (jumpRequested &&
+                !_jumpActive &&
+                _groundFollowing &&
+                TryResolveGroundTarget(
                     map,
                     telemetry,
                     x,
                     y,
                     z,
-                    deltaSeconds,
-                    out var followedZ))
+                    out var jumpGroundZ))
+            {
+                z = Math.Max(z, jumpGroundZ);
+                _verticalVelocityMps = JumpImpulseMps;
+                _jumpActive = true;
+            }
+
+            if (_jumpActive)
+            {
+                if (TryResolveGroundTarget(
+                        map,
+                        telemetry,
+                        x,
+                        y,
+                        z,
+                        out var landingZ))
+                {
+                    _verticalVelocityMps -=
+                        GravityMps2 * deltaSeconds;
+                    z += _verticalVelocityMps * deltaSeconds;
+
+                    if (_verticalVelocityMps <= 0d &&
+                        z <= landingZ + JumpLandingToleranceMeters)
+                    {
+                        z = landingZ;
+                        _verticalVelocityMps = 0d;
+                        _jumpActive = false;
+                        _groundFollowing = true;
+                    }
+                }
+                else
+                {
+                    // Never continue a blind vertical integration when OMSI's
+                    // local ground reference is unavailable. That avoids a
+                    // character falling through bridges/tiles after a resolver
+                    // discontinuity.
+                    _verticalVelocityMps = 0d;
+                    _jumpActive = false;
+                }
+            }
+            else if (TryFollowGround(
+                         map,
+                         telemetry,
+                         x,
+                         y,
+                         z,
+                         deltaSeconds,
+                         out var followedZ))
             {
                 z = followedZ;
             }
 
+            var speed = Math.Sqrt(
+                _movementVelocityX * _movementVelocityX +
+                _movementVelocityY * _movementVelocityY);
             var activity = speed <= 0.05d
                 ? RoleplayCharacterActivity.Idle
-                : _signedMovementSpeedMps > WalkSpeedMps * 1.15d
+                : running && speed > WalkSpeedMps * 1.15d
                     ? RoleplayCharacterActivity.Running
                     : RoleplayCharacterActivity.Walking;
 
@@ -1012,32 +1099,62 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _nativeActivityLastTransitionAtUtc = null;
     }
 
-    private static double MoveTowards(
-        double current,
-        double target,
-        double maxDelta)
-    {
-        if (!double.IsFinite(current) ||
-            !double.IsFinite(target) ||
-            !double.IsFinite(maxDelta) ||
-            maxDelta <= 0d)
-        {
-            return target;
-        }
-
-        var delta = target - current;
-        if (Math.Abs(delta) <= maxDelta)
-        {
-            return target;
-        }
-
-        return current + Math.Sign(delta) * maxDelta;
-    }
-
     private static int? NormalizeOptionalByte(int? value) =>
         value is >= byte.MinValue and <= byte.MaxValue
             ? value
             : null;
+
+    private bool TryResolveGroundTarget(
+        OmsiMapInfo? map,
+        VehicleTelemetry? telemetry,
+        double x,
+        double y,
+        double currentZ,
+        out double targetZ)
+    {
+        targetZ = currentZ;
+        if (map is null ||
+            telemetry is null ||
+            !OmsiSplineGroundHeightResolver.TryResolve(
+                map,
+                telemetry,
+                x,
+                y,
+                _lastGroundHeight ?? currentZ,
+                out var groundZ))
+        {
+            return false;
+        }
+
+        if (!_groundHeightCalibrated)
+        {
+            var offset = currentZ - groundZ;
+            if (!double.IsFinite(offset) ||
+                Math.Abs(offset) > MaxInitialGroundOffsetMeters)
+            {
+                return false;
+            }
+
+            _groundHeightOffset = offset;
+            _groundHeightCalibrated = true;
+        }
+        else if (_lastGroundHeight is double previousGround &&
+                 Math.Abs(groundZ - previousGround) > MaxGroundSampleJumpMeters)
+        {
+            return false;
+        }
+
+        targetZ = groundZ + _groundHeightOffset;
+        if (!double.IsFinite(targetZ) ||
+            Math.Abs(targetZ - currentZ) >
+            Math.Max(MaxGroundTargetErrorMeters, 4d))
+        {
+            return false;
+        }
+
+        _lastGroundHeight = groundZ;
+        return true;
+    }
 
     private bool TryFollowGround(
         OmsiMapInfo? map,
@@ -1050,19 +1167,19 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     {
         resolvedZ = currentZ;
 
-        if (map is null ||
-            telemetry is null ||
-            !OmsiSplineGroundHeightResolver.TryResolve(
+        if (!TryResolveGroundTarget(
                 map,
                 telemetry,
                 x,
                 y,
-                _lastGroundHeight ?? currentZ,
-                out var groundZ))
+                currentZ,
+                out var targetZ))
         {
             _groundFollowing = false;
             return false;
         }
+
+        var groundZ = targetZ - _groundHeightOffset;
 
         if (!_groundHeightCalibrated)
         {
@@ -1087,9 +1204,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return false;
         }
 
-        var targetZ = groundZ + _groundHeightOffset;
-        if (!double.IsFinite(targetZ) ||
-            Math.Abs(targetZ - currentZ) > MaxGroundTargetErrorMeters)
+        if (Math.Abs(targetZ - currentZ) > MaxGroundTargetErrorMeters)
         {
             _groundFollowing = false;
             return false;
@@ -1178,8 +1293,26 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return true;
         }
 
+        if (virtualKey == VkSpace)
+        {
+            lock (_inputSync)
+            {
+                if (isDown && _pressedKeys.Add(virtualKey))
+                {
+                    _jumpRequested = true;
+                }
+                else if (!isDown)
+                {
+                    _pressedKeys.Remove(virtualKey);
+                }
+            }
+
+            return true;
+        }
+
         var controlled = virtualKey is
             VkW or VkA or VkS or VkD or
+            VkLeft or VkRight or
             VkShift or VkLeftShift or VkRightShift;
 
         if (!controlled)

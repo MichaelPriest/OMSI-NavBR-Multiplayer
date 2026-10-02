@@ -1,0 +1,101 @@
+<UserControl
+    x:Class="NavBR.Client.WinUI.DiagnosticsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16">
+            <TextBlock Text="Diagnóstico"
+                       Foreground="White"
+                       FontSize="32"
+                       FontWeight="Bold"/>
+            <TextBlock Text="OMSI, plugin, Runtime Host, rede e saúde da sessão em um só lugar."
+                       Foreground="{StaticResource NavBRMutedBrush}"/>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="PLUGIN OMSI" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="PluginStateText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="MULTIPLAYER" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="MultiplayerStateText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="LATÊNCIA" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="LatencyText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel><TextBlock Text="PERFORMANCE" Foreground="{StaticResource NavBRMutedBrush}"/><TextBlock x:Name="PerformanceText" Text="—" Foreground="White" FontSize="20"/></StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Plugin OMSI" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="PluginDetailText"
+                                   Text="Aguardando diagnóstico."
+                                   Foreground="{StaticResource NavBRMutedBrush}"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Verificar / atualizar" Click="VerifyPlugin_Click"/>
+                            <Button x:Name="InstallPluginButton" Content="Instalar plugin" Click="InstallPlugin_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Diagnóstico remoto" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <ToggleSwitch x:Name="DiagnosticsToggle"
+                                      Header="Consentimento"
+                                      OffContent="Desativado"
+                                      OnContent="Ativado"
+                                      Toggled="DiagnosticsToggle_Toggled"/>
+                        <TextBlock x:Name="LogText" Text="Log: —" Foreground="{StaticResource NavBRMutedBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Enviar fila agora" Click="FlushDiagnostics_Click"/>
+                            <Button Content="Limpar fila" Click="PurgeDiagnostics_Click"/>
+                            <Button Content="Exportar saúde" Click="ExportHealth_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource MetricCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Rede / host" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Atualizar rede" Click="RefreshNetwork_Click"/>
+                            <Button Content="Aplicar firewall" Click="Firewall_Click"/>
+                            <Button Content="Testar porta externa" Click="Probe_Click"/>
+                        </StackPanel>
+                    </Grid>
+                    <ToggleSwitch x:Name="UpnpToggle"
+                                  Header="UPnP automático"
+                                  OffContent="Desativado"
+                                  OnContent="Ativado"
+                                  Toggled="UpnpToggle_Toggled"/>
+                    <TextBlock x:Name="NetworkDetailText"
+                               Text="Nenhum diagnóstico executado."
+                               Foreground="{StaticResource NavBRMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

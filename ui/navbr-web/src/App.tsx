@@ -1018,7 +1018,65 @@ function physicalVehicleStatusLabel(
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
 ) {
   switch (state) {
-    case "active": return pick("OMSI 3D ativo · movimento suavizado", "OMSI 3D active · smoothed motion", "OMSI 3D activo · movimiento suavizado", "OMSI 3D aktiv · geglättete Bewegung", "OMSI 3D actif · mouvement lissé");
+    case "active": return pick("OMSI 2 3D ativo · movimento suavizado", "OMSI 2 3D active · smoothed motion", "OMSI 2 3D activo · movimiento suavizado", "OMSI 2 3D aktiv · geglättete Bewegung", "OMSI 2 3D actif · mouvement lissé");
+    case "active-openomsi":
+    case "active-openomsi-drawn":
+      return pick(
+        "openOMSI 3D confirmado · drawn=true",
+        "openOMSI 3D confirmed · drawn=true",
+        "openOMSI 3D confirmado · drawn=true",
+        "openOMSI 3D bestätigt · drawn=true",
+        "openOMSI 3D confirmé · drawn=true"
+      );
+    case "openomsi-identity-pending":
+      return pick(
+        "Identidade do ônibus pendente · INFO/STATE bloqueados",
+        "Bus identity pending · INFO/STATE blocked",
+        "Identidad del autobús pendiente · INFO/STATE bloqueados",
+        "Bus-Identität ausstehend · INFO/STATE blockiert",
+        "Identité du bus en attente · INFO/STATE bloqués"
+      );
+    case "openomsi-asset-missing":
+      return pick(
+        "Addon do ônibus não instalado neste PC",
+        "Bus addon is not installed on this PC",
+        "El addon del autobús no está instalado en este PC",
+        "Bus-Add-on ist auf diesem PC nicht installiert",
+        "L’addon du bus n’est pas installé sur ce PC"
+      );
+    case "openomsi-sent-unconfirmed":
+      return pick(
+        "openOMSI recebeu envio · aguardando status LAN",
+        "openOMSI sent · waiting for LAN status",
+        "openOMSI enviado · esperando estado LAN",
+        "openOMSI gesendet · wartet auf LAN-Status",
+        "openOMSI envoyé · attente du statut LAN"
+      );
+    case "openomsi-peer-missing":
+      return pick(
+        "openOMSI ainda não listou o peer",
+        "openOMSI has not listed the peer yet",
+        "openOMSI aún no lista el peer",
+        "openOMSI listet den Peer noch nicht",
+        "openOMSI ne liste pas encore le pair"
+      );
+    case "openomsi-bus-path-mismatch":
+      return pick(
+        "openOMSI recebeu outro caminho de ônibus",
+        "openOMSI reported a different bus path",
+        "openOMSI informó otra ruta de autobús",
+        "openOMSI meldet einen anderen Buspfad",
+        "openOMSI signale un autre chemin de bus"
+      );
+    case "openomsi-peer-not-drawn":
+    case "openomsi-sent-not-drawn":
+      return pick(
+        "openOMSI recebeu o peer · drawn=false",
+        "openOMSI received peer · drawn=false",
+        "openOMSI recibió el peer · drawn=false",
+        "openOMSI hat den Peer · drawn=false",
+        "openOMSI a reçu le pair · drawn=false"
+      );
     case "resolving-asset": return pick("Localizando ônibus local", "Resolving local bus", "Buscando autobús local", "Lokaler Bus wird gesucht", "Recherche du bus local");
     case "spawning": return pick("Criando ônibus no OMSI", "Spawning bus in OMSI", "Creando autobús en OMSI", "Bus wird in OMSI erstellt", "Création du bus dans OMSI");
     case "consist-unsupported":
@@ -1292,6 +1350,11 @@ function Operations({
         <div>
           <span className="eyebrow">{pick("CENTRO DE CONTROLE OPERACIONAL", "OPERATIONS CONTROL CENTER", "CENTRO DE CONTROL OPERACIONAL", "BETRIEBSLEITSTELLE", "CENTRE DE CONTRÔLE OPÉRATIONNEL")}</span>
           <h1>CCO</h1>
+          {operations.operatorBadge && (
+            <p className="company-badge-inline">
+              {operations.operatorBadge.companyShortName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {operations.operatorBadge.employeeNumber} · {companyRoleLabel(operations.operatorBadge.role, pick)} · {operations.operatorBadgeVerified ? pick("VERIFICADO", "VERIFIED", "VERIFICADO", "VERIFIZIERT", "VÉRIFIÉ") : pick("NÃO VERIFICADO", "UNVERIFIED", "NO VERIFICADO", "NICHT VERIFIZIERT", "NON VÉRIFIÉ")}
+            </p>
+          )}
           <p>{pick("Operação local, motoristas da sessão e ocorrências recebidas pelo backend NavBR.", "Local operation, session drivers and reports received by the NavBR backend.", "Operación local, conductores de la sesión e incidencias recibidas por el backend NavBR.", "Lokaler Betrieb, Sitzungsfahrer und Meldungen aus dem NavBR-Backend.", "Opération locale, conducteurs de session et incidents reçus par le backend NavBR.")}</p>
         </div>
         <div className="top-actions">
@@ -1404,6 +1467,11 @@ function Operations({
                   <span className="driver-avatar">{driver.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="driver-primary">
                     <strong>{driver.displayName}</strong>
+                    {validCompanyBadge(driver.companyBadge) && (
+                      <small className="company-badge-inline">
+                        {driver.companyBadge?.companyShortName || driver.companyBadge?.companyName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {driver.companyBadge?.employeeNumber} · {companyRoleLabel(driver.companyBadge?.role || "", pick)} · {driver.companyBadgeVerified ? pick("VERIFICADO", "VERIFIED", "VERIFICADO", "VERIFIZIERT", "VÉRIFIÉ") : pick("NÃO VERIFICADO", "UNVERIFIED", "NO VERIFICADO", "NICHT VERIFIZIERT", "NON VÉRIFIÉ")}
+                      </small>
+                    )}
                     <small>{driver.vehicleName || pick("Ônibus não informado", "Bus not provided", "Autobús no informado", "Bus nicht angegeben", "Bus non renseigné")} · {driver.mapName || pick("Mapa —", "Map —", "Mapa —", "Karte —", "Carte —")}</small>
                   </div>
                   <div className="driver-service">
@@ -1618,6 +1686,19 @@ function Operations({
 
 type CompanyNetworkTab = "network" | "team";
 
+function validCompanyBadge<T extends {
+  companyShortName?: string | null;
+  companyName?: string | null;
+  displayName?: string | null;
+  employeeNumber?: string | null;
+  role?: string | null;
+}>(badge: T | null | undefined): T | null {
+  if (!badge) return null;
+  if (!badge.displayName?.trim() || !badge.employeeNumber?.trim()) return null;
+  if (!badge.companyShortName?.trim() && !badge.companyName?.trim()) return null;
+  return badge;
+}
+
 function companyRoleLabel(
   role: string,
   pick: (pt: string, en: string, es: string, de: string, fr: string) => string
@@ -1647,6 +1728,7 @@ function CompanyMemberRow({ member, assignableRoles }: { member: NavBrCompanyMem
       <div className="company-member-main">
         <strong>{member.displayName}{member.isSelf ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
         <small>{member.playerId}{member.isOwner ? " · OWNER" : ""}</small>
+        {member.employeeNumber && <small className="company-badge-inline">{pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {member.employeeNumber}</small>}
       </div>
       <div className="company-member-role">
         <span>{companyRoleLabel(member.role, pick)}</span>
@@ -1705,6 +1787,9 @@ function CompanyNetwork({
 
   const company = companyNetwork.company;
   const node = companyNetwork.node;
+  const selfBadge = validCompanyBadge(
+    company?.selfBadge || companyNetwork.membership?.badge || null
+  );
   const canCreateInvite = Boolean(node?.running && company?.canInvite);
 
   return (
@@ -1717,12 +1802,35 @@ function CompanyNetwork({
       <section className="company-network-metrics">
         <div className="metric"><small>{pick("EMPRESA", "COMPANY", "EMPRESA", "UNTERNEHMEN", "ENTREPRISE")}</small><strong>{company?.name || localCompany?.name || "—"}</strong></div>
         <div className="metric"><small>{pick("CARGO", "ROLE", "CARGO", "ROLLE", "RÔLE")}</small><strong>{company?.selfRole ? companyRoleLabel(company.selfRole, pick) : companyNetwork.membership?.role ? companyRoleLabel(companyNetwork.membership.role, pick) : "—"}</strong></div>
+        <div className="metric"><small>{pick("CRACHÁ", "BADGE", "CREDENCIAL", "AUSWEIS", "BADGE")}</small><strong>{selfBadge ? `${selfBadge.companyShortName} #${selfBadge.employeeNumber}` : "—"}</strong></div>
         <div className="metric"><small>{pick("MEMBROS", "MEMBERS", "MIEMBROS", "MITGLIEDER", "MEMBRES")}</small><strong>{company?.memberCount ?? 0}</strong></div>
         <div className="metric"><small>NODE</small><strong>{node?.running ? "Online" : "Offline"}</strong></div>
       </section>
       <div className="mp-tabs" role="tablist"><button className={tab === "network" ? "active" : ""} onClick={() => setTab("network")}>{pick("Rede", "Network", "Red", "Netzwerk", "Réseau")}</button><button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>{pick("Equipe", "Team", "Equipo", "Team", "Équipe")}</button></div>
       {tab === "network" && (
         <section className="company-network-layout">
+          {selfBadge && (
+            <article className="card company-employee-badge">
+              <div className="employee-badge-top">
+                <div>
+                  <span className="eyebrow">NAVBR • {selfBadge.companyShortName}</span>
+                  <h3>{pick("Crachá operacional", "Operational badge", "Credencial operativa", "Betriebsausweis", "Badge opérationnel")}</h3>
+                </div>
+                <strong>#{selfBadge.employeeNumber}</strong>
+              </div>
+              <div className="employee-badge-holder">
+                <span className="company-member-avatar">{selfBadge.displayName.slice(0, 1).toUpperCase()}</span>
+                <div>
+                  <strong>{selfBadge.displayName}</strong>
+                  <small>{companyRoleLabel(selfBadge.role, pick)}</small>
+                </div>
+              </div>
+              <div className="employee-badge-meta">
+                <span>{selfBadge.companyName}</span>
+                <code>{selfBadge.playerId}</code>
+              </div>
+            </article>
+          )}
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">IDENTIDADE NAVBR</span><h3>{companyNetwork.identity?.displayName || pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div></div><code>{companyNetwork.identity?.playerId || "—"}</code><p>{pick("Sua identidade fica protegida neste computador.", "Your identity stays protected on this computer.", "Tu identidad permanece protegida en este equipo.", "Deine Identität bleibt auf diesem Computer geschützt.", "Votre identité reste protégée sur cet ordinateur.")}</p></article>
           <article className="card company-node-card"><div className="section-heading"><div><span className="eyebrow">COMPANY NODE</span><h3>TCP 27740</h3></div><span className={`hardware-state-pill ${node?.running ? "connected" : ""}`}>{node?.running ? "ONLINE" : "OFFLINE"}</span></div><p>{pick("O nó da empresa é independente da sala multiplayer TCP 27730.", "The company node is independent from the TCP 27730 multiplayer room.", "El nodo de empresa es independiente de la sala multijugador TCP 27730.", "Der Unternehmens-Node ist unabhängig vom Multiplayer-Raum TCP 27730.", "Le nœud de l’entreprise est indépendant de la salle multijoueur TCP 27730.")}</p><div className="company-node-actions">{node?.running ? <button className="button ghost danger" onClick={() => sendCommand("stopCompanyNode")}>{pick("Parar Company Node", "Stop Company Node", "Detener Company Node", "Company Node stoppen", "Arrêter Company Node")}</button> : <button className="button primary" disabled={!localCompany?.name} onClick={() => sendCommand("startCompanyNode")}>{pick("Hospedar empresa neste PC", "Host company on this PC", "Alojar empresa en este PC", "Unternehmen auf diesem PC hosten", "Héberger l’entreprise sur ce PC")}</button>}</div>{!localCompany?.name && <p className="network-note">{pick("Configure primeiro a Empresa/Frota no CCO.", "Configure Company/Fleet in Operations first.", "Configura primero Empresa/Flota en CCO.", "Zuerst Unternehmen/Flotte in der Leitstelle konfigurieren.", "Configurez d’abord Entreprise/Flotte dans le CCO.")}</p>}{node?.running && <div className="company-node-addresses">{[node.localUrl, ...node.lanUrls].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).map(url => <code key={url}>{url}</code>)}</div>}</article>
           <article className="card company-join-card"><span className="eyebrow">{pick("ENTRAR EM EMPRESA ONLINE", "JOIN ONLINE COMPANY", "ENTRAR EN EMPRESA ONLINE", "ONLINE-UNTERNEHMEN BEITRETEN", "REJOINDRE UNE ENTREPRISE EN LIGNE")}</span><h3>{pick("Convite assinado", "Signed invite", "Invitación firmada", "Signierte Einladung", "Invitation signée")}</h3><label><span>{pick("Endereço do Company Node", "Company Node address", "Dirección del Company Node", "Company-Node-Adresse", "Adresse du Company Node")}</span><input value={nodeUrl} onChange={event => setNodeUrl(event.target.value)} placeholder="http://192.168.0.10:27740" /></label><label><span>{pick("Código do convite", "Invite code", "Código de invitación", "Einladungscode", "Code d’invitation")}</span><input value={inviteCode} onChange={event => setInviteCode(event.target.value)} placeholder="NBR-...." /></label><button className="button primary" disabled={!nodeUrl.trim() || !inviteCode.trim()} onClick={() => sendCommand("joinCompany", { nodeUrl, inviteCode })}>{pick("Entrar na empresa", "Join company", "Entrar en la empresa", "Unternehmen beitreten", "Rejoindre l’entreprise")}</button></article>
@@ -3220,6 +3328,206 @@ function Settings({
           <article className="card discovery-card">
             <div className="section-heading">
               <div>
+                <span className="eyebrow">NAVBR FOR OPENOMSI</span>
+                <h3>{pick("Plugin x64 instalável", "Installable x64 plugin", "Plugin x64 instalable", "Installierbares x64-Plugin", "Plugin x64 installable")}</h3>
+              </div>
+              <span className={`compatibility-badge ${system.openOmsiPlugin.state === "ready" ? "compatible" : system.openOmsiPlugin.state === "outdated" || system.openOmsiPlugin.state === "partial" ? "warning" : "blocked"}`}>
+                {system.openOmsiPlugin.state.toUpperCase()}
+              </span>
+            </div>
+            <p>
+              {pick(
+                "Integração própria para openOMSI usando o ABI oficial de plugins OMSI (.opl + DLL), sem offsets de memória do OMSI 2 original.",
+                "Dedicated openOMSI integration using the official OMSI plugin ABI (.opl + DLL), without original OMSI 2 memory offsets.",
+                "Integración propia para openOMSI usando el ABI oficial de plugins OMSI (.opl + DLL), sin offsets de memoria del OMSI 2 original.",
+                "Eigene openOMSI-Integration über die offizielle OMSI-Plugin-ABI (.opl + DLL), ohne Speicher-Offsets des originalen OMSI 2.",
+                "Intégration dédiée à openOMSI via l’ABI officielle des plugins OMSI (.opl + DLL), sans offsets mémoire d’OMSI 2 original."
+              )}
+            </p>
+            <div className="details-grid">
+              <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.openOmsiPlugin.requiredFilesFound}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
+              <div><small>SHA-256 OK</small><strong>{system.openOmsiPlugin.verifiedFiles}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
+              <div><small>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</small><strong>{system.openOmsiPlugin.installedVersion || "—"}</strong></div>
+              <div><small>openOMSI</small><strong>{system.openOmsiPlugin.running ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
+            </div>
+            {system.openOmsiPlugin.executablePath && <code>{system.openOmsiPlugin.executablePath}</code>}
+            {system.openOmsiPlugin.contentRoot && (
+              <small className="plugin-update-hint">
+                {pick("Content root", "Content root", "Content root", "Content-Root", "Content root")}: {system.openOmsiPlugin.contentRoot}
+              </small>
+            )}
+            <div className="plugin-file-verification">
+              {system.openOmsiPlugin.files.map(file => (
+                <span key={file.name} className={file.exists && file.hashMatches ? "verified" : "mismatch"}>
+                  <NavBrIcon name={file.exists && file.hashMatches ? "info" : "hazard"} size={13} />
+                  {file.name}
+                </span>
+              ))}
+            </div>
+            {system.openOmsiPlugin.message && (
+              <div className="network-message">{system.openOmsiPlugin.message}</div>
+            )}
+            {system.openOmsiLanGateway && (
+              <>
+                <div className="details-grid">
+                  <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? (system.openOmsiLanGateway.localStateFrames > 0 ? "STREAMING" : "LINKED") : "WAITING"}</strong></div>
+                  <div><small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small><strong>{system.openOmsiLanGateway.port ?? "—"}</strong></div>
+                  <div><small>{pick("REMOTOS", "REMOTES", "REMOTOS", "REMOTES", "DISTANTS")}</small><strong>{system.openOmsiLanGateway.remotePlayers}</strong></div>
+                  <div><small>{pick("DESENHADOS", "DRAWN", "DIBUJADOS", "GEZEICHNET", "DESSINÉS")}</small><strong>{system.openOmsiLanGateway.drawnRemotePlayers}/{system.openOmsiLanGateway.remotePlayers}</strong></div>
+                  <div><small>{pick("STATUS OPENOMSI", "OPENOMSI STATUS", "ESTADO OPENOMSI", "OPENOMSI-STATUS", "ÉTAT OPENOMSI")}</small><strong>{system.openOmsiLanGateway.runtimeStatusFresh ? (system.openOmsiLanGateway.runtimeConnected ? "LIVE" : "OFFLINE") : "STALE"}</strong></div>
+                  <div><small>{pick("MAPA LAN", "LAN MAP", "MAPA LAN", "LAN-KARTE", "CARTE LAN")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
+                  <div><small>{pick("FRAMES STATE", "STATE FRAMES", "FRAMES STATE", "STATE-FRAMES", "TRAMES STATE")}</small><strong>{system.openOmsiLanGateway.localStateFrames}</strong></div>
+                  <div><small>{pick("TAXA STATE", "STATE RATE", "TASA STATE", "STATE-RATE", "TAUX STATE")}</small><strong>{system.openOmsiLanGateway.localStateRateHz != null ? `${system.openOmsiLanGateway.localStateRateHz.toFixed(1)} Hz` : "—"}</strong></div>
+                  <div><small>{pick("IDADE TELEMETRIA", "TELEMETRY AGE", "EDAD TELEMETRÍA", "TELEMETRIE-ALTER", "ÂGE TÉLÉMÉTRIE")}</small><strong>{system.openOmsiLanGateway.localStateAgeMilliseconds != null ? `${Math.round(system.openOmsiLanGateway.localStateAgeMilliseconds)} ms` : "—"}</strong></div>
+                  <div><small>{pick("IDENTIDADE", "IDENTITY", "IDENTIDAD", "IDENTITÄT", "IDENTITÉ")}</small><strong>{system.openOmsiLanGateway.vehicleIdentityReady ? "SHA OK" : "PENDING"}</strong></div>
+                </div>
+                {(system.openOmsiLanGateway.clientName || system.openOmsiLanGateway.vehiclePath) && (
+                  <div className="plugin-file-verification">
+                    {system.openOmsiLanGateway.clientName && (
+                      <span className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}>
+                        <NavBrIcon name="multiplayer" size={13} />
+                        {system.openOmsiLanGateway.clientName}
+                      </span>
+                    )}
+                    {system.openOmsiLanGateway.vehiclePath && (
+                      <span className={system.openOmsiLanGateway.vehicleIdentityReady ? "verified" : "mismatch"}>
+                        <NavBrIcon name="bus" size={13} />
+                        {system.openOmsiLanGateway.vehiclePath}
+                      </span>
+                    )}
+                    {system.openOmsiLanGateway.lastLocalStateSequence != null && (
+                      <span className="verified">
+                        <NavBrIcon name="info" size={13} />
+                        STATE #{system.openOmsiLanGateway.lastLocalStateSequence}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {system.openOmsiLanGateway.vehicleCompatibilityId && (
+                  <code title={system.openOmsiLanGateway.vehicleCompatibilityId}>
+                    {system.openOmsiLanGateway.vehicleCompatibilityId.length > 34
+                      ? `${system.openOmsiLanGateway.vehicleCompatibilityId.slice(0, 34)}…`
+                      : system.openOmsiLanGateway.vehicleCompatibilityId}
+                  </code>
+                )}
+                {system.openOmsiLanGateway.remotes.length > 0 && (
+                  <div className="plugin-file-verification">
+                    {system.openOmsiLanGateway.remotes.map(remote => (
+                      <span
+                        key={remote.playerId}
+                        className={remote.drawn && remote.vehicleAssetStatus === "match" ? "verified" : "mismatch"}
+                        title={remote.vehiclePath || remote.runtimeBus || remote.playerId}
+                      >
+                        <NavBrIcon name={remote.drawn && remote.vehicleAssetStatus === "match" ? "bus" : "hazard"} size={13} />
+                        #{remote.lanId} {remote.name || remote.runtimeName || remote.playerId} · {
+                          remote.materializationStatus === "drawn"
+                            ? pick("DESENHADO", "DRAWN", "DIBUJADO", "GEZEICHNET", "DESSINÉ")
+                            : remote.materializationStatus === "sent-not-drawn"
+                              ? pick("ENVIADO, NÃO DESENHADO", "SENT, NOT DRAWN", "ENVIADO, NO DIBUJADO", "GESENDET, NICHT GEZEICHNET", "ENVOYÉ, NON DESSINÉ")
+                              : remote.materializationStatus === "sent-unconfirmed"
+                                ? pick("ENVIADO, SEM CONFIRMAÇÃO", "SENT, UNCONFIRMED", "ENVIADO, SIN CONFIRMACIÓN", "GESENDET, UNBESTÄTIGT", "ENVOYÉ, NON CONFIRMÉ")
+                                : remote.materializationStatus === "waiting-state"
+                                  ? pick("AGUARDANDO STATE", "WAITING FOR STATE", "ESPERANDO STATE", "WARTE AUF STATE", "EN ATTENTE DE STATE")
+                                  : pick("AGUARDANDO INFO", "WAITING FOR INFO", "ESPERANDO INFO", "WARTE AUF INFO", "EN ATTENTE D’INFO")
+                        } · {
+                          remote.vehicleAssetStatus === "match"
+                            ? "MATCH"
+                            : remote.vehicleAssetStatus === "missing"
+                              ? "MISSING"
+                              : remote.vehicleAssetStatus === "mismatch"
+                                ? "MISMATCH"
+                                : remote.vehicleAssetStatus === "unverified"
+                                  ? "UNVERIFIED"
+                                  : "NO PATH"
+                        }
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {system.openOmsiLanGateway.runtimeStatusPath && (
+                  <small className="plugin-update-hint">
+                    {pick("Status oficial openOMSI", "Official openOMSI status", "Estado oficial openOMSI", "Offizieller openOMSI-Status", "État officiel openOMSI")}: {system.openOmsiLanGateway.runtimeStatusPath}
+                  </small>
+                )}
+                {system.openOmsiLanGateway.joinTarget && (
+                  <div className="plugin-file-verification">
+                    <span
+                      className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}
+                      onClick={() => void navigator.clipboard?.writeText(system.openOmsiLanGateway?.joinTarget || "")}
+                      title={pick("Clique para copiar", "Click to copy", "Haz clic para copiar", "Zum Kopieren klicken", "Cliquer pour copier")}
+                    >
+                      <NavBrIcon name="network" size={13} />
+                      {pick("Entrar no openOMSI em", "Join openOMSI at", "Entrar en openOMSI en", "openOMSI verbinden mit", "Rejoindre openOMSI sur")} {system.openOmsiLanGateway.joinTarget}
+                    </span>
+                  </div>
+                )}
+                <small className="plugin-update-hint">
+                  {system.openOmsiLanGateway.clientConnected
+                    ? pick(
+                        "openOMSI conectado ao gateway LAN v6 do NavBR. Os jogadores remotos compatíveis podem ser materializados pelo próprio renderer multiplayer do openOMSI.",
+                        "openOMSI is linked to NavBR's LAN v6 gateway. Compatible remote players can be materialized by openOMSI's own multiplayer renderer.",
+                        "openOMSI está conectado al gateway LAN v6 de NavBR. Los jugadores remotos compatibles pueden materializarse con el renderer multijugador de openOMSI.",
+                        "openOMSI ist mit dem LAN-v6-Gateway von NavBR verbunden. Kompatible Remote-Spieler können vom Multiplayer-Renderer von openOMSI dargestellt werden.",
+                        "openOMSI est relié à la passerelle LAN v6 de NavBR. Les joueurs distants compatibles peuvent être matérialisés par le moteur multijoueur d’openOMSI."
+                      )
+                    : pick(
+                        "Para o ônibus online físico no openOMSI, entre na sessão LAN usando o endereço local acima. O gateway aceita apenas loopback neste PC.",
+                        "For physical online buses in openOMSI, join the LAN session using the local address above. The gateway only accepts loopback on this PC.",
+                        "Para autobuses online físicos en openOMSI, entra en la sesión LAN usando la dirección local indicada. El gateway solo acepta loopback en este PC.",
+                        "Für physische Online-Busse in openOMSI der LAN-Sitzung über die lokale Adresse oben beitreten. Das Gateway akzeptiert nur Loopback auf diesem PC.",
+                        "Pour les bus en ligne physiques dans openOMSI, rejoignez la session LAN avec l’adresse locale ci-dessus. La passerelle n’accepte que le loopback sur ce PC."
+                      )}
+                </small>
+                {system.openOmsiLanGateway.lastError && (
+                  <div className="network-message">{system.openOmsiLanGateway.lastError}</div>
+                )}
+              </>
+            )}
+            <div className="plugin-update-actions">
+              <div className="discovery-actions">
+                <button
+                  className="button primary"
+                  disabled={!system.openOmsiLanGateway?.joinTarget || system.openOmsiPlugin.running}
+                  onClick={() => sendCommand("launchOpenOmsiNavBrGateway")}
+                >
+                  {pick(
+                    "Abrir openOMSI conectado ao NavBR",
+                    "Open openOMSI connected to NavBR",
+                    "Abrir openOMSI conectado a NavBR",
+                    "openOMSI mit NavBR verbunden starten",
+                    "Ouvrir openOMSI connecté à NavBR"
+                  )}
+                </button>
+                <button className="button ghost" onClick={() => sendCommand("selectOpenOmsiExecutable")}>
+                  {pick("Selecionar openomsi.exe", "Select openomsi.exe", "Seleccionar openomsi.exe", "openomsi.exe wählen", "Sélectionner openomsi.exe")}
+                </button>
+                <button className="button ghost" disabled={!system.openOmsiPlugin.verificationAvailable} onClick={() => sendCommand("verifyOpenOmsiPlugin")}>
+                  {pick("Verificar", "Verify", "Verificar", "Prüfen", "Vérifier")}
+                </button>
+                <button className="button primary" disabled={!system.openOmsiPlugin.installAvailable} onClick={() => sendCommand("installOpenOmsiPlugin")}>
+                  {system.openOmsiPlugin.state === "ready"
+                    ? pick("Reinstalar", "Reinstall", "Reinstalar", "Neu installieren", "Réinstaller")
+                    : pick("Instalar / atualizar", "Install / update", "Instalar / actualizar", "Installieren / aktualisieren", "Installer / mettre à jour")}
+                </button>
+                <button
+                  className="button ghost danger"
+                  disabled={system.openOmsiPlugin.running || system.openOmsiPlugin.requiredFilesFound === 0}
+                  onClick={() => sendCommand("removeOpenOmsiPlugin")}
+                >
+                  {pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}
+                </button>
+              </div>
+              {system.openOmsiPlugin.installBlockReason === "openomsi-running" && (
+                <small className="plugin-update-hint">
+                  {pick("Feche o openOMSI para instalar, atualizar ou remover a DLL.", "Close openOMSI to install, update, or remove the DLL.", "Cierra openOMSI para instalar, actualizar o eliminar la DLL.", "openOMSI schließen, um die DLL zu installieren, zu aktualisieren oder zu entfernen.", "Fermez openOMSI pour installer, mettre à jour ou supprimer la DLL.")}
+                </small>
+              )}
+            </div>
+          </article>
+
+          <article className="card discovery-card">
+            <div className="section-heading">
+              <div>
                 <span className="eyebrow">MOBILE COMPANION</span>
                 <h3>{pick("Celular como GPS / IBIS", "Phone as GPS / IBIS", "Móvil como GPS / IBIS", "Smartphone als GPS / IBIS", "Téléphone comme GPS / IBIS")}</h3>
               </div>
@@ -3333,7 +3641,12 @@ function Settings({
             <div className="diagnostic-facts">
               <span><small>OMSI</small><strong>{system.sessionHealth.omsiActive ? pick("Ativo", "Active", "Activo", "Aktiv", "Actif") : pick("Aguardando", "Waiting", "Esperando", "Wartet", "En attente")}</strong></span>
               <span><small>MULTIPLAYER</small><strong>{system.sessionHealth.multiplayerConnected ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté") : pick("Desconectado", "Disconnected", "Desconectado", "Getrennt", "Déconnecté")}</strong></span>
-              <span><small>BRIDGE / PLUGIN</small><strong>{system.sessionHealth.pluginConnected ? `${pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")}${system.sessionHealth.pluginVersion ? ` · ${system.sessionHealth.pluginVersion}` : ""}` : pick("Offline opcional", "Optional offline", "Offline opcional", "Optional offline", "Hors ligne optionnel")}</strong></span>
+              <span><small>{system.sessionHealth.pluginRuntime === "openomsi" ? "BRIDGE / OPENOMSI" : "BRIDGE / OMSI 2"}</small><strong>{system.sessionHealth.pluginConnected ? `${pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")}${system.sessionHealth.pluginVersion ? ` · ${system.sessionHealth.pluginVersion}` : ""}` : pick("Offline opcional", "Optional offline", "Offline opcional", "Optional offline", "Hors ligne optionnel")}</strong></span>
+              <span><small>{pick("OTIMIZADOR", "OPTIMIZER", "OPTIMIZADOR", "OPTIMIERER", "OPTIMISEUR")}</small><strong>{system.sessionHealth.pluginPerformance.pressureLevel == null ? "—" : system.sessionHealth.pluginPerformance.pressureLevel === 0 ? pick("Normal", "Normal", "Normal", "Normal", "Normal") : `${pick("Pressão", "Pressure", "Presión", "Druck", "Pression")} ${system.sessionHealth.pluginPerformance.pressureLevel}`}</strong></span>
+              <span><small>{pick("PERFIL", "PROFILE", "PERFIL", "PROFIL", "PROFIL")}</small><strong>{(system.sessionHealth.pluginPerformance.activeProfile || system.sessionHealth.pluginPerformance.configuredProfile).toUpperCase()}</strong></span>
+              <span><small>{pick("TRABALHO PLUGIN", "PLUGIN WORK", "TRABAJO PLUGIN", "PLUGIN-ARBEIT", "TRAVAIL PLUGIN")}</small><strong>{system.sessionHealth.pluginPerformance.averageWorkMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageWorkMilliseconds, 2)} ms`}</strong></span>
+              <span><small>{pick("FRAME MÉDIO", "AVG FRAME", "FRAME MEDIO", "Ø FRAME", "FRAME MOYEN")}</small><strong>{system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds, 1)} ms`}</strong></span>
+              <span><small>{pick("STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS", "STALLS ≥100MS")}</small><strong>{system.sessionHealth.pluginPerformance.frameStallCount ?? "—"}</strong></span>
               <span><small>{pick("MOTORISTAS REMOTOS", "REMOTE DRIVERS", "CONDUCTORES REMOTOS", "REMOTE-FAHRER", "CONDUCTEURS DISTANTS")}</small><strong>{system.sessionHealth.multiplayerConnected ? system.sessionHealth.remoteDrivers : "—"}</strong></span>
               <span><small>{pick("TELEMETRIA REMOTA", "REMOTE TELEMETRY", "TELEMETRÍA REMOTA", "REMOTE-TELEMETRIE", "TÉLÉMÉTRIE DISTANTE")}</small><strong>{system.sessionHealth.remoteTelemetryAgeSeconds == null ? "—" : system.sessionHealth.remoteTelemetryAgeSeconds < 1 ? pick("Agora", "Now", "Ahora", "Jetzt", "Maintenant") : `${format(system.sessionHealth.remoteTelemetryAgeSeconds, 0)} s`}</strong></span>
               <span><small>{pick("LATÊNCIA", "LATENCY", "LATENCIA", "LATENZ", "LATENCE")}</small><strong>{system.sessionHealth.latencyMs == null ? "—" : `${format(system.sessionHealth.latencyMs, 0)} ms`}</strong></span>
@@ -3341,7 +3654,33 @@ function Settings({
               <span><small>{pick("PERDA EST.", "EST. LOSS", "PÉRDIDA EST.", "GESCH. VERLUST", "PERTE EST.")}</small><strong>{system.sessionHealth.lossPercent == null ? "—" : `${format(system.sessionHealth.lossPercent, 1)}%`}</strong></span>
               <span><small>{pick("TAXA DE TELEMETRIA", "TELEMETRY RATE", "TASA DE TELEMETRÍA", "TELEMETRIE-RATE", "TAUX TÉLÉMÉTRIE")}</small><strong>{system.sessionHealth.telemetryRateHz == null ? "—" : `~${format(system.sessionHealth.telemetryRateHz, 1)} Hz`}</strong></span>
             </div>
-            <p>{pick("Os valores de rede vêm de sondas reais ao mesmo peer-host NavBR. A frequência de telemetria se adapta automaticamente à qualidade da conexão.", "Network values come from real probes to the same NavBR peer-host. Telemetry frequency adapts automatically to connection quality.", "Los valores de red vienen de sondas reales al mismo peer-host NavBR. La frecuencia de telemetría se adapta automáticamente.", "Netzwerkwerte stammen aus echten Messungen zum selben NavBR-Peer-Host. Die Telemetrierate passt sich automatisch an.", "Les valeurs réseau viennent de sondes réelles vers le même peer-host NavBR. La fréquence de télémétrie s’adapte automatiquement.")}</p>
+            <div className="room-actions">
+              {(["auto", "stability", "multiplayer", "quality", "diagnostics"] as const).map(profile => (
+                <button
+                  key={profile}
+                  className={`button ${system.sessionHealth.pluginPerformance.configuredProfile === profile ? "primary" : "ghost"} compact`}
+                  onClick={() => sendCommand("setPerformanceProfile", { profile })}
+                >
+                  {profile === "auto" ? pick("Automático", "Automatic", "Automático", "Automatisch", "Automatique") :
+                   profile === "stability" ? pick("Estabilidade", "Stability", "Estabilidad", "Stabilität", "Stabilité") :
+                   profile === "multiplayer" ? "Multiplayer" :
+                   profile === "quality" ? pick("Qualidade", "Quality", "Calidad", "Qualität", "Qualité") :
+                   pick("Diagnóstico", "Diagnostics", "Diagnóstico", "Diagnose", "Diagnostic")}
+                </button>
+              ))}
+            </div>
+            {system.sessionHealth.pluginPerformance.queueBackpressureActive && (
+              <div className="network-message">
+                {pick(
+                  "O otimizador reduziu temporariamente a carga do NavBR para proteger o frame time do OMSI.",
+                  "The optimizer temporarily reduced NavBR workload to protect OMSI frame time.",
+                  "El optimizador redujo temporalmente la carga de NavBR para proteger el tiempo de frame de OMSI.",
+                  "Der Optimierer hat die NavBR-Last vorübergehend reduziert, um die OMSI-Framezeit zu schützen.",
+                  "L’optimiseur a temporairement réduit la charge NavBR afin de protéger le temps de trame d’OMSI."
+                )}
+              </div>
+            )}
+            <p>{pick("Os valores de rede vêm de sondas reais ao mesmo peer-host NavBR. O otimizador também reduz automaticamente o trabalho do plugin quando o OMSI entra sob pressão.", "Network values come from real probes to the same NavBR peer-host. The optimizer also automatically reduces plugin work when OMSI comes under pressure.", "Los valores de red vienen de sondas reales al mismo peer-host NavBR. El optimizador también reduce automáticamente el trabajo del plugin cuando OMSI está bajo presión.", "Netzwerkwerte stammen aus echten Messungen zum selben NavBR-Peer-Host. Der Optimierer reduziert außerdem automatisch die Plugin-Arbeit, wenn OMSI unter Druck gerät.", "Les valeurs réseau viennent de sondes réelles vers le même peer-host NavBR. L’optimiseur réduit aussi automatiquement le travail du plugin lorsqu’OMSI est sous pression.")}</p>
           </article>
           <article className="card diagnostics-log-card">
             <span className="eyebrow">{pick("LOG LOCAL", "LOCAL LOG", "LOG LOCAL", "LOKALES LOG", "JOURNAL LOCAL")}</span>
@@ -4669,6 +5008,11 @@ function Multiplayer({
                   <span className={`avatar-dot ${player.roleplayActive ? "rp" : ""}`}>{player.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="player-main">
                     <strong>{player.displayName}{player.isLocal ? ` · ${pick("Você", "You", "Tú", "Du", "Vous")}` : ""}</strong>
+                    {validCompanyBadge(player.companyBadge) && (
+                      <small className="company-badge-inline">
+                        {player.companyBadge?.companyShortName || player.companyBadge?.companyName} · {pick("Crachá", "Badge", "Credencial", "Ausweis", "Badge")} {player.companyBadge?.employeeNumber} · {companyRoleLabel(player.companyBadge?.role || "", pick)}
+                      </small>
+                    )}
                     <small>
                       {[player.line, player.route, player.mapName]
                         .filter(Boolean)
@@ -4688,7 +5032,9 @@ function Multiplayer({
                     {!player.isLocal &&
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleErrorMessage &&
-                      player.physicalVehicleState !== "active" && (
+                      player.physicalVehicleState !== "active" &&
+                      player.physicalVehicleState !== "active-openomsi" &&
+                       player.physicalVehicleState !== "active-openomsi-drawn" && (
                         <small className="physical-error-detail">
                           {player.physicalVehicleErrorMessage}
                         </small>
@@ -4696,6 +5042,8 @@ function Multiplayer({
                     {!player.isLocal &&
                       multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleState !== "active" &&
+                      player.physicalVehicleState !== "active-openomsi" &&
+                       player.physicalVehicleState !== "active-openomsi-drawn" &&
                       (player.physicalTelemetryGridX != null ||
                        player.physicalTelemetryGridY != null ||
                        player.physicalTelemetryNavigationGridX != null ||

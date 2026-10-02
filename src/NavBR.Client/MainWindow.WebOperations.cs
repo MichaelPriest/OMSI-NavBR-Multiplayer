@@ -1,6 +1,9 @@
+using System.Windows;
 using Microsoft.Win32;
 using NavBR.Client.Driver;
+using NavBR.Client.Network;
 using NavBR.Client.Operations;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client;
 
@@ -17,6 +20,17 @@ public partial class MainWindow
         var company = VirtualCompanyStore.Load();
         var profile = DriverProfileStore.Load();
         var tripHistory = DriverTripHistoryStore.Load();
+        var companyBadge = Application.Current is App app
+            ? app.NetworkRuntime.CurrentBadge
+            : null;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var operatorMember = onlineCompany?.Members.FirstOrDefault(member =>
+            companyBadge is not null &&
+            string.Equals(member.PlayerId, companyBadge.PlayerId, StringComparison.OrdinalIgnoreCase));
+        var operatorBadgeVerified = CompanyEmployeeBadgeFactory.MatchesMember(
+            companyBadge,
+            onlineCompany,
+            operatorMember);
         var now = DateTimeOffset.UtcNow;
 
         return new
@@ -25,6 +39,8 @@ public partial class MainWindow
             roomId = session.RoomId,
             updatedAtUtc = session.UpdatedAt,
             canManageReports = DispatcherOperationalFeed.CanManageReports,
+            operatorBadge = BuildWebCompanyBadge(companyBadge),
+            operatorBadgeVerified,
             localOperation = telemetry is null
                 ? null
                 : new
@@ -47,6 +63,14 @@ public partial class MainWindow
                 .Select(driver =>
                 {
                     var latestReport = DispatcherOperationalFeed.LatestForPlayer(driver.PlayerId);
+                    var remoteMember = onlineCompany?.Members.FirstOrDefault(member =>
+                        driver.CompanyBadge is not null &&
+                        string.Equals(member.PlayerId, driver.CompanyBadge.PlayerId, StringComparison.OrdinalIgnoreCase));
+                    var badgeVerified = CompanyEmployeeBadgeFactory.MatchesMember(
+                        driver.CompanyBadge,
+                        onlineCompany,
+                        remoteMember);
+
                     return new
                     {
                         playerId = driver.PlayerId,
@@ -63,6 +87,8 @@ public partial class MainWindow
                         headingDegrees = driver.HeadingDegrees,
                         receivedAtUtc = driver.ReceivedAtUtc,
                         stale = now - driver.ReceivedAtUtc > TimeSpan.FromSeconds(10d),
+                        companyBadge = BuildWebCompanyBadge(driver.CompanyBadge),
+                        companyBadgeVerified = badgeVerified,
                         latestReport = latestReport is null
                             ? null
                             : new
@@ -110,6 +136,58 @@ public partial class MainWindow
                     })
                     .ToArray()
             },
+            profile = new
+            {
+                displayName = profile.DisplayName,
+                companyName = profile.CompanyName,
+                totalDrivingSeconds = profile.TotalDrivingSeconds,
+                totalDistanceKm = profile.TotalDistanceKm,
+                trips = profile.Trips,
+                highestSpeedKph = profile.HighestSpeedKph,
+                averageMovingSpeedKph = profile.AverageMovingSpeedKph,
+                lastMap = profile.LastMap,
+                lastLine = profile.LastLine,
+                lastRoute = profile.LastRoute,
+                lastDrivenAt = profile.LastDrivenAt
+            },
+            tripHistory = tripHistory
+                .Select(trip => new
+                {
+                    startedAtUtc = trip.StartedAtUtc,
+                    endedAtUtc = trip.EndedAtUtc,
+                    drivingSeconds = trip.DrivingSeconds,
+                    distanceKm = trip.DistanceKm,
+                    highestSpeedKph = trip.HighestSpeedKph,
+                    mapName = trip.MapName,
+                    line = trip.Line,
+                    route = trip.Route,
+                    vehicleName = trip.VehicleName
+                })
+                .ToArray(),
+            profileTransfer = new
+            {
+                notice = _webDriverProfileTransferNotice,
+                pending = _webPendingDriverProfileImport is null
+                    ? null
+                    : new
+                    {
+                        displayName = _webPendingDriverProfileImport.Profile.DisplayName,
+                        companyName = _webPendingDriverProfileImport.Profile.CompanyName,
+                        includesTripHistory = _webPendingDriverProfileImport.IncludesTripHistory,
+                        tripCount = _webPendingDriverProfileImport.TripHistory?.Count ?? 0,
+                        sourceVersion = _webPendingDriverProfileImport.SourceVersion
+                    }
+            }
+        };
+    }
+
+    private object BuildWebDriverState()
+    {
+        var profile = DriverProfileStore.Load();
+        var tripHistory = DriverTripHistoryStore.Load();
+
+        return new
+        {
             profile = new
             {
                 displayName = profile.DisplayName,

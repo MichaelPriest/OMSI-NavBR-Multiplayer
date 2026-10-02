@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using NavBR.Client.Localization;
 using NavBR.Client.Operations;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -101,7 +102,19 @@ public partial class MultiplayerWindow
 
         _client.OperationalReportChanged += OperationsClient_ReportChanged;
         DispatcherOperationalFeed.ConfigureActions(
-            () => _client.IsTrafficAuthority,
+            () =>
+            {
+                if (!_client.IsTrafficAuthority)
+                {
+                    return false;
+                }
+
+                var badge = Application.Current is App app
+                    ? app.NetworkRuntime.CurrentBadge
+                    : null;
+                return badge is null ||
+                       (badge.Permissions & CompanyPermission.UseDispatcher) != 0;
+            },
             reportId => _client.AcknowledgeOperationalReportAsync(reportId),
             reportId => _client.ResolveOperationalReportAsync(reportId));
 
@@ -142,6 +155,28 @@ public partial class MultiplayerWindow
 
     internal Task ResolveOwnOperationalReportsFromWebAsync() =>
         ResolveMyOperationalReportsAsync();
+
+    internal OperationalReport? CurrentOwnOperationalReportForShell =>
+        _client.CurrentOperationalReports
+            .Where(report => string.Equals(
+                report.PlayerId,
+                _settings.PlayerId,
+                StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(report =>
+                report.Status != OperationalReportStatus.Resolved)
+            .ThenByDescending(report => report.UpdatedAtUtc)
+            .FirstOrDefault();
+
+    internal IReadOnlyList<OperationalReport> CurrentOperationalReportsForShell =>
+        _client.CurrentOperationalReports;
+
+    internal Task<OperationalReport> AcknowledgeOperationalReportFromShellAsync(
+        string reportId) =>
+        _client.AcknowledgeOperationalReportAsync(reportId);
+
+    internal Task<OperationalReport> ResolveOperationalReportFromShellAsync(
+        string reportId) =>
+        _client.ResolveOperationalReportAsync(reportId);
 
     private async Task SubmitQuickOperationalReportAsync(
         OperationalReportKind kind,

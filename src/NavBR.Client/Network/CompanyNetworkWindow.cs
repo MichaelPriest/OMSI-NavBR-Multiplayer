@@ -279,10 +279,14 @@ internal sealed class CompanyNetworkWindow : Window
 
         var membership = _runtime.Membership;
         var hosted = CompanyNodeStore.LoadCompany();
+        var badge = _runtime.CurrentBadge;
+        var badgeLine = badge is null
+            ? string.Empty
+            : $"\n{T("Crachá", "Badge", "Credencial", "Ausweis", "Badge")}: {badge.CompanyShortName} #{badge.EmployeeNumber}";
         _company.Text = membership is not null
-            ? $"{membership.CompanyName}\n{T("Cargo", "Role", "Cargo", "Rolle", "Rôle")}: {RoleText(membership.Role)}\nID: {membership.CompanyId}"
+            ? $"{membership.CompanyName}\n{T("Cargo", "Role", "Cargo", "Rolle", "Rôle")}: {RoleText(membership.Role)}{badgeLine}\nID: {membership.CompanyId}"
             : hosted is not null
-                ? $"{hosted.Name}\n{T("Cargo", "Role", "Cargo", "Rolle", "Rôle")}: {RoleText(CompanyRole.President)}\nID: {hosted.CompanyId}"
+                ? $"{hosted.Name}\n{T("Cargo", "Role", "Cargo", "Rolle", "Rôle")}: {RoleText(CompanyRole.President)}{badgeLine}\nID: {hosted.CompanyId}"
                 : T("Nenhuma Empresa Online vinculada.", "No Online Company linked.", "Ninguna empresa online vinculada.", "Kein Online-Unternehmen verknüpft.", "Aucune entreprise en ligne associée.");
 
         _startButton.IsEnabled = !_runtime.CompanyNode.IsRunning;

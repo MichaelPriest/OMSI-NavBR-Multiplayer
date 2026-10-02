@@ -1,9 +1,24 @@
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Client.Multiplayer;
 
 public partial class MultiplayerWindow
 {
+    internal object BuildWebBridgeSummaryState() =>
+        new
+        {
+            available = true,
+            connected = _client.IsConnected,
+            connectionState = _client.State.ToString(),
+            serverUrl = _settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = _settings.RelayServerUrl,
+            roomId = _settings.RoomId,
+            displayName = _settings.DisplayName,
+            playerCount = _players.Count
+        };
+
     internal object BuildWebBridgeState()
     {
         var now = DateTimeOffset.UtcNow;
@@ -58,6 +73,7 @@ public partial class MultiplayerWindow
                     displayName = player.DisplayName,
                     roomId = player.RoomId,
                     mapName = player.MapName,
+                    companyBadge = BuildWebCompanyBadge(player.CompanyBadge),
                     voiceEnabled = player.VoiceEnabled,
                     latencyMs = player.LatencyMs,
                     roleplayActive = roleplay,
@@ -167,6 +183,8 @@ public partial class MultiplayerWindow
             connected = _client.IsConnected,
             connectionState = _client.State.ToString(),
             serverUrl = _settings.ServerUrl,
+            defaultOnlineServerUrl = MultiplayerSettings.DefaultOnlineServerUrl,
+            relayServerUrl = _settings.RelayServerUrl,
             roomId = _settings.RoomId,
             displayName = _settings.DisplayName,
             hostRunning = _host.IsRunning,
@@ -208,7 +226,6 @@ public partial class MultiplayerWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
-            relayServerUrl = _settings.RelayServerUrl,
             physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             networkQuality = new
@@ -784,6 +801,23 @@ public partial class MultiplayerWindow
             affectedAreas
         };
     }
+
+    private static object? BuildWebCompanyBadge(CompanyEmployeeBadge? badge) =>
+        badge is null
+            ? null
+            : new
+            {
+                companyId = badge.CompanyId,
+                companyName = badge.CompanyName,
+                companyShortName = badge.CompanyShortName,
+                playerId = badge.PlayerId,
+                displayName = badge.DisplayName,
+                employeeNumber = badge.EmployeeNumber,
+                role = badge.Role.ToString(),
+                permissions = badge.Permissions.ToString(),
+                issuedAtUtc = badge.IssuedAtUtc,
+                updatedAtUtc = badge.UpdatedAtUtc
+            };
 
     private sealed record WebSessionPoint(
         string PlayerId,

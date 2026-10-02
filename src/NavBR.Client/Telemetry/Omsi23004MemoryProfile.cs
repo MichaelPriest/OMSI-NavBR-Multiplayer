@@ -58,6 +58,8 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleVelocityOffset = 0x174;
     public const int VehicleTurnVelocityOffset = 0x1C0;
     public const int VehicleLocalVelocityOffset = 0x1CC;
+    // OmsiRoadVehicleInst.Acc_Local, confirmed against OmsiHook.
+    public const int VehicleAccelerationLocalOffset = 0x72D;
 
     public const int MovingVehicleIndexOffset = 0x258;
     public const int MovingVehicleUserTrainOffset = 0x26C;
@@ -75,6 +77,10 @@ internal static class Omsi23004MemoryProfile
     public const int VehicleFileObjectOffset = 0x1E8;
     public const int FileObjectPathOffset = 0x018;
     public const int RoadVehicleDefinitionOffset = 0x710;
+    // OmsiRoadVehicle inherits OmsiPhysObj.FileName at +0x004. Reading this
+    // directly is more reliable for player buses than depending on
+    // OmsiComplMapObjInst.MyFileObject.Obj being populated.
+    public const int RoadVehicleFileNameOffset = 0x004;
     public const int RoadVehicleFriendlyNameOffset = 0x19C;
     public const int RoadVehicleMyPathOffset = 0x1A8;
 
@@ -101,6 +107,10 @@ internal static class Omsi23004MemoryProfile
 
     // OmsiRoadVehicleInst runtime state.
     public const int VehicleCurrentStationOffset = 0x7A0;
+    // OmsiRoadVehicleInst.ScriptParent, published by OmsiHook. This is used
+    // read-only to identify articulated child sections belonging to the
+    // player's exact RoadVehicle; NavBR never writes coupling fields.
+    public const int VehicleScriptParentOffset = 0x8C0;
     public const int VehicleFuelPercentOffset = 0x7CC;
 
     // TTimeTableMan dynamic arrays and TTTTrip layout.

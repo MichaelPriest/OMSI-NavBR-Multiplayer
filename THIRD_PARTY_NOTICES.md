@@ -39,6 +39,14 @@ OMSI NavBR Multiplayer usa bibliotecas de terceiros distribuídas sob licenças 
 
 O aplicativo também é construído sobre .NET e WPF. As distribuições self-contained incluem componentes do runtime e seus próprios avisos de terceiros gerados pela cadeia oficial do .NET. O projeto NavBR não altera os termos desses componentes.
 
+## openOMSI / omsi-net
+
+- Projeto: `turbo-devv/openOMSI`
+- Licença: MIT
+- Uso no NavBR: interoperabilidade com o protocolo LAN público v6, formato binário `STATE`, mensagens `HELLO/WELCOME/INFO/CLOCK` e referência das APIs públicas de plugin/Lua.
+- O NavBR mantém implementação C# própria do codec/gateway; não incorpora binários Rust do openOMSI e não lê memória interna do processo.
+- Texto da licença: `licenses/openOMSI-LICENSE.txt`
+
 ## OMSI e marcas de terceiros
 
 OMSI, Aerosoft, M-R-Software, Steam, Valve, Grand Theft Auto, GTA, Rockstar Games e outras marcas citadas pertencem aos respectivos titulares. O OMSI NavBR Multiplayer é um projeto independente e não incorpora assets proprietários dessas marcas.

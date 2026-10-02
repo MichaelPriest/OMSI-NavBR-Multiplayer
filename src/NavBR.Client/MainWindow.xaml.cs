@@ -9,6 +9,7 @@ using NavBR.Client.Driver;
 using NavBR.Client.Omsi;
 using NavBR.Client.Hardware;
 using NavBR.Client.Telemetry;
+using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 
 namespace NavBR.Client;
@@ -43,16 +44,27 @@ public partial class MainWindow : Window
     private string _statusKey = "StatusSearching";
     private string _telemetryStatusKey = "TelemetryWaiting";
     private bool _nativeRuntimeStarted;
+    private readonly bool _nativeHostMode;
+    private int _telemetryPollIntervalMs = 200;
+    private double _lastTelemetryPollMilliseconds;
+    private double _averageTelemetryPollMilliseconds;
 
     public MainWindow()
+        : this(nativeHostMode: false)
     {
+    }
+
+    internal MainWindow(bool nativeHostMode)
+    {
+        _nativeHostMode = nativeHostMode;
         InitializeComponent();
 
         _telemetryTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(200)
+            Interval = TimeSpan.FromMilliseconds(_telemetryPollIntervalMs)
         };
         _telemetryTimer.Tick += (_, _) => PollTelemetry();
+        InitializeOpenOmsiRuntimeBridge();
 
         // Driver statistics are a native background service, not a WPF-screen
         // concern. Start them directly so the retired profile installer no
@@ -60,12 +72,16 @@ public partial class MainWindow : Window
         _driverStatisticsService = new DriverStatisticsService(() => _lastTelemetry);
         _driverStatisticsService.Start();
 
+        // A few legacy controller paths still read localized control state
+        // even when the window is hidden. Keep this one-time initialization;
+        // continuous retired WPF rendering remains disabled.
         ConfigureLanguageSelector();
         ApplyLocalization();
         RenderCurrentState();
 
         Closed += (_, _) =>
         {
+            DisposeOpenOmsiRuntimeBridge();
             _driverStatisticsService.Dispose();
             HardwareCockpitBridgeController.Shared.Dispose();
             _telemetryProvider.Dispose();
@@ -167,14 +183,27 @@ public partial class MainWindow : Window
 
         _nativeRuntimeStarted = true;
 
-        // The historical WPF MainWindow is an invisible service host in the
-        // React shell. Its Loaded events therefore never fire reliably, so the
-        // base HUD must be started explicitly with the native runtime instead
-        // of depending on MultiplayerButton_Loaded.
+        // The historical WPF MainWindow is an invisible service host. Keep
+        // service startup independent from the overlay: in WinUI/native-host
+        // mode the IPC bridge must become responsive before any WPF HUD work.
         HookHudLifetimeToMainWindow();
-        EnsureHudOverlay();
-
         _ = RefreshOmsiStatusAsync();
+
+        if (_nativeHostMode)
+        {
+            _ = Dispatcher.BeginInvoke(
+                DispatcherPriority.ApplicationIdle,
+                new Action(() =>
+                {
+                    if (_nativeRuntimeStarted)
+                    {
+                        EnsureHudOverlay();
+                    }
+                }));
+            return;
+        }
+
+        EnsureHudOverlay();
     }
 
     private async Task RefreshOmsiStatusAsync()
@@ -183,6 +212,7 @@ public partial class MainWindow : Window
         _telemetryProvider.Dispose();
         _lastTelemetry = null;
         _currentOmsi = null;
+        _openOmsiProcessId = null;
         _installedMaps = Array.Empty<OmsiMapInfo>();
         ClearRoadmap();
 
@@ -193,6 +223,12 @@ public partial class MainWindow : Window
         var instances = _detector.FindRunningInstances();
         if (instances.Count == 0)
         {
+            if (TryStartOpenOmsiRuntimeMonitoring())
+            {
+                RenderCurrentState();
+                return;
+            }
+
             _statusKey = "OmsiNotRunning";
             _telemetryStatusKey = "TelemetryWaiting";
             RenderCurrentState();
@@ -233,19 +269,32 @@ public partial class MainWindow : Window
     {
         if (!_telemetryProvider.IsAttached)
         {
-            _telemetryTimer.Stop();
+            PollOpenOmsiTelemetry();
             return;
         }
 
+        var telemetryReadStart =
+            System.Diagnostics.Stopwatch.GetTimestamp();
         var telemetry = _telemetryProvider.Read("local");
+        var telemetryReadTicks =
+            System.Diagnostics.Stopwatch.GetTimestamp() -
+            telemetryReadStart;
+        if (telemetryReadTicks >= 0)
+        {
+            _lastTelemetryPollMilliseconds =
+                telemetryReadTicks * 1000d /
+                System.Diagnostics.Stopwatch.Frequency;
+            _averageTelemetryPollMilliseconds =
+                _averageTelemetryPollMilliseconds <= 0d
+                    ? _lastTelemetryPollMilliseconds
+                    : _averageTelemetryPollMilliseconds +
+                      ((_lastTelemetryPollMilliseconds -
+                        _averageTelemetryPollMilliseconds) * 0.12d);
+        }
+
         if (telemetry is not null)
         {
-            _lastTelemetry = telemetry;
-            HardwareCockpitBridgeController.Shared.PublishTelemetry(GetCurrentTelemetryForAlpha11());
-            _statusKey = "TelemetryConnected";
-            _telemetryStatusKey = telemetry.IsInGame
-                ? "TelemetryConnected"
-                : "TelemetryReadError";
+            ApplyLocalTelemetrySnapshot(telemetry);
         }
         else
         {
@@ -259,7 +308,86 @@ public partial class MainWindow : Window
             }
         }
 
+        UpdateTelemetryPollingCadence(telemetry);
         RenderCurrentState();
+    }
+
+    private void UpdateTelemetryPollingCadence(VehicleTelemetry? telemetry)
+    {
+        var status = (System.Windows.Application.Current as App)?
+            .PluginBridge
+            .GetConnectionInfo()
+            .LastStatus;
+
+        var profile = status?.PerformanceProfile;
+        var pressure = status?.PluginPressureLevel ?? 0;
+        var physicalRealtime =
+            ExperimentalFeatureFlags.PhysicalVehiclesEnabled &&
+            _multiplayerWindow?.IsConnected == true;
+
+        var intervalMs = ComputeAdaptiveRuntimeIntervalMs(
+            profile,
+            pressure,
+            telemetry?.IsInGame == true,
+            qualityMs: physicalRealtime ? 50 : 125,
+            multiplayerMs: physicalRealtime ? 50 : 150,
+            stabilityMs: physicalRealtime ? 50 : 300,
+            diagnosticsMs: physicalRealtime ? 50 : 250,
+            automaticMs: physicalRealtime ? 50 : 200);
+
+        // External-memory telemetry must never occupy most of the dispatcher
+        // cadence. Keep at least ~2.5x the measured average read cost so a
+        // heavy map/vehicle cannot turn higher multiplayer fidelity into UI or
+        // OMSI contention.
+        if (_averageTelemetryPollMilliseconds > 0d)
+        {
+            var readCostFloorMs = Math.Clamp(
+                (int)Math.Ceiling(
+                    _averageTelemetryPollMilliseconds * 2.5d),
+                50,
+                500);
+            intervalMs = Math.Max(intervalMs, readCostFloorMs);
+        }
+
+        if (_telemetryPollIntervalMs == intervalMs)
+        {
+            return;
+        }
+
+        _telemetryPollIntervalMs = intervalMs;
+        _telemetryTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+    }
+
+    private static int ComputeAdaptiveRuntimeIntervalMs(
+        string? profile,
+        int pressure,
+        bool inGame,
+        int qualityMs,
+        int multiplayerMs,
+        int stabilityMs,
+        int diagnosticsMs,
+        int automaticMs)
+    {
+        var intervalMs = profile?.Trim().ToLowerInvariant() switch
+        {
+            "quality" => qualityMs,
+            "multiplayer" => multiplayerMs,
+            "stability" => stabilityMs,
+            "diagnostics" => diagnosticsMs,
+            _ => automaticMs
+        };
+
+        intervalMs = pressure switch
+        {
+            >= 3 => Math.Max(intervalMs, 500),
+            2 => Math.Max(intervalMs, 350),
+            1 => Math.Max(intervalMs, 250),
+            _ => intervalMs
+        };
+
+        return inGame
+            ? intervalMs
+            : Math.Max(intervalMs, 500);
     }
 
     private void RenderCurrentState()

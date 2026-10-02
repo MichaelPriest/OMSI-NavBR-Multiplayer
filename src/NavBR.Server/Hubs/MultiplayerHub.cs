@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using NavBR.Server.Multiplayer;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
+using NavBR.Shared.Network;
 
 namespace NavBR.Server.Hubs;
 
@@ -25,6 +26,10 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
     private const int MaxCapabilityLength = 64;
     private const int MaxTrafficVehicles = 48;
     private const int MaxTrafficIdLength = 128;
+    private const int MaxCompanyIdLength = 96;
+    private const int MaxCompanyNameLength = 96;
+    private const int MaxCompanyShortNameLength = 16;
+    private const int MaxEmployeeNumberLength = 12;
 
     public async Task<RoomSnapshot> JoinRoom(JoinRoomRequest request)
     {
@@ -39,6 +44,10 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             MaxMapCompatibilityIdLength,
             "map compatibility id");
         var compatibility = NormalizeCompatibility(request.Compatibility, mapName, mapCompatibilityId);
+        var companyBadge = NormalizeCompanyBadge(
+            request.CompanyBadge,
+            request.CompanyBadgeProof,
+            playerId);
 
         if (registry.TryGet(Context.ConnectionId, out var previous) && previous is not null)
         {
@@ -55,7 +64,8 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             displayName,
             mapName,
             mapCompatibilityId,
-            compatibility);
+            compatibility,
+            companyBadge);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.OthersInGroup(roomId).SendAsync("playerJoined", presence);
@@ -93,10 +103,26 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
 
         ValidateTelemetry(telemetry);
 
+        var serverReceivedAtUtc = DateTimeOffset.UtcNow;
+        var sourceTimestampMs =
+            telemetry.SourceTimestampUnixMilliseconds ??
+            telemetry.Timestamp.ToUnixTimeMilliseconds();
+        var sourceSkewMs =
+            Math.Abs(
+                (double)sourceTimestampMs -
+                serverReceivedAtUtc.ToUnixTimeMilliseconds());
+        if (!double.IsFinite(sourceSkewMs) ||
+            sourceSkewMs > TimeSpan.FromHours(24).TotalMilliseconds)
+        {
+            sourceTimestampMs =
+                serverReceivedAtUtc.ToUnixTimeMilliseconds();
+        }
+
         var safeTelemetry = telemetry with
         {
             PlayerId = presence.PlayerId,
-            Timestamp = DateTimeOffset.UtcNow,
+            Timestamp = serverReceivedAtUtc,
+            SourceTimestampUnixMilliseconds = sourceTimestampMs,
             MapName = NormalizeOptional(telemetry.MapName, MaxMapNameLength, "map name"),
             MapCompatibilityId = NormalizeOptional(
                 telemetry.MapCompatibilityId,
@@ -122,10 +148,15 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
                 "destination")
         };
 
-        var updatedPresence = registry.UpdateMap(
-            Context.ConnectionId,
-            safeTelemetry.MapName,
-            safeTelemetry.MapCompatibilityId);
+        var updatedPresence =
+            registry.UpdateTelemetryIdentity(
+                Context.ConnectionId,
+                safeTelemetry.MapName,
+                safeTelemetry.MapCompatibilityId,
+                safeTelemetry.VehiclePath,
+                safeTelemetry.VehicleCompatibilityId,
+                safeTelemetry.HofName,
+                safeTelemetry.HofCompatibilityId);
         var currentPresence = updatedPresence ?? presence;
 
         if (updatedPresence is not null)
@@ -403,6 +434,96 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         return normalized;
     }
 
+    private static CompanyEmployeeBadge? NormalizeCompanyBadge(
+        CompanyEmployeeBadge? badge,
+        CompanyBadgePresenceProof? proof,
+        string sessionPlayerId)
+    {
+        if (badge is null)
+        {
+            if (proof is not null)
+            {
+                throw new HubException("Company badge proof has no badge.");
+            }
+
+            return null;
+        }
+
+        if (proof is null)
+        {
+            throw new HubException("Company badge requires identity proof.");
+        }
+
+        var companyId = NormalizeRequired(
+            badge.CompanyId,
+            MaxCompanyIdLength,
+            "company id");
+        var companyName = NormalizeRequired(
+            badge.CompanyName,
+            MaxCompanyNameLength,
+            "company name");
+        var companyShortName = NormalizeRequired(
+            badge.CompanyShortName,
+            MaxCompanyShortNameLength,
+            "company short name");
+        var employeeNumber = NormalizeRequired(
+            badge.EmployeeNumber,
+            MaxEmployeeNumberLength,
+            "employee number");
+        var badgePlayerId = NormalizeRequired(
+            badge.PlayerId,
+            64,
+            "company badge player id");
+        var badgeDisplayName = NormalizeRequired(
+            badge.DisplayName,
+            64,
+            "company badge display name");
+
+        if (!Enum.IsDefined(typeof(CompanyRole), badge.Role) ||
+            (badge.Permissions & ~CompanyPermission.All) != 0)
+        {
+            throw new HubException("Invalid company badge role or permissions.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset proofTime;
+        try
+        {
+            proofTime = DateTimeOffset.FromUnixTimeMilliseconds(
+                proof.TimestampUnixMilliseconds);
+        }
+        catch
+        {
+            throw new HubException("Invalid company badge proof timestamp.");
+        }
+
+        if (Math.Abs((now - proofTime).TotalMinutes) > 5d ||
+            badge.IssuedAtUtc > now + TimeSpan.FromMinutes(5d))
+        {
+            throw new HubException("Expired or invalid company badge proof.");
+        }
+
+        var normalized = badge with
+        {
+            CompanyId = companyId,
+            CompanyName = companyName,
+            CompanyShortName = companyShortName,
+            PlayerId = badgePlayerId,
+            DisplayName = badgeDisplayName,
+            EmployeeNumber = employeeNumber
+        };
+
+        if (!CompanyBadgePresenceSignatures.Verify(
+                sessionPlayerId,
+                normalized,
+                proof))
+        {
+            throw new HubException("Invalid company badge identity proof.");
+        }
+
+        return normalized;
+    }
+
     private static string NormalizeVoiceChannel(string? value)
     {
         var normalized = (value ?? "general").Trim().ToLowerInvariant();
@@ -494,6 +615,19 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         ValidateOptionalFinite(telemetry.RotationY, "rotation Y");
         ValidateOptionalFinite(telemetry.RotationZ, "rotation Z");
         ValidateOptionalFinite(telemetry.RotationW, "rotation W");
+        ValidateOptionalVector(
+            telemetry.VelocityX,
+            telemetry.VelocityY,
+            telemetry.VelocityZ,
+            150d,
+            "physical velocity");
+        ValidateOptionalVector(
+            telemetry.AccelerationLocalX,
+            telemetry.AccelerationLocalY,
+            telemetry.AccelerationLocalZ,
+            100d,
+            "local physical acceleration");
+        ValidateRearSections(telemetry.RearSections);
 
         if (telemetry.FuelPercent is < 0 or > 100 ||
             telemetry.ThrottlePercent is < 0 or > 100 ||
@@ -513,6 +647,22 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
              Math.Abs((long)gridY) > 100_000L))
         {
             throw new HubException("Telemetry contains invalid OMSI grid coordinates.");
+        }
+
+        if ((telemetry.PhysicalGridX is null) !=
+            (telemetry.PhysicalGridY is null))
+        {
+            throw new HubException(
+                "Telemetry physical OMSI grid must include both coordinates.");
+        }
+
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            (Math.Abs((long)physicalGridX) > 100_000L ||
+             Math.Abs((long)physicalGridY) > 100_000L))
+        {
+            throw new HubException(
+                "Telemetry contains invalid physical OMSI grid coordinates.");
         }
 
         if (telemetry.MapTileIndex is int mapTileIndex &&
@@ -537,11 +687,94 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
         _ = NormalizeOptional(telemetry.DestinationName, MaxDestinationLength, "destination");
     }
 
+    private static void ValidateRearSections(
+        VehicleSectionPose[]? sections)
+    {
+        if (sections is null)
+        {
+            return;
+        }
+
+        if (sections.Length > 3)
+        {
+            throw new HubException(
+                "Telemetry contains too many articulated vehicle sections.");
+        }
+
+        foreach (var section in sections)
+        {
+            if (!double.IsFinite(section.LocalX) ||
+                !double.IsFinite(section.LocalY) ||
+                !double.IsFinite(section.LocalZ) ||
+                !double.IsFinite(section.RotationX) ||
+                !double.IsFinite(section.RotationY) ||
+                !double.IsFinite(section.RotationZ) ||
+                !double.IsFinite(section.RotationW) ||
+                Math.Abs(section.LocalX) > 100_000d ||
+                Math.Abs(section.LocalY) > 100_000d ||
+                Math.Abs(section.LocalZ) > 100_000d ||
+                Math.Abs((long)section.GridX) > 100_000L ||
+                Math.Abs((long)section.GridY) > 100_000L ||
+                section.MapTileIndex is < 0 or > 200_000)
+            {
+                throw new HubException(
+                    "Telemetry contains an invalid articulated vehicle section.");
+            }
+
+            var quaternionLengthSquared =
+                section.RotationX * section.RotationX +
+                section.RotationY * section.RotationY +
+                section.RotationZ * section.RotationZ +
+                section.RotationW * section.RotationW;
+            if (!double.IsFinite(quaternionLengthSquared) ||
+                quaternionLengthSquared < 0.00000001d)
+            {
+                throw new HubException(
+                    "Telemetry contains an invalid articulated section rotation.");
+            }
+        }
+    }
+
     private static void ValidateOptionalFinite(double? value, string fieldName)
     {
         if (value is double number && !double.IsFinite(number))
         {
             throw new HubException($"Telemetry contains invalid {fieldName}.");
+        }
+    }
+
+    private static void ValidateOptionalVector(
+        double? x,
+        double? y,
+        double? z,
+        double maximumMagnitude,
+        string fieldName)
+    {
+        if (x is null && y is null && z is null)
+        {
+            return;
+        }
+
+        if (x is not double valueX ||
+            y is not double valueY ||
+            z is not double valueZ ||
+            !double.IsFinite(valueX) ||
+            !double.IsFinite(valueY) ||
+            !double.IsFinite(valueZ))
+        {
+            throw new HubException(
+                $"Telemetry contains incomplete or invalid {fieldName}.");
+        }
+
+        var magnitudeSquared =
+            valueX * valueX +
+            valueY * valueY +
+            valueZ * valueZ;
+        if (!double.IsFinite(magnitudeSquared) ||
+            magnitudeSquared > maximumMagnitude * maximumMagnitude)
+        {
+            throw new HubException(
+                $"Telemetry contains out-of-range {fieldName}.");
         }
     }
 }

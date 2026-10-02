@@ -324,13 +324,22 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock x:Name="HudShortcutsText"
-                               Grid.Column="4"
-                               Margin="10,0,0,0"
-                               VerticalAlignment="Center"
-                               Text="F9 chat • F10 PTT"
-                               Foreground="#AFFFFFFF"
-                               FontSize="10" />
+                    <StackPanel Grid.Column="4"
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center">
+                        <TextBlock x:Name="RuntimeMetricsText"
+                                   Text="FPS — • NET —"
+                                   HorizontalAlignment="Right"
+                                   Foreground="#EFFFFFFF"
+                                   FontSize="9"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="HudShortcutsText"
+                                   Margin="0,2,0,0"
+                                   Text="F9 chat • F10 PTT"
+                                   HorizontalAlignment="Right"
+                                   Foreground="#AFFFFFFF"
+                                   FontSize="9" />
+                    </StackPanel>
                 </Grid>
             </Border>
 

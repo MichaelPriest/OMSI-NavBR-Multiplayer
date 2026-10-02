@@ -5,56 +5,68 @@ namespace NavBR.OmsiPluginExperimental;
 /// <summary>
 /// Handoff between the named-pipe worker and OMSI's plugin callback thread.
 /// Raw simulator calls must never execute directly on the bridge worker.
+///
+/// Superseding movement state is kept separately from event/lifecycle commands.
+/// This avoids rebuilding and allocating the whole queue for every network pose
+/// update while OMSI is rendering.
 /// </summary>
 internal static class OmsiThreadCommandQueue
 {
     private const int MaxPendingCommands = 64;
-    private static readonly object Sync = new();
-    private static readonly Queue<PluginBridgeMessage> Pending = new();
 
-    public static int Count
-    {
-        get
-        {
-            lock (Sync)
-            {
-                return Pending.Count;
-            }
-        }
-    }
+    private static readonly object Sync = new();
+    private static readonly Queue<PluginBridgeMessage> Lifecycle = new();
+    private static readonly Queue<PluginBridgeMessage> Commands = new();
+    private static readonly Queue<UpdateKey> UpdateOrder = new();
+    private static readonly Dictionary<UpdateKey, PluginBridgeMessage> LatestUpdates =
+        new(UpdateKeyComparer.Instance);
+    private static int _publishedCount;
+
+    public static int Count => Volatile.Read(ref _publishedCount);
 
     public static bool TryEnqueue(PluginBridgeMessage command)
     {
         lock (Sync)
         {
-            // Network movement updates are superseding state, not an event
-            // stream. Keep only the newest queued update for each physical
-            // instance so a temporary FPS/network stall cannot make OMSI
-            // replay seconds of stale positions.
+            // Network movement is state, not an event stream. Replacing the
+            // latest state for the same target prevents backlog replay and now
+            // does so without Queue.ToArray()/List allocations.
             if (IsLightweightUpdate(command.Type) &&
                 TryGetTargetId(command, out var targetId))
             {
-                var existing = Pending.ToArray();
-                Pending.Clear();
-                foreach (var candidate in existing)
+                var key = BuildUpdateKey(command.Type, targetId);
+                if (LatestUpdates.ContainsKey(key))
                 {
-                    if (IsLightweightUpdate(candidate.Type) &&
-                        TryGetTargetId(candidate, out var candidateId) &&
-                        string.Equals(candidateId, targetId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    Pending.Enqueue(candidate);
+                    LatestUpdates[key] = command;
+                    return true;
                 }
+
+                if (CountUnsafe() >= MaxPendingCommands)
+                {
+                    return false;
+                }
+
+                LatestUpdates.Add(key, command);
+                UpdateOrder.Enqueue(key);
+                PublishCountUnsafe();
+                return true;
             }
 
-            if (Pending.Count >= MaxPendingCommands)
+            if (CountUnsafe() >= MaxPendingCommands)
             {
                 return false;
             }
 
-            Pending.Enqueue(command);
+            if (IsLifecycleCommand(command.Type))
+            {
+                Lifecycle.Enqueue(command);
+            }
+            else
+            {
+                Commands.Enqueue(command);
+            }
+
+            PublishCountUnsafe();
             return true;
         }
     }
@@ -70,17 +82,17 @@ internal static class OmsiThreadCommandQueue
 
         var processed = 0;
 
-        // Preserve FIFO semantics for one arbitrary command per OMSI frame.
-        // This bounds expensive spawn/acquire work to at most one command.
+        // Exactly one event/lifecycle command is allowed to lead the slice.
+        // Expensive spawn/acquire work therefore stays bounded even if several
+        // requests arrive during a long simulator frame.
         if (TryDequeueFirst(out var first))
         {
             Process(first, resultSink);
             processed++;
         }
 
-        // Movement updates are intentionally lightweight. Consume a few extra
-        // targets in the same frame so rooms with several physical buses do not
-        // become limited to one network update per rendered frame.
+        // Pose updates are cheap and superseding. Process a few fresh targets
+        // after the first command, within the governor's total slice budget.
         while (processed < maxCommands &&
                TryDequeueLightweightUpdate(out var update))
         {
@@ -95,108 +107,83 @@ internal static class OmsiThreadCommandQueue
     {
         lock (Sync)
         {
-            var count = Pending.Count;
-            if (count == 0)
+            if (Lifecycle.TryDequeue(out command!))
             {
-                command = null!;
-                return false;
+                PublishCountUnsafe();
+                return true;
             }
 
-            // Spawn/despawn changes OMSI object ownership and must not sit
-            // behind a burst of position updates. Preserve FIFO order inside
-            // the lifecycle class while prioritising it over superseding
-            // movement messages.
-            PluginBridgeMessage? selected = null;
-            List<PluginBridgeMessage>? deferred = null;
-            for (var index = 0; index < count; index++)
+            if (Commands.TryDequeue(out command!))
             {
-                var candidate = Pending.Dequeue();
-                if (selected is null && IsLifecycleCommand(candidate.Type))
-                {
-                    selected = candidate;
-                    continue;
-                }
-
-                (deferred ??= new List<PluginBridgeMessage>()).Add(candidate);
+                PublishCountUnsafe();
+                return true;
             }
 
-            if (selected is null && deferred is { Count: > 0 })
-            {
-                selected = deferred[0];
-                deferred.RemoveAt(0);
-            }
-
-            if (deferred is not null)
-            {
-                foreach (var candidate in deferred)
-                {
-                    Pending.Enqueue(candidate);
-                }
-            }
-
-            if (selected is null)
-            {
-                command = null!;
-                return false;
-            }
-
-            command = selected;
-            return true;
+            return TryDequeueUpdateUnsafe(out command);
         }
     }
 
     private static bool TryDequeueLightweightUpdate(out PluginBridgeMessage command)
     {
-        command = null!;
         lock (Sync)
         {
-            var count = Pending.Count;
-            if (count == 0)
-            {
-                return false;
-            }
-
-            List<PluginBridgeMessage>? deferred = null;
-            PluginBridgeMessage? selected = null;
-            for (var index = 0; index < count; index++)
-            {
-                var candidate = Pending.Dequeue();
-                if (selected is null && IsLightweightUpdate(candidate.Type))
-                {
-                    selected = candidate;
-                    continue;
-                }
-
-                (deferred ??= new List<PluginBridgeMessage>()).Add(candidate);
-            }
-
-            if (deferred is not null)
-            {
-                foreach (var candidate in deferred)
-                {
-                    Pending.Enqueue(candidate);
-                }
-            }
-
-            if (selected is null)
-            {
-                return false;
-            }
-
-            command = selected;
-            return true;
+            return TryDequeueUpdateUnsafe(out command);
         }
     }
 
+    private static bool TryDequeueUpdateUnsafe(out PluginBridgeMessage command)
+    {
+        while (UpdateOrder.Count > 0)
+        {
+            var key = UpdateOrder.Dequeue();
+            if (!LatestUpdates.Remove(key, out command!))
+            {
+                continue;
+            }
+
+            PublishCountUnsafe();
+            return true;
+        }
+
+        command = null!;
+        return false;
+    }
+
+    private static int CountUnsafe() =>
+        Lifecycle.Count +
+        Commands.Count +
+        LatestUpdates.Count;
+
+    private static void PublishCountUnsafe() =>
+        Volatile.Write(ref _publishedCount, CountUnsafe());
+
     private static bool IsLightweightUpdate(string type) =>
-        string.Equals(type, PluginBridgeProtocol.UpdateRemoteVehicle, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.UpdateGhostVehicle, StringComparison.Ordinal);
+        string.Equals(
+            type,
+            PluginBridgeProtocol.UpdateRemoteVehicle,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            type,
+            PluginBridgeProtocol.UpdateGhostVehicle,
+            StringComparison.Ordinal);
 
     private static bool IsLifecycleCommand(string type) =>
-        string.Equals(type, PluginBridgeProtocol.SpawnRemoteVehicle, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.DespawnRemoteVehicle, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.SpawnGhostVehicle, StringComparison.Ordinal) ||
-        string.Equals(type, PluginBridgeProtocol.DespawnGhostVehicle, StringComparison.Ordinal);
+        string.Equals(
+            type,
+            PluginBridgeProtocol.SpawnRemoteVehicle,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            type,
+            PluginBridgeProtocol.DespawnRemoteVehicle,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            type,
+            PluginBridgeProtocol.SpawnGhostVehicle,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            type,
+            PluginBridgeProtocol.DespawnGhostVehicle,
+            StringComparison.Ordinal);
 
     private static bool TryGetTargetId(
         PluginBridgeMessage command,
@@ -207,6 +194,40 @@ internal static class OmsiThreadCommandQueue
             command.PlayerId ??
             string.Empty).Trim();
         return targetId.Length is > 0 and <= 128;
+    }
+
+    private static UpdateKey BuildUpdateKey(
+        string type,
+        string targetId) =>
+        new(type, targetId);
+
+    private readonly record struct UpdateKey(
+        string Type,
+        string TargetId);
+
+    private sealed class UpdateKeyComparer : IEqualityComparer<UpdateKey>
+    {
+        public static UpdateKeyComparer Instance { get; } = new();
+
+        public bool Equals(UpdateKey left, UpdateKey right) =>
+            string.Equals(
+                left.Type,
+                right.Type,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                left.TargetId,
+                right.TargetId,
+                StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode(UpdateKey key)
+        {
+            unchecked
+            {
+                return
+                    (StringComparer.OrdinalIgnoreCase.GetHashCode(key.Type) * 397) ^
+                    StringComparer.OrdinalIgnoreCase.GetHashCode(key.TargetId);
+            }
+        }
     }
 
     private static void Process(
@@ -225,8 +246,12 @@ internal static class OmsiThreadCommandQueue
     {
         lock (Sync)
         {
-            var removed = Pending.Count;
-            Pending.Clear();
+            var removed = CountUnsafe();
+            Lifecycle.Clear();
+            Commands.Clear();
+            UpdateOrder.Clear();
+            LatestUpdates.Clear();
+            Volatile.Write(ref _publishedCount, 0);
             return removed;
         }
     }

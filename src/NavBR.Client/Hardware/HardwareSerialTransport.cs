@@ -7,17 +7,10 @@ internal sealed class HardwareSerialTransport : IDisposable
 {
     private readonly object _sync = new();
     private SerialPort? _port;
+    private int _isConnected;
 
-    public bool IsConnected
-    {
-        get
-        {
-            lock (_sync)
-            {
-                return _port?.IsOpen == true;
-            }
-        }
-    }
+    public bool IsConnected =>
+        Volatile.Read(ref _isConnected) != 0;
 
     public string? PortName
     {
@@ -78,6 +71,7 @@ internal sealed class HardwareSerialTransport : IDisposable
             {
                 port.Open();
                 _port = port;
+                Volatile.Write(ref _isConnected, 1);
             }
             catch
             {
@@ -123,6 +117,7 @@ internal sealed class HardwareSerialTransport : IDisposable
     {
         var port = _port;
         _port = null;
+        Volatile.Write(ref _isConnected, 0);
         if (port is null)
         {
             return;

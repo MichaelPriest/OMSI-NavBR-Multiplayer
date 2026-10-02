@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Network;
 
 namespace NavBR.Server.Multiplayer;
 
@@ -15,7 +16,8 @@ public sealed class MultiplayerRoomRegistry
         string displayName,
         string? mapName,
         string? mapCompatibilityId,
-        OmsiCompatibilityManifest? compatibility = null)
+        OmsiCompatibilityManifest? compatibility = null,
+        CompanyEmployeeBadge? companyBadge = null)
     {
         var presence = new PlayerPresence(
             playerId,
@@ -24,7 +26,8 @@ public sealed class MultiplayerRoomRegistry
             NormalizeOptional(mapName),
             DateTimeOffset.UtcNow,
             NormalizeOptional(mapCompatibilityId),
-            compatibility);
+            compatibility,
+            companyBadge);
 
         _connections[connectionId] = presence;
         return presence;
@@ -138,37 +141,123 @@ public sealed class MultiplayerRoomRegistry
                    StringComparison.OrdinalIgnoreCase);
     }
 
-    public PlayerPresence? UpdateMap(
+    public PlayerPresence? UpdateTelemetryIdentity(
         string connectionId,
         string? mapName,
-        string? mapCompatibilityId = null)
+        string? mapCompatibilityId,
+        string? vehiclePath,
+        string? vehicleCompatibilityId,
+        string? hofName,
+        string? hofCompatibilityId)
     {
         while (_connections.TryGetValue(connectionId, out var current))
         {
             var normalizedMap = NormalizeOptional(mapName);
-            var normalizedCompatibilityId = NormalizeOptional(mapCompatibilityId);
-            if (string.Equals(current.MapName, normalizedMap, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(current.MapCompatibilityId, normalizedCompatibilityId, StringComparison.OrdinalIgnoreCase))
+            var normalizedMapCompatibilityId =
+                NormalizeOptional(mapCompatibilityId);
+            var incomingVehiclePath =
+                NormalizeOptional(vehiclePath);
+            var incomingVehicleCompatibilityId =
+                NormalizeOptional(vehicleCompatibilityId);
+            var incomingHofName =
+                NormalizeOptional(hofName);
+            var incomingHofCompatibilityId =
+                NormalizeOptional(hofCompatibilityId);
+
+            var currentCompatibility = current.Compatibility;
+
+            var currentVehiclePath =
+                NormalizeOptional(currentCompatibility?.VehiclePath);
+            var vehiclePathChanged =
+                incomingVehiclePath is not null &&
+                !string.Equals(
+                    currentVehiclePath,
+                    incomingVehiclePath,
+                    StringComparison.OrdinalIgnoreCase);
+            var nextVehiclePath =
+                incomingVehiclePath ?? currentVehiclePath;
+            var nextVehicleCompatibilityId =
+                vehiclePathChanged
+                    ? incomingVehicleCompatibilityId
+                    : incomingVehicleCompatibilityId ??
+                      NormalizeOptional(
+                          currentCompatibility?.VehicleCompatibilityId);
+
+            var currentHofName =
+                NormalizeOptional(currentCompatibility?.HofName);
+            var hofChanged =
+                incomingHofName is not null &&
+                !string.Equals(
+                    currentHofName,
+                    incomingHofName,
+                    StringComparison.OrdinalIgnoreCase);
+            var nextHofName =
+                incomingHofName ?? currentHofName;
+            var nextHofCompatibilityId =
+                hofChanged
+                    ? incomingHofCompatibilityId
+                    : incomingHofCompatibilityId ??
+                      NormalizeOptional(
+                          currentCompatibility?.HofCompatibilityId);
+
+            var identityUnchanged =
+                string.Equals(
+                    current.MapName,
+                    normalizedMap,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    current.MapCompatibilityId,
+                    normalizedMapCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentVehiclePath,
+                    nextVehiclePath,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.VehicleCompatibilityId,
+                    nextVehicleCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentHofName,
+                    nextHofName,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    currentCompatibility?.HofCompatibilityId,
+                    nextHofCompatibilityId,
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (identityUnchanged)
             {
                 return null;
             }
 
-            var compatibility = current.Compatibility is null
+            var compatibility = currentCompatibility is null
                 ? null
-                : current.Compatibility with
+                : currentCompatibility with
                 {
                     MapName = normalizedMap,
-                    MapCompatibilityId = normalizedCompatibilityId
+                    MapCompatibilityId =
+                        normalizedMapCompatibilityId,
+                    VehiclePath = nextVehiclePath,
+                    VehicleCompatibilityId =
+                        nextVehicleCompatibilityId,
+                    HofName = nextHofName,
+                    HofCompatibilityId =
+                        nextHofCompatibilityId
                 };
 
             var updated = current with
             {
                 MapName = normalizedMap,
-                MapCompatibilityId = normalizedCompatibilityId,
+                MapCompatibilityId =
+                    normalizedMapCompatibilityId,
                 Compatibility = compatibility
             };
 
-            if (_connections.TryUpdate(connectionId, updated, current))
+            if (_connections.TryUpdate(
+                    connectionId,
+                    updated,
+                    current))
             {
                 return updated;
             }

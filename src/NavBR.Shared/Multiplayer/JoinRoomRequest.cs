@@ -1,3 +1,5 @@
+using NavBR.Shared.Network;
+
 namespace NavBR.Shared.Multiplayer;
 
 public sealed record JoinRoomRequest(
@@ -8,4 +10,6 @@ public sealed record JoinRoomRequest(
     string? MapCompatibilityId = null,
     OmsiCompatibilityManifest? Compatibility = null,
     string? RoomPassword = null,
-    bool CreatePrivateRoom = false);
+    bool CreatePrivateRoom = false,
+    CompanyEmployeeBadge? CompanyBadge = null,
+    CompanyBadgePresenceProof? CompanyBadgeProof = null);

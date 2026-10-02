@@ -203,10 +203,13 @@ internal static class RoleplayCharacterBackend
     private const long ReassertIntervalMs = 20;
     private const long MovingTargetFreshnessMs = 400;
     private static long _lastReassertTickMs;
+    private static int _activeCount;
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, RoleplayCharacterInstance> Owned =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly RoleplayCharacterInstance?[] TickScratch =
+        new RoleplayCharacterInstance?[MaxOwnedCharacters];
     private static readonly Dictionary<string, int> RetainedTriggerStrings =
         new(StringComparer.Ordinal);
     private static readonly Dictionary<string, HashSet<string>> ActiveTriggersByInstance =
@@ -665,6 +668,7 @@ internal static class RoleplayCharacterBackend
                 Environment.TickCount64);
 
             Owned[instanceId] = instance;
+            Volatile.Write(ref _activeCount, Owned.Count);
 
             return BuildSuccessStateResult(
                 command,
@@ -694,6 +698,7 @@ internal static class RoleplayCharacterBackend
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
             {
                 Owned.Remove(instanceId);
+                Volatile.Write(ref _activeCount, Owned.Count);
                 return Fail(command, "character-pointer-stale", "The possessed OMSI human no longer exists.");
             }
 
@@ -801,6 +806,7 @@ internal static class RoleplayCharacterBackend
             if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
             {
                 Owned.Remove(instanceId);
+                Volatile.Write(ref _activeCount, Owned.Count);
                 ActiveTriggersByInstance.Remove(instanceId);
                 return Fail(
                     command,
@@ -861,6 +867,7 @@ internal static class RoleplayCharacterBackend
             }
 
             Owned.Remove(instanceId);
+            Volatile.Write(ref _activeCount, Owned.Count);
             ActiveTriggersByInstance.Remove(instanceId);
             return RoleplayCharacterCommandProcessor.Result(command, true);
         }
@@ -1014,16 +1021,8 @@ internal static class RoleplayCharacterBackend
         return true;
     }
 
-    public static int ActiveCount
-    {
-        get
-        {
-            lock (Sync)
-            {
-                return Owned.Count;
-            }
-        }
-    }
+    public static int ActiveCount =>
+        Volatile.Read(ref _activeCount);
 
     /// <summary>
     /// Reasserts the last confirmed RP pose directly from OMSI's callback loop.
@@ -1043,46 +1042,61 @@ internal static class RoleplayCharacterBackend
         }
 
         _lastReassertTickMs = now;
+        var tickCount = 0;
         lock (Sync)
         {
             if (Owned.Count == 0)
             {
+                Array.Clear(TickScratch);
                 return;
             }
 
-            foreach (var pair in Owned.ToArray())
+            foreach (var instance in Owned.Values)
             {
-                var instance = pair.Value;
-                if (OmsiNativeInterop.IsHumanPointer(instance.HumanPointer) != 1)
+                if (tickCount >= TickScratch.Length)
                 {
-                    continue;
+                    break;
                 }
 
-                var targetAgeMs = now >= instance.LastTargetTickMs
-                    ? now - instance.LastTargetTickMs
-                    : long.MaxValue;
-                var speed = targetAgeMs <= MovingTargetFreshnessMs
-                    ? instance.CurrentSpeed
-                    : 0f;
-
-                // Reassert both detachment and transform. Some buses/add-ons
-                // restore driver/passenger state after the command callback;
-                // keeping this on the OMSI callback loop makes RP ownership
-                // survive until the next real desktop target arrives.
-                if (OmsiNativeInterop.DetachHumanForRoleplay(instance.HumanPointer) != 1)
-                {
-                    continue;
-                }
-
-                _ = OmsiNativeInterop.SetHumanTransform(
-                    instance.HumanPointer,
-                    instance.CurrentX,
-                    instance.CurrentY,
-                    instance.CurrentZ,
-                    instance.CurrentHeading,
-                    speed);
+                TickScratch[tickCount++] = instance;
             }
         }
+
+        for (var index = 0; index < tickCount; index++)
+        {
+            var instance = TickScratch[index];
+            if (instance is null)
+            {
+                continue;
+            }
+
+            var targetAgeMs = now >= instance.LastTargetTickMs
+                ? now - instance.LastTargetTickMs
+                : long.MaxValue;
+            var speed = targetAgeMs <= MovingTargetFreshnessMs
+                ? instance.CurrentSpeed
+                : 0f;
+
+            // Reassert both detachment and transform. The native detachment
+            // validates the human pointer, and SetHumanTransform validates
+            // controllability again at the actual write boundary. Avoid a
+            // third IsHumanPointer P/Invoke on this 20 ms hot path.
+            if (OmsiNativeInterop.DetachHumanForRoleplay(
+                    instance.HumanPointer) != 1)
+            {
+                continue;
+            }
+
+            _ = OmsiNativeInterop.SetHumanTransform(
+                instance.HumanPointer,
+                instance.CurrentX,
+                instance.CurrentY,
+                instance.CurrentZ,
+                instance.CurrentHeading,
+                speed);
+        }
+
+        Array.Clear(TickScratch, 0, tickCount);
     }
 
     public static void ReleaseAllBestEffort()
@@ -1121,6 +1135,7 @@ internal static class RoleplayCharacterBackend
             }
 
             Owned.Clear();
+            Volatile.Write(ref _activeCount, 0);
             ActiveTriggersByInstance.Clear();
             _lastReassertTickMs = 0;
         }

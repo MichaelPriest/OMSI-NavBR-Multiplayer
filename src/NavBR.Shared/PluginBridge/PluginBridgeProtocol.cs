@@ -1,4 +1,5 @@
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.Telemetry;
 
 namespace NavBR.Shared.PluginBridge;
 
@@ -18,6 +19,7 @@ public static class PluginBridgeProtocol
     public const string ClearRemoteVehicles = "clear-remote-vehicles";
     public const string TrafficSnapshotState = "traffic-snapshot-state";
     public const string ClearTrafficVehicles = "clear-traffic-vehicles";
+    public const string SetPerformanceProfile = "set-performance-profile";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -42,12 +44,31 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
     public const string CapabilityVehicleTileSync = "vehicle-tile-sync";
+    // Capability marker for the physical-grid/world-pose multiplayer path
+    // introduced with state interop 25. Requiring this on the desktop makes a
+    // stale OMSI-loaded plugin fail closed instead of pretending that the
+    // legacy vehicle-spawn/transform implementation is compatible.
+    public const string CapabilityPhysicalMultiplayerV25 = "physical-multiplayer-v25";
     public const string CapabilityTimetableState = "timetable-state";
     public const string CapabilityTrafficSync = "traffic-sync";
     public const string CapabilityCharacterPossession = "character-possession";
     public const string CapabilityCharacterTransform = "character-transform";
     public const string CapabilityCharacterInteraction = "character-interaction";
     public const string CapabilityLocalVehicleTrigger = "local-vehicle-trigger";
+    public const string CapabilityPerformanceGovernor = "performance-governor";
+    public const string CapabilityOpenOmsiStandardPlugin = "openomsi-standard-plugin";
+    public const string CapabilityOpenOmsiLuaSnapshot = "openomsi-lua-snapshot";
+
+    public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
+    public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
+    public const string ErrorMotionTileMismatch = "motion-tile-mismatch";
+    public const string ErrorMotionWorldOriginUnavailable = "motion-world-origin-unavailable";
+
+    public static bool IsRecoverablePhysicalMotionError(string? errorCode) =>
+        string.Equals(errorCode, ErrorMotionReadbackUnavailable, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionTransformMismatch, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionTileMismatch, StringComparison.Ordinal) ||
+        string.Equals(errorCode, ErrorMotionWorldOriginUnavailable, StringComparison.Ordinal);
 }
 
 public sealed record PluginBridgeMessage(
@@ -149,4 +170,23 @@ public sealed record PluginBridgeMessage(
     string? AuthorityPlayerId = null,
     long? Sequence = null,
     TrafficVehicleState[]? TrafficVehicles = null,
-    int? MapTileIndex = null);
+    int? MapTileIndex = null,
+    int? PluginPressureLevel = null,
+    double? PluginWorkMilliseconds = null,
+    double? PluginAverageWorkMilliseconds = null,
+    double? PluginAverageFrameIntervalMilliseconds = null,
+    long? PluginMinimumWorkIntervalMilliseconds = null,
+    int? PluginMaxCommandsPerSlice = null,
+    double? PluginLastFrameIntervalMilliseconds = null,
+    double? PluginPeakFrameIntervalMilliseconds = null,
+    long? PluginFrameStallCount = null,
+    string? PerformanceProfile = null,
+    int? PhysicalGridX = null,
+    int? PhysicalGridY = null,
+    double? VelocityX = null,
+    double? VelocityY = null,
+    double? VelocityZ = null,
+    double? AccelerationLocalX = null,
+    double? AccelerationLocalY = null,
+    double? AccelerationLocalZ = null,
+    VehicleSectionPose[]? RearSections = null);
