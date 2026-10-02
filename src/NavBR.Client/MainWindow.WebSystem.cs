@@ -1296,7 +1296,7 @@ public partial class MainWindow
             @"(?i)\b(?:password|passwd|token|secret|invite(?:code)?|roomid|playerid)\s*[=:]\s*[^\s,;]+",
             match =>
             {
-                var separator = match.Value.IndexOfAny(['=', ':']);
+                var separator = match.Value.IndexOfAny(new[] { '=', ':' });
                 return separator > 0
                     ? match.Value[..separator] + "=[redacted]"
                     : "[redacted]";
