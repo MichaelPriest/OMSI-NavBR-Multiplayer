@@ -9,6 +9,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 using NavBR.Client.Omsi;
+using NavBR.Client.OpenOmsi;
 using NavBR.Client.Windows;
 using NavBR.Client.Operations;
 using NavBR.Client.PluginInstaller;
