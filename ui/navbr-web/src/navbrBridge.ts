@@ -505,7 +505,7 @@ export interface NavBrSystemState {
     hudRefreshIntervalMilliseconds: number;
   };
   applicationUpdate?: {
-    status: "idle" | "checking" | "current" | "downloading" | "verifying" | "ready" | "installing" | "failed";
+    status: "idle" | "checking" | "current" | "available" | "downloading" | "verifying" | "ready" | "installing" | "failed";
     currentVersion: string;
     availableVersion?: string | null;
     releaseUrl?: string | null;
@@ -514,6 +514,9 @@ export interface NavBrSystemState {
     readyToInstall: boolean;
     checkedAtUtc?: string | null;
     message?: string | null;
+    channel: "alpha" | "stable";
+    checkAtStartup: boolean;
+    autoDownload: boolean;
   } | null;
   mobileCompanion: {
     running: boolean;
@@ -987,6 +990,8 @@ export interface NavBrState {
 
 export type NavBrCommand =
   | "checkApplicationUpdate"
+  | "downloadApplicationUpdate"
+  | "saveApplicationUpdatePreferences"
   | "installApplicationUpdate"
   | "launchOmsi"
   | "refreshState"
