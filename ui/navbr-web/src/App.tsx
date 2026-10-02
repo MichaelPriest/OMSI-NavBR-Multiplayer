@@ -158,6 +158,36 @@ function Sidebar({
         { screen: "settings", icon: "settings", label: t("nav.settings") },
         { screen: "help", icon: "help", label: pick("Ajuda", "Help", "Ayuda", "Hilfe", "Aide") }
       ]
+    },
+    {
+      title: pick("9. Atualizações automáticas", "9. Automatic updates", "9. Actualizaciones automáticas", "9. Automatische Updates", "9. Mises à jour automatiques"),
+      body: pick(
+        "O NavBR verifica releases oficiais ao abrir. Quando encontra uma versão nova, baixa o instalador oficial, valida SHA-256 e libera Atualizar e reiniciar. O status também fica em Configurações > Atualizações.",
+        "NavBR checks official releases at startup. When a newer version is found, it downloads the official installer, validates SHA-256 and enables Update & restart. Status is also available under Settings > Updates.",
+        "NavBR comprueba las releases oficiales al iniciar, descarga el instalador, valida SHA-256 y habilita Actualizar y reiniciar.",
+        "NavBR prüft beim Start offizielle Releases, lädt den Installer herunter, prüft SHA-256 und bietet Aktualisieren & neu starten an.",
+        "NavBR vérifie les releases officielles au démarrage, télécharge l’installeur, valide SHA-256 puis propose Mettre à jour et redémarrer."
+      )
+    },
+    {
+      title: pick("10. OMSI 2 e openOMSI", "10. OMSI 2 and openOMSI", "10. OMSI 2 y openOMSI", "10. OMSI 2 und openOMSI", "10. OMSI 2 et openOMSI"),
+      body: pick(
+        "O plugin OMSI 2 continua sendo instalado e atualizado pelo NavBR App. O plugin NavBR para openOMSI é um pacote separado, pertencente ao ambiente/launcher do openOMSI. O NavBR App não instala, remove, atualiza nem inicia openOMSI; ele apenas expõe o gateway local para o plugin externo.",
+        "The OMSI 2 plugin remains installed and updated by the NavBR App. The NavBR plugin for openOMSI is a separate package owned by the openOMSI environment/launcher. NavBR App does not install, remove, update or launch openOMSI; it only exposes the local gateway for the external plugin.",
+        "El plugin OMSI 2 sigue administrado por NavBR App. El plugin para openOMSI es un paquete separado del entorno/launcher openOMSI.",
+        "Das OMSI-2-Plugin wird weiterhin von der NavBR-App verwaltet. Das openOMSI-Plugin ist ein separates Paket der openOMSI-Umgebung/des Launchers.",
+        "Le plugin OMSI 2 reste géré par l’app NavBR. Le plugin openOMSI est un paquet séparé appartenant à l’environnement/launcher openOMSI."
+      )
+    },
+    {
+      title: pick("11. Mobile Companion e Personagem / RP", "11. Mobile Companion and Character / RP", "11. Mobile Companion y Personaje / RP", "11. Mobile Companion und Charakter / RP", "11. Mobile Companion et Personnage / RP"),
+      body: pick(
+        "O Mobile Companion usa descoberta LAN e código de pareamento, mostra o roadmap real do OMSI e retoma a atualização ao voltar da suspensão. No RP, W/A/S/D movem, setas giram, Shift corre, Espaço pula, E entra no ônibus quando próximo e Esc faz retorno de emergência. Se a sessão/mapa OMSI terminar, o RP é encerrado com segurança.",
+        "Mobile Companion uses LAN discovery and a pairing code, renders the real OMSI roadmap and resumes updates after suspension. In RP, W/A/S/D move, arrows rotate, Shift runs, Space jumps, E enters the bus when nearby and Esc performs an emergency return. If the OMSI session/map ends, RP stops safely.",
+        "Mobile Companion usa descubrimiento LAN y código de emparejamiento, muestra el roadmap real y reanuda tras suspensión. En RP: W/A/S/D, flechas, Shift, Espacio, E y Esc controlan al personaje.",
+        "Mobile Companion nutzt LAN-Erkennung und Pairing-Code, zeigt die echte OMSI-Roadmap und setzt nach dem Ruhezustand fort. RP nutzt W/A/S/D, Pfeile, Shift, Leertaste, E und Esc.",
+        "Mobile Companion utilise la découverte LAN et un code d’appairage, affiche la vraie roadmap OMSI et reprend après suspension. Le RP utilise W/A/S/D, flèches, Shift, Espace, E et Échap."
+      )
     }
   ];
 
@@ -5954,8 +5984,8 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("2. HUD, GPS e velocidade", "2. HUD, GPS and speed", "2. HUD, GPS y velocidad", "2. HUD, GPS und Geschwindigkeit", "2. HUD, GPS et vitesse"),
       body: pick(
-        "Velocidade, linha, rota, destino, próxima parada e navegação vêm do estado real do OMSI. Configure preset, tema, escala, opacidade e módulos em Configurações > HUD; Mover HUD continua usando o overlay nativo.",
-        "Speed, line, route, destination, next stop and navigation come from real OMSI state. Configure preset, theme, scale, opacity and modules under Settings > HUD; Move HUD still uses the native overlay.",
+        "Velocidade, linha, rota, destino, próxima parada e navegação vêm do estado real do OMSI. Configure preset, tema, escala, opacidade e módulos em Configurações > HUD. O minimapa pode ser retangular ou circular estilo GTA, e Mover HUD continua usando o overlay nativo.",
+        "Speed, line, route, destination, next stop and navigation come from real OMSI state. Configure preset, theme, scale, opacity and modules under Settings > HUD. The minimap can be rectangular or circular GTA-style, and Move HUD still uses the native overlay.",
         "Velocidad, línea, ruta, destino, próxima parada y navegación vienen del estado real de OMSI. Configura el HUD en Configuración > HUD.",
         "Geschwindigkeit, Linie, Route, Ziel, nächste Haltestelle und Navigation stammen aus dem echten OMSI-Status. HUD-Einstellungen liegen unter Einstellungen > HUD.",
         "Vitesse, ligne, itinéraire, destination, prochain arrêt et navigation proviennent de l’état réel d’OMSI. Configurez le HUD dans Paramètres > HUD."
@@ -5984,7 +6014,7 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("5. Ônibus remoto físico — EXPERIMENTAL", "5. Physical remote bus — EXPERIMENTAL", "5. Autobús remoto físico — EXPERIMENTAL", "5. Physischer Remote-Bus — EXPERIMENTELL", "5. Bus distant physique — EXPÉRIMENTAL"),
       body: pick(
-        "O teste físico vem desligado por padrão. Ambos os PCs precisam de mapa/ônibus compatíveis e do Plugin Bridge suportado. O NavBR não transfere conteúdo pago ou proprietário. A tela mostra a disponibilidade real do plugin antes de criar ônibus remotos.",
+        "O teste físico vem desligado por padrão. Ambos os PCs precisam de mapa/ônibus compatíveis e do Plugin Bridge suportado. O NavBR não transfere conteúdo pago ou proprietário. Os smokes automatizados estão ativos, mas o E2E real com dois PCs/duas sessões OMSI continua pendente e será tratado por último nesta linha de desenvolvimento.",
         "The physical test is off by default. Both PCs need compatible map/bus content and a supported Plugin Bridge. NavBR does not transfer paid or proprietary content. The UI reports the plugin’s real capability before spawning remote buses.",
         "La prueba física está desactivada por defecto. Ambos PCs necesitan mapa/autobús compatibles y Plugin Bridge compatible. NavBR no transfiere contenido de pago o propietario.",
         "Der physische Test ist standardmäßig aus. Beide PCs benötigen kompatible Karte/Bus und eine unterstützte Plugin Bridge. NavBR überträgt keine kostenpflichtigen/proprietären Inhalte.",
@@ -5994,8 +6024,8 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("6. Diagnósticos automáticos", "6. Automatic diagnostics", "6. Diagnósticos automáticos", "6. Automatische Diagnose", "6. Diagnostics automatiques"),
       body: pick(
-        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Ele registra dados técnicos permitidos para investigar falhas; não deve incluir chat, áudio, senhas, tokens ou arquivos pessoais. A fila local pode ser apagada.",
-        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. They record permitted technical data for troubleshooting; they should not include chat, audio, passwords, tokens or personal files. The local queue can be purged.",
+        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Para suporte, use Gerar pacote de diagnóstico: ele exporta resumo técnico e log sanitizado, removendo senhas, tokens, IDs, IPs, e-mails e caminhos locais. A fila local também pode ser apagada.",
+        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. For support, use Generate diagnostic bundle: it exports a technical summary and sanitized log while removing passwords, tokens, IDs, IPs, email addresses and local paths. The local queue can also be purged.",
         "Los diagnósticos son opcionales y se controlan en Configuración > Diagnóstico. No deben incluir chat, audio, contraseñas, tokens ni archivos personales.",
         "Diagnosen sind optional und unter Einstellungen > Diagnose steuerbar. Chat, Audio, Passwörter, Tokens oder persönliche Dateien sollen nicht enthalten sein.",
         "Les diagnostics sont facultatifs et se règlent dans Paramètres > Diagnostic. Ils ne doivent pas contenir chat, audio, mots de passe, jetons ou fichiers personnels."
