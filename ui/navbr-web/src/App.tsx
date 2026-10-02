@@ -4320,6 +4320,8 @@ function Multiplayer({
   const [voiceChannel, setVoiceChannel] = useState("general");
   const [voiceRadius, setVoiceRadius] = useState(120);
   const [voiceDeafened, setVoiceDeafened] = useState(false);
+  const [voiceDirty, setVoiceDirty] = useState(false);
+  const [voiceMixerDrafts, setVoiceMixerDrafts] = useState<Record<string, number>>({});
   const [relayEnabled, setRelayEnabled] = useState(false);
   const [relayServerUrl, setRelayServerUrl] = useState("");
   const [chatHotkey, setChatHotkey] = useState("F9");
@@ -4336,10 +4338,51 @@ function Multiplayer({
   }, [multiplayer.serverUrl, multiplayer.roomId, multiplayer.displayName]);
 
   useEffect(() => {
-    setVoiceChannel(multiplayer.voiceChannel || "general");
-    setVoiceRadius(multiplayer.voiceProximityMeters || 120);
-    setVoiceDeafened(multiplayer.voiceDeafened);
-  }, [multiplayer.voiceChannel, multiplayer.voiceProximityMeters, multiplayer.voiceDeafened]);
+    const backendChannel = multiplayer.voiceChannel || "general";
+    const backendRadius = multiplayer.voiceProximityMeters || 120;
+    const backendDeafened = multiplayer.voiceDeafened;
+
+    if (voiceDirty) {
+      const settled =
+        backendChannel === voiceChannel &&
+        Math.abs(backendRadius - voiceRadius) < 0.5 &&
+        backendDeafened === voiceDeafened;
+      if (settled) {
+        setVoiceDirty(false);
+      }
+      return;
+    }
+
+    setVoiceChannel(backendChannel);
+    setVoiceRadius(backendRadius);
+    setVoiceDeafened(backendDeafened);
+  }, [
+    multiplayer.voiceChannel,
+    multiplayer.voiceProximityMeters,
+    multiplayer.voiceDeafened,
+    voiceDirty,
+    voiceChannel,
+    voiceRadius,
+    voiceDeafened
+  ]);
+
+  useEffect(() => {
+    setVoiceMixerDrafts(current => {
+      let changed = false;
+      const next = { ...current };
+      const activeIds = new Set(multiplayer.voiceMixers.map(player => player.playerId));
+
+      for (const playerId of Object.keys(next)) {
+        const player = multiplayer.voiceMixers.find(item => item.playerId === playerId);
+        if (!activeIds.has(playerId) || (player && Math.abs(player.gain - next[playerId]) < 0.01)) {
+          delete next[playerId];
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [multiplayer.voiceMixers]);
 
   useEffect(() => {
     setRelayEnabled(multiplayer.relayEnabled);
@@ -5218,6 +5261,7 @@ function Multiplayer({
                 onChange={event => {
                   const channel = event.target.value;
                   setVoiceChannel(channel);
+                  setVoiceDirty(true);
                   sendCommand("configureVoice", {
                     channel,
                     proximityMeters: voiceRadius,
@@ -5241,7 +5285,10 @@ function Multiplayer({
                   max="1000"
                   step="10"
                   value={voiceRadius}
-                  onChange={event => setVoiceRadius(Number(event.target.value))}
+                  onChange={event => {
+                    setVoiceRadius(Number(event.target.value));
+                    setVoiceDirty(true);
+                  }}
                   onMouseUp={() => sendCommand("configureVoice", {
                     channel: voiceChannel,
                     proximityMeters: voiceRadius,
@@ -5263,6 +5310,7 @@ function Multiplayer({
                 onChange={event => {
                   const deafened = event.target.checked;
                   setVoiceDeafened(deafened);
+                  setVoiceDirty(true);
                   sendCommand("configureVoice", {
                     channel: voiceChannel,
                     proximityMeters: voiceRadius,
@@ -5332,18 +5380,36 @@ function Multiplayer({
                     <span>Mute</span>
                   </label>
                   <label className="voice-gain">
-                    <span>{Math.round(player.gain * 100)}%</span>
+                    <span>{Math.round((voiceMixerDrafts[player.playerId] ?? player.gain) * 100)}%</span>
                     <input
                       type="range"
                       min="0"
                       max="2"
                       step="0.05"
-                      value={player.gain}
-                      onChange={event => sendCommand("configureRemoteVoice", {
+                      value={voiceMixerDrafts[player.playerId] ?? player.gain}
+                      onChange={event => {
+                        const gain = Number(event.target.value);
+                        setVoiceMixerDrafts(current => ({ ...current, [player.playerId]: gain }));
+                      }}
+                      onMouseUp={() => sendCommand("configureRemoteVoice", {
                         playerId: player.playerId,
                         muted: player.muted,
-                        gain: Number(event.target.value)
+                        gain: voiceMixerDrafts[player.playerId] ?? player.gain
                       })}
+                      onTouchEnd={() => sendCommand("configureRemoteVoice", {
+                        playerId: player.playerId,
+                        muted: player.muted,
+                        gain: voiceMixerDrafts[player.playerId] ?? player.gain
+                      })}
+                      onKeyUp={event => {
+                        if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Home" || event.key === "End") {
+                          sendCommand("configureRemoteVoice", {
+                            playerId: player.playerId,
+                            muted: player.muted,
+                            gain: voiceMixerDrafts[player.playerId] ?? player.gain
+                          });
+                        }
+                      }}
                     />
                   </label>
                 </div>
