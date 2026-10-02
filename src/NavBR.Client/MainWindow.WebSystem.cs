@@ -98,6 +98,28 @@ public partial class MainWindow
         }
     }
 
+    private static object? BuildApplicationUpdateState()
+    {
+        if (Application.Current is not App app)
+        {
+            return null;
+        }
+
+        var update = app.AutoUpdater.GetSnapshot();
+        return new
+        {
+            status = update.Status,
+            currentVersion = update.CurrentVersion,
+            availableVersion = update.AvailableVersion,
+            releaseUrl = update.ReleaseUrl,
+            progressPercent = update.ProgressPercent,
+            updateAvailable = update.UpdateAvailable,
+            readyToInstall = update.ReadyToInstall,
+            checkedAtUtc = update.CheckedAtUtc,
+            message = update.Message
+        };
+    }
+
     private object BuildWebSystemState(
         MultiplayerSettings? hudSettings = null,
         string? scope = null)
@@ -126,6 +148,7 @@ public partial class MainWindow
                     telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                     hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
                 },
+                applicationUpdate = BuildApplicationUpdateState(),
                 mobileCompanion = (object?)null,
                 pluginInstallation = (object?)null,
                 openOmsiPlugin = (object?)null,
@@ -202,6 +225,7 @@ public partial class MainWindow
                     telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                 hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
             },
+            applicationUpdate = BuildApplicationUpdateState(),
             mobileCompanion = BuildMobileCompanionDesktopState(),
             pluginInstallation = new
             {

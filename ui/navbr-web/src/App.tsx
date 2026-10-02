@@ -5946,6 +5946,85 @@ function Help({ state }: { state: NavBrState | null }) {
   );
 }
 
+
+function ApplicationUpdatePrompt({
+  state,
+  dismissed,
+  onDismiss
+}: {
+  state: NavBrState | null;
+  dismissed: boolean;
+  onDismiss: () => void;
+}) {
+  const { pick } = useI18n();
+  const update = state?.system?.applicationUpdate;
+
+  if (!update || dismissed || !update.updateAvailable || update.status === "failed") {
+    return null;
+  }
+
+  const busy = update.status === "downloading" || update.status === "verifying";
+  const ready = update.status === "ready" && update.readyToInstall;
+  const installing = update.status === "installing";
+  const progress = Math.max(0, Math.min(100, update.progressPercent ?? 0));
+
+  return (
+    <section className={`card cco-panel application-update-prompt ${ready ? "ready" : ""}`}>
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">
+            {pick("ATUALIZAÇÃO DO NAVBR", "NAVBR UPDATE", "ACTUALIZACIÓN NAVBR", "NAVBR-UPDATE", "MISE À JOUR NAVBR")}
+          </span>
+          <h3>
+            {ready
+              ? pick("Atualização pronta para instalar", "Update ready to install", "Actualización lista para instalar", "Update ist installationsbereit", "Mise à jour prête à installer")
+              : installing
+                ? pick("Preparando atualização", "Preparing update", "Preparando actualización", "Update wird vorbereitet", "Préparation de la mise à jour")
+                : pick("Nova versão encontrada", "New version found", "Nueva versión encontrada", "Neue Version gefunden", "Nouvelle version trouvée")}
+          </h3>
+        </div>
+        <span className="update-version-pill">
+          {update.currentVersion} → {update.availableVersion || "—"}
+        </span>
+      </div>
+
+      <p>
+        {update.message || pick(
+          "O NavBR encontrou uma versão mais nova e está preparando a atualização oficial.",
+          "NavBR found a newer version and is preparing the official update.",
+          "NavBR encontró una versión más nueva y está preparando la actualización oficial.",
+          "NavBR hat eine neuere Version gefunden und bereitet das offizielle Update vor.",
+          "NavBR a trouvé une version plus récente et prépare la mise à jour officielle."
+        )}
+      </p>
+
+      {busy && (
+        <div className="application-update-progress" aria-label={`${progress}%`}>
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      )}
+
+      <div className="room-actions">
+        {ready && (
+          <button className="button primary" onClick={() => sendCommand("installApplicationUpdate")}>
+            {pick("Atualizar e reiniciar", "Update & restart", "Actualizar y reiniciar", "Aktualisieren & neu starten", "Mettre à jour et redémarrer")}
+          </button>
+        )}
+        {update.releaseUrl && (
+          <button className="button ghost" onClick={() => window.open(update.releaseUrl || "", "_blank", "noopener,noreferrer")}>
+            {pick("Ver release", "View release", "Ver release", "Release anzeigen", "Voir la release")}
+          </button>
+        )}
+        {ready && (
+          <button className="button ghost" onClick={onDismiss}>
+            {pick("Depois", "Later", "Después", "Später", "Plus tard")}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function PluginStartupPrompt({
   state,
   dismissed,
@@ -6025,6 +6104,7 @@ export default function App() {
   const [operationsTabRequest, setOperationsTabRequest] = useState<{ id: number; tab: OperationsTab } | null>(null);
   const [companyNetworkTabRequest, setCompanyNetworkTabRequest] = useState<{ id: number; tab: CompanyNetworkTab } | null>(null);
   const [pluginPromptDismissed, setPluginPromptDismissed] = useState(false);
+  const [updatePromptDismissed, setUpdatePromptDismissed] = useState(false);
   const lastNavigationRequestId = useRef<number | null>(null);
 
   const openSettingsTab = (tab: SettingsTab) => {
@@ -6080,6 +6160,11 @@ export default function App() {
     <div className="app-shell">
       <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
+        <ApplicationUpdatePrompt
+          state={state}
+          dismissed={updatePromptDismissed}
+          onDismiss={() => setUpdatePromptDismissed(true)}
+        />
         <PluginStartupPrompt
           state={state}
           dismissed={pluginPromptDismissed}

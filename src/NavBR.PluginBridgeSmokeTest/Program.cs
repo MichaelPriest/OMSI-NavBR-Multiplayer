@@ -93,6 +93,74 @@ finally
     Directory.Delete(fingerprintRoot, recursive: true);
 }
 
+
+var updaterType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Updates.NavBRAutoUpdateService",
+        throwOnError: true)!;
+var compareReleaseVersions =
+    updaterType.GetMethod(
+        "CompareReleaseVersions",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater version comparator not found");
+var tryGetExpectedSha256 =
+    updaterType.GetMethod(
+        "TryGetExpectedSha256",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater checksum parser not found");
+
+int CompareUpdateVersions(string left, string right) =>
+    (int)(compareReleaseVersions.Invoke(
+        null,
+        [left, right])
+        ?? throw new InvalidOperationException(
+            "application updater version comparator returned null"));
+
+Require(
+    CompareUpdateVersions(
+        "v0.3.0-alpha.26",
+        "0.3.0-alpha.25") > 0,
+    "application updater did not order Alpha.26 after Alpha.25");
+Require(
+    CompareUpdateVersions(
+        "0.3.1-alpha.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a newer core version");
+Require(
+    CompareUpdateVersions(
+        "0.3.0",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a stable build over its prerelease");
+Require(
+    CompareUpdateVersions(
+        "0.3.0-beta.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater prerelease ordering regressed");
+
+var updaterChecksumText =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other.zip\r\n" +
+    "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92  OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe\r\n";
+object?[] updaterChecksumArgs =
+[
+    updaterChecksumText,
+    "OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe",
+    null
+];
+Require(
+    (bool)(tryGetExpectedSha256.Invoke(
+        null,
+        updaterChecksumArgs)
+        ?? false),
+    "application updater could not read the official installer checksum");
+Require(
+    string.Equals(
+        updaterChecksumArgs[2] as string,
+        "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92",
+        StringComparison.Ordinal),
+    "application updater returned the wrong installer checksum");
+
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
