@@ -161,6 +161,17 @@ public static class MultiplayerSettingsStore
             Math.Abs(settings.DashboardMultiplayerScale - 1d) < 0.01d &&
             Math.Abs(settings.DashboardAlertsScale - 1d) < 0.01d &&
             Math.Abs(settings.DashboardSideIndicatorsScale - 1d) < 0.01d;
+        var untouchedTelematrixMigration =
+            settings.TelematrixSettingsVersion < 1 &&
+            settings.TelematrixWidgetEnabled &&
+            settings.TelematrixTheme == 0 &&
+            settings.TelematrixSize == 0 &&
+            settings.TelematrixAutoDirection &&
+            string.IsNullOrWhiteSpace(settings.TelematrixManualLine) &&
+            string.Equals(
+                settings.TelematrixManualDirection,
+                "TP",
+                StringComparison.OrdinalIgnoreCase);
         var stopIconStyle = settings.StopIconStyle?.Trim().ToLowerInvariant() switch
         {
             "dot" => "dot",
@@ -293,7 +304,10 @@ public static class MultiplayerSettingsStore
             HudEnabled =
                 settings.HudVisibilitySettingsVersion < 1 ||
                 settings.HudEnabled,
-            TelematrixWidgetEnabled = settings.TelematrixWidgetEnabled,
+            TelematrixSettingsVersion = 1,
+            TelematrixWidgetEnabled = untouchedTelematrixMigration
+                ? false
+                : settings.TelematrixWidgetEnabled,
             TelematrixTheme = Math.Clamp(settings.TelematrixTheme, 0, 2),
             TelematrixSize = Math.Clamp(settings.TelematrixSize, 0, 2),
             TelematrixManualLine = string.IsNullOrWhiteSpace(settings.TelematrixManualLine)
