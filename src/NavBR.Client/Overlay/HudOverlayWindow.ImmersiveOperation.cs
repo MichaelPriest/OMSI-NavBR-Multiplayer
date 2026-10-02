@@ -57,7 +57,6 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveChatText;
     private TextBlock? _immersiveVoiceText;
     private Border? _immersiveVoiceStatusCell;
-    private TextBlock? _immersiveMultiplayerShortcutText;
     private DispatcherTimer? _immersiveOperationTimer;
     private bool _immersivePresentationApplied;
     private Visibility _immersiveSavedTopStatusVisibility = Visibility.Visible;
@@ -1949,7 +1948,6 @@ public partial class HudOverlayWindow
                 Color.FromArgb(64, palette.Accent.R, palette.Accent.G, palette.Accent.B));
             _immersiveVoiceStatusCell.CornerRadius = new CornerRadius(Math.Max(5d, palette.CornerRadius * 0.55d));
         }
-        if (_immersiveMultiplayerShortcutText is not null) _immersiveMultiplayerShortcutText.Foreground = new SolidColorBrush(Color.FromArgb(180, palette.Text.R, palette.Text.G, palette.Text.B));
         if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.Foreground = accent;
         if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.Foreground = text;
         if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
@@ -1977,7 +1975,7 @@ public partial class HudOverlayWindow
             _immersiveNextStopText, _immersiveSpeedText, _immersiveDelayText,
             _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
             _immersiveSessionText, _immersiveMultiplayerTitleText, _immersivePlayersText, _immersiveNearbyPlayersText,
-            _immersiveChatText, _immersiveVoiceText, _immersiveMultiplayerShortcutText,
+            _immersiveChatText, _immersiveVoiceText,
             _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText,
             _immersiveFocusStopsText, _immersiveSideIndicatorText
         })
