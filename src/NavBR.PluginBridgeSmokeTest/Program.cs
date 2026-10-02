@@ -110,6 +110,12 @@ var tryGetExpectedSha256 =
         BindingFlags.NonPublic | BindingFlags.Static)
     ?? throw new InvalidOperationException(
         "application updater checksum parser not found");
+var isReleaseAllowedForChannel =
+    updaterType.GetMethod(
+        "IsReleaseAllowedForChannel",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater channel filter not found");
 
 int CompareUpdateVersions(string left, string right) =>
     (int)(compareReleaseVersions.Invoke(
@@ -138,6 +144,31 @@ Require(
         "0.3.0-beta.1",
         "0.3.0-alpha.99") > 0,
     "application updater prerelease ordering regressed");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "stable"])
+        ?? false),
+    "stable update channel rejected a stable release");
+Require(
+    !(bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "stable"])
+        ?? true),
+    "stable update channel accepted an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected a stable release");
+
 
 var updaterChecksumText =
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other.zip\r\n" +
