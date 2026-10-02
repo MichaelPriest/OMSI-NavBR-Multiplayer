@@ -172,6 +172,120 @@ Require(
         ?? true),
     "physical pose recovery accepted TileXY without explicit PhysicalGrid");
 
+var crossingPhysicalTelemetry =
+    sparsePhysicalTelemetry with
+    {
+        GridX = 2,
+        GridY = 2,
+        PhysicalGridX = 2,
+        PhysicalGridY = 2,
+        TileX = 0.4d,
+        TileY = 164.2d,
+        LocalX = null,
+        LocalY = null,
+        LocalZ = null,
+        RotationX = null,
+        RotationY = null,
+        RotationZ = null,
+        RotationW = null,
+        SpeedKph = 28d
+    };
+object?[] crossingArgs =
+[
+    crossingPhysicalTelemetry,
+    null
+];
+Require(
+    (bool)(recoverPhysicalPose.Invoke(
+        null,
+        crossingArgs)
+        ?? false),
+    "Kachel boundary frame was not recovered from the new coherent physical/navigation grid.");
+var crossingRecovered =
+    crossingArgs[1] as VehicleTelemetry
+    ?? throw new InvalidOperationException(
+        "Kachel boundary recovery did not return telemetry.");
+Near(
+    crossingRecovered.LocalX ?? double.NaN,
+    0.4d,
+    0.001d,
+    "Kachel boundary local X");
+Near(
+    crossingRecovered.LocalZ ?? double.NaN,
+    164.2d,
+    0.001d,
+    "Kachel boundary local Z");
+Require(
+    crossingRecovered.PhysicalGridX == 2 &&
+    crossingRecovered.PhysicalGridY == 2,
+    "Kachel boundary recovery lost the new physical grid.");
+
+var mismatchedKachelTelemetry =
+    crossingPhysicalTelemetry with
+    {
+        GridX = 1,
+        GridY = 2
+    };
+object?[] mismatchedKachelArgs =
+[
+    mismatchedKachelTelemetry,
+    null
+];
+Require(
+    !(bool)(recoverPhysicalPose.Invoke(
+        null,
+        mismatchedKachelArgs)
+        ?? true),
+    "physical pose recovery paired Navigation TileXY with a different PhysicalGrid.");
+
+var resolvePhysicalUpdateInterval =
+    coordinatorType.GetMethod(
+        "ResolvePhysicalUpdateInterval",
+        BindingFlags.NonPublic |
+        BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "physical update cadence resolver not found");
+var movingPhysicalInterval =
+    (TimeSpan)(resolvePhysicalUpdateInterval.Invoke(
+        null,
+        [crossingPhysicalTelemetry])
+        ?? throw new InvalidOperationException(
+            "physical update cadence resolver returned null"));
+Require(
+    Math.Abs(movingPhysicalInterval.TotalMilliseconds - 50d) < 0.01d,
+    $"moving physical telemetry must stay at 20 Hz; got {movingPhysicalInterval.TotalMilliseconds:F1} ms.");
+
+var hofLocal = new OmsiCompatibilityManifest(
+    OmsiVersion: "2.3.004",
+    NavBRVersion: "smoke",
+    MapName: "Grundorf",
+    MapCompatibilityId: "sha256:map",
+    VehiclePath: @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+    VehicleCompatibilityId: "sha256:vehicle",
+    HofName: "Grundorf.hof",
+    HofCompatibilityId: "sha256:hof-a",
+    PluginProtocolVersion: PluginBridgeProtocol.Version,
+    PluginDeployment: "OMSI2-X86",
+    Capabilities: Array.Empty<string>());
+var hofRemote = hofLocal with
+{
+    HofCompatibilityId = "sha256:hof-b"
+};
+var hofPhysicalReport =
+    OmsiCompatibilityEvaluator.Compare(
+        hofLocal,
+        hofRemote,
+        requireVehicleForPhysicalMultiplayer: false);
+Require(
+    hofPhysicalReport.IsCompatible &&
+    !hofPhysicalReport.HasBlockingIssues,
+    "HOF mismatch incorrectly blocked physical multiplayer.");
+Require(
+    hofPhysicalReport.Issues.Any(issue =>
+        issue.Code == "hof-mismatch" &&
+        issue.Severity == CompatibilityIssueSeverity.Warning),
+    "HOF mismatch must remain visible as a warning without blocking spawn.");
+
 var openOmsiInstallerType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
@@ -753,12 +867,12 @@ try
             openOmsiPresence,
             openOmsiWorldTelemetry);
 
-    var coordinatorType =
+    var openOmsiCoordinatorType =
         typeof(OmsiPluginBridgeServer).Assembly.GetType(
             "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
             throwOnError: true)!;
     var applyOpenOmsiWorldAnchor =
-        coordinatorType.GetMethod(
+        openOmsiCoordinatorType.GetMethod(
             "ApplyOpenOmsiWorldAnchor",
             BindingFlags.NonPublic |
             BindingFlags.Static)
@@ -1085,5 +1199,22 @@ static void Require(bool condition, string message)
     if (!condition)
     {
         throw new InvalidOperationException(message);
+    }
+}
+
+static void Near(
+    double actual,
+    double expected,
+    double tolerance,
+    string label)
+{
+    if (!double.IsFinite(actual) ||
+        !double.IsFinite(expected) ||
+        !double.IsFinite(tolerance) ||
+        tolerance < 0d ||
+        Math.Abs(actual - expected) > tolerance)
+    {
+        throw new InvalidOperationException(
+            $"{label} mismatch: expected {expected}, got {actual} (tolerance {tolerance}).");
     }
 }

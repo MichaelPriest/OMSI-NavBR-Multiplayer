@@ -1454,14 +1454,33 @@ internal sealed class RemotePhysicalVehicleCoordinator
         // verified RoadVehicle.Kachel and Position against the same tile
         // pointer. Therefore this is safe to use as a recovery source when
         // nullable local/quaternion fields were lost in transport.
-        if (telemetry.PhysicalGridX is not int ||
-            telemetry.PhysicalGridY is not int ||
+        if (telemetry.PhysicalGridX is not int physicalGridX ||
+            telemetry.PhysicalGridY is not int physicalGridY ||
             telemetry.TileX is not double tileX ||
             !double.IsFinite(tileX) ||
             telemetry.TileY is not double tileY ||
             !double.IsFinite(tileY) ||
             Math.Abs(tileX) > 1_200d ||
             Math.Abs(tileY) > 1_200d)
+        {
+            return false;
+        }
+
+        // PublishTelemetryAsync can supplement PhysicalGridX/Y from the
+        // in-process plugin when the external reader catches OMSI exactly
+        // between two Kacheln. In that case TileX/TileY may still come from
+        // NavigationVehicle. They are safe recovery coordinates only when the
+        // navigation grid is complete and agrees with the physical grid (or
+        // when no navigation grid was supplied at all).
+        if (telemetry.GridX.HasValue != telemetry.GridY.HasValue)
+        {
+            return false;
+        }
+
+        if (telemetry.GridX is int navigationGridX &&
+            telemetry.GridY is int navigationGridY &&
+            (navigationGridX != physicalGridX ||
+             navigationGridY != physicalGridY))
         {
             return false;
         }

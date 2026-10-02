@@ -331,9 +331,9 @@ public partial class MainWindow : Window
             telemetry?.IsInGame == true,
             qualityMs: physicalRealtime ? 50 : 125,
             multiplayerMs: physicalRealtime ? 50 : 150,
-            stabilityMs: physicalRealtime ? 150 : 300,
-            diagnosticsMs: physicalRealtime ? 100 : 250,
-            automaticMs: physicalRealtime ? 75 : 200);
+            stabilityMs: physicalRealtime ? 50 : 300,
+            diagnosticsMs: physicalRealtime ? 50 : 250,
+            automaticMs: physicalRealtime ? 50 : 200);
 
         // External-memory telemetry must never occupy most of the dispatcher
         // cadence. Keep at least ~2.5x the measured average read cost so a

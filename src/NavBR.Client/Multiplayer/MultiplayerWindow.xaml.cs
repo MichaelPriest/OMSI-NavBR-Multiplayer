@@ -398,10 +398,6 @@ public partial class MultiplayerWindow : Window
             .GetConnectionInfo()
             .LastStatus;
         var pressure = status?.PluginPressureLevel ?? 0;
-        var profile = status?.PerformanceProfile?
-            .Trim()
-            .ToLowerInvariant();
-
         var now = DateTimeOffset.UtcNow;
         var telemetry = _telemetrySource();
         if (telemetry is not null)
@@ -429,25 +425,23 @@ public partial class MultiplayerWindow : Window
         var intervalMs = !physicalRealtime
             ? 250
             : activeRealtime
-                ? profile switch
-                {
-                    "stability" => 100,
-                    "diagnostics" => 75,
-                    _ => 50
-                }
+                ? 50
                 : 200;
 
-        // Network quality shapes the 20 Hz target instead of replacing the
-        // timer outright. A degraded route gets a small backoff; a poor route
-        // avoids building a SignalR backlog while the sender-time buffer keeps
-        // remote motion continuous.
-        var network = SessionNetworkQualityFeed.Snapshot();
-        intervalMs = network.Level switch
+        // A moving physical vehicle keeps the openOMSI-compatible 20 Hz
+        // transport target even when latency/jitter is degraded. The async
+        // publisher already drops overlapping ticks instead of queueing them.
+        // Idle/non-physical traffic may still back off with network quality.
+        if (!activeRealtime)
         {
-            SessionNetworkQualityLevel.Poor => Math.Max(intervalMs, 125),
-            SessionNetworkQualityLevel.Degraded => Math.Max(intervalMs, 75),
-            _ => intervalMs
-        };
+            var network = SessionNetworkQualityFeed.Snapshot();
+            intervalMs = network.Level switch
+            {
+                SessionNetworkQualityLevel.Poor => Math.Max(intervalMs, 125),
+                SessionNetworkQualityLevel.Degraded => Math.Max(intervalMs, 75),
+                _ => intervalMs
+            };
+        }
 
         // Plugin pressure remains authoritative. Network smoothness must never
         // defeat the OMSI callback governor when the 32-bit process is under
