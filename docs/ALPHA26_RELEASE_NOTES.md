@@ -18,6 +18,10 @@ etapa final de validação, porque ainda depende de teste real com dois PCs/sess
 - progresso de download/verificação;
 - ação **Atualizar e reiniciar**;
 - instalação silenciosa via instalador Inno Setup validado;
+- retomada de download interrompido via HTTP Range;
+- modo offline não bloqueante: falha de rede não impede o NavBR de abrir;
+- confirmação pós-update ao reabrir, mostrando versão anterior → nova;
+- limpeza automática de instaladores antigos, mantendo no máximo duas versões preparadas;
 - o plugin OMSI 2 continua gerenciado pelo NavBR;
 - o plugin openOMSI **não** participa do atualizador do App.
 
