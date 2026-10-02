@@ -52,7 +52,8 @@ public sealed record MultiplayerSettings(
     int PhysicalVehiclesSettingsVersion = 0,
     int HudVisibilitySettingsVersion = 0,
     bool HudEnabled = true,
-    bool TelematrixWidgetEnabled = true,
+    int TelematrixSettingsVersion = 0,
+    bool TelematrixWidgetEnabled = false,
     int TelematrixTheme = 0,
     int TelematrixSize = 0,
     bool TelematrixAutoDirection = true,
@@ -98,5 +99,7 @@ public sealed record MultiplayerSettings(
         DashboardShowAlerts: true,
         DashboardShowSideIndicators: false,
         NetworkSettingsVersion: 3,
-        PhysicalVehiclesSettingsVersion: 1);
+        PhysicalVehiclesSettingsVersion: 1,
+        TelematrixSettingsVersion: 1,
+        TelematrixWidgetEnabled: false);
 }
