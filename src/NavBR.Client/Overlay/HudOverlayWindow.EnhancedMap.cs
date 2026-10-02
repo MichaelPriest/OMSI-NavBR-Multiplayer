@@ -180,6 +180,18 @@ public partial class HudOverlayWindow
             ? $"{nextStopLabel}: —"
             : $"{nextStopLabel}: {telemetry.NextStopName}";
 
+        var hasTripInfo =
+            !string.IsNullOrWhiteSpace(telemetry?.Line) ||
+            !string.IsNullOrWhiteSpace(telemetry?.Route) ||
+            !string.IsNullOrWhiteSpace(telemetry?.DestinationName) ||
+            !string.IsNullOrWhiteSpace(telemetry?.NextStopName);
+        if (!_immersiveOperationActive)
+        {
+            TripInfoPanel.Visibility = hasTripInfo
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
         if (map is null && telemetry is null)
         {
             MiniMapStatusText.Text = "NavBR";
@@ -192,6 +204,11 @@ public partial class HudOverlayWindow
         {
             MiniMapStatusText.Text = map.DisplayName;
             return;
+        }
+
+        if (!_immersiveOperationActive)
+        {
+            TripInfoPanel.Visibility = Visibility.Visible;
         }
 
         var remaining = FormatNavigationDistance(navigation.DistanceRemainingMeters);
