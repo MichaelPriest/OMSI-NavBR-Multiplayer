@@ -964,16 +964,25 @@ public partial class MainWindow
             current,
             HudProfileCatalog.DefaultPreset) with
         {
+            DashboardSettingsVersion = 4,
             DashboardEnabled = true,
             DashboardTheme = HudProfileCatalog.DefaultTheme,
-            DashboardAnchor = HudProfileCatalog.DefaultAnchor,
+            DashboardAnchor = "bottom-right",
             DashboardHeight = 0d,
             DashboardAutoScale = true,
+            DashboardShowMinimap = false,
+            DashboardShowMultiplayer = false,
+            DashboardShowAlerts = true,
+            DashboardShowSideIndicators = false,
             DashboardMinimapScale = 1d,
             DashboardMinimapStyle = "rectangular",
             DashboardMultiplayerScale = 1d,
             DashboardAlertsScale = 1d,
-            DashboardSideIndicatorsScale = 1d
+            DashboardSideIndicatorsScale = 1d,
+            TelematrixSettingsVersion = 1,
+            TelematrixWidgetEnabled = false,
+            TelematrixTheme = 0,
+            TelematrixSize = 0
         };
         MultiplayerSettingsStore.ClearHudPreview();
         MultiplayerSettingsStore.Save(reset);
