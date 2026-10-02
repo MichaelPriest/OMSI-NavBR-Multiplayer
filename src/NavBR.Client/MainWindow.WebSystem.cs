@@ -1320,19 +1320,23 @@ public partial class MainWindow
 
         sanitized = Regex.Replace(
             sanitized,
-            @"(?i)\b(?:password|passwd|token|secret|invite(?:code)?|roomid|playerid)\s*[=:]\s*[^\s,;]+",
-            match =>
-            {
-                var separator = match.Value.IndexOfAny(new[] { '=', ':' });
-                return separator > 0
-                    ? match.Value[..separator] + "=[redacted]"
-                    : "[redacted]";
-            });
+            @"(?i)(?<key>""?(?:password|passwd|token|secret|authorization|api[-_]?key|invite(?:code)?|room(?:id)?|player(?:id)?|session(?:token)?)""?\s*[=:]\s*)(?<value>""[^""\r\n]*""|[^\s,;}\]]+)",
+            match => match.Groups["key"].Value + "[redacted]");
 
         sanitized = Regex.Replace(
             sanitized,
             @"\b(?:\d{1,3}\.){3}\d{1,3}\b",
             "[ip]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?<![0-9A-Fa-f:.])(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}(?![0-9A-Fa-f:.])",
+            match =>
+                System.Net.IPAddress.TryParse(match.Value, out var address) &&
+                address.AddressFamily ==
+                    System.Net.Sockets.AddressFamily.InterNetworkV6
+                    ? "[ip]"
+                    : match.Value);
 
         sanitized = Regex.Replace(
             sanitized,
@@ -1342,6 +1346,11 @@ public partial class MainWindow
         sanitized = Regex.Replace(
             sanitized,
             @"(?i)\b[A-Z]:\\[^\r\n\t\""]+",
+            "[path]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\\\\[^\\\s""]+\\[^\r\n\t""]+",
             "[path]");
 
         sanitized = Regex.Replace(
