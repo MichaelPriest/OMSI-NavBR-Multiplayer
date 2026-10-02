@@ -3328,201 +3328,64 @@ function Settings({
           <article className="card discovery-card">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">NAVBR FOR OPENOMSI</span>
-                <h3>{pick("Plugin x64 instalável", "Installable x64 plugin", "Plugin x64 instalable", "Installierbares x64-Plugin", "Plugin x64 installable")}</h3>
+                <span className="eyebrow">OPENOMSI · INTEGRAÇÃO EXTERNA</span>
+                <h3>{pick("Plugin separado do NavBR App", "Plugin separated from the NavBR App", "Plugin separado de la app NavBR", "Plugin getrennt von der NavBR-App", "Plugin séparé de l’app NavBR")}</h3>
               </div>
-              <span className={`compatibility-badge ${system.openOmsiPlugin.state === "ready" ? "compatible" : system.openOmsiPlugin.state === "outdated" || system.openOmsiPlugin.state === "partial" ? "warning" : "blocked"}`}>
-                {system.openOmsiPlugin.state.toUpperCase()}
+              <span className={`compatibility-badge ${system.openOmsiLanGateway?.clientConnected ? "compatible" : "warning"}`}>
+                {system.openOmsiLanGateway?.clientConnected ? "LINKED" : "WAITING"}
               </span>
             </div>
             <p>
               {pick(
-                "Integração própria para openOMSI usando o ABI oficial de plugins OMSI (.opl + DLL), sem offsets de memória do OMSI 2 original.",
-                "Dedicated openOMSI integration using the official OMSI plugin ABI (.opl + DLL), without original OMSI 2 memory offsets.",
-                "Integración propia para openOMSI usando el ABI oficial de plugins OMSI (.opl + DLL), sin offsets de memoria del OMSI 2 original.",
-                "Eigene openOMSI-Integration über die offizielle OMSI-Plugin-ABI (.opl + DLL), ohne Speicher-Offsets des originalen OMSI 2.",
-                "Intégration dédiée à openOMSI via l’ABI officielle des plugins OMSI (.opl + DLL), sans offsets mémoire d’OMSI 2 original."
+                "O plugin NavBR para openOMSI é distribuído e instalado separadamente no ambiente/launcher do openOMSI. O NavBR App não instala, atualiza, remove nem inicia o openOMSI; ele apenas expõe o gateway local e recebe a conexão do plugin externo.",
+                "The NavBR plugin for openOMSI is distributed and installed separately in the openOMSI environment/launcher. The NavBR App does not install, update, remove or launch openOMSI; it only exposes the local gateway and receives the external plugin connection.",
+                "El plugin NavBR para openOMSI se distribuye e instala por separado en el entorno/launcher de openOMSI. La app NavBR no instala, actualiza, elimina ni inicia openOMSI; solo expone el gateway local y recibe la conexión del plugin externo.",
+                "Das NavBR-Plugin für openOMSI wird separat in der openOMSI-Umgebung bzw. im Launcher verteilt und installiert. Die NavBR-App installiert, aktualisiert, entfernt oder startet openOMSI nicht; sie stellt nur das lokale Gateway bereit.",
+                "Le plugin NavBR pour openOMSI est distribué et installé séparément dans l’environnement/launcher openOMSI. L’app NavBR n’installe, ne met à jour, ne supprime ni ne lance openOMSI ; elle expose uniquement la passerelle locale."
               )}
             </p>
-            <div className="details-grid">
-              <div><small>{pick("ARQUIVOS", "FILES", "ARCHIVOS", "DATEIEN", "FICHIERS")}</small><strong>{system.openOmsiPlugin.requiredFilesFound}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
-              <div><small>SHA-256 OK</small><strong>{system.openOmsiPlugin.verifiedFiles}/{system.openOmsiPlugin.requiredFilesTotal}</strong></div>
-              <div><small>{pick("VERSÃO", "VERSION", "VERSIÓN", "VERSION", "VERSION")}</small><strong>{system.openOmsiPlugin.installedVersion || "—"}</strong></div>
-              <div><small>openOMSI</small><strong>{system.openOmsiPlugin.running ? pick("Em execução", "Running", "En ejecución", "Läuft", "En cours") : pick("Fechado", "Closed", "Cerrado", "Geschlossen", "Fermé")}</strong></div>
-            </div>
-            {system.openOmsiPlugin.executablePath && <code>{system.openOmsiPlugin.executablePath}</code>}
-            {system.openOmsiPlugin.contentRoot && (
-              <small className="plugin-update-hint">
-                {pick("Content root", "Content root", "Content root", "Content-Root", "Content root")}: {system.openOmsiPlugin.contentRoot}
-              </small>
-            )}
-            <div className="plugin-file-verification">
-              {system.openOmsiPlugin.files.map(file => (
-                <span key={file.name} className={file.exists && file.hashMatches ? "verified" : "mismatch"}>
-                  <NavBrIcon name={file.exists && file.hashMatches ? "info" : "hazard"} size={13} />
-                  {file.name}
-                </span>
-              ))}
-            </div>
-            {system.openOmsiPlugin.message && (
-              <div className="network-message">{system.openOmsiPlugin.message}</div>
-            )}
-            {system.openOmsiLanGateway && (
+            {system.openOmsiLanGateway ? (
               <>
                 <div className="details-grid">
-                  <div><small>{pick("GATEWAY FÍSICO", "PHYSICAL GATEWAY", "GATEWAY FÍSICO", "PHYSISCHES GATEWAY", "PASSERELLE PHYSIQUE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? (system.openOmsiLanGateway.localStateFrames > 0 ? "STREAMING" : "LINKED") : "WAITING"}</strong></div>
+                  <div><small>{pick("GATEWAY", "GATEWAY", "GATEWAY", "GATEWAY", "PASSERELLE")}</small><strong>{system.openOmsiLanGateway.running ? "READY" : "OFFLINE"}</strong></div>
+                  <div><small>{pick("CONEXÃO EXTERNA", "EXTERNAL LINK", "CONEXIÓN EXTERNA", "EXTERNE VERBINDUNG", "LIAISON EXTERNE")}</small><strong>{system.openOmsiLanGateway.clientConnected ? "LINKED" : "WAITING"}</strong></div>
                   <div><small>{pick("PORTA LOCAL", "LOCAL PORT", "PUERTO LOCAL", "LOKALER PORT", "PORT LOCAL")}</small><strong>{system.openOmsiLanGateway.port ?? "—"}</strong></div>
-                  <div><small>{pick("REMOTOS", "REMOTES", "REMOTOS", "REMOTES", "DISTANTS")}</small><strong>{system.openOmsiLanGateway.remotePlayers}</strong></div>
-                  <div><small>{pick("DESENHADOS", "DRAWN", "DIBUJADOS", "GEZEICHNET", "DESSINÉS")}</small><strong>{system.openOmsiLanGateway.drawnRemotePlayers}/{system.openOmsiLanGateway.remotePlayers}</strong></div>
-                  <div><small>{pick("STATUS OPENOMSI", "OPENOMSI STATUS", "ESTADO OPENOMSI", "OPENOMSI-STATUS", "ÉTAT OPENOMSI")}</small><strong>{system.openOmsiLanGateway.runtimeStatusFresh ? (system.openOmsiLanGateway.runtimeConnected ? "LIVE" : "OFFLINE") : "STALE"}</strong></div>
-                  <div><small>{pick("MAPA LAN", "LAN MAP", "MAPA LAN", "LAN-KARTE", "CARTE LAN")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
-                  <div><small>{pick("FRAMES STATE", "STATE FRAMES", "FRAMES STATE", "STATE-FRAMES", "TRAMES STATE")}</small><strong>{system.openOmsiLanGateway.localStateFrames}</strong></div>
-                  <div><small>{pick("TAXA STATE", "STATE RATE", "TASA STATE", "STATE-RATE", "TAUX STATE")}</small><strong>{system.openOmsiLanGateway.localStateRateHz != null ? `${system.openOmsiLanGateway.localStateRateHz.toFixed(1)} Hz` : "—"}</strong></div>
-                  <div><small>{pick("IDADE TELEMETRIA", "TELEMETRY AGE", "EDAD TELEMETRÍA", "TELEMETRIE-ALTER", "ÂGE TÉLÉMÉTRIE")}</small><strong>{system.openOmsiLanGateway.localStateAgeMilliseconds != null ? `${Math.round(system.openOmsiLanGateway.localStateAgeMilliseconds)} ms` : "—"}</strong></div>
+                  <div><small>{pick("CLIENTE", "CLIENT", "CLIENTE", "CLIENT", "CLIENT")}</small><strong>{system.openOmsiLanGateway.clientName || "—"}</strong></div>
+                  <div><small>{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</small><strong>{system.openOmsiLanGateway.map || "—"}</strong></div>
+                  <div><small>{pick("STATE", "STATE", "STATE", "STATE", "STATE")}</small><strong>{system.openOmsiLanGateway.localStateFrames}</strong></div>
+                  <div><small>{pick("TAXA", "RATE", "TASA", "RATE", "TAUX")}</small><strong>{system.openOmsiLanGateway.localStateRateHz != null ? `${system.openOmsiLanGateway.localStateRateHz.toFixed(1)} Hz` : "—"}</strong></div>
                   <div><small>{pick("IDENTIDADE", "IDENTITY", "IDENTIDAD", "IDENTITÄT", "IDENTITÉ")}</small><strong>{system.openOmsiLanGateway.vehicleIdentityReady ? "SHA OK" : "PENDING"}</strong></div>
                 </div>
-                {(system.openOmsiLanGateway.clientName || system.openOmsiLanGateway.vehiclePath) && (
-                  <div className="plugin-file-verification">
-                    {system.openOmsiLanGateway.clientName && (
-                      <span className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}>
-                        <NavBrIcon name="multiplayer" size={13} />
-                        {system.openOmsiLanGateway.clientName}
-                      </span>
-                    )}
-                    {system.openOmsiLanGateway.vehiclePath && (
-                      <span className={system.openOmsiLanGateway.vehicleIdentityReady ? "verified" : "mismatch"}>
-                        <NavBrIcon name="bus" size={13} />
-                        {system.openOmsiLanGateway.vehiclePath}
-                      </span>
-                    )}
-                    {system.openOmsiLanGateway.lastLocalStateSequence != null && (
-                      <span className="verified">
-                        <NavBrIcon name="info" size={13} />
-                        STATE #{system.openOmsiLanGateway.lastLocalStateSequence}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {system.openOmsiLanGateway.vehicleCompatibilityId && (
-                  <code title={system.openOmsiLanGateway.vehicleCompatibilityId}>
-                    {system.openOmsiLanGateway.vehicleCompatibilityId.length > 34
-                      ? `${system.openOmsiLanGateway.vehicleCompatibilityId.slice(0, 34)}…`
-                      : system.openOmsiLanGateway.vehicleCompatibilityId}
-                  </code>
-                )}
-                {system.openOmsiLanGateway.remotes.length > 0 && (
-                  <div className="plugin-file-verification">
-                    {system.openOmsiLanGateway.remotes.map(remote => (
-                      <span
-                        key={remote.playerId}
-                        className={remote.drawn && remote.vehicleAssetStatus === "match" ? "verified" : "mismatch"}
-                        title={remote.vehiclePath || remote.runtimeBus || remote.playerId}
-                      >
-                        <NavBrIcon name={remote.drawn && remote.vehicleAssetStatus === "match" ? "bus" : "hazard"} size={13} />
-                        #{remote.lanId} {remote.name || remote.runtimeName || remote.playerId} · {
-                          remote.materializationStatus === "drawn"
-                            ? pick("DESENHADO", "DRAWN", "DIBUJADO", "GEZEICHNET", "DESSINÉ")
-                            : remote.materializationStatus === "sent-not-drawn"
-                              ? pick("ENVIADO, NÃO DESENHADO", "SENT, NOT DRAWN", "ENVIADO, NO DIBUJADO", "GESENDET, NICHT GEZEICHNET", "ENVOYÉ, NON DESSINÉ")
-                              : remote.materializationStatus === "sent-unconfirmed"
-                                ? pick("ENVIADO, SEM CONFIRMAÇÃO", "SENT, UNCONFIRMED", "ENVIADO, SIN CONFIRMACIÓN", "GESENDET, UNBESTÄTIGT", "ENVOYÉ, NON CONFIRMÉ")
-                                : remote.materializationStatus === "waiting-state"
-                                  ? pick("AGUARDANDO STATE", "WAITING FOR STATE", "ESPERANDO STATE", "WARTE AUF STATE", "EN ATTENTE DE STATE")
-                                  : pick("AGUARDANDO INFO", "WAITING FOR INFO", "ESPERANDO INFO", "WARTE AUF INFO", "EN ATTENTE D’INFO")
-                        } · {
-                          remote.vehicleAssetStatus === "match"
-                            ? "MATCH"
-                            : remote.vehicleAssetStatus === "missing"
-                              ? "MISSING"
-                              : remote.vehicleAssetStatus === "mismatch"
-                                ? "MISMATCH"
-                                : remote.vehicleAssetStatus === "unverified"
-                                  ? "UNVERIFIED"
-                                  : "NO PATH"
-                        }
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {system.openOmsiLanGateway.runtimeStatusPath && (
-                  <small className="plugin-update-hint">
-                    {pick("Status oficial openOMSI", "Official openOMSI status", "Estado oficial openOMSI", "Offizieller openOMSI-Status", "État officiel openOMSI")}: {system.openOmsiLanGateway.runtimeStatusPath}
-                  </small>
-                )}
                 {system.openOmsiLanGateway.joinTarget && (
                   <div className="plugin-file-verification">
                     <span
                       className={system.openOmsiLanGateway.clientConnected ? "verified" : "mismatch"}
                       onClick={() => void navigator.clipboard?.writeText(system.openOmsiLanGateway?.joinTarget || "")}
-                      title={pick("Clique para copiar", "Click to copy", "Haz clic para copiar", "Zum Kopieren klicken", "Cliquer pour copier")}
+                      title={pick("Clique para copiar o endpoint local", "Click to copy the local endpoint", "Haz clic para copiar el endpoint local", "Lokalen Endpunkt kopieren", "Cliquer pour copier le point local")}
                     >
                       <NavBrIcon name="network" size={13} />
-                      {pick("Entrar no openOMSI em", "Join openOMSI at", "Entrar en openOMSI en", "openOMSI verbinden mit", "Rejoindre openOMSI sur")} {system.openOmsiLanGateway.joinTarget}
+                      {system.openOmsiLanGateway.joinTarget}
                     </span>
                   </div>
                 )}
                 <small className="plugin-update-hint">
-                  {system.openOmsiLanGateway.clientConnected
-                    ? pick(
-                        "openOMSI conectado ao gateway LAN v6 do NavBR. Os jogadores remotos compatíveis podem ser materializados pelo próprio renderer multiplayer do openOMSI.",
-                        "openOMSI is linked to NavBR's LAN v6 gateway. Compatible remote players can be materialized by openOMSI's own multiplayer renderer.",
-                        "openOMSI está conectado al gateway LAN v6 de NavBR. Los jugadores remotos compatibles pueden materializarse con el renderer multijugador de openOMSI.",
-                        "openOMSI ist mit dem LAN-v6-Gateway von NavBR verbunden. Kompatible Remote-Spieler können vom Multiplayer-Renderer von openOMSI dargestellt werden.",
-                        "openOMSI est relié à la passerelle LAN v6 de NavBR. Les joueurs distants compatibles peuvent être matérialisés par le moteur multijoueur d’openOMSI."
-                      )
-                    : pick(
-                        "Para o ônibus online físico no openOMSI, entre na sessão LAN usando o endereço local acima. O gateway aceita apenas loopback neste PC.",
-                        "For physical online buses in openOMSI, join the LAN session using the local address above. The gateway only accepts loopback on this PC.",
-                        "Para autobuses online físicos en openOMSI, entra en la sesión LAN usando la dirección local indicada. El gateway solo acepta loopback en este PC.",
-                        "Für physische Online-Busse in openOMSI der LAN-Sitzung über die lokale Adresse oben beitreten. Das Gateway akzeptiert nur Loopback auf diesem PC.",
-                        "Pour les bus en ligne physiques dans openOMSI, rejoignez la session LAN avec l’adresse locale ci-dessus. La passerelle n’accepte que le loopback sur ce PC."
-                      )}
+                  {pick(
+                    "Instalação e atualização do plugin pertencem ao pacote openOMSI separado. O endpoint acima existe somente para comunicação local entre esse plugin e o NavBR.",
+                    "Plugin installation and updates belong to the separate openOMSI package. The endpoint above exists only for local communication between that plugin and NavBR.",
+                    "La instalación y actualización del plugin pertenecen al paquete openOMSI separado. El endpoint anterior existe solo para la comunicación local con NavBR.",
+                    "Installation und Update des Plugins gehören zum separaten openOMSI-Paket. Der Endpunkt oben dient nur der lokalen Kommunikation mit NavBR.",
+                    "L’installation et la mise à jour du plugin appartiennent au paquet openOMSI séparé. Le point ci-dessus sert uniquement à la communication locale avec NavBR."
+                  )}
                 </small>
                 {system.openOmsiLanGateway.lastError && (
                   <div className="network-message">{system.openOmsiLanGateway.lastError}</div>
                 )}
               </>
-            )}
-            <div className="plugin-update-actions">
-              <div className="discovery-actions">
-                <button
-                  className="button primary"
-                  disabled={!system.openOmsiLanGateway?.joinTarget || system.openOmsiPlugin.running}
-                  onClick={() => sendCommand("launchOpenOmsiNavBrGateway")}
-                >
-                  {pick(
-                    "Abrir openOMSI conectado ao NavBR",
-                    "Open openOMSI connected to NavBR",
-                    "Abrir openOMSI conectado a NavBR",
-                    "openOMSI mit NavBR verbunden starten",
-                    "Ouvrir openOMSI connecté à NavBR"
-                  )}
-                </button>
-                <button className="button ghost" onClick={() => sendCommand("selectOpenOmsiExecutable")}>
-                  {pick("Selecionar openomsi.exe", "Select openomsi.exe", "Seleccionar openomsi.exe", "openomsi.exe wählen", "Sélectionner openomsi.exe")}
-                </button>
-                <button className="button ghost" disabled={!system.openOmsiPlugin.verificationAvailable} onClick={() => sendCommand("verifyOpenOmsiPlugin")}>
-                  {pick("Verificar", "Verify", "Verificar", "Prüfen", "Vérifier")}
-                </button>
-                <button className="button primary" disabled={!system.openOmsiPlugin.installAvailable} onClick={() => sendCommand("installOpenOmsiPlugin")}>
-                  {system.openOmsiPlugin.state === "ready"
-                    ? pick("Reinstalar", "Reinstall", "Reinstalar", "Neu installieren", "Réinstaller")
-                    : pick("Instalar / atualizar", "Install / update", "Instalar / actualizar", "Installieren / aktualisieren", "Installer / mettre à jour")}
-                </button>
-                <button
-                  className="button ghost danger"
-                  disabled={system.openOmsiPlugin.running || system.openOmsiPlugin.requiredFilesFound === 0}
-                  onClick={() => sendCommand("removeOpenOmsiPlugin")}
-                >
-                  {pick("Remover", "Remove", "Eliminar", "Entfernen", "Supprimer")}
-                </button>
+            ) : (
+              <div className="network-message">
+                {pick("Gateway openOMSI ainda não inicializado.", "openOMSI gateway is not initialized yet.", "El gateway openOMSI aún no está inicializado.", "openOMSI-Gateway ist noch nicht initialisiert.", "La passerelle openOMSI n’est pas encore initialisée.")}
               </div>
-              {system.openOmsiPlugin.installBlockReason === "openomsi-running" && (
-                <small className="plugin-update-hint">
-                  {pick("Feche o openOMSI para instalar, atualizar ou remover a DLL.", "Close openOMSI to install, update, or remove the DLL.", "Cierra openOMSI para instalar, actualizar o eliminar la DLL.", "openOMSI schließen, um die DLL zu installieren, zu aktualisieren oder zu entfernen.", "Fermez openOMSI pour installer, mettre à jour ou supprimer la DLL.")}
-                </small>
-              )}
-            </div>
+            )}
           </article>
 
           <article className="card discovery-card">
