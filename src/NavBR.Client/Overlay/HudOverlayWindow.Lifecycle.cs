@@ -53,6 +53,10 @@ public partial class HudOverlayWindow
             _hudVisibilitySettingsHooked = true;
             NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved +=
                 OnHudVisibilitySettingsSaved;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewChanged +=
+                OnHudPreviewChanged;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewCleared +=
+                OnHudPreviewCleared;
         }
 
         OverlayRoot.Visibility = Visibility.Collapsed;
@@ -91,6 +95,10 @@ public partial class HudOverlayWindow
         {
             NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved -=
                 OnHudVisibilitySettingsSaved;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewChanged -=
+                OnHudPreviewChanged;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewCleared -=
+                OnHudPreviewCleared;
             _hudVisibilitySettingsHooked = false;
         }
 
@@ -161,6 +169,21 @@ public partial class HudOverlayWindow
         _hudEnabled = settings.HudEnabled;
         ApplyTelematrixSettings(settings);
         RefreshHudVisibility();
+        RefreshTelematrixPanel();
+    }
+
+    private void OnHudPreviewChanged(
+        NavBR.Client.Multiplayer.MultiplayerSettings settings)
+    {
+        ApplyTelematrixSettings(settings);
+        RefreshTelematrixPanel();
+    }
+
+    private void OnHudPreviewCleared()
+    {
+        var settings =
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
+        ApplyTelematrixSettings(settings);
         RefreshTelematrixPanel();
     }
 
