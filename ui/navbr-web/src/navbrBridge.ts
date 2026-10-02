@@ -497,6 +497,13 @@ export interface NavBrHudState {
 
 export interface NavBrSystemState {
   installationsNotice?: string | null;
+  runtimeHost: {
+    nativeHostMode: boolean;
+    telemetryPollIntervalMilliseconds: number;
+    telemetryLastReadMilliseconds: number;
+    telemetryAverageReadMilliseconds: number;
+    hudRefreshIntervalMilliseconds: number;
+  };
   applicationUpdate?: {
     status: "idle" | "checking" | "current" | "downloading" | "verifying" | "ready" | "installing" | "failed";
     currentVersion: string;
