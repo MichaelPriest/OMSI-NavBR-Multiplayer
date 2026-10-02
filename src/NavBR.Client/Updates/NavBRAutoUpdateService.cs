@@ -368,6 +368,7 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         using var helper = Process.Start(startInfo);
         if (helper is null)
         {
+            TryDelete(PendingUpdateMarkerPath);
             SetSnapshot(GetSnapshot() with
             {
                 Status = "failed",
