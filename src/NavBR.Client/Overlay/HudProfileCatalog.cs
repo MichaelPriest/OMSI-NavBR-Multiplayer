@@ -258,7 +258,7 @@ public static class HudProfileCatalog
         var preset = ResolvePreset(presetId);
         return settings with
         {
-            DashboardSettingsVersion = 3,
+            DashboardSettingsVersion = 4,
             DashboardPreset = preset.Id,
             DashboardTheme = preset.ThemeId,
             DashboardWidth = preset.Width,
