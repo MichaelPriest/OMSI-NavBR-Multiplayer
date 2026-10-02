@@ -6029,161 +6029,131 @@ function Help({ state }: { state: NavBrState | null }) {
     {
       title: pick("1. Comece aqui", "1. Start here", "1. Primeros pasos", "1. Erste Schritte", "1. Bien démarrer"),
       body: pick(
-        "Abra o NavBR e o OMSI 2, aguarde a detecção/telemetria, carregue mapa e ônibus e inicie a viagem. Durante o gameplay o HUD/minimapa acompanha os dados reais do OMSI e pode se ocultar quando necessário.",
-        "Open NavBR and OMSI 2, wait for detection/telemetry, load a map and bus, and start the trip. During gameplay the HUD/minimap follows real OMSI data and may hide when needed.",
-        "Abre NavBR y OMSI 2, espera la detección/telemetría, carga mapa y autobús e inicia el viaje. Durante el juego el HUD/minimapa sigue datos reales de OMSI.",
-        "Starte NavBR und OMSI 2, warte auf Erkennung/Telemetrie, lade Karte und Bus und beginne die Fahrt. HUD/Minikarte nutzen echte OMSI-Daten.",
-        "Ouvrez NavBR et OMSI 2, attendez la détection/télémétrie, chargez carte et bus puis démarrez le trajet. Le HUD/minicarte suit les données réelles d’OMSI."
+        "Abra o NavBR e o OMSI 2, aguarde a detecção e a telemetria, carregue mapa e ônibus e inicie a viagem. A Home mostra a prontidão do Plugin OMSI 2, Empresa/Crachá, Mobile Companion e Atualizações antes de você entrar nas áreas avançadas.",
+        "Open NavBR and OMSI 2, wait for detection and telemetry, load a map and bus, and start the trip. Home shows readiness for the OMSI 2 Plugin, Company/Badge, Mobile Companion and Updates before you enter advanced areas.",
+        "Abre NavBR y OMSI 2, espera detección y telemetría, carga mapa y autobús e inicia el viaje. Inicio muestra el estado de Plugin OMSI 2, Empresa/Credencial, Mobile Companion y Actualizaciones.",
+        "Starte NavBR und OMSI 2, warte auf Erkennung und Telemetrie, lade Karte und Bus und beginne die Fahrt. Home zeigt den Status von OMSI-2-Plugin, Unternehmen/Ausweis, Mobile Companion und Updates.",
+        "Ouvrez NavBR et OMSI 2, attendez la détection et la télémétrie, chargez la carte et le bus puis démarrez. L’accueil affiche l’état du plugin OMSI 2, Entreprise/Badge, Mobile Companion et Mises à jour."
       )
     },
     {
-      title: pick("2. HUD, GPS e velocidade", "2. HUD, GPS and speed", "2. HUD, GPS y velocidad", "2. HUD, GPS und Geschwindigkeit", "2. HUD, GPS et vitesse"),
+      title: pick("2. Empresa e Crachá", "2. Company and Badge", "2. Empresa y Credencial", "2. Unternehmen und Ausweis", "2. Entreprise et Badge"),
       body: pick(
-        "Velocidade, linha, rota, destino, próxima parada e navegação vêm do estado real do OMSI. Configure preset, tema, escala, opacidade e módulos em Configurações > HUD. O minimapa pode ser retangular ou circular estilo GTA, e Mover HUD continua usando o overlay nativo.",
-        "Speed, line, route, destination, next stop and navigation come from real OMSI state. Configure preset, theme, scale, opacity and modules under Settings > HUD. The minimap can be rectangular or circular GTA-style, and Move HUD still uses the native overlay.",
-        "Velocidad, línea, ruta, destino, próxima parada y navegación vienen del estado real de OMSI. Configura el HUD en Configuración > HUD.",
-        "Geschwindigkeit, Linie, Route, Ziel, nächste Haltestelle und Navigation stammen aus dem echten OMSI-Status. HUD-Einstellungen liegen unter Einstellungen > HUD.",
-        "Vitesse, ligne, itinéraire, destination, prochain arrêt et navigation proviennent de l’état réel d’OMSI. Configurez le HUD dans Paramètres > HUD."
+        "Quando o crachá está verificado, ele é a fonte de verdade da identidade operacional: nome do motorista, empresa e sigla. Campos conflitantes ficam bloqueados para evitar que a sessão use uma identidade diferente da validada. Faça a validação antes de usar recursos de Empresa/CCO.",
+        "When the badge is verified, it becomes the source of truth for operational identity: driver name, company and acronym. Conflicting fields are locked so the session cannot use an identity different from the validated one. Validate it before using Company/CCO features.",
+        "Cuando la credencial está verificada, pasa a ser la fuente de verdad de nombre del conductor, empresa y sigla. Los campos en conflicto quedan bloqueados antes de usar Empresa/CCO.",
+        "Ist der Ausweis verifiziert, ist er die Quelle für Fahrername, Unternehmen und Kürzel. Abweichende Felder werden gesperrt, bevor Unternehmens-/CCO-Funktionen genutzt werden.",
+        "Quand le badge est vérifié, il devient la source de référence pour le nom du conducteur, l’entreprise et le sigle. Les champs en conflit sont verrouillés avant l’utilisation des fonctions Entreprise/CCO."
       )
     },
     {
-      title: pick("3. Multiplayer", "3. Multiplayer", "3. Multijugador", "3. Multiplayer", "3. Multijoueur"),
+      title: pick("3. HUD, GPS e minimapa", "3. HUD, GPS and minimap", "3. HUD, GPS y minimapa", "3. HUD, GPS und Minikarte", "3. HUD, GPS et minicarte"),
       body: pick(
-        "Crie uma sala online usando um servidor NavBR hospedado (por exemplo, Render) ou use o modo local TCP 27730. Salas privadas usam senha. Firewall, NAT/CGNAT e UPnP só são necessários no modo local.",
-        "Create an online room using a hosted NavBR server (for example, Render), or use local TCP 27730 mode. Private rooms use a password. Firewall, NAT/CGNAT and UPnP are only needed for local hosting.",
-        "Crea una sala online usando un servidor NavBR alojado (por ejemplo, Render), o usa el modo local TCP 27730. Firewall, NAT/CGNAT y UPnP solo son necesarios para alojamiento local.",
-        "Erstelle einen Online-Raum über einen gehosteten NavBR-Server (zum Beispiel Render) oder nutze den lokalen TCP-27730-Modus. Firewall, NAT/CGNAT und UPnP sind nur für lokales Hosting nötig.",
-        "Créez une salle en ligne via un serveur NavBR hébergé (par exemple Render), ou utilisez le mode local TCP 27730. Pare-feu, NAT/CGNAT et UPnP ne sont nécessaires que pour l’hébergement local."
+        "Velocidade, linha, rota, destino, próxima parada e navegação vêm do estado real do OMSI. Em Configurações > HUD ajuste preset, tema, escala, opacidade e módulos. O minimapa pode ser Retangular ou Circular · GTA; o formato também é aplicado ao overlay nativo e aos HUDs compostos.",
+        "Speed, line, route, destination, next stop and navigation come from real OMSI state. Under Settings > HUD adjust preset, theme, scale, opacity and modules. The minimap can be Rectangular or Circular · GTA, and the shape also applies to the native overlay and composed HUDs.",
+        "Velocidad, línea, ruta, destino, próxima parada y navegación vienen del estado real de OMSI. En Configuración > HUD puedes usar minimapa Rectangular o Circular · GTA.",
+        "Geschwindigkeit, Linie, Route, Ziel, nächste Haltestelle und Navigation stammen aus dem echten OMSI-Status. Unter Einstellungen > HUD kann die Minikarte Rechteckig oder Rund · GTA sein.",
+        "Vitesse, ligne, itinéraire, destination, prochain arrêt et navigation viennent de l’état réel d’OMSI. Dans Paramètres > HUD, la minicarte peut être Rectangulaire ou Circulaire · GTA."
       )
     },
     {
-      title: pick("4. Chat e voz", "4. Chat and voice", "4. Chat y voz", "4. Chat und Sprache", "4. Chat et voix"),
+      title: pick("4. Multiplayer", "4. Multiplayer", "4. Multijugador", "4. Multiplayer", "4. Multijoueur"),
       body: pick(
-        `O atalho atual do chat é ${multiplayer.chatHotkey || "F9"} e o PTT é ${multiplayer.voiceHotkey || "F10"}. Em Multiplayer > Chat & Voz você configura canal, proximidade, microfone, saída, mute/volume por jogador e acompanha jitter/perda/FEC. Sliders usam edição local e confirmam no fim do ajuste para evitar travadas/piscadas por polling.`,
-        `The current chat hotkey is ${multiplayer.chatHotkey || "F9"} and PTT is ${multiplayer.voiceHotkey || "F10"}. In Multiplayer > Chat & Voice you can configure channel, proximity, microphone, output, per-player mute/volume and monitor jitter/loss/FEC. Sliders edit locally and commit at the end of the adjustment to avoid polling flicker.`,
-        `El atajo actual del chat es ${multiplayer.chatHotkey || "F9"} y PTT es ${multiplayer.voiceHotkey || "F10"}. En Multiplayer > Chat y Voz configuras canal, proximidad, dispositivos y mixer.`,
-        `Der aktuelle Chat-Hotkey ist ${multiplayer.chatHotkey || "F9"}, PTT ist ${multiplayer.voiceHotkey || "F10"}. Unter Multiplayer > Chat & Sprache werden Kanal, Nähe, Geräte und Mixer eingestellt.`,
-        `Le raccourci chat actuel est ${multiplayer.chatHotkey || "F9"} et le PTT ${multiplayer.voiceHotkey || "F10"}. Dans Multijoueur > Chat & Voix, configurez canal, proximité, périphériques et mixage.`
+        "Crie uma sala online usando um servidor NavBR hospedado ou use o modo local TCP 27730. Salas privadas usam senha. O ônibus remoto físico permanece EXPERIMENTAL e desligado por padrão; os smokes automatizados continuam ativos, mas o teste E2E real com dois PCs/duas sessões OMSI ficará para a etapa final.",
+        "Create an online room using a hosted NavBR server or use local TCP 27730 mode. Private rooms use a password. Physical remote buses remain EXPERIMENTAL and off by default; automated smokes remain active, while real two-PC/two-OMSI-session E2E testing is reserved for the final stage.",
+        "Crea una sala online con un servidor NavBR alojado o usa TCP 27730 local. Los autobuses remotos físicos siguen EXPERIMENTALES y desactivados por defecto.",
+        "Erstelle einen Online-Raum über einen gehosteten NavBR-Server oder nutze lokal TCP 27730. Physische Remote-Busse bleiben EXPERIMENTELL und standardmäßig deaktiviert.",
+        "Créez une salle en ligne via un serveur NavBR hébergé ou utilisez TCP 27730 en local. Les bus distants physiques restent EXPÉRIMENTAUX et désactivés par défaut."
       )
     },
     {
-      title: pick("5. Atualizações automáticas", "5. Automatic updates", "5. Actualizaciones automáticas", "5. Automatische Updates", "5. Mises à jour automatiques"),
+      title: pick("5. Chat e voz", "5. Chat and voice", "5. Chat y voz", "5. Chat und Sprache", "5. Chat et voix"),
       body: pick(
-        "O NavBR verifica releases oficiais ao abrir. Quando há versão nova, baixa o instalador, valida o SHA-256 publicado e libera Atualizar e reiniciar. Em Configurações > Atualizações você pode verificar novamente e acompanhar o status.",
-        "NavBR checks official releases at startup. When a newer version exists, it downloads the installer, validates the published SHA-256 and enables Update & restart. Use Settings > Updates to check again and monitor status.",
-        "NavBR comprueba las releases oficiales al iniciar. Si hay una versión nueva, descarga el instalador, valida el SHA-256 publicado y permite Actualizar y reiniciar.",
-        "NavBR prüft beim Start offizielle Releases. Eine neue Version wird heruntergeladen, per SHA-256 geprüft und anschließend zur Installation freigegeben.",
-        "NavBR vérifie les releases officielles au démarrage. Une nouvelle version est téléchargée, validée par SHA-256 puis proposée à l’installation."
+        `O atalho atual do chat é ${multiplayer.chatHotkey || "F9"} e o PTT é ${multiplayer.voiceHotkey || "F10"}. Em Multiplayer > Chat & Voz configure canal, proximidade, microfone, saída, deafen e mute/volume por jogador. Sliders mantêm edição local e enviam a alteração ao soltar, toque ou tecla para evitar polling excessivo.`,
+        `The current chat hotkey is ${multiplayer.chatHotkey || "F9"} and PTT is ${multiplayer.voiceHotkey || "F10"}. Under Multiplayer > Chat & Voice configure channel, proximity, microphone, output, deafen and per-player mute/volume. Sliders keep a local draft and commit on release, tap or keyboard input to avoid excessive polling.`,
+        `El atajo del chat es ${multiplayer.chatHotkey || "F9"} y PTT es ${multiplayer.voiceHotkey || "F10"}. En Multiplayer > Chat y Voz configura canal, proximidad, dispositivos y mixer.`,
+        `Der Chat-Hotkey ist ${multiplayer.chatHotkey || "F9"}, PTT ist ${multiplayer.voiceHotkey || "F10"}. Unter Multiplayer > Chat & Sprache werden Kanal, Nähe, Geräte und Mixer eingestellt.`,
+        `Le raccourci chat est ${multiplayer.chatHotkey || "F9"} et le PTT ${multiplayer.voiceHotkey || "F10"}. Dans Multijoueur > Chat & Voix, configurez canal, proximité, périphériques et mixage.`
       )
     },
     {
-      title: pick("6. openOMSI é um plugin separado", "6. openOMSI is a separate plugin", "6. openOMSI es un plugin separado", "6. openOMSI ist ein separates Plugin", "6. openOMSI est un plugin séparé"),
+      title: pick("6. Atualizações automáticas", "6. Automatic updates", "6. Actualizaciones automáticas", "6. Automatische Updates", "6. Mises à jour automatiques"),
       body: pick(
-        "O NavBR App não instala, atualiza, remove nem inicia o openOMSI. O plugin NavBR para openOMSI é distribuído separadamente no ambiente/launcher do openOMSI. O App apenas mantém o gateway local e recebe a conexão desse plugin externo.",
-        "The NavBR App does not install, update, remove or launch openOMSI. The NavBR plugin for openOMSI is distributed separately in the openOMSI environment/launcher. The App only exposes the local gateway for that external plugin.",
-        "La app NavBR no instala, actualiza, elimina ni inicia openOMSI. El plugin NavBR para openOMSI se distribuye por separado en el entorno/launcher de openOMSI.",
-        "Die NavBR-App installiert, aktualisiert, entfernt oder startet openOMSI nicht. Das NavBR-Plugin für openOMSI wird separat in dessen Umgebung/Launcher verteilt.",
-        "L’app NavBR n’installe, ne met à jour, ne supprime ni ne lance openOMSI. Le plugin NavBR pour openOMSI est distribué séparément dans son environnement/launcher."
+        "O NavBR verifica releases oficiais ao abrir. Quando encontra uma versão mais nova, baixa o instalador, valida SHA256SUMS.txt e confere o SHA-256 novamente antes da instalação. Em Configurações > Atualizações acompanhe versão, progresso, notas da release e use Atualizar e reiniciar quando o pacote estiver validado.",
+        "NavBR checks official releases at startup. When a newer version is found, it downloads the installer, validates SHA256SUMS.txt and checks SHA-256 again before installation. Under Settings > Updates monitor version, progress and release notes, then use Update & restart after validation.",
+        "NavBR comprueba releases oficiales al iniciar, descarga el instalador y valida SHA-256 antes de permitir Actualizar y reiniciar.",
+        "NavBR prüft beim Start offizielle Releases, lädt den Installer und validiert SHA-256, bevor Aktualisieren & neu starten freigegeben wird.",
+        "NavBR vérifie les releases officielles au démarrage, télécharge l’installeur et valide SHA-256 avant d’autoriser Mettre à jour et redémarrer."
       )
     },
     {
-      title: pick("7. HUD e minimapa circular", "7. HUD and circular minimap", "7. HUD y minimapa circular", "7. HUD und runde Minikarte", "7. HUD et minicarte circulaire"),
+      title: pick("7. openOMSI é separado do App", "7. openOMSI is separate from the App", "7. openOMSI está separado de la App", "7. openOMSI ist von der App getrennt", "7. openOMSI est séparé de l’app"),
       body: pick(
-        "Em Configurações > HUD escolha minimapa Retangular ou Circular · GTA. O formato é aplicado ao overlay real dentro do OMSI e também aos HUDs compostos; rota, heading, posição e paradas continuam usando os mesmos dados reais.",
-        "Under Settings > HUD choose Rectangular or Circular · GTA minimap. The shape is applied to the real OMSI overlay and composed HUDs while route, heading, position and stops keep using the same live data.",
-        "En Configuración > HUD elige minimapa Rectangular o Circular · GTA. La forma se aplica al overlay real de OMSI manteniendo ruta, rumbo, posición y paradas.",
-        "Unter Einstellungen > HUD kann die Minikarte Rechteckig oder Rund · GTA gewählt werden. Route, Heading, Position und Haltestellen bleiben unverändert.",
-        "Dans Paramètres > HUD choisissez une minicarte Rectangulaire ou Circulaire · GTA. L’itinéraire, le cap, la position et les arrêts utilisent toujours les mêmes données."
+        "O NavBR App não instala, remove, atualiza nem inicia openOMSI e não embute o plugin openOMSI no desktop. O plugin NavBR para openOMSI é distribuído separadamente pelo ambiente/launcher do openOMSI. O App mantém somente o gateway local e a detecção de ambiente/conteúdo em modo leitura.",
+        "NavBR App does not install, remove, update or launch openOMSI and does not embed the openOMSI plugin in the desktop package. The NavBR openOMSI plugin is distributed separately by the openOMSI environment/launcher. The App only keeps the local gateway and read-only environment/content discovery.",
+        "NavBR App no instala, elimina, actualiza ni inicia openOMSI. El plugin se distribuye por separado y la App mantiene solo el gateway local y detección de solo lectura.",
+        "Die NavBR-App installiert, entfernt, aktualisiert oder startet openOMSI nicht. Das Plugin wird separat verteilt; die App stellt nur das lokale Gateway und eine schreibgeschützte Umgebungserkennung bereit.",
+        "L’app NavBR n’installe, ne supprime, ne met à jour ni ne lance openOMSI. Le plugin est distribué séparément ; l’app conserve seulement la passerelle locale et la détection en lecture seule."
       )
     },
     {
-      title: pick("8. Mobile, Hardware e suporte", "8. Mobile, Hardware and support", "8. Mobile, Hardware y soporte", "8. Mobile, Hardware und Support", "8. Mobile, Hardware et support"),
+      title: pick("8. Mobile Companion", "8. Mobile Companion", "8. Mobile Companion", "8. Mobile Companion", "8. Mobile Companion"),
       body: pick(
-        "O Mobile Companion usa o roadmap real do OMSI, recupera a conexão ao voltar do bloqueio e libera o PTT ao suspender. Hardware Cockpit mostra reconexão da COM. Em Configurações > Diagnóstico use Gerar pacote de diagnóstico para exportar um ZIP sanitizado sem senhas, tokens, IDs, IPs ou caminhos pessoais.",
-        "Mobile Companion uses the real OMSI roadmap, reconnects after resume and releases PTT on suspend. Hardware Cockpit shows COM reconnect state. Under Settings > Diagnostics use Generate diagnostic bundle for a sanitized ZIP without passwords, tokens, IDs, IPs or personal paths.",
-        "Mobile Companion usa el roadmap real de OMSI, recupera la conexión al volver y libera PTT al suspender. Hardware Cockpit muestra la reconexión COM. Diagnóstico genera un ZIP sanitizado.",
-        "Mobile Companion nutzt die echte OMSI-Roadmap, verbindet sich nach dem Fortsetzen neu und löst PTT beim Suspend. Hardware Cockpit zeigt den COM-Reconnect. Diagnose exportiert ein bereinigtes ZIP.",
-        "Mobile Companion utilise le vrai roadmap OMSI, se reconnecte après reprise et libère le PTT en suspension. Hardware Cockpit affiche la reconnexion COM. Diagnostic exporte un ZIP assaini."
+        "O Mobile Companion usa descoberta LAN e código de pareamento, recebe o roadmap real do OMSI atrás da rota/paradas/ônibus e usa bounds reais para alinhamento. Ao voltar de suspensão, bloqueio ou perda de rede ele reconecta e atualiza; o PTT é liberado ao suspender para não deixar o microfone preso.",
+        "Mobile Companion uses LAN discovery and a pairing code, receives the real OMSI roadmap behind route/stops/bus layers and aligns using real bounds. After suspension, lock or network loss it reconnects and refreshes; PTT is released on suspend so the microphone cannot remain stuck.",
+        "Mobile Companion usa descubrimiento LAN, código de emparejamiento y roadmap real de OMSI. Al volver de suspensión o red se reconecta y libera PTT al suspender.",
+        "Mobile Companion nutzt LAN-Erkennung, Pairing-Code und die echte OMSI-Roadmap. Nach Suspend oder Netzverlust verbindet es sich neu; PTT wird beim Suspend freigegeben.",
+        "Mobile Companion utilise la découverte LAN, un code d’appairage et la vraie roadmap OMSI. Après suspension ou perte réseau il se reconnecte ; le PTT est relâché à la suspension."
       )
     },
     {
-      title: pick("9. Ônibus remoto físico — EXPERIMENTAL", "9. Physical remote bus — EXPERIMENTAL", "9. Autobús remoto físico — EXPERIMENTAL", "9. Physischer Remote-Bus — EXPERIMENTELL", "9. Bus distant physique — EXPÉRIMENTAL"),
+      title: pick("9. Personagem / RP", "9. Character / RP", "9. Personaje / RP", "9. Charakter / RP", "9. Personnage / RP"),
       body: pick(
-        "O teste físico vem desligado por padrão. Ambos os PCs precisam de mapa/ônibus compatíveis e do Plugin Bridge suportado. O NavBR não transfere conteúdo pago ou proprietário. Os smokes automatizados estão ativos, mas o E2E real com dois PCs/duas sessões OMSI continua pendente e será tratado por último nesta linha de desenvolvimento.",
-        "The physical test is off by default. Both PCs need compatible map/bus content and a supported Plugin Bridge. NavBR does not transfer paid or proprietary content. The UI reports the plugin’s real capability before spawning remote buses.",
-        "La prueba física está desactivada por defecto. Ambos PCs necesitan mapa/autobús compatibles y Plugin Bridge compatible. NavBR no transfiere contenido de pago o propietario.",
-        "Der physische Test ist standardmäßig aus. Beide PCs benötigen kompatible Karte/Bus und eine unterstützte Plugin Bridge. NavBR überträgt keine kostenpflichtigen/proprietären Inhalte.",
-        "Le test physique est désactivé par défaut. Les deux PC doivent avoir carte/bus compatibles et un Plugin Bridge pris en charge. NavBR ne transfère aucun contenu payant/propriétaire."
+        "No RP, W/A/S/D movem, setas giram, Shift corre, Espaço pula, E entra no ônibus quando próximo e Esc faz retorno de emergência. A sessão RP termina automaticamente se o OMSI sair do mapa/sessão ou se o Plugin Bridge desconectar, evitando estado preso.",
+        "In RP, W/A/S/D move, arrows rotate, Shift runs, Space jumps, E enters the bus when nearby and Esc performs an emergency return. RP ends automatically if OMSI leaves the map/session or Plugin Bridge disconnects, preventing a stuck state.",
+        "En RP: W/A/S/D, flechas, Shift, Espacio, E y Esc controlan al personaje. La sesión termina si OMSI sale del mapa/sesión o si se desconecta Plugin Bridge.",
+        "Im RP steuern W/A/S/D, Pfeile, Shift, Leertaste, E und Esc den Charakter. Die Sitzung endet automatisch, wenn OMSI Karte/Sitzung verlässt oder Plugin Bridge getrennt wird.",
+        "En RP, W/A/S/D, flèches, Shift, Espace, E et Échap contrôlent le personnage. La session s’arrête si OMSI quitte la carte/session ou si Plugin Bridge se déconnecte."
       )
     },
     {
-      title: pick("10. Diagnósticos automáticos", "10. Automatic diagnostics", "10. Diagnósticos automáticos", "10. Automatische Diagnose", "10. Diagnostics automatiques"),
+      title: pick("10. Hardware Cockpit e desempenho", "10. Hardware Cockpit and performance", "10. Hardware Cockpit y rendimiento", "10. Hardware Cockpit und Leistung", "10. Hardware Cockpit et performances"),
       body: pick(
-        "O envio de diagnósticos é opcional e pode ser ligado/desligado em Configurações > Diagnóstico. Para suporte, use Gerar pacote de diagnóstico: ele exporta saúde da sessão, versões, plugin OMSI, updater, gateway openOMSI e log sanitizado, removendo senhas, tokens, IDs, IPs, e-mails e caminhos locais. A tela também mostra poll efetivo, custo de leitura, refresh do HUD, pressão do plugin e perfil ativo do otimizador.",
-        "Diagnostics are optional and can be enabled/disabled under Settings > Diagnostics. Generate diagnostic bundle exports session health, versions, OMSI plugin, updater, openOMSI gateway and a sanitized log while removing passwords, tokens, IDs, IP addresses, email addresses and local paths. The page also shows effective poll, read cost, HUD refresh, plugin pressure and the active optimizer profile.",
-        "Los diagnósticos son opcionales y se controlan en Configuración > Diagnóstico. No deben incluir chat, audio, contraseñas, tokens ni archivos personales.",
-        "Diagnosen sind optional und unter Einstellungen > Diagnose steuerbar. Chat, Audio, Passwörter, Tokens oder persönliche Dateien sollen nicht enthalten sein.",
-        "Les diagnostics sont facultatifs et se règlent dans Paramètres > Diagnostic. Ils ne doivent pas contenir chat, audio, mots de passe, jetons ou fichiers personnels."
+        "O Hardware Cockpit nunca troca silenciosamente de porta COM. A tela mostra se a COM configurada está disponível, reconexão pendente, tentativa atual e próxima tentativa. O governor continua oferecendo Auto, Stability, Multiplayer, Quality e Diagnostics e ajusta telemetria/HUD conforme custo de leitura e pressão do plugin.",
+        "Hardware Cockpit never silently switches COM ports. The screen shows whether the configured COM port is available, pending reconnect, current attempt and next retry. The governor keeps Auto, Stability, Multiplayer, Quality and Diagnostics profiles and adapts telemetry/HUD to read cost and plugin pressure.",
+        "Hardware Cockpit no cambia silenciosamente de COM. Muestra disponibilidad, reconexión pendiente, intento actual y próximo reintento; el governor mantiene sus perfiles de rendimiento.",
+        "Hardware Cockpit wechselt den COM-Port nie unbemerkt. Es zeigt Verfügbarkeit, ausstehende Wiederverbindung, aktuellen Versuch und nächsten Retry; der Governor behält seine Leistungsprofile.",
+        "Hardware Cockpit ne change jamais silencieusement de port COM. Il affiche disponibilité, reconnexion en attente, tentative actuelle et prochain essai ; le governor conserve ses profils de performance."
       )
     },
     {
-      title: pick("11. Se algo não funcionar", "11. Troubleshooting", "11. Si algo no funciona", "11. Wenn etwas nicht funktioniert", "11. Si quelque chose ne fonctionne pas"),
+      title: pick("11. Diagnóstico e pacote de suporte", "11. Diagnostics and support bundle", "11. Diagnóstico y paquete de soporte", "11. Diagnose und Support-Paket", "11. Diagnostic et paquet de support"),
       body: pick(
-        "OMSI não detectado: confira a instalação e se Omsi.exe está aberto. HUD sem dados: entre no gameplay. Mapa/rota ausente: confira roadmap e viagem ativa. Multiplayer sem conexão: confira servidor/sala/senha, TCP 27730 e Rede. Ônibus físico ausente: valide mapa, modelo e plugin.",
-        "OMSI not detected: check the installation and that Omsi.exe is running. HUD without data: enter gameplay. Missing map/route: check roadmap and active trip. Multiplayer connection: verify server/room/password, TCP 27730 and Network. Missing physical bus: validate map, model and plugin.",
-        "OMSI no detectado: revisa instalación y Omsi.exe. Sin datos HUD: entra al juego. Sin mapa/ruta: revisa roadmap y viaje. Multiplayer: servidor/sala/contraseña, TCP 27730 y Red.",
-        "OMSI nicht erkannt: Installation und Omsi.exe prüfen. HUD ohne Daten: Gameplay starten. Karte/Route fehlt: Roadmap/Fahrt prüfen. Multiplayer: Server/Raum/Passwort, TCP 27730 und Netzwerk prüfen.",
-        "OMSI non détecté : vérifiez l’installation et Omsi.exe. HUD sans données : entrez en jeu. Carte/route absente : vérifiez roadmap/trajet. Multijoueur : serveur/salle/mot de passe, TCP 27730 et Réseau."
+        "Em Configurações > Diagnóstico use Gerar pacote de diagnóstico para criar um ZIP sanitizado com summary JSON e log sanitizado. Senhas, tokens, IDs de sala/jogador, IPs, e-mails e caminhos locais são mascarados/removidos; o log bruto não entra. A tela também mostra poll efetivo, última/média de leitura, refresh do HUD, pressão do plugin e perfil ativo.",
+        "Under Settings > Diagnostics use Generate diagnostic bundle to create a sanitized ZIP with summary JSON and sanitized log. Passwords, tokens, room/player IDs, IPs, email addresses and local paths are masked/removed; raw logs are not included. The page also shows effective poll, last/average read time, HUD refresh, plugin pressure and active profile.",
+        "En Configuración > Diagnóstico genera un ZIP sanitizado; elimina o enmascara contraseñas, tokens, IDs, IP, e-mail y rutas locales, y no incluye el log bruto.",
+        "Unter Einstellungen > Diagnose wird ein bereinigtes ZIP erzeugt; Passwörter, Tokens, IDs, IPs, E-Mails und lokale Pfade werden entfernt/maskiert, Rohlogs werden nicht aufgenommen.",
+        "Dans Paramètres > Diagnostic, créez un ZIP assaini ; mots de passe, jetons, identifiants, IP, e-mails et chemins locaux sont masqués/supprimés et les logs bruts ne sont pas inclus."
       )
     },
     {
-      title: pick("12. Teste da comunidade", "12. Community testing", "12. Prueba comunitaria", "12. Community-Test", "12. Test communautaire"),
+      title: pick("12. Se algo não funcionar", "12. Troubleshooting", "12. Si algo no funciona", "12. Wenn etwas nicht funktioniert", "12. Si quelque chose ne fonctionne pas"),
       body: pick(
-        "Ao relatar um erro, informe o que estava fazendo, mapa e ônibus. Use Configurações > Diagnóstico > Gerar pacote de diagnóstico para anexar o ZIP sanitizado quando possível. Para multiplayer físico, o teste real entre dois PCs ficará para a etapa final.",
-        "When reporting a problem, include what you were doing, map, bus, room, whether RP/physical buses were active, and screenshots/logs when possible. This helps reproduce the issue without simulated data.",
-        "Al reportar un problema, indica qué hacías, mapa, autobús, sala, si RP/autobús físico estaban activos y adjunta capturas/logs cuando sea posible.",
-        "Bei Fehlerberichten bitte Aktion, Karte, Bus, Raum, RP/physische Busse sowie möglichst Screenshots/Logs angeben.",
-        "Pour signaler un problème, indiquez l’action, la carte, le bus, la salle, l’état RP/bus physique et joignez si possible captures/logs."
+        "OMSI não detectado: confira a instalação e se Omsi.exe está aberto. HUD sem dados: entre no gameplay. Mapa/rota ausente: confira roadmap e viagem ativa. Mobile sem mapa: verifique o serviço e refaça o pareamento. Hardware sem COM: confirme a porta configurada e acompanhe o auto-reconnect. Multiplayer sem conexão: confira servidor, sala, senha e Rede.",
+        "OMSI not detected: check the installation and that Omsi.exe is running. HUD without data: enter gameplay. Missing map/route: check roadmap and active trip. Mobile without a map: verify the service and pair again. Hardware without COM: confirm the configured port and watch auto-reconnect. Multiplayer connection: verify server, room, password and Network.",
+        "OMSI no detectado: revisa instalación y Omsi.exe. Sin HUD: entra al juego. Sin mapa/ruta: revisa roadmap. Mobile: servicio y emparejamiento. Hardware: COM y auto-reconnect. Multiplayer: servidor, sala, contraseña y Red.",
+        "OMSI nicht erkannt: Installation und Omsi.exe prüfen. HUD ohne Daten: Gameplay starten. Karte/Route: Roadmap prüfen. Mobile: Dienst und Pairing. Hardware: COM und Auto-Reconnect. Multiplayer: Server, Raum, Passwort und Netzwerk.",
+        "OMSI non détecté : vérifiez l’installation et Omsi.exe. HUD sans données : entrez en jeu. Carte/route : vérifiez la roadmap. Mobile : service et appairage. Hardware : COM et reconnexion. Multijoueur : serveur, salle, mot de passe et Réseau."
       )
     },
     {
-      title: pick("9. Atualizações automáticas", "9. Automatic updates", "9. Actualizaciones automáticas", "9. Automatische Updates", "9. Mises à jour automatiques"),
+      title: pick("13. Teste da comunidade", "13. Community testing", "13. Prueba comunitaria", "13. Community-Test", "13. Test communautaire"),
       body: pick(
-        "O NavBR verifica releases oficiais ao abrir. Quando encontra uma versão nova, baixa o instalador oficial, valida SHA-256 e libera Atualizar e reiniciar. O status também fica em Configurações > Atualizações.",
-        "NavBR checks official releases at startup. When a newer version is found, it downloads the official installer, validates SHA-256 and enables Update & restart. Status is also available under Settings > Updates.",
-        "NavBR comprueba las releases oficiales al iniciar, descarga el instalador, valida SHA-256 y habilita Actualizar y reiniciar.",
-        "NavBR prüft beim Start offizielle Releases, lädt den Installer herunter, prüft SHA-256 und bietet Aktualisieren & neu starten an.",
-        "NavBR vérifie les releases officielles au démarrage, télécharge l’installeur, valide SHA-256 puis propose Mettre à jour et redémarrer."
-      )
-    },
-    {
-      title: pick("10. OMSI 2 e openOMSI", "10. OMSI 2 and openOMSI", "10. OMSI 2 y openOMSI", "10. OMSI 2 und openOMSI", "10. OMSI 2 et openOMSI"),
-      body: pick(
-        "O plugin OMSI 2 continua sendo instalado e atualizado pelo NavBR App. O plugin NavBR para openOMSI é um pacote separado, pertencente ao ambiente/launcher do openOMSI. O NavBR App não instala, remove, atualiza nem inicia openOMSI; ele apenas expõe o gateway local para o plugin externo.",
-        "The OMSI 2 plugin remains installed and updated by the NavBR App. The NavBR plugin for openOMSI is a separate package owned by the openOMSI environment/launcher. NavBR App does not install, remove, update or launch openOMSI; it only exposes the local gateway for the external plugin.",
-        "El plugin OMSI 2 sigue administrado por NavBR App. El plugin para openOMSI es un paquete separado del entorno/launcher openOMSI.",
-        "Das OMSI-2-Plugin wird weiterhin von der NavBR-App verwaltet. Das openOMSI-Plugin ist ein separates Paket der openOMSI-Umgebung/des Launchers.",
-        "Le plugin OMSI 2 reste géré par l’app NavBR. Le plugin openOMSI est un paquet séparé appartenant à l’environnement/launcher openOMSI."
-      )
-    },
-    {
-      title: pick("11. Mobile Companion e Personagem / RP", "11. Mobile Companion and Character / RP", "11. Mobile Companion y Personaje / RP", "11. Mobile Companion und Charakter / RP", "11. Mobile Companion et Personnage / RP"),
-      body: pick(
-        "O Mobile Companion usa descoberta LAN e código de pareamento, mostra o roadmap real do OMSI e retoma a atualização ao voltar da suspensão. No RP, W/A/S/D movem, setas giram, Shift corre, Espaço pula, E entra no ônibus quando próximo e Esc faz retorno de emergência. Se a sessão/mapa OMSI terminar, o RP é encerrado com segurança.",
-        "Mobile Companion uses LAN discovery and a pairing code, renders the real OMSI roadmap and resumes updates after suspension. In RP, W/A/S/D move, arrows rotate, Shift runs, Space jumps, E enters the bus when nearby and Esc performs an emergency return. If the OMSI session/map ends, RP stops safely.",
-        "Mobile Companion usa descubrimiento LAN y código de emparejamiento, muestra el roadmap real y reanuda tras suspensión. En RP: W/A/S/D, flechas, Shift, Espacio, E y Esc controlan al personaje.",
-        "Mobile Companion nutzt LAN-Erkennung und Pairing-Code, zeigt die echte OMSI-Roadmap und setzt nach dem Ruhezustand fort. RP nutzt W/A/S/D, Pfeile, Shift, Leertaste, E und Esc.",
-        "Mobile Companion utilise la découverte LAN et un code d’appairage, affiche la vraie roadmap OMSI et reprend après suspension. Le RP utilise W/A/S/D, flèches, Shift, Espace, E et Échap."
-      )
-    },
-    {
-      title: pick("12. Hardware Cockpit e desempenho", "12. Hardware Cockpit and performance", "12. Hardware Cockpit y rendimiento", "12. Hardware Cockpit und Leistung", "12. Hardware Cockpit et performances"),
-      body: pick(
-        "O Hardware Cockpit nunca troca silenciosamente de porta COM. O app mostra a porta configurada, se ela está disponível, tentativa atual do auto-reconnect e próxima tentativa. O governor de desempenho continua ajustando telemetria/HUD conforme custo de leitura e pressão do plugin.",
-        "Hardware Cockpit never silently switches COM ports. The app shows the configured port, whether it is available, current auto-reconnect attempt and next retry. The performance governor continues adapting telemetry/HUD based on read cost and plugin pressure.",
-        "Hardware Cockpit nunca cambia silenciosamente de puerto COM. La app muestra puerto configurado, disponibilidad, intento de reconexión y próximo reintento.",
-        "Hardware Cockpit wechselt nie unbemerkt den COM-Port. Die App zeigt konfigurierten Port, Verfügbarkeit, Wiederverbindungsversuch und nächsten Retry.",
-        "Hardware Cockpit ne change jamais silencieusement de port COM. L’app affiche le port configuré, sa disponibilité, la tentative de reconnexion et le prochain essai."
+        "Ao relatar um erro, informe o que estava fazendo, mapa e ônibus e, quando possível, anexe o pacote sanitizado de Configurações > Diagnóstico. Prints ajudam a reproduzir problemas de UI. Para multiplayer físico, o teste real entre dois PCs continua reservado para a etapa final desta linha.",
+        "When reporting a problem, include what you were doing, map and bus and, when possible, attach the sanitized bundle from Settings > Diagnostics. Screenshots help reproduce UI problems. Real two-PC physical multiplayer testing remains reserved for the final stage of this line.",
+        "Al reportar un problema, indica qué hacías, mapa y autobús y adjunta el paquete sanitizado cuando sea posible. El test físico real entre dos PCs queda para la etapa final.",
+        "Bei Fehlerberichten bitte Aktion, Karte und Bus angeben und möglichst das bereinigte Diagnosepaket anhängen. Der reale physische Multiplayer-Test mit zwei PCs bleibt für die letzte Phase.",
+        "Pour signaler un problème, indiquez l’action, la carte et le bus et joignez si possible le paquet de diagnostic assaini. Le test physique réel entre deux PC reste réservé à la phase finale."
       )
     },
   ];
