@@ -8,11 +8,9 @@ on:
       - 'src/NavBR.Shared/**'
       - 'src/NavBR.Server/**'
       - 'src/NavBR.OmsiPlugin/**'
-      - 'src/NavBR.OpenOmsiPlugin/**'
       - 'src/NavBR.OmsiInterop/**'
       - 'ui/navbr-web/**'
       - 'scripts/prepare-embedded-plugin.ps1'
-      - 'scripts/prepare-embedded-openomsi-plugin.ps1'
       - '.github/workflows/desktop-client.yml'
   pull_request:
     branches: [ main ]
@@ -21,11 +19,9 @@ on:
       - 'src/NavBR.Shared/**'
       - 'src/NavBR.Server/**'
       - 'src/NavBR.OmsiPlugin/**'
-      - 'src/NavBR.OpenOmsiPlugin/**'
       - 'src/NavBR.OmsiInterop/**'
       - 'ui/navbr-web/**'
       - 'scripts/prepare-embedded-plugin.ps1'
-      - 'scripts/prepare-embedded-openomsi-plugin.ps1'
       - '.github/workflows/desktop-client.yml'
   workflow_dispatch:
 
@@ -116,37 +112,12 @@ jobs:
           Copy-Item "artifacts/interop/NavBR.OmsiInterop.dll" `
             "artifacts/NavBR.OmsiPlugin.Experimental/NavBR.OmsiInterop.dll" -Force
 
-      - name: Setup MSVC x64
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Restore and publish openOMSI plugin x64
-        shell: pwsh
-        run: |
-          dotnet restore src/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.csproj -r win-x64
-          dotnet publish src/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.csproj `
-            -c Release `
-            -r win-x64 `
-            --no-restore `
-            -p:PublishAot=true `
-            -p:NativeLib=Shared `
-            -o artifacts/NavBR.OpenOmsiPlugin
-
-      - name: Restore MSVC x86
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
-
-      - name: Prepare embedded plugin payloads
+      - name: Prepare embedded OMSI plugin payload
         shell: pwsh
         run: |
           .\scripts\prepare-embedded-plugin.ps1 `
             -PluginDirectory "artifacts/NavBR.OmsiPlugin.Experimental" `
             -OutputPath "src/NavBR.Client/Assets/NavBR.OmsiPlugin.bundle.zip"
-          .\scripts\prepare-embedded-openomsi-plugin.ps1 `
-            -PluginDirectory "artifacts/NavBR.OpenOmsiPlugin" `
-            -OutputPath "src/NavBR.Client/Assets/NavBR.OpenOmsiPlugin.bundle.zip"
 
       - name: Build desktop client x86
         shell: pwsh
