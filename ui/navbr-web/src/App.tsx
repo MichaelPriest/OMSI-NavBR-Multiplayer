@@ -6082,12 +6082,71 @@ function Help({ state }: { state: NavBrState | null }) {
             </div>
           </div>
           <p>{pick(
-            "Escolha o idioma na barra lateral, confira os passos essenciais abaixo e conclua este primeiro acesso quando estiver pronto.",
-            "Choose your language from the sidebar, review the essential steps below, and complete first run when ready.",
-            "Elige el idioma en la barra lateral, revisa los pasos esenciales y completa el primer acceso cuando estés listo.",
-            "Wähle die Sprache in der Seitenleiste, lies die wichtigsten Schritte und schließe den ersten Start ab.",
-            "Choisissez la langue dans la barre latérale, consultez les étapes essentielles puis terminez le premier démarrage."
+            "Escolha o idioma na barra lateral e confira a prontidão do ambiente. OMSI e Plugin Bridge são os itens essenciais; Mobile, Hardware e openOMSI são opcionais e podem ser configurados depois.",
+            "Choose your language from the sidebar and review environment readiness. OMSI and Plugin Bridge are the essential items; Mobile, Hardware and openOMSI are optional and can be configured later.",
+            "Elige el idioma y revisa la preparación del entorno. OMSI y Plugin Bridge son esenciales; Mobile, Hardware y openOMSI son opcionales.",
+            "Wähle die Sprache und prüfe die Bereitschaft. OMSI und Plugin Bridge sind erforderlich; Mobile, Hardware und openOMSI sind optional.",
+            "Choisissez la langue et vérifiez l’état de préparation. OMSI et Plugin Bridge sont essentiels ; Mobile, Hardware et openOMSI sont facultatifs."
           )}</p>
+
+          <div className="first-run-readiness">
+            <article className={`first-run-check ${state?.omsi.running ? "ready" : "pending"}`}>
+              <NavBrIcon name={state?.omsi.running ? "check" : "bus"} size={16} />
+              <div>
+                <strong>OMSI 2</strong>
+                <small>{state?.omsi.running
+                  ? pick("Detectado e em execução", "Detected and running", "Detectado y en ejecución", "Erkannt und läuft", "Détecté et en cours")
+                  : pick("Abra o OMSI 2 para validar telemetria", "Open OMSI 2 to validate telemetry", "Abre OMSI 2 para validar telemetría", "OMSI 2 öffnen, um Telemetrie zu prüfen", "Ouvrez OMSI 2 pour valider la télémétrie")}</small>
+              </div>
+            </article>
+
+            <article className={`first-run-check ${state?.system.pluginInstallation?.state === "installed" || state?.system.pluginInstallation?.state === "ready" ? "ready" : "pending"}`}>
+              <NavBrIcon name="plugin" size={16} />
+              <div>
+                <strong>Plugin Bridge OMSI 2</strong>
+                <small>{state?.system.pluginInstallation?.state === "installed" || state?.system.pluginInstallation?.state === "ready"
+                  ? pick("Instalado e compatível", "Installed and compatible", "Instalado y compatible", "Installiert und kompatibel", "Installé et compatible")
+                  : pick("Configure em Configurações > Instalações", "Configure under Settings > Installations", "Configura en Ajustes > Instalaciones", "Unter Einstellungen > Installationen konfigurieren", "Configurez dans Paramètres > Installations")}</small>
+              </div>
+            </article>
+
+            <article className={`first-run-check ${state?.system.applicationUpdate?.updateAvailable ? "attention" : "ready"}`}>
+              <NavBrIcon name="refresh" size={16} />
+              <div>
+                <strong>{pick("Atualizações", "Updates", "Actualizaciones", "Updates", "Mises à jour")}</strong>
+                <small>{state?.system.applicationUpdate?.readyToInstall
+                  ? pick("Nova versão pronta para instalar", "New version ready to install", "Nueva versión lista", "Neue Version installationsbereit", "Nouvelle version prête")
+                  : state?.system.applicationUpdate?.updateAvailable
+                    ? pick("Baixando ou validando nova versão", "Downloading or verifying a new version", "Descargando o validando", "Neue Version wird geladen/geprüft", "Téléchargement ou validation en cours")
+                    : pick("Nenhuma ação necessária", "No action required", "No se requiere acción", "Keine Aktion erforderlich", "Aucune action requise")}</small>
+              </div>
+            </article>
+
+            <article className={`first-run-check optional ${state?.system.mobileCompanion?.running ? "ready" : "pending"}`}>
+              <NavBrIcon name="mobile" size={16} />
+              <div>
+                <strong>Mobile Companion · {pick("Opcional", "Optional", "Opcional", "Optional", "Facultatif")}</strong>
+                <small>{state?.system.mobileCompanion?.running
+                  ? pick("Serviço disponível na rede local", "Service available on the local network", "Servicio disponible en la red local", "Dienst im lokalen Netzwerk verfügbar", "Service disponible sur le réseau local")
+                  : pick("Pode ser ativado depois", "Can be enabled later", "Puede activarse después", "Kann später aktiviert werden", "Peut être activé plus tard")}</small>
+              </div>
+            </article>
+
+            <article className="first-run-check optional ready">
+              <NavBrIcon name="network" size={16} />
+              <div>
+                <strong>openOMSI · {pick("Externo", "External", "Externo", "Extern", "Externe")}</strong>
+                <small>{pick(
+                  "Plugin separado; instalação pertence ao launcher/ambiente openOMSI",
+                  "Separate plugin; installation belongs to the openOMSI launcher/environment",
+                  "Plugin separado; la instalación pertenece al launcher/entorno openOMSI",
+                  "Separates Plugin; Installation erfolgt über openOMSI-Launcher/Umgebung",
+                  "Plugin séparé ; installation gérée par le launcher/environnement openOMSI"
+                )}</small>
+              </div>
+            </article>
+          </div>
+
           <div className="room-actions">
             <button className="button primary" onClick={() => sendCommand("completeFirstRun")}>
               {pick("Começar a usar o NavBR", "Start using NavBR", "Empezar a usar NavBR", "NavBR verwenden", "Commencer à utiliser NavBR")}
