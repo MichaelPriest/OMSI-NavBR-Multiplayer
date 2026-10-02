@@ -192,6 +192,60 @@ Require(
         StringComparison.Ordinal),
     "application updater returned the wrong installer checksum");
 
+var mainWindowType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.MainWindow",
+        throwOnError: true)!;
+var sanitizeDiagnosticText =
+    mainWindowType.GetMethod(
+        "SanitizeDiagnosticText",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer not found");
+var diagnosticSanitizerInput =
+    """
+    password=hunter2
+    "roomId":"navbr-secret-room"
+    player=player-secret
+    Authorization: Bearer bearer-secret-value
+    ipv4=192.168.10.20
+    ipv6=2001:db8::42
+    email=driver@example.com
+    path=C:\Users\Driver\secret.txt
+    unc=\\nas\private\driver.txt
+    """;
+var sanitizedDiagnosticText =
+    (string?)sanitizeDiagnosticText.Invoke(
+        null,
+        [diagnosticSanitizerInput])
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer returned null");
+foreach (var sensitiveValue in new[]
+{
+    "hunter2",
+    "navbr-secret-room",
+    "player-secret",
+    "bearer-secret-value",
+    "192.168.10.20",
+    "2001:db8::42",
+    "driver@example.com",
+    @"C:\Users\Driver\secret.txt",
+    @"\\nas\private\driver.txt"
+})
+{
+    Require(
+        !sanitizedDiagnosticText.Contains(
+            sensitiveValue,
+            StringComparison.OrdinalIgnoreCase),
+        $"diagnostic sanitizer leaked '{sensitiveValue}'");
+}
+Require(
+    sanitizedDiagnosticText.Contains("[redacted]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[ip]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[email]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[path]", StringComparison.Ordinal),
+    "diagnostic sanitizer did not emit expected privacy markers");
+
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
