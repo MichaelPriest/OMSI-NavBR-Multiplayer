@@ -194,7 +194,6 @@ public partial class App : Application
         _autoUpdateCts?.Cancel();
         _autoUpdateCts?.Dispose();
         _autoUpdateCts = null;
-        AutoUpdater.Dispose();
 
         _deferredPluginUpdateCts?.Cancel();
         _deferredPluginUpdateCts?.Dispose();
