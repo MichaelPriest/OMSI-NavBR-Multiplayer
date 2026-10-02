@@ -482,6 +482,12 @@ public partial class MainWindow
                                 "autoDownload",
                                 current.AutoDownload)
                     });
+
+                if (Application.Current is App preferencesApp)
+                {
+                    _ = preferencesApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None);
+                }
                 break;
             }
 
