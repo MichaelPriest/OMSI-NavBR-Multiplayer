@@ -2058,6 +2058,20 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
             <button className="button ghost" onClick={() => sendCommand("refreshState")}>{pick("Atualizar portas", "Refresh ports", "Actualizar puertos", "Ports aktualisieren", "Actualiser les ports")}</button>
           </div>
 
+          {hardware.reconnectPending && (
+            <div className="network-message hardware-reconnect-state">
+              <strong>
+                {hardware.selectedPortAvailable
+                  ? pick("Reconexão automática aguardando tentativa", "Automatic reconnect waiting for retry", "Reconexión automática esperando reintento", "Automatische Wiederverbindung wartet", "Reconnexion automatique en attente")
+                  : pick("Porta configurada não está disponível", "Configured port is unavailable", "El puerto configurado no está disponible", "Konfigurierter Port ist nicht verfügbar", "Le port configuré n’est pas disponible")}
+              </strong>
+              <span>
+                {hardware.portName || "COM"} · {pick("tentativa", "attempt", "intento", "Versuch", "tentative")} {hardware.retryAttempt}
+                {hardware.nextReconnectAtUtc ? ` · ${new Date(hardware.nextReconnectAtUtc).toLocaleTimeString()}` : ""}
+              </span>
+            </div>
+          )}
+
           <p className="hardware-note">
             {pick("O NavBR nunca troca silenciosamente para outra porta COM. O auto-reconnect tenta apenas a porta explicitamente escolhida.", "NavBR never silently switches to another COM port. Auto-reconnect only retries the explicitly selected port.", "NavBR nunca cambia silenciosamente a otro puerto COM. La reconexión automática solo intenta el puerto elegido explícitamente.", "NavBR wechselt niemals unbemerkt auf einen anderen COM-Port. Auto-Reconnect versucht nur den ausdrücklich gewählten Port.", "NavBR ne bascule jamais silencieusement vers un autre port COM. La reconnexion automatique ne tente que le port explicitement choisi.")}
           </p>
