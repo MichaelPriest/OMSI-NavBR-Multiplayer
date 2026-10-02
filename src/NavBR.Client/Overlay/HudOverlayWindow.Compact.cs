@@ -6,30 +6,54 @@ namespace NavBR.Client.Overlay;
 
 public partial class HudOverlayWindow
 {
-    private const double CompactHudUiScale = 0.86d;
     private const byte CompactDarkPanelAlpha = 150;
     private bool _compactHudPresentationApplied;
 
     private void ApplyCompactHudPresentation()
     {
-        if (_compactHudPresentationApplied)
+        if (!_compactHudPresentationApplied)
         {
-            return;
+            _compactHudPresentationApplied = true;
+
+            // Dark panel backgrounds become translucent while text, route lines,
+            // warning colors and orange accents keep their original opacity.
+            SoftenDarkPanelBackgrounds(HudDock);
+
+            // The roadmap remains readable but no longer visually dominates OMSI.
+            MiniMapImage.Opacity = Math.Min(MiniMapImage.Opacity, 0.52d);
+
+            SizeChanged += CompactHud_SizeChanged;
+            Closed += (_, _) => SizeChanged -= CompactHud_SizeChanged;
         }
 
-        _compactHudPresentationApplied = true;
+        ApplyCompactHudResponsiveScale();
+    }
 
-        // Keep all coordinates and minimap math untouched. Scaling only the
-        // presentation makes the HUD occupy less screen space without changing
-        // route geometry, click-through behavior or saved HUD position.
-        HudDock.LayoutTransform = new ScaleTransform(CompactHudUiScale, CompactHudUiScale);
+    private void CompactHud_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyCompactHudResponsiveScale();
 
-        // Dark panel backgrounds become translucent while text, route lines,
-        // warning colors and orange accents keep their original opacity.
-        SoftenDarkPanelBackgrounds(HudDock);
+    private void ApplyCompactHudResponsiveScale()
+    {
+        var width = ActualWidth > 1d ? ActualWidth : SystemParameters.PrimaryScreenWidth;
+        var height = ActualHeight > 1d ? ActualHeight : SystemParameters.PrimaryScreenHeight;
 
-        // The roadmap remains readable but no longer visually dominates OMSI.
-        MiniMapImage.Opacity = Math.Min(MiniMapImage.Opacity, 0.52d);
+        var widthScale = width switch
+        {
+            < 900d => 0.64d,
+            < 1200d => 0.72d,
+            < 1600d => 0.80d,
+            _ => 0.86d
+        };
+        var heightScale = height switch
+        {
+            < 650d => 0.64d,
+            < 800d => 0.74d,
+            < 950d => 0.82d,
+            _ => 0.86d
+        };
+        var scale = Math.Min(widthScale, heightScale);
+
+        HudDock.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
     private void SoftenDarkPanelBackgrounds(DependencyObject root)
