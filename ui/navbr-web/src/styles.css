@@ -3023,3 +3023,54 @@ h3 { margin:6px 0 16px; font-size:19px; }
   animation:navbr-spin .8s linear infinite;
 }
 @keyframes navbr-spin { to { transform:rotate(360deg); } }
+
+
+/* First-run readiness */
+.first-run-readiness {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin:14px 0;
+}
+.first-run-check {
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  min-width:0;
+  padding:10px 11px;
+  border:1px solid #27475a;
+  border-radius:10px;
+  background:#0b1a24;
+}
+.first-run-check > svg {
+  flex:0 0 auto;
+  margin-top:2px;
+}
+.first-run-check > div {
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+.first-run-check strong {
+  color:#e6f4fc;
+  font-size:10px;
+}
+.first-run-check small {
+  color:#86a0b2;
+  font-size:9px;
+  line-height:1.4;
+}
+.first-run-check.ready {
+  border-color:#2e725b;
+  background:#0a211d;
+}
+.first-run-check.attention {
+  border-color:#76562d;
+  background:#251c0f;
+}
+.first-run-check.optional {
+  opacity:.88;
+}
+@media (max-width:760px) {
+  .first-run-readiness { grid-template-columns:1fr; }
+}
