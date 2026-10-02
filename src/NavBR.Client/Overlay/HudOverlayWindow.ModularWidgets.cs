@@ -254,6 +254,17 @@ public partial class HudOverlayWindow
         }
 
         _hudSettings = settings;
+        var composedPreset = HudProfileCatalog.IsComposedPreset(settings.DashboardPreset);
+        var integratedMinimap =
+            settings.DashboardEnabled &&
+            settings.DashboardShowMinimap &&
+            !composedPreset;
+        if (!_immersiveOperationActive)
+        {
+            MiniMapHudPanel.Opacity = integratedMinimap ? 0.01d : 1d;
+            MiniMapHudPanel.IsHitTestVisible = !integratedMinimap;
+        }
+
         _modularMinimapWidget!.Visibility = settings.DashboardShowMinimap
             ? Visibility.Visible
             : Visibility.Collapsed;
