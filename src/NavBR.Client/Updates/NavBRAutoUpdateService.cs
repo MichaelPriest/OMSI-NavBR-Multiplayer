@@ -20,13 +20,27 @@ internal sealed record NavBRAutoUpdateSnapshot(
     bool UpdateAvailable,
     bool ReadyToInstall,
     DateTimeOffset? CheckedAtUtc,
-    string? Message);
+    string? Message,
+    string? LastInstalledFromVersion = null,
+    string? LastInstalledToVersion = null,
+    DateTimeOffset? LastInstallCompletedAtUtc = null);
 
 internal sealed class NavBRAutoUpdateService : IDisposable
 {
     private const string ReleasesApi =
         "https://api.github.com/repos/MichaelPriest/OMSI-NavBR-Multiplayer/releases?per_page=20";
     private const long MaximumInstallerBytes = 1024L * 1024L * 1024L;
+    private const int RetainedUpdateDirectories = 2;
+
+    private static readonly string UpdateRoot = Path.Combine(
+        Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData),
+        "OMSI NavBR Multiplayer",
+        "Updates");
+
+    private static readonly string PendingUpdateMarkerPath = Path.Combine(
+        UpdateRoot,
+        "pending-update.json");
 
     private static readonly Regex ReleaseVersionRegex = new(
         @"^v?(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<label>[A-Za-z][A-Za-z0-9-]*)(?:[.-](?<serial>\d+(?:\.\d+)*))?)?(?:\+.*)?$",
@@ -54,8 +68,12 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             "X-GitHub-Api-Version",
             "2022-11-28");
 
+        var completedUpdate =
+            TryConsumeCompletedUpdateMarker();
+        CleanupOldUpdateDirectories();
+
         _snapshot = new NavBRAutoUpdateSnapshot(
-            Status: "idle",
+            Status: completedUpdate is null ? "idle" : "current",
             CurrentVersion: NavBRVersionInfo.Current,
             AvailableVersion: null,
             ReleaseUrl: null,
@@ -63,8 +81,15 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             ProgressPercent: null,
             UpdateAvailable: false,
             ReadyToInstall: false,
-            CheckedAtUtc: null,
-            Message: null);
+            CheckedAtUtc: completedUpdate is null
+                ? null
+                : DateTimeOffset.UtcNow,
+            Message: completedUpdate is null
+                ? null
+                : $"Atualização concluída: {completedUpdate.FromVersion} → {completedUpdate.ToVersion}.",
+            LastInstalledFromVersion: completedUpdate?.FromVersion,
+            LastInstalledToVersion: completedUpdate?.ToVersion,
+            LastInstallCompletedAtUtc: completedUpdate?.CompletedAtUtc);
     }
 
     public NavBRAutoUpdateSnapshot GetSnapshot()
@@ -126,7 +151,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                     UpdateAvailable = false,
                     ReadyToInstall = false,
                     CheckedAtUtc = DateTimeOffset.UtcNow,
-                    Message = "Você já está usando a versão pública mais recente."
+                    Message =
+                        GetSnapshot().LastInstalledToVersion is not null
+                            ? $"Atualização concluída: {GetSnapshot().LastInstalledFromVersion} → {GetSnapshot().LastInstalledToVersion}. Você está usando a versão pública mais recente."
+                            : "Você já está usando a versão pública mais recente."
                 });
                 return GetSnapshot();
             }
@@ -183,6 +211,30 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            return GetSnapshot();
+        }
+        catch (HttpRequestException)
+        {
+            SetSnapshot(GetSnapshot() with
+            {
+                Status = "offline",
+                ProgressPercent = null,
+                ReadyToInstall = false,
+                CheckedAtUtc = DateTimeOffset.UtcNow,
+                Message = "Sem conexão com o serviço de atualização. O NavBR continuará abrindo normalmente e poderá verificar novamente depois."
+            });
+            return GetSnapshot();
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            SetSnapshot(GetSnapshot() with
+            {
+                Status = "offline",
+                ProgressPercent = null,
+                ReadyToInstall = false,
+                CheckedAtUtc = DateTimeOffset.UtcNow,
+                Message = "A verificação de atualização expirou. O NavBR continuará funcionando normalmente."
+            });
             return GetSnapshot();
         }
         catch (Exception ex)
@@ -281,6 +333,10 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             "OMSI NavBR Multiplayer",
             "OMSI.NavBR.Multiplayer.exe");
         var installedBuild = IsInstalledBuild();
+
+        WritePendingUpdateMarker(
+            snapshot.CurrentVersion,
+            snapshot.AvailableVersion ?? snapshot.CurrentVersion);
 
         var script = BuildUpdateHelperScript(
             processId,
@@ -554,10 +610,7 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         }
 
         var updateDirectory = Path.Combine(
-            Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData),
-            "OMSI NavBR Multiplayer",
-            "Updates",
+            UpdateRoot,
             SanitizeTag(candidate.TagName));
         Directory.CreateDirectory(updateDirectory);
 
@@ -612,6 +665,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             partialPath,
             finalPath,
             overwrite: true);
+        CleanupOldUpdateDirectories(
+            Path.GetDirectoryName(finalPath));
         return new PreparedInstaller(
             finalPath,
             expectedSha256);
@@ -796,6 +851,133 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             stream,
             cancellationToken);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static void WritePendingUpdateMarker(
+        string fromVersion,
+        string toVersion)
+    {
+        try
+        {
+            Directory.CreateDirectory(UpdateRoot);
+            File.WriteAllText(
+                PendingUpdateMarkerPath,
+                JsonSerializer.Serialize(
+                    new PendingUpdateMarker(
+                        fromVersion,
+                        toVersion,
+                        DateTimeOffset.UtcNow),
+                    new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    }),
+                new UTF8Encoding(false));
+        }
+        catch
+        {
+            // The update can still proceed. The marker only improves
+            // post-update confirmation in the UI.
+        }
+    }
+
+    private static CompletedUpdate? TryConsumeCompletedUpdateMarker()
+    {
+        try
+        {
+            if (!File.Exists(PendingUpdateMarkerPath))
+            {
+                return null;
+            }
+
+            var marker =
+                JsonSerializer.Deserialize<PendingUpdateMarker>(
+                    File.ReadAllText(PendingUpdateMarkerPath));
+            if (marker is null ||
+                string.IsNullOrWhiteSpace(marker.FromVersion) ||
+                string.IsNullOrWhiteSpace(marker.ToVersion))
+            {
+                TryDelete(PendingUpdateMarkerPath);
+                return null;
+            }
+
+            if (CompareReleaseVersions(
+                    NavBRVersionInfo.Current,
+                    marker.ToVersion) < 0)
+            {
+                // The previous installation did not reach the requested
+                // version. Keep the marker for troubleshooting/another start.
+                return null;
+            }
+
+            TryDelete(PendingUpdateMarkerPath);
+            return new CompletedUpdate(
+                marker.FromVersion,
+                marker.ToVersion,
+                DateTimeOffset.UtcNow);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void CleanupOldUpdateDirectories(
+        string? protectedDirectory = null)
+    {
+        try
+        {
+            if (!Directory.Exists(UpdateRoot))
+            {
+                return;
+            }
+
+            var protectedFullPath =
+                string.IsNullOrWhiteSpace(protectedDirectory)
+                    ? null
+                    : Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(protectedDirectory));
+
+            var directories = Directory
+                .EnumerateDirectories(UpdateRoot)
+                .Select(path => new DirectoryInfo(path))
+                .OrderByDescending(directory =>
+                    directory.LastWriteTimeUtc)
+                .ToArray();
+
+            var retained = 0;
+            foreach (var directory in directories)
+            {
+                var fullPath =
+                    Path.TrimEndingDirectorySeparator(
+                        directory.FullName);
+                if (protectedFullPath is not null &&
+                    string.Equals(
+                        fullPath,
+                        protectedFullPath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    retained++;
+                    continue;
+                }
+
+                if (retained < RetainedUpdateDirectories)
+                {
+                    retained++;
+                    continue;
+                }
+
+                try
+                {
+                    directory.Delete(recursive: true);
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static string BuildUpdateHelperScript(
@@ -1102,6 +1284,16 @@ internal sealed class NavBRAutoUpdateService : IDisposable
     private sealed record PreparedInstaller(
         string InstallerPath,
         string ExpectedSha256);
+
+    private sealed record PendingUpdateMarker(
+        string FromVersion,
+        string ToVersion,
+        DateTimeOffset StartedAtUtc);
+
+    private sealed record CompletedUpdate(
+        string FromVersion,
+        string ToVersion,
+        DateTimeOffset CompletedAtUtc);
 
     private sealed record ParsedVersion(
         int Major,
