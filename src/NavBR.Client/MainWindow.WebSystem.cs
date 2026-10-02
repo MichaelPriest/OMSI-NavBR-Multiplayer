@@ -17,7 +17,6 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
-    private string? _webOpenOmsiNotice;
     private string? _webSessionHealthNotice;
     private const long OmsiProcessProbeCacheMs = 3_000;
     private long _webOmsiProcessProbeTickMs;
@@ -151,7 +150,6 @@ public partial class MainWindow
                 applicationUpdate = BuildApplicationUpdateState(),
                 mobileCompanion = (object?)null,
                 pluginInstallation = (object?)null,
-                openOmsiPlugin = (object?)null,
                 openOmsiLanGateway = (object?)null,
                 installations = (object?)null,
                 hud = (object?)null,
@@ -169,10 +167,6 @@ public partial class MainWindow
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
         var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
-        var openOmsiPlugin =
-            OpenOmsiPluginInstallationService.Verify();
-        var openOmsiRunning =
-            OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
         var openOmsiLanGateway =
             OpenOmsiLanGateway.Shared.GetStatus();
         var openOmsiLanRuntime =
@@ -184,14 +178,6 @@ public partial class MainWindow
             openOmsiLanRuntime?.Players.ToDictionary(
                 player => player.Id) ??
             new Dictionary<uint, OpenOmsiLanRuntimePeer>();
-        var openOmsiInstallBlockReason =
-            !OpenOmsiPluginInstallationService.HasEmbeddedPackage
-                ? "package-missing"
-                : string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath)
-                    ? "openomsi-not-found"
-                    : openOmsiRunning
-                        ? "openomsi-running"
-                        : null;
         var pluginInstallBlockReason =
             !OmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
@@ -257,35 +243,6 @@ public partial class MainWindow
                     hashMatches = file.HashMatches
                 }).ToArray(),
                 omsiRunning = omsiRunningForPluginUpdate
-            },
-            openOmsiPlugin = new
-            {
-                state = openOmsiPlugin.Status,
-                executablePath = openOmsiPlugin.ExecutablePath,
-                contentRoot = openOmsiPlugin.ContentRoot,
-                pluginDirectory = openOmsiPlugin.PluginDirectory,
-                embeddedPackageAvailable =
-                    OpenOmsiPluginInstallationService.HasEmbeddedPackage,
-                installAvailable = openOmsiInstallBlockReason is null,
-                installBlockReason = openOmsiInstallBlockReason,
-                verificationAvailable =
-                    OpenOmsiPluginInstallationService.HasEmbeddedPackage &&
-                    !string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath),
-                updateRequired = openOmsiPlugin.UpdateRequired,
-                expectedVersion = openOmsiPlugin.ExpectedVersion,
-                installedVersion = openOmsiPlugin.InstalledVersion,
-                requiredFilesFound = openOmsiPlugin.RequiredFilesFound,
-                requiredFilesTotal = openOmsiPlugin.RequiredFilesTotal,
-                verifiedFiles = openOmsiPlugin.VerifiedFiles,
-                checkedAtUtc = openOmsiPlugin.CheckedAtUtc,
-                message = _webOpenOmsiNotice ?? openOmsiPlugin.Message,
-                files = openOmsiPlugin.Files.Select(file => new
-                {
-                    name = file.Name,
-                    exists = file.Exists,
-                    hashMatches = file.HashMatches
-                }).ToArray(),
-                running = openOmsiRunning
             },
             openOmsiLanGateway = new
             {
