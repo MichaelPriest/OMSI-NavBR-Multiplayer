@@ -383,7 +383,11 @@ export default function App() {
     } finally { setDiscovering(false); }
   };
 
-  const sendCommand = async (action: string, payload: Record<string, unknown> = {}) => {
+  const sendCommand = async (
+    action: string,
+    payload: Record<string, unknown> = {},
+    keepalive = false
+  ) => {
     if (!serverBase || !pairing) return false;
     try {
       const response = await fetch(`${serverBase}/api/mobile/command`, {
@@ -391,7 +395,8 @@ export default function App() {
         headers: { "Content-Type": "application/json", "X-NavBR-Mobile-Code": pairing },
         body: JSON.stringify({ action, ...payload }),
         cache: "no-store",
-        mode: "cors"
+        mode: "cors",
+        keepalive
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json() as { success?: boolean; error?: string | null };
@@ -513,7 +518,10 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    const releasePtt = () => setPttHeld(false);
+    const releasePtt = () => {
+      setPttHeld(false);
+      void sendCommand("voice-ptt", { active: false }, true);
+    };
     const releasePttOnVisibilityChange = () => {
       if (document.visibilityState !== "visible") {
         releasePtt();
@@ -526,7 +534,7 @@ export default function App() {
       document.removeEventListener("visibilitychange", releasePttOnVisibilityChange);
       window.removeEventListener("pagehide", releasePtt);
     };
-  }, []);
+  }, [serverBase, pairing]);
 
 
   useEffect(() => {
