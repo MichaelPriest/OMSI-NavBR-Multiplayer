@@ -15,6 +15,34 @@ internal static class WebRoadmapCache
 
     public static string? TryGetPngUrl(string? sourcePath)
     {
+        var target = TryGetPngPath(sourcePath);
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return null;
+        }
+
+        try
+        {
+            var relative = Path.GetRelativePath(CacheRoot, target);
+            var escaped = string.Join(
+                "/",
+                relative
+                    .Replace('\\', '/')
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(Uri.EscapeDataString));
+
+            return escaped.Length == 0
+                ? null
+                : $"https://navbr-cache.local/{escaped}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static string? TryGetPngPath(string? sourcePath)
+    {
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
             return null;
@@ -41,41 +69,49 @@ internal static class WebRoadmapCache
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     var temporary = target + ".tmp";
-
-                    using (var input = File.Open(
-                               source.FullName,
-                               FileMode.Open,
-                               FileAccess.Read,
-                               FileShare.ReadWrite | FileShare.Delete))
+                    try
                     {
-                        var decoder = BitmapDecoder.Create(
-                            input,
-                            BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.OnLoad);
-                        if (decoder.Frames.Count == 0)
+                        using (var input = File.Open(
+                                   source.FullName,
+                                   FileMode.Open,
+                                   FileAccess.Read,
+                                   FileShare.ReadWrite | FileShare.Delete))
                         {
-                            return null;
+                            var decoder = BitmapDecoder.Create(
+                                input,
+                                BitmapCreateOptions.PreservePixelFormat,
+                                BitmapCacheOption.OnLoad);
+                            if (decoder.Frames.Count == 0)
+                            {
+                                return null;
+                            }
+
+                            var encoder = new PngBitmapEncoder();
+                            encoder.Frames.Add(BitmapFrame.Create(decoder.Frames[0]));
+
+                            using var output = File.Create(temporary);
+                            encoder.Save(output);
                         }
 
-                        var encoder = new PngBitmapEncoder();
-                        encoder.Frames.Add(BitmapFrame.Create(decoder.Frames[0]));
-
-                        using var output = File.Create(temporary);
-                        encoder.Save(output);
+                        File.Move(temporary, target, overwrite: true);
                     }
-
-                    File.Move(temporary, target, overwrite: true);
+                    finally
+                    {
+                        try
+                        {
+                            if (File.Exists(temporary))
+                            {
+                                File.Delete(temporary);
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
                 }
             }
 
-            var escaped = string.Join(
-                "/",
-                relative
-                    .Replace('\\', '/')
-                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Uri.EscapeDataString));
-
-            return $"https://navbr-cache.local/{escaped}";
+            return File.Exists(target) ? target : null;
         }
         catch
         {
