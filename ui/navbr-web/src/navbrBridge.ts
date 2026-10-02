@@ -486,6 +486,7 @@ export interface NavBrHudState {
   showAlerts: boolean;
   showSideIndicators: boolean;
   minimapScale: number;
+  minimapStyle: "rectangular" | "circular";
   multiplayerScale: number;
   alertsScale: number;
   sideIndicatorsScale: number;
