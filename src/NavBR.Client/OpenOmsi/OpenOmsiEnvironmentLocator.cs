@@ -125,6 +125,88 @@ internal static class OpenOmsiEnvironmentLocator
         return roots;
     }
 
+    public static string? ResolveInstalledVehicleFile(
+        string? vehiclePath)
+    {
+        var normalized =
+            vehiclePath?.Trim().Replace('\\', '/');
+        if (string.IsNullOrWhiteSpace(normalized) ||
+            normalized.StartsWith('/') ||
+            normalized.Contains(':') ||
+            normalized.Contains('|') ||
+            normalized.Any(char.IsControl))
+        {
+            return null;
+        }
+
+        var segments = normalized.Split(
+            '/',
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        if (segments.Length < 2 ||
+            segments.Any(segment =>
+                segment is "." or ".." ||
+                string.IsNullOrWhiteSpace(
+                    segment.Trim('.', ' '))))
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(segments[^1]);
+        if (!extension.Equals(
+                ".bus",
+                StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(
+                ".ovh",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var relative = Path.Combine(segments);
+        foreach (var root in ResolveContentSearchRoots())
+        {
+            try
+            {
+                var fullRoot =
+                    Path.TrimEndingDirectorySeparator(
+                        Path.GetFullPath(root));
+                var candidate =
+                    Path.GetFullPath(
+                        Path.Combine(
+                            fullRoot,
+                            relative));
+                var relativeCheck =
+                    Path.GetRelativePath(
+                        fullRoot,
+                        candidate);
+                if (Path.IsPathRooted(relativeCheck) ||
+                    relativeCheck.Equals(
+                        "..",
+                        StringComparison.Ordinal) ||
+                    relativeCheck.StartsWith(
+                        ".." + Path.DirectorySeparatorChar,
+                        StringComparison.Ordinal) ||
+                    relativeCheck.StartsWith(
+                        ".." + Path.AltDirectorySeparatorChar,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        return null;
+    }
+
     private static string? ResolveRunningExecutable()
     {
         foreach (var process in Process.GetProcessesByName("openomsi"))
