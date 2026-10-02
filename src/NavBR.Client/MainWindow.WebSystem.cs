@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
@@ -1080,6 +1083,246 @@ public partial class MainWindow
             dialog.FileName,
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         _webSessionHealthNotice = "Relatório sanitizado de saúde da sessão exportado com sucesso.";
+    }
+
+    private void ExportDiagnosticBundleFromWeb()
+    {
+        _webSessionHealthNotice = null;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exportar pacote de diagnóstico sanitizado do NavBR",
+            Filter = "NavBR Diagnostics (*.navbr-diagnostics.zip)|*.navbr-diagnostics.zip|ZIP (*.zip)|*.zip",
+            FileName = $"navbr-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.navbr-diagnostics.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var workingDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "NavBR-Diagnostics-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workingDirectory);
+
+        try
+        {
+            var profiles = OmsiInstallationProfileStore.Load();
+            var pluginRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
+            var plugin = GetPluginInstallDiagnostics(pluginRoot);
+            var gateway = OpenOmsiLanGateway.Shared.GetStatus();
+            var update = (Application.Current as App)?.AutoUpdater.GetSnapshot();
+
+            var summary = new
+            {
+                schema = "navbr-diagnostics",
+                version = 1,
+                exportedAtUtc = DateTimeOffset.UtcNow,
+                navbrVersion = NavBRVersionInfo.Current,
+                sessionHealth = BuildWebSessionHealthState(),
+                omsiPlugin = new
+                {
+                    state = plugin.State,
+                    requiredFilesFound = plugin.RequiredFilesFound,
+                    verifiedFiles = plugin.VerifiedFiles,
+                    manifest = plugin.Manifest,
+                    updateRequired = plugin.UpdateRequired,
+                    expectedVersion = plugin.ExpectedVersion,
+                    installedVersion = plugin.InstalledVersion,
+                    files = plugin.Files.Select(file => new
+                    {
+                        name = file.Name,
+                        exists = file.Exists,
+                        hashMatches = file.HashMatches
+                    }).ToArray()
+                },
+                applicationUpdate = update is null
+                    ? null
+                    : new
+                    {
+                        status = update.Status,
+                        currentVersion = update.CurrentVersion,
+                        availableVersion = update.AvailableVersion,
+                        progressPercent = update.ProgressPercent,
+                        updateAvailable = update.UpdateAvailable,
+                        readyToInstall = update.ReadyToInstall,
+                        checkedAtUtc = update.CheckedAtUtc
+                    },
+                openOmsiGateway = new
+                {
+                    running = gateway.Running,
+                    clientConnected = gateway.ClientConnected,
+                    remotePlayers = gateway.RemotePlayers,
+                    localStateFrames = gateway.LocalStateFrames,
+                    localStateRateHz = gateway.LocalStateRateHz,
+                    vehicleIdentityReady = gateway.VehicleIdentityReady,
+                    hasLastError = !string.IsNullOrWhiteSpace(gateway.LastError)
+                },
+                hardware = new
+                {
+                    connected = Hardware.HardwareCockpitBridgeController.Shared
+                        .Snapshot(GetCurrentTelemetryForAlpha11())
+                        .Connected
+                },
+                privacy = new
+                {
+                    rawPasswordsIncluded = false,
+                    rawTokensIncluded = false,
+                    roomIdsIncluded = false,
+                    playerIdsIncluded = false,
+                    ipAddressesIncluded = false,
+                    localPathsIncluded = false,
+                    rawLogIncluded = false,
+                    logSanitized = File.Exists(NavBRAppLog.LogPath)
+                }
+            };
+
+            File.WriteAllText(
+                Path.Combine(workingDirectory, "summary.json"),
+                JsonSerializer.Serialize(
+                    summary,
+                    new JsonSerializerOptions { WriteIndented = true }),
+                new UTF8Encoding(false));
+
+            var sanitizedLog = ReadSanitizedDiagnosticLogTail();
+            if (!string.IsNullOrWhiteSpace(sanitizedLog))
+            {
+                File.WriteAllText(
+                    Path.Combine(workingDirectory, "navbr-sanitized.log"),
+                    sanitizedLog,
+                    new UTF8Encoding(false));
+            }
+
+            File.WriteAllText(
+                Path.Combine(workingDirectory, "PRIVACY.txt"),
+                "This diagnostic package is sanitized by NavBR before export. " +
+                "Passwords, tokens, room/player identifiers, IP addresses, email addresses " +
+                "and local filesystem paths are removed or replaced. Raw logs are never included.",
+                new UTF8Encoding(false));
+
+            if (File.Exists(dialog.FileName))
+            {
+                File.Delete(dialog.FileName);
+            }
+
+            ZipFile.CreateFromDirectory(
+                workingDirectory,
+                dialog.FileName,
+                CompressionLevel.Optimal,
+                includeBaseDirectory: false);
+
+            _webSessionHealthNotice =
+                "Pacote de diagnóstico sanitizado exportado com sucesso.";
+        }
+        catch (Exception ex)
+        {
+            _webSessionHealthNotice =
+                $"Não foi possível exportar o pacote de diagnóstico: {ex.Message}";
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(workingDirectory, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private static string? ReadSanitizedDiagnosticLogTail()
+    {
+        try
+        {
+            if (!File.Exists(NavBRAppLog.LogPath))
+            {
+                return null;
+            }
+
+            const int maximumBytes = 2 * 1024 * 1024;
+            using var stream = new FileStream(
+                NavBRAppLog.LogPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            if (stream.Length > maximumBytes)
+            {
+                stream.Seek(-maximumBytes, SeekOrigin.End);
+            }
+
+            using var reader = new StreamReader(
+                stream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true);
+            var text = reader.ReadToEnd();
+            return SanitizeDiagnosticText(text);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SanitizeDiagnosticText(string value)
+    {
+        var sanitized = value;
+
+        var userProfile = Environment.GetFolderPath(
+            Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            sanitized = sanitized.Replace(
+                userProfile,
+                "[user-profile]",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        var localAppData = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            sanitized = sanitized.Replace(
+                localAppData,
+                "[local-app-data]",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b(?:password|passwd|token|secret|invite(?:code)?|roomid|playerid)\s*[=:]\s*[^\s,;]+",
+            match =>
+            {
+                var separator = match.Value.IndexOfAny(['=', ':']);
+                return separator > 0
+                    ? match.Value[..separator] + "=[redacted]"
+                    : "[redacted]";
+            });
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"\b(?:\d{1,3}\.){3}\d{1,3}\b",
+            "[ip]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+            "[id]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[A-Z]:\\[^\r\n\t\""]+",
+            "[path]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+            "[email]");
+
+        return sanitized;
     }
 
     private static void SaveLegacyPreferencesFromWeb(bool advancedModeEnabled, bool showDrivingTips)
