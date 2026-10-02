@@ -452,6 +452,39 @@ public partial class MainWindow
                 }
                 break;
 
+            case "downloadApplicationUpdate":
+                if (Application.Current is App downloadApp)
+                {
+                    _ = downloadApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None,
+                        forceDownload: true);
+                }
+                break;
+
+            case "saveApplicationUpdatePreferences":
+            {
+                var current =
+                    NavBRAutoUpdatePreferencesStore.Load();
+                NavBRAutoUpdatePreferencesStore.Save(
+                    current with
+                    {
+                        Channel =
+                            GetWebPayloadString(payload, "channel") ??
+                            current.Channel,
+                        CheckAtStartup =
+                            GetWebPayloadBool(
+                                payload,
+                                "checkAtStartup",
+                                current.CheckAtStartup),
+                        AutoDownload =
+                            GetWebPayloadBool(
+                                payload,
+                                "autoDownload",
+                                current.AutoDownload)
+                    });
+                break;
+            }
+
             case "installApplicationUpdate":
                 if (Application.Current is App installApp)
                 {
