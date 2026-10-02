@@ -6091,7 +6091,7 @@ function Help({ state }: { state: NavBrState | null }) {
 
           <div className="first-run-readiness">
             <article className={`first-run-check ${state?.omsi.running ? "ready" : "pending"}`}>
-              <NavBrIcon name={state?.omsi.running ? "check" : "bus"} size={16} />
+              <NavBrIcon name={state?.omsi.running ? "info" : "bus"} size={16} />
               <div>
                 <strong>OMSI 2</strong>
                 <small>{state?.omsi.running
@@ -6123,7 +6123,7 @@ function Help({ state }: { state: NavBrState | null }) {
             </article>
 
             <article className={`first-run-check optional ${state?.system.mobileCompanion?.running ? "ready" : "pending"}`}>
-              <NavBrIcon name="mobile" size={16} />
+              <NavBrIcon name="network" size={16} />
               <div>
                 <strong>Mobile Companion · {pick("Opcional", "Optional", "Opcional", "Optional", "Facultatif")}</strong>
                 <small>{state?.system.mobileCompanion?.running
