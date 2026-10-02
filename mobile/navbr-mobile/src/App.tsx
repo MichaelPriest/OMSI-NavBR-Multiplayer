@@ -513,16 +513,18 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    const releasePttOnSuspend = () => {
+    const releasePtt = () => setPttHeld(false);
+    const releasePttOnVisibilityChange = () => {
       if (document.visibilityState !== "visible") {
-        setPttHeld(false);
+        releasePtt();
       }
     };
-    document.addEventListener("visibilitychange", releasePttOnSuspend);
-    window.addEventListener("pagehide", releasePttOnSuspend);
+
+    document.addEventListener("visibilitychange", releasePttOnVisibilityChange);
+    window.addEventListener("pagehide", releasePtt);
     return () => {
-      document.removeEventListener("visibilitychange", releasePttOnSuspend);
-      window.removeEventListener("pagehide", releasePttOnSuspend);
+      document.removeEventListener("visibilitychange", releasePttOnVisibilityChange);
+      window.removeEventListener("pagehide", releasePtt);
     };
   }, []);
 
