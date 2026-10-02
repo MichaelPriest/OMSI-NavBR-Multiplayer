@@ -1341,19 +1341,53 @@ function Operations({
   const [fleetLivery, setFleetLivery] = useState("");
 
   useEffect(() => {
-    if (!operations || companyHydrated.current) return;
+    if (!operations) return;
+
+    if (operations.operatorBadgeVerified && operations.operatorBadge) {
+      setCompanyName(operations.operatorBadge.companyName || "");
+      setCompanyShortName(operations.operatorBadge.companyShortName || "");
+      if (!companyHydrated.current) {
+        setCompanyBaseMap(operations.company.baseMap || "");
+      }
+      companyHydrated.current = true;
+      return;
+    }
+
+    if (companyHydrated.current) return;
     setCompanyName(operations.company.name || "");
     setCompanyShortName(operations.company.shortName || "");
     setCompanyBaseMap(operations.company.baseMap || "");
     companyHydrated.current = true;
-  }, [operations]);
+  }, [
+    operations?.operatorBadgeVerified,
+    operations?.operatorBadge?.companyName,
+    operations?.operatorBadge?.companyShortName,
+    operations?.company.name,
+    operations?.company.shortName,
+    operations?.company.baseMap
+  ]);
 
   useEffect(() => {
-    if (!operations || profileHydrated.current) return;
+    if (!operations) return;
+
+    if (operations.operatorBadgeVerified && operations.operatorBadge) {
+      setProfileName(operations.operatorBadge.displayName || "");
+      setProfileCompany(operations.operatorBadge.companyName || "");
+      profileHydrated.current = true;
+      return;
+    }
+
+    if (profileHydrated.current) return;
     setProfileName(operations.profile.displayName || "");
     setProfileCompany(operations.profile.companyName || "");
     profileHydrated.current = true;
-  }, [operations]);
+  }, [
+    operations?.operatorBadgeVerified,
+    operations?.operatorBadge?.displayName,
+    operations?.operatorBadge?.companyName,
+    operations?.profile.displayName,
+    operations?.profile.companyName
+  ]);
 
   if (!operations) {
     return <div className="card empty-state">{pick("Aguardando dados do CCO…", "Waiting for operations data…", "Esperando datos del CCO…", "Warte auf Leitstellendaten…", "En attente des données CCO…")}</div>;
@@ -1585,8 +1619,8 @@ function Operations({
               <div><span className="eyebrow">{pick("EMPRESA VIRTUAL", "VIRTUAL COMPANY", "EMPRESA VIRTUAL", "VIRTUELLES UNTERNEHMEN", "ENTREPRISE VIRTUELLE")}</span><h3>{pick("Identidade operacional", "Operational identity", "Identidad operacional", "Betriebsidentität", "Identité opérationnelle")}</h3></div>
             </div>
             <div className="company-form">
-              <label><span>{pick("Nome", "Name", "Nombre", "Name", "Nom")}</span><input value={companyName} onChange={event => setCompanyName(event.target.value)} /></label>
-              <label><span>{pick("Sigla", "Short name", "Sigla", "Kürzel", "Sigle")}</span><input value={companyShortName} onChange={event => setCompanyShortName(event.target.value)} /></label>
+              <label><span>{pick("Nome", "Name", "Nombre", "Name", "Nom")}</span><input value={companyName} disabled={operations.operatorBadgeVerified} onChange={event => setCompanyName(event.target.value)} /></label>
+              <label><span>{pick("Sigla", "Short name", "Sigla", "Kürzel", "Sigle")}</span><input value={companyShortName} disabled={operations.operatorBadgeVerified} onChange={event => setCompanyShortName(event.target.value)} /></label>
               <label className="wide"><span>{pick("Mapa base", "Base map", "Mapa base", "Basiskarte", "Carte de base")}</span><input value={companyBaseMap} onChange={event => setCompanyBaseMap(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} /></label>
             </div>
             <button className="button primary" onClick={() => sendCommand("saveCompany", {
@@ -1601,9 +1635,20 @@ function Operations({
               <div><span className="eyebrow">{pick("PERFIL", "PROFILE", "PERFIL", "PROFIL", "PROFIL")}</span><h3>{pick("Motorista", "Driver", "Conductor", "Fahrer", "Conducteur")}</h3></div>
             </div>
             <div className="company-form">
-              <label className="wide"><span>{pick("Nome no NavBR", "NavBR name", "Nombre en NavBR", "Name in NavBR", "Nom dans NavBR")}</span><input value={profileName} onChange={event => setProfileName(event.target.value)} /></label>
-              <label className="wide"><span>{pick("Empresa do perfil", "Profile company", "Empresa del perfil", "Profilunternehmen", "Entreprise du profil")}</span><input value={profileCompany} onChange={event => setProfileCompany(event.target.value)} /></label>
+              <label className="wide"><span>{pick("Nome no NavBR", "NavBR name", "Nombre en NavBR", "Name in NavBR", "Nom dans NavBR")}</span><input value={profileName} disabled={operations.operatorBadgeVerified} onChange={event => setProfileName(event.target.value)} /></label>
+              <label className="wide"><span>{pick("Empresa do perfil", "Profile company", "Empresa del perfil", "Profilunternehmen", "Entreprise du profil")}</span><input value={profileCompany} disabled={operations.operatorBadgeVerified} onChange={event => setProfileCompany(event.target.value)} /></label>
             </div>
+            {operations.operatorBadgeVerified && operations.operatorBadge && (
+              <div className="network-message">
+                {pick(
+                  "Identidade e empresa sincronizadas pelo crachá verificado da Rede da Empresa. Para alterar esses dados, atualize o cadastro/cargo na Empresa.",
+                  "Identity and company are synchronized from the verified Company Network badge. Change them through Company membership/role management.",
+                  "La identidad y la empresa se sincronizan con la credencial verificada de la Red de Empresa. Modifícalas desde la gestión de Empresa.",
+                  "Identität und Unternehmen werden über den verifizierten Unternehmensausweis synchronisiert. Änderungen erfolgen in der Unternehmensverwaltung.",
+                  "L’identité et l’entreprise sont synchronisées depuis le badge vérifié du réseau Entreprise. Modifiez-les via la gestion de l’entreprise."
+                )}
+              </div>
+            )}
             <div className="profile-stats">
               <span><small>{pick("VIAGENS", "TRIPS", "VIAJES", "FAHRTEN", "TRAJETS")}</small><strong>{operations.profile.trips}</strong></span>
               <span><small>{pick("DISTÂNCIA", "DISTANCE", "DISTANCIA", "DISTANZ", "DISTANCE")}</small><strong>{operations.profile.totalDistanceKm.toFixed(1)} km</strong></span>
