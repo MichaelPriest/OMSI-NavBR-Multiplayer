@@ -662,39 +662,43 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         var fallback = ToPowerShellLiteral(fallbackExe);
         var installed = installedBuild ? "$true" : "$false";
 
-        return $"""
-$ErrorActionPreference = 'SilentlyContinue'
-$targetPid = {{processId}}
-$installer = {{installer}}
-$currentExe = {{current}}
-$fallbackExe = {{fallback}}
-$installedBuild = {{installed}}
-
-while (Get-Process -Id $targetPid -ErrorAction SilentlyContinue) {
-    Start-Sleep -Milliseconds 250
-}
-
-$arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS')
-$setup = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
-
-if ($setup -and $setup.ExitCode -eq 0) {
-    $restart = $null
-    if ($installedBuild -and (Test-Path -LiteralPath $currentExe)) {
-        $restart = $currentExe
-    } elseif (Test-Path -LiteralPath $fallbackExe) {
-        $restart = $fallbackExe
-    } elseif (Test-Path -LiteralPath $currentExe) {
-        $restart = $currentExe
-    }
-
-    if ($restart) {
-        Start-Process -FilePath $restart
-    }
-}
-
-Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
-""";
+        return string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                "$ErrorActionPreference = 'SilentlyContinue'",
+                $"$targetPid = {processId}",
+                $"$installer = {installer}",
+                $"$currentExe = {current}",
+                $"$fallbackExe = {fallback}",
+                $"$installedBuild = {installed}",
+                string.Empty,
+                "while (Get-Process -Id $targetPid -ErrorAction SilentlyContinue) {",
+                "    Start-Sleep -Milliseconds 250",
+                "}",
+                string.Empty,
+                "$arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS')",
+                "$setup = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru",
+                string.Empty,
+                "if ($setup -and $setup.ExitCode -eq 0) {",
+                "    $restart = $null",
+                "    if ($installedBuild -and (Test-Path -LiteralPath $currentExe)) {",
+                "        $restart = $currentExe",
+                "    } elseif (Test-Path -LiteralPath $fallbackExe) {",
+                "        $restart = $fallbackExe",
+                "    } elseif (Test-Path -LiteralPath $currentExe) {",
+                "        $restart = $currentExe",
+                "    }",
+                string.Empty,
+                "    if ($restart) {",
+                "        Start-Process -FilePath $restart",
+                "    }",
+                "}",
+                string.Empty,
+                "Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue",
+                "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue",
+                string.Empty
+            });
     }
 
     private static bool IsInstalledBuild()
