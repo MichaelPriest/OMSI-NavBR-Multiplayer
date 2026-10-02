@@ -602,20 +602,10 @@
                         <TextBlock x:Name="MiniMapZoomText"
                                    Foreground="#E8FFFFFF"
                                    FontSize="10"
-                                   Text="1.0×" />
+                                   Text="1.0×"
+                                   Visibility="Collapsed" />
                     </Border>
 
-                    <Border HorizontalAlignment="Center"
-                            VerticalAlignment="Top"
-                            Margin="0,8,0,0"
-                            Background="#BC0C1117"
-                            CornerRadius="7"
-                            Padding="8,3">
-                        <TextBlock Text="GPS • SENTIDO PARA CIMA"
-                                   Foreground="#CFFFFFFF"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
-                    </Border>
                 </Grid>
 
 
