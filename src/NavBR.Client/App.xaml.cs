@@ -130,8 +130,19 @@ public partial class App : Application
         else
         {
             nativeHost.OpenPrimaryWebShell();
-            _autoUpdateCts = new CancellationTokenSource();
-            _ = CheckForApplicationUpdatesAsync(_autoUpdateCts.Token);
+            var updatePreferences =
+                NavBRAutoUpdatePreferencesStore.Load();
+            if (updatePreferences.CheckAtStartup)
+            {
+                _autoUpdateCts = new CancellationTokenSource();
+                _ = CheckForApplicationUpdatesAsync(
+                    _autoUpdateCts.Token);
+            }
+            else
+            {
+                NavBRAppLog.Info(
+                    "app-update startup-check=disabled");
+            }
         }
     }
 
