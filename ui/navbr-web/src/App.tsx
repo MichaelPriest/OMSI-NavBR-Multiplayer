@@ -4486,7 +4486,7 @@ function Multiplayer({
   const defaultOnlineServer = "https://omsi-navbr-multiplayer-server.onrender.com";
 
   useEffect(() => {
-    setServerUrl(current => current || multiplayer.serverUrl || "");
+    setServerUrl(current => current || multiplayer.serverUrl || defaultOnlineServer);
     setRoomId(current => current || multiplayer.roomId || "");
     setDisplayName(current => current || multiplayer.displayName || "");
   }, [multiplayer.serverUrl, multiplayer.roomId, multiplayer.displayName]);
@@ -4580,6 +4580,15 @@ function Multiplayer({
     chatHotkey,
     voiceHotkey
   ]);
+
+  const canSubmitRoomIdentity =
+    Boolean(roomId.trim()) &&
+    Boolean(displayName.trim()) &&
+    (!privateRoom || roomPassword.length >= 4);
+  const canJoinRoom =
+    Boolean(serverUrl.trim()) &&
+    Boolean(roomId.trim()) &&
+    Boolean(displayName.trim());
 
   const statusLabel = multiplayer.connected
     ? pick("Conectado", "Connected", "Conectado", "Verbunden", "Connecté")
@@ -5037,6 +5046,7 @@ function Multiplayer({
 
                     <button
                       className="button primary room-create-submit"
+                      disabled={!canSubmitRoomIdentity}
                       onClick={() => {
                         if (createRoomMode === "navbr") {
                           const onlineUrl = relayServerUrl || defaultOnlineServer;
@@ -5124,7 +5134,7 @@ function Multiplayer({
                     </div>
 
                     <div className="room-join-actions">
-                      <button className="button primary" onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
+                      <button className="button primary" disabled={!canJoinRoom} onClick={() => sendCommand("connectRoom", { serverUrl, roomId, displayName, roomPassword })}>
                         {pick("Entrar", "Join", "Entrar", "Beitreten", "Rejoindre")}
                       </button>
                       <button className="button ghost icon-button" onClick={pasteInvite}><NavBrIcon name="clipboardPaste" size={16} />{pick("Colar convite", "Paste invite", "Pegar invitación", "Einladung einfügen", "Coller l’invitation")}</button>
@@ -5262,8 +5272,12 @@ function Multiplayer({
                   </button>
                   <button
                     className="button compact"
-                    disabled={!room.directJoinAllowed}
-                    title={!room.directJoinAllowed ? pick("Carregue a configuração compatível antes de entrar diretamente.", "Load a compatible configuration before joining directly.", "Carga una configuración compatible antes de entrar directamente.", "Vor direktem Beitritt eine kompatible Konfiguration laden.", "Chargez une configuration compatible avant de rejoindre directement.") : undefined}
+                    disabled={!room.directJoinAllowed || !serverUrl.trim() || !displayName.trim()}
+                    title={!room.directJoinAllowed
+                      ? pick("Carregue a configuração compatível antes de entrar diretamente.", "Load a compatible configuration before joining directly.", "Carga una configuración compatible antes de entrar directamente.", "Vor direktem Beitritt eine kompatible Konfiguration laden.", "Chargez une configuration compatible avant de rejoindre directement.")
+                      : !displayName.trim()
+                        ? pick("Informe seu apelido antes de entrar.", "Enter your display name before joining.", "Indica tu apodo antes de entrar.", "Gib vor dem Beitritt deinen Anzeigenamen ein.", "Indiquez votre pseudo avant de rejoindre.")
+                        : undefined}
                     onClick={() => {
                       setRoomId(room.roomId);
                       setPrivateRoom(false);
