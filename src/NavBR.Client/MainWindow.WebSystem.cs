@@ -122,6 +122,9 @@ public partial class MainWindow
             readyToInstall = update.ReadyToInstall,
             checkedAtUtc = update.CheckedAtUtc,
             message = update.Message,
+            lastInstalledFromVersion = update.LastInstalledFromVersion,
+            lastInstalledToVersion = update.LastInstalledToVersion,
+            lastInstallCompletedAtUtc = update.LastInstallCompletedAtUtc,
             channel = preferences.Channel,
             checkAtStartup = preferences.CheckAtStartup,
             autoDownload = preferences.AutoDownload
