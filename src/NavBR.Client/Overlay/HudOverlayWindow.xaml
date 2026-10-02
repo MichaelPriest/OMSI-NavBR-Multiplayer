@@ -648,56 +648,6 @@
                 </StackPanel>
             </Grid>
 
-            <Border x:Name="ChatPanel"
-                    Width="520"
-                    HorizontalAlignment="Left"
-                    Background="#D70B0F14"
-                    BorderBrush="#45FFFFFF"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="10,8"
-                    Margin="0,8,0,0"
-                    Visibility="Collapsed"
-                    Effect="{StaticResource HudShadow}">
-                <TextBlock x:Name="ChatLinesText"
-                           Foreground="White"
-                           FontSize="13"
-                           TextWrapping="Wrap" />
-            </Border>
-
-            <Border x:Name="ChatInputPanel"
-                    Width="520"
-                    HorizontalAlignment="Left"
-                    Margin="0,6,0,0"
-                    Background="#F20B0F14"
-                    BorderBrush="#FFFF8C00"
-                    BorderThickness="1.5"
-                    CornerRadius="10"
-                    Padding="9"
-                    Visibility="Collapsed"
-                    Effect="{StaticResource HudShadow}">
-                <DockPanel>
-                    <Border DockPanel.Dock="Left"
-                            Background="#2CFF8C00"
-                            CornerRadius="6"
-                            Padding="7,3"
-                            Margin="0,0,8,0">
-                        <TextBlock x:Name="ChatInputLabelText"
-                                   Text="CHAT"
-                                   Foreground="#FFFFA62B"
-                                   FontWeight="Bold"
-                                   VerticalAlignment="Center" />
-                    </Border>
-                    <TextBox x:Name="ChatInputBox"
-                             Background="Transparent"
-                             Foreground="White"
-                             BorderThickness="0"
-                             FontSize="15"
-                             MaxLength="280"
-                             KeyDown="ChatInputBox_KeyDown" />
-                </DockPanel>
-            </Border>
-
             <Border x:Name="HotkeyWarningPanel"
                     Margin="0,6,0,0"
                     Width="680"
@@ -712,6 +662,62 @@
                            Foreground="#FFFFD27A"
                            FontSize="11"
                            TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="ChatOverlayDock"
+                    Panel.ZIndex="1400"
+                    Width="560"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,36">
+            <Border x:Name="ChatPanel"
+                    Width="560"
+                    HorizontalAlignment="Center"
+                    Background="#E60B0F14"
+                    BorderBrush="#78FF9D24"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="12,10"
+                    Visibility="Collapsed"
+                    Effect="{StaticResource HudShadow}">
+                <TextBlock x:Name="ChatLinesText"
+                           Foreground="White"
+                           FontSize="13"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <Border x:Name="ChatInputPanel"
+                    Width="560"
+                    HorizontalAlignment="Center"
+                    Margin="0,8,0,0"
+                    Background="#F20B0F14"
+                    BorderBrush="#FFFF8C00"
+                    BorderThickness="1.5"
+                    CornerRadius="12"
+                    Padding="10"
+                    Visibility="Collapsed"
+                    Effect="{StaticResource HudShadow}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left"
+                            Background="#2CFF8C00"
+                            CornerRadius="7"
+                            Padding="8,4"
+                            Margin="0,0,9,0">
+                        <TextBlock x:Name="ChatInputLabelText"
+                                   Text="CHAT"
+                                   Foreground="#FFFFA62B"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <TextBox x:Name="ChatInputBox"
+                             Background="Transparent"
+                             Foreground="White"
+                             BorderThickness="0"
+                             FontSize="15"
+                             MaxLength="280"
+                             KeyDown="ChatInputBox_KeyDown" />
+                </DockPanel>
             </Border>
         </StackPanel>
     </Grid>
