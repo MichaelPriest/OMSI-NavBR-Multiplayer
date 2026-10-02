@@ -253,6 +253,7 @@ public partial class HudOverlayWindow
             return;
         }
 
+        _hudSettings = settings;
         _modularMinimapWidget!.Visibility = settings.DashboardShowMinimap
             ? Visibility.Visible
             : Visibility.Collapsed;
