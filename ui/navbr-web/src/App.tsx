@@ -6104,7 +6104,7 @@ function Help({ state }: { state: NavBrState | null }) {
         "Mobile Companion nutzt LAN-Erkennung und Pairing-Code, zeigt die echte OMSI-Roadmap und setzt nach dem Ruhezustand fort. RP nutzt W/A/S/D, Pfeile, Shift, Leertaste, E und Esc.",
         "Mobile Companion utilise la découverte LAN et un code d’appairage, affiche la vraie roadmap OMSI et reprend après suspension. Le RP utilise W/A/S/D, flèches, Shift, Espace, E et Échap."
       )
-    }
+    },
     {
       title: pick("12. Hardware Cockpit e desempenho", "12. Hardware Cockpit and performance", "12. Hardware Cockpit y rendimiento", "12. Hardware Cockpit und Leistung", "12. Hardware Cockpit et performances"),
       body: pick(
