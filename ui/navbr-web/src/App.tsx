@@ -3722,6 +3722,14 @@ function Settings({
               <span><small>{pick("PERDA EST.", "EST. LOSS", "PÉRDIDA EST.", "GESCH. VERLUST", "PERTE EST.")}</small><strong>{system.sessionHealth.lossPercent == null ? "—" : `${format(system.sessionHealth.lossPercent, 1)}%`}</strong></span>
               <span><small>{pick("TAXA DE TELEMETRIA", "TELEMETRY RATE", "TASA DE TELEMETRÍA", "TELEMETRIE-RATE", "TAUX TÉLÉMÉTRIE")}</small><strong>{system.sessionHealth.telemetryRateHz == null ? "—" : `~${format(system.sessionHealth.telemetryRateHz, 1)} Hz`}</strong></span>
             </div>
+            <div className="diagnostic-facts optimizer-runtime-facts">
+              <span><small>{pick("POLL EFETIVO", "EFFECTIVE POLL", "POLL EFECTIVO", "EFFEKTIVES POLLING", "POLL EFFECTIF")}</small><strong>{system.runtimeHost.telemetryPollIntervalMilliseconds} ms</strong></span>
+              <span><small>{pick("LEITURA ATUAL", "LAST READ", "ÚLTIMA LECTURA", "LETZTE LESEZEIT", "DERNIÈRE LECTURE")}</small><strong>{format(system.runtimeHost.telemetryLastReadMilliseconds, 1)} ms</strong></span>
+              <span><small>{pick("LEITURA MÉDIA", "AVG READ", "LECTURA MEDIA", "Ø LESEZEIT", "LECTURE MOY.")}</small><strong>{format(system.runtimeHost.telemetryAverageReadMilliseconds, 1)} ms</strong></span>
+              <span><small>{pick("HUD REFRESH", "HUD REFRESH", "REFRESCO HUD", "HUD-REFRESH", "RAFRAÎCH. HUD")}</small><strong>{system.runtimeHost.hudRefreshIntervalMilliseconds} ms</strong></span>
+              <span><small>{pick("PRESSÃO DO PLUGIN", "PLUGIN PRESSURE", "PRESIÓN DEL PLUGIN", "PLUGIN-LAST", "PRESSION PLUGIN")}</small><strong>{system.sessionHealth.pluginPerformance.pressureLevel ?? 0}/3</strong></span>
+              <span><small>{pick("PERFIL ATIVO", "ACTIVE PROFILE", "PERFIL ACTIVO", "AKTIVES PROFIL", "PROFIL ACTIF")}</small><strong>{system.sessionHealth.pluginPerformance.activeProfile || system.sessionHealth.pluginPerformance.configuredProfile}</strong></span>
+            </div>
             <div className="room-actions">
               {(["auto", "stability", "multiplayer", "quality", "diagnostics"] as const).map(profile => (
                 <button
