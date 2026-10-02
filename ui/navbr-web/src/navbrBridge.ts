@@ -746,6 +746,10 @@ export interface NavBrHardwareState {
   lastError?: string | null;
   lastFrameSentAtUtc?: string | null;
   payloadPreview?: string | null;
+  selectedPortAvailable: boolean;
+  reconnectPending: boolean;
+  retryAttempt: number;
+  nextReconnectAtUtc?: string | null;
   telemetry?: {
     line?: string | null;
     route?: string | null;
