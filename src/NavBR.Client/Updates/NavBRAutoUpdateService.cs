@@ -207,8 +207,26 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         ThrowIfDisposed();
 
         var snapshot = GetSnapshot();
+        var preferences = NavBRAutoUpdatePreferencesStore.Load();
         var installerPath = snapshot.InstallerPath;
         var expectedSha256 = _preparedSha256;
+
+        if (!IsReleaseAllowedForChannel(
+                snapshot.AvailableVersion,
+                preferences.Channel))
+        {
+            SetSnapshot(snapshot with
+            {
+                Status = "idle",
+                InstallerPath = null,
+                ProgressPercent = null,
+                UpdateAvailable = false,
+                ReadyToInstall = false,
+                Message = "A atualização preparada não pertence ao canal selecionado."
+            });
+            _preparedSha256 = null;
+            return false;
+        }
 
         if (!snapshot.ReadyToInstall ||
             string.IsNullOrWhiteSpace(installerPath) ||
