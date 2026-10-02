@@ -863,26 +863,6 @@ public partial class MainWindow
                 InstallOmsiPluginFromWeb();
                 break;
 
-            case "selectOpenOmsiExecutable":
-                SelectOpenOmsiExecutableFromWeb();
-                break;
-
-            case "launchOpenOmsiNavBrGateway":
-                LaunchOpenOmsiWithNavBrGatewayFromWeb();
-                break;
-
-            case "verifyOpenOmsiPlugin":
-                VerifyOpenOmsiPluginFromWeb();
-                break;
-
-            case "installOpenOmsiPlugin":
-                InstallOpenOmsiPluginFromWeb();
-                break;
-
-            case "removeOpenOmsiPlugin":
-                RemoveOpenOmsiPluginFromWeb();
-                break;
-
             case "discoverOmsiProfiles":
                 DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
                 break;
