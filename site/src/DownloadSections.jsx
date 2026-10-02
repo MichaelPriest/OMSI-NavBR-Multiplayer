@@ -56,14 +56,14 @@ export function Downloads({ currentAssets, current, loading, error, releasesPage
         Para novos testes, prefira o instalador Windows. O EXE standalone continua disponível como alternativa.
       </p>
       <div className="v2-public-alpha-warning">
-        <strong>Alpha.22 pública de teste</strong>
-        <span>O teste online com bots/AI do simulador seguindo o host foi validado. Players reais em dois PCs/duas sessões OMSI ainda precisam de teste ponta a ponta. Continue tratando esta versão como Alpha.</span>
+        <strong>Alpha.25 pública de teste</strong>
+        <span>Os smokes automatizados do multiplayer físico passaram, incluindo transição de Kachel, telemetria a 20 Hz e HOF não bloqueante. O teste real com dois players em PCs/sessões OMSI separados ainda está pendente. Continue tratando esta versão como Alpha.</span>
       </div>
 
       <div className="current-release-banner">
         <div>
           <span className="tag">VERSÃO ATUAL</span>
-          <strong>{current?.tag_name || "Alpha.22"}</strong>
+          <strong>{current?.tag_name || "Alpha.25"}</strong>
           <small>{current?.name || "Catálogo da versão atual"}</small>
         </div>
         <a href={current?.html_url || releasesPage} target="_blank" rel="noreferrer">Abrir release no GitHub →</a>
