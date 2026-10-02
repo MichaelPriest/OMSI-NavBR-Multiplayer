@@ -43,6 +43,8 @@ O plugin NavBR para openOMSI agora é tratado como pacote independente:
 - controles de Voz não disparam dezenas de comandos durante o movimento do slider;
 - erros de comandos permanecem visíveis em toast por tempo suficiente;
 - loading inicial estável;
+- servidor personalizado e atalhos de chat/PTT preservam o draft local durante polling;
+- manual React da Alpha.26 reorganizado, sem seções duplicadas e com fluxos atuais de Empresa/Crachá, updater, openOMSI, Mobile, Hardware e diagnóstico;
 - Home passa a mostrar:
   - estado do plugin OMSI 2;
   - Empresa/Crachá;
@@ -74,6 +76,7 @@ Quando existe crachá verificado:
 - retomada imediata ao voltar de bloqueio/suspensão;
 - polling suspenso quando a página não está visível;
 - PTT é liberado ao suspender o aplicativo;
+- linha manual TP/TS não é mais sobrescrita pelo polling enquanto o usuário edita;
 - PWA e APK continuam no pipeline oficial.
 
 ## Voz
@@ -81,6 +84,7 @@ Quando existe crachá verificado:
 - canal/raio não são mais sobrescritos pelo polling durante edição;
 - mixer por jogador usa estado local enquanto o slider se move;
 - alteração é enviada ao backend ao soltar/confirmar;
+- raio de proximidade também confirma alterações feitas pelo teclado;
 - redução de churn visual e de comandos.
 
 ## RP
