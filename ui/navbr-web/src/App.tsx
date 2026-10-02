@@ -3589,9 +3589,14 @@ function Settings({
                 <span className="eyebrow">{pick("SAÚDE DA SESSÃO", "SESSION HEALTH", "SALUD DE LA SESIÓN", "SITZUNGSSTATUS", "SANTÉ DE SESSION")}</span>
                 <h3>{pick("OMSI, multiplayer, rede e plugin", "OMSI, multiplayer, network and plugin", "OMSI, multijugador, red y plugin", "OMSI, Multiplayer, Netzwerk und Plugin", "OMSI, multijoueur, réseau et plugin")}</h3>
               </div>
-              <button className="button ghost" onClick={() => sendCommand("exportSessionHealth")}>
-                {pick("Exportar relatório sanitizado", "Export sanitized report", "Exportar informe sanitizado", "Bereinigten Bericht exportieren", "Exporter le rapport assaini")}
-              </button>
+              <div className="room-actions">
+                <button className="button primary" onClick={() => sendCommand("exportDiagnosticBundle")}>
+                  {pick("Gerar pacote de diagnóstico", "Generate diagnostic bundle", "Generar paquete de diagnóstico", "Diagnosepaket erstellen", "Générer le paquet de diagnostic")}
+                </button>
+                <button className="button ghost" onClick={() => sendCommand("exportSessionHealth")}>
+                  {pick("Exportar relatório sanitizado", "Export sanitized report", "Exportar informe sanitizado", "Bereinigten Bericht exportieren", "Exporter le rapport assaini")}
+                </button>
+              </div>
             </div>
             {system.sessionHealthNotice && <div className="network-message">{system.sessionHealthNotice}</div>}
             <div className="diagnostic-facts">
