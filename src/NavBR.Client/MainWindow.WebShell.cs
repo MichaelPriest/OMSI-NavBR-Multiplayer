@@ -444,6 +444,31 @@ public partial class MainWindow
     {
         switch (command)
         {
+            case "checkApplicationUpdate":
+                if (Application.Current is App updateApp)
+                {
+                    _ = updateApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None);
+                }
+                break;
+
+            case "installApplicationUpdate":
+                if (Application.Current is App installApp)
+                {
+                    var started =
+                        await installApp.AutoUpdater.BeginInstallAndRestartAsync(
+                            CancellationToken.None);
+                    if (!started)
+                    {
+                        throw new InvalidOperationException(
+                            "Nenhuma atualização validada está pronta para instalar.");
+                    }
+
+                    Application.Current.Dispatcher.BeginInvoke(
+                        () => Application.Current.Shutdown());
+                }
+                break;
+
             case "setLanguage":
             {
                 var cultureName = GetWebPayloadString(payload, "cultureName");
