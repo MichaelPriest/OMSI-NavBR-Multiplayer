@@ -11,7 +11,11 @@ internal sealed record HardwareCockpitBridgeState(
     IReadOnlyList<string> AvailablePorts,
     string? LastError,
     DateTimeOffset? LastFrameSentAtUtc,
-    string? PayloadPreview);
+    string? PayloadPreview,
+    bool SelectedPortAvailable,
+    bool ReconnectPending,
+    int RetryAttempt,
+    DateTimeOffset? NextReconnectAtUtc);
 
 internal sealed class HardwareCockpitBridgeController : IDisposable
 {
@@ -68,16 +72,38 @@ internal sealed class HardwareCockpitBridgeController : IDisposable
 
         lock (_sync)
         {
+            var selectedPort =
+                _transport.PortName ?? settings.PortName;
+            var selectedPortAvailable =
+                !string.IsNullOrWhiteSpace(selectedPort) &&
+                ports.Any(port =>
+                    string.Equals(
+                        port,
+                        selectedPort,
+                        StringComparison.OrdinalIgnoreCase));
+            var reconnectPending =
+                !_transport.IsConnected &&
+                settings.AutoReconnect &&
+                !string.IsNullOrWhiteSpace(settings.PortName);
+
             return new HardwareCockpitBridgeState(
                 HardwareCockpitProtocol.Version,
                 _transport.IsConnected,
-                _transport.PortName ?? settings.PortName,
+                selectedPort,
                 _transport.BaudRate ?? settings.BaudRate,
                 settings.AutoReconnect,
                 ports,
                 _lastError,
                 _lastFrameSentAtUtc,
-                telemetry is null ? null : HardwareCockpitProtocol.Serialize(telemetry));
+                telemetry is null ? null : HardwareCockpitProtocol.Serialize(telemetry),
+                selectedPortAvailable,
+                reconnectPending,
+                reconnectPending ? _retryIndex + 1 : 0,
+                reconnectPending &&
+                _nextReconnectAtUtc > DateTimeOffset.MinValue &&
+                _nextReconnectAtUtc < DateTimeOffset.MaxValue
+                    ? _nextReconnectAtUtc
+                    : null);
         }
     }
 
