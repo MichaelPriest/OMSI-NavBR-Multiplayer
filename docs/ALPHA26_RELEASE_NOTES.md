@@ -78,6 +78,8 @@ Quando existe crachá verificado:
 - painel de viagem vazio fica oculto até existir linha/rota/destino/parada;
 - minimapa sem roadmap/layout real fica oculto até os dados estarem disponíveis;
 - textos fixos de instrução do minimapa foram removidos e o zoom só aparece durante a edição do HUD;
+- HUD principal agora reduz escala automaticamente em resoluções menores para evitar sobreposição;
+- chat in-game usa largura máxima responsiva e margens adaptativas;
 - minimapa **Retangular**;
 - minimapa **Circular · GTA**;
 - escolha persistida no perfil do HUD;
