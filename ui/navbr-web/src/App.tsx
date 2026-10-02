@@ -2266,7 +2266,7 @@ function HudAppScreenPreview({ hud }: { hud: NavBrHudState }) {
         </div>
 
         {hud.showMinimap && (
-          <div className="hud-app-module hud-app-map">
+          <div className={`hud-app-module hud-app-map ${hud.minimapStyle === "circular" ? "circular" : ""}`}>
             <span className="hud-app-module-title">{pick("MAPA", "MAP", "MAPA", "KARTE", "CARTE")}</span>
             <i className="hud-app-map-road one" />
             <i className="hud-app-map-road two" />
@@ -2412,6 +2412,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     showAlerts: draft.showAlerts,
     showSideIndicators: draft.showSideIndicators,
     minimapScale: draft.minimapScale,
+    minimapStyle: draft.minimapStyle,
     multiplayerScale: draft.multiplayerScale,
     alertsScale: draft.alertsScale,
     sideIndicatorsScale: draft.sideIndicatorsScale
@@ -2433,6 +2434,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     draft.showAlerts,
     draft.showSideIndicators,
     draft.minimapScale,
+    draft.minimapStyle,
     draft.multiplayerScale,
     draft.alertsScale,
     draft.sideIndicatorsScale
@@ -2755,6 +2757,36 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
             </label>
           ))}
         </div>
+        {draft.showMinimap && (
+          <div className="hud-minimap-style">
+            <span className="eyebrow">{pick("FORMATO DO MINIMAPA", "MINIMAP SHAPE", "FORMA DEL MINIMAPA", "MINIKARTENFORM", "FORME DE LA MINICARTE")}</span>
+            <div className="hud-mode-switch compact">
+              <button
+                type="button"
+                className={`button ${draft.minimapStyle !== "circular" ? "primary" : "ghost"}`}
+                onClick={() => patch({ minimapStyle: "rectangular" })}
+              >
+                {pick("Retangular", "Rectangular", "Rectangular", "Rechteckig", "Rectangulaire")}
+              </button>
+              <button
+                type="button"
+                className={`button ${draft.minimapStyle === "circular" ? "primary" : "ghost"}`}
+                onClick={() => patch({ minimapStyle: "circular" })}
+              >
+                {pick("Circular · GTA", "Circular · GTA", "Circular · GTA", "Rund · GTA", "Circulaire · GTA")}
+              </button>
+            </div>
+            <small>
+              {pick(
+                "O modo circular aplica uma máscara real ao mapa do HUD dentro do OMSI; rota, heading e posição continuam usando os mesmos dados.",
+                "Circular mode applies a real mask to the in-game HUD map; route, heading and position continue using the same data.",
+                "El modo circular aplica una máscara real al mapa del HUD; ruta, rumbo y posición siguen usando los mismos datos.",
+                "Der runde Modus maskiert die HUD-Karte im OMSI; Route, Heading und Position verwenden weiterhin dieselben Daten.",
+                "Le mode circulaire applique un masque réel à la carte du HUD ; itinéraire, cap et position utilisent les mêmes données."
+              )}
+            </small>
+          </div>
+        )}
         {draft.preset === "minimal-driver" && draft.showMinimap && (
           <div className="hud-contextual-note">
             <strong>{pick("Módulo contextual", "Contextual widget", "Módulo contextual", "Kontextmodul", "Module contextuel")}</strong>
