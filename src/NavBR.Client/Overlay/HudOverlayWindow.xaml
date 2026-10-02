@@ -492,11 +492,7 @@
 
             <Grid x:Name="MiniMapHudPanel"
                   HorizontalAlignment="Left"
-                  Width="680">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="300" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                  Width="300">
 
                 <Grid x:Name="MiniMapViewport"
                       Width="300" Height="190" HorizontalAlignment="Left">
@@ -622,30 +618,7 @@
                     </Border>
                 </Grid>
 
-                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom">
-                    <Border Background="#B50B0F14"
-                            BorderBrush="#32FFFFFF"
-                            BorderThickness="1"
-                            CornerRadius="9"
-                            Padding="10,8">
-                        <StackPanel>
-                            <TextBlock Text="NAVBR DRIVE"
-                                       Foreground="#FFFF9D24"
-                                       FontSize="10"
-                                       FontWeight="Bold" />
-                            <TextBlock Text="GPS orientado pelo sentido do ônibus"
-                                       Margin="0,4,0,0"
-                                       Foreground="White"
-                                       FontSize="11"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="Mapa e rota giram; o seu marcador permanece apontando para cima."
-                                       Margin="0,4,0,0"
-                                       Foreground="#AFFFFFFF"
-                                       FontSize="10"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+
             </Grid>
 
             <Border x:Name="HotkeyWarningPanel"
