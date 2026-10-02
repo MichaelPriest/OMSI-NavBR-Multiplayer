@@ -18,6 +18,7 @@ public partial class MainWindow
     private IReadOnlyList<PublicRoomSummary> _webPublicRooms = Array.Empty<PublicRoomSummary>();
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
+    private bool _webPublicRoomDirectoryRefreshing;
 
     internal void OpenPrimaryWebShell()
     {
@@ -180,6 +181,7 @@ public partial class MainWindow
             {
                 serverUrl = _webPublicRoomDirectoryServerUrl,
                 error = _webPublicRoomDirectoryError,
+                refreshing = _webPublicRoomDirectoryRefreshing,
                 rooms = _webPublicRooms
                     .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
                     .ThenByDescending(room => room.PlayerCount)
@@ -216,6 +218,7 @@ public partial class MainWindow
             {
                 serverUrl = _webPublicRoomDirectoryServerUrl,
                 error = _webPublicRoomDirectoryError,
+                refreshing = _webPublicRoomDirectoryRefreshing,
                 rooms = _webPublicRooms
                     .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
                     .ThenByDescending(room => room.PlayerCount)
@@ -744,6 +747,7 @@ public partial class MainWindow
                     ?? MultiplayerSettingsStore.Load().ServerUrl;
                 _webPublicRoomDirectoryServerUrl = serverUrl;
                 _webPublicRoomDirectoryError = null;
+                _webPublicRoomDirectoryRefreshing = true;
 
                 try
                 {
@@ -754,6 +758,10 @@ public partial class MainWindow
                 {
                     _webPublicRooms = Array.Empty<PublicRoomSummary>();
                     _webPublicRoomDirectoryError = ex.Message;
+                }
+                finally
+                {
+                    _webPublicRoomDirectoryRefreshing = false;
                 }
                 break;
             }
