@@ -1320,6 +1320,11 @@ public partial class MainWindow
 
         sanitized = Regex.Replace(
             sanitized,
+            @"(?i)\bAuthorization\s*[=:]\s*(?:Bearer|Basic)\s+[^\s,;]+",
+            "Authorization=[redacted]");
+
+        sanitized = Regex.Replace(
+            sanitized,
             @"(?i)(?<key>""?(?:password|passwd|token|secret|authorization|api[-_]?key|invite(?:code)?|room(?:id)?|player(?:id)?|session(?:token)?)""?\s*[=:]\s*)(?<value>""[^""\r\n]*""|[^\s,;}\]]+)",
             match => match.Groups["key"].Value + "[redacted]");
 
