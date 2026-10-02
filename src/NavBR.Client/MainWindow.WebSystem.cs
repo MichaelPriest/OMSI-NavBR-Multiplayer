@@ -415,6 +415,9 @@ public partial class MainWindow
                 multiplayerScale = hudSettings.DashboardMultiplayerScale,
                 alertsScale = hudSettings.DashboardAlertsScale,
                 sideIndicatorsScale = hudSettings.DashboardSideIndicatorsScale,
+                telematrixEnabled = hudSettings.TelematrixWidgetEnabled,
+                telematrixTheme = hudSettings.TelematrixTheme,
+                telematrixSize = hudSettings.TelematrixSize,
                 presets = HudProfileCatalog.Presets
                     .Select(item => new
                     {
@@ -868,7 +871,7 @@ public partial class MainWindow
         var current = MultiplayerSettingsStore.Load();
         return current with
         {
-            DashboardSettingsVersion = 3,
+            DashboardSettingsVersion = 4,
             DashboardEnabled = GetWebPayloadBool(payload, "enabled"),
             DashboardPreset = HudProfileCatalog.ResolvePreset(
                 GetWebPayloadString(payload, "preset")).Id,
@@ -918,7 +921,20 @@ public partial class MainWindow
             DashboardSideIndicatorsScale = Math.Clamp(
                 GetWebPayloadDouble(payload, "sideIndicatorsScale") ?? current.DashboardSideIndicatorsScale,
                 0.55d,
-                2d)
+                2d),
+            TelematrixSettingsVersion = 1,
+            TelematrixWidgetEnabled = GetWebPayloadBool(
+                payload,
+                "telematrixEnabled",
+                current.TelematrixWidgetEnabled),
+            TelematrixTheme = Math.Clamp(
+                GetWebPayloadInt(payload, "telematrixTheme") ?? current.TelematrixTheme,
+                0,
+                2),
+            TelematrixSize = Math.Clamp(
+                GetWebPayloadInt(payload, "telematrixSize") ?? current.TelematrixSize,
+                0,
+                2)
         };
     }
 
