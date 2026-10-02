@@ -630,13 +630,12 @@
 
         <StackPanel x:Name="ChatOverlayDock"
                     Panel.ZIndex="1400"
-                    Width="560"
-                    HorizontalAlignment="Center"
+                    MaxWidth="560"
+                    HorizontalAlignment="Stretch"
                     VerticalAlignment="Bottom"
-                    Margin="0,0,0,36">
+                    Margin="24,0,24,36">
             <Border x:Name="ChatPanel"
-                    Width="560"
-                    HorizontalAlignment="Center"
+                    HorizontalAlignment="Stretch"
                     Background="#E60B0F14"
                     BorderBrush="#78FF9D24"
                     BorderThickness="1"
@@ -651,8 +650,7 @@
             </Border>
 
             <Border x:Name="ChatInputPanel"
-                    Width="560"
-                    HorizontalAlignment="Center"
+                    HorizontalAlignment="Stretch"
                     Margin="0,8,0,0"
                     Background="#F20B0F14"
                     BorderBrush="#FFFF8C00"
