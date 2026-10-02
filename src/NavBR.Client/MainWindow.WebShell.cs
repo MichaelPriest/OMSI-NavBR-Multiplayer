@@ -919,6 +919,10 @@ public partial class MainWindow
                 ExportSessionHealthFromWeb();
                 break;
 
+            case "exportDiagnosticBundle":
+                ExportDiagnosticBundleFromWeb();
+                break;
+
             case "saveLegacyPreferences":
                 SaveLegacyPreferencesFromWeb(
                     GetWebPayloadBool(payload, "advancedModeEnabled"),
