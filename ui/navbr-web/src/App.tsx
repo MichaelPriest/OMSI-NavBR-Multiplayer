@@ -1850,13 +1850,33 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   const [portName, setPortName] = useState("");
   const [baudRate, setBaudRate] = useState(115200);
   const [autoReconnect, setAutoReconnect] = useState(false);
+  const hardwareHydrated = useRef(false);
 
   useEffect(() => {
-    if (!hardware || hardware.connected) return;
+    if (!hardware) return;
+
+    if (hardware.connected) {
+      setPortName(hardware.portName || "");
+      setBaudRate(hardware.baudRate || 115200);
+      setAutoReconnect(hardware.autoReconnect);
+      hardwareHydrated.current = false;
+      return;
+    }
+
+    if (hardwareHydrated.current) return;
+    if (!hardware.portName && hardware.availablePorts.length === 0) return;
+
     setPortName(hardware.portName || hardware.availablePorts[0] || "");
     setBaudRate(hardware.baudRate || 115200);
     setAutoReconnect(hardware.autoReconnect);
-  }, [hardware?.connected, hardware?.portName, hardware?.baudRate, hardware?.autoReconnect, hardware?.availablePorts]);
+    hardwareHydrated.current = true;
+  }, [
+    hardware?.connected,
+    hardware?.portName,
+    hardware?.baudRate,
+    hardware?.autoReconnect,
+    hardware?.availablePorts.length
+  ]);
 
   if (!hardware) {
     return <div className="card empty-state">{pick("Aguardando estado do Hardware Cockpit…", "Waiting for Hardware Cockpit state…", "Esperando el estado del Hardware Cockpit…", "Warte auf Hardware-Cockpit-Status…", "En attente de l’état du Hardware Cockpit…")}</div>;
@@ -1998,17 +2018,26 @@ function Hardware({ state, error }: { state: NavBrState | null; error: string | 
   );
 }
 
-type SettingsTab = "general" | "installations" | "hud" | "roadmap" | "diagnostics" | "network";
+type SettingsTab = "general" | "updates" | "installations" | "hud" | "roadmap" | "diagnostics" | "network";
 
 function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
   const { pick } = useI18n();
   const [name, setName] = useState(profile.name);
   const [launchArguments, setLaunchArguments] = useState(profile.launchArguments || "");
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
+    const backendArguments = profile.launchArguments || "";
+    if (dirty) {
+      if (profile.name === name && backendArguments === launchArguments) {
+        setDirty(false);
+      }
+      return;
+    }
+
     setName(profile.name);
-    setLaunchArguments(profile.launchArguments || "");
-  }, [profile.id, profile.name, profile.launchArguments]);
+    setLaunchArguments(backendArguments);
+  }, [profile.id, profile.name, profile.launchArguments, dirty, name, launchArguments]);
 
   return (
     <article className={`installation-card ${profile.isPreferred ? "preferred" : ""} ${profile.isRunning ? "running" : ""}`}>
@@ -2034,20 +2063,22 @@ function OmsiProfileCard({ profile }: { profile: NavBrOmsiInstallation }) {
       <div className="installation-edit-grid">
         <label>
           <span>{pick("Nome do perfil", "Profile name", "Nombre del perfil", "Profilname", "Nom du profil")}</span>
-          <input value={name} onChange={event => setName(event.target.value)} />
+          <input value={name} onChange={event => { setName(event.target.value); setDirty(true); }} />
         </label>
         <label>
           <span>{pick("Argumentos de inicialização", "Launch arguments", "Argumentos de inicio", "Startargumente", "Arguments de lancement")}</span>
-          <input value={launchArguments} onChange={event => setLaunchArguments(event.target.value)} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} />
+          <input value={launchArguments} onChange={event => { setLaunchArguments(event.target.value); setDirty(true); }} placeholder={pick("Opcional", "Optional", "Opcional", "Optional", "Optionnel")} />
         </label>
       </div>
 
       <div className="installation-actions">
-        <button className="button ghost compact" onClick={() => sendCommand("updateOmsiProfile", {
+        <button className="button ghost compact" disabled={!dirty} onClick={() => sendCommand("updateOmsiProfile", {
           profileId: profile.id,
           name,
           launchArguments
-        })}>{pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")}</button>
+        })}>{dirty
+          ? pick("Salvar perfil", "Save profile", "Guardar perfil", "Profil speichern", "Enregistrer le profil")
+          : pick("Salvo", "Saved", "Guardado", "Gespeichert", "Enregistré")}</button>
         {!profile.isPreferred && (
           <button className="button ghost compact" onClick={() => sendCommand("setPreferredOmsiProfile", { profileId: profile.id })}>
             {pick("Tornar preferido", "Make preferred", "Hacer preferido", "Als bevorzugt setzen", "Définir comme préféré")}
@@ -3163,6 +3194,7 @@ function Settings({
             id: "maintenance",
             label: pick("SISTEMA", "SYSTEM", "SISTEMA", "SYSTEM", "SYSTÈME"),
             items: [
+              ["updates", pick("Atualizações", "Updates", "Actualizaciones", "Updates", "Mises à jour")],
               ["diagnostics", t("settings.diagnostics")]
             ]
           }
@@ -3269,6 +3301,67 @@ function Settings({
                 </span>
               </label>
             </div>
+          </article>
+        </section>
+      )}
+
+      {tab === "updates" && (
+        <section className="settings-installations">
+          <article className="card discovery-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE", "NAVBR UPDATE")}</span>
+                <h3>{pick("Atualizações automáticas", "Automatic updates", "Actualizaciones automáticas", "Automatische Updates", "Mises à jour automatiques")}</h3>
+              </div>
+              <span className={`compatibility-badge ${system.applicationUpdate?.status === "ready" ? "warning" : system.applicationUpdate?.status === "failed" ? "blocked" : "compatible"}`}>
+                {(system.applicationUpdate?.status || "idle").toUpperCase()}
+              </span>
+            </div>
+            <p>
+              {pick(
+                "O NavBR verifica as releases oficiais ao abrir. Quando encontra uma versão nova, baixa o instalador, valida o SHA-256 publicado e só então libera a instalação.",
+                "NavBR checks official releases at startup. When a newer version is found, it downloads the installer, validates the published SHA-256, and only then enables installation.",
+                "NavBR comprueba las releases oficiales al iniciar. Si encuentra una versión nueva, descarga el instalador, valida el SHA-256 publicado y solo entonces permite instalar.",
+                "NavBR prüft beim Start die offiziellen Releases. Eine neue Version wird heruntergeladen, anhand der veröffentlichten SHA-256 geprüft und erst dann zur Installation freigegeben.",
+                "NavBR vérifie les releases officielles au démarrage. Lorsqu’une nouvelle version est trouvée, l’installeur est téléchargé puis validé avec le SHA-256 publié avant toute installation."
+              )}
+            </p>
+            <div className="details-grid">
+              <div><small>{pick("VERSÃO ATUAL", "CURRENT VERSION", "VERSIÓN ACTUAL", "AKTUELLE VERSION", "VERSION ACTUELLE")}</small><strong>{system.applicationUpdate?.currentVersion || state?.appVersion || "—"}</strong></div>
+              <div><small>{pick("NOVA VERSÃO", "NEW VERSION", "NUEVA VERSIÓN", "NEUE VERSION", "NOUVELLE VERSION")}</small><strong>{system.applicationUpdate?.availableVersion || "—"}</strong></div>
+              <div><small>{pick("STATUS", "STATUS", "ESTADO", "STATUS", "ÉTAT")}</small><strong>{system.applicationUpdate?.status || "idle"}</strong></div>
+              <div><small>{pick("ÚLTIMA VERIFICAÇÃO", "LAST CHECK", "ÚLTIMA COMPROBACIÓN", "LETZTE PRÜFUNG", "DERNIÈRE VÉRIFICATION")}</small><strong>{system.applicationUpdate?.checkedAtUtc ? new Date(system.applicationUpdate.checkedAtUtc).toLocaleString() : "—"}</strong></div>
+            </div>
+            {system.applicationUpdate?.message && <div className="network-message">{system.applicationUpdate.message}</div>}
+            {(system.applicationUpdate?.status === "downloading" || system.applicationUpdate?.status === "verifying") && (
+              <div className="application-update-progress" aria-label={`${system.applicationUpdate.progressPercent ?? 0}%`}>
+                <span style={{ width: `${Math.max(0, Math.min(100, system.applicationUpdate.progressPercent ?? 0))}%` }} />
+              </div>
+            )}
+            <div className="discovery-actions">
+              <button className="button ghost icon-button" onClick={() => sendCommand("checkApplicationUpdate")}>
+                <NavBrIcon name="refresh" size={16} />{pick("Verificar agora", "Check now", "Comprobar ahora", "Jetzt prüfen", "Vérifier maintenant")}
+              </button>
+              {system.applicationUpdate?.readyToInstall && (
+                <button className="button primary" onClick={() => sendCommand("installApplicationUpdate")}>
+                  {pick("Atualizar e reiniciar", "Update & restart", "Actualizar y reiniciar", "Aktualisieren & neu starten", "Mettre à jour et redémarrer")}
+                </button>
+              )}
+              {system.applicationUpdate?.releaseUrl && (
+                <button className="button ghost" onClick={() => window.open(system.applicationUpdate?.releaseUrl || "", "_blank", "noopener,noreferrer")}>
+                  {pick("Ver release", "View release", "Ver release", "Release anzeigen", "Voir la release")}
+                </button>
+              )}
+            </div>
+            <small className="plugin-update-hint">
+              {pick(
+                "O plugin OMSI 2 continua sendo gerenciado pelo NavBR. O plugin openOMSI é um pacote externo e não participa deste atualizador.",
+                "The OMSI 2 plugin remains managed by NavBR. The openOMSI plugin is an external package and is not part of this updater.",
+                "El plugin OMSI 2 sigue administrado por NavBR. El plugin openOMSI es un paquete externo y no forma parte de este actualizador.",
+                "Das OMSI-2-Plugin wird weiterhin von NavBR verwaltet. Das openOMSI-Plugin ist ein externes Paket und nicht Teil dieses Updaters.",
+                "Le plugin OMSI 2 reste géré par NavBR. Le plugin openOMSI est un paquet externe et ne fait pas partie de cet updater."
+              )}
+            </small>
           </article>
         </section>
       )}
