@@ -67,6 +67,12 @@ Quando existe crachá verificado:
 
 ## HUD e minimapa
 
+- layout padrão limpo para evitar sobreposição entre o HUD principal e o painel modular;
+- painel modular padrão migra para o canto inferior direito quando ainda usa a posição antiga intocada;
+- minimapa, multiplayer e indicadores laterais duplicados deixam de vir ativados dentro do painel modular padrão;
+- layouts personalizados pelo usuário são preservados;
+- dicas/legendas de atalhos de teclado foram removidas do overlay do OMSI;
+- chips fixos CHAT/PTT foram removidos da barra superior;
 - minimapa **Retangular**;
 - minimapa **Circular · GTA**;
 - escolha persistida no perfil do HUD;
@@ -85,8 +91,13 @@ Quando existe crachá verificado:
 - linha manual TP/TS não é mais sobrescrita pelo polling enquanto o usuário edita;
 - PWA e APK continuam no pipeline oficial.
 
-## Voz
+## Chat e Voz
 
+- chat in-game fica oculto por padrão e não abre automaticamente ao receber mensagens;
+- mensagens continuam armazenadas e aparecem quando o motorista ativa o chat;
+- ao fechar com Enter/Esc, painel e campo de digitação somem imediatamente;
+- chat foi destacado do `HudDock` para não deslocar/reorganizar os demais HUDs;
+- preset Immersive Operation também esconde mensagens enquanto o chat não estiver ativo;
 - canal/raio não são mais sobrescritos pelo polling durante edição;
 - mixer por jogador usa estado local enquanto o slider se move;
 - alteração é enviada ao backend ao soltar/confirmar;
