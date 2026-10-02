@@ -109,6 +109,7 @@ public partial class MainWindow
         }
 
         var update = app.AutoUpdater.GetSnapshot();
+        var preferences = NavBRAutoUpdatePreferencesStore.Load();
         return new
         {
             status = update.Status,
@@ -119,7 +120,10 @@ public partial class MainWindow
             updateAvailable = update.UpdateAvailable,
             readyToInstall = update.ReadyToInstall,
             checkedAtUtc = update.CheckedAtUtc,
-            message = update.Message
+            message = update.Message,
+            channel = preferences.Channel,
+            checkAtStartup = preferences.CheckAtStartup,
+            autoDownload = preferences.AutoDownload
         };
     }
 
