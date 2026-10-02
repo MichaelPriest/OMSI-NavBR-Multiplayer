@@ -491,6 +491,9 @@ export interface NavBrHudState {
   multiplayerScale: number;
   alertsScale: number;
   sideIndicatorsScale: number;
+  telematrixEnabled: boolean;
+  telematrixTheme: number;
+  telematrixSize: number;
   presets: NavBrHudPreset[];
   themes: { id: string; displayName: string }[];
   anchors: { id: string; displayName: string }[];
