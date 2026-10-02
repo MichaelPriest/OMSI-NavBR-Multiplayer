@@ -26,6 +26,7 @@ public partial class HudOverlayWindow
     {
         _hudLayoutEditMode = enabled;
         HudMoveHandle.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        MiniMapZoomText.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         SetInteractive(enabled || _chatInteractive);
 
         if (enabled)
