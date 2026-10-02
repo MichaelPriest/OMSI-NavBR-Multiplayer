@@ -652,6 +652,21 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var selected = RoleplayCharacterSelectionStore.Get(mapKey);
             var telemetry = _telemetrySource();
             var map = _activeMapSource();
+
+            if (telemetry?.IsInGame != true ||
+                !IsSameRoleplayMap(current, telemetry, map))
+            {
+                await StopAsync("roleplay-session-ended");
+                return;
+            }
+
+            if (Application.Current is not App app ||
+                !app.PluginBridge.IsConnected)
+            {
+                await StopAsync("roleplay-plugin-disconnected");
+                return;
+            }
+
             if (selected is null ||
                 !string.Equals(selected.Id, current.CharacterId, StringComparison.OrdinalIgnoreCase))
             {
