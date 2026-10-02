@@ -20,6 +20,7 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
 
     private readonly Func<Task<object>> _stateProvider;
     private readonly Func<MobileCompanionCommand, Task<object>> _commandHandler;
+    private readonly Func<string?>? _roadmapProvider;
     private WebApplication? _app;
     private CancellationTokenSource? _discoveryCts;
     private Task? _discoveryTask;
@@ -27,10 +28,12 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
     public MobileCompanionHostService(
         Func<Task<object>> stateProvider,
         Func<MobileCompanionCommand, Task<object>> commandHandler,
+        Func<string?>? roadmapProvider = null,
         int port = DefaultPort)
     {
         _stateProvider = stateProvider;
         _commandHandler = commandHandler;
+        _roadmapProvider = roadmapProvider;
         Port = port;
         PairingCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(4));
     }
@@ -96,6 +99,33 @@ internal sealed class MobileCompanionHostService : IAsyncDisposable
 
             context.Response.Headers.CacheControl = "no-store";
             return Results.Json(await _stateProvider());
+        });
+
+        app.MapGet("/api/mobile/roadmap", (HttpContext context) =>
+        {
+            if (!IsLocalNetworkClient(context))
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            if (!IsAuthorized(context))
+            {
+                return Results.Json(
+                    new { error = "pairing_required" },
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var path = _roadmapProvider?.Invoke();
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return Results.NotFound();
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.File(
+                path,
+                contentType: "image/png",
+                enableRangeProcessing: true);
         });
 
         app.MapPost("/api/mobile/command", async (HttpContext context) =>
