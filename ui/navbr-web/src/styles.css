@@ -2925,3 +2925,41 @@ h3 { margin:6px 0 16px; font-size:19px; }
   color: #7893a5;
   white-space: nowrap;
 }
+
+
+/* Automatic application updater */
+.application-update-prompt {
+  margin-bottom:12px;
+  border-color:#285f7d;
+  background:linear-gradient(120deg,#092237,#071821);
+}
+.application-update-prompt.ready {
+  border-color:#287957;
+  background:linear-gradient(120deg,#092a24,#071821);
+}
+.update-version-pill {
+  flex:0 0 auto;
+  padding:5px 8px;
+  border:1px solid #2d5872;
+  border-radius:999px;
+  background:#0a1c28;
+  color:#9bdcff;
+  font-size:8px;
+  font-weight:800;
+}
+.application-update-progress {
+  width:100%;
+  height:7px;
+  margin:10px 0 2px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#0a1822;
+  border:1px solid #1b3647;
+}
+.application-update-progress > span {
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#1688ff,#22db8d);
+  transition:width .2s ease;
+}
