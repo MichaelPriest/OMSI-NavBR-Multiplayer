@@ -74,7 +74,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
     }
 
     public async Task<NavBRAutoUpdateSnapshot> CheckAndPrepareAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool forceDownload = false)
     {
         ThrowIfDisposed();
 
@@ -85,10 +86,14 @@ internal sealed class NavBRAutoUpdateService : IDisposable
 
         try
         {
+            var preferences = NavBRAutoUpdatePreferencesStore.Load();
             var existing = GetSnapshot();
             if (existing.ReadyToInstall &&
                 !string.IsNullOrWhiteSpace(existing.InstallerPath) &&
-                File.Exists(existing.InstallerPath))
+                File.Exists(existing.InstallerPath) &&
+                IsReleaseAllowedForChannel(
+                    existing.AvailableVersion,
+                    preferences.Channel))
             {
                 return existing;
             }
@@ -107,7 +112,9 @@ internal sealed class NavBRAutoUpdateService : IDisposable
             });
             _preparedSha256 = null;
 
-            var candidate = await FindNewestReleaseAsync(cancellationToken);
+            var candidate = await FindNewestReleaseAsync(
+                preferences.Channel,
+                cancellationToken);
             if (candidate is null)
             {
                 SetSnapshot(GetSnapshot() with
@@ -118,6 +125,24 @@ internal sealed class NavBRAutoUpdateService : IDisposable
                     ReadyToInstall = false,
                     CheckedAtUtc = DateTimeOffset.UtcNow,
                     Message = "Você já está usando a versão pública mais recente."
+                });
+                return GetSnapshot();
+            }
+
+            if (!preferences.AutoDownload &&
+                !forceDownload)
+            {
+                SetSnapshot(GetSnapshot() with
+                {
+                    Status = "available",
+                    AvailableVersion = candidate.Version,
+                    ReleaseUrl = candidate.ReleaseUrl,
+                    InstallerPath = null,
+                    ProgressPercent = null,
+                    UpdateAvailable = true,
+                    ReadyToInstall = false,
+                    CheckedAtUtc = DateTimeOffset.UtcNow,
+                    Message = "Nova versão encontrada. Download automático está desativado."
                 });
                 return GetSnapshot();
             }
@@ -302,6 +327,23 @@ internal sealed class NavBRAutoUpdateService : IDisposable
         return CompareParsedVersions(leftVersion, rightVersion);
     }
 
+    internal static bool IsReleaseAllowedForChannel(
+        string? version,
+        string? channel)
+    {
+        if (string.IsNullOrWhiteSpace(version) ||
+            !TryParseReleaseVersion(version, out var parsed))
+        {
+            return false;
+        }
+
+        return !string.Equals(
+                   channel?.Trim(),
+                   "stable",
+                   StringComparison.OrdinalIgnoreCase) ||
+               parsed.Label is null;
+    }
+
     internal static bool TryGetExpectedSha256(
         string checksumText,
         string fileName,
@@ -352,6 +394,7 @@ internal sealed class NavBRAutoUpdateService : IDisposable
     }
 
     private async Task<ReleaseCandidate?> FindNewestReleaseAsync(
+        string channel,
         CancellationToken cancellationToken)
     {
         using var response = await _httpClient.GetAsync(
@@ -381,7 +424,8 @@ internal sealed class NavBRAutoUpdateService : IDisposable
 
             var tagName = GetString(release, "tag_name");
             if (string.IsNullOrWhiteSpace(tagName) ||
-                !TryParseReleaseVersion(tagName, out _))
+                !TryParseReleaseVersion(tagName, out _) ||
+                !IsReleaseAllowedForChannel(tagName, channel))
             {
                 continue;
             }
