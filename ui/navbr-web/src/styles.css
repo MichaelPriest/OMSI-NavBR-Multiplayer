@@ -3005,29 +3005,6 @@ h3 { margin:6px 0 16px; font-size:19px; }
 
 
 /* Stable shell feedback */
-.global-command-toast {
-  position:sticky;
-  top:10px;
-  z-index:30;
-  display:flex;
-  align-items:center;
-  gap:9px;
-  margin:0 0 12px;
-  padding:10px 12px;
-  border:1px solid #7b4b27;
-  border-radius:10px;
-  background:#24180f;
-  box-shadow:0 10px 30px rgba(0,0,0,.28);
-  color:#ffd9b8;
-}
-.global-command-toast span { flex:1; font-size:11px; line-height:1.45; }
-.global-command-toast button {
-  border:0;
-  background:transparent;
-  color:inherit;
-  font-size:19px;
-  cursor:pointer;
-}
 .app-loading-state {
   display:flex;
   align-items:center;

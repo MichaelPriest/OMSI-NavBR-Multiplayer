@@ -6295,6 +6295,7 @@ export default function App() {
   const [pluginPromptDismissed, setPluginPromptDismissed] = useState(false);
   const [updatePromptDismissed, setUpdatePromptDismissed] = useState(false);
   const lastNavigationRequestId = useRef<number | null>(null);
+  const firstRunRouted = useRef(false);
 
   const openSettingsTab = (tab: SettingsTab) => {
     setSettingsTabRequest(tab);
@@ -6306,6 +6307,19 @@ export default function App() {
       setState(next);
 
       const navigationRequest = next.navigationRequest;
+      if (
+        !firstRunRouted.current &&
+        next.system?.legacyPreferences?.firstRunCompleted === false &&
+        !navigationRequest
+      ) {
+        firstRunRouted.current = true;
+        setScreen("help");
+      } else if (
+        !firstRunRouted.current &&
+        next.system?.legacyPreferences?.firstRunCompleted !== false
+      ) {
+        firstRunRouted.current = true;
+      }
       if (navigationRequest && navigationRequest.id !== lastNavigationRequestId.current) {
         lastNavigationRequestId.current = navigationRequest.id;
         const requested = navigationRequest.screen;
@@ -6363,13 +6377,6 @@ export default function App() {
     <div className="app-shell">
       <Sidebar screen={screen} setScreen={setScreen} appVersion={state?.appVersion} />
       <main>
-        {commandError && (
-          <div className="global-command-toast" role="alert">
-            <NavBrIcon name="hazard" size={16} />
-            <span>{commandError}</span>
-            <button type="button" onClick={() => setCommandError(null)} aria-label="Fechar">×</button>
-          </div>
-        )}
         {!state && (
           <section className="card app-loading-state" aria-live="polite">
             <span className="app-loading-spinner" />
