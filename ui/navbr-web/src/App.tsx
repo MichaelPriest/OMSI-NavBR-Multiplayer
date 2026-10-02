@@ -211,6 +211,13 @@ function Home({
   const omsi = state?.omsi;
   const telemetry = state?.telemetry;
   const active = Boolean(omsi?.running && telemetry?.inGame);
+  const companyBadge =
+    state?.companyNetwork.membership?.badge ||
+    state?.companyNetwork.company?.selfBadge ||
+    null;
+  const plugin = state?.system?.pluginInstallation;
+  const mobile = state?.system?.mobileCompanion;
+  const applicationUpdate = state?.system?.applicationUpdate;
 
   return (
     <>
@@ -272,6 +279,29 @@ function Home({
           <span className="card-label">MULTIPLAYER</span>
           <strong>{state?.multiplayer.connected ? state.multiplayer.roomId : t("home.disconnected")}</strong>
           <small>{state?.multiplayer.connected ? `${state.multiplayer.playerCount} jogador(es)` : t("home.noRoom")}</small>
+        </article>
+      </section>
+
+      <section className="status-grid home-system-grid">
+        <article className="card status-card">
+          <span className="card-label">{pick("PLUGIN OMSI 2", "OMSI 2 PLUGIN", "PLUGIN OMSI 2", "OMSI-2-PLUGIN", "PLUGIN OMSI 2")}</span>
+          <strong>{plugin?.state === "installed" || plugin?.state === "ready" ? pick("Em dia", "Current", "Al día", "Aktuell", "À jour") : plugin?.state === "outdated" ? pick("Atualização necessária", "Update required", "Actualización necesaria", "Update erforderlich", "Mise à jour requise") : pick("Verificar", "Check", "Verificar", "Prüfen", "Vérifier")}</strong>
+          <small>{plugin?.installedVersion || plugin?.expectedVersion || "—"}</small>
+        </article>
+        <article className="card status-card">
+          <span className="card-label">{pick("EMPRESA / CRACHÁ", "COMPANY / BADGE", "EMPRESA / CREDENCIAL", "UNTERNEHMEN / AUSWEIS", "ENTREPRISE / BADGE")}</span>
+          <strong>{companyBadge ? companyBadge.companyShortName || companyBadge.companyName : pick("Sem vínculo", "Not linked", "Sin vínculo", "Nicht verknüpft", "Non lié")}</strong>
+          <small>{companyBadge ? `${companyBadge.employeeNumber} · ${companyBadge.role}` : pick("Configure em Empresa", "Configure under Company", "Configura en Empresa", "Unter Unternehmen konfigurieren", "Configurer dans Entreprise")}</small>
+        </article>
+        <article className="card status-card">
+          <span className="card-label">MOBILE COMPANION</span>
+          <strong>{mobile?.running ? "ONLINE" : "OFFLINE"}</strong>
+          <small>{mobile?.running ? `${mobile.urls.length} endpoint(s) · ${mobile.mode}` : pick("Aguardando serviço", "Waiting for service", "Esperando servicio", "Warte auf Dienst", "En attente du service")}</small>
+        </article>
+        <article className="card status-card">
+          <span className="card-label">{pick("ATUALIZAÇÕES", "UPDATES", "ACTUALIZACIONES", "UPDATES", "MISES À JOUR")}</span>
+          <strong>{applicationUpdate?.readyToInstall ? pick("Pronta para instalar", "Ready to install", "Lista para instalar", "Installationsbereit", "Prête à installer") : applicationUpdate?.updateAvailable ? pick("Baixando / validando", "Downloading / verifying", "Descargando / validando", "Download / Prüfung", "Téléchargement / validation") : pick("Em dia", "Current", "Al día", "Aktuell", "À jour")}</strong>
+          <small>{applicationUpdate?.availableVersion || applicationUpdate?.currentVersion || state?.appVersion || "—"}</small>
         </article>
       </section>
 
