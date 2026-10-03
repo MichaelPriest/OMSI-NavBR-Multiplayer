@@ -1378,6 +1378,26 @@ h3 { margin:6px 0 16px; font-size:19px; }
 .compact-toggle span {
   font-size:10px;
 }
+.hud-map-zoom-control {
+  display:grid;
+  gap:7px;
+  margin-bottom:12px;
+}
+.hud-map-zoom-control > span {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color:#b9ceda;
+  font-size:10px;
+}
+.hud-map-zoom-control em {
+  color:#79cfff;
+  font-style:normal;
+}
+.hud-map-zoom-control small {
+  color:#6f8798;
+  line-height:1.4;
+}
 .hud-telematrix-config {
   display:grid;
   gap:10px;
