@@ -11,6 +11,8 @@ public partial class HudOverlayWindow
     private string? _routeTraceCacheKey;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
     private bool _routeTraceHasDetailedGeometry;
+    private OmsiPhysicalRoadAnchorResolver? _gpsRoadAnchorResolver;
+    private string? _gpsRoadAnchorInstallRoot;
     private readonly OmsiRouteRejoinPathfinder _hudRouteRejoinPathfinder = new();
     private bool _enhancedMapRenderingStarted;
 
@@ -91,10 +93,13 @@ public partial class HudOverlayWindow
             bitmap is null ||
             layout is null ||
             map is null ||
-            telemetry.GridX is not int gridX ||
-            telemetry.GridY is not int gridY ||
-            telemetry.TileX is not double tileX ||
-            telemetry.TileY is not double tileY ||
+            !TryGetGpsDisplayAnchor(
+                telemetry,
+                map,
+                out var gridX,
+                out var gridY,
+                out var tileX,
+                out var tileY) ||
             !RoadmapTransform.TryToPixel(
                 layout,
                 bitmap.PixelWidth,
@@ -156,6 +161,91 @@ public partial class HudOverlayWindow
 
         UpdateNavigationSummary(navigation, map);
         UpdateTurnGuidance(navigation, rejoinPath);
+    }
+
+    private bool TryGetGpsDisplayAnchor(
+        VehicleTelemetry telemetry,
+        OmsiMapInfo map,
+        out int gridX,
+        out int gridY,
+        out double tileX,
+        out double tileY)
+    {
+        gridX = telemetry.GridX ?? 0;
+        gridY = telemetry.GridY ?? 0;
+        tileX = telemetry.TileX ?? 0d;
+        tileY = telemetry.TileY ?? 0d;
+
+        if (telemetry.GridX is not int rawGridX ||
+            telemetry.GridY is not int rawGridY ||
+            telemetry.TileX is not double rawTileX ||
+            telemetry.TileY is not double rawTileY)
+        {
+            return false;
+        }
+
+        gridX = rawGridX;
+        gridY = rawGridY;
+        tileX = rawTileX;
+        tileY = rawTileY;
+
+        var installRoot = ResolveOmsiInstallRoot(map.DirectoryPath);
+        if (string.IsNullOrWhiteSpace(installRoot))
+        {
+            return true;
+        }
+
+        if (_gpsRoadAnchorResolver is null ||
+            !string.Equals(
+                _gpsRoadAnchorInstallRoot,
+                installRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _gpsRoadAnchorInstallRoot = installRoot;
+            var capturedRoot = installRoot;
+            _gpsRoadAnchorResolver =
+                new OmsiPhysicalRoadAnchorResolver(() => capturedRoot);
+        }
+
+        if (_gpsRoadAnchorResolver.TryResolveRoadAnchor(
+                telemetry,
+                out var roadAnchor) &&
+            roadAnchor.DistanceMeters <= 18d)
+        {
+            gridX = roadAnchor.GridX;
+            gridY = roadAnchor.GridY;
+            tileX = roadAnchor.LocalX;
+            tileY = roadAnchor.LocalZ;
+        }
+
+        return true;
+    }
+
+    private static string? ResolveOmsiInstallRoot(string? mapDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var map = new System.IO.DirectoryInfo(mapDirectory);
+            var maps = map.Parent;
+            if (maps is not null &&
+                string.Equals(
+                    maps.Name,
+                    "maps",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return maps.Parent?.FullName;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private void UpdateTripInfo(VehicleTelemetry? telemetry, OmsiMapInfo? map)
