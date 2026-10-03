@@ -17,6 +17,7 @@ public partial class HudOverlayWindow
     private Border? _immersiveTopBar;
     private Grid? _immersiveTopBarGrid;
     private Border? _immersiveMiniMapPanel;
+    private Border? _immersiveMiniMapFrame;
     private Border? _immersiveMultiplayerPanel;
     private Border? _immersiveFocusPanel;
     private Border? _immersiveFocusMoveHandle;
@@ -292,27 +293,22 @@ public partial class HudOverlayWindow
         root.Children.Add(header);
 
         var mapLayer = new Grid();
-        mapLayer.Children.Add(new Border
+        _immersiveMiniMapFrame = new Border
         {
             CornerRadius = new CornerRadius(8d),
             BorderBrush = new SolidColorBrush(Color.FromArgb(95, 104, 177, 222)),
             BorderThickness = new Thickness(1d),
-            Background = new VisualBrush(MiniMapCanvas)
+            ClipToBounds = true,
+            Background = new VisualBrush(MiniMapViewport)
             {
                 Stretch = Stretch.UniformToFill,
                 AlignmentX = AlignmentX.Center,
                 AlignmentY = AlignmentY.Center
             }
-        });
-        mapLayer.Children.Add(new TextBlock
-        {
-            Text = "▲",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = Brushes.White,
-            FontSize = 22d,
-            FontWeight = FontWeights.Black
-        });
+        };
+        _immersiveMiniMapFrame.SizeChanged += (_, _) =>
+            ApplyImmersiveMiniMapShape(_hudSettings);
+        mapLayer.Children.Add(_immersiveMiniMapFrame);
         Grid.SetRow(mapLayer, 1);
         root.Children.Add(mapLayer);
 
@@ -757,6 +753,7 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.LayoutTransform = new ScaleTransform(
             minimapScale,
             minimapScale);
+        ApplyImmersiveMiniMapShape(settings);
 
         var multiplayerScale = Math.Clamp(
             effectiveScale * settings.DashboardMultiplayerScale,
@@ -824,6 +821,40 @@ public partial class HudOverlayWindow
         {
             RenderImmersiveOperationState();
         }
+    }
+
+    private void ApplyImmersiveMiniMapShape(MultiplayerSettings settings)
+    {
+        var frame = _immersiveMiniMapFrame;
+        if (frame is null)
+        {
+            return;
+        }
+
+        var circular = string.Equals(
+            settings.DashboardMinimapStyle,
+            "circular",
+            StringComparison.OrdinalIgnoreCase);
+        if (!circular)
+        {
+            frame.Clip = null;
+            frame.CornerRadius = new CornerRadius(8d);
+            return;
+        }
+
+        var width = frame.ActualWidth;
+        var height = frame.ActualHeight;
+        if (width <= 1d || height <= 1d)
+        {
+            return;
+        }
+
+        var radius = Math.Max(1d, Math.Min(width, height) / 2d - 1d);
+        frame.Clip = new EllipseGeometry(
+            new Point(width / 2d, height / 2d),
+            radius,
+            radius);
+        frame.CornerRadius = new CornerRadius(radius);
     }
 
     private void ApplyImmersiveOperationSizing()
