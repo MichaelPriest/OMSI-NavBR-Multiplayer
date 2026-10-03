@@ -134,8 +134,22 @@ public partial class HudOverlayWindow
             localPixelX,
             localPixelY);
 
+        // Use the exact same projected road anchor for presentation,
+        // navigation progress and rejoin routing. Previously the map was
+        // centred on the snapped lane while NavBRNavigationEngine and the
+        // rejoin pathfinder still consumed the raw telemetry grid position,
+        // which could make the player icon appear on a road while the route
+        // logic considered the bus somewhere else.
+        var navigationTelemetry = telemetry with
+        {
+            GridX = gridX,
+            GridY = gridY,
+            TileX = tileX,
+            TileY = tileY
+        };
+
         var navigation = NavBRNavigationEngine.Evaluate(
-            telemetry,
+            navigationTelemetry,
             layout,
             _routeTracePoints,
             _busStops);
@@ -148,7 +162,7 @@ public partial class HudOverlayWindow
             rejoinPath = _hudRouteRejoinPathfinder.TryFind(
                 map,
                 layout,
-                telemetry,
+                navigationTelemetry,
                 _routeTracePoints);
         }
 
@@ -172,28 +186,29 @@ public partial class HudOverlayWindow
         out double tileX,
         out double tileY)
     {
-        gridX = telemetry.GridX ?? 0;
-        gridY = telemetry.GridY ?? 0;
-        tileX = telemetry.TileX ?? 0d;
-        tileY = telemetry.TileY ?? 0d;
+        gridX = 0;
+        gridY = 0;
+        tileX = 0d;
+        tileY = 0d;
 
-        if (telemetry.GridX is not int rawGridX ||
-            telemetry.GridY is not int rawGridY ||
-            telemetry.TileX is not double rawTileX ||
-            telemetry.TileY is not double rawTileY)
+        var hasGridTelemetry =
+            telemetry.GridX is int rawGridX &&
+            telemetry.GridY is int rawGridY &&
+            telemetry.TileX is double rawTileX &&
+            telemetry.TileY is double rawTileY;
+
+        if (hasGridTelemetry)
         {
-            return false;
+            gridX = rawGridX;
+            gridY = rawGridY;
+            tileX = rawTileX;
+            tileY = rawTileY;
         }
-
-        gridX = rawGridX;
-        gridY = rawGridY;
-        tileX = rawTileX;
-        tileY = rawTileY;
 
         var installRoot = ResolveOmsiInstallRoot(map.DirectoryPath);
         if (string.IsNullOrWhiteSpace(installRoot))
         {
-            return true;
+            return hasGridTelemetry;
         }
 
         if (_gpsRoadAnchorResolver is null ||
@@ -208,8 +223,42 @@ public partial class HudOverlayWindow
                 new OmsiPhysicalRoadAnchorResolver(() => capturedRoot);
         }
 
+        var anchorTelemetry = telemetry;
+
+        // openOMSI exposes the live world pose even when a NavBR grid/tile pair
+        // is not available yet. Convert that real world position back into the
+        // OMSI Kachel before trying to snap to the lane network. This keeps the
+        // local marker functional instead of failing early and disappearing.
+        if (!hasGridTelemetry)
+        {
+            if (!_gpsRoadAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                    telemetry,
+                    out var worldAnchor))
+            {
+                return false;
+            }
+
+            gridX = worldAnchor.GridX;
+            gridY = worldAnchor.GridY;
+            tileX = worldAnchor.LocalX;
+            tileY = worldAnchor.LocalZ;
+
+            anchorTelemetry = telemetry with
+            {
+                GridX = gridX,
+                GridY = gridY,
+                TileX = tileX,
+                TileY = tileY,
+                PhysicalGridX = gridX,
+                PhysicalGridY = gridY,
+                LocalX = worldAnchor.LocalX,
+                LocalY = worldAnchor.LocalY,
+                LocalZ = worldAnchor.LocalZ
+            };
+        }
+
         if (_gpsRoadAnchorResolver.TryResolveRoadAnchor(
-                telemetry,
+                anchorTelemetry,
                 out var roadAnchor) &&
             roadAnchor.DistanceMeters <= 18d)
         {
