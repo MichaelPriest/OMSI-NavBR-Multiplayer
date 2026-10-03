@@ -10,6 +10,7 @@ public partial class HudOverlayWindow
 {
     private string? _routeTraceCacheKey;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
+    private bool _routeTraceHasDetailedGeometry;
     private readonly OmsiRouteRejoinPathfinder _hudRouteRejoinPathfinder = new();
     private bool _enhancedMapRenderingStarted;
 
@@ -256,7 +257,17 @@ public partial class HudOverlayWindow
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, lookupTarget, lineName);
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(
+            map,
+            layout,
+            lookupTarget,
+            lineName,
+            destinationName);
+        _routeTraceHasDetailedGeometry =
+            string.Equals(
+                OmsiRouteTraceReader.LastDiagnostics?.Mode,
+                "detailed",
+                StringComparison.OrdinalIgnoreCase);
     }
 
     private void RenderRouteTrace(
