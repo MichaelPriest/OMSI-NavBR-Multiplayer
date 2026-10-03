@@ -2459,6 +2459,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     showAlerts: draft.showAlerts,
     showSideIndicators: draft.showSideIndicators,
     minimapScale: draft.minimapScale,
+    mapZoom: draft.mapZoom,
     minimapStyle: draft.minimapStyle,
     multiplayerScale: draft.multiplayerScale,
     alertsScale: draft.alertsScale,
@@ -2484,6 +2485,7 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
     draft.showAlerts,
     draft.showSideIndicators,
     draft.minimapScale,
+    draft.mapZoom,
     draft.minimapStyle,
     draft.multiplayerScale,
     draft.alertsScale,
@@ -2859,6 +2861,29 @@ function HudSettingsPanel({ hud, omsiRunning }: { hud: NavBrHudState; omsiRunnin
 
         {draft.showMinimap && (
           <div className="hud-minimap-style">
+            <label className="hud-map-zoom-control">
+              <span>
+                <strong>{pick("Zoom do GPS", "GPS zoom", "Zoom del GPS", "GPS-Zoom", "Zoom GPS")}</strong>
+                <em>{draft.mapZoom.toFixed(2)}×</em>
+              </span>
+              <input
+                type="range"
+                min="0.65"
+                max="3"
+                step="0.05"
+                value={draft.mapZoom}
+                onChange={event => patch({ mapZoom: Number(event.target.value) })}
+              />
+              <small>
+                {pick(
+                  "Define o zoom-base. O GPS continua ajustando o campo de visão automaticamente conforme a velocidade.",
+                  "Sets the base zoom. GPS still adjusts the field of view automatically with speed.",
+                  "Define el zoom base. El GPS sigue ajustando automáticamente el campo de visión según la velocidad.",
+                  "Legt den Basis-Zoom fest. Das GPS passt das Sichtfeld weiterhin automatisch an die Geschwindigkeit an.",
+                  "Définit le zoom de base. Le GPS continue d’ajuster automatiquement le champ de vision selon la vitesse."
+                )}
+              </small>
+            </label>
             <span className="eyebrow">{pick("FORMATO DO MINIMAPA", "MINIMAP SHAPE", "FORMA DEL MINIMAPA", "MINIKARTENFORM", "FORME DE LA MINICARTE")}</span>
             <div className="hud-mode-switch compact">
               <button
