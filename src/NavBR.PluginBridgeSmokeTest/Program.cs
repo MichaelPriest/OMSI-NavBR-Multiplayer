@@ -312,6 +312,24 @@ Require(
         BindingFlags.Public | BindingFlags.Instance) is not null,
     "HUD overlay lost local OMSI road-traffic feed support");
 
+var speedZoomMethod =
+    hudOverlayType.GetMethod(
+        "ComputeHudSpeedZoomFactor",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD speed-sensitive zoom helper not found");
+var lowSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [0d]) ?? double.NaN;
+var highSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [80d]) ?? double.NaN;
+Require(
+    double.IsFinite(lowSpeedZoom) &&
+    double.IsFinite(highSpeedZoom) &&
+    lowSpeedZoom > highSpeedZoom &&
+    lowSpeedZoom <= 1.18d + 0.001d &&
+    highSpeedZoom >= 0.72d - 0.001d,
+    "HUD speed-sensitive GPS zoom is invalid");
+
 var trafficHeadingMethod =
     hudOverlayType.GetMethod(
         "TrafficQuaternionToHeadingDegrees",
