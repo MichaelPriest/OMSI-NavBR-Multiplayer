@@ -768,7 +768,7 @@ public partial class HudOverlayWindow : Window
                 }
             };
             marker.ToolTip =
-                $"{Path.GetFileNameWithoutExtension(traffic.VehiclePath) ?? "IA"} • {traffic.SpeedKph:F0} km/h";
+                $"{System.IO.Path.GetFileNameWithoutExtension(traffic.VehiclePath) ?? "IA"} • {traffic.SpeedKph:F0} km/h";
             Canvas.SetLeft(marker, x - marker.Width / 2d);
             Canvas.SetTop(marker, y - marker.Height / 2d);
             marker.Visibility = Visibility.Visible;
