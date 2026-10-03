@@ -448,6 +448,10 @@ public partial class HudOverlayWindow : Window
             telemetry,
             layout,
             bitmap,
+            gridX,
+            gridY,
+            tileX,
+            tileY,
             localPixelX,
             localPixelY,
             scale,
@@ -708,17 +712,17 @@ public partial class HudOverlayWindow : Window
         VehicleTelemetry localTelemetry,
         OmsiMapLayout layout,
         BitmapImage bitmap,
+        int displayGridX,
+        int displayGridY,
+        double displayTileX,
+        double displayTileY,
         double localPixelX,
         double localPixelY,
         double scale,
         double canvasWidth,
         double canvasHeight)
     {
-        if (localTelemetry.GridX is not int localGridX ||
-            localTelemetry.GridY is not int localGridY ||
-            localTelemetry.TileX is not double localTileX ||
-            localTelemetry.TileY is not double localTileY ||
-            layout.TileSize is not double tileSize ||
+        if (layout.TileSize is not double tileSize ||
             layout.WorldWidth is not double worldWidth ||
             layout.WorldHeight is not double worldHeight ||
             !double.IsFinite(localTelemetry.X) ||
@@ -732,9 +736,9 @@ public partial class HudOverlayWindow : Window
         }
 
         var localWorldX =
-            (localGridX - layout.MinGridX) * tileSize + localTileX;
+            (displayGridX - layout.MinGridX) * tileSize + displayTileX;
         var localWorldY =
-            (localGridY - layout.MinGridY) * tileSize + localTileY;
+            (displayGridY - layout.MinGridY) * tileSize + displayTileY;
         var visible = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var traffic in _localRoadTraffic.Take(48))
