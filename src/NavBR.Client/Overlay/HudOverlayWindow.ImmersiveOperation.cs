@@ -753,7 +753,6 @@ public partial class HudOverlayWindow
         _immersiveMiniMapPanel.LayoutTransform = new ScaleTransform(
             minimapScale,
             minimapScale);
-        ApplyImmersiveMiniMapShape(settings);
 
         var multiplayerScale = Math.Clamp(
             effectiveScale * settings.DashboardMultiplayerScale,
@@ -817,6 +816,7 @@ public partial class HudOverlayWindow
         }
 
         ApplyImmersiveOperationSizing();
+        ApplyImmersiveMiniMapShape(settings);
         if (active)
         {
             RenderImmersiveOperationState();
