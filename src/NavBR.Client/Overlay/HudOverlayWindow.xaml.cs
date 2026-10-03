@@ -27,6 +27,9 @@ public partial class HudOverlayWindow : Window
     private readonly List<ChatMessage> _chatMessages = [];
     private readonly Dictionary<string, PlayerTelemetryFrame> _remotePlayers = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FrameworkElement> _remoteMarkers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, FrameworkElement> _trafficMarkers = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<TrafficVehicleState> _localRoadTraffic =
+        Array.Empty<TrafficVehicleState>();
     private readonly Dictionary<string, (string DisplayName, DateTimeOffset LastFrame)> _speakers = new(StringComparer.OrdinalIgnoreCase);
 
     private GlobalKeyboardHook? _keyboardHook;
@@ -131,6 +134,12 @@ public partial class HudOverlayWindow : Window
         EnsureRoadmapLoaded(activeMap);
         RenderMiniMap();
         RefreshTelematrixPanel();
+    }
+
+    public void UpdateLocalRoadTraffic(IReadOnlyList<TrafficVehicleState>? traffic)
+    {
+        _localRoadTraffic = traffic ?? Array.Empty<TrafficVehicleState>();
+        RenderMiniMap();
     }
 
     public void UpdateRemotePlayer(PlayerTelemetryFrame frame)
@@ -383,6 +392,7 @@ public partial class HudOverlayWindow : Window
             MiniMapStatusText.Text = telemetry?.MapName ?? "Sem mapa";
             LocalMarker.Visibility = Visibility.Collapsed;
             HideAllRemoteMarkers();
+            HideAllTrafficMarkers();
             return;
         }
 
@@ -415,6 +425,16 @@ public partial class HudOverlayWindow : Window
                 canvasWidth,
                 canvasHeight);
         }
+
+        RenderTrafficMarkers(
+            telemetry,
+            layout,
+            bitmap,
+            localPixelX,
+            localPixelY,
+            scale,
+            canvasWidth,
+            canvasHeight);
     }
 
     private void RenderRemoteMarker(
@@ -661,6 +681,157 @@ public partial class HudOverlayWindow : Window
     private void HideAllRemoteMarkers()
     {
         foreach (var marker in _remoteMarkers.Values)
+        {
+            marker.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RenderTrafficMarkers(
+        VehicleTelemetry localTelemetry,
+        OmsiMapLayout layout,
+        BitmapImage bitmap,
+        double localPixelX,
+        double localPixelY,
+        double scale,
+        double canvasWidth,
+        double canvasHeight)
+    {
+        if (localTelemetry.GridX is not int localGridX ||
+            localTelemetry.GridY is not int localGridY ||
+            localTelemetry.TileX is not double localTileX ||
+            localTelemetry.TileY is not double localTileY ||
+            layout.TileSize is not double tileSize ||
+            layout.WorldWidth is not double worldWidth ||
+            layout.WorldHeight is not double worldHeight ||
+            !double.IsFinite(localTelemetry.X) ||
+            !double.IsFinite(localTelemetry.Z) ||
+            tileSize <= 0d ||
+            worldWidth <= 0d ||
+            worldHeight <= 0d)
+        {
+            HideAllTrafficMarkers();
+            return;
+        }
+
+        var localWorldX =
+            (localGridX - layout.MinGridX) * tileSize + localTileX;
+        var localWorldY =
+            (localGridY - layout.MinGridY) * tileSize + localTileY;
+        var visible = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var traffic in _localRoadTraffic.Take(48))
+        {
+            if (string.IsNullOrWhiteSpace(traffic.TrafficId) ||
+                !double.IsFinite(traffic.X) ||
+                !double.IsFinite(traffic.Z))
+            {
+                continue;
+            }
+
+            var trafficWorldX =
+                localWorldX + (traffic.X - localTelemetry.X);
+            var trafficWorldY =
+                localWorldY + (traffic.Z - localTelemetry.Z);
+            var pixelX =
+                trafficWorldX * bitmap.PixelWidth / worldWidth;
+            var pixelY =
+                bitmap.PixelHeight -
+                (trafficWorldY * bitmap.PixelHeight / worldHeight);
+
+            if (!double.IsFinite(pixelX) || !double.IsFinite(pixelY))
+            {
+                continue;
+            }
+
+            var x =
+                canvasWidth / 2d +
+                (pixelX - localPixelX) * scale;
+            var y =
+                canvasHeight / 2d +
+                (pixelY - localPixelY) * scale;
+            if (x < -10d || x > canvasWidth + 10d ||
+                y < -10d || y > canvasHeight + 10d)
+            {
+                HideTrafficMarker(traffic.TrafficId);
+                continue;
+            }
+
+            var marker = GetOrCreateTrafficMarker(traffic.TrafficId);
+            var safeScale =
+                Math.Max(0.01d, Math.Abs(MiniMapContentScale.ScaleX));
+            marker.RenderTransform = new TransformGroup
+            {
+                Children = new TransformCollection
+                {
+                    new ScaleTransform(1d / safeScale, 1d / safeScale),
+                    new RotateTransform(-MiniMapHeadingRotation.Angle)
+                }
+            };
+            marker.ToolTip =
+                $"{Path.GetFileNameWithoutExtension(traffic.VehiclePath) ?? "IA"} • {traffic.SpeedKph:F0} km/h";
+            Canvas.SetLeft(marker, x - marker.Width / 2d);
+            Canvas.SetTop(marker, y - marker.Height / 2d);
+            marker.Visibility = Visibility.Visible;
+            visible.Add(traffic.TrafficId);
+        }
+
+        foreach (var pair in _trafficMarkers)
+        {
+            if (!visible.Contains(pair.Key))
+            {
+                pair.Value.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    private FrameworkElement GetOrCreateTrafficMarker(string trafficId)
+    {
+        if (_trafficMarkers.TryGetValue(trafficId, out var existing))
+        {
+            return existing;
+        }
+
+        var marker = new Grid
+        {
+            Width = 12d,
+            Height = 12d,
+            IsHitTestVisible = true,
+            RenderTransformOrigin = new Point(0.5d, 0.5d)
+        };
+        marker.Children.Add(new Ellipse
+        {
+            Width = 12d,
+            Height = 12d,
+            Fill = new SolidColorBrush(Color.FromArgb(230, 69, 163, 255)),
+            Stroke = new SolidColorBrush(Color.FromArgb(245, 240, 250, 255)),
+            StrokeThickness = 1.4d
+        });
+        marker.Children.Add(new Ellipse
+        {
+            Width = 4d,
+            Height = 4d,
+            Fill = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        Panel.SetZIndex(marker, 14);
+        MiniMapCanvas.Children.Add(marker);
+        _trafficMarkers[trafficId] = marker;
+        return marker;
+    }
+
+    private void HideTrafficMarker(string trafficId)
+    {
+        if (_trafficMarkers.TryGetValue(trafficId, out var marker))
+        {
+            marker.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void HideAllTrafficMarkers()
+    {
+        foreach (var marker in _trafficMarkers.Values)
         {
             marker.Visibility = Visibility.Collapsed;
         }
