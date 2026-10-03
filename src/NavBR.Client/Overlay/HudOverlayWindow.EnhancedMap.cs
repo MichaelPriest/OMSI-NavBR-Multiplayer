@@ -56,11 +56,16 @@ public partial class HudOverlayWindow
         if (telemetry is not null)
         {
             LocalMarkerRotation.Angle = 0d;
-            MiniMapHeadingRotation.Angle = NormalizeAngle(-telemetry.HeadingDegrees);
+            var smoothedHeading =
+                GetSmoothedHudHeading(telemetry.HeadingDegrees);
+            MiniMapHeadingRotation.Angle =
+                NormalizeAngle(-smoothedHeading);
         }
         else
         {
+            _renderedHudHeadingDegrees = double.NaN;
             MiniMapHeadingRotation.Angle = 0d;
+            LocalMarkerRotation.Angle = 0d;
         }
 
         var zoom = GetSmoothedHudZoom(telemetry);
