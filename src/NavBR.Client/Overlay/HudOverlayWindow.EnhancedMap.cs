@@ -9,6 +9,7 @@ namespace NavBR.Client.Overlay;
 public partial class HudOverlayWindow
 {
     private string? _routeTraceCacheKey;
+    private DateTimeOffset _routeTraceLastAttemptUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
     private bool _routeTraceHasDetailedGeometry;
     private OmsiPhysicalRoadAnchorResolver? _gpsRoadAnchorResolver;
@@ -341,12 +342,24 @@ public partial class HudOverlayWindow
             ? routeName
             : destinationName;
         var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}|{destinationName}";
-        if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
+        var sameKey = string.Equals(
+            cacheKey,
+            _routeTraceCacheKey,
+            StringComparison.OrdinalIgnoreCase);
+        if (sameKey && _routeTracePoints.Count >= 2)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (sameKey &&
+            now - _routeTraceLastAttemptUtc < TimeSpan.FromSeconds(2))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
+        _routeTraceLastAttemptUtc = now;
         _routeTracePoints = OmsiRouteTraceReader.TryRead(
             map,
             layout,
