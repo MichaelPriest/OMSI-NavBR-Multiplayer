@@ -1037,6 +1037,97 @@ finally
     Directory.Delete(mapRoot, recursive: true);
 }
 
+var routeTraceRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-route-grid-smoke-" +
+    Guid.NewGuid().ToString("N"));
+var routeTraceMapDirectory = Path.Combine(
+    routeTraceRoot,
+    "maps",
+    "RouteGridSmoke");
+var routeTraceTtData = Path.Combine(
+    routeTraceMapDirectory,
+    "TTData");
+Directory.CreateDirectory(routeTraceTtData);
+var routeTraceGlobal = Path.Combine(
+    routeTraceMapDirectory,
+    "global.cfg");
+File.WriteAllText(
+    routeTraceGlobal,
+    """
+    [name]
+    RouteGridSmoke
+    [map]
+    183
+    104
+    tile_183_104.map
+    [map]
+    183
+    105
+    tile_183_105.map
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_104.map"),
+    "; route smoke tile A");
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_105.map"),
+    "; route smoke tile B");
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "SmokeTrack.ttr"),
+    """
+    0:
+    [track_entry]
+    733660
+    13
+    183
+    104
+    16.1000000000
+    0
+
+    1:
+    [track_entry]
+    733661
+    0
+    183
+    105
+    25.0000000000
+    0
+    """);
+try
+{
+    var routeTraceMap = new NavBR.Client.Maps.OmsiMapInfo(
+        "RouteGridSmoke",
+        "RouteGridSmoke",
+        routeTraceMapDirectory,
+        routeTraceGlobal,
+        null,
+        2,
+        null);
+    var routeTraceLayout = new NavBR.Client.Maps.OmsiMapLayout(
+        183,
+        104,
+        183,
+        105,
+        false,
+        300d);
+    var nativeGridTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "SmokeTrack");
+    Require(
+        nativeGridTrace.Count >= 2 &&
+        nativeGridTrace[0].GridX == 183 &&
+        nativeGridTrace[0].GridY == 104 &&
+        nativeGridTrace[^1].GridX == 183 &&
+        nativeGridTrace[^1].GridY == 105,
+        "native OMSI TTR GridX/GridY track entries were not parsed correctly");
+}
+finally
+{
+    Directory.Delete(routeTraceRoot, recursive: true);
+}
+
 var openOmsiPoseRoot = Path.Combine(
     Path.GetTempPath(),
     "NavBR-openOMSI-world-pose-" +
