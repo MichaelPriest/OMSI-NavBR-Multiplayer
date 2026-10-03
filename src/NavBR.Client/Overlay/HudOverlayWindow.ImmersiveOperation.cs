@@ -826,7 +826,8 @@ public partial class HudOverlayWindow
     private void ApplyImmersiveMiniMapShape(MultiplayerSettings settings)
     {
         var frame = _immersiveMiniMapFrame;
-        if (frame is null)
+        var panel = _immersiveMiniMapPanel;
+        if (frame is null || panel is null)
         {
             return;
         }
@@ -837,21 +838,65 @@ public partial class HudOverlayWindow
             StringComparison.OrdinalIgnoreCase);
         if (!circular)
         {
+            panel.Clip = null;
+            panel.ClipToBounds = false;
+            panel.Padding = new Thickness(10d);
+            _immersiveMapTitleText?.SetCurrentValue(
+                UIElement.VisibilityProperty,
+                Visibility.Visible);
+            _immersiveStreetText?.SetCurrentValue(
+                UIElement.VisibilityProperty,
+                Visibility.Visible);
             frame.Clip = null;
             frame.CornerRadius = new CornerRadius(8d);
             return;
         }
 
-        var width = frame.ActualWidth;
-        var height = frame.ActualHeight;
-        if (width <= 1d || height <= 1d)
+        var sourceWidth =
+            panel.ActualWidth > 1d ? panel.ActualWidth : panel.Width;
+        var sourceHeight =
+            panel.ActualHeight > 1d ? panel.ActualHeight : panel.Height;
+        if (sourceWidth <= 1d || sourceHeight <= 1d)
         {
             return;
         }
 
-        var radius = Math.Max(1d, Math.Min(width, height) / 2d - 1d);
+        var diameter = Math.Max(
+            96d,
+            Math.Min(sourceWidth, sourceHeight));
+
+        panel.Width = diameter;
+        panel.Height = diameter;
+        panel.Padding = new Thickness(0d);
+        panel.ClipToBounds = true;
+        panel.CornerRadius = new CornerRadius(diameter / 2d);
+        panel.Clip = new EllipseGeometry(
+            new Point(diameter / 2d, diameter / 2d),
+            diameter / 2d,
+            diameter / 2d);
+
+        if (_immersiveMapTitleText is not null)
+        {
+            _immersiveMapTitleText.Visibility = Visibility.Collapsed;
+        }
+        if (_immersiveStreetText is not null)
+        {
+            _immersiveStreetText.Visibility = Visibility.Collapsed;
+        }
+
+        frame.HorizontalAlignment = HorizontalAlignment.Stretch;
+        frame.VerticalAlignment = VerticalAlignment.Stretch;
+        frame.ClearValue(WidthProperty);
+        frame.ClearValue(HeightProperty);
+        var innerWidth =
+            frame.ActualWidth > 1d ? frame.ActualWidth : diameter;
+        var innerHeight =
+            frame.ActualHeight > 1d ? frame.ActualHeight : diameter;
+        var radius = Math.Max(
+            1d,
+            Math.Min(innerWidth, innerHeight) / 2d);
         frame.Clip = new EllipseGeometry(
-            new Point(width / 2d, height / 2d),
+            new Point(innerWidth / 2d, innerHeight / 2d),
             radius,
             radius);
         frame.CornerRadius = new CornerRadius(radius);
