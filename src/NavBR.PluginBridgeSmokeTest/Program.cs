@@ -312,6 +312,23 @@ Require(
         BindingFlags.Public | BindingFlags.Instance) is not null,
     "HUD overlay lost local OMSI road-traffic feed support");
 
+var trafficHeadingMethod =
+    hudOverlayType.GetMethod(
+        "TrafficQuaternionToHeadingDegrees",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD traffic quaternion heading helper not found");
+var ninetyDegrees = Math.Sqrt(0.5d);
+var heading90 =
+    (double?)trafficHeadingMethod.Invoke(
+        null,
+        [0d, ninetyDegrees, 0d, ninetyDegrees])
+    ?? double.NaN;
+Require(
+    double.IsFinite(heading90) &&
+    Math.Abs(heading90 - 90d) < 0.01d,
+    "HUD AI traffic marker heading conversion is invalid");
+
 var trafficReaderType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Telemetry.OmsiRoadTrafficReader",
