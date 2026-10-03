@@ -42,7 +42,8 @@ public static class OmsiRouteTraceReader
         OmsiMapInfo map,
         OmsiMapLayout layout,
         string? activeTrackOrTarget,
-        string? activeLine = null)
+        string? activeLine = null,
+        string? activeDestination = null)
     {
         if (layout.TileSize is not double tileSize)
         {
@@ -59,14 +60,46 @@ public static class OmsiRouteTraceReader
 
         try
         {
-            var trackPath = FindTrackPath(map.DirectoryPath, activeTrackOrTarget);
+            var trackPath = FindTrackPath(
+                map.DirectoryPath,
+                activeTrackOrTarget);
             if (trackPath is null)
             {
                 var resolvedTrackName = ResolveTrackNameFromTrip(
                     map.DirectoryPath,
                     activeLine,
                     activeTrackOrTarget);
-                trackPath = FindTrackPath(map.DirectoryPath, resolvedTrackName);
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    resolvedTrackName);
+            }
+
+            // OMSI often exposes Route as an IBIS/direction code (for example
+            // "01") while the .ttp identifies the trip by its terminus. Do not
+            // stop after the route-code lookup fails: line + destination is the
+            // reliable second key for choosing the correct TTR direction.
+            if (trackPath is null &&
+                !string.IsNullOrWhiteSpace(activeDestination) &&
+                !string.Equals(
+                    Normalize(activeDestination),
+                    Normalize(activeTrackOrTarget ?? string.Empty),
+                    StringComparison.Ordinal))
+            {
+                var resolvedFromDestination = ResolveTrackNameFromTrip(
+                    map.DirectoryPath,
+                    activeLine,
+                    activeDestination);
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    resolvedFromDestination);
+            }
+
+            if (trackPath is null &&
+                !string.IsNullOrWhiteSpace(activeDestination))
+            {
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    activeDestination);
             }
 
             if (trackPath is null)
