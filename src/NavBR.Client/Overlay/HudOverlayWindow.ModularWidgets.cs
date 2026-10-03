@@ -136,7 +136,7 @@ public partial class HudOverlayWindow
             BorderBrush = new SolidColorBrush(Color.FromArgb(75, 255, 255, 255)),
             BorderThickness = new Thickness(1d),
             ClipToBounds = true,
-            Background = new VisualBrush(MiniMapCanvas)
+            Background = new VisualBrush(MiniMapViewport)
             {
                 Stretch = Stretch.UniformToFill,
                 AlignmentX = AlignmentX.Center,
@@ -144,16 +144,6 @@ public partial class HudOverlayWindow
             }
         };
         map.Children.Add(_modularMinimapMapFrame);
-        map.Children.Add(new TextBlock
-        {
-            Text = "▲",
-            Foreground = Brushes.White,
-            FontSize = 19d,
-            FontWeight = FontWeights.Black,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Effect = Application.Current.TryFindResource("HudShadow") as System.Windows.Media.Effects.Effect
-        });
         Grid.SetRow(map, 1);
         grid.Children.Add(map);
 
@@ -299,6 +289,10 @@ public partial class HudOverlayWindow
                     VerticalAlignment.Center;
                 _modularMinimapMapFrame.CornerRadius =
                     new CornerRadius(diameter / 2d);
+                _modularMinimapMapFrame.Clip = new EllipseGeometry(
+                    new Point(diameter / 2d, diameter / 2d),
+                    diameter / 2d,
+                    diameter / 2d);
             }
             else
             {
@@ -310,6 +304,7 @@ public partial class HudOverlayWindow
                     VerticalAlignment.Stretch;
                 _modularMinimapMapFrame.CornerRadius =
                     new CornerRadius(7d);
+                _modularMinimapMapFrame.Clip = null;
             }
         }
         _modularMultiplayerWidget.MinHeight = Math.Clamp(132d * settings.DashboardMultiplayerScale, 78d, 264d);
