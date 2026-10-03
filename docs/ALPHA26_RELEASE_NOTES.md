@@ -72,9 +72,13 @@ Quando existe crachá verificado:
 - Configurações > HUD expõe o zoom-base do GPS; o ajuste automático por velocidade continua ativo sobre esse valor;
 - minimapa circular dos HUDs modulares e compostos usa máscara elíptica real;
 - no modo circular, o cartão inteiro do GPS vira circular (não apenas a imagem dentro de um painel retangular);
+- o recorte circular é aplicado após o sizing do preset, evitando voltar para formato quadrado/retangular;
 - roda do mouse sobre o minimapa modular, em modo de edição, ajusta o zoom real do GPS;
 - prévia React aplica imediatamente o zoom/forma aos HUDs modulares;
-- veículos IA locais do OMSI passam a aparecer no GPS como pontos azuis, lidos diretamente da memória do simulador;
+- zoom do GPS varia continuamente com a velocidade e o heading do mapa é suavizado;
+- manobras e reentrada de rota aparecem dentro da própria viewport do GPS, inclusive nos HUDs novos;
+- veículos IA locais do OMSI passam a aparecer no GPS como setas orientadas, lidas diretamente da memória do simulador;
+- marcadores de IA que deixam o snapshot são removidos do Canvas para evitar fantasmas/acúmulo;
 - minimapa integrado oculta visualmente o minimapa legado, mantendo-o apenas como fonte invisível do VisualBrush;
 - Alertas modulares ficam totalmente ocultos durante operação normal e só surgem quando existe alerta real;
 - Resetar HUD volta para o layout limpo v4 da Alpha.26;
