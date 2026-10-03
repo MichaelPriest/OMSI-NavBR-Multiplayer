@@ -191,14 +191,13 @@ public partial class HudOverlayWindow
         tileX = 0d;
         tileY = 0d;
 
-        var hasGridTelemetry =
-            telemetry.GridX is int rawGridX &&
+        var hasGridTelemetry = false;
+        if (telemetry.GridX is int rawGridX &&
             telemetry.GridY is int rawGridY &&
             telemetry.TileX is double rawTileX &&
-            telemetry.TileY is double rawTileY;
-
-        if (hasGridTelemetry)
+            telemetry.TileY is double rawTileY)
         {
+            hasGridTelemetry = true;
             gridX = rawGridX;
             gridY = rawGridY;
             tileX = rawTileX;
