@@ -151,7 +151,7 @@ public partial class HudOverlayWindow
 
         var panel = NewWidgetBorder(grid, new Thickness(0d, 0d, 3d, 0d));
         panel.Height = 132d;
-        panel.ToolTip = "Modo de edição: roda = tamanho do minimapa";
+        panel.ToolTip = "Modo de edição: roda = zoom do GPS";
         panel.PreviewMouseWheel += MinimapWidget_PreviewMouseWheel;
         return panel;
     }
