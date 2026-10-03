@@ -270,6 +270,7 @@ using var hudPayloadDocument = JsonDocument.Parse(
       "showAlerts": true,
       "showSideIndicators": false,
       "mapZoom": 1.75,
+      "minimapStyle": "circular",
       "telematrixEnabled": true,
       "telematrixTheme": 2,
       "telematrixSize": 1
@@ -288,6 +289,12 @@ Require(
 Require(
     Math.Abs(reactHudSettings.HudZoom - 1.75d) < 0.001d,
     "React HUD settings builder lost GPS base zoom");
+Require(
+    string.Equals(
+        reactHudSettings.DashboardMinimapStyle,
+        "circular",
+        StringComparison.OrdinalIgnoreCase),
+    "React HUD settings builder lost circular GPS shape");
 Require(
     reactHudSettings.TelematrixSettingsVersion == 1 &&
     reactHudSettings.TelematrixWidgetEnabled &&
