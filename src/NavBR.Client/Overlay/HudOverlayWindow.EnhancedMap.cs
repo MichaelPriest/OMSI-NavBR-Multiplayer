@@ -370,19 +370,27 @@ public partial class HudOverlayWindow
         if (!navigation.RouteAvailable)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
+            MiniMapTurnOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
         if (navigation.Maneuver == NavBRManeuverKind.RejoinRoute)
         {
+            var rejoinDistance =
+                rejoinPath?.DistanceMeters ??
+                navigation.OffRouteDistanceMeters;
             TurnArrowText.Text = "↺";
             TurnInstructionText.Text = NavigationText(
-                $"Fora da rota • retorne em {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Off route • rejoin in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Fuera de ruta • vuelva en {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Route verlassen • zurück in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Hors itinéraire • retour dans {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}");
+                $"Fora da rota • retorne em {FormatNavigationDistance(rejoinDistance)}",
+                $"Off route • rejoin in {FormatNavigationDistance(rejoinDistance)}",
+                $"Fuera de ruta • vuelva en {FormatNavigationDistance(rejoinDistance)}",
+                $"Route verlassen • zurück in {FormatNavigationDistance(rejoinDistance)}",
+                $"Hors itinéraire • retour dans {FormatNavigationDistance(rejoinDistance)}");
+            MiniMapTurnArrowText.Text = "↺";
+            MiniMapTurnInstructionText.Text =
+                FormatNavigationDistance(rejoinDistance);
             TurnPanel.Visibility = Visibility.Visible;
+            MiniMapTurnOverlay.Visibility = Visibility.Visible;
             return;
         }
 
@@ -390,10 +398,11 @@ public partial class HudOverlayWindow
             navigation.DistanceToManeuverMeters is not double distance)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
+            MiniMapTurnOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
-        TurnArrowText.Text = navigation.Maneuver switch
+        var arrow = navigation.Maneuver switch
         {
             NavBRManeuverKind.SharpLeft => "←",
             NavBRManeuverKind.Left => "←",
@@ -403,11 +412,16 @@ public partial class HudOverlayWindow
             NavBRManeuverKind.SlightRight => "↗",
             _ => "↑"
         };
+        TurnArrowText.Text = arrow;
+        MiniMapTurnArrowText.Text = arrow;
 
         var right = navigation.Maneuver is NavBRManeuverKind.SlightRight or NavBRManeuverKind.Right or NavBRManeuverKind.SharpRight;
         var strong = navigation.Maneuver is NavBRManeuverKind.Left or NavBRManeuverKind.Right or NavBRManeuverKind.SharpLeft or NavBRManeuverKind.SharpRight;
         TurnInstructionText.Text = BuildTurnInstruction(right, strong, Math.Max(10, (int)Math.Round(distance / 10d) * 10));
+        MiniMapTurnInstructionText.Text =
+            FormatNavigationDistance(distance);
         TurnPanel.Visibility = Visibility.Visible;
+        MiniMapTurnOverlay.Visibility = Visibility.Visible;
     }
 
     private static string FormatNavigationDistance(double meters)
