@@ -1283,6 +1283,51 @@ try
         0.001,
         "openOMSI anchor heading");
 
+    // Regression: the GPS must feed the projected Kachel/lane anchor into
+    // navigation, not continue evaluating the raw world-only telemetry.
+    // This mirrors the HUD pipeline after TryGetGpsDisplayAnchor.
+    var navigationGridX =
+        ReadAnchorInt(anchorType, anchorValue, "GridX");
+    var navigationGridY =
+        ReadAnchorInt(anchorType, anchorValue, "GridY");
+    var navigationTileX =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalX");
+    var navigationTileY =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalZ");
+    var anchoredNavigationTelemetry =
+        openOmsiWorldTelemetry with
+        {
+            GridX = navigationGridX,
+            GridY = navigationGridY,
+            TileX = navigationTileX,
+            TileY = navigationTileY
+        };
+    var navigationLayout =
+        new NavBR.Client.Maps.OmsiMapLayout(
+            1,
+            1,
+            1,
+            1,
+            false,
+            300d);
+    NavBR.Client.Maps.OmsiRouteTracePoint[] navigationTrace =
+    [
+        new(1, 1, 5d, navigationTileY),
+        new(1, 1, 295d, navigationTileY)
+    ];
+    var navigationSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            anchoredNavigationTelemetry,
+            navigationLayout,
+            navigationTrace);
+    Require(
+        navigationSnapshot.RouteAvailable,
+        "GPS route became unavailable after applying the projected road/Kachel anchor.");
+    Require(
+        navigationSnapshot.IsOnRoute &&
+        navigationSnapshot.OffRouteDistanceMeters < 0.01d,
+        "GPS navigation did not evaluate the player on the same projected road anchor used by the marker.");
+
     var openOmsiPresence =
         new PlayerPresence(
             "openomsi-world",
