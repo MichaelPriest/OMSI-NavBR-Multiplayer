@@ -11,7 +11,8 @@ namespace NavBR.Client.Maps;
 internal readonly record struct OmsiSceneryRoadPoint(
     double TileX,
     double TileY,
-    double Z);
+    double Z,
+    int Direction);
 
 internal static class OmsiRouteSceneryPathGeometryReader
 {
@@ -37,6 +38,7 @@ internal static class OmsiRouteSceneryPathGeometryReader
         double HeadingDegrees,
         double Radius,
         double Length,
+        int Direction,
         bool IsValid);
 
     public static IReadOnlyList<OmsiRouteTracePoint> TryResolve(
@@ -191,13 +193,20 @@ internal static class OmsiRouteSceneryPathGeometryReader
                 var heading = 0d;
                 var radius = 0d;
                 var length = 0d;
-                var valid = i + 6 < lines.Length &&
+                var direction = 2;
+                var valid = i + 11 < lines.Length &&
                             TryParseDouble(lines[i + 1], out x) &&
                             TryParseDouble(lines[i + 2], out y) &&
                             TryParseDouble(lines[i + 3], out z) &&
                             TryParseDouble(lines[i + 4], out heading) &&
                             TryParseDouble(lines[i + 5], out radius) &&
                             TryParseDouble(lines[i + 6], out length) &&
+                            int.TryParse(
+                                lines[i + 11].Trim(),
+                                NumberStyles.Integer,
+                                CultureInfo.InvariantCulture,
+                                out direction) &&
+                            direction is >= 0 and <= 2 &&
                             double.IsFinite(x) &&
                             double.IsFinite(y) &&
                             double.IsFinite(z) &&
@@ -210,8 +219,8 @@ internal static class OmsiRouteSceneryPathGeometryReader
                 // Add an entry even when malformed so zero-based PathId indexes
                 // stay aligned with OMSI's path list.
                 result.Add(valid
-                    ? new SceneryPath(x, y, z, heading, radius, length, true)
-                    : new SceneryPath(0d, 0d, 0d, 0d, 0d, 0d, false));
+                    ? new SceneryPath(x, y, z, heading, radius, length, direction, true)
+                    : new SceneryPath(0d, 0d, 0d, 0d, 0d, 0d, 2, false));
             }
         }
         catch (IOException)
@@ -323,7 +332,11 @@ internal static class OmsiRouteSceneryPathGeometryReader
             var z = placement.Z + path.Z;
             if (double.IsFinite(tileX) && double.IsFinite(tileY) && double.IsFinite(z))
             {
-                result.Add(new OmsiSceneryRoadPoint(tileX, tileY, z));
+                result.Add(new OmsiSceneryRoadPoint(
+                    tileX,
+                    tileY,
+                    z,
+                    path.Direction));
             }
         }
 
