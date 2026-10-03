@@ -69,6 +69,7 @@ Quando existe crachá verificado:
 
 - layout padrão limpo para evitar sobreposição entre o HUD principal e o painel modular;
 - minimapa integrado agora espelha a viewport GPS completa: zoom por velocidade, rotação pelo heading, rota/rejoin e marcador local;
+- Configurações > HUD expõe o zoom-base do GPS; o ajuste automático por velocidade continua ativo sobre esse valor;
 - minimapa circular dos HUDs modulares e compostos usa máscara elíptica real;
 - veículos IA locais do OMSI passam a aparecer no GPS como pontos azuis, lidos diretamente da memória do simulador;
 - minimapa integrado oculta visualmente o minimapa legado, mantendo-o apenas como fonte invisível do VisualBrush;
