@@ -234,15 +234,16 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             continue;
                         }
 
-                        var axisDeltaDegrees = RoadAxisDeltaDegrees(
+                        var headingDeltaDegrees = RoadTravelDeltaDegrees(
                             telemetry.HeadingDegrees,
-                            headingDegrees);
-                        if (axisDeltaDegrees > 70d)
+                            headingDegrees,
+                            roadPath.Direction);
+                        if (headingDeltaDegrees > 70d)
                         {
                             continue;
                         }
 
-                        var headingPenalty = axisDeltaDegrees / 15d;
+                        var headingPenalty = headingDeltaDegrees / 15d;
                         var score =
                             distanceSquared +
                             headingPenalty * headingPenalty;
@@ -260,9 +261,10 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             continue;
                         }
 
-                        var effectiveHeading = roadPath.Direction == 1
-                            ? NormalizeHeading(headingDegrees + 180d)
-                            : NormalizeHeading(headingDegrees);
+                        var effectiveHeading = ResolveTravelHeading(
+                            telemetry.HeadingDegrees,
+                            headingDegrees,
+                            roadPath.Direction);
                         var headingRadians =
                             effectiveHeading * Math.PI / 180d;
                         var half = headingRadians * 0.5d;
@@ -317,15 +319,16 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             continue;
                         }
 
-                        var axisDeltaDegrees = RoadAxisDeltaDegrees(
+                        var headingDeltaDegrees = RoadTravelDeltaDegrees(
                             telemetry.HeadingDegrees,
-                            headingDegrees);
-                        if (axisDeltaDegrees > 70d)
+                            headingDegrees,
+                            previous.Direction);
+                        if (headingDeltaDegrees > 70d)
                         {
                             continue;
                         }
 
-                        var headingPenalty = axisDeltaDegrees / 15d;
+                        var headingPenalty = headingDeltaDegrees / 15d;
                         var score =
                             distanceSquared +
                             headingPenalty * headingPenalty;
@@ -335,8 +338,12 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             continue;
                         }
 
+                        var effectiveHeading = ResolveTravelHeading(
+                            telemetry.HeadingDegrees,
+                            headingDegrees,
+                            previous.Direction);
                         var headingRadians =
-                            headingDegrees * Math.PI / 180d;
+                            effectiveHeading * Math.PI / 180d;
                         var half = headingRadians * 0.5d;
 
                         bestScore = score;
@@ -350,7 +357,7 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
                             Math.Sin(half),
                             0d,
                             Math.Cos(half),
-                            NormalizeHeading(headingDegrees),
+                            effectiveHeading,
                             Math.Sqrt(distanceSquared),
                             "scenery-vehicle-path",
                             Path.GetFileName(tile.Path));
@@ -1372,22 +1379,46 @@ internal sealed class OmsiPhysicalRoadAnchorResolver
             (180d / Math.PI));
     }
 
-    private static double RoadAxisDeltaDegrees(
+    private static double RoadTravelDeltaDegrees(
         double vehicleHeading,
-        double splineHeading)
-    {
-        var delta =
-            Math.Abs(
-                NormalizeHeading(vehicleHeading) -
-                NormalizeHeading(splineHeading));
-        if (delta > 180d)
-        {
-            delta = 360d - delta;
-        }
+        double pathHeading,
+        int direction) =>
+        HeadingDeltaDegrees(
+            vehicleHeading,
+            ResolveTravelHeading(
+                vehicleHeading,
+                pathHeading,
+                direction));
 
-        // Geometry has no inherent travel direction: 0° and 180° represent
-        // the same road axis for candidate selection.
-        return Math.Min(delta, Math.Abs(180d - delta));
+    private static double ResolveTravelHeading(
+        double vehicleHeading,
+        double pathHeading,
+        int direction)
+    {
+        var forward = NormalizeHeading(pathHeading);
+        var reverse = NormalizeHeading(pathHeading + 180d);
+
+        return direction switch
+        {
+            0 => forward,
+            1 => reverse,
+            _ => HeadingDeltaDegrees(vehicleHeading, forward) <=
+                 HeadingDeltaDegrees(vehicleHeading, reverse)
+                ? forward
+                : reverse
+        };
+    }
+
+    private static double HeadingDeltaDegrees(
+        double left,
+        double right)
+    {
+        var delta = Math.Abs(
+            NormalizeHeading(left) -
+            NormalizeHeading(right));
+        return delta > 180d
+            ? 360d - delta
+            : delta;
     }
 
     private static double NormalizeHeading(double heading)
