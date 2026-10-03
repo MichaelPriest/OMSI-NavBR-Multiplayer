@@ -7,6 +7,8 @@ public partial class MainWindow
 {
     private readonly NavBRNavigationEtaEstimator _webNavigationEta = new();
     private readonly OmsiRouteRejoinPathfinder _webNavigationRejoinPathfinder = new();
+    private OmsiPhysicalRoadAnchorResolver? _webNavigationRoadAnchorResolver;
+    private string? _webNavigationRoadAnchorInstallRoot;
     private string? _webNavigationMapKey;
     private string? _webNavigationRouteKey;
     private OmsiMapLayout? _webNavigationLayout;
@@ -33,7 +35,7 @@ public partial class MainWindow
         EnsureWebNavigationRouteData(map, telemetry);
 
         var navigationTelemetry = telemetry;
-        var hasDisplayAnchor = TryGetGpsDisplayAnchor(
+        var hasDisplayAnchor = TryGetWebNavigationDisplayAnchor(
             telemetry,
             map,
             out var displayGridX,
@@ -313,6 +315,131 @@ public partial class MainWindow
             upcomingStops = Array.Empty<string>()
         }
         };
+    }
+
+    private bool TryGetWebNavigationDisplayAnchor(
+        VehicleTelemetry telemetry,
+        OmsiMapInfo map,
+        out int gridX,
+        out int gridY,
+        out double tileX,
+        out double tileY)
+    {
+        gridX = 0;
+        gridY = 0;
+        tileX = 0d;
+        tileY = 0d;
+
+        var hasGridTelemetry = false;
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            telemetry.LocalX is double physicalLocalX &&
+            telemetry.LocalZ is double physicalLocalZ)
+        {
+            hasGridTelemetry = true;
+            gridX = physicalGridX;
+            gridY = physicalGridY;
+            tileX = physicalLocalX;
+            tileY = physicalLocalZ;
+        }
+        else if (telemetry.GridX is int rawGridX &&
+                 telemetry.GridY is int rawGridY &&
+                 telemetry.TileX is double rawTileX &&
+                 telemetry.TileY is double rawTileY)
+        {
+            hasGridTelemetry = true;
+            gridX = rawGridX;
+            gridY = rawGridY;
+            tileX = rawTileX;
+            tileY = rawTileY;
+        }
+
+        var installRoot = ResolveWebNavigationOmsiInstallRoot(map.DirectoryPath);
+        if (string.IsNullOrWhiteSpace(installRoot))
+        {
+            return hasGridTelemetry;
+        }
+
+        if (_webNavigationRoadAnchorResolver is null ||
+            !string.Equals(
+                _webNavigationRoadAnchorInstallRoot,
+                installRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _webNavigationRoadAnchorInstallRoot = installRoot;
+            var capturedRoot = installRoot;
+            _webNavigationRoadAnchorResolver =
+                new OmsiPhysicalRoadAnchorResolver(() => capturedRoot);
+        }
+
+        var anchorTelemetry = telemetry;
+        if (!hasGridTelemetry)
+        {
+            if (!_webNavigationRoadAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                    telemetry,
+                    out var worldAnchor))
+            {
+                return false;
+            }
+
+            gridX = worldAnchor.GridX;
+            gridY = worldAnchor.GridY;
+            tileX = worldAnchor.LocalX;
+            tileY = worldAnchor.LocalZ;
+
+            anchorTelemetry = telemetry with
+            {
+                GridX = gridX,
+                GridY = gridY,
+                TileX = tileX,
+                TileY = tileY,
+                PhysicalGridX = gridX,
+                PhysicalGridY = gridY,
+                LocalX = worldAnchor.LocalX,
+                LocalY = worldAnchor.LocalY,
+                LocalZ = worldAnchor.LocalZ
+            };
+        }
+
+        if (_webNavigationRoadAnchorResolver.TryResolveRoadAnchor(
+                anchorTelemetry,
+                out var roadAnchor) &&
+            roadAnchor.DistanceMeters <= 18d)
+        {
+            gridX = roadAnchor.GridX;
+            gridY = roadAnchor.GridY;
+            tileX = roadAnchor.LocalX;
+            tileY = roadAnchor.LocalZ;
+        }
+
+        return true;
+    }
+
+    private static string? ResolveWebNavigationOmsiInstallRoot(string? mapDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var map = new System.IO.DirectoryInfo(mapDirectory);
+            var maps = map.Parent;
+            if (maps is not null &&
+                string.Equals(
+                    maps.Name,
+                    "maps",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return maps.Parent?.FullName;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private void EnsureWebNavigationMapData(OmsiMapInfo map)
