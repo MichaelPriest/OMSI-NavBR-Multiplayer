@@ -231,22 +231,35 @@ public static class OmsiRouteTraceReader
                 continue;
             }
 
-            // OMSI 2 TTR [track_entry] layout used by the timetable editor:
+            // OMSI 2 TTR [track_entry] layout written by the timetable editor:
             // object/spline id
             // path id
-            // tile id (Kachel-ID: index in the [map] list of global.cfg)
-            // internal/auxiliary value (not needed to locate the tile)
-            // approximate path length
+            // Kachel/Grid X
+            // Kachel/Grid Y
+            // approximate/relative path distance
             // flags/reserved (normally 0)
             //
-            // The third and fourth values are NOT GridX/GridY. This matters on
-            // world-coordinate maps, where real grid coordinates can be values
-            // such as -14445/8871 while TTR tile ids remain small integers.
+            // Some older/custom tooling has emitted the third field as an
+            // ordered tile id instead. Prefer the native GridX/GridY pair and
+            // retain tile-id resolution only as a compatibility fallback.
             if (i + 5 >= lines.Length ||
                 !int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var objectId) ||
                 !int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pathId) ||
-                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tileId) ||
-                !tileCatalog.TryGetValue(tileId, out var grid))
+                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var thirdValue) ||
+                !int.TryParse(lines[i + 4].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var fourthValue))
+            {
+                continue;
+            }
+
+            (int GridX, int GridY) grid;
+            var directGridExists = tileCatalog.Values.Any(candidate =>
+                candidate.GridX == thirdValue &&
+                candidate.GridY == fourthValue);
+            if (directGridExists)
+            {
+                grid = (thirdValue, fourthValue);
+            }
+            else if (!tileCatalog.TryGetValue(thirdValue, out grid))
             {
                 continue;
             }
@@ -283,9 +296,9 @@ public static class OmsiRouteTraceReader
                 continue;
             }
 
-            // OMSI timetable files reference the ordered [map] entries by
-            // Kachel-ID. The entry itself stores the real grid X/Y directly
-            // below [map], followed by the tile .map filename.
+            // Keep an ordered tile-id catalog as a compatibility fallback.
+            // Native OMSI TTR entries carry GridX/GridY directly, but older or
+            // custom timetable tooling can still reference ordered [map] slots.
             if (i + 2 < lines.Length &&
                 int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) &&
                 int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
