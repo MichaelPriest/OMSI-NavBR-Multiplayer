@@ -71,6 +71,9 @@ Quando existe crachá verificado:
 - minimapa integrado agora espelha a viewport GPS completa: zoom por velocidade, rotação pelo heading, rota/rejoin e marcador local;
 - Configurações > HUD expõe o zoom-base do GPS; o ajuste automático por velocidade continua ativo sobre esse valor;
 - minimapa circular dos HUDs modulares e compostos usa máscara elíptica real;
+- no modo circular, o cartão inteiro do GPS vira circular (não apenas a imagem dentro de um painel retangular);
+- roda do mouse sobre o minimapa modular, em modo de edição, ajusta o zoom real do GPS;
+- prévia React aplica imediatamente o zoom/forma aos HUDs modulares;
 - veículos IA locais do OMSI passam a aparecer no GPS como pontos azuis, lidos diretamente da memória do simulador;
 - minimapa integrado oculta visualmente o minimapa legado, mantendo-o apenas como fonte invisível do VisualBrush;
 - Alertas modulares ficam totalmente ocultos durante operação normal e só surgem quando existe alerta real;
