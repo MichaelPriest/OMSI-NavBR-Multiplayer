@@ -191,11 +191,26 @@ public partial class HudOverlayWindow
         tileX = 0d;
         tileY = 0d;
 
+        // Prefer the physical OMSI Kachel pose when the bridge provides it.
+        // GridX/TileX can be a compatibility/navigation projection; using it
+        // as the display fallback is what made the marker drift to a parallel
+        // or neighbouring road whenever a lane snap was temporarily unavailable.
         var hasGridTelemetry = false;
-        if (telemetry.GridX is int rawGridX &&
-            telemetry.GridY is int rawGridY &&
-            telemetry.TileX is double rawTileX &&
-            telemetry.TileY is double rawTileY)
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            telemetry.LocalX is double physicalLocalX &&
+            telemetry.LocalZ is double physicalLocalZ)
+        {
+            hasGridTelemetry = true;
+            gridX = physicalGridX;
+            gridY = physicalGridY;
+            tileX = physicalLocalX;
+            tileY = physicalLocalZ;
+        }
+        else if (telemetry.GridX is int rawGridX &&
+                 telemetry.GridY is int rawGridY &&
+                 telemetry.TileX is double rawTileX &&
+                 telemetry.TileY is double rawTileY)
         {
             hasGridTelemetry = true;
             gridX = rawGridX;
