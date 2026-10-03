@@ -17,6 +17,7 @@ public partial class HudOverlayWindow
     private Border? _immersiveTopBar;
     private Grid? _immersiveTopBarGrid;
     private Border? _immersiveMiniMapPanel;
+    private Border? _immersiveMiniMapFrame;
     private Border? _immersiveMultiplayerPanel;
     private Border? _immersiveFocusPanel;
     private Border? _immersiveFocusMoveHandle;
@@ -57,7 +58,6 @@ public partial class HudOverlayWindow
     private TextBlock? _immersiveChatText;
     private TextBlock? _immersiveVoiceText;
     private Border? _immersiveVoiceStatusCell;
-    private TextBlock? _immersiveMultiplayerShortcutText;
     private DispatcherTimer? _immersiveOperationTimer;
     private bool _immersivePresentationApplied;
     private Visibility _immersiveSavedTopStatusVisibility = Visibility.Visible;
@@ -293,27 +293,22 @@ public partial class HudOverlayWindow
         root.Children.Add(header);
 
         var mapLayer = new Grid();
-        mapLayer.Children.Add(new Border
+        _immersiveMiniMapFrame = new Border
         {
             CornerRadius = new CornerRadius(8d),
             BorderBrush = new SolidColorBrush(Color.FromArgb(95, 104, 177, 222)),
             BorderThickness = new Thickness(1d),
-            Background = new VisualBrush(MiniMapCanvas)
+            ClipToBounds = true,
+            Background = new VisualBrush(MiniMapViewport)
             {
                 Stretch = Stretch.UniformToFill,
                 AlignmentX = AlignmentX.Center,
                 AlignmentY = AlignmentY.Center
             }
-        });
-        mapLayer.Children.Add(new TextBlock
-        {
-            Text = "▲",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = Brushes.White,
-            FontSize = 22d,
-            FontWeight = FontWeights.Black
-        });
+        };
+        _immersiveMiniMapFrame.SizeChanged += (_, _) =>
+            ApplyImmersiveMiniMapShape(_hudSettings);
+        mapLayer.Children.Add(_immersiveMiniMapFrame);
         Grid.SetRow(mapLayer, 1);
         root.Children.Add(mapLayer);
 
@@ -575,13 +570,14 @@ public partial class HudOverlayWindow
             FontFamily = new FontFamily("Bahnschrift"),
             FontSize = 9d,
             TextWrapping = TextWrapping.Wrap,
-            MaxHeight = 48d
+            MaxHeight = 48d,
+            Visibility = Visibility.Collapsed
         };
         stack.Children.Add(_immersiveChatText);
 
         _immersiveVoiceText = new TextBlock
         {
-            Text = "PTT • F10",
+            Text = "PTT",
             Foreground = new SolidColorBrush(Color.FromRgb(111, 234, 168)),
             FontSize = 10d,
             FontWeight = FontWeights.SemiBold
@@ -595,16 +591,6 @@ public partial class HudOverlayWindow
             Child = _immersiveVoiceText
         };
         stack.Children.Add(_immersiveVoiceStatusCell);
-
-        _immersiveMultiplayerShortcutText = new TextBlock
-        {
-            Text = ImmersiveText("F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT", "F9 CHAT   •   F10 PTT"),
-            Margin = new Thickness(0d, 8d, 0d, 0d),
-            Foreground = new SolidColorBrush(Color.FromRgb(118, 151, 172)),
-            FontSize = 9d,
-            FontWeight = FontWeights.SemiBold
-        };
-        stack.Children.Add(_immersiveMultiplayerShortcutText);
 
         return new Border
         {
@@ -830,10 +816,90 @@ public partial class HudOverlayWindow
         }
 
         ApplyImmersiveOperationSizing();
+        ApplyImmersiveMiniMapShape(settings);
         if (active)
         {
             RenderImmersiveOperationState();
         }
+    }
+
+    private void ApplyImmersiveMiniMapShape(MultiplayerSettings settings)
+    {
+        var frame = _immersiveMiniMapFrame;
+        var panel = _immersiveMiniMapPanel;
+        if (frame is null || panel is null)
+        {
+            return;
+        }
+
+        var circular = string.Equals(
+            settings.DashboardMinimapStyle,
+            "circular",
+            StringComparison.OrdinalIgnoreCase);
+        if (!circular)
+        {
+            panel.Clip = null;
+            panel.ClipToBounds = false;
+            panel.Padding = new Thickness(10d);
+            _immersiveMapTitleText?.SetCurrentValue(
+                UIElement.VisibilityProperty,
+                Visibility.Visible);
+            _immersiveStreetText?.SetCurrentValue(
+                UIElement.VisibilityProperty,
+                Visibility.Visible);
+            frame.Clip = null;
+            frame.CornerRadius = new CornerRadius(8d);
+            return;
+        }
+
+        var sourceWidth =
+            panel.ActualWidth > 1d ? panel.ActualWidth : panel.Width;
+        var sourceHeight =
+            panel.ActualHeight > 1d ? panel.ActualHeight : panel.Height;
+        if (sourceWidth <= 1d || sourceHeight <= 1d)
+        {
+            return;
+        }
+
+        var diameter = Math.Max(
+            96d,
+            Math.Min(sourceWidth, sourceHeight));
+
+        panel.Width = diameter;
+        panel.Height = diameter;
+        panel.Padding = new Thickness(0d);
+        panel.ClipToBounds = true;
+        panel.CornerRadius = new CornerRadius(diameter / 2d);
+        panel.Clip = new EllipseGeometry(
+            new Point(diameter / 2d, diameter / 2d),
+            diameter / 2d,
+            diameter / 2d);
+
+        if (_immersiveMapTitleText is not null)
+        {
+            _immersiveMapTitleText.Visibility = Visibility.Collapsed;
+        }
+        if (_immersiveStreetText is not null)
+        {
+            _immersiveStreetText.Visibility = Visibility.Collapsed;
+        }
+
+        frame.HorizontalAlignment = HorizontalAlignment.Stretch;
+        frame.VerticalAlignment = VerticalAlignment.Stretch;
+        frame.ClearValue(WidthProperty);
+        frame.ClearValue(HeightProperty);
+        var innerWidth =
+            frame.ActualWidth > 1d ? frame.ActualWidth : diameter;
+        var innerHeight =
+            frame.ActualHeight > 1d ? frame.ActualHeight : diameter;
+        var radius = Math.Max(
+            1d,
+            Math.Min(innerWidth, innerHeight) / 2d);
+        frame.Clip = new EllipseGeometry(
+            new Point(innerWidth / 2d, innerHeight / 2d),
+            radius,
+            radius);
+        frame.CornerRadius = new CornerRadius(radius);
     }
 
     private void ApplyImmersiveOperationSizing()
@@ -1958,7 +2024,6 @@ public partial class HudOverlayWindow
                 Color.FromArgb(64, palette.Accent.R, palette.Accent.G, palette.Accent.B));
             _immersiveVoiceStatusCell.CornerRadius = new CornerRadius(Math.Max(5d, palette.CornerRadius * 0.55d));
         }
-        if (_immersiveMultiplayerShortcutText is not null) _immersiveMultiplayerShortcutText.Foreground = new SolidColorBrush(Color.FromArgb(180, palette.Text.R, palette.Text.G, palette.Text.B));
         if (_immersiveFocusEyebrowText is not null) _immersiveFocusEyebrowText.Foreground = accent;
         if (_immersiveFocusPrimaryText is not null) _immersiveFocusPrimaryText.Foreground = text;
         if (_immersiveFocusSecondaryText is not null) _immersiveFocusSecondaryText.Foreground = new SolidColorBrush(Color.FromArgb(220, palette.Text.R, palette.Text.G, palette.Text.B));
@@ -1986,7 +2051,7 @@ public partial class HudOverlayWindow
             _immersiveNextStopText, _immersiveSpeedText, _immersiveDelayText,
             _immersiveFuelText, _immersiveMapTitleText, _immersiveStreetText,
             _immersiveSessionText, _immersiveMultiplayerTitleText, _immersivePlayersText, _immersiveNearbyPlayersText,
-            _immersiveChatText, _immersiveVoiceText, _immersiveMultiplayerShortcutText,
+            _immersiveChatText, _immersiveVoiceText,
             _immersiveFocusEyebrowText, _immersiveFocusPrimaryText, _immersiveFocusSecondaryText,
             _immersiveFocusStopsText, _immersiveSideIndicatorText
         })
@@ -2102,7 +2167,12 @@ public partial class HudOverlayWindow
         }
         if (_immersiveChatText is not null)
         {
-            _immersiveChatText.Text = BuildImmersiveChatText();
+            _immersiveChatText.Visibility =
+                _chatInteractive ? Visibility.Visible : Visibility.Collapsed;
+            if (_chatInteractive)
+            {
+                _immersiveChatText.Text = BuildImmersiveChatText();
+            }
         }
         if (_immersiveVoiceText is not null)
         {
@@ -2872,7 +2942,7 @@ public partial class HudOverlayWindow
 
         return activeSpeakers.Length > 0
             ? $"{string.Join(", ", activeSpeakers)} {ImmersiveText("falando", "speaking", "hablando", "spricht", "parle")}"
-            : "PTT • F10";
+            : "PTT";
     }
 
     private static string ImmersiveText(

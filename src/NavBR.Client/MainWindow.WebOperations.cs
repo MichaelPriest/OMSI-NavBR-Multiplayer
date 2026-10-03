@@ -31,6 +31,48 @@ public partial class MainWindow
             companyBadge,
             onlineCompany,
             operatorMember);
+
+        if (operatorBadgeVerified && companyBadge is not null)
+        {
+            var profileChanged =
+                !string.Equals(
+                    profile.DisplayName,
+                    companyBadge.DisplayName,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    profile.CompanyName,
+                    companyBadge.CompanyName,
+                    StringComparison.Ordinal);
+            if (profileChanged)
+            {
+                profile = profile with
+                {
+                    DisplayName = companyBadge.DisplayName,
+                    CompanyName = companyBadge.CompanyName
+                };
+                DriverProfileStore.Save(profile);
+            }
+
+            var companyChanged =
+                !string.Equals(
+                    company.Name,
+                    companyBadge.CompanyName,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    company.ShortName,
+                    companyBadge.CompanyShortName,
+                    StringComparison.Ordinal);
+            if (companyChanged)
+            {
+                company = company with
+                {
+                    Name = companyBadge.CompanyName,
+                    ShortName = companyBadge.CompanyShortName
+                };
+                VirtualCompanyStore.Save(company);
+            }
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         return new
@@ -253,10 +295,27 @@ public partial class MainWindow
     private void SaveWebCompany(string? name, string? shortName, string? baseMap)
     {
         var company = VirtualCompanyStore.Load();
+        var badge = (Application.Current as App)?.NetworkRuntime.CurrentBadge;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var member = onlineCompany?.Members.FirstOrDefault(item =>
+            badge is not null &&
+            string.Equals(
+                item.PlayerId,
+                badge.PlayerId,
+                StringComparison.OrdinalIgnoreCase));
+        var verified = CompanyEmployeeBadgeFactory.MatchesMember(
+            badge,
+            onlineCompany,
+            member);
+
         VirtualCompanyStore.Save(company with
         {
-            Name = name ?? company.Name,
-            ShortName = shortName ?? company.ShortName,
+            Name = verified && badge is not null
+                ? badge.CompanyName
+                : name ?? company.Name,
+            ShortName = verified && badge is not null
+                ? badge.CompanyShortName
+                : shortName ?? company.ShortName,
             BaseMap = string.IsNullOrWhiteSpace(baseMap) ? null : baseMap.Trim()
         });
     }
@@ -337,10 +396,38 @@ public partial class MainWindow
 
         var includesHistory = _webPendingDriverProfileImport.IncludesTripHistory;
         DriverProfilePortability.ApplyImport(_webPendingDriverProfileImport);
+
+        var badge = (Application.Current as App)?.NetworkRuntime.CurrentBadge;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var member = onlineCompany?.Members.FirstOrDefault(item =>
+            badge is not null &&
+            string.Equals(
+                item.PlayerId,
+                badge.PlayerId,
+                StringComparison.OrdinalIgnoreCase));
+        var verified = CompanyEmployeeBadgeFactory.MatchesMember(
+            badge,
+            onlineCompany,
+            member);
+
+        if (verified && badge is not null)
+        {
+            var importedProfile = DriverProfileStore.Load();
+            DriverProfileStore.Save(importedProfile with
+            {
+                DisplayName = badge.DisplayName,
+                CompanyName = badge.CompanyName
+            });
+        }
+
         _webPendingDriverProfileImport = null;
-        _webDriverProfileTransferNotice = includesHistory
-            ? "Perfil do motorista e histórico de viagens importados com sucesso."
-            : "Perfil importado com sucesso; o histórico local existente foi preservado.";
+        _webDriverProfileTransferNotice = verified
+            ? includesHistory
+                ? "Perfil e histórico importados; nome e empresa foram preservados pelo crachá verificado."
+                : "Perfil importado; histórico local preservado e identidade mantida pelo crachá verificado."
+            : includesHistory
+                ? "Perfil do motorista e histórico de viagens importados com sucesso."
+                : "Perfil importado com sucesso; o histórico local existente foi preservado.";
     }
 
     private void CancelDriverProfileImportFromWeb()
@@ -349,17 +436,34 @@ public partial class MainWindow
         _webDriverProfileTransferNotice = null;
     }
 
-    private static void SaveWebDriverProfile(string? displayName, string? companyName)
+    private void SaveWebDriverProfile(string? displayName, string? companyName)
     {
         var profile = DriverProfileStore.Load();
+        var badge = (Application.Current as App)?.NetworkRuntime.CurrentBadge;
+        var onlineCompany = _webCompanyNetworkSnapshot ?? CompanyNodeStore.LoadCompany();
+        var member = onlineCompany?.Members.FirstOrDefault(item =>
+            badge is not null &&
+            string.Equals(
+                item.PlayerId,
+                badge.PlayerId,
+                StringComparison.OrdinalIgnoreCase));
+        var verified = CompanyEmployeeBadgeFactory.MatchesMember(
+            badge,
+            onlineCompany,
+            member);
+
         DriverProfileStore.Save(profile with
         {
-            DisplayName = string.IsNullOrWhiteSpace(displayName)
-                ? profile.DisplayName
-                : displayName.Trim(),
-            CompanyName = string.IsNullOrWhiteSpace(companyName)
-                ? null
-                : companyName.Trim()
+            DisplayName = verified && badge is not null
+                ? badge.DisplayName
+                : string.IsNullOrWhiteSpace(displayName)
+                    ? profile.DisplayName
+                    : displayName.Trim(),
+            CompanyName = verified && badge is not null
+                ? badge.CompanyName
+                : string.IsNullOrWhiteSpace(companyName)
+                    ? null
+                    : companyName.Trim()
         });
     }
 }

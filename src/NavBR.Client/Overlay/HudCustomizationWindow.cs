@@ -322,7 +322,7 @@ internal sealed class HudCustomizationWindow : Window
         var current = MultiplayerSettingsStore.Load();
         var updated = current with
         {
-            DashboardSettingsVersion = 3,
+            DashboardSettingsVersion = 4,
             DashboardPreset = _preset.SelectedValue as string ?? HudProfileCatalog.DefaultPreset,
             DashboardTheme = _theme.SelectedValue as string ?? HudProfileCatalog.DefaultTheme,
             DashboardAnchor = _anchor.SelectedValue as string ?? HudProfileCatalog.DefaultAnchor,

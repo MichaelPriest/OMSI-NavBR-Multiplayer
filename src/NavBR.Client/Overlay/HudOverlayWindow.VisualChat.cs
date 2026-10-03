@@ -119,6 +119,11 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (!_chatInteractive && !force)
+        {
+            return;
+        }
+
         var last = _chatMessages.LastOrDefault();
         var lastTimestamp = last is null ? 0L : last.TimestampUtc.ToUnixTimeMilliseconds();
         var fingerprint = $"{_chatMessages.Count}|{lastTimestamp}|{last?.PlayerId}|{last?.Text}|{_chatInteractive}";
@@ -130,12 +135,11 @@ public partial class HudOverlayWindow
         _visualChatFingerprint = fingerprint;
         panel.Children.Clear();
 
-        var visibleMessages = _chatMessages.TakeLast(_chatInteractive ? 12 : 6).ToArray();
+        var visibleMessages = _chatMessages.TakeLast(12).ToArray();
         if (_visualChatCountText is not null)
         {
-            _visualChatCountText.Text = _chatInteractive
-                ? $"{_chatMessages.Count} mensagem{(_chatMessages.Count == 1 ? string.Empty : "s")} • ESC fecha"
-                : $"{_chatMessages.Count} mensagem{(_chatMessages.Count == 1 ? string.Empty : "s")}";
+            _visualChatCountText.Text =
+                $"{_chatMessages.Count} mensagem{(_chatMessages.Count == 1 ? string.Empty : "s")} • ESC fecha";
         }
 
         if (visibleMessages.Length == 0)

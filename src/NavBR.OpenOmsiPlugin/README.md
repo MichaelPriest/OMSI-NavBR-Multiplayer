@@ -44,8 +44,11 @@ Esses recursos ficam desativados até existir uma API segura equivalente no open
 
 ## Instalação
 
-A instalação normal será feita pelo próprio aplicativo NavBR React. Para teste manual,
-feche o openOMSI, extraia o artefato e execute:
+Este plugin é um pacote **separado do NavBR App**. O aplicativo NavBR não instala,
+atualiza, remove nem inicia o openOMSI. A instalação deve ser feita no ambiente/launcher
+do openOMSI usando o pacote x64 publicado pelo workflow dedicado.
+
+Para instalação manual do pacote, feche o openOMSI, extraia o artefato e execute:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -63,8 +66,8 @@ O plugin é instalado em:
 
 O `.opl` referencia a DLL a partir da raiz `Plugins`, conforme o carregador do openOMSI.
 
-> Importante: o botão **Mods** do launcher não é usado para habilitar este plugin. O próprio
-> openOMSI mantém plugins recebidos como mods em `Mods/plugins-not-enabled` por segurança.
+> Importante: o plugin pertence ao ambiente do openOMSI. O NavBR App apenas expõe o gateway
+> local e recebe a conexão do plugin externo; ele não gerencia a instalação do plugin.
 
 ## Remoção
 

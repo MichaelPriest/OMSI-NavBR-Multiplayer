@@ -7,12 +7,15 @@ public partial class MainWindow
 {
     private readonly NavBRNavigationEtaEstimator _webNavigationEta = new();
     private readonly OmsiRouteRejoinPathfinder _webNavigationRejoinPathfinder = new();
+    private OmsiPhysicalRoadAnchorResolver? _webNavigationRoadAnchorResolver;
+    private string? _webNavigationRoadAnchorInstallRoot;
     private string? _webNavigationMapKey;
     private string? _webNavigationRouteKey;
     private OmsiMapLayout? _webNavigationLayout;
     private IReadOnlyList<OmsiRouteTracePoint> _webNavigationRoute = Array.Empty<OmsiRouteTracePoint>();
     private IReadOnlyList<OmsiBusStopPoint> _webNavigationBusStops = Array.Empty<OmsiBusStopPoint>();
     private OmsiOrderedRouteStops _webNavigationOrderedStops = new(false, Array.Empty<string>());
+    private DateTimeOffset _webNavigationRouteLastAttemptUtc;
 
     private object BuildWebNavigationState()
     {
@@ -31,8 +34,27 @@ public partial class MainWindow
         }
         EnsureWebNavigationRouteData(map, telemetry);
 
-        var navigation = NavBRNavigationEngine.Evaluate(
+        var navigationTelemetry = telemetry;
+        var hasDisplayAnchor = TryGetWebNavigationDisplayAnchor(
             telemetry,
+            map,
+            out var displayGridX,
+            out var displayGridY,
+            out var displayTileX,
+            out var displayTileY);
+        if (hasDisplayAnchor)
+        {
+            navigationTelemetry = telemetry with
+            {
+                GridX = displayGridX,
+                GridY = displayGridY,
+                TileX = displayTileX,
+                TileY = displayTileY
+            };
+        }
+
+        var navigation = NavBRNavigationEngine.Evaluate(
+            navigationTelemetry,
             _webNavigationLayout,
             _webNavigationRoute,
             _webNavigationBusStops);
@@ -68,7 +90,7 @@ public partial class MainWindow
             rejoinPath = _webNavigationRejoinPathfinder.TryFind(
                 map,
                 _webNavigationLayout,
-                telemetry,
+                navigationTelemetry,
                 _webNavigationRoute);
         }
 
@@ -118,17 +140,22 @@ public partial class MainWindow
 
         object? vehicle = null;
         if (tileSize is double vehicleTileSize &&
-            telemetry.GridX is int gridX &&
-            telemetry.GridY is int gridY &&
-            telemetry.TileX is double tileX &&
-            telemetry.TileY is double tileY)
+            navigationTelemetry.GridX is int gridX &&
+            navigationTelemetry.GridY is int gridY &&
+            navigationTelemetry.TileX is double tileX &&
+            navigationTelemetry.TileY is double tileY)
         {
             vehicle = new
             {
                 x = gridX * vehicleTileSize + tileX,
                 y = gridY * vehicleTileSize + tileY,
-                headingDegrees = telemetry.HeadingDegrees,
-                speedKph = telemetry.SpeedKph
+                headingDegrees = navigationTelemetry.HeadingDegrees,
+                speedKph = navigationTelemetry.SpeedKph,
+                snappedToRoad = hasDisplayAnchor &&
+                    (gridX != telemetry.GridX ||
+                     gridY != telemetry.GridY ||
+                     tileX != telemetry.TileX ||
+                     tileY != telemetry.TileY)
             };
         }
 
@@ -290,6 +317,131 @@ public partial class MainWindow
         };
     }
 
+    private bool TryGetWebNavigationDisplayAnchor(
+        VehicleTelemetry telemetry,
+        OmsiMapInfo map,
+        out int gridX,
+        out int gridY,
+        out double tileX,
+        out double tileY)
+    {
+        gridX = 0;
+        gridY = 0;
+        tileX = 0d;
+        tileY = 0d;
+
+        var hasGridTelemetry = false;
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            telemetry.LocalX is double physicalLocalX &&
+            telemetry.LocalZ is double physicalLocalZ)
+        {
+            hasGridTelemetry = true;
+            gridX = physicalGridX;
+            gridY = physicalGridY;
+            tileX = physicalLocalX;
+            tileY = physicalLocalZ;
+        }
+        else if (telemetry.GridX is int rawGridX &&
+                 telemetry.GridY is int rawGridY &&
+                 telemetry.TileX is double rawTileX &&
+                 telemetry.TileY is double rawTileY)
+        {
+            hasGridTelemetry = true;
+            gridX = rawGridX;
+            gridY = rawGridY;
+            tileX = rawTileX;
+            tileY = rawTileY;
+        }
+
+        var installRoot = ResolveWebNavigationOmsiInstallRoot(map.DirectoryPath);
+        if (string.IsNullOrWhiteSpace(installRoot))
+        {
+            return hasGridTelemetry;
+        }
+
+        if (_webNavigationRoadAnchorResolver is null ||
+            !string.Equals(
+                _webNavigationRoadAnchorInstallRoot,
+                installRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _webNavigationRoadAnchorInstallRoot = installRoot;
+            var capturedRoot = installRoot;
+            _webNavigationRoadAnchorResolver =
+                new OmsiPhysicalRoadAnchorResolver(() => capturedRoot);
+        }
+
+        var anchorTelemetry = telemetry;
+        if (!hasGridTelemetry)
+        {
+            if (!_webNavigationRoadAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                    telemetry,
+                    out var worldAnchor))
+            {
+                return false;
+            }
+
+            gridX = worldAnchor.GridX;
+            gridY = worldAnchor.GridY;
+            tileX = worldAnchor.LocalX;
+            tileY = worldAnchor.LocalZ;
+
+            anchorTelemetry = telemetry with
+            {
+                GridX = gridX,
+                GridY = gridY,
+                TileX = tileX,
+                TileY = tileY,
+                PhysicalGridX = gridX,
+                PhysicalGridY = gridY,
+                LocalX = worldAnchor.LocalX,
+                LocalY = worldAnchor.LocalY,
+                LocalZ = worldAnchor.LocalZ
+            };
+        }
+
+        if (_webNavigationRoadAnchorResolver.TryResolveRoadAnchor(
+                anchorTelemetry,
+                out var roadAnchor) &&
+            roadAnchor.DistanceMeters <= 18d)
+        {
+            gridX = roadAnchor.GridX;
+            gridY = roadAnchor.GridY;
+            tileX = roadAnchor.LocalX;
+            tileY = roadAnchor.LocalZ;
+        }
+
+        return true;
+    }
+
+    private static string? ResolveWebNavigationOmsiInstallRoot(string? mapDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var map = new System.IO.DirectoryInfo(mapDirectory);
+            var maps = map.Parent;
+            if (maps is not null &&
+                string.Equals(
+                    maps.Name,
+                    "maps",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return maps.Parent?.FullName;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
     private void EnsureWebNavigationMapData(OmsiMapInfo map)
     {
         var mapKey = $"{map.DirectoryPath}|{map.GlobalConfigPath}|{map.CompatibilityId}";
@@ -300,6 +452,7 @@ public partial class MainWindow
 
         _webNavigationMapKey = mapKey;
         _webNavigationRouteKey = null;
+        _webNavigationRouteLastAttemptUtc = default;
         _webNavigationLayout = OmsiMapLayoutReader.TryRead(map.GlobalConfigPath);
         _webNavigationBusStops = OmsiBusStopReader.TryRead(map);
         _webNavigationRoute = Array.Empty<OmsiRouteTracePoint>();
@@ -310,12 +463,25 @@ public partial class MainWindow
     private void EnsureWebNavigationRouteData(OmsiMapInfo map, VehicleTelemetry telemetry)
     {
         var routeKey = $"{map.DirectoryPath}|{telemetry.Line}|{telemetry.Route}|{telemetry.DestinationName}";
-        if (string.Equals(routeKey, _webNavigationRouteKey, StringComparison.OrdinalIgnoreCase))
+        var sameKey = string.Equals(
+            routeKey,
+            _webNavigationRouteKey,
+            StringComparison.OrdinalIgnoreCase);
+
+        if (sameKey && _webNavigationRoute.Count >= 2)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (sameKey &&
+            now - _webNavigationRouteLastAttemptUtc < TimeSpan.FromSeconds(2))
         {
             return;
         }
 
         _webNavigationRouteKey = routeKey;
+        _webNavigationRouteLastAttemptUtc = now;
         _webNavigationEta.Reset();
 
         if (_webNavigationLayout is null)
@@ -332,7 +498,8 @@ public partial class MainWindow
             map,
             _webNavigationLayout,
             lookupTarget,
-            telemetry.Line);
+            telemetry.Line,
+            telemetry.DestinationName);
 
         // Some buses/maps expose a short route/course code (for example "01")
         // instead of the .ttr track name. If that first lookup cannot resolve
@@ -349,7 +516,8 @@ public partial class MainWindow
                 map,
                 _webNavigationLayout,
                 telemetry.DestinationName,
-                telemetry.Line);
+                telemetry.Line,
+                telemetry.DestinationName);
             if (destinationRoute.Count >= 2)
             {
                 _webNavigationRoute = destinationRoute;

@@ -3,7 +3,7 @@ using System.Windows;
 using NavBR.Client.Hardware;
 using NavBR.Client.Maps;
 using NavBR.Client.Omsi;
-using NavBR.Client.PluginInstaller;
+using NavBR.Client.OpenOmsi;
 using NavBR.Shared.OpenOmsi;
 using NavBR.Client.Telemetry;
 using NavBR.Shared.Telemetry;
@@ -68,7 +68,7 @@ public partial class MainWindow
             }
 
             _openOmsiProcessId =
-                OpenOmsiPluginInstallationService.GetRunningProcessId();
+                OpenOmsiEnvironmentLocator.GetRunningProcessId();
             var identified =
                 EnrichOpenOmsiCompatibilityIdentity(telemetry);
             ApplyLocalTelemetrySnapshot(identified);
@@ -193,13 +193,10 @@ public partial class MainWindow
     {
         try
         {
-            var verification =
-                OpenOmsiPluginInstallationService.Verify();
             var roots =
                 new List<string>(
-                    OpenOmsiPluginInstallationService
-                        .ResolveContentSearchRoots(
-                            verification.ExecutablePath));
+                    OpenOmsiEnvironmentLocator
+                        .ResolveContentSearchRoots());
 
             foreach (var profile in
                      OmsiInstallationProfileStore.Load())
@@ -258,7 +255,7 @@ public partial class MainWindow
             if (connected)
             {
                 _openOmsiProcessId =
-                    OpenOmsiPluginInstallationService.GetRunningProcessId();
+                    OpenOmsiEnvironmentLocator.GetRunningProcessId();
                 _statusKey = "TelemetryConnecting";
                 _telemetryStatusKey = "TelemetryWaiting";
                 if (!_telemetryTimer.IsEnabled)
@@ -282,7 +279,7 @@ public partial class MainWindow
     private bool TryStartOpenOmsiRuntimeMonitoring()
     {
         _openOmsiProcessId =
-            OpenOmsiPluginInstallationService.GetRunningProcessId();
+            OpenOmsiEnvironmentLocator.GetRunningProcessId();
 
         var connection = (Application.Current as App)?
             .PluginBridge
@@ -351,7 +348,7 @@ public partial class MainWindow
             OpenOmsiLanGateway.Shared.IsClientConnected;
         _openOmsiProcessId =
             GetLiveProcessId(_openOmsiProcessId) ??
-            OpenOmsiPluginInstallationService.GetRunningProcessId();
+            OpenOmsiEnvironmentLocator.GetRunningProcessId();
 
         if (_openOmsiProcessId is null &&
             !bridgeReady &&

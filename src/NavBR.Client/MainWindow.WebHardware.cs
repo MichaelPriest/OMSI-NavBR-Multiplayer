@@ -20,6 +20,10 @@ public partial class MainWindow
             lastError = serial.LastError,
             lastFrameSentAtUtc = serial.LastFrameSentAtUtc,
             payloadPreview = serial.PayloadPreview,
+            selectedPortAvailable = serial.SelectedPortAvailable,
+            reconnectPending = serial.ReconnectPending,
+            retryAttempt = serial.RetryAttempt,
+            nextReconnectAtUtc = serial.NextReconnectAtUtc,
             telemetry = telemetry is null
                 ? null
                 : new

@@ -69,14 +69,6 @@ public partial class HudOverlayWindow
             FontWeight = FontWeights.Bold
         };
 
-        var shortcut = new TextBlock
-        {
-            Text = "Ctrl+Alt+N",
-            Foreground = new SolidColorBrush(Color.FromArgb(155, 255, 255, 255)),
-            FontSize = 9d,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
         var closeButton = BuildInGameButton(
             "×",
             new SolidColorBrush(Color.FromArgb(120, 52, 66, 78)),
@@ -86,9 +78,7 @@ public partial class HudOverlayWindow
 
         var header = new DockPanel();
         DockPanel.SetDock(closeButton, Dock.Right);
-        DockPanel.SetDock(shortcut, Dock.Right);
         header.Children.Add(closeButton);
-        header.Children.Add(shortcut);
         header.Children.Add(headerTitle);
 
         _inGameSessionText = BuildInGameStatusText();

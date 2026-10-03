@@ -53,6 +53,10 @@ public partial class HudOverlayWindow
             _hudVisibilitySettingsHooked = true;
             NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved +=
                 OnHudVisibilitySettingsSaved;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewChanged +=
+                OnHudPreviewChanged;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewCleared +=
+                OnHudPreviewCleared;
         }
 
         OverlayRoot.Visibility = Visibility.Collapsed;
@@ -91,6 +95,10 @@ public partial class HudOverlayWindow
         {
             NavBR.Client.Multiplayer.MultiplayerSettingsStore.SettingsSaved -=
                 OnHudVisibilitySettingsSaved;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewChanged -=
+                OnHudPreviewChanged;
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.HudPreviewCleared -=
+                OnHudPreviewCleared;
             _hudVisibilitySettingsHooked = false;
         }
 
@@ -122,28 +130,11 @@ public partial class HudOverlayWindow
         PlayerCountText.ToolTip = LocalizationService.Format("MultiplayerPlayerCount", playerCount);
         ChatInputLabelText.Text = LocalizationService.Get("MultiplayerChat").ToUpper(LocalizationService.CurrentCulture);
 
-        var chatShortcut = _chatHotkeyAvailable
-            ? $"{_chatHotkey.Name}: {LocalizationService.Get("MultiplayerChat")}"
-            : $"{_chatHotkey.Name}: OMSI";
-        var voiceShortcut = _voiceHotkeyAvailable
-            ? $"{_voiceHotkey.Name}: PTT"
-            : $"{_voiceHotkey.Name}: OMSI";
-        HudShortcutsText.Text = _roleplayHudActive
-            ? HudRpText(
-                "WASD andar • Shift correr • Espaço pular • ←/→ virar • E ônibus • Esc retorno",
-                "WASD walk • Shift run • Space jump • ←/→ turn • E bus • Esc return",
-                "WASD andar • Shift correr • Espacio saltar • ←/→ girar • E autobús • Esc volver",
-                "WASD laufen • Shift rennen • Leertaste springen • ←/→ drehen • E Bus • Esc zurück",
-                "WASD marcher • Shift courir • Espace sauter • ←/→ tourner • E bus • Échap retour")
-            : $"  •  {chatShortcut}  •  {voiceShortcut}  •  Ctrl+Alt+N: NavBR  •  Ctrl+Alt+H: HUD";
-
-        var hasHotkeyConflict = !_chatHotkeyAvailable || !_voiceHotkeyAvailable;
-        HotkeyWarningPanel.Visibility = hasHotkeyConflict ? Visibility.Visible : Visibility.Collapsed;
-        if (hasHotkeyConflict)
-        {
-            HotkeyWarningText.Text = BuildHotkeyConflictMessage();
-            HotkeyWarningPanel.ToolTip = BuildHotkeyConflictTooltip();
-        }
+        // Keep keyboard guidance out of the gameplay overlay. Hotkeys still
+        // work and remain configurable in React, but the HUD stays focused on
+        // driving information.
+        HudShortcutsText.Visibility = Visibility.Collapsed;
+        HotkeyWarningPanel.Visibility = Visibility.Collapsed;
 
         if (connected)
         {
@@ -178,6 +169,21 @@ public partial class HudOverlayWindow
         _hudEnabled = settings.HudEnabled;
         ApplyTelematrixSettings(settings);
         RefreshHudVisibility();
+        RefreshTelematrixPanel();
+    }
+
+    private void OnHudPreviewChanged(
+        NavBR.Client.Multiplayer.MultiplayerSettings settings)
+    {
+        ApplyTelematrixSettings(settings);
+        RefreshTelematrixPanel();
+    }
+
+    private void OnHudPreviewCleared()
+    {
+        var settings =
+            NavBR.Client.Multiplayer.MultiplayerSettingsStore.Load();
+        ApplyTelematrixSettings(settings);
         RefreshTelematrixPanel();
     }
 

@@ -1,4 +1,4 @@
-using NavBR.Client.PluginInstaller;
+using NavBR.Client.OpenOmsi;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.OpenOmsi;
 
@@ -31,8 +31,7 @@ public sealed partial class MultiplayerClientService
 
         var runtime =
             OpenOmsiLanRuntimeStatusReader.Read(
-                OpenOmsiPluginInstallationService
-                    .GetRunningProcessId());
+                OpenOmsiEnvironmentLocator.GetRunningProcessId());
         return runtime?.IsDrawn(lanId) == true;
     }
 
@@ -70,8 +69,7 @@ public sealed partial class MultiplayerClientService
             }
 
             var installedVehicle =
-                OpenOmsiPluginInstallationService
-                    .ResolveInstalledVehicleFile(
+                OpenOmsiEnvironmentLocator.ResolveInstalledVehicleFile(
                         gatewayRemote.VehiclePath);
             if (installedVehicle is null)
             {
@@ -87,8 +85,7 @@ public sealed partial class MultiplayerClientService
 
             var runtime =
                 OpenOmsiLanRuntimeStatusReader.Read(
-                    OpenOmsiPluginInstallationService
-                        .GetRunningProcessId());
+                    OpenOmsiEnvironmentLocator.GetRunningProcessId());
 
             if (runtime?.Fresh != true)
             {

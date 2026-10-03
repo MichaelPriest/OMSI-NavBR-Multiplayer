@@ -298,11 +298,31 @@ public partial class HudOverlayWindow
 
         ApplyDashboardTheme(settings.DashboardTheme);
         ApplyDashboardAnchor(settings.DashboardAnchor, effectiveScale);
+        ApplyMiniMapShape(settings);
 
         if (_busDashboardDock.ContextMenu is not null)
         {
             _busDashboardDock.ContextMenu = BuildModularHudMenu();
         }
+    }
+
+    private void ApplyMiniMapShape(MultiplayerSettings settings)
+    {
+        var circular = string.Equals(
+            settings.DashboardMinimapStyle,
+            "circular",
+            StringComparison.OrdinalIgnoreCase);
+
+        MiniMapViewport.Clip = circular
+            ? new EllipseGeometry(
+                new Point(150d, 95d),
+                93d,
+                93d)
+            : null;
+        MiniMapCircularBorder.Visibility =
+            circular ? Visibility.Visible : Visibility.Collapsed;
+        MiniMapFrame.CornerRadius =
+            circular ? new CornerRadius(95d) : new CornerRadius(14d);
     }
 
     private double GetResolutionScaleFactor()

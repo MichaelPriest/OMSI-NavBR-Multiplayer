@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NavBR.Client.Multiplayer;
+using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -92,6 +94,366 @@ finally
 {
     Directory.Delete(fingerprintRoot, recursive: true);
 }
+
+
+var updaterType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Updates.NavBRAutoUpdateService",
+        throwOnError: true)!;
+var compareReleaseVersions =
+    updaterType.GetMethod(
+        "CompareReleaseVersions",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater version comparator not found");
+var tryGetExpectedSha256 =
+    updaterType.GetMethod(
+        "TryGetExpectedSha256",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater checksum parser not found");
+var isReleaseAllowedForChannel =
+    updaterType.GetMethod(
+        "IsReleaseAllowedForChannel",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater channel filter not found");
+
+int CompareUpdateVersions(string left, string right) =>
+    (int)(compareReleaseVersions.Invoke(
+        null,
+        [left, right])
+        ?? throw new InvalidOperationException(
+            "application updater version comparator returned null"));
+
+Require(
+    CompareUpdateVersions(
+        "v0.3.0-alpha.26",
+        "0.3.0-alpha.25") > 0,
+    "application updater did not order Alpha.26 after Alpha.25");
+Require(
+    CompareUpdateVersions(
+        "0.3.1-alpha.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a newer core version");
+Require(
+    CompareUpdateVersions(
+        "0.3.0",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a stable build over its prerelease");
+Require(
+    CompareUpdateVersions(
+        "0.3.0-beta.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater prerelease ordering regressed");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "stable"])
+        ?? false),
+    "stable update channel rejected a stable release");
+Require(
+    !(bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "stable"])
+        ?? true),
+    "stable update channel accepted an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected a stable release");
+
+
+var updaterChecksumText =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other.zip\r\n" +
+    "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92  OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe\r\n";
+object?[] updaterChecksumArgs =
+[
+    updaterChecksumText,
+    "OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe",
+    null
+];
+Require(
+    (bool)(tryGetExpectedSha256.Invoke(
+        null,
+        updaterChecksumArgs)
+        ?? false),
+    "application updater could not read the official installer checksum");
+Require(
+    string.Equals(
+        updaterChecksumArgs[2] as string,
+        "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92",
+        StringComparison.Ordinal),
+    "application updater returned the wrong installer checksum");
+
+var mainWindowType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.MainWindow",
+        throwOnError: true)!;
+var sanitizeDiagnosticText =
+    mainWindowType.GetMethod(
+        "SanitizeDiagnosticText",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer not found");
+var diagnosticSanitizerInput =
+    """
+    password=hunter2
+    "roomId":"navbr-secret-room"
+    player=player-secret
+    Authorization: Bearer bearer-secret-value
+    ipv4=192.168.10.20
+    ipv6=2001:db8::42
+    email=driver@example.com
+    path=C:\Users\Driver\secret.txt
+    unc=\\nas\private\driver.txt
+    """;
+var sanitizedDiagnosticText =
+    (string?)sanitizeDiagnosticText.Invoke(
+        null,
+        [diagnosticSanitizerInput])
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer returned null");
+foreach (var sensitiveValue in new[]
+{
+    "hunter2",
+    "navbr-secret-room",
+    "player-secret",
+    "bearer-secret-value",
+    "192.168.10.20",
+    "2001:db8::42",
+    "driver@example.com",
+    @"C:\Users\Driver\secret.txt",
+    @"\\nas\private\driver.txt"
+})
+{
+    Require(
+        !sanitizedDiagnosticText.Contains(
+            sensitiveValue,
+            StringComparison.OrdinalIgnoreCase),
+        $"diagnostic sanitizer leaked '{sensitiveValue}'");
+}
+Require(
+    sanitizedDiagnosticText.Contains("[redacted]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[ip]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[email]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[path]", StringComparison.Ordinal),
+    "diagnostic sanitizer did not emit expected privacy markers");
+
+var buildHudSettingsFromWeb =
+    mainWindowType.GetMethod(
+        "BuildHudSettingsFromWeb",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder not found");
+using var hudPayloadDocument = JsonDocument.Parse(
+    """
+    {
+      "enabled": true,
+      "preset": "normal",
+      "theme": "navbr-modern",
+      "anchor": "bottom-right",
+      "autoScale": true,
+      "showFuel": true,
+      "showPedals": false,
+      "showStatus": true,
+      "showMinimap": false,
+      "showMultiplayer": false,
+      "showAlerts": true,
+      "showSideIndicators": false,
+      "mapZoom": 1.75,
+      "minimapStyle": "circular",
+      "telematrixEnabled": true,
+      "telematrixTheme": 2,
+      "telematrixSize": 1
+    }
+    """);
+var hudPayload = hudPayloadDocument.RootElement.Clone();
+var reactHudSettings =
+    (MultiplayerSettings?)buildHudSettingsFromWeb.Invoke(
+        null,
+        [hudPayload])
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder returned null");
+Require(
+    reactHudSettings.DashboardSettingsVersion == 4,
+    "React HUD settings builder regressed to a legacy dashboard version");
+Require(
+    Math.Abs(reactHudSettings.HudZoom - 1.75d) < 0.001d,
+    "React HUD settings builder lost GPS base zoom");
+Require(
+    string.Equals(
+        reactHudSettings.DashboardMinimapStyle,
+        "circular",
+        StringComparison.OrdinalIgnoreCase),
+    "React HUD settings builder lost circular GPS shape");
+Require(
+    reactHudSettings.TelematrixSettingsVersion == 1 &&
+    reactHudSettings.TelematrixWidgetEnabled &&
+    reactHudSettings.TelematrixTheme == 2 &&
+    reactHudSettings.TelematrixSize == 1,
+    "React HUD settings builder lost TeleMatrix settings");
+
+var hudOverlayType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Overlay.HudOverlayWindow",
+        throwOnError: true)!;
+Require(
+    hudOverlayType.GetMethod(
+        "UpdateLocalRoadTraffic",
+        BindingFlags.Public | BindingFlags.Instance) is not null,
+    "HUD overlay lost local OMSI road-traffic feed support");
+
+var speedZoomMethod =
+    hudOverlayType.GetMethod(
+        "ComputeHudSpeedZoomFactor",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD speed-sensitive zoom helper not found");
+var lowSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [0d]) ?? double.NaN;
+var highSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [80d]) ?? double.NaN;
+Require(
+    double.IsFinite(lowSpeedZoom) &&
+    double.IsFinite(highSpeedZoom) &&
+    lowSpeedZoom > highSpeedZoom &&
+    lowSpeedZoom <= 1.18d + 0.001d &&
+    highSpeedZoom >= 0.72d - 0.001d,
+    "HUD speed-sensitive GPS zoom is invalid");
+
+var trafficHeadingMethod =
+    hudOverlayType.GetMethod(
+        "TrafficQuaternionToHeadingDegrees",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD traffic quaternion heading helper not found");
+var ninetyDegrees = Math.Sqrt(0.5d);
+var heading90 =
+    (double?)trafficHeadingMethod.Invoke(
+        null,
+        [0d, ninetyDegrees, 0d, ninetyDegrees])
+    ?? double.NaN;
+Require(
+    double.IsFinite(heading90) &&
+    Math.Abs(heading90 - 90d) < 0.01d,
+    "HUD AI traffic marker heading conversion is invalid");
+
+var trafficReaderType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Telemetry.OmsiRoadTrafficReader",
+        throwOnError: true)!;
+Require(
+    trafficReaderType.GetMethod(
+        "Read",
+        BindingFlags.Public | BindingFlags.Static) is not null,
+    "OMSI road-traffic reader not available for GPS traffic markers");
+
+var appliedHudPreset =
+    HudProfileCatalog.ApplyPreset(
+        MultiplayerSettings.CreateDefault(),
+        HudProfileCatalog.DefaultPreset);
+Require(
+    appliedHudPreset.DashboardSettingsVersion == 4,
+    "HUD preset application regressed to a legacy dashboard settings version");
+
+var normalizeMultiplayerSettings =
+    typeof(MultiplayerSettingsStore).GetMethod(
+        "Normalize",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "multiplayer settings normalizer not found");
+var legacyDefaultHud = MultiplayerSettings.CreateDefault() with
+{
+    DashboardSettingsVersion = 3,
+    DashboardAnchor = "free",
+    DashboardX = 0.02d,
+    DashboardY = 0.58d,
+    DashboardShowMinimap = true,
+    DashboardShowMultiplayer = true,
+    DashboardShowAlerts = true,
+    DashboardShowSideIndicators = true,
+    DashboardMinimapScale = 1d,
+    DashboardMultiplayerScale = 1d,
+    DashboardAlertsScale = 1d,
+    DashboardSideIndicatorsScale = 1d
+};
+var migratedDefaultHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud])
+    ?? throw new InvalidOperationException(
+        "HUD settings migration returned null");
+Require(
+    migratedDefaultHud.DashboardSettingsVersion == 4 &&
+    string.Equals(
+        migratedDefaultHud.DashboardAnchor,
+        "bottom-right",
+        StringComparison.OrdinalIgnoreCase) &&
+    !migratedDefaultHud.DashboardShowMinimap &&
+    !migratedDefaultHud.DashboardShowMultiplayer &&
+    !migratedDefaultHud.DashboardShowSideIndicators,
+    "default Alpha.26 HUD layout was not migrated away from overlapping duplicate widgets");
+
+var customizedHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud with { DashboardX = 0.42d }])
+    ?? throw new InvalidOperationException(
+        "custom HUD settings migration returned null");
+Require(
+    string.Equals(
+        customizedHud.DashboardAnchor,
+        "free",
+        StringComparison.OrdinalIgnoreCase) &&
+    customizedHud.DashboardShowMinimap &&
+    customizedHud.DashboardShowMultiplayer &&
+    customizedHud.DashboardShowSideIndicators,
+    "HUD cleanup migration overwrote a customized layout");
+
+var untouchedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 0,
+            TelematrixSize = 0,
+            TelematrixAutoDirection = true,
+            TelematrixManualLine = null,
+            TelematrixManualDirection = "TP"
+        }])
+    ?? throw new InvalidOperationException(
+        "TeleMatrix settings migration returned null");
+Require(
+    untouchedLegacyTelematrix.TelematrixSettingsVersion == 1 &&
+    !untouchedLegacyTelematrix.TelematrixWidgetEnabled,
+    "untouched legacy TeleMatrix was not migrated to opt-in");
+
+var customizedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 1
+        }])
+    ?? throw new InvalidOperationException(
+        "custom TeleMatrix settings migration returned null");
+Require(
+    customizedLegacyTelematrix.TelematrixWidgetEnabled &&
+    customizedLegacyTelematrix.TelematrixTheme == 1,
+    "TeleMatrix cleanup migration overwrote customized settings");
 
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
@@ -286,12 +648,12 @@ Require(
         issue.Severity == CompatibilityIssueSeverity.Warning),
     "HOF mismatch must remain visible as a warning without blocking spawn.");
 
-var openOmsiInstallerType =
+var openOmsiEnvironmentType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
-        "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
+        "NavBR.Client.OpenOmsi.OpenOmsiEnvironmentLocator",
         throwOnError: true)!;
 var resolveInstalledVehicle =
-    openOmsiInstallerType.GetMethod(
+    openOmsiEnvironmentType.GetMethod(
         "ResolveInstalledVehicleFile",
         BindingFlags.Public |
         BindingFlags.Static)
@@ -323,10 +685,7 @@ try
 
     var resolvedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [
-            assetRelative.Replace('\\', '/'),
-            null
-        ]);
+        [assetRelative.Replace('\\', '/')]);
     Require(
         string.Equals(
             Path.GetFullPath(resolvedAsset ?? string.Empty),
@@ -336,14 +695,14 @@ try
 
     var escapedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"..\outside.bus", null]);
+        [@"..\outside.bus"]);
     Require(
         escapedAsset is null,
         "openOMSI content-root vehicle resolver accepted path traversal.");
 
     var invalidAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"Vehicles\NavBR_Smoke\Smoke.cfg", null]);
+        [@"Vehicles\NavBR_Smoke\Smoke.cfg"]);
     Require(
         invalidAsset is null,
         "openOMSI content-root vehicle resolver accepted a non-vehicle extension.");
@@ -678,6 +1037,158 @@ finally
     Directory.Delete(mapRoot, recursive: true);
 }
 
+var routeTraceRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-route-grid-smoke-" +
+    Guid.NewGuid().ToString("N"));
+var routeTraceMapDirectory = Path.Combine(
+    routeTraceRoot,
+    "maps",
+    "RouteGridSmoke");
+var routeTraceTtData = Path.Combine(
+    routeTraceMapDirectory,
+    "TTData");
+Directory.CreateDirectory(routeTraceTtData);
+var routeTraceGlobal = Path.Combine(
+    routeTraceMapDirectory,
+    "global.cfg");
+File.WriteAllText(
+    routeTraceGlobal,
+    """
+    [name]
+    RouteGridSmoke
+    [map]
+    183
+    104
+    tile_183_104.map
+    [map]
+    183
+    105
+    tile_183_105.map
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_104.map"),
+    "; route smoke tile A");
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_105.map"),
+    "; route smoke tile B");
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "SmokeTrack.ttr"),
+    """
+    0:
+    [track_entry]
+    733660
+    13
+    183
+    104
+    16.1000000000
+    0
+
+    1:
+    [track_entry]
+    733661
+    0
+    183
+    105
+    25.0000000000
+    0
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionA.ttp"),
+    """
+    [trip]
+    SmokeTrack
+    Terminal A
+    100
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionB.ttp"),
+    """
+    [trip]
+    OtherTrack
+    Terminal B
+    100
+    """);
+try
+{
+    var routeTraceMap = new NavBR.Client.Maps.OmsiMapInfo(
+        "RouteGridSmoke",
+        "RouteGridSmoke",
+        routeTraceMapDirectory,
+        routeTraceGlobal,
+        null,
+        2,
+        null);
+    var routeTraceLayout = new NavBR.Client.Maps.OmsiMapLayout(
+        183,
+        104,
+        183,
+        105,
+        false,
+        300d);
+    var nativeGridTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "SmokeTrack");
+    Require(
+        nativeGridTrace.Count >= 2 &&
+        nativeGridTrace[0].GridX == 183 &&
+        nativeGridTrace[0].GridY == 104 &&
+        nativeGridTrace[^1].GridX == 183 &&
+        nativeGridTrace[^1].GridY == 105,
+        "native OMSI TTR GridX/GridY track entries were not parsed correctly");
+
+    // OMSI can expose a direction/IBIS route code instead of the .ttr name.
+    // With two trips on the same line, the destination must disambiguate the
+    // correct track rather than leaving RouteAvailable false.
+    var destinationResolvedTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "01",
+            "100",
+            "Terminal A");
+    Require(
+        destinationResolvedTrace.Count >= 2 &&
+        destinationResolvedTrace[0].GridX == 183 &&
+        destinationResolvedTrace[0].GridY == 104,
+        "active OMSI route code + destination did not resolve the correct TTR trace");
+
+    var routePipelineTelemetry =
+        new VehicleTelemetry(
+            PlayerId: "route-pipeline",
+            Timestamp: DateTimeOffset.UtcNow,
+            MapName: "RouteGridSmoke",
+            VehicleName: "Route Test Bus",
+            Line: "100",
+            Route: "01",
+            X: 0d,
+            Y: 0d,
+            Z: 0d,
+            HeadingDegrees: 0d,
+            SpeedKph: 20d,
+            IsInGame: true,
+            GridX: 183,
+            GridY: 104,
+            TileX: 150d,
+            TileY: 150d,
+            DestinationName: "Terminal A");
+    var routePipelineSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            routePipelineTelemetry,
+            routeTraceLayout,
+            destinationResolvedTrace);
+    Require(
+        routePipelineSnapshot.RouteAvailable &&
+        routePipelineSnapshot.IsOnRoute,
+        "TTData -> route trace -> NavBRNavigationSnapshot pipeline did not produce an active route");
+}
+finally
+{
+    Directory.Delete(routeTraceRoot, recursive: true);
+}
+
 var openOmsiPoseRoot = Path.Combine(
     Path.GetTempPath(),
     "NavBR-openOMSI-world-pose-" +
@@ -832,6 +1343,51 @@ try
         45.0,
         0.001,
         "openOMSI anchor heading");
+
+    // Regression: the GPS must feed the projected Kachel/lane anchor into
+    // navigation, not continue evaluating the raw world-only telemetry.
+    // This mirrors the HUD pipeline after TryGetGpsDisplayAnchor.
+    var navigationGridX =
+        ReadAnchorInt(anchorType, anchorValue, "GridX");
+    var navigationGridY =
+        ReadAnchorInt(anchorType, anchorValue, "GridY");
+    var navigationTileX =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalX");
+    var navigationTileY =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalZ");
+    var anchoredNavigationTelemetry =
+        openOmsiWorldTelemetry with
+        {
+            GridX = navigationGridX,
+            GridY = navigationGridY,
+            TileX = navigationTileX,
+            TileY = navigationTileY
+        };
+    var navigationLayout =
+        new NavBR.Client.Maps.OmsiMapLayout(
+            1,
+            1,
+            1,
+            1,
+            false,
+            300d);
+    NavBR.Client.Maps.OmsiRouteTracePoint[] navigationTrace =
+    [
+        new(1, 1, 5d, navigationTileY),
+        new(1, 1, 295d, navigationTileY)
+    ];
+    var navigationSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            anchoredNavigationTelemetry,
+            navigationLayout,
+            navigationTrace);
+    Require(
+        navigationSnapshot.RouteAvailable,
+        "GPS route became unavailable after applying the projected road/Kachel anchor.");
+    Require(
+        navigationSnapshot.IsOnRoute &&
+        navigationSnapshot.OffRouteDistanceMeters < 0.01d,
+        "GPS navigation did not evaluate the player on the same projected road anchor used by the marker.");
 
     var openOmsiPresence =
         new PlayerPresence(

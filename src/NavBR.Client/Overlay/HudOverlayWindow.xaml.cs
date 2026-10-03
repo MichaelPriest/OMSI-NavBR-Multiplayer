@@ -27,6 +27,9 @@ public partial class HudOverlayWindow : Window
     private readonly List<ChatMessage> _chatMessages = [];
     private readonly Dictionary<string, PlayerTelemetryFrame> _remotePlayers = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FrameworkElement> _remoteMarkers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, FrameworkElement> _trafficMarkers = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<TrafficVehicleState> _localRoadTraffic =
+        Array.Empty<TrafficVehicleState>();
     private readonly Dictionary<string, (string DisplayName, DateTimeOffset LastFrame)> _speakers = new(StringComparer.OrdinalIgnoreCase);
 
     private GlobalKeyboardHook? _keyboardHook;
@@ -34,8 +37,9 @@ public partial class HudOverlayWindow : Window
     private IntPtr _omsiWindowHandle;
     private bool _chatInteractive;
     private bool _localPushToTalk;
+    private string? _voiceErrorMessage;
+    private DateTimeOffset _voiceErrorUntilUtc = DateTimeOffset.MinValue;
     private string _localDisplayName = "Driver";
-    private DateTimeOffset _lastChatActivity = DateTimeOffset.MinValue;
     private VehicleTelemetry? _localTelemetry;
     private OmsiMapInfo? _activeMap;
     private BitmapImage? _mapBitmap;
@@ -132,6 +136,27 @@ public partial class HudOverlayWindow : Window
         RefreshTelematrixPanel();
     }
 
+    public void UpdateLocalRoadTraffic(IReadOnlyList<TrafficVehicleState>? traffic)
+    {
+        _localRoadTraffic = traffic ?? Array.Empty<TrafficVehicleState>();
+
+        var activeIds = _localRoadTraffic
+            .Where(item => !string.IsNullOrWhiteSpace(item.TrafficId))
+            .Select(item => item.TrafficId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var staleId in _trafficMarkers.Keys
+                     .Where(id => !activeIds.Contains(id))
+                     .ToArray())
+        {
+            if (_trafficMarkers.Remove(staleId, out var marker))
+            {
+                MiniMapCanvas.Children.Remove(marker);
+            }
+        }
+
+        RenderMiniMap();
+    }
+
     public void UpdateRemotePlayer(PlayerTelemetryFrame frame)
     {
         _remotePlayers[frame.Player.PlayerId] = frame;
@@ -175,11 +200,14 @@ public partial class HudOverlayWindow : Window
             _chatMessages.RemoveRange(0, _chatMessages.Count - 6);
         }
 
-        _lastChatActivity = DateTimeOffset.UtcNow;
         ChatLinesText.Text = string.Join(
             Environment.NewLine,
             _chatMessages.Select(item => $"{item.DisplayName}: {item.Text}"));
-        ChatPanel.Visibility = Visibility.Visible;
+
+        // Incoming messages never open the gameplay chat by themselves.
+        // They remain queued and appear the next time the driver explicitly
+        // opens chat.
+        RenderChatVisibility();
     }
 
     public void MarkRemoteSpeaker(string playerId, string? displayName)
@@ -192,9 +220,13 @@ public partial class HudOverlayWindow : Window
 
     public void SetVoiceError(string message)
     {
-        VoiceDot.Fill = Brushes.OrangeRed;
-        VoiceStatusText.Text = $"Voz: {message}";
-        VoicePanel.Visibility = Visibility.Visible;
+        _voiceErrorMessage = string.IsNullOrWhiteSpace(message)
+            ? null
+            : message.Trim();
+        _voiceErrorUntilUtc = _voiceErrorMessage is null
+            ? DateTimeOffset.MinValue
+            : DateTimeOffset.UtcNow.AddSeconds(4);
+        RenderVoiceState();
     }
 
     private void SetLocalPushToTalk(bool active)
@@ -213,7 +245,9 @@ public partial class HudOverlayWindow : Window
     {
         SetLocalPushToTalk(false);
         _chatInteractive = true;
+        ChatPanel.Visibility = Visibility.Visible;
         ChatInputPanel.Visibility = Visibility.Visible;
+        RefreshVisualChat(force: true);
         SetInteractive(true);
         Show();
         Activate();
@@ -225,6 +259,7 @@ public partial class HudOverlayWindow : Window
         ChatInputBox.Clear();
         ChatInputPanel.Visibility = Visibility.Collapsed;
         _chatInteractive = false;
+        ChatPanel.Visibility = Visibility.Collapsed;
         SetInteractive(false);
     }
 
@@ -263,6 +298,21 @@ public partial class HudOverlayWindow : Window
             _speakers.Remove(stale);
         }
 
+        if (_voiceErrorMessage is not null &&
+            now < _voiceErrorUntilUtc)
+        {
+            VoiceDot.Fill = Brushes.OrangeRed;
+            VoiceStatusText.Text = $"Voz: {_voiceErrorMessage}";
+            VoicePanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (_voiceErrorMessage is not null)
+        {
+            _voiceErrorMessage = null;
+            _voiceErrorUntilUtc = DateTimeOffset.MinValue;
+        }
+
         if (_localPushToTalk)
         {
             VoiceDot.Fill = Brushes.LimeGreen;
@@ -284,17 +334,9 @@ public partial class HudOverlayWindow : Window
 
     private void RenderChatVisibility()
     {
-        if (_chatInteractive)
-        {
-            ChatPanel.Visibility = Visibility.Visible;
-            return;
-        }
-
-        if (_chatMessages.Count == 0 ||
-            DateTimeOffset.UtcNow - _lastChatActivity > TimeSpan.FromSeconds(12))
-        {
-            ChatPanel.Visibility = Visibility.Collapsed;
-        }
+        ChatPanel.Visibility = _chatInteractive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void EnsureRoadmapLoaded(OmsiMapInfo? map)
@@ -347,10 +389,13 @@ public partial class HudOverlayWindow : Window
             bitmap is null ||
             layout is null ||
             map is null ||
-            telemetry.GridX is not int gridX ||
-            telemetry.GridY is not int gridY ||
-            telemetry.TileX is not double tileX ||
-            telemetry.TileY is not double tileY ||
+            !TryGetGpsDisplayAnchor(
+                telemetry,
+                map,
+                out var gridX,
+                out var gridY,
+                out var tileX,
+                out var tileY) ||
             !RoadmapTransform.TryToPixel(
                 layout,
                 bitmap.PixelWidth,
@@ -365,6 +410,7 @@ public partial class HudOverlayWindow : Window
             MiniMapStatusText.Text = telemetry?.MapName ?? "Sem mapa";
             LocalMarker.Visibility = Visibility.Collapsed;
             HideAllRemoteMarkers();
+            HideAllTrafficMarkers();
             return;
         }
 
@@ -397,6 +443,20 @@ public partial class HudOverlayWindow : Window
                 canvasWidth,
                 canvasHeight);
         }
+
+        RenderTrafficMarkers(
+            telemetry,
+            layout,
+            bitmap,
+            gridX,
+            gridY,
+            tileX,
+            tileY,
+            localPixelX,
+            localPixelY,
+            scale,
+            canvasWidth,
+            canvasHeight);
     }
 
     private void RenderRemoteMarker(
@@ -643,6 +703,193 @@ public partial class HudOverlayWindow : Window
     private void HideAllRemoteMarkers()
     {
         foreach (var marker in _remoteMarkers.Values)
+        {
+            marker.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RenderTrafficMarkers(
+        VehicleTelemetry localTelemetry,
+        OmsiMapLayout layout,
+        BitmapImage bitmap,
+        int displayGridX,
+        int displayGridY,
+        double displayTileX,
+        double displayTileY,
+        double localPixelX,
+        double localPixelY,
+        double scale,
+        double canvasWidth,
+        double canvasHeight)
+    {
+        if (layout.TileSize is not double tileSize ||
+            layout.WorldWidth is not double worldWidth ||
+            layout.WorldHeight is not double worldHeight ||
+            !double.IsFinite(localTelemetry.X) ||
+            !double.IsFinite(localTelemetry.Z) ||
+            tileSize <= 0d ||
+            worldWidth <= 0d ||
+            worldHeight <= 0d)
+        {
+            HideAllTrafficMarkers();
+            return;
+        }
+
+        var localWorldX =
+            (displayGridX - layout.MinGridX) * tileSize + displayTileX;
+        var localWorldY =
+            (displayGridY - layout.MinGridY) * tileSize + displayTileY;
+        var visible = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var traffic in _localRoadTraffic.Take(48))
+        {
+            if (string.IsNullOrWhiteSpace(traffic.TrafficId) ||
+                !double.IsFinite(traffic.X) ||
+                !double.IsFinite(traffic.Z))
+            {
+                continue;
+            }
+
+            var trafficWorldX =
+                localWorldX + (traffic.X - localTelemetry.X);
+            var trafficWorldY =
+                localWorldY + (traffic.Z - localTelemetry.Z);
+            var pixelX =
+                trafficWorldX * bitmap.PixelWidth / worldWidth;
+            var pixelY =
+                bitmap.PixelHeight -
+                (trafficWorldY * bitmap.PixelHeight / worldHeight);
+
+            if (!double.IsFinite(pixelX) || !double.IsFinite(pixelY))
+            {
+                continue;
+            }
+
+            var x =
+                canvasWidth / 2d +
+                (pixelX - localPixelX) * scale;
+            var y =
+                canvasHeight / 2d +
+                (pixelY - localPixelY) * scale;
+            if (x < -10d || x > canvasWidth + 10d ||
+                y < -10d || y > canvasHeight + 10d)
+            {
+                HideTrafficMarker(traffic.TrafficId);
+                continue;
+            }
+
+            var marker = GetOrCreateTrafficMarker(traffic.TrafficId);
+            var safeScale =
+                Math.Max(0.01d, Math.Abs(MiniMapContentScale.ScaleX));
+            var trafficHeading = TrafficQuaternionToHeadingDegrees(
+                traffic.RotationX,
+                traffic.RotationY,
+                traffic.RotationZ,
+                traffic.RotationW);
+            marker.RenderTransform = new TransformGroup
+            {
+                Children = new TransformCollection
+                {
+                    new ScaleTransform(1d / safeScale, 1d / safeScale),
+                    new RotateTransform(trafficHeading)
+                }
+            };
+            if (marker is Grid markerGrid &&
+                markerGrid.Children.OfType<Polygon>().FirstOrDefault() is { } arrow)
+            {
+                arrow.Fill = traffic.SpeedKph < 1d
+                    ? new SolidColorBrush(Color.FromArgb(235, 112, 145, 166))
+                    : new SolidColorBrush(Color.FromArgb(235, 69, 163, 255));
+            }
+            marker.ToolTip =
+                $"{System.IO.Path.GetFileNameWithoutExtension(traffic.VehiclePath) ?? "IA"} • {traffic.SpeedKph:F0} km/h";
+            Canvas.SetLeft(marker, x - marker.Width / 2d);
+            Canvas.SetTop(marker, y - marker.Height / 2d);
+            marker.Visibility = Visibility.Visible;
+            visible.Add(traffic.TrafficId);
+        }
+
+        foreach (var pair in _trafficMarkers)
+        {
+            if (!visible.Contains(pair.Key))
+            {
+                pair.Value.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    private FrameworkElement GetOrCreateTrafficMarker(string trafficId)
+    {
+        if (_trafficMarkers.TryGetValue(trafficId, out var existing))
+        {
+            return existing;
+        }
+
+        var marker = new Grid
+        {
+            Width = 14d,
+            Height = 16d,
+            IsHitTestVisible = true,
+            RenderTransformOrigin = new Point(0.5d, 0.5d)
+        };
+        marker.Children.Add(new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(7d, 0.75d),
+                new(12.5d, 14.5d),
+                new(7d, 11.5d),
+                new(1.5d, 14.5d)
+            },
+            Fill = new SolidColorBrush(Color.FromArgb(235, 69, 163, 255)),
+            Stroke = new SolidColorBrush(Color.FromArgb(245, 240, 250, 255)),
+            StrokeThickness = 1.2d,
+            StrokeLineJoin = PenLineJoin.Round
+        });
+
+        Panel.SetZIndex(marker, 14);
+        MiniMapCanvas.Children.Add(marker);
+        _trafficMarkers[trafficId] = marker;
+        return marker;
+    }
+
+    private static double TrafficQuaternionToHeadingDegrees(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var length = Math.Sqrt(
+            x * x + y * y + z * z + w * w);
+        if (!double.IsFinite(length) ||
+            length < 0.000001d)
+        {
+            return 0d;
+        }
+
+        x /= length;
+        y /= length;
+        z /= length;
+        w /= length;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        return NormalizeMarkerAngle(
+            Math.Atan2(sinYaw, cosYaw) *
+            (180d / Math.PI));
+    }
+
+    private void HideTrafficMarker(string trafficId)
+    {
+        if (_trafficMarkers.TryGetValue(trafficId, out var marker))
+        {
+            marker.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void HideAllTrafficMarkers()
+    {
+        foreach (var marker in _trafficMarkers.Values)
         {
             marker.Visibility = Visibility.Collapsed;
         }

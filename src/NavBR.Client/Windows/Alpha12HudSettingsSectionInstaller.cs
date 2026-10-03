@@ -322,7 +322,7 @@ internal static class Alpha12HudSettingsSectionInstaller
             var current = MultiplayerSettingsStore.Load();
             MultiplayerSettingsStore.Save(current with
             {
-                DashboardSettingsVersion = 3,
+                DashboardSettingsVersion = 4,
                 HudVisibilitySettingsVersion = 1,
                 HudEnabled = hudEnabledCheck.IsChecked == true,
                 TelematrixWidgetEnabled = telematrixCheck.IsChecked == true,

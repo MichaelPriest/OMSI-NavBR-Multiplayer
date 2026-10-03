@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
@@ -6,7 +9,9 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 using NavBR.Client.Omsi;
+using NavBR.Client.OpenOmsi;
 using NavBR.Client.Windows;
+using NavBR.Client.Updates;
 using NavBR.Client.Operations;
 using NavBR.Client.PluginInstaller;
 
@@ -17,7 +22,6 @@ namespace NavBR.Client;
 public partial class MainWindow
 {
     private string? _webOmsiLaunchNotice;
-    private string? _webOpenOmsiNotice;
     private string? _webSessionHealthNotice;
     private const long OmsiProcessProbeCacheMs = 3_000;
     private long _webOmsiProcessProbeTickMs;
@@ -98,6 +102,38 @@ public partial class MainWindow
         }
     }
 
+    private static object? BuildApplicationUpdateState()
+    {
+        if (Application.Current is not App app)
+        {
+            return null;
+        }
+
+        var update = app.AutoUpdater.GetSnapshot();
+        var preferences = NavBRAutoUpdatePreferencesStore.Load();
+        return new
+        {
+            status = update.Status,
+            currentVersion = update.CurrentVersion,
+            availableVersion = update.AvailableVersion,
+            releaseUrl = update.ReleaseUrl,
+            progressPercent = update.ProgressPercent,
+            downloadedBytes = update.DownloadedBytes,
+            totalBytes = update.TotalBytes,
+            releaseNotes = update.ReleaseNotes,
+            updateAvailable = update.UpdateAvailable,
+            readyToInstall = update.ReadyToInstall,
+            checkedAtUtc = update.CheckedAtUtc,
+            message = update.Message,
+            lastInstalledFromVersion = update.LastInstalledFromVersion,
+            lastInstalledToVersion = update.LastInstalledToVersion,
+            lastInstallCompletedAtUtc = update.LastInstallCompletedAtUtc,
+            channel = preferences.Channel,
+            checkAtStartup = preferences.CheckAtStartup,
+            autoDownload = preferences.AutoDownload
+        };
+    }
+
     private object BuildWebSystemState(
         MultiplayerSettings? hudSettings = null,
         string? scope = null)
@@ -126,9 +162,9 @@ public partial class MainWindow
                     telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                     hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
                 },
+                applicationUpdate = BuildApplicationUpdateState(),
                 mobileCompanion = (object?)null,
                 pluginInstallation = (object?)null,
-                openOmsiPlugin = (object?)null,
                 openOmsiLanGateway = (object?)null,
                 installations = (object?)null,
                 hud = (object?)null,
@@ -146,29 +182,17 @@ public partial class MainWindow
         var pluginOmsiRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
         var pluginInstall = GetPluginInstallDiagnostics(pluginOmsiRoot);
         var omsiRunningForPluginUpdate = IsOmsiProcessRunningForPluginUpdate();
-        var openOmsiPlugin =
-            OpenOmsiPluginInstallationService.Verify();
-        var openOmsiRunning =
-            OpenOmsiPluginInstallationService.IsOpenOmsiRunning();
         var openOmsiLanGateway =
             OpenOmsiLanGateway.Shared.GetStatus();
         var openOmsiLanRuntime =
             OpenOmsiLanRuntimeStatusReader.Read(
                 _openOmsiProcessId ??
-                OpenOmsiPluginInstallationService.GetRunningProcessId(),
+                OpenOmsiEnvironmentLocator.GetRunningProcessId(),
                 _openOmsiInstanceId);
         var openOmsiRuntimePeers =
             openOmsiLanRuntime?.Players.ToDictionary(
                 player => player.Id) ??
             new Dictionary<uint, OpenOmsiLanRuntimePeer>();
-        var openOmsiInstallBlockReason =
-            !OpenOmsiPluginInstallationService.HasEmbeddedPackage
-                ? "package-missing"
-                : string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath)
-                    ? "openomsi-not-found"
-                    : openOmsiRunning
-                        ? "openomsi-running"
-                        : null;
         var pluginInstallBlockReason =
             !OmsiPluginInstallationService.HasEmbeddedPackage
                 ? "package-missing"
@@ -202,6 +226,7 @@ public partial class MainWindow
                     telemetryAverageReadMilliseconds = _averageTelemetryPollMilliseconds,
                 hudRefreshIntervalMilliseconds = _hudRefreshIntervalMs
             },
+            applicationUpdate = BuildApplicationUpdateState(),
             mobileCompanion = BuildMobileCompanionDesktopState(),
             pluginInstallation = new
             {
@@ -233,35 +258,6 @@ public partial class MainWindow
                     hashMatches = file.HashMatches
                 }).ToArray(),
                 omsiRunning = omsiRunningForPluginUpdate
-            },
-            openOmsiPlugin = new
-            {
-                state = openOmsiPlugin.Status,
-                executablePath = openOmsiPlugin.ExecutablePath,
-                contentRoot = openOmsiPlugin.ContentRoot,
-                pluginDirectory = openOmsiPlugin.PluginDirectory,
-                embeddedPackageAvailable =
-                    OpenOmsiPluginInstallationService.HasEmbeddedPackage,
-                installAvailable = openOmsiInstallBlockReason is null,
-                installBlockReason = openOmsiInstallBlockReason,
-                verificationAvailable =
-                    OpenOmsiPluginInstallationService.HasEmbeddedPackage &&
-                    !string.IsNullOrWhiteSpace(openOmsiPlugin.ExecutablePath),
-                updateRequired = openOmsiPlugin.UpdateRequired,
-                expectedVersion = openOmsiPlugin.ExpectedVersion,
-                installedVersion = openOmsiPlugin.InstalledVersion,
-                requiredFilesFound = openOmsiPlugin.RequiredFilesFound,
-                requiredFilesTotal = openOmsiPlugin.RequiredFilesTotal,
-                verifiedFiles = openOmsiPlugin.VerifiedFiles,
-                checkedAtUtc = openOmsiPlugin.CheckedAtUtc,
-                message = _webOpenOmsiNotice ?? openOmsiPlugin.Message,
-                files = openOmsiPlugin.Files.Select(file => new
-                {
-                    name = file.Name,
-                    exists = file.Exists,
-                    hashMatches = file.HashMatches
-                }).ToArray(),
-                running = openOmsiRunning
             },
             openOmsiLanGateway = new
             {
@@ -414,9 +410,15 @@ public partial class MainWindow
                 showAlerts = hudSettings.DashboardShowAlerts,
                 showSideIndicators = hudSettings.DashboardShowSideIndicators,
                 minimapScale = hudSettings.DashboardMinimapScale,
+                mapZoom = hudSettings.HudZoom,
+                minimapStyle = NormalizeDashboardMinimapStyle(
+                    hudSettings.DashboardMinimapStyle),
                 multiplayerScale = hudSettings.DashboardMultiplayerScale,
                 alertsScale = hudSettings.DashboardAlertsScale,
                 sideIndicatorsScale = hudSettings.DashboardSideIndicatorsScale,
+                telematrixEnabled = hudSettings.TelematrixWidgetEnabled,
+                telematrixTheme = hudSettings.TelematrixTheme,
+                telematrixSize = hudSettings.TelematrixSize,
                 presets = HudProfileCatalog.Presets
                     .Select(item => new
                     {
@@ -857,12 +859,20 @@ public partial class MainWindow
         }
     }
 
+    private static string NormalizeDashboardMinimapStyle(string? value) =>
+        string.Equals(
+            value?.Trim(),
+            "circular",
+            StringComparison.OrdinalIgnoreCase)
+            ? "circular"
+            : "rectangular";
+
     private static MultiplayerSettings BuildHudSettingsFromWeb(JsonElement? payload)
     {
         var current = MultiplayerSettingsStore.Load();
         return current with
         {
-            DashboardSettingsVersion = 3,
+            DashboardSettingsVersion = 4,
             DashboardEnabled = GetWebPayloadBool(payload, "enabled"),
             DashboardPreset = HudProfileCatalog.ResolvePreset(
                 GetWebPayloadString(payload, "preset")).Id,
@@ -898,6 +908,13 @@ public partial class MainWindow
                 GetWebPayloadDouble(payload, "minimapScale") ?? current.DashboardMinimapScale,
                 0.55d,
                 2d),
+            HudZoom = Math.Clamp(
+                GetWebPayloadDouble(payload, "mapZoom") ?? current.HudZoom,
+                0.65d,
+                10d),
+            DashboardMinimapStyle = NormalizeDashboardMinimapStyle(
+                GetWebPayloadString(payload, "minimapStyle") ??
+                current.DashboardMinimapStyle),
             DashboardMultiplayerScale = Math.Clamp(
                 GetWebPayloadDouble(payload, "multiplayerScale") ?? current.DashboardMultiplayerScale,
                 0.55d,
@@ -909,7 +926,20 @@ public partial class MainWindow
             DashboardSideIndicatorsScale = Math.Clamp(
                 GetWebPayloadDouble(payload, "sideIndicatorsScale") ?? current.DashboardSideIndicatorsScale,
                 0.55d,
-                2d)
+                2d),
+            TelematrixSettingsVersion = 1,
+            TelematrixWidgetEnabled = GetWebPayloadBool(
+                payload,
+                "telematrixEnabled",
+                current.TelematrixWidgetEnabled),
+            TelematrixTheme = Math.Clamp(
+                GetWebPayloadInt(payload, "telematrixTheme") ?? current.TelematrixTheme,
+                0,
+                2),
+            TelematrixSize = Math.Clamp(
+                GetWebPayloadInt(payload, "telematrixSize") ?? current.TelematrixSize,
+                0,
+                2)
         };
     }
 
@@ -939,15 +969,25 @@ public partial class MainWindow
             current,
             HudProfileCatalog.DefaultPreset) with
         {
+            DashboardSettingsVersion = 4,
             DashboardEnabled = true,
             DashboardTheme = HudProfileCatalog.DefaultTheme,
-            DashboardAnchor = HudProfileCatalog.DefaultAnchor,
+            DashboardAnchor = "bottom-right",
             DashboardHeight = 0d,
             DashboardAutoScale = true,
+            DashboardShowMinimap = false,
+            DashboardShowMultiplayer = false,
+            DashboardShowAlerts = true,
+            DashboardShowSideIndicators = false,
             DashboardMinimapScale = 1d,
+            DashboardMinimapStyle = "rectangular",
             DashboardMultiplayerScale = 1d,
             DashboardAlertsScale = 1d,
-            DashboardSideIndicatorsScale = 1d
+            DashboardSideIndicatorsScale = 1d,
+            TelematrixSettingsVersion = 1,
+            TelematrixWidgetEnabled = false,
+            TelematrixTheme = 0,
+            TelematrixSize = 0
         };
         MultiplayerSettingsStore.ClearHudPreview();
         MultiplayerSettingsStore.Save(reset);
@@ -1099,6 +1139,261 @@ public partial class MainWindow
             dialog.FileName,
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         _webSessionHealthNotice = "Relatório sanitizado de saúde da sessão exportado com sucesso.";
+    }
+
+    private void ExportDiagnosticBundleFromWeb()
+    {
+        _webSessionHealthNotice = null;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exportar pacote de diagnóstico sanitizado do NavBR",
+            Filter = "NavBR Diagnostics (*.navbr-diagnostics.zip)|*.navbr-diagnostics.zip|ZIP (*.zip)|*.zip",
+            FileName = $"navbr-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.navbr-diagnostics.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var workingDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "NavBR-Diagnostics-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workingDirectory);
+
+        try
+        {
+            var profiles = OmsiInstallationProfileStore.Load();
+            var pluginRoot = ResolveConfiguredOmsiRootForPlugin(profiles);
+            var plugin = GetPluginInstallDiagnostics(pluginRoot);
+            var gateway = OpenOmsiLanGateway.Shared.GetStatus();
+            var update = (Application.Current as App)?.AutoUpdater.GetSnapshot();
+
+            var summary = new
+            {
+                schema = "navbr-diagnostics",
+                version = 1,
+                exportedAtUtc = DateTimeOffset.UtcNow,
+                navbrVersion = NavBRVersionInfo.Current,
+                sessionHealth = BuildWebSessionHealthState(),
+                omsiPlugin = new
+                {
+                    state = plugin.State,
+                    requiredFilesFound = plugin.RequiredFilesFound,
+                    verifiedFiles = plugin.VerifiedFiles,
+                    manifest = plugin.Manifest,
+                    updateRequired = plugin.UpdateRequired,
+                    expectedVersion = plugin.ExpectedVersion,
+                    installedVersion = plugin.InstalledVersion,
+                    files = plugin.Files.Select(file => new
+                    {
+                        name = file.Name,
+                        exists = file.Exists,
+                        hashMatches = file.HashMatches
+                    }).ToArray()
+                },
+                applicationUpdate = update is null
+                    ? null
+                    : new
+                    {
+                        status = update.Status,
+                        currentVersion = update.CurrentVersion,
+                        availableVersion = update.AvailableVersion,
+                        progressPercent = update.ProgressPercent,
+                        updateAvailable = update.UpdateAvailable,
+                        readyToInstall = update.ReadyToInstall,
+                        checkedAtUtc = update.CheckedAtUtc
+                    },
+                openOmsiGateway = new
+                {
+                    running = gateway.Running,
+                    clientConnected = gateway.ClientConnected,
+                    remotePlayers = gateway.RemotePlayers,
+                    localStateFrames = gateway.LocalStateFrames,
+                    localStateRateHz = gateway.LocalStateRateHz,
+                    vehicleIdentityReady =
+                        !string.IsNullOrWhiteSpace(gateway.VehiclePath),
+                    hasLastError = !string.IsNullOrWhiteSpace(gateway.LastError)
+                },
+                hardware = new
+                {
+                    connected = Hardware.HardwareCockpitBridgeController.Shared
+                        .Snapshot(GetCurrentTelemetryForAlpha11())
+                        .Connected
+                },
+                privacy = new
+                {
+                    rawPasswordsIncluded = false,
+                    rawTokensIncluded = false,
+                    roomIdsIncluded = false,
+                    playerIdsIncluded = false,
+                    ipAddressesIncluded = false,
+                    localPathsIncluded = false,
+                    rawLogIncluded = false,
+                    logSanitized = File.Exists(NavBRAppLog.LogPath)
+                }
+            };
+
+            File.WriteAllText(
+                Path.Combine(workingDirectory, "summary.json"),
+                JsonSerializer.Serialize(
+                    summary,
+                    new JsonSerializerOptions { WriteIndented = true }),
+                new UTF8Encoding(false));
+
+            var sanitizedLog = ReadSanitizedDiagnosticLogTail();
+            if (!string.IsNullOrWhiteSpace(sanitizedLog))
+            {
+                File.WriteAllText(
+                    Path.Combine(workingDirectory, "navbr-sanitized.log"),
+                    sanitizedLog,
+                    new UTF8Encoding(false));
+            }
+
+            File.WriteAllText(
+                Path.Combine(workingDirectory, "PRIVACY.txt"),
+                "This diagnostic package is sanitized by NavBR before export. " +
+                "Passwords, tokens, room/player identifiers, IP addresses, email addresses " +
+                "and local filesystem paths are removed or replaced. Raw logs are never included.",
+                new UTF8Encoding(false));
+
+            if (File.Exists(dialog.FileName))
+            {
+                File.Delete(dialog.FileName);
+            }
+
+            ZipFile.CreateFromDirectory(
+                workingDirectory,
+                dialog.FileName,
+                CompressionLevel.Optimal,
+                includeBaseDirectory: false);
+
+            _webSessionHealthNotice =
+                "Pacote de diagnóstico sanitizado exportado com sucesso.";
+        }
+        catch (Exception ex)
+        {
+            _webSessionHealthNotice =
+                $"Não foi possível exportar o pacote de diagnóstico: {ex.Message}";
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(workingDirectory, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private static string? ReadSanitizedDiagnosticLogTail()
+    {
+        try
+        {
+            if (!File.Exists(NavBRAppLog.LogPath))
+            {
+                return null;
+            }
+
+            const int maximumBytes = 2 * 1024 * 1024;
+            using var stream = new FileStream(
+                NavBRAppLog.LogPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            if (stream.Length > maximumBytes)
+            {
+                stream.Seek(-maximumBytes, SeekOrigin.End);
+            }
+
+            using var reader = new StreamReader(
+                stream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true);
+            var text = reader.ReadToEnd();
+            return SanitizeDiagnosticText(text);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SanitizeDiagnosticText(string value)
+    {
+        var sanitized = value;
+
+        var userProfile = Environment.GetFolderPath(
+            Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            sanitized = sanitized.Replace(
+                userProfile,
+                "[user-profile]",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        var localAppData = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            sanitized = sanitized.Replace(
+                localAppData,
+                "[local-app-data]",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\bAuthorization\s*[=:]\s*(?:Bearer|Basic)\s+[^\s,;]+",
+            "Authorization=[redacted]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)(?<key>""?(?:password|passwd|token|secret|authorization|api[-_]?key|invite(?:code)?|room(?:id)?|player(?:id)?|session(?:token)?)""?\s*[=:]\s*)(?<value>""[^""\r\n]*""|[^\s,;}\]]+)",
+            match => match.Groups["key"].Value + "[redacted]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"\b(?:\d{1,3}\.){3}\d{1,3}\b",
+            "[ip]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?<![0-9A-Fa-f:.])(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}(?![0-9A-Fa-f:.])",
+            match =>
+                System.Net.IPAddress.TryParse(match.Value, out var address) &&
+                address.AddressFamily ==
+                    System.Net.Sockets.AddressFamily.InterNetworkV6
+                    ? "[ip]"
+                    : match.Value);
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+            "[id]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[A-Z]:\\[^\r\n\t\""]+",
+            "[path]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\\\\[^\\\s""]+\\[^\r\n\t""]+",
+            "[path]");
+
+        sanitized = Regex.Replace(
+            sanitized,
+            @"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+            "[email]");
+
+        return sanitized;
     }
 
     private static void SaveLegacyPreferencesFromWeb(bool advancedModeEnabled, bool showDrivingTips)

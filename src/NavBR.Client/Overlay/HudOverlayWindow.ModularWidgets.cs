@@ -36,6 +36,7 @@ public partial class HudOverlayWindow
 {
     private Border? _modularWidgetsRoot;
     private Border? _modularMinimapWidget;
+    private Border? _modularMinimapMapFrame;
     private Border? _modularMultiplayerWidget;
     private Border? _modularAlertsWidget;
     private Border? _modularSideIndicatorsWidget;
@@ -73,6 +74,8 @@ public partial class HudOverlayWindow
         _modularWidgetsTimer.Start();
 
         MultiplayerSettingsStore.SettingsSaved += ModularWidgets_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += ModularWidgets_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += ModularWidgets_PreviewCleared;
         Closed += ModularWidgets_Closed;
 
         ApplyModularWidgetSettings(MultiplayerSettingsStore.Load());
@@ -129,34 +132,26 @@ public partial class HudOverlayWindow
         grid.Children.Add(_modularMinimapTitle);
 
         var map = new Grid { Margin = new Thickness(0d, 6d, 0d, 0d) };
-        map.Children.Add(new Border
+        _modularMinimapMapFrame = new Border
         {
             CornerRadius = new CornerRadius(7d),
             BorderBrush = new SolidColorBrush(Color.FromArgb(75, 255, 255, 255)),
             BorderThickness = new Thickness(1d),
-            Background = new VisualBrush(MiniMapCanvas)
+            ClipToBounds = true,
+            Background = new VisualBrush(MiniMapViewport)
             {
                 Stretch = Stretch.UniformToFill,
                 AlignmentX = AlignmentX.Center,
                 AlignmentY = AlignmentY.Center
             }
-        });
-        map.Children.Add(new TextBlock
-        {
-            Text = "▲",
-            Foreground = Brushes.White,
-            FontSize = 19d,
-            FontWeight = FontWeights.Black,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Effect = Application.Current.TryFindResource("HudShadow") as System.Windows.Media.Effects.Effect
-        });
+        };
+        map.Children.Add(_modularMinimapMapFrame);
         Grid.SetRow(map, 1);
         grid.Children.Add(map);
 
         var panel = NewWidgetBorder(grid, new Thickness(0d, 0d, 3d, 0d));
         panel.Height = 132d;
-        panel.ToolTip = "Modo de edição: roda = tamanho do minimapa";
+        panel.ToolTip = "Modo de edição: roda = zoom do GPS";
         panel.PreviewMouseWheel += MinimapWidget_PreviewMouseWheel;
         return panel;
     }
@@ -228,12 +223,40 @@ public partial class HudOverlayWindow
 
     private void ModularWidgets_SettingsSaved(MultiplayerSettings settings)
     {
-        _ = Dispatcher.BeginInvoke(() => ApplyModularWidgetSettings(settings));
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
+    }
+
+    private void ModularWidgets_PreviewChanged(MultiplayerSettings settings)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
+    }
+
+    private void ModularWidgets_PreviewCleared()
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
     }
 
     private void ModularWidgets_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ModularWidgets_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= ModularWidgets_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= ModularWidgets_PreviewCleared;
         if (_modularWidgetsTimer is not null)
         {
             _modularWidgetsTimer.Stop();
@@ -250,6 +273,18 @@ public partial class HudOverlayWindow
             return;
         }
 
+        _hudSettings = settings;
+        var composedPreset = HudProfileCatalog.IsComposedPreset(settings.DashboardPreset);
+        var integratedMinimap =
+            settings.DashboardEnabled &&
+            settings.DashboardShowMinimap &&
+            !composedPreset;
+        if (!_immersiveOperationActive)
+        {
+            MiniMapHudPanel.Opacity = integratedMinimap ? 0.01d : 1d;
+            MiniMapHudPanel.IsHitTestVisible = !integratedMinimap;
+        }
+
         _modularMinimapWidget!.Visibility = settings.DashboardShowMinimap
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -263,20 +298,79 @@ public partial class HudOverlayWindow
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        _modularMinimapWidget.Height = Math.Clamp(132d * settings.DashboardMinimapScale, 78d, 264d);
+        var minimapHeight = Math.Clamp(
+            132d * settings.DashboardMinimapScale,
+            78d,
+            264d);
+        _modularMinimapWidget.Height = minimapHeight;
+        if (_modularMinimapMapFrame is not null)
+        {
+            var circular = string.Equals(
+                settings.DashboardMinimapStyle,
+                "circular",
+                StringComparison.OrdinalIgnoreCase);
+            if (circular)
+            {
+                var diameter = Math.Clamp(
+                    minimapHeight,
+                    78d,
+                    220d);
+
+                _modularMinimapTitle!.Visibility = Visibility.Collapsed;
+                _modularMinimapWidget.Width = diameter;
+                _modularMinimapWidget.Height = diameter;
+                _modularMinimapWidget.Padding = new Thickness(5d);
+                _modularMinimapWidget.CornerRadius =
+                    new CornerRadius(diameter / 2d);
+                _modularMinimapWidget.ClipToBounds = true;
+                _modularMinimapWidget.Clip = new EllipseGeometry(
+                    new Point(diameter / 2d, diameter / 2d),
+                    diameter / 2d,
+                    diameter / 2d);
+
+                var innerDiameter = Math.Max(1d, diameter - 10d);
+                _modularMinimapMapFrame.Width = innerDiameter;
+                _modularMinimapMapFrame.Height = innerDiameter;
+                _modularMinimapMapFrame.HorizontalAlignment =
+                    HorizontalAlignment.Center;
+                _modularMinimapMapFrame.VerticalAlignment =
+                    VerticalAlignment.Center;
+                _modularMinimapMapFrame.CornerRadius =
+                    new CornerRadius(innerDiameter / 2d);
+                _modularMinimapMapFrame.Clip = new EllipseGeometry(
+                    new Point(innerDiameter / 2d, innerDiameter / 2d),
+                    innerDiameter / 2d,
+                    innerDiameter / 2d);
+            }
+            else
+            {
+                _modularMinimapTitle!.Visibility = Visibility.Visible;
+                _modularMinimapWidget.ClearValue(WidthProperty);
+                _modularMinimapWidget.Height = minimapHeight;
+                _modularMinimapWidget.Padding =
+                    new Thickness(9d, 7d, 9d, 7d);
+                _modularMinimapWidget.CornerRadius =
+                    new CornerRadius(8d);
+                _modularMinimapWidget.ClipToBounds = false;
+                _modularMinimapWidget.Clip = null;
+
+                _modularMinimapMapFrame.ClearValue(WidthProperty);
+                _modularMinimapMapFrame.ClearValue(HeightProperty);
+                _modularMinimapMapFrame.HorizontalAlignment =
+                    HorizontalAlignment.Stretch;
+                _modularMinimapMapFrame.VerticalAlignment =
+                    VerticalAlignment.Stretch;
+                _modularMinimapMapFrame.CornerRadius =
+                    new CornerRadius(7d);
+                _modularMinimapMapFrame.Clip = null;
+            }
+        }
         _modularMultiplayerWidget.MinHeight = Math.Clamp(132d * settings.DashboardMultiplayerScale, 78d, 264d);
         _modularMultiplayerText!.FontSize = Math.Clamp(10d * settings.DashboardMultiplayerScale, 8d, 18d);
         _modularAlertsText!.FontSize = Math.Clamp(10d * settings.DashboardAlertsScale, 8d, 18d);
         _modularSideIndicatorsText!.FontSize = Math.Clamp(10d * settings.DashboardSideIndicatorsScale, 8d, 18d);
 
-        _modularWidgetsRoot.Visibility =
-            settings.DashboardShowMinimap ||
-            settings.DashboardShowMultiplayer ||
-            settings.DashboardShowAlerts ||
-            settings.DashboardShowSideIndicators
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-
+        UpdateModularWidgetsRootVisibility();
         ApplyModularWidgetTheme(settings.DashboardTheme);
     }
 
@@ -297,6 +391,24 @@ public partial class HudOverlayWindow
                 ? "MINIMAPA"
                 : $"MINIMAPA • {_localTelemetry.MapName}";
         }
+
+        UpdateModularWidgetsRootVisibility();
+    }
+
+    private void UpdateModularWidgetsRootVisibility()
+    {
+        if (_modularWidgetsRoot is null)
+        {
+            return;
+        }
+
+        var anyVisible =
+            _modularMinimapWidget?.Visibility == Visibility.Visible ||
+            _modularMultiplayerWidget?.Visibility == Visibility.Visible ||
+            _modularAlertsWidget?.Visibility == Visibility.Visible ||
+            _modularSideIndicatorsWidget?.Visibility == Visibility.Visible;
+        _modularWidgetsRoot.Visibility =
+            anyVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RenderModularMultiplayerWidget()
@@ -359,11 +471,17 @@ public partial class HudOverlayWindow
             return;
         }
 
+        if (!_hudSettings.DashboardShowAlerts)
+        {
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         var telemetry = _localTelemetry;
         if (telemetry is null)
         {
-            _modularAlertsText.Text = DashboardText("Sem telemetria do ônibus", "No bus telemetry");
-            _modularAlertsText.Foreground = new SolidColorBrush(Color.FromRgb(135, 154, 168));
+            _modularAlertsText.Text = string.Empty;
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -397,11 +515,12 @@ public partial class HudOverlayWindow
 
         if (alerts.Count == 0)
         {
-            _modularAlertsText.Text = DashboardText("Operação normal", "Normal operation");
-            _modularAlertsText.Foreground = new SolidColorBrush(Color.FromRgb(91, 214, 141));
+            _modularAlertsText.Text = string.Empty;
+            _modularAlertsWidget!.Visibility = Visibility.Collapsed;
             return;
         }
 
+        _modularAlertsWidget!.Visibility = Visibility.Visible;
         _modularAlertsText.Text = string.Join("  •  ", alerts.Take(4));
         _modularAlertsText.Foreground = critical
             ? new SolidColorBrush(Color.FromRgb(255, 104, 104))
@@ -491,8 +610,23 @@ public partial class HudOverlayWindow
 
     private void MinimapWidget_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        ResizeModularWidget(e, _hudSettings.DashboardMinimapScale,
-            value => _hudSettings with { DashboardMinimapScale = value });
+        if (!_hudLayoutEditMode)
+        {
+            return;
+        }
+
+        var multiplier = e.Delta > 0 ? 1.15d : 1d / 1.15d;
+        _hudSettings = _hudSettings with
+        {
+            HudZoom = Math.Clamp(
+                _hudSettings.HudZoom * multiplier,
+                0.65d,
+                10d)
+        };
+        _renderedHudZoom = _hudSettings.HudZoom;
+        MultiplayerSettingsStore.Save(_hudSettings);
+        RenderEnhancedMiniMap();
+        e.Handled = true;
     }
 
     private void MultiplayerWidget_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

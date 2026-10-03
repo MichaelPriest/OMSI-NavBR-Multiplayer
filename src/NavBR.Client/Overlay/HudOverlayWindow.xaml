@@ -279,12 +279,6 @@
                                            FontSize="11" />
                             </StackPanel>
                         </Border>
-                        <Border Background="#28FFFFFF" CornerRadius="7" Padding="8,4" Margin="0,0,6,0">
-                            <TextBlock Text="💬 CHAT" FontFamily="Segoe UI Emoji" Foreground="#EFFFFFFF" FontSize="10" />
-                        </Border>
-                        <Border Background="#28FFFFFF" CornerRadius="7" Padding="8,4">
-                            <TextBlock Text="🎙 PTT" FontFamily="Segoe UI Emoji" Foreground="#EFFFFFFF" FontSize="10" />
-                        </Border>
                         <Button x:Name="RoleplayHudButton"
                                 Margin="6,0,0,0"
                                 MinWidth="92"
@@ -334,11 +328,8 @@
                                    FontSize="9"
                                    FontWeight="SemiBold" />
                         <TextBlock x:Name="HudShortcutsText"
-                                   Margin="0,2,0,0"
-                                   Text="F9 chat • F10 PTT"
-                                   HorizontalAlignment="Right"
-                                   Foreground="#AFFFFFFF"
-                                   FontSize="9" />
+                                   Visibility="Collapsed"
+                                   HorizontalAlignment="Right" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -501,13 +492,10 @@
 
             <Grid x:Name="MiniMapHudPanel"
                   HorizontalAlignment="Left"
-                  Width="680">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="300" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                  Width="300">
 
-                <Grid Width="300" Height="190" HorizontalAlignment="Left">
+                <Grid x:Name="MiniMapViewport"
+                      Width="300" Height="190" HorizontalAlignment="Left">
                     <Border x:Name="MiniMapFrame"
                             Background="#D60D1319"
                             BorderBrush="#78FFFFFF"
@@ -563,6 +551,17 @@
                         </Canvas>
                     </Border>
 
+                    <Ellipse x:Name="MiniMapCircularBorder"
+                             Width="186"
+                             Height="186"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Stroke="#BFFFFFFF"
+                             StrokeThickness="2"
+                             Fill="Transparent"
+                             IsHitTestVisible="False"
+                             Visibility="Collapsed" />
+
                     <Grid x:Name="LocalMarker"
                           Width="42" Height="42"
                           HorizontalAlignment="Center"
@@ -594,6 +593,35 @@
                                  HorizontalAlignment="Center" />
                     </Grid>
 
+                    <Border x:Name="MiniMapTurnOverlay"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Margin="8"
+                            Background="#E3121820"
+                            BorderBrush="#8CFF9D24"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="7,4"
+                            Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="MiniMapTurnArrowText"
+                                       Text="↑"
+                                       Foreground="#FFFFA62B"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,5,0" />
+                            <TextBlock x:Name="MiniMapTurnInstructionText"
+                                       Text="100 m"
+                                       Foreground="White"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="92" />
+                        </StackPanel>
+                    </Border>
+
                     <Border HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
                             Margin="9"
@@ -603,97 +631,14 @@
                         <TextBlock x:Name="MiniMapZoomText"
                                    Foreground="#E8FFFFFF"
                                    FontSize="10"
-                                   Text="1.0×" />
+                                   Text="1.0×"
+                                   Visibility="Collapsed" />
                     </Border>
 
-                    <Border HorizontalAlignment="Center"
-                            VerticalAlignment="Top"
-                            Margin="0,8,0,0"
-                            Background="#BC0C1117"
-                            CornerRadius="7"
-                            Padding="8,3">
-                        <TextBlock Text="GPS • SENTIDO PARA CIMA"
-                                   Foreground="#CFFFFFFF"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
-                    </Border>
                 </Grid>
 
-                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom">
-                    <Border Background="#B50B0F14"
-                            BorderBrush="#32FFFFFF"
-                            BorderThickness="1"
-                            CornerRadius="9"
-                            Padding="10,8">
-                        <StackPanel>
-                            <TextBlock Text="NAVBR DRIVE"
-                                       Foreground="#FFFF9D24"
-                                       FontSize="10"
-                                       FontWeight="Bold" />
-                            <TextBlock Text="GPS orientado pelo sentido do ônibus"
-                                       Margin="0,4,0,0"
-                                       Foreground="White"
-                                       FontSize="11"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="Mapa e rota giram; o seu marcador permanece apontando para cima."
-                                       Margin="0,4,0,0"
-                                       Foreground="#AFFFFFFF"
-                                       FontSize="10"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+
             </Grid>
-
-            <Border x:Name="ChatPanel"
-                    Width="680"
-                    HorizontalAlignment="Left"
-                    Background="#D70B0F14"
-                    BorderBrush="#45FFFFFF"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="10,8"
-                    Margin="0,8,0,0"
-                    Visibility="Collapsed"
-                    Effect="{StaticResource HudShadow}">
-                <TextBlock x:Name="ChatLinesText"
-                           Foreground="White"
-                           FontSize="13"
-                           TextWrapping="Wrap" />
-            </Border>
-
-            <Border x:Name="ChatInputPanel"
-                    Width="680"
-                    HorizontalAlignment="Left"
-                    Margin="0,6,0,0"
-                    Background="#F20B0F14"
-                    BorderBrush="#FFFF8C00"
-                    BorderThickness="1.5"
-                    CornerRadius="10"
-                    Padding="9"
-                    Visibility="Collapsed"
-                    Effect="{StaticResource HudShadow}">
-                <DockPanel>
-                    <Border DockPanel.Dock="Left"
-                            Background="#2CFF8C00"
-                            CornerRadius="6"
-                            Padding="7,3"
-                            Margin="0,0,8,0">
-                        <TextBlock x:Name="ChatInputLabelText"
-                                   Text="CHAT"
-                                   Foreground="#FFFFA62B"
-                                   FontWeight="Bold"
-                                   VerticalAlignment="Center" />
-                    </Border>
-                    <TextBox x:Name="ChatInputBox"
-                             Background="Transparent"
-                             Foreground="White"
-                             BorderThickness="0"
-                             FontSize="15"
-                             MaxLength="280"
-                             KeyDown="ChatInputBox_KeyDown" />
-                </DockPanel>
-            </Border>
 
             <Border x:Name="HotkeyWarningPanel"
                     Margin="0,6,0,0"
@@ -709,6 +654,60 @@
                            Foreground="#FFFFD27A"
                            FontSize="11"
                            TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="ChatOverlayDock"
+                    Panel.ZIndex="1400"
+                    MaxWidth="560"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Margin="24,0,24,36">
+            <Border x:Name="ChatPanel"
+                    HorizontalAlignment="Stretch"
+                    Background="#E60B0F14"
+                    BorderBrush="#78FF9D24"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="12,10"
+                    Visibility="Collapsed"
+                    Effect="{StaticResource HudShadow}">
+                <TextBlock x:Name="ChatLinesText"
+                           Foreground="White"
+                           FontSize="13"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <Border x:Name="ChatInputPanel"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,8,0,0"
+                    Background="#F20B0F14"
+                    BorderBrush="#FFFF8C00"
+                    BorderThickness="1.5"
+                    CornerRadius="12"
+                    Padding="10"
+                    Visibility="Collapsed"
+                    Effect="{StaticResource HudShadow}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left"
+                            Background="#2CFF8C00"
+                            CornerRadius="7"
+                            Padding="8,4"
+                            Margin="0,0,9,0">
+                        <TextBlock x:Name="ChatInputLabelText"
+                                   Text="CHAT"
+                                   Foreground="#FFFFA62B"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <TextBox x:Name="ChatInputBox"
+                             Background="Transparent"
+                             Foreground="White"
+                             BorderThickness="0"
+                             FontSize="15"
+                             MaxLength="280"
+                             KeyDown="ChatInputBox_KeyDown" />
+                </DockPanel>
             </Border>
         </StackPanel>
     </Grid>

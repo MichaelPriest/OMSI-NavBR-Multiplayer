@@ -4,6 +4,7 @@ using System.Windows;
 using NavBR.Client.Localization;
 using NavBR.Client.Multiplayer;
 using NavBR.Client.Windows;
+using NavBR.Client.Updates;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client;
@@ -17,6 +18,7 @@ public partial class MainWindow
     private IReadOnlyList<PublicRoomSummary> _webPublicRooms = Array.Empty<PublicRoomSummary>();
     private string? _webPublicRoomDirectoryError;
     private string? _webPublicRoomDirectoryServerUrl;
+    private bool _webPublicRoomDirectoryRefreshing;
 
     internal void OpenPrimaryWebShell()
     {
@@ -179,6 +181,7 @@ public partial class MainWindow
             {
                 serverUrl = _webPublicRoomDirectoryServerUrl,
                 error = _webPublicRoomDirectoryError,
+                refreshing = _webPublicRoomDirectoryRefreshing,
                 rooms = _webPublicRooms
                     .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
                     .ThenByDescending(room => room.PlayerCount)
@@ -215,6 +218,7 @@ public partial class MainWindow
             {
                 serverUrl = _webPublicRoomDirectoryServerUrl,
                 error = _webPublicRoomDirectoryError,
+                refreshing = _webPublicRoomDirectoryRefreshing,
                 rooms = _webPublicRooms
                     .OrderByDescending(room => PublicRoomFavoritesStore.IsFavorite(room.RoomId))
                     .ThenByDescending(room => room.PlayerCount)
@@ -444,6 +448,70 @@ public partial class MainWindow
     {
         switch (command)
         {
+            case "checkApplicationUpdate":
+                if (Application.Current is App updateApp)
+                {
+                    _ = updateApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None);
+                }
+                break;
+
+            case "downloadApplicationUpdate":
+                if (Application.Current is App downloadApp)
+                {
+                    _ = downloadApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None,
+                        forceDownload: true);
+                }
+                break;
+
+            case "saveApplicationUpdatePreferences":
+            {
+                var current =
+                    NavBRAutoUpdatePreferencesStore.Load();
+                NavBRAutoUpdatePreferencesStore.Save(
+                    current with
+                    {
+                        Channel =
+                            GetWebPayloadString(payload, "channel") ??
+                            current.Channel,
+                        CheckAtStartup =
+                            GetWebPayloadBool(
+                                payload,
+                                "checkAtStartup",
+                                current.CheckAtStartup),
+                        AutoDownload =
+                            GetWebPayloadBool(
+                                payload,
+                                "autoDownload",
+                                current.AutoDownload)
+                    });
+
+                if (Application.Current is App preferencesApp)
+                {
+                    _ = preferencesApp.AutoUpdater.CheckAndPrepareAsync(
+                        CancellationToken.None);
+                }
+                break;
+            }
+
+            case "installApplicationUpdate":
+                if (Application.Current is App installApp)
+                {
+                    var started =
+                        await installApp.AutoUpdater.BeginInstallAndRestartAsync(
+                            CancellationToken.None);
+                    if (!started)
+                    {
+                        throw new InvalidOperationException(
+                            "Nenhuma atualização validada está pronta para instalar.");
+                    }
+
+                    Application.Current.Dispatcher.BeginInvoke(
+                        () => Application.Current.Shutdown());
+                }
+                break;
+
             case "setLanguage":
             {
                 var cultureName = GetWebPayloadString(payload, "cultureName");
@@ -675,10 +743,16 @@ public partial class MainWindow
 
             case "refreshPublicRooms":
             {
+                if (_webPublicRoomDirectoryRefreshing)
+                {
+                    break;
+                }
+
                 var serverUrl = GetWebPayloadString(payload, "serverUrl")
                     ?? MultiplayerSettingsStore.Load().ServerUrl;
                 _webPublicRoomDirectoryServerUrl = serverUrl;
                 _webPublicRoomDirectoryError = null;
+                _webPublicRoomDirectoryRefreshing = true;
 
                 try
                 {
@@ -689,6 +763,10 @@ public partial class MainWindow
                 {
                     _webPublicRooms = Array.Empty<PublicRoomSummary>();
                     _webPublicRoomDirectoryError = ex.Message;
+                }
+                finally
+                {
+                    _webPublicRoomDirectoryRefreshing = false;
                 }
                 break;
             }
@@ -838,26 +916,6 @@ public partial class MainWindow
                 InstallOmsiPluginFromWeb();
                 break;
 
-            case "selectOpenOmsiExecutable":
-                SelectOpenOmsiExecutableFromWeb();
-                break;
-
-            case "launchOpenOmsiNavBrGateway":
-                LaunchOpenOmsiWithNavBrGatewayFromWeb();
-                break;
-
-            case "verifyOpenOmsiPlugin":
-                VerifyOpenOmsiPluginFromWeb();
-                break;
-
-            case "installOpenOmsiPlugin":
-                InstallOpenOmsiPluginFromWeb();
-                break;
-
-            case "removeOpenOmsiPlugin":
-                RemoveOpenOmsiPluginFromWeb();
-                break;
-
             case "discoverOmsiProfiles":
                 DiscoverOmsiProfilesFromWeb(GetWebPayloadString(payload, "path"));
                 break;
@@ -912,6 +970,10 @@ public partial class MainWindow
 
             case "exportSessionHealth":
                 ExportSessionHealthFromWeb();
+                break;
+
+            case "exportDiagnosticBundle":
+                ExportDiagnosticBundleFromWeb();
                 break;
 
             case "saveLegacyPreferences":
