@@ -406,6 +406,7 @@ public static class OmsiRouteTraceReader
         var normalizedLine = Normalize(activeLine ?? string.Empty);
         var normalizedTarget = Normalize(activeTarget ?? string.Empty);
         var fallbackMatches = new List<string>();
+        var targetOnlyMatches = new List<string>();
 
         foreach (var directory in GetTimetableDirectories(mapDirectory))
         {
@@ -454,6 +455,11 @@ public static class OmsiRouteTraceReader
                             return trackName;
                         }
 
+                        if (targetMatches)
+                        {
+                            targetOnlyMatches.Add(trackName);
+                        }
+
                         if (lineMatches)
                         {
                             fallbackMatches.Add(trackName);
@@ -471,11 +477,21 @@ public static class OmsiRouteTraceReader
             }
         }
 
-        return fallbackMatches
+        var distinctTargetOnly = targetOnlyMatches
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
-            .Count() == 1
-            ? fallbackMatches[0]
+            .ToArray();
+        if (distinctTargetOnly.Length == 1)
+        {
+            return distinctTargetOnly[0];
+        }
+
+        var distinctFallback = fallbackMatches
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+        return distinctFallback.Length == 1
+            ? distinctFallback[0]
             : null;
     }
 
