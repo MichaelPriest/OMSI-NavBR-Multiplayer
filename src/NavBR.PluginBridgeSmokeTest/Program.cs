@@ -291,6 +291,26 @@ Require(
     reactHudSettings.TelematrixSize == 1,
     "React HUD settings builder lost TeleMatrix settings");
 
+var hudOverlayType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Overlay.HudOverlayWindow",
+        throwOnError: true)!;
+Require(
+    hudOverlayType.GetMethod(
+        "UpdateLocalRoadTraffic",
+        BindingFlags.Public | BindingFlags.Instance) is not null,
+    "HUD overlay lost local OMSI road-traffic feed support");
+
+var trafficReaderType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Telemetry.OmsiRoadTrafficReader",
+        throwOnError: true)!;
+Require(
+    trafficReaderType.GetMethod(
+        "Read",
+        BindingFlags.Public | BindingFlags.Static) is not null,
+    "OMSI road-traffic reader not available for GPS traffic markers");
+
 var appliedHudPreset =
     HudProfileCatalog.ApplyPreset(
         MultiplayerSettings.CreateDefault(),
