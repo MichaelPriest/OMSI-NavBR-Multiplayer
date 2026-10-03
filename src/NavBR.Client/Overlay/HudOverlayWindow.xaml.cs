@@ -389,10 +389,13 @@ public partial class HudOverlayWindow : Window
             bitmap is null ||
             layout is null ||
             map is null ||
-            telemetry.GridX is not int gridX ||
-            telemetry.GridY is not int gridY ||
-            telemetry.TileX is not double tileX ||
-            telemetry.TileY is not double tileY ||
+            !TryGetGpsDisplayAnchor(
+                telemetry,
+                map,
+                out var gridX,
+                out var gridY,
+                out var tileX,
+                out var tileY) ||
             !RoadmapTransform.TryToPixel(
                 layout,
                 bitmap.PixelWidth,
