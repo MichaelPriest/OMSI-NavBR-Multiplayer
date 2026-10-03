@@ -77,7 +77,12 @@ Quando existe crachá verificado:
 - prévia React aplica imediatamente o zoom/forma aos HUDs modulares;
 - zoom do GPS varia continuamente com a velocidade e o heading do mapa é suavizado;
 - manobras e reentrada de rota aparecem dentro da própria viewport do GPS, inclusive nos HUDs novos;
+- parser de `[track_entry]` corrigido para o formato nativo OMSI: Kachel/Grid X e Y são lidos diretamente do TTR;
+- resolução de rota tenta track real, trip/route e destino antes de desistir, preservando compatibilidade com TTRs antigos;
+- rotas ainda não resolvidas são tentadas novamente automaticamente a cada 2 s em vez de ficarem presas no cache vazio;
+- posição visual do ônibus é encaixada na geometria real da via quando há uma road anchor confiável próxima;
 - veículos IA locais do OMSI passam a aparecer no GPS como setas orientadas, lidas diretamente da memória do simulador;
+- IA usa a mesma âncora visual de via do GPS para evitar deslocamento conjunto dos ícones;
 - marcadores de IA que deixam o snapshot são removidos do Canvas para evitar fantasmas/acúmulo;
 - minimapa integrado oculta visualmente o minimapa legado, mantendo-o apenas como fonte invisível do VisualBrush;
 - Alertas modulares ficam totalmente ocultos durante operação normal e só surgem quando existe alerta real;
