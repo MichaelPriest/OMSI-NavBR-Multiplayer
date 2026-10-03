@@ -74,6 +74,8 @@ public partial class HudOverlayWindow
         _modularWidgetsTimer.Start();
 
         MultiplayerSettingsStore.SettingsSaved += ModularWidgets_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged += ModularWidgets_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared += ModularWidgets_PreviewCleared;
         Closed += ModularWidgets_Closed;
 
         ApplyModularWidgetSettings(MultiplayerSettingsStore.Load());
@@ -221,12 +223,40 @@ public partial class HudOverlayWindow
 
     private void ModularWidgets_SettingsSaved(MultiplayerSettings settings)
     {
-        _ = Dispatcher.BeginInvoke(() => ApplyModularWidgetSettings(settings));
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
+    }
+
+    private void ModularWidgets_PreviewChanged(MultiplayerSettings settings)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
+    }
+
+    private void ModularWidgets_PreviewCleared()
+    {
+        var settings = MultiplayerSettingsStore.Load();
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            ApplyModularWidgetSettings(settings);
+            RenderEnhancedMiniMap();
+            RenderModularHudWidgets();
+        });
     }
 
     private void ModularWidgets_Closed(object? sender, EventArgs e)
     {
         MultiplayerSettingsStore.SettingsSaved -= ModularWidgets_SettingsSaved;
+        MultiplayerSettingsStore.HudPreviewChanged -= ModularWidgets_PreviewChanged;
+        MultiplayerSettingsStore.HudPreviewCleared -= ModularWidgets_PreviewCleared;
         if (_modularWidgetsTimer is not null)
         {
             _modularWidgetsTimer.Stop();
@@ -268,7 +298,11 @@ public partial class HudOverlayWindow
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        _modularMinimapWidget.Height = Math.Clamp(132d * settings.DashboardMinimapScale, 78d, 264d);
+        var minimapHeight = Math.Clamp(
+            132d * settings.DashboardMinimapScale,
+            78d,
+            264d);
+        _modularMinimapWidget.Height = minimapHeight;
         if (_modularMinimapMapFrame is not null)
         {
             var circular = string.Equals(
@@ -278,24 +312,48 @@ public partial class HudOverlayWindow
             if (circular)
             {
                 var diameter = Math.Clamp(
-                    94d * settings.DashboardMinimapScale,
-                    54d,
-                    190d);
-                _modularMinimapMapFrame.Width = diameter;
-                _modularMinimapMapFrame.Height = diameter;
+                    minimapHeight,
+                    78d,
+                    220d);
+
+                _modularMinimapTitle!.Visibility = Visibility.Collapsed;
+                _modularMinimapWidget.Width = diameter;
+                _modularMinimapWidget.Height = diameter;
+                _modularMinimapWidget.Padding = new Thickness(5d);
+                _modularMinimapWidget.CornerRadius =
+                    new CornerRadius(diameter / 2d);
+                _modularMinimapWidget.ClipToBounds = true;
+                _modularMinimapWidget.Clip = new EllipseGeometry(
+                    new Point(diameter / 2d, diameter / 2d),
+                    diameter / 2d,
+                    diameter / 2d);
+
+                var innerDiameter = Math.Max(1d, diameter - 10d);
+                _modularMinimapMapFrame.Width = innerDiameter;
+                _modularMinimapMapFrame.Height = innerDiameter;
                 _modularMinimapMapFrame.HorizontalAlignment =
                     HorizontalAlignment.Center;
                 _modularMinimapMapFrame.VerticalAlignment =
                     VerticalAlignment.Center;
                 _modularMinimapMapFrame.CornerRadius =
-                    new CornerRadius(diameter / 2d);
+                    new CornerRadius(innerDiameter / 2d);
                 _modularMinimapMapFrame.Clip = new EllipseGeometry(
-                    new Point(diameter / 2d, diameter / 2d),
-                    diameter / 2d,
-                    diameter / 2d);
+                    new Point(innerDiameter / 2d, innerDiameter / 2d),
+                    innerDiameter / 2d,
+                    innerDiameter / 2d);
             }
             else
             {
+                _modularMinimapTitle!.Visibility = Visibility.Visible;
+                _modularMinimapWidget.ClearValue(WidthProperty);
+                _modularMinimapWidget.Height = minimapHeight;
+                _modularMinimapWidget.Padding =
+                    new Thickness(9d, 7d, 9d, 7d);
+                _modularMinimapWidget.CornerRadius =
+                    new CornerRadius(8d);
+                _modularMinimapWidget.ClipToBounds = false;
+                _modularMinimapWidget.Clip = null;
+
                 _modularMinimapMapFrame.ClearValue(WidthProperty);
                 _modularMinimapMapFrame.ClearValue(HeightProperty);
                 _modularMinimapMapFrame.HorizontalAlignment =
@@ -552,8 +610,23 @@ public partial class HudOverlayWindow
 
     private void MinimapWidget_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        ResizeModularWidget(e, _hudSettings.DashboardMinimapScale,
-            value => _hudSettings with { DashboardMinimapScale = value });
+        if (!_hudLayoutEditMode)
+        {
+            return;
+        }
+
+        var multiplier = e.Delta > 0 ? 1.15d : 1d / 1.15d;
+        _hudSettings = _hudSettings with
+        {
+            HudZoom = Math.Clamp(
+                _hudSettings.HudZoom * multiplier,
+                0.65d,
+                10d)
+        };
+        _renderedHudZoom = _hudSettings.HudZoom;
+        MultiplayerSettingsStore.Save(_hudSettings);
+        RenderEnhancedMiniMap();
+        e.Handled = true;
     }
 
     private void MultiplayerWidget_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
