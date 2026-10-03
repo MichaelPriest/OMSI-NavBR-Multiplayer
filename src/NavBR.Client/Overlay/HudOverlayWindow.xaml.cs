@@ -139,6 +139,21 @@ public partial class HudOverlayWindow : Window
     public void UpdateLocalRoadTraffic(IReadOnlyList<TrafficVehicleState>? traffic)
     {
         _localRoadTraffic = traffic ?? Array.Empty<TrafficVehicleState>();
+
+        var activeIds = _localRoadTraffic
+            .Where(item => !string.IsNullOrWhiteSpace(item.TrafficId))
+            .Select(item => item.TrafficId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var staleId in _trafficMarkers.Keys
+                     .Where(id => !activeIds.Contains(id))
+                     .ToArray())
+        {
+            if (_trafficMarkers.Remove(staleId, out var marker))
+            {
+                MiniMapCanvas.Children.Remove(marker);
+            }
+        }
+
         RenderMiniMap();
     }
 
