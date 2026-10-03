@@ -1093,6 +1093,22 @@ File.WriteAllText(
     25.0000000000
     0
     """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionA.ttp"),
+    """
+    [trip]
+    SmokeTrack
+    Terminal A
+    100
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionB.ttp"),
+    """
+    [trip]
+    OtherTrack
+    Terminal B
+    100
+    """);
 try
 {
     var routeTraceMap = new NavBR.Client.Maps.OmsiMapInfo(
@@ -1122,6 +1138,51 @@ try
         nativeGridTrace[^1].GridX == 183 &&
         nativeGridTrace[^1].GridY == 105,
         "native OMSI TTR GridX/GridY track entries were not parsed correctly");
+
+    // OMSI can expose a direction/IBIS route code instead of the .ttr name.
+    // With two trips on the same line, the destination must disambiguate the
+    // correct track rather than leaving RouteAvailable false.
+    var destinationResolvedTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "01",
+            "100",
+            "Terminal A");
+    Require(
+        destinationResolvedTrace.Count >= 2 &&
+        destinationResolvedTrace[0].GridX == 183 &&
+        destinationResolvedTrace[0].GridY == 104,
+        "active OMSI route code + destination did not resolve the correct TTR trace");
+
+    var routePipelineTelemetry =
+        new VehicleTelemetry(
+            PlayerId: "route-pipeline",
+            Timestamp: DateTimeOffset.UtcNow,
+            MapName: "RouteGridSmoke",
+            VehicleName: "Route Test Bus",
+            Line: "100",
+            Route: "01",
+            X: 0d,
+            Y: 0d,
+            Z: 0d,
+            HeadingDegrees: 0d,
+            SpeedKph: 20d,
+            IsInGame: true,
+            GridX: 183,
+            GridY: 104,
+            TileX: 150d,
+            TileY: 150d,
+            DestinationName: "Terminal A");
+    var routePipelineSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            routePipelineTelemetry,
+            routeTraceLayout,
+            destinationResolvedTrace);
+    Require(
+        routePipelineSnapshot.RouteAvailable &&
+        routePipelineSnapshot.IsOnRoute,
+        "TTData -> route trace -> NavBRNavigationSnapshot pipeline did not produce an active route");
 }
 finally
 {
