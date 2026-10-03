@@ -18,6 +18,9 @@ public partial class MainWindow
     private DispatcherTimer? _hudStateTimer;
     private int _hudRefreshIntervalMs = 200;
     private int? _hudAttachedOmsiProcessId;
+    private DateTimeOffset _lastHudRoadTrafficReadUtc = DateTimeOffset.MinValue;
+    private IReadOnlyList<TrafficVehicleState> _lastHudRoadTraffic =
+        Array.Empty<TrafficVehicleState>();
     private bool _multiplayerLocalizationHooked;
     private bool _hudLifetimeHooked;
 
@@ -218,6 +221,8 @@ public partial class MainWindow
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
         hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        RefreshHudRoadTraffic(force: true);
+        hud.UpdateLocalRoadTraffic(_lastHudRoadTraffic);
         hud.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         hud.Closed += (_, _) =>
         {
@@ -294,6 +299,8 @@ public partial class MainWindow
         }
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        RefreshHudRoadTraffic();
+        _hudOverlay.UpdateLocalRoadTraffic(_lastHudRoadTraffic);
 
         var pluginConnection = (System.Windows.Application.Current as App)?
             .PluginBridge
@@ -332,6 +339,28 @@ public partial class MainWindow
         UpdateHudRoleplayStateForShell();
         UpdateHudInGamePanelState();
         UpdateHudRefreshCadence();
+    }
+
+    private void RefreshHudRoadTraffic(bool force = false)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!force &&
+            now - _lastHudRoadTrafficReadUtc < TimeSpan.FromMilliseconds(500d))
+        {
+            return;
+        }
+
+        _lastHudRoadTrafficReadUtc = now;
+        if (!_telemetryProvider.IsAttached ||
+            _lastTelemetry?.IsInGame != true)
+        {
+            _lastHudRoadTraffic = Array.Empty<TrafficVehicleState>();
+            return;
+        }
+
+        _lastHudRoadTraffic = _telemetryProvider.ReadRoadTraffic(
+            maxVehicles: 48,
+            radiusMeters: 900d);
     }
 
     private void HandleHudInGamePanelOpened()
