@@ -410,6 +410,7 @@ public partial class MainWindow
                 showAlerts = hudSettings.DashboardShowAlerts,
                 showSideIndicators = hudSettings.DashboardShowSideIndicators,
                 minimapScale = hudSettings.DashboardMinimapScale,
+                mapZoom = hudSettings.HudZoom,
                 minimapStyle = NormalizeDashboardMinimapStyle(
                     hudSettings.DashboardMinimapStyle),
                 multiplayerScale = hudSettings.DashboardMultiplayerScale,
@@ -907,6 +908,10 @@ public partial class MainWindow
                 GetWebPayloadDouble(payload, "minimapScale") ?? current.DashboardMinimapScale,
                 0.55d,
                 2d),
+            HudZoom = Math.Clamp(
+                GetWebPayloadDouble(payload, "mapZoom") ?? current.HudZoom,
+                0.65d,
+                10d),
             DashboardMinimapStyle = NormalizeDashboardMinimapStyle(
                 GetWebPayloadString(payload, "minimapStyle") ??
                 current.DashboardMinimapStyle),
