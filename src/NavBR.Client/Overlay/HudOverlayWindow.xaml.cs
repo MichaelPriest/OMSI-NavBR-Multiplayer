@@ -759,14 +759,26 @@ public partial class HudOverlayWindow : Window
             var marker = GetOrCreateTrafficMarker(traffic.TrafficId);
             var safeScale =
                 Math.Max(0.01d, Math.Abs(MiniMapContentScale.ScaleX));
+            var trafficHeading = TrafficQuaternionToHeadingDegrees(
+                traffic.RotationX,
+                traffic.RotationY,
+                traffic.RotationZ,
+                traffic.RotationW);
             marker.RenderTransform = new TransformGroup
             {
                 Children = new TransformCollection
                 {
                     new ScaleTransform(1d / safeScale, 1d / safeScale),
-                    new RotateTransform(-MiniMapHeadingRotation.Angle)
+                    new RotateTransform(trafficHeading)
                 }
             };
+            if (marker is Grid markerGrid &&
+                markerGrid.Children.OfType<Polygon>().FirstOrDefault() is { } arrow)
+            {
+                arrow.Fill = traffic.SpeedKph < 1d
+                    ? new SolidColorBrush(Color.FromArgb(235, 112, 145, 166))
+                    : new SolidColorBrush(Color.FromArgb(235, 69, 163, 255));
+            }
             marker.ToolTip =
                 $"{System.IO.Path.GetFileNameWithoutExtension(traffic.VehiclePath) ?? "IA"} • {traffic.SpeedKph:F0} km/h";
             Canvas.SetLeft(marker, x - marker.Width / 2d);
@@ -793,32 +805,56 @@ public partial class HudOverlayWindow : Window
 
         var marker = new Grid
         {
-            Width = 12d,
-            Height = 12d,
+            Width = 14d,
+            Height = 16d,
             IsHitTestVisible = true,
             RenderTransformOrigin = new Point(0.5d, 0.5d)
         };
-        marker.Children.Add(new Ellipse
+        marker.Children.Add(new Polygon
         {
-            Width = 12d,
-            Height = 12d,
-            Fill = new SolidColorBrush(Color.FromArgb(230, 69, 163, 255)),
+            Points = new PointCollection
+            {
+                new(7d, 0.75d),
+                new(12.5d, 14.5d),
+                new(7d, 11.5d),
+                new(1.5d, 14.5d)
+            },
+            Fill = new SolidColorBrush(Color.FromArgb(235, 69, 163, 255)),
             Stroke = new SolidColorBrush(Color.FromArgb(245, 240, 250, 255)),
-            StrokeThickness = 1.4d
-        });
-        marker.Children.Add(new Ellipse
-        {
-            Width = 4d,
-            Height = 4d,
-            Fill = Brushes.White,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
+            StrokeThickness = 1.2d,
+            StrokeLineJoin = PenLineJoin.Round
         });
 
         Panel.SetZIndex(marker, 14);
         MiniMapCanvas.Children.Add(marker);
         _trafficMarkers[trafficId] = marker;
         return marker;
+    }
+
+    private static double TrafficQuaternionToHeadingDegrees(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var length = Math.Sqrt(
+            x * x + y * y + z * z + w * w);
+        if (!double.IsFinite(length) ||
+            length < 0.000001d)
+        {
+            return 0d;
+        }
+
+        x /= length;
+        y /= length;
+        z /= length;
+        w /= length;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        return NormalizeMarkerAngle(
+            Math.Atan2(sinYaw, cosYaw) *
+            (180d / Math.PI));
     }
 
     private void HideTrafficMarker(string trafficId)
