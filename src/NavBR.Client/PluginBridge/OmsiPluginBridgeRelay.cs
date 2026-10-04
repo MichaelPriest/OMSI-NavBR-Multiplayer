@@ -53,6 +53,36 @@ public static class OmsiPluginBridgeRelay
         return SendBestEffortAsync(message, cancellationToken);
     }
 
+    public static Task ForwardAdmittedRemotePhysicalStateAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken = default)
+    {
+        var telemetry = frame.Telemetry;
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return Task.CompletedTask;
+        }
+
+        // openOMSI keeps remote vehicle lifecycle driven by the continuous
+        // network state stream instead of waiting on a second synchronous
+        // spawn/update request. VehicleInstanceId marks this state as already
+        // admitted by the desktop coordinator after compatibility, distance,
+        // asset fingerprint and coherent physical-pose checks.
+        var message = CreateStateMessage(
+            PluginBridgeProtocol.RemoteVehicleState,
+            telemetry,
+            playerId,
+            frame.Player.DisplayName,
+            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId)
+            with
+            {
+                VehicleInstanceId = playerId
+            };
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
     public static Task RemoveRemotePlayerAsync(
         string playerId,
         CancellationToken cancellationToken = default)
