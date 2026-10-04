@@ -611,132 +611,49 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 return;
             }
 
-            // MakeVehicle returning does not mean the RoadVehicle model graph
-            // has finished materializing. Keep one player as the global
-            // materialization owner until OMSI confirms its ComplObj/model (or
-            // the plugin times it out) so a second MakeVehicle cannot race the
-            // first bus through OMSI's deferred loader callbacks.
-            if (!TryAcquireSpawnMaterializationSlot(playerId))
-            {
-                SetStatus(playerId, "waiting-materialization-slot");
-                return;
-            }
+            // Match openOMSI's lifecycle model: once the desktop has
+            // admitted the remote (compatibility, distance, local asset and
+            // coherent physical pose), the continuous state stream owns native
+            // creation and updates. Do not synchronously wait for MakeVehicle
+            // over the pipe; OMSI's callback-thread lifecycle retries
+            // materialization safely in the background of subsequent frames.
+            _spawnedCompatibilityByPlayer[playerId] =
+                remoteVehicleCompatibilityId;
+            _resolvedVehiclePathByPlayer[playerId] =
+                resolvedVehiclePath;
+            _spawnPending[playerId] = 0;
+            _spawned[playerId] = 0;
 
-            // The lifecycle semaphore still protects the actual bridge command.
-            // The materialization slot above deliberately survives a
-            // spawn-model-pending reply across later telemetry frames.
-            await _spawnLifecycleGate.WaitAsync(cancellationToken);
-            try
-            {
-                if (_spawnInFlight.TryAdd(playerId, 0))
-                {
-                    SetStatus(
-                        playerId,
-                        "spawning",
-                        "spawn-command-sent",
-                        $"All desktop gates passed. grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) asset={resolvedVehiclePath}.");
-                    NavBRAppLog.Info(
-                        "physical-spawn-gates-passed",
-                        $"coordinator={_coordinatorId} player={playerId} " +
-                        $"grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} " +
-                        $"local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) " +
-                        $"asset={resolvedVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)} " +
-                        $"pluginConnected=1 spawnCapability=1 transformCapability=1");
-                    var spawn = await OmsiPluginBridgeRelay.SpawnRemoteVehicleAsync(
-                        spawnFrame,
-                        cancellationToken);
-                    _spawnInFlight.TryRemove(playerId, out _);
+            SetStatus(
+                playerId,
+                "materializing",
+                "state-stream-admitted",
+                $"Physical state stream admitted. grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) asset={resolvedVehiclePath}.",
+                expectedPartCount: consistInfo?.ExpectedPartCount);
 
-                    if (spawn?.Success != true)
-                    {
-                        if (string.Equals(
-                                spawn?.ErrorCode,
-                                "spawn-model-pending",
-                                StringComparison.Ordinal))
-                        {
-                            // The OMSI instance already exists and is completing
-                            // deferred model callbacks. Preserve the exact local
-                            // asset identity now; do not publish it as active yet.
-                            _spawnPending[playerId] = 0;
-                            _spawnedCompatibilityByPlayer[playerId] =
-                                remoteVehicleCompatibilityId;
-                            _resolvedVehiclePathByPlayer[playerId] =
-                                resolvedVehiclePath;
-                            _spawnRetryAfterByPlayer[playerId] =
-                                DateTimeOffset.UtcNow +
-                                TimeSpan.FromMilliseconds(250);
-                            SetStatus(
-                                playerId,
-                                "materializing",
-                                spawn!.ErrorCode,
-                                spawn.ErrorMessage,
-                                spawn.RemoteVehicleCount,
-                                consistInfo?.ExpectedPartCount);
-                            return;
-                        }
+            NavBRAppLog.Info(
+                "physical-state-stream-admitted",
+                $"coordinator={_coordinatorId} player={playerId} " +
+                $"grid={spawnFrame.Telemetry.GridX?.ToString() ?? "-"},{spawnFrame.Telemetry.GridY?.ToString() ?? "-"} " +
+                $"local=({spawnFrame.Telemetry.LocalX?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalY?.ToString("F2") ?? "-"},{spawnFrame.Telemetry.LocalZ?.ToString("F2") ?? "-"}) " +
+                $"asset={resolvedVehiclePath} compatibility={DescribeCompatibilityId(remoteVehicleCompatibilityId)}");
 
-                        _spawnPending.TryRemove(playerId, out _);
-                        ReleaseSpawnMaterializationSlot(playerId);
-                        _spawnRetryAfterByPlayer[playerId] =
-                            DateTimeOffset.UtcNow +
-                            (IsTileAvailabilityError(spawn?.ErrorCode)
-                                ? TileUnavailableRetryDelay
-                                : SpawnFailureRetryDelay);
+            await OmsiPluginBridgeRelay.ForwardAdmittedRemotePhysicalStateAsync(
+                spawnFrame,
+                cancellationToken);
 
-                        ReportCommandFailureOnce(
-                            playerId,
-                            "spawn",
-                            spawn,
-                            consistInfo?.ExpectedPartCount);
-                        return;
-                    }
+            _spawnPending.TryRemove(playerId, out _);
+            _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
+            _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
+            _lastFailureByPlayer.TryRemove(playerId, out _);
+            _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
 
-                    // Commit all ownership metadata before exposing _spawned.
-                    // A telemetry frame must never see an active vehicle without
-                    // the path/hash required for its next transform update.
-                    _spawnedCompatibilityByPlayer[playerId] =
-                        remoteVehicleCompatibilityId;
-                    _resolvedVehiclePathByPlayer[playerId] =
-                        resolvedVehiclePath;
-                    _spawned[playerId] = 0;
-
-                    _spawnPending.TryRemove(playerId, out _);
-                    ReleaseSpawnMaterializationSlot(playerId);
-                    _spawnRetryAfterByPlayer.TryRemove(playerId, out _);
-                    _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
-                    _lastFailureByPlayer.TryRemove(playerId, out _);
-                    _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
-
-                    SetStatus(
-                        playerId,
-                        "active",
-                        partCount: spawn.RemoteVehicleCount,
-                        expectedPartCount: consistInfo?.ExpectedPartCount);
-                    PublishPhysicalVehicleSetIfChanged();
-                    RemoteDiagnosticsService.Record(
-                        "physical-vehicle",
-                        "info",
-                        "spawn-success");
-
-                    return;
-                }
-
-                // Another spawn command for this player is already in flight.
-                ReleaseSpawnMaterializationSlot(playerId);
-                SetStatus(playerId, "spawning");
-                return;
-            }
-            catch
-            {
-                _spawnInFlight.TryRemove(playerId, out _);
-                _spawnPending.TryRemove(playerId, out _);
-                ReleaseSpawnMaterializationSlot(playerId);
-                throw;
-            }
-            finally
-            {
-                _spawnLifecycleGate.Release();
-            }
+            PublishPhysicalVehicleSetIfChanged();
+            RemoteDiagnosticsService.Record(
+                "physical-vehicle",
+                "info",
+                "state-stream-admitted");
+            return;
         }
 
         if (!_resolvedVehiclePathByPlayer.TryGetValue(
@@ -806,68 +723,13 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 alignHeadingToRoad: false);
         }
 
-        var update = await OmsiPluginBridgeRelay.UpdateRemoteVehicleAsync(
+        // Keep feeding the locally resolved, Kachel-coherent state. The
+        // plugin-side lifecycle owns spawn/materialization/retry and applies the
+        // newest target on OMSI's callback thread, mirroring openOMSI's
+        // continuous remote-state model rather than request/response updates.
+        await OmsiPluginBridgeRelay.ForwardAdmittedRemotePhysicalStateAsync(
             physicalFrame,
             cancellationToken);
-        if (update?.Success != true)
-        {
-            var errorCode = update?.ErrorCode ?? "no-result";
-            var recoverableMotion =
-                IsRecoverableMotionReadbackFailure(errorCode);
-
-            // Recoverable readback/tile/world-origin observations are part of
-            // normal Kachel transition recovery. They must not consume the
-            // consecutive hard-failure budget: otherwise several harmless
-            // origin waits can prime the counter so one later transient update
-            // failure despawns an otherwise healthy remote bus immediately.
-            var failureCount = recoverableMotion
-                ? 0
-                : _consecutiveUpdateFailuresByPlayer.AddOrUpdate(
-                    playerId,
-                    1,
-                    static (_, previous) => Math.Min(previous + 1, 10));
-
-            if (recoverableMotion)
-            {
-                _consecutiveUpdateFailuresByPlayer.TryRemove(
-                    playerId,
-                    out _);
-            }
-
-            if (IsFatalUpdateFailure(errorCode) ||
-                (!recoverableMotion && failureCount >= 3))
-            {
-                await DespawnOwnedAsync(playerId, cancellationToken);
-                ReportCommandFailureOnce(playerId, "update", update);
-                return;
-            }
-
-            // Readback/tile/world-origin mismatches are recoverable
-            // observations, not proof that ownership is invalid. Keep the
-            // exact physical RoadVehicle alive and retry on later telemetry
-            // instead of entering a despawn/spawn loop.
-            var recoverableState =
-                string.Equals(
-                    errorCode,
-                    PluginBridgeProtocol.ErrorMotionWorldOriginUnavailable,
-                    StringComparison.Ordinal)
-                    ? "waiting-kachel-origin"
-                    : "motion-resyncing";
-
-            SetStatus(
-                playerId,
-                recoverableMotion
-                    ? recoverableState
-                    : "update-retrying",
-                errorCode,
-                update?.ErrorMessage);
-            if (recoverableMotion)
-            {
-                _lastPhysicalUpdateAtByPlayer[playerId] =
-                    DateTimeOffset.UtcNow;
-            }
-            return;
-        }
 
         _lastPhysicalUpdateAtByPlayer[playerId] = DateTimeOffset.UtcNow;
         _consecutiveUpdateFailuresByPlayer.TryRemove(playerId, out _);
