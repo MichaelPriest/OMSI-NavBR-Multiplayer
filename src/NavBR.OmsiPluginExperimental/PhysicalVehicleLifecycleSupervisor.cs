@@ -89,17 +89,38 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
         lock (Sync)
         {
-            // The desktop coordinator is the admission authority for physical
-            // players (distance, compatibility and bounded player count). Once
-            // it has created the lifecycle entry, the raw state stream becomes
-            // the high-rate target feed. Never let a raw telemetry frame create
-            // a new physical intent on its own: otherwise a bus that the
-            // coordinator despawned for distance/load can immediately respawn
-            // here and the two controllers fight over lifecycle.
-            if (PendingRemovals.Contains(instanceId) ||
-                !Entries.TryGetValue(instanceId, out var entry))
+            // The desktop coordinator remains the admission authority for
+            // physical players (distance, compatibility, asset fingerprint and
+            // bounded player count). openOMSI drives each remote from the
+            // continuous state stream, so an explicitly admitted state may
+            // create the lifecycle entry without a second synchronous spawn
+            // command. Raw RemoteVehicleState messages never carry
+            // VehicleInstanceId and therefore cannot auto-admit themselves.
+            if (PendingRemovals.Contains(instanceId))
             {
                 return;
+            }
+
+            if (!Entries.TryGetValue(instanceId, out var entry))
+            {
+                var explicitlyAdmitted =
+                    !string.IsNullOrWhiteSpace(remoteState.VehicleInstanceId) &&
+                    string.Equals(
+                        remoteState.VehicleInstanceId.Trim(),
+                        instanceId,
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (!explicitlyAdmitted ||
+                    !HasUsablePhysicalTarget(normalized) ||
+                    Entries.Count >= MaxEntries)
+                {
+                    return;
+                }
+
+                entry = new LifecycleEntry(instanceId, normalized, now);
+                Entries.Add(instanceId, entry);
+                PluginLogWriter.Enqueue(
+                    $"physical-lifecycle stream-admit id={instanceId} vehicle={normalized.VehiclePath ?? "-"}");
             }
 
             // RemoteVehicleState is a high-rate mirror of the server payload.
