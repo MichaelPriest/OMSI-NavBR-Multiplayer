@@ -79,6 +79,21 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var instanceId = remoteState.PlayerId.Trim();
+        var explicitlyAdmitted =
+            !string.IsNullOrWhiteSpace(remoteState.VehicleInstanceId) &&
+            string.Equals(
+                remoteState.VehicleInstanceId.Trim(),
+                instanceId,
+                StringComparison.OrdinalIgnoreCase);
+        if (!explicitlyAdmitted)
+        {
+            // Raw network telemetry remains useful to RemoteVehicleRegistry,
+            // but only the desktop-admitted physical stream may touch native
+            // OMSI lifecycle state. This also prevents openOMSI world-axis
+            // telemetry from overwriting its locally converted OMSI Kachel pose.
+            return;
+        }
+
         var normalized = NormalizeSpawn(remoteState with
         {
             Type = PluginBridgeProtocol.SpawnRemoteVehicle,
@@ -103,15 +118,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
             if (!Entries.TryGetValue(instanceId, out var entry))
             {
-                var explicitlyAdmitted =
-                    !string.IsNullOrWhiteSpace(remoteState.VehicleInstanceId) &&
-                    string.Equals(
-                        remoteState.VehicleInstanceId.Trim(),
-                        instanceId,
-                        StringComparison.OrdinalIgnoreCase);
-
-                if (!explicitlyAdmitted ||
-                    !HasUsablePhysicalTarget(normalized) ||
+                if (!HasUsablePhysicalTarget(normalized) ||
                     Entries.Count >= MaxEntries)
                 {
                     return;
