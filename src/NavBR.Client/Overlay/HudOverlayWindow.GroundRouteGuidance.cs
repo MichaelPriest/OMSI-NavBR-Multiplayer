@@ -46,12 +46,6 @@ public partial class HudOverlayWindow
             layout?.TileSize is not double tileSize ||
             !double.IsFinite(tileSize) ||
             tileSize <= 0d ||
-            telemetry.LocalX is not double localX ||
-            telemetry.LocalY is not double localY ||
-            telemetry.LocalZ is not double localZ ||
-            !double.IsFinite(localX) ||
-            !double.IsFinite(localY) ||
-            !double.IsFinite(localZ) ||
             !TryGetGpsDisplayAnchor(
                 telemetry,
                 map,
@@ -91,10 +85,25 @@ public partial class HudOverlayWindow
             return;
         }
 
+        var hasNativePose =
+            telemetry.LocalX is double localX &&
+            telemetry.LocalY is double localY &&
+            telemetry.LocalZ is double localZ &&
+            double.IsFinite(localX) &&
+            double.IsFinite(localY) &&
+            double.IsFinite(localZ);
         var hasFreshNativeProjection =
+            hasNativePose &&
             projection is not null &&
             DateTimeOffset.UtcNow - projection.Value.CapturedAtUtc <=
                 TimeSpan.FromSeconds(2d);
+
+        var routeDirection = ResolveGroundGuidanceRouteDirection(
+            nearestIndex,
+            currentWorldX,
+            currentWorldY,
+            tileSize,
+            telemetry.HeadingDegrees);
 
         canvas.Visibility = Visibility.Visible;
         var used = 0;
@@ -104,12 +113,19 @@ public partial class HudOverlayWindow
         var lastPlaced = -GroundGuidanceMinSpacingMeters;
 
         for (var index = nearestIndex;
-             index < _routeTracePoints.Count - 1 &&
+             index >= 0 &&
+             index < _routeTracePoints.Count &&
              accumulated <= GroundGuidanceMaxDistanceMeters;
-             index++)
+             index += routeDirection)
         {
+            var nextIndex = index + routeDirection;
+            if (nextIndex < 0 || nextIndex >= _routeTracePoints.Count)
+            {
+                break;
+            }
+
             var point = _routeTracePoints[index];
-            var next = _routeTracePoints[index + 1];
+            var next = _routeTracePoints[nextIndex];
 
             var worldX = point.GridX * tileSize + point.TileX;
             var worldY = point.GridY * tileSize + point.TileY;
@@ -250,6 +266,63 @@ public partial class HudOverlayWindow
         {
             canvas.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private int ResolveGroundGuidanceRouteDirection(
+        int nearestIndex,
+        double currentWorldX,
+        double currentWorldY,
+        double tileSize,
+        double headingDegrees)
+    {
+        if (_routeTracePoints.Count < 2)
+        {
+            return 1;
+        }
+
+        if (nearestIndex <= 0)
+        {
+            return 1;
+        }
+
+        if (nearestIndex >= _routeTracePoints.Count - 1)
+        {
+            return -1;
+        }
+
+        var radians = headingDegrees * Math.PI / 180d;
+        var forwardX = Math.Sin(radians);
+        var forwardY = Math.Cos(radians);
+
+        double Score(int index)
+        {
+            var point = _routeTracePoints[index];
+            var x = point.GridX * tileSize + point.TileX;
+            var y = point.GridY * tileSize + point.TileY;
+            var dx = x - currentWorldX;
+            var dy = y - currentWorldY;
+            return dx * forwardX + dy * forwardY;
+        }
+
+        var forwardScore = Score(nearestIndex + 1);
+        var reverseScore = Score(nearestIndex - 1);
+
+        if (!double.IsFinite(forwardScore) && !double.IsFinite(reverseScore))
+        {
+            return 1;
+        }
+
+        if (!double.IsFinite(forwardScore))
+        {
+            return -1;
+        }
+
+        if (!double.IsFinite(reverseScore))
+        {
+            return 1;
+        }
+
+        return reverseScore > forwardScore ? -1 : 1;
     }
 
     private static bool TryProjectGroundGuidancePerspective(
