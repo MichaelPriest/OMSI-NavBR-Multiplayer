@@ -199,6 +199,11 @@ public static class PluginExports
         var ibisLine = Volatile.Read(ref _ibisLineCourse);
         var ibisRoute = Volatile.Read(ref _ibisRouteCode);
         var ibisTerminus = Volatile.Read(ref _ibisTerminusName);
+        var nearbyVehicles = snapshot?.NearbyVehicles ?? [];
+        var nearbyAiCount = nearbyVehicles.Count(vehicle =>
+            string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal));
+        var nearbyPlayerCount = nearbyVehicles.Count(vehicle =>
+            string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -213,7 +218,7 @@ public static class PluginExports
             Y: snapshot?.Y,
             Z: snapshot?.Z,
             HeadingDegrees: snapshot?.HeadingDegrees,
-            SpeedKph: ReadFinite(_speedKph),
+            SpeedKph: ReadFinite(_speedKph) ?? snapshot?.ReportedSpeedKph,
             IsInGame: snapshot is null
                 ? null
                 : snapshot.HasPosition && !snapshot.OnFoot,
@@ -252,12 +257,24 @@ public static class PluginExports
             PluginMaxCommandsPerSlice: 0,
             PerformanceProfile: PerformanceProfile,
             ExperimentalWritesEnabled: false,
+            OpenOmsiView: snapshot?.View,
+            OpenOmsiOnFoot: snapshot?.OnFoot,
+            OpenOmsiMultiplayer: snapshot?.Multiplayer,
+            OpenOmsiTrafficCount: snapshot?.TrafficCount,
+            OpenOmsiNearbyAiCount: nearbyAiCount,
+            OpenOmsiNearbyPlayerCount: nearbyPlayerCount,
+            OpenOmsiNextStopArrival: snapshot?.NextStopArrival,
+            OpenOmsiNextStopDeparture: snapshot?.NextStopDeparture,
+            OpenOmsiNearbyVehicles: nearbyVehicles,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
                 PluginBridgeProtocol.CapabilityPerformanceGovernor,
                 PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
-                PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot
+                PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot,
+                PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
+                PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
+                PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot
             ]);
     }
 
