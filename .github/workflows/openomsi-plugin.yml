@@ -11,7 +11,7 @@ on:
       - 'src/NavBR.OpenOmsiGatewaySmokeTest/**'
       - '.github/workflows/openomsi-plugin.yml'
   pull_request:
-    branches: [ main ]
+    branches: [ main, feature/alpha26-app-polish ]
     paths:
       - 'src/NavBR.OpenOmsiPlugin/**'
       - 'src/NavBR.Shared/PluginBridge/**'
