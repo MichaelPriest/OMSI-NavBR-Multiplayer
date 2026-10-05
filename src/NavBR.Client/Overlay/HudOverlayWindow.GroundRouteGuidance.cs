@@ -147,6 +147,14 @@ public partial class HudOverlayWindow
             currentWorldY,
             tileSize,
             telemetry.HeadingDegrees);
+        var projectionHeadingDegrees =
+            ResolveGroundGuidanceProjectionHeading(
+                nearestIndex,
+                routeDirection,
+                currentWorldX,
+                currentWorldY,
+                tileSize,
+                telemetry.HeadingDegrees);
 
         canvas.Visibility = Visibility.Visible;
         var used = 0;
@@ -246,14 +254,14 @@ public partial class HudOverlayWindow
                     TryProjectGroundGuidancePerspective(
                         deltaX,
                         deltaY,
-                        telemetry.HeadingDegrees,
+                        projectionHeadingDegrees,
                         viewport,
                         out screenX,
                         out screenY) &&
                     TryProjectGroundGuidancePerspective(
                         nextDeltaX,
                         nextDeltaY,
-                        telemetry.HeadingDegrees,
+                        projectionHeadingDegrees,
                         viewport,
                         out nextScreenX,
                         out nextScreenY);
@@ -387,6 +395,47 @@ public partial class HudOverlayWindow
         }
 
         return reverseScore > forwardScore ? -1 : 1;
+    }
+
+    private double ResolveGroundGuidanceProjectionHeading(
+        int nearestIndex,
+        int routeDirection,
+        double currentWorldX,
+        double currentWorldY,
+        double tileSize,
+        double headingDegrees)
+    {
+        if (!double.IsFinite(headingDegrees))
+        {
+            return 0d;
+        }
+
+        var nextIndex = nearestIndex + routeDirection;
+        if (nextIndex < 0 || nextIndex >= _routeTracePoints.Count)
+        {
+            return headingDegrees;
+        }
+
+        var next = _routeTracePoints[nextIndex];
+        var dx =
+            next.GridX * tileSize + next.TileX -
+            currentWorldX;
+        var dy =
+            next.GridY * tileSize + next.TileY -
+            currentWorldY;
+        if (!double.IsFinite(dx) || !double.IsFinite(dy))
+        {
+            return headingDegrees;
+        }
+
+        var radians = headingDegrees * Math.PI / 180d;
+        var forward =
+            dx * Math.Sin(radians) +
+            dy * Math.Cos(radians);
+
+        return forward < -0.5d
+            ? (headingDegrees + 180d) % 360d
+            : headingDegrees;
     }
 
     private static bool TryProjectGroundGuidancePerspective(
