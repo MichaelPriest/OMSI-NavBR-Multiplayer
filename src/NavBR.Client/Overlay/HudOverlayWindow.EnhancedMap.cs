@@ -52,7 +52,16 @@ public partial class HudOverlayWindow
             layout is not null;
         if (!_immersiveOperationActive)
         {
-            MiniMapHudPanel.Visibility = hasRoadmapSurface
+            var hudMode =
+                _hudSettings.HudSelectionMode?.Trim().ToLowerInvariant() ?? "all";
+            var singleWidget =
+                _hudSettings.HudSingleWidget?.Trim().ToLowerInvariant() ?? "dashboard";
+            var mapSelected =
+                hudMode == "all" ||
+                hudMode == "single" && singleWidget == "minimap" ||
+                hudMode == "selected" && _hudSettings.DashboardShowMinimap;
+
+            MiniMapHudPanel.Visibility = hasRoadmapSurface && mapSelected
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
@@ -443,7 +452,8 @@ public partial class HudOverlayWindow
         double localPixelX,
         double localPixelY)
     {
-        if (_routeTracePoints.Count < 2)
+        if (!_hudSettings.MapShowRoute ||
+            _routeTracePoints.Count < 2)
         {
             ActiveRoutePolyline.Visibility = Visibility.Collapsed;
             ActiveRouteShadow.Visibility = Visibility.Collapsed;
@@ -498,7 +508,8 @@ public partial class HudOverlayWindow
         double localPixelX,
         double localPixelY)
     {
-        if (rejoinPath is null ||
+        if (!_hudSettings.MapShowRejoin ||
+            rejoinPath is null ||
             rejoinPath.Points.Count < 2 ||
             layout.TileSize is not double tileSize ||
             layout.WorldWidth is not double worldWidth ||
