@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using NavBR.Client.Maps;
 using NavBR.Client.Multiplayer;
 
 namespace NavBR.Client.Overlay;
