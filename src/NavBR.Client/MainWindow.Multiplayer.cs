@@ -219,6 +219,8 @@ public partial class MainWindow
         hud.InGameRoleplaySelectionRequested += HandleHudInGameRoleplaySelectionRequestedForShell;
         hud.InGameRoleplayFreeRoamChanged += HandleHudInGameRoleplayFreeRoamChanged;
         hud.InGamePerformanceProfileChanged += HandleHudInGamePerformanceProfileChanged;
+        hud.InGameVoiceEnabledChanged += HandleHudInGameVoiceEnabledChanged;
+        hud.InGamePhysicalVehiclesChanged += HandleHudInGamePhysicalVehiclesChanged;
         var processId = GetActiveSimulatorProcessIdForHud();
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -239,6 +241,8 @@ public partial class MainWindow
             hud.InGameRoleplaySelectionRequested -= HandleHudInGameRoleplaySelectionRequestedForShell;
             hud.InGameRoleplayFreeRoamChanged -= HandleHudInGameRoleplayFreeRoamChanged;
             hud.InGamePerformanceProfileChanged -= HandleHudInGamePerformanceProfileChanged;
+            hud.InGameVoiceEnabledChanged -= HandleHudInGameVoiceEnabledChanged;
+            hud.InGamePhysicalVehiclesChanged -= HandleHudInGamePhysicalVehiclesChanged;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -365,6 +369,24 @@ public partial class MainWindow
         _lastHudRoadTraffic = _telemetryProvider.ReadRoadTraffic(
             maxVehicles: 48,
             radiusMeters: 900d);
+    }
+
+    private void HandleHudInGameVoiceEnabledChanged(bool enabled)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        _multiplayerWindow?.SetVoiceEnabledFromWeb(enabled);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGamePhysicalVehiclesChanged(bool enabled)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is not null)
+        {
+            await _multiplayerWindow.ConfigurePhysicalVehiclesFromWebAsync(enabled);
+        }
+
+        UpdateHudInGamePanelState();
     }
 
     private void HandleHudInGameRoleplayFreeRoamChanged(bool enabled)
@@ -576,6 +598,12 @@ public partial class MainWindow
                 : "RUNTIME • OMSI 2 • PLUGIN OFFLINE";
             runtimeHealthy = pluginConnected;
         }
+
+        _hudOverlay.UpdateInGameOnlineFeatureState(
+            voiceEnabled: multiplayer?.VoiceEnabledForShell == true,
+            physicalVehiclesEnabled:
+                multiplayer?.PhysicalVehiclesEnabledForShell ??
+                ExperimentalFeatureFlags.PhysicalVehiclesEnabled);
 
         _hudOverlay.UpdateInGamePanelState(
             connected: multiplayer?.IsConnected == true,
