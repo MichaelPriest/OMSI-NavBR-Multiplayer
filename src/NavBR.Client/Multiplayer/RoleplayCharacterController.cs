@@ -36,6 +36,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const int VkLeft = 0x25;
     private const int VkRight = 0x27;
     private const int VkE = 0x45;
+    private const int VkG = 0x47;
     private const int VkW = 0x57;
     private const int VkA = 0x41;
     private const int VkS = 0x53;
@@ -1297,7 +1298,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return true;
         }
 
-        if (virtualKey == VkE)
+        if (virtualKey is VkE or VkG)
         {
             var shouldEnter = false;
             lock (_inputSync)
