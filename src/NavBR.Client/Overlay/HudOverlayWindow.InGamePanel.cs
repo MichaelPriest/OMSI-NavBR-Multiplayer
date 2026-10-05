@@ -88,18 +88,31 @@ public partial class HudOverlayWindow
         Panel.SetZIndex(_inGameInputShield, 1290);
         OverlayRoot.Children.Add(_inGameInputShield);
 
-        var headerTitle = new TextBlock
+        var headerTitle = new StackPanel
+        {
+            Orientation = Orientation.Vertical
+        };
+        headerTitle.Children.Add(new TextBlock
+        {
+            Text = "NAVBR",
+            Foreground = new SolidColorBrush(Color.FromRgb(116, 235, 204)),
+            FontSize = 18d,
+            FontWeight = FontWeights.Black,
+            FontFamily = new FontFamily("Bahnschrift")
+        });
+        headerTitle.Children.Add(new TextBlock
         {
             Text = InGameText(
-                "NAVBR IN-GAME",
-                "NAVBR IN-GAME",
-                "NAVBR EN JUEGO",
-                "NAVBR IM SPIEL",
-                "NAVBR EN JEU"),
-            Foreground = new SolidColorBrush(Color.FromRgb(105, 230, 192)),
-            FontSize = 13d,
-            FontWeight = FontWeights.Bold
-        };
+                "CENTRAL DE CONTROLE",
+                "CONTROL CENTER",
+                "CENTRO DE CONTROL",
+                "KONTROLLZENTRALE",
+                "CENTRE DE CONTRÔLE"),
+            Foreground = new SolidColorBrush(Color.FromArgb(175, 205, 220, 232)),
+            FontSize = 9.5d,
+            FontWeight = FontWeights.SemiBold,
+            CharacterSpacing = 80
+        });
 
         var closeButton = BuildInGameButton(
             "×",
@@ -108,7 +121,11 @@ public partial class HudOverlayWindow
         closeButton.Width = 34d;
         closeButton.Margin = new Thickness(10d, 0d, 0d, 0d);
 
-        var header = new DockPanel();
+        var header = new DockPanel
+        {
+            Margin = new Thickness(2d, 0d, 2d, 12d),
+            LastChildFill = true
+        };
         DockPanel.SetDock(closeButton, Dock.Right);
         header.Children.Add(closeButton);
         header.Children.Add(headerTitle);
@@ -121,8 +138,8 @@ public partial class HudOverlayWindow
 
         var actionGrid = new UniformGrid
         {
-            Columns = 2,
-            Margin = new Thickness(0d, 12d, 0d, 0d)
+            Columns = 3,
+            Margin = new Thickness(0d, 2d, 0d, 0d)
         };
 
         var chatButton = BuildInGameButton(
@@ -264,46 +281,51 @@ public partial class HudOverlayWindow
 
         var body = new StackPanel();
         body.Children.Add(header);
-        body.Children.Add(new TextBlock
-        {
-            Text = InGameText(
-                "Controles rápidos sem sair da cabine",
-                "Quick controls without leaving the cab",
-                "Controles rápidos sin salir de la cabina",
-                "Schnellsteuerung ohne die Kabine zu verlassen",
-                "Commandes rapides sans quitter la cabine"),
-            Foreground = new SolidColorBrush(Color.FromArgb(170, 216, 224, 232)),
-            FontSize = 10d,
-            Margin = new Thickness(0d, 3d, 0d, 10d)
-        });
-        body.Children.Add(_inGameSessionText);
-        body.Children.Add(_inGameRuntimeText);
-        body.Children.Add(_inGameCompanyText);
-        body.Children.Add(_inGameOperationsText);
-        body.Children.Add(_inGameDispatchText);
-        body.Children.Add(_inGameRoleplayCombo);
+        body.Children.Add(BuildInGameStatusOverview());
         body.Children.Add(BuildInGameFeatureControls());
-        body.Children.Add(actionGrid);
+        body.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "AÇÕES RÁPIDAS",
+                "QUICK ACTIONS",
+                "ACCIONES RÁPIDAS",
+                "SCHNELLAKTIONEN",
+                "ACTIONS RAPIDES"),
+            InGameText(
+                "Chat, operação, conexão e retorno ao jogo",
+                "Chat, operations, connection and return to game",
+                "Chat, operaciones, conexión y regreso al juego",
+                "Chat, Betrieb, Verbindung und zurück zum Spiel",
+                "Chat, opérations, connexion et retour au jeu"),
+            actionGrid));
 
         var panelScroll = new ScrollViewer
         {
             Content = body,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            MaxHeight = 720d
+            MaxHeight = 690d
         };
 
         _inGamePanel = new Border
         {
-            Width = 650d,
-            MaxHeight = 760d,
-            Padding = new Thickness(16d),
+            Width = 820d,
+            MaxHeight = 780d,
+            Padding = new Thickness(18d),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(Color.FromArgb(246, 7, 18, 27)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(220, 55, 139, 174)),
-            BorderThickness = new Thickness(1.5d),
-            CornerRadius = new CornerRadius(15d),
+            Background = new LinearGradientBrush(
+                Color.FromArgb(250, 7, 17, 25),
+                Color.FromArgb(250, 12, 27, 39),
+                90d),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(215, 60, 139, 170)),
+            BorderThickness = new Thickness(1.25d),
+            CornerRadius = new CornerRadius(20d),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 28d,
+                ShadowDepth = 8d,
+                Opacity = 0.46d
+            },
             Child = panelScroll,
             Visibility = Visibility.Collapsed,
             Focusable = true
@@ -638,17 +660,445 @@ public partial class HudOverlayWindow
 
     private UIElement BuildInGameFeatureControls()
     {
-        var root = new StackPanel
+        var navigation = new StackPanel();
+        var mapButtons = new UniformGrid
         {
-            Margin = new Thickness(0d, 12d, 0d, 2d)
+            Columns = 3,
+            Margin = new Thickness(0d, 2d, 0d, 4d)
+        };
+        mapButtons.Children.Add(BuildInGameButton(
+            InGameText(
+                "MAPA COMPLETO",
+                "FULL MAP",
+                "MAPA COMPLETO",
+                "VOLLBILD-KARTE",
+                "CARTE COMPLÈTE"),
+            new SolidColorBrush(Color.FromRgb(18, 102, 130)),
+            () => OpenFullMapOverlay()));
+        mapButtons.Children.Add(BuildInGameButton(
+            "MAP −",
+            new SolidColorBrush(Color.FromRgb(31, 58, 76)),
+            () => AdjustFullMapZoom(-0.20d)));
+        mapButtons.Children.Add(BuildInGameButton(
+            "MAP +",
+            new SolidColorBrush(Color.FromRgb(31, 58, 76)),
+            () => AdjustFullMapZoom(0.20d)));
+
+        _inGameGroundGuidanceToggle = BuildInGameCheckBox(
+            InGameText(
+                "Setas 3D no chão (rota)",
+                "3D ground route arrows",
+                "Flechas 3D en el suelo",
+                "3D-Routenpfeile am Boden",
+                "Flèches 3D au sol"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                GroundRouteGuidanceEnabled = value
+            }));
+        _inGameMapRouteToggle = BuildInGameCheckBox(
+            InGameText("Rota", "Route", "Ruta", "Route", "Itinéraire"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowRoute = value
+            }));
+        _inGameMapRejoinToggle = BuildInGameCheckBox(
+            InGameText(
+                "Retorno à rota",
+                "Rejoin",
+                "Retorno",
+                "Rückkehr",
+                "Rejoindre"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowRejoin = value
+            }));
+        _inGameMapStopsToggle = BuildInGameCheckBox(
+            InGameText(
+                "Paradas",
+                "Stops",
+                "Paradas",
+                "Haltestellen",
+                "Arrêts"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowStops = value
+            }));
+        _inGameMapPlayersToggle = BuildInGameCheckBox(
+            InGameText(
+                "Jogadores",
+                "Players",
+                "Jugadores",
+                "Spieler",
+                "Joueurs"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowPlayers = value
+            }));
+        _inGameMapTrafficToggle = BuildInGameCheckBox(
+            InGameText(
+                "IA / tráfego",
+                "AI / traffic",
+                "IA / tráfico",
+                "KI / Verkehr",
+                "IA / trafic"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowTraffic = value
+            }));
+        _inGameMapCongestionToggle = BuildInGameCheckBox(
+            InGameText(
+                "Congestionamento",
+                "Congestion",
+                "Congestión",
+                "Verkehrslage",
+                "Congestion"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                MapShowCongestion = value
+            }));
+
+        var mapLayers = new WrapPanel
+        {
+            Margin = new Thickness(0d, 3d, 0d, 3d)
+        };
+        mapLayers.Children.Add(_inGameGroundGuidanceToggle);
+        mapLayers.Children.Add(_inGameMapRouteToggle);
+        mapLayers.Children.Add(_inGameMapRejoinToggle);
+        mapLayers.Children.Add(_inGameMapStopsToggle);
+        mapLayers.Children.Add(_inGameMapPlayersToggle);
+        mapLayers.Children.Add(_inGameMapTrafficToggle);
+        mapLayers.Children.Add(_inGameMapCongestionToggle);
+
+        _inGameGroundGuidanceStatusText = new TextBlock
+        {
+            Text = $"SETAS 3D • {GroundRouteGuidanceStatus}",
+            Foreground = new SolidColorBrush(Color.FromRgb(116, 235, 204)),
+            FontSize = 9.5d,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(6d, 5d, 6d, 2d),
+            TextWrapping = TextWrapping.Wrap
         };
 
-        root.Children.Add(BuildInGameSectionTitle(
-            InGameText("ONLINE", "ONLINE", "ONLINE", "ONLINE", "EN LIGNE")));
-        var onlineControls = new WrapPanel
+        navigation.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "MAPA E NAVEGAÇÃO",
+                "MAP & NAVIGATION",
+                "MAPA Y NAVEGACIÓN",
+                "KARTE & NAVIGATION",
+                "CARTE & NAVIGATION"),
+            InGameText(
+                "Controle de rota, camadas e visão completa",
+                "Route, layers and full-map controls",
+                "Ruta, capas y mapa completo",
+                "Route, Ebenen und Vollbildkarte",
+                "Itinéraire, calques et carte complète"),
+            mapButtons));
+        navigation.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "CAMADAS ATIVAS",
+                "ACTIVE LAYERS",
+                "CAPAS ACTIVAS",
+                "AKTIVE EBENEN",
+                "CALQUES ACTIFS"),
+            InGameText(
+                "Escolha o que aparece no GPS e no mapa",
+                "Choose what appears on GPS and map",
+                "Elija lo que aparece en GPS y mapa",
+                "Wählen Sie GPS- und Kartenebenen",
+                "Choisissez les éléments GPS et carte"),
+            mapLayers));
+        navigation.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "ORIENTAÇÃO 3D",
+                "3D GUIDANCE",
+                "GUÍA 3D",
+                "3D-FÜHRUNG",
+                "GUIDAGE 3D"),
+            InGameText(
+                "Diagnóstico em tempo real das setas no chão",
+                "Live diagnostics for ground-route arrows",
+                "Diagnóstico en vivo de las flechas",
+                "Live-Diagnose der Bodenpfeile",
+                "Diagnostic en direct des flèches au sol"),
+            _inGameGroundGuidanceStatusText));
+
+        var hud = new StackPanel();
+        _inGameHudMasterToggle = BuildInGameCheckBox(
+            InGameText(
+                "HUD ativo",
+                "HUD enabled",
+                "HUD activo",
+                "HUD aktiv",
+                "HUD actif"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                HudEnabled = value
+            }));
+        _inGameTelematrixToggle = BuildInGameCheckBox(
+            "TeleMatrix",
+            value => SaveInGameSettings(settings => settings with
+            {
+                TelematrixWidgetEnabled = value
+            }));
+
+        var hudGlobal = new WrapPanel();
+        hudGlobal.Children.Add(_inGameHudMasterToggle);
+        hudGlobal.Children.Add(_inGameTelematrixToggle);
+
+        _inGameHudZoomSlider = BuildInGameSliderRow(
+            InGameText(
+                "Zoom GPS",
+                "GPS zoom",
+                "Zoom GPS",
+                "GPS-Zoom",
+                "Zoom GPS"),
+            0.65d,
+            10d,
+            0.05d,
+            value => SaveInGameSettings(settings => settings with
+            {
+                HudZoom = value
+            }));
+        _inGameMapOpacitySlider = BuildInGameSliderRow(
+            InGameText(
+                "Opacidade do mapa",
+                "Map opacity",
+                "Opacidad del mapa",
+                "Karten-Deckkraft",
+                "Opacité carte"),
+            0.30d,
+            0.90d,
+            0.02d,
+            value => SaveInGameSettings(settings => settings with
+            {
+                HudMapOpacity = value
+            }));
+
+        var visualTuning = new StackPanel();
+        visualTuning.Children.Add(BuildInGameSliderLabel(
+            InGameText(
+                "Zoom do GPS",
+                "GPS zoom",
+                "Zoom GPS",
+                "GPS-Zoom",
+                "Zoom GPS")));
+        visualTuning.Children.Add(_inGameHudZoomSlider);
+        visualTuning.Children.Add(BuildInGameSliderLabel(
+            InGameText(
+                "Opacidade do mapa",
+                "Map opacity",
+                "Opacidad del mapa",
+                "Karten-Deckkraft",
+                "Opacité carte")));
+        visualTuning.Children.Add(_inGameMapOpacitySlider);
+
+        _inGameHudModeCombo = BuildInGameCombo();
+        _inGameHudModeCombo.ItemsSource = new[]
         {
-            Margin = new Thickness(0d, 2d, 0d, 8d)
+            new InGameChoice(
+                "all",
+                InGameText(
+                    "Todos / padrão",
+                    "All / default",
+                    "Todos / predeterminado",
+                    "Alle / Standard",
+                    "Tous / défaut")),
+            new InGameChoice(
+                "single",
+                InGameText(
+                    "Somente um HUD",
+                    "Single HUD",
+                    "Un solo HUD",
+                    "Ein HUD",
+                    "Un seul HUD")),
+            new InGameChoice(
+                "selected",
+                InGameText(
+                    "HUDs selecionados",
+                    "Selected HUDs",
+                    "HUD seleccionados",
+                    "Ausgewählte HUDs",
+                    "HUD sélectionnés"))
         };
+        _inGameHudModeCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameHudModeCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameHudModeCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameHudModeCombo.SelectedValue is not string mode)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with
+            {
+                HudSelectionMode = mode
+            });
+        };
+
+        _inGameHudSingleWidgetCombo = BuildInGameCombo();
+        _inGameHudSingleWidgetCombo.ItemsSource = new[]
+        {
+            new InGameChoice(
+                "dashboard",
+                InGameText(
+                    "Painel principal",
+                    "Main dashboard",
+                    "Panel principal",
+                    "Hauptpanel",
+                    "Panneau principal")),
+            new InGameChoice(
+                "minimap",
+                InGameText(
+                    "Mapa / GPS",
+                    "Map / GPS",
+                    "Mapa / GPS",
+                    "Karte / GPS",
+                    "Carte / GPS")),
+            new InGameChoice("multiplayer", "Multiplayer"),
+            new InGameChoice(
+                "alerts",
+                InGameText(
+                    "Alertas",
+                    "Alerts",
+                    "Alertas",
+                    "Warnungen",
+                    "Alertes")),
+            new InGameChoice(
+                "status",
+                InGameText(
+                    "Status do veículo",
+                    "Vehicle status",
+                    "Estado del vehículo",
+                    "Fahrzeugstatus",
+                    "État véhicule"))
+        };
+        _inGameHudSingleWidgetCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameHudSingleWidgetCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameHudSingleWidgetCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameHudSingleWidgetCombo.SelectedValue is not string widget)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with
+            {
+                HudSingleWidget = widget
+            });
+        };
+
+        var hudSelectors = new Grid();
+        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition
+        {
+            Width = new GridLength(1d, GridUnitType.Star)
+        });
+        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition
+        {
+            Width = new GridLength(1d, GridUnitType.Star)
+        });
+        Grid.SetColumn(_inGameHudModeCombo, 0);
+        Grid.SetColumn(_inGameHudSingleWidgetCombo, 1);
+        hudSelectors.Children.Add(_inGameHudModeCombo);
+        hudSelectors.Children.Add(_inGameHudSingleWidgetCombo);
+
+        _inGameHudDashboardToggle = BuildInGameCheckBox(
+            InGameText("Painel", "Dashboard", "Panel", "Panel", "Panneau"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                DashboardEnabled = value
+            }));
+        _inGameHudMinimapToggle = BuildInGameCheckBox(
+            InGameText("Mapa", "Map", "Mapa", "Karte", "Carte"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                DashboardShowMinimap = value
+            }));
+        _inGameHudMultiplayerToggle = BuildInGameCheckBox(
+            "Multiplayer",
+            value => SaveInGameSettings(settings => settings with
+            {
+                DashboardShowMultiplayer = value
+            }));
+        _inGameHudAlertsToggle = BuildInGameCheckBox(
+            InGameText("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                DashboardShowAlerts = value
+            }));
+        _inGameHudStatusToggle = BuildInGameCheckBox(
+            InGameText("Status", "Status", "Estado", "Status", "État"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                DashboardShowSideIndicators = value
+            }));
+
+        var hudModules = new WrapPanel();
+        hudModules.Children.Add(_inGameHudDashboardToggle);
+        hudModules.Children.Add(_inGameHudMinimapToggle);
+        hudModules.Children.Add(_inGameHudMultiplayerToggle);
+        hudModules.Children.Add(_inGameHudAlertsToggle);
+        hudModules.Children.Add(_inGameHudStatusToggle);
+
+        hud.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "HUD PRINCIPAL",
+                "MAIN HUD",
+                "HUD PRINCIPAL",
+                "HAUPT-HUD",
+                "HUD PRINCIPAL"),
+            InGameText(
+                "Ative o HUD e os módulos principais",
+                "Enable HUD and primary modules",
+                "Active HUD y módulos principales",
+                "HUD und Hauptmodule aktivieren",
+                "Activez le HUD et les modules"),
+            hudGlobal));
+        hud.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "APARÊNCIA",
+                "APPEARANCE",
+                "APARIENCIA",
+                "DARSTELLUNG",
+                "APPARENCE"),
+            InGameText(
+                "Ajustes rápidos de escala e transparência",
+                "Quick scale and transparency controls",
+                "Ajustes rápidos de escala y transparencia",
+                "Schnelle Skalierungs- und Transparenzsteuerung",
+                "Réglages rapides d’échelle et transparence"),
+            visualTuning));
+        hud.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "COMPOSIÇÃO",
+                "COMPOSITION",
+                "COMPOSICIÓN",
+                "ZUSAMMENSTELLUNG",
+                "COMPOSITION"),
+            InGameText(
+                "Escolha um HUD, todos ou somente os selecionados",
+                "Choose one HUD, all, or only selected modules",
+                "Elija un HUD, todos o los seleccionados",
+                "Ein HUD, alle oder ausgewählte Module",
+                "Un HUD, tous ou seulement les modules choisis"),
+            hudSelectors));
+        hud.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "MÓDULOS",
+                "MODULES",
+                "MÓDULOS",
+                "MODULE",
+                "MODULES"),
+            InGameText(
+                "Componentes que podem aparecer simultaneamente",
+                "Components that may appear simultaneously",
+                "Componentes que pueden mostrarse juntos",
+                "Komponenten, die gleichzeitig angezeigt werden",
+                "Composants pouvant être affichés ensemble"),
+            hudModules));
+
+        var onlineRp = new StackPanel();
         _inGameVoiceToggle = BuildInGameCheckBox(
             InGameText("Voz", "Voice", "Voz", "Sprache", "Voix"),
             value =>
@@ -668,186 +1118,11 @@ public partial class HudOverlayWindow
                 _inGamePhysicalVehiclesEnabled = value;
                 InGamePhysicalVehiclesChanged?.Invoke(value);
             });
+
+        var onlineControls = new WrapPanel();
         onlineControls.Children.Add(_inGameVoiceToggle);
         onlineControls.Children.Add(_inGamePhysicalVehiclesToggle);
-        root.Children.Add(onlineControls);
 
-        root.Children.Add(BuildInGameSectionTitle(
-            InGameText(
-                "NAVEGAÇÃO E MAPA",
-                "NAVIGATION & MAP",
-                "NAVEGACIÓN Y MAPA",
-                "NAVIGATION & KARTE",
-                "NAVIGATION ET CARTE")));
-
-        var mapButtons = new UniformGrid { Columns = 3 };
-        mapButtons.Children.Add(BuildInGameButton(
-            InGameText("MAPA COMPLETO", "FULL MAP", "MAPA COMPLETO", "VOLLBILD-KARTE", "CARTE COMPLÈTE"),
-            new SolidColorBrush(Color.FromRgb(20, 90, 125)),
-            () => OpenFullMapOverlay()));
-        mapButtons.Children.Add(BuildInGameButton(
-            "MAP −",
-            new SolidColorBrush(Color.FromRgb(38, 66, 86)),
-            () => AdjustFullMapZoom(-0.20d)));
-        mapButtons.Children.Add(BuildInGameButton(
-            "MAP +",
-            new SolidColorBrush(Color.FromRgb(38, 66, 86)),
-            () => AdjustFullMapZoom(0.20d)));
-        root.Children.Add(mapButtons);
-
-        _inGameGroundGuidanceToggle = BuildInGameCheckBox(
-            InGameText(
-                "Setas 3D no chão (rota)",
-                "3D ground route arrows",
-                "Flechas 3D en el suelo",
-                "3D-Routenpfeile am Boden",
-                "Flèches 3D au sol"),
-            value => SaveInGameSettings(settings => settings with
-            {
-                GroundRouteGuidanceEnabled = value
-            }));
-
-        var mapLayers = new WrapPanel { Margin = new Thickness(0d, 4d, 0d, 8d) };
-        _inGameMapRouteToggle = BuildInGameCheckBox(
-            InGameText("Rota", "Route", "Ruta", "Route", "Itinéraire"),
-            value => SaveInGameSettings(settings => settings with { MapShowRoute = value }));
-        _inGameMapRejoinToggle = BuildInGameCheckBox(
-            InGameText("Retorno à rota", "Rejoin", "Retorno", "Rückkehr", "Rejoindre"),
-            value => SaveInGameSettings(settings => settings with { MapShowRejoin = value }));
-        _inGameMapStopsToggle = BuildInGameCheckBox(
-            InGameText("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts"),
-            value => SaveInGameSettings(settings => settings with { MapShowStops = value }));
-        _inGameMapPlayersToggle = BuildInGameCheckBox(
-            InGameText("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs"),
-            value => SaveInGameSettings(settings => settings with { MapShowPlayers = value }));
-        _inGameMapTrafficToggle = BuildInGameCheckBox(
-            InGameText("IA / tráfego", "AI / traffic", "IA / tráfico", "KI / Verkehr", "IA / trafic"),
-            value => SaveInGameSettings(settings => settings with { MapShowTraffic = value }));
-        _inGameMapCongestionToggle = BuildInGameCheckBox(
-            InGameText("Congestionamento", "Congestion", "Congestión", "Verkehrslage", "Congestion"),
-            value => SaveInGameSettings(settings => settings with { MapShowCongestion = value }));
-        mapLayers.Children.Add(_inGameGroundGuidanceToggle);
-        mapLayers.Children.Add(_inGameMapRouteToggle);
-        mapLayers.Children.Add(_inGameMapRejoinToggle);
-        mapLayers.Children.Add(_inGameMapStopsToggle);
-        mapLayers.Children.Add(_inGameMapPlayersToggle);
-        mapLayers.Children.Add(_inGameMapTrafficToggle);
-        mapLayers.Children.Add(_inGameMapCongestionToggle);
-        root.Children.Add(mapLayers);
-
-        _inGameGroundGuidanceStatusText = new TextBlock
-        {
-            Text = $"SETAS 3D • {GroundRouteGuidanceStatus}",
-            Foreground = new SolidColorBrush(Color.FromArgb(180, 216, 224, 232)),
-            FontSize = 9d,
-            Margin = new Thickness(7d, 0d, 7d, 7d),
-            TextWrapping = TextWrapping.Wrap
-        };
-        root.Children.Add(_inGameGroundGuidanceStatusText);
-
-        root.Children.Add(BuildInGameSectionTitle("HUD"));
-
-        _inGameHudMasterToggle = BuildInGameCheckBox(
-            InGameText("HUD ativo", "HUD enabled", "HUD activo", "HUD aktiv", "HUD actif"),
-            value => SaveInGameSettings(settings => settings with { HudEnabled = value }));
-        _inGameTelematrixToggle = BuildInGameCheckBox(
-            "TeleMatrix",
-            value => SaveInGameSettings(settings => settings with { TelematrixWidgetEnabled = value }));
-        var hudGlobal = new WrapPanel { Margin = new Thickness(0d, 0d, 0d, 4d) };
-        hudGlobal.Children.Add(_inGameHudMasterToggle);
-        hudGlobal.Children.Add(_inGameTelematrixToggle);
-        root.Children.Add(hudGlobal);
-
-        _inGameHudZoomSlider = BuildInGameSliderRow(
-            InGameText("Zoom GPS", "GPS zoom", "Zoom GPS", "GPS-Zoom", "Zoom GPS"),
-            0.65d,
-            10d,
-            0.05d,
-            value => SaveInGameSettings(settings => settings with { HudZoom = value }));
-        _inGameMapOpacitySlider = BuildInGameSliderRow(
-            InGameText("Opacidade do mapa", "Map opacity", "Opacidad del mapa", "Karten-Deckkraft", "Opacité carte"),
-            0.30d,
-            0.90d,
-            0.02d,
-            value => SaveInGameSettings(settings => settings with { HudMapOpacity = value }));
-        root.Children.Add(_inGameHudZoomSlider);
-        root.Children.Add(_inGameMapOpacitySlider);
-
-        var hudSelectors = new Grid { Margin = new Thickness(0d, 2d, 0d, 6d) };
-        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
-        _inGameHudModeCombo = BuildInGameCombo();
-        _inGameHudModeCombo.ItemsSource = new[]
-        {
-            new InGameChoice("all", InGameText("Todos / padrão", "All / default", "Todos / predeterminado", "Alle / Standard", "Tous / défaut")),
-            new InGameChoice("single", InGameText("Somente um HUD", "Single HUD", "Un solo HUD", "Ein HUD", "Un seul HUD")),
-            new InGameChoice("selected", InGameText("HUDs selecionados", "Selected HUDs", "HUD seleccionados", "Ausgewählte HUDs", "HUD sélectionnés"))
-        };
-        _inGameHudModeCombo.DisplayMemberPath = nameof(InGameChoice.Label);
-        _inGameHudModeCombo.SelectedValuePath = nameof(InGameChoice.Id);
-        _inGameHudModeCombo.SelectionChanged += (_, _) =>
-        {
-            if (_inGameControlsLoading ||
-                _inGameHudModeCombo.SelectedValue is not string mode)
-            {
-                return;
-            }
-
-            SaveInGameSettings(settings => settings with { HudSelectionMode = mode });
-        };
-
-        _inGameHudSingleWidgetCombo = BuildInGameCombo();
-        _inGameHudSingleWidgetCombo.ItemsSource = new[]
-        {
-            new InGameChoice("dashboard", InGameText("Painel principal", "Main dashboard", "Panel principal", "Hauptpanel", "Panneau principal")),
-            new InGameChoice("minimap", InGameText("Mapa / GPS", "Map / GPS", "Mapa / GPS", "Karte / GPS", "Carte / GPS")),
-            new InGameChoice("multiplayer", "Multiplayer"),
-            new InGameChoice("alerts", InGameText("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes")),
-            new InGameChoice("status", InGameText("Status do veículo", "Vehicle status", "Estado del vehículo", "Fahrzeugstatus", "État véhicule"))
-        };
-        _inGameHudSingleWidgetCombo.DisplayMemberPath = nameof(InGameChoice.Label);
-        _inGameHudSingleWidgetCombo.SelectedValuePath = nameof(InGameChoice.Id);
-        _inGameHudSingleWidgetCombo.SelectionChanged += (_, _) =>
-        {
-            if (_inGameControlsLoading ||
-                _inGameHudSingleWidgetCombo.SelectedValue is not string widget)
-            {
-                return;
-            }
-
-            SaveInGameSettings(settings => settings with { HudSingleWidget = widget });
-        };
-        Grid.SetColumn(_inGameHudModeCombo, 0);
-        Grid.SetColumn(_inGameHudSingleWidgetCombo, 1);
-        hudSelectors.Children.Add(_inGameHudModeCombo);
-        hudSelectors.Children.Add(_inGameHudSingleWidgetCombo);
-        root.Children.Add(hudSelectors);
-
-        var hudModules = new WrapPanel { Margin = new Thickness(0d, 0d, 0d, 8d) };
-        _inGameHudDashboardToggle = BuildInGameCheckBox(
-            InGameText("Painel", "Dashboard", "Panel", "Panel", "Panneau"),
-            value => SaveInGameSettings(settings => settings with { DashboardEnabled = value }));
-        _inGameHudMinimapToggle = BuildInGameCheckBox(
-            InGameText("Mapa", "Map", "Mapa", "Karte", "Carte"),
-            value => SaveInGameSettings(settings => settings with { DashboardShowMinimap = value }));
-        _inGameHudMultiplayerToggle = BuildInGameCheckBox(
-            "Multiplayer",
-            value => SaveInGameSettings(settings => settings with { DashboardShowMultiplayer = value }));
-        _inGameHudAlertsToggle = BuildInGameCheckBox(
-            InGameText("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes"),
-            value => SaveInGameSettings(settings => settings with { DashboardShowAlerts = value }));
-        _inGameHudStatusToggle = BuildInGameCheckBox(
-            InGameText("Status", "Status", "Estado", "Status", "État"),
-            value => SaveInGameSettings(settings => settings with { DashboardShowSideIndicators = value }));
-        hudModules.Children.Add(_inGameHudDashboardToggle);
-        hudModules.Children.Add(_inGameHudMinimapToggle);
-        hudModules.Children.Add(_inGameHudMultiplayerToggle);
-        hudModules.Children.Add(_inGameHudAlertsToggle);
-        hudModules.Children.Add(_inGameHudStatusToggle);
-        root.Children.Add(hudModules);
-
-        root.Children.Add(BuildInGameSectionTitle(
-            InGameText("ROLEPLAY", "ROLEPLAY", "ROLEPLAY", "ROLLENSPIEL", "JEU DE RÔLE")));
         _inGameFreeRoamToggle = BuildInGameCheckBox(
             InGameText(
                 "Modo livre (sem limite de distância do ônibus)",
@@ -857,21 +1132,86 @@ public partial class HudOverlayWindow
                 "Mode libre (sans limite de distance)"),
             value =>
             {
-                SaveInGameSettings(settings => settings with { RoleplayFreeRoamEnabled = value });
+                SaveInGameSettings(settings => settings with
+                {
+                    RoleplayFreeRoamEnabled = value
+                });
                 InGameRoleplayFreeRoamChanged?.Invoke(value);
             });
-        root.Children.Add(_inGameFreeRoamToggle);
 
-        root.Children.Add(BuildInGameSectionTitle(
-            InGameText("OTIMIZADOR", "OPTIMIZER", "OPTIMIZADOR", "OPTIMIERER", "OPTIMISEUR")));
+        var roleplayControls = new StackPanel();
+        if (_inGameRoleplayCombo is not null)
+        {
+            roleplayControls.Children.Add(_inGameRoleplayCombo);
+        }
+        roleplayControls.Children.Add(_inGameFreeRoamToggle);
+
+        onlineRp.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "MULTIPLAYER",
+                "MULTIPLAYER",
+                "MULTIPLAYER",
+                "MULTIPLAYER",
+                "MULTIJOUEUR"),
+            InGameText(
+                "Voz e presença física dos demais motoristas",
+                "Voice and physical presence of other drivers",
+                "Voz y presencia física de otros conductores",
+                "Sprache und physische Präsenz anderer Fahrer",
+                "Voix et présence physique des autres conducteurs"),
+            onlineControls));
+        onlineRp.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "PERSONAGEM / RP",
+                "CHARACTER / RP",
+                "PERSONAJE / RP",
+                "CHARAKTER / RP",
+                "PERSONNAGE / RP"),
+            InGameText(
+                "Seleção do personagem e movimentação livre",
+                "Character selection and free-roam controls",
+                "Selección de personaje y modo libre",
+                "Charakterauswahl und freie Bewegung",
+                "Sélection du personnage et déplacement libre"),
+            roleplayControls));
+
+        var system = new StackPanel();
         _inGamePerformanceCombo = BuildInGameCombo();
         _inGamePerformanceCombo.ItemsSource = new[]
         {
-            new InGameChoice("auto", InGameText("Automático", "Automatic", "Automático", "Automatisch", "Automatique")),
-            new InGameChoice("stability", InGameText("Estabilidade", "Stability", "Estabilidad", "Stabilität", "Stabilité")),
+            new InGameChoice(
+                "auto",
+                InGameText(
+                    "Automático",
+                    "Automatic",
+                    "Automático",
+                    "Automatisch",
+                    "Automatique")),
+            new InGameChoice(
+                "stability",
+                InGameText(
+                    "Estabilidade",
+                    "Stability",
+                    "Estabilidad",
+                    "Stabilität",
+                    "Stabilité")),
             new InGameChoice("multiplayer", "Multiplayer"),
-            new InGameChoice("quality", InGameText("Qualidade", "Quality", "Calidad", "Qualität", "Qualité")),
-            new InGameChoice("diagnostics", InGameText("Diagnóstico", "Diagnostics", "Diagnóstico", "Diagnose", "Diagnostic"))
+            new InGameChoice(
+                "quality",
+                InGameText(
+                    "Qualidade",
+                    "Quality",
+                    "Calidad",
+                    "Qualität",
+                    "Qualité")),
+            new InGameChoice(
+                "diagnostics",
+                InGameText(
+                    "Diagnóstico",
+                    "Diagnostics",
+                    "Diagnóstico",
+                    "Diagnose",
+                    "Diagnostic"))
         };
         _inGamePerformanceCombo.DisplayMemberPath = nameof(InGameChoice.Label);
         _inGamePerformanceCombo.SelectedValuePath = nameof(InGameChoice.Id);
@@ -883,30 +1223,250 @@ public partial class HudOverlayWindow
                 return;
             }
 
-            SaveInGameSettings(settings => settings with { PerformanceProfile = profile });
+            SaveInGameSettings(settings => settings with
+            {
+                PerformanceProfile = profile
+            });
             InGamePerformanceProfileChanged?.Invoke(profile);
         };
-        root.Children.Add(_inGamePerformanceCombo);
+
+        system.Children.Add(BuildInGameSurfaceCard(
+            InGameText(
+                "OTIMIZADOR",
+                "OPTIMIZER",
+                "OPTIMIZADOR",
+                "OPTIMIERER",
+                "OPTIMISEUR"),
+            InGameText(
+                "Perfil de desempenho aplicado ao runtime do NavBR",
+                "Performance profile applied to the NavBR runtime",
+                "Perfil de rendimiento aplicado al runtime de NavBR",
+                "Leistungsprofil für die NavBR-Laufzeit",
+                "Profil de performance appliqué au runtime NavBR"),
+            _inGamePerformanceCombo));
+
+        var tabs = new TabControl
+        {
+            Margin = new Thickness(0d, 12d, 0d, 8d),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0d),
+            Foreground = Brushes.White
+        };
+        tabs.Items.Add(BuildInGameTab(
+            InGameText(
+                "Navegação",
+                "Navigation",
+                "Navegación",
+                "Navigation",
+                "Navigation"),
+            navigation));
+        tabs.Items.Add(BuildInGameTab("HUD", hud));
+        tabs.Items.Add(BuildInGameTab(
+            InGameText(
+                "Online / RP",
+                "Online / RP",
+                "Online / RP",
+                "Online / RP",
+                "En ligne / RP"),
+            onlineRp));
+        tabs.Items.Add(BuildInGameTab(
+            InGameText(
+                "Sistema",
+                "System",
+                "Sistema",
+                "System",
+                "Système"),
+            system));
+
+        return tabs;
+    }
+
+    private UIElement BuildInGameStatusOverview()
+    {
+        var grid = new UniformGrid
+        {
+            Columns = 2,
+            Margin = new Thickness(0d, 0d, 0d, 6d)
+        };
+
+        grid.Children.Add(BuildInGameStatusCard(
+            InGameText(
+                "SESSÃO",
+                "SESSION",
+                "SESIÓN",
+                "SITZUNG",
+                "SESSION"),
+            _inGameSessionText!));
+        grid.Children.Add(BuildInGameStatusCard(
+            "RUNTIME",
+            _inGameRuntimeText!));
+        grid.Children.Add(BuildInGameStatusCard(
+            InGameText(
+                "EMPRESA",
+                "COMPANY",
+                "EMPRESA",
+                "UNTERNEHMEN",
+                "ENTREPRISE"),
+            _inGameCompanyText!));
+        grid.Children.Add(BuildInGameStatusCard(
+            "CCO",
+            _inGameOperationsText!));
+
+        var root = new StackPanel();
+        root.Children.Add(grid);
+        root.Children.Add(_inGameDispatchText!);
+        if (_inGameDispatchText is not null)
+        {
+            _inGameDispatchText.Margin =
+                new Thickness(8d, 2d, 8d, 5d);
+        }
 
         return root;
     }
+
+    private static Border BuildInGameStatusCard(
+        string label,
+        TextBlock value)
+    {
+        value.Margin = new Thickness(0d, 4d, 0d, 0d);
+        value.FontSize = 10d;
+
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = label,
+            Foreground = new SolidColorBrush(
+                Color.FromArgb(150, 178, 198, 214)),
+            FontSize = 8d,
+            FontWeight = FontWeights.Bold
+        });
+        stack.Children.Add(value);
+
+        return new Border
+        {
+            Margin = new Thickness(4d),
+            Padding = new Thickness(12d, 9d, 12d, 9d),
+            Background = new SolidColorBrush(
+                Color.FromArgb(145, 14, 30, 42)),
+            BorderBrush = new SolidColorBrush(
+                Color.FromArgb(80, 116, 235, 204)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(10d),
+            Child = stack
+        };
+    }
+
+    private static Border BuildInGameSurfaceCard(
+        string title,
+        string subtitle,
+        UIElement content)
+    {
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = title,
+            Foreground = new SolidColorBrush(Color.FromRgb(116, 235, 204)),
+            FontSize = 10.5d,
+            FontWeight = FontWeights.Bold
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = subtitle,
+            Foreground = new SolidColorBrush(
+                Color.FromArgb(155, 190, 207, 220)),
+            FontSize = 8.8d,
+            Margin = new Thickness(0d, 2d, 0d, 7d),
+            TextWrapping = TextWrapping.Wrap
+        });
+        stack.Children.Add(content);
+
+        return new Border
+        {
+            Margin = new Thickness(4d, 4d, 4d, 7d),
+            Padding = new Thickness(12d),
+            Background = new SolidColorBrush(
+                Color.FromArgb(158, 11, 27, 39)),
+            BorderBrush = new SolidColorBrush(
+                Color.FromArgb(80, 84, 138, 164)),
+            BorderThickness = new Thickness(1d),
+            CornerRadius = new CornerRadius(12d),
+            Child = stack
+        };
+    }
+
+    private static TabItem BuildInGameTab(
+        string title,
+        UIElement content)
+    {
+        var header = new Border
+        {
+            Padding = new Thickness(13d, 8d, 13d, 8d),
+            Margin = new Thickness(1d, 0d, 1d, 0d),
+            Background = new SolidColorBrush(
+                Color.FromArgb(175, 20, 42, 56)),
+            CornerRadius = new CornerRadius(8d, 8d, 0d, 0d),
+            Child = new TextBlock
+            {
+                Text = title,
+                Foreground = Brushes.White,
+                FontSize = 9.5d,
+                FontWeight = FontWeights.SemiBold
+            }
+        };
+
+        return new TabItem
+        {
+            Header = header,
+            Content = new ScrollViewer
+            {
+                Content = content,
+                VerticalScrollBarVisibility =
+                    ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility =
+                    ScrollBarVisibility.Disabled,
+                MaxHeight = 420d
+            },
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Foreground = Brushes.White,
+            Padding = new Thickness(0d)
+        };
+    }
+
+    private static TextBlock BuildInGameSliderLabel(
+        string text) =>
+        new()
+        {
+            Text = text,
+            Foreground = new SolidColorBrush(
+                Color.FromArgb(180, 215, 225, 234)),
+            FontSize = 8.8d,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(7d, 3d, 7d, 0d)
+        };
 
     private static TextBlock BuildInGameSectionTitle(string text) =>
         new()
         {
             Text = text,
-            Foreground = new SolidColorBrush(Color.FromRgb(105, 230, 192)),
-            FontSize = 9.5d,
+            Foreground = new SolidColorBrush(Color.FromRgb(116, 235, 204)),
+            FontSize = 10d,
             FontWeight = FontWeights.Bold,
-            Margin = new Thickness(4d, 8d, 4d, 4d)
+            Margin = new Thickness(5d, 10d, 5d, 5d)
         };
 
     private static ComboBox BuildInGameCombo() =>
         new()
         {
-            Height = 34d,
+            Height = 36d,
             Margin = new Thickness(4d),
-            Padding = new Thickness(8d, 3d, 8d, 3d)
+            Padding = new Thickness(10d, 4d, 10d, 4d),
+            Background = new SolidColorBrush(Color.FromRgb(18, 38, 52)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(
+                Color.FromArgb(120, 84, 138, 164)),
+            BorderThickness = new Thickness(1d)
         };
 
     private Slider BuildInGameSliderRow(
@@ -924,7 +1484,7 @@ public partial class HudOverlayWindow
             IsSnapToTickEnabled = false,
             Margin = new Thickness(7d, 2d, 10d, 4d),
             ToolTip = tooltip,
-            Width = 280d
+            Width = 330d
         };
         slider.ValueChanged += (_, _) =>
         {
@@ -944,9 +1504,10 @@ public partial class HudOverlayWindow
         {
             Content = text,
             Foreground = Brushes.White,
-            Margin = new Thickness(7d, 4d, 10d, 4d),
+            Margin = new Thickness(7d, 5d, 12d, 5d),
             VerticalAlignment = VerticalAlignment.Center,
-            FontSize = 9.5d
+            FontSize = 9.7d,
+            FontWeight = FontWeights.Medium
         };
         check.Click += (_, _) =>
         {
@@ -1063,14 +1624,14 @@ public partial class HudOverlayWindow
         var button = new Button
         {
             Content = text,
-            Height = 38d,
+            Height = 40d,
             Margin = new Thickness(4d),
-            Padding = new Thickness(9d, 5d, 9d, 5d),
+            Padding = new Thickness(10d, 6d, 10d, 6d),
             Background = background,
             Foreground = Brushes.White,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(120, 130, 170, 194)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(95, 143, 184, 204)),
             BorderThickness = new Thickness(1d),
-            FontSize = 9.5d,
+            FontSize = 9.4d,
             FontWeight = FontWeights.SemiBold,
             Cursor = Cursors.Hand
         };
