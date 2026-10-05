@@ -41,6 +41,8 @@ public partial class HudOverlayWindow
         // Single owner for HUD startup. The constructor no longer installs a
         // second keyboard hook/timer set through an anonymous Loaded handler.
         InitializeImmersiveOperationHud();
+        InitializeFullMapOverlay();
+        InitializeGroundRouteGuidance();
         InitializeInGamePanel();
         _presenceTimer.Start();
         FollowOmsiWindow();
@@ -76,6 +78,8 @@ public partial class HudOverlayWindow
         RefreshRoleplayButtonInteraction();
         RefreshTelematrixPanel();
         RenderEnhancedMiniMap();
+        RenderFullMapOverlay();
+        RenderGroundRouteGuidance();
     }
 
     private void FinalizeHudLifecycleInitialization()
@@ -119,6 +123,8 @@ public partial class HudOverlayWindow
         RefreshHudVisibility();
         RefreshRoleplayButtonInteraction();
         RenderEnhancedMiniMap();
+        RenderFullMapOverlay();
+        RenderGroundRouteGuidance();
     }
 
     private void RefreshHudChrome()
