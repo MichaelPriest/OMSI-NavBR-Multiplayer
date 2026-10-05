@@ -1,4 +1,5 @@
 using System.Globalization;
+using NavBR.Shared.PluginBridge;
 
 namespace NavBR.OpenOmsiPlugin;
 
@@ -20,11 +21,20 @@ internal sealed record OpenOmsiLuaSnapshot(
     bool OnFoot,
     bool Paused,
     int? DelaySeconds,
-    string? VehicleName);
+    string? VehicleName,
+    double? ClockSeconds,
+    int? Day,
+    int? Year,
+    bool Multiplayer,
+    int? TrafficCount,
+    double? ReportedSpeedKph,
+    double? NextStopArrival,
+    double? NextStopDeparture,
+    OpenOmsiNearbyVehicleState[] NearbyVehicles);
 
 internal static class OpenOmsiLuaSnapshotReader
 {
-    private const long MinimumProbeIntervalMs = 400;
+    private const long MinimumProbeIntervalMs = 200;
     private const string SnapshotPrefix = "navbr_snapshot = \"";
 
     private static readonly object Sync = new();
@@ -96,6 +106,11 @@ internal static class OpenOmsiLuaSnapshotReader
         }
     }
 
+    internal static OpenOmsiLuaSnapshot? TryParsePayloadForSmoke(string payload)
+    {
+        return TryParsePayload(payload);
+    }
+
     private static bool IsFresh(
         OpenOmsiLuaSnapshot? snapshot,
         bool allowPausedStale)
@@ -131,10 +146,19 @@ internal static class OpenOmsiLuaSnapshotReader
 
         // The Lua companion percent-encodes every string field, so the payload
         // itself never contains a quote or a pipe introduced by user content.
-        var payload = text[start..end];
+        return TryParsePayload(text[start..end]);
+    }
+
+    private static OpenOmsiLuaSnapshot? TryParsePayload(string payload)
+    {
         var fields = payload.Split('|');
-        if (fields.Length != 19 ||
-            !string.Equals(fields[0], "1", StringComparison.Ordinal) ||
+        if (fields.Length < 19 ||
+            !int.TryParse(
+                fields[0],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var version) ||
+            version is < 1 or > 2 ||
             !long.TryParse(
                 fields[1],
                 NumberStyles.Integer,
@@ -145,6 +169,16 @@ internal static class OpenOmsiLuaSnapshotReader
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out var unixSeconds))
+        {
+            return null;
+        }
+
+        if (version == 1 && fields.Length != 19)
+        {
+            return null;
+        }
+
+        if (version == 2 && fields.Length != 28)
         {
             return null;
         }
@@ -170,6 +204,10 @@ internal static class OpenOmsiLuaSnapshotReader
             hasPosition = false;
         }
 
+        var nearby = version >= 2
+            ? ParseNearbyVehicles(fields[27])
+            : [];
+
         return new OpenOmsiLuaSnapshot(
             sequence,
             capturedAt,
@@ -188,7 +226,71 @@ internal static class OpenOmsiLuaSnapshotReader
             fields[15] == "1",
             fields[16] == "1",
             ParseRoundedInt(fields[17]),
-            Decode(fields[18]));
+            Decode(fields[18]),
+            version >= 2 ? ParseDouble(fields[19]) : null,
+            version >= 2 ? ParseRoundedInt(fields[20]) : null,
+            version >= 2 ? ParseRoundedInt(fields[21]) : null,
+            version >= 2 && fields[22] == "1",
+            version >= 2 ? ParseRoundedInt(fields[23]) : null,
+            version >= 2 ? ParseDouble(fields[24]) : null,
+            version >= 2 ? ParseDouble(fields[25]) : null,
+            version >= 2 ? ParseDouble(fields[26]) : null,
+            nearby);
+    }
+
+    private static OpenOmsiNearbyVehicleState[] ParseNearbyVehicles(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var result = new List<OpenOmsiNearbyVehicleState>();
+        foreach (var row in value.Split(
+                     ';',
+                     StringSplitOptions.RemoveEmptyEntries |
+                     StringSplitOptions.TrimEntries))
+        {
+            var fields = row.Split(',');
+            if (fields.Length != 8)
+            {
+                continue;
+            }
+
+            var id = Decode(fields[0]);
+            var kind = Decode(fields[1]);
+            var x = ParseDouble(fields[3]);
+            var y = ParseDouble(fields[4]);
+            var z = ParseDouble(fields[5]);
+            var heading = ParseDouble(fields[6]);
+            if (string.IsNullOrWhiteSpace(id) ||
+                string.IsNullOrWhiteSpace(kind) ||
+                x is null ||
+                y is null ||
+                z is null ||
+                heading is null)
+            {
+                continue;
+            }
+
+            var normalizedKind = kind.Trim().ToLowerInvariant();
+            if (normalizedKind is not ("ai" or "player"))
+            {
+                continue;
+            }
+
+            result.Add(new OpenOmsiNearbyVehicleState(
+                id,
+                normalizedKind,
+                Decode(fields[2]),
+                x.Value,
+                y.Value,
+                z.Value,
+                NormalizeHeading(heading.Value),
+                ParseDouble(fields[7])));
+        }
+
+        return [.. result];
     }
 
     private static string? ResolveSnapshotPath()
@@ -293,15 +395,6 @@ internal static class OpenOmsiLuaSnapshotReader
             CultureInfo.InvariantCulture,
             out var parsed) &&
         double.IsFinite(parsed)
-            ? parsed
-            : null;
-
-    private static int? ParseInt(string value) =>
-        int.TryParse(
-            value,
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out var parsed)
             ? parsed
             : null;
 
