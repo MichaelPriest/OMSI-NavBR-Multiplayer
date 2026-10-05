@@ -110,8 +110,7 @@ public partial class HudOverlayWindow
                 "CENTRE DE CONTRÔLE"),
             Foreground = new SolidColorBrush(Color.FromArgb(175, 205, 220, 232)),
             FontSize = 9.5d,
-            FontWeight = FontWeights.SemiBold,
-            CharacterSpacing = 80
+            FontWeight = FontWeights.SemiBold
         });
 
         var closeButton = BuildInGameButton(
