@@ -274,27 +274,73 @@ public partial class HudOverlayWindow
         }
 
         _hudSettings = settings;
+
+        var mode = settings.HudSelectionMode?.Trim().ToLowerInvariant() ?? "all";
+        var single = string.Equals(mode, "single", StringComparison.Ordinal);
+        var selected = string.Equals(mode, "selected", StringComparison.Ordinal);
+        var singleWidget = settings.HudSingleWidget?.Trim().ToLowerInvariant() ?? "dashboard";
+
+        var showDashboard =
+            mode == "all" ||
+            single && singleWidget == "dashboard" ||
+            selected && settings.DashboardEnabled;
+        var showMinimap =
+            mode == "all" ||
+            single && singleWidget == "minimap" ||
+            selected && settings.DashboardShowMinimap;
+        var showMultiplayer =
+            mode == "all"
+                ? settings.DashboardShowMultiplayer
+                : single
+                    ? singleWidget == "multiplayer"
+                    : settings.DashboardShowMultiplayer;
+        var showAlerts =
+            mode == "all"
+                ? settings.DashboardShowAlerts
+                : single
+                    ? singleWidget == "alerts"
+                    : settings.DashboardShowAlerts;
+        var showStatus =
+            mode == "all"
+                ? settings.DashboardShowSideIndicators
+                : single
+                    ? singleWidget == "status"
+                    : settings.DashboardShowSideIndicators;
+
+        TopStatusPanel.Visibility = showDashboard
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        TripInfoPanel.Visibility = showDashboard
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
         var composedPreset = HudProfileCatalog.IsComposedPreset(settings.DashboardPreset);
         var integratedMinimap =
+            showDashboard &&
             settings.DashboardEnabled &&
             settings.DashboardShowMinimap &&
-            !composedPreset;
+            !composedPreset &&
+            mode == "all";
         if (!_immersiveOperationActive)
         {
             MiniMapHudPanel.Opacity = integratedMinimap ? 0.01d : 1d;
             MiniMapHudPanel.IsHitTestVisible = !integratedMinimap;
+            MiniMapHudPanel.Visibility = showMinimap || integratedMinimap
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
 
-        _modularMinimapWidget!.Visibility = settings.DashboardShowMinimap
+        _modularMinimapWidget!.Visibility =
+            showMinimap && settings.DashboardShowMinimap && mode == "all"
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        _modularMultiplayerWidget!.Visibility = showMultiplayer
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _modularMultiplayerWidget!.Visibility = settings.DashboardShowMultiplayer
+        _modularAlertsWidget!.Visibility = showAlerts
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _modularAlertsWidget!.Visibility = settings.DashboardShowAlerts
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        _modularSideIndicatorsWidget!.Visibility = settings.DashboardShowSideIndicators
+        _modularSideIndicatorsWidget!.Visibility = showStatus
             ? Visibility.Visible
             : Visibility.Collapsed;
 
