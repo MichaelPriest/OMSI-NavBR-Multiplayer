@@ -14,6 +14,9 @@ public partial class HudOverlayWindow
     private const double GroundGuidanceRouteSnapMeters = 90d;
     private Canvas? _groundRouteGuidanceCanvas;
     private readonly List<Polygon> _groundRouteGuidanceArrows = [];
+    private string _groundRouteGuidanceStatus = "desativado";
+
+    internal string GroundRouteGuidanceStatus => _groundRouteGuidanceStatus;
 
     internal void InitializeGroundRouteGuidance()
     {
@@ -39,22 +42,52 @@ public partial class HudOverlayWindow
         var projection = _cameraProjection;
         var map = _activeMap;
 
-        if (canvas is null ||
-            !_hudSettings.GroundRouteGuidanceEnabled ||
-            telemetry?.IsInGame != true ||
-            map is null ||
+        if (canvas is null)
+        {
+            SetGroundRouteGuidanceStatus("canvas indisponível");
+            return;
+        }
+
+        if (!_hudSettings.GroundRouteGuidanceEnabled)
+        {
+            SetGroundRouteGuidanceStatus("desativado");
+            HideGroundRouteGuidance();
+            return;
+        }
+
+        if (telemetry?.IsInGame != true)
+        {
+            SetGroundRouteGuidanceStatus("aguardando OMSI em jogo");
+            HideGroundRouteGuidance();
+            return;
+        }
+
+        if (map is null ||
             layout?.TileSize is not double tileSize ||
             !double.IsFinite(tileSize) ||
-            tileSize <= 0d ||
-            !TryGetGpsDisplayAnchor(
+            tileSize <= 0d)
+        {
+            SetGroundRouteGuidanceStatus("mapa/layout indisponível");
+            HideGroundRouteGuidance();
+            return;
+        }
+
+        if (!TryGetGpsDisplayAnchor(
                 telemetry,
                 map,
                 out var gridX,
                 out var gridY,
                 out var tileX,
-                out var tileY) ||
-            !TryGetOmsiClientViewport(out var viewport))
+                out var tileY))
         {
+            SetGroundRouteGuidanceStatus("posição GPS indisponível");
+            HideGroundRouteGuidance();
+            return;
+        }
+
+        if (!TryGetOmsiClientViewport(out var viewport))
+        {
+            SetGroundRouteGuidanceStatus("janela OMSI indisponível");
             HideGroundRouteGuidance();
             return;
         }
@@ -69,6 +102,7 @@ public partial class HudOverlayWindow
             telemetry.DestinationName);
         if (_routeTracePoints.Count < 2)
         {
+            SetGroundRouteGuidanceStatus("rota não encontrada");
             HideGroundRouteGuidance();
             return;
         }
@@ -81,6 +115,8 @@ public partial class HudOverlayWindow
             tileSize);
         if (nearestIndex < 0)
         {
+            SetGroundRouteGuidanceStatus(
+                $"rota distante • {_routeTracePoints.Count} pontos");
             HideGroundRouteGuidance();
             return;
         }
@@ -264,8 +300,29 @@ public partial class HudOverlayWindow
 
         if (used == 0)
         {
+            SetGroundRouteGuidanceStatus(
+                $"sem pontos à frente • rota {_routeTracePoints.Count} pts • sentido {(routeDirection > 0 ? "+" : "-")}");
             canvas.Visibility = Visibility.Collapsed;
         }
+        else
+        {
+            SetGroundRouteGuidanceStatus(
+                $"{used} setas visíveis • {(hasFreshNativeProjection ? "3D nativo/fallback" : "perspectiva fallback")} • rota {_routeTracePoints.Count} pts");
+        }
+    }
+
+    private void SetGroundRouteGuidanceStatus(string status)
+    {
+        if (string.Equals(
+                _groundRouteGuidanceStatus,
+                status,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _groundRouteGuidanceStatus = status;
+        UpdateInGameGroundGuidanceStatus(status);
     }
 
     private int ResolveGroundGuidanceRouteDirection(
