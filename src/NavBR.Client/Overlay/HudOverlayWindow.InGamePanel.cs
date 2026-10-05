@@ -34,6 +34,10 @@ public partial class HudOverlayWindow
     private CheckBox? _inGameHudMultiplayerToggle;
     private CheckBox? _inGameHudAlertsToggle;
     private CheckBox? _inGameHudStatusToggle;
+    private CheckBox? _inGameVoiceToggle;
+    private CheckBox? _inGamePhysicalVehiclesToggle;
+    private bool _inGameVoiceEnabled;
+    private bool _inGamePhysicalVehiclesEnabled;
     private Button? _inGameRoleplayButton;
     private Button? _inGameConnectButton;
     private Button? _inGameAssistanceButton;
@@ -58,6 +62,8 @@ public partial class HudOverlayWindow
     public event Action<string>? InGameRoleplaySelectionRequested;
     public event Action<bool>? InGameRoleplayFreeRoamChanged;
     public event Action<string>? InGamePerformanceProfileChanged;
+    public event Action<bool>? InGameVoiceEnabledChanged;
+    public event Action<bool>? InGamePhysicalVehiclesChanged;
 
     public bool IsInGamePanelOpen => _inGamePanelOpen;
 
@@ -632,6 +638,35 @@ public partial class HudOverlayWindow
         };
 
         root.Children.Add(BuildInGameSectionTitle(
+            InGameText("ONLINE", "ONLINE", "ONLINE", "ONLINE", "EN LIGNE")));
+        var onlineControls = new WrapPanel
+        {
+            Margin = new Thickness(0d, 2d, 0d, 8d)
+        };
+        _inGameVoiceToggle = BuildInGameCheckBox(
+            InGameText("Voz", "Voice", "Voz", "Sprache", "Voix"),
+            value =>
+            {
+                _inGameVoiceEnabled = value;
+                InGameVoiceEnabledChanged?.Invoke(value);
+            });
+        _inGamePhysicalVehiclesToggle = BuildInGameCheckBox(
+            InGameText(
+                "Ônibus físicos dos jogadores",
+                "Physical player buses",
+                "Autobuses físicos de jugadores",
+                "Physische Spielerbusse",
+                "Bus physiques des joueurs"),
+            value =>
+            {
+                _inGamePhysicalVehiclesEnabled = value;
+                InGamePhysicalVehiclesChanged?.Invoke(value);
+            });
+        onlineControls.Children.Add(_inGameVoiceToggle);
+        onlineControls.Children.Add(_inGamePhysicalVehiclesToggle);
+        root.Children.Add(onlineControls);
+
+        root.Children.Add(BuildInGameSectionTitle(
             InGameText(
                 "NAVEGAÇÃO E MAPA",
                 "NAVIGATION & MAP",
@@ -875,6 +910,8 @@ public partial class HudOverlayWindow
         try
         {
             var settings = MultiplayerSettingsStore.Load();
+            if (_inGameVoiceToggle is not null) _inGameVoiceToggle.IsChecked = _inGameVoiceEnabled;
+            if (_inGamePhysicalVehiclesToggle is not null) _inGamePhysicalVehiclesToggle.IsChecked = _inGamePhysicalVehiclesEnabled;
             if (_inGameGroundGuidanceToggle is not null) _inGameGroundGuidanceToggle.IsChecked = settings.GroundRouteGuidanceEnabled;
             if (_inGameFreeRoamToggle is not null) _inGameFreeRoamToggle.IsChecked = settings.RoleplayFreeRoamEnabled;
             if (_inGameMapRouteToggle is not null) _inGameMapRouteToggle.IsChecked = settings.MapShowRoute;
@@ -899,6 +936,18 @@ public partial class HudOverlayWindow
         finally
         {
             _inGameControlsLoading = false;
+        }
+    }
+
+    internal void UpdateInGameOnlineFeatureState(
+        bool voiceEnabled,
+        bool physicalVehiclesEnabled)
+    {
+        _inGameVoiceEnabled = voiceEnabled;
+        _inGamePhysicalVehiclesEnabled = physicalVehiclesEnabled;
+        if (_inGamePanelOpen)
+        {
+            RefreshInGameFeatureControls();
         }
     }
 
