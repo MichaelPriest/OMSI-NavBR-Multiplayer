@@ -11,6 +11,7 @@ public partial class HudOverlayWindow
 {
     private const double GroundGuidanceMaxDistanceMeters = 150d;
     private const double GroundGuidanceMinSpacingMeters = 9d;
+    private const double GroundGuidanceRouteSnapMeters = 90d;
     private Canvas? _groundRouteGuidanceCanvas;
     private readonly List<Polygon> _groundRouteGuidanceArrows = [];
 
@@ -45,15 +46,12 @@ public partial class HudOverlayWindow
             layout?.TileSize is not double tileSize ||
             !double.IsFinite(tileSize) ||
             tileSize <= 0d ||
-            projection is null ||
-            DateTimeOffset.UtcNow - projection.Value.CapturedAtUtc > TimeSpan.FromSeconds(2d) ||
             telemetry.LocalX is not double localX ||
             telemetry.LocalY is not double localY ||
             telemetry.LocalZ is not double localZ ||
             !double.IsFinite(localX) ||
             !double.IsFinite(localY) ||
             !double.IsFinite(localZ) ||
-            _routeTracePoints.Count < 2 ||
             !TryGetGpsDisplayAnchor(
                 telemetry,
                 map,
@@ -62,6 +60,20 @@ public partial class HudOverlayWindow
                 out var tileX,
                 out var tileY) ||
             !TryGetOmsiClientViewport(out var viewport))
+        {
+            HideGroundRouteGuidance();
+            return;
+        }
+
+        // Ground guidance must own its route-loading dependency. Previously it
+        // only worked after the minimap happened to populate _routeTracePoints.
+        EnsureRouteTrace(
+            map,
+            layout,
+            telemetry.Line,
+            telemetry.Route,
+            telemetry.DestinationName);
+        if (_routeTracePoints.Count < 2)
         {
             HideGroundRouteGuidance();
             return;
@@ -79,6 +91,11 @@ public partial class HudOverlayWindow
             return;
         }
 
+        var hasFreshNativeProjection =
+            projection is not null &&
+            DateTimeOffset.UtcNow - projection.Value.CapturedAtUtc <=
+                TimeSpan.FromSeconds(2d);
+
         canvas.Visibility = Visibility.Visible;
         var used = 0;
         var accumulated = 0d;
@@ -87,7 +104,8 @@ public partial class HudOverlayWindow
         var lastPlaced = -GroundGuidanceMinSpacingMeters;
 
         for (var index = nearestIndex;
-             index < _routeTracePoints.Count - 1 && accumulated <= GroundGuidanceMaxDistanceMeters;
+             index < _routeTracePoints.Count - 1 &&
+             accumulated <= GroundGuidanceMaxDistanceMeters;
              index++)
         {
             var point = _routeTracePoints[index];
@@ -118,29 +136,71 @@ public partial class HudOverlayWindow
                 continue;
             }
 
-            var aheadX = localX + (worldX - currentWorldX);
-            var aheadZ = localZ + (worldY - currentWorldY);
-            var directionX = localX + (nextWorldX - currentWorldX);
-            var directionZ = localZ + (nextWorldY - currentWorldY);
+            var deltaX = worldX - currentWorldX;
+            var deltaY = worldY - currentWorldY;
+            var nextDeltaX = nextWorldX - currentWorldX;
+            var nextDeltaY = nextWorldY - currentWorldY;
 
-            // Route geometry is exact in the horizontal OMSI lane plane. The
-            // timetable trace does not carry per-point elevation yet, so nearby
-            // arrows use the current vehicle ground height instead of inventing
-            // terrain data. This keeps them tied to the real lane geometry while
-            // remaining read-only and safe on OMSI 2.
-            var height = localY + 0.08d;
-            if (!TryProjectToViewport(
-                    new Vector3((float)aheadX, (float)height, (float)aheadZ),
-                    projection.Value,
-                    viewport,
-                    out var screenX,
-                    out var screenY) ||
-                !TryProjectToViewport(
-                    new Vector3((float)directionX, (float)height, (float)directionZ),
-                    projection.Value,
-                    viewport,
-                    out var nextScreenX,
-                    out var nextScreenY))
+            var projected = false;
+            double screenX = 0d;
+            double screenY = 0d;
+            double nextScreenX = 0d;
+            double nextScreenY = 0d;
+
+            if (hasFreshNativeProjection)
+            {
+                var aheadX = localX + deltaX;
+                var aheadZ = localZ + deltaY;
+                var directionX = localX + nextDeltaX;
+                var directionZ = localZ + nextDeltaY;
+                var height = localY + 0.08d;
+
+                projected =
+                    TryProjectToViewport(
+                        new Vector3(
+                            (float)aheadX,
+                            (float)height,
+                            (float)aheadZ),
+                        projection!.Value,
+                        viewport,
+                        out screenX,
+                        out screenY) &&
+                    TryProjectToViewport(
+                        new Vector3(
+                            (float)directionX,
+                            (float)height,
+                            (float)directionZ),
+                        projection.Value,
+                        viewport,
+                        out nextScreenX,
+                        out nextScreenY);
+            }
+
+            // Camera matrices are available only for the exact OMSI 2.3.004
+            // memory profile, and openOMSI currently does not export them.
+            // Keep Forza-style guidance usable by projecting the actual route
+            // into a heading-relative road perspective when native projection
+            // is unavailable or rejects a point.
+            if (!projected)
+            {
+                projected =
+                    TryProjectGroundGuidancePerspective(
+                        deltaX,
+                        deltaY,
+                        telemetry.HeadingDegrees,
+                        viewport,
+                        out screenX,
+                        out screenY) &&
+                    TryProjectGroundGuidancePerspective(
+                        nextDeltaX,
+                        nextDeltaY,
+                        telemetry.HeadingDegrees,
+                        viewport,
+                        out nextScreenX,
+                        out nextScreenY);
+            }
+
+            if (!projected)
             {
                 continue;
             }
@@ -154,11 +214,19 @@ public partial class HudOverlayWindow
 
             var arrow = GetOrCreateGroundGuidanceArrow(used++);
             var angle = Math.Atan2(dy, dx) * 180d / Math.PI + 90d;
-            arrow.RenderTransform = new RotateTransform(angle);
+            var distanceScale = Math.Clamp(
+                1.25d - accumulated / GroundGuidanceMaxDistanceMeters * 0.55d,
+                0.70d,
+                1.25d);
+            var transforms = new TransformGroup();
+            transforms.Children.Add(new ScaleTransform(distanceScale, distanceScale));
+            transforms.Children.Add(new RotateTransform(angle));
+            arrow.RenderTransform = transforms;
             arrow.Opacity = Math.Clamp(
-                1d - accumulated / (GroundGuidanceMaxDistanceMeters * 1.45d),
-                0.28d,
-                0.92d);
+                1d - accumulated /
+                    (GroundGuidanceMaxDistanceMeters * 1.45d),
+                0.32d,
+                0.96d);
             arrow.Visibility = Visibility.Visible;
             Canvas.SetLeft(arrow, screenX - arrow.Width / 2d);
             Canvas.SetTop(arrow, screenY - arrow.Height / 2d);
@@ -170,9 +238,12 @@ public partial class HudOverlayWindow
             }
         }
 
-        for (var index = used; index < _groundRouteGuidanceArrows.Count; index++)
+        for (var index = used;
+             index < _groundRouteGuidanceArrows.Count;
+             index++)
         {
-            _groundRouteGuidanceArrows[index].Visibility = Visibility.Collapsed;
+            _groundRouteGuidanceArrows[index].Visibility =
+                Visibility.Collapsed;
         }
 
         if (used == 0)
@@ -181,13 +252,74 @@ public partial class HudOverlayWindow
         }
     }
 
+    private static bool TryProjectGroundGuidancePerspective(
+        double deltaWorldX,
+        double deltaWorldY,
+        double headingDegrees,
+        ClientViewport viewport,
+        out double screenX,
+        out double screenY)
+    {
+        screenX = 0d;
+        screenY = 0d;
+
+        if (!double.IsFinite(deltaWorldX) ||
+            !double.IsFinite(deltaWorldY) ||
+            !double.IsFinite(headingDegrees))
+        {
+            return false;
+        }
+
+        var radians = headingDegrees * Math.PI / 180d;
+        var forward =
+            deltaWorldX * Math.Sin(radians) +
+            deltaWorldY * Math.Cos(radians);
+        var right =
+            deltaWorldX * Math.Cos(radians) -
+            deltaWorldY * Math.Sin(radians);
+
+        // Do not paint the route behind the driver's viewpoint.
+        if (forward < 2d ||
+            forward > GroundGuidanceMaxDistanceMeters * 1.20d)
+        {
+            return false;
+        }
+
+        var depth = Math.Clamp(
+            forward / GroundGuidanceMaxDistanceMeters,
+            0d,
+            1d);
+        var horizonY = viewport.Top + viewport.Height * 0.48d;
+        var nearY = viewport.Top + viewport.Height * 0.91d;
+        screenY =
+            nearY +
+            (horizonY - nearY) * Math.Sqrt(depth);
+
+        // Perspective widens close to the bus and narrows toward the horizon.
+        var focal = viewport.Width * 0.72d;
+        screenX =
+            viewport.Left +
+            viewport.Width * 0.5d +
+            right / Math.Max(10d, forward) * focal;
+
+        var sideMargin = viewport.Width * 0.04d;
+        return double.IsFinite(screenX) &&
+               double.IsFinite(screenY) &&
+               screenX >= viewport.Left - sideMargin &&
+               screenX <= viewport.Right + sideMargin &&
+               screenY >= viewport.Top &&
+               screenY <= viewport.Bottom;
+    }
+
     private int FindNearestGroundGuidanceRouteIndex(
         double worldX,
         double worldY,
         double tileSize)
     {
         var bestIndex = -1;
-        var bestDistanceSquared = 45d * 45d;
+        var bestDistanceSquared =
+            GroundGuidanceRouteSnapMeters *
+            GroundGuidanceRouteSnapMeters;
 
         for (var index = 0; index < _routeTracePoints.Count; index++)
         {
