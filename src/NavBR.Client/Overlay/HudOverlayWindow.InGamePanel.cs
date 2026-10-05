@@ -29,6 +29,11 @@ public partial class HudOverlayWindow
     private CheckBox? _inGameMapStopsToggle;
     private CheckBox? _inGameMapPlayersToggle;
     private CheckBox? _inGameMapTrafficToggle;
+    private CheckBox? _inGameMapCongestionToggle;
+    private CheckBox? _inGameHudMasterToggle;
+    private CheckBox? _inGameTelematrixToggle;
+    private Slider? _inGameHudZoomSlider;
+    private Slider? _inGameMapOpacitySlider;
     private CheckBox? _inGameHudDashboardToggle;
     private CheckBox? _inGameHudMinimapToggle;
     private CheckBox? _inGameHudMultiplayerToggle;
@@ -717,15 +722,45 @@ public partial class HudOverlayWindow
         _inGameMapTrafficToggle = BuildInGameCheckBox(
             InGameText("IA / tráfego", "AI / traffic", "IA / tráfico", "KI / Verkehr", "IA / trafic"),
             value => SaveInGameSettings(settings => settings with { MapShowTraffic = value }));
+        _inGameMapCongestionToggle = BuildInGameCheckBox(
+            InGameText("Congestionamento", "Congestion", "Congestión", "Verkehrslage", "Congestion"),
+            value => SaveInGameSettings(settings => settings with { MapShowCongestion = value }));
         mapLayers.Children.Add(_inGameGroundGuidanceToggle);
         mapLayers.Children.Add(_inGameMapRouteToggle);
         mapLayers.Children.Add(_inGameMapRejoinToggle);
         mapLayers.Children.Add(_inGameMapStopsToggle);
         mapLayers.Children.Add(_inGameMapPlayersToggle);
         mapLayers.Children.Add(_inGameMapTrafficToggle);
+        mapLayers.Children.Add(_inGameMapCongestionToggle);
         root.Children.Add(mapLayers);
 
         root.Children.Add(BuildInGameSectionTitle("HUD"));
+
+        _inGameHudMasterToggle = BuildInGameCheckBox(
+            InGameText("HUD ativo", "HUD enabled", "HUD activo", "HUD aktiv", "HUD actif"),
+            value => SaveInGameSettings(settings => settings with { HudEnabled = value }));
+        _inGameTelematrixToggle = BuildInGameCheckBox(
+            "TeleMatrix",
+            value => SaveInGameSettings(settings => settings with { TelematrixWidgetEnabled = value }));
+        var hudGlobal = new WrapPanel { Margin = new Thickness(0d, 0d, 0d, 4d) };
+        hudGlobal.Children.Add(_inGameHudMasterToggle);
+        hudGlobal.Children.Add(_inGameTelematrixToggle);
+        root.Children.Add(hudGlobal);
+
+        _inGameHudZoomSlider = BuildInGameSliderRow(
+            InGameText("Zoom GPS", "GPS zoom", "Zoom GPS", "GPS-Zoom", "Zoom GPS"),
+            0.65d,
+            10d,
+            0.05d,
+            value => SaveInGameSettings(settings => settings with { HudZoom = value }));
+        _inGameMapOpacitySlider = BuildInGameSliderRow(
+            InGameText("Opacidade do mapa", "Map opacity", "Opacidad del mapa", "Karten-Deckkraft", "Opacité carte"),
+            0.30d,
+            0.90d,
+            0.02d,
+            value => SaveInGameSettings(settings => settings with { HudMapOpacity = value }));
+        root.Children.Add(_inGameHudZoomSlider);
+        root.Children.Add(_inGameMapOpacitySlider);
 
         var hudSelectors = new Grid { Margin = new Thickness(0d, 2d, 0d, 6d) };
         hudSelectors.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
@@ -863,6 +898,33 @@ public partial class HudOverlayWindow
             Padding = new Thickness(8d, 3d, 8d, 3d)
         };
 
+    private Slider BuildInGameSliderRow(
+        string tooltip,
+        double minimum,
+        double maximum,
+        double tickFrequency,
+        Action<double> changed)
+    {
+        var slider = new Slider
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            TickFrequency = tickFrequency,
+            IsSnapToTickEnabled = false,
+            Margin = new Thickness(7d, 2d, 10d, 4d),
+            ToolTip = tooltip,
+            Width = 280d
+        };
+        slider.ValueChanged += (_, _) =>
+        {
+            if (!_inGameControlsLoading)
+            {
+                changed(slider.Value);
+            }
+        };
+        return slider;
+    }
+
     private CheckBox BuildInGameCheckBox(
         string text,
         Action<bool> changed)
@@ -898,6 +960,7 @@ public partial class HudOverlayWindow
         MultiplayerSettingsStore.Save(updated);
         _hudSettings = updated;
         ApplyModularWidgetSettings(updated);
+        ApplyTelematrixSettings(updated);
         RenderEnhancedMiniMap();
         RenderFullMapOverlay();
         RenderGroundRouteGuidance();
@@ -919,6 +982,11 @@ public partial class HudOverlayWindow
             if (_inGameMapStopsToggle is not null) _inGameMapStopsToggle.IsChecked = settings.MapShowStops;
             if (_inGameMapPlayersToggle is not null) _inGameMapPlayersToggle.IsChecked = settings.MapShowPlayers;
             if (_inGameMapTrafficToggle is not null) _inGameMapTrafficToggle.IsChecked = settings.MapShowTraffic;
+            if (_inGameMapCongestionToggle is not null) _inGameMapCongestionToggle.IsChecked = settings.MapShowCongestion;
+            if (_inGameHudMasterToggle is not null) _inGameHudMasterToggle.IsChecked = settings.HudEnabled;
+            if (_inGameTelematrixToggle is not null) _inGameTelematrixToggle.IsChecked = settings.TelematrixWidgetEnabled;
+            if (_inGameHudZoomSlider is not null) _inGameHudZoomSlider.Value = settings.HudZoom;
+            if (_inGameMapOpacitySlider is not null) _inGameMapOpacitySlider.Value = settings.HudMapOpacity;
             if (_inGameHudDashboardToggle is not null) _inGameHudDashboardToggle.IsChecked = settings.DashboardEnabled;
             if (_inGameHudMinimapToggle is not null) _inGameHudMinimapToggle.IsChecked = settings.DashboardShowMinimap;
             if (_inGameHudMultiplayerToggle is not null) _inGameHudMultiplayerToggle.IsChecked = settings.DashboardShowMultiplayer;
