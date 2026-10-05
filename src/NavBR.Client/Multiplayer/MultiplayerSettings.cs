@@ -61,6 +61,17 @@ public sealed record MultiplayerSettings(
     string TelematrixManualDirection = "TP",
     string PerformanceProfile = "auto",
     string DashboardMinimapStyle = "rectangular",
+    bool InGameFullMapEnabled = false,
+    double InGameFullMapZoom = 1d,
+    bool GroundRouteGuidanceEnabled = false,
+    bool RoleplayFreeRoamEnabled = false,
+    string HudSelectionMode = "selected",
+    string HudSingleWidget = "dashboard",
+    bool MapShowRoute = true,
+    bool MapShowRejoin = true,
+    bool MapShowStops = true,
+    bool MapShowPlayers = true,
+    bool MapShowTraffic = true,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
