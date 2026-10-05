@@ -99,6 +99,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private bool _jumpRequested;
     private bool _jumpActive;
     private bool _focusStopApplied;
+    private bool _freeRoamEnabled;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -112,6 +113,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
         _mapKeySource = mapKeySource;
+        _freeRoamEnabled =
+            MultiplayerSettingsStore.Load().RoleplayFreeRoamEnabled;
 
         _timer = new DispatcherTimer(DispatcherPriority.Input)
         {
@@ -122,6 +125,15 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
+    public bool FreeRoamEnabled => _freeRoamEnabled;
+
+    public void SetFreeRoamEnabled(bool enabled)
+    {
+        _freeRoamEnabled = enabled;
+        SetStatus(enabled
+            ? "roleplay-free-roam-enabled"
+            : "roleplay-free-roam-disabled");
+    }
     public double EnterBusRangeMeters => EnterBusDistanceMeters;
     public double InteractionRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
@@ -866,7 +878,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var fromOrigin = Math.Sqrt(
                 fromOriginX * fromOriginX +
                 fromOriginY * fromOriginY);
-            if (fromOrigin > MaxDistanceFromBusMeters)
+            if (!_freeRoamEnabled &&
+                fromOrigin > MaxDistanceFromBusMeters)
             {
                 var scale = MaxDistanceFromBusMeters / fromOrigin;
                 x = _originX + fromOriginX * scale;
