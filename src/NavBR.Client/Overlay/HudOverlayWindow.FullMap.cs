@@ -389,6 +389,30 @@ public partial class HudOverlayWindow
         Canvas.SetTop(image, imageTop);
         _fullMapCanvas.Children.Add(image);
 
+        if (settings.MapShowCongestion &&
+            hasLocalPixel &&
+            layout.TileSize is double congestionTileSize &&
+            layout.WorldWidth is double congestionWorldWidth &&
+            layout.WorldHeight is double congestionWorldHeight &&
+            double.IsFinite(telemetry.X) &&
+            double.IsFinite(telemetry.Z))
+        {
+            RenderFullMapCongestion(
+                layout,
+                bitmap,
+                scale,
+                imageLeft,
+                imageTop,
+                telemetry,
+                localGridX,
+                localGridY,
+                localTileX,
+                localTileY,
+                congestionTileSize,
+                congestionWorldWidth,
+                congestionWorldHeight);
+        }
+
         if (settings.MapShowRoute)
         {
             AddFullMapPolyline(
@@ -568,6 +592,145 @@ public partial class HudOverlayWindow
                     new SolidColorBrush(Color.FromRgb(102, 166, 208)),
                     "IA");
             }
+        }
+    }
+
+    private void RenderFullMapCongestion(
+        OmsiMapLayout layout,
+        BitmapImage bitmap,
+        double scale,
+        double imageLeft,
+        double imageTop,
+        NavBR.Shared.Telemetry.VehicleTelemetry telemetry,
+        int localGridX,
+        int localGridY,
+        double localTileX,
+        double localTileY,
+        double tileSize,
+        double worldWidth,
+        double worldHeight)
+    {
+        if (_fullMapCanvas is null ||
+            _localRoadTraffic.Count < 3)
+        {
+            return;
+        }
+
+        var localWorldX =
+            (localGridX - layout.MinGridX) * tileSize + localTileX;
+        var localWorldY =
+            (localGridY - layout.MinGridY) * tileSize + localTileY;
+
+        var candidates = _localRoadTraffic
+            .Where(item =>
+                double.IsFinite(item.X) &&
+                double.IsFinite(item.Z) &&
+                double.IsFinite(item.SpeedKph) &&
+                Math.Abs(item.SpeedKph) <= 18d)
+            .Select(item => new
+            {
+                WorldX = localWorldX + (item.X - telemetry.X),
+                WorldY = localWorldY + (item.Z - telemetry.Z),
+                Speed = Math.Abs(item.SpeedKph)
+            })
+            .Where(item =>
+                double.IsFinite(item.WorldX) &&
+                double.IsFinite(item.WorldY))
+            .Take(80)
+            .ToArray();
+
+        if (candidates.Length < 3)
+        {
+            return;
+        }
+
+        var consumed = new bool[candidates.Length];
+        const double clusterRadiusMeters = 45d;
+        var radiusSquared =
+            clusterRadiusMeters * clusterRadiusMeters;
+
+        for (var index = 0; index < candidates.Length; index++)
+        {
+            if (consumed[index])
+            {
+                continue;
+            }
+
+            var seed = candidates[index];
+            var members = new List<int>();
+            for (var other = index; other < candidates.Length; other++)
+            {
+                if (consumed[other])
+                {
+                    continue;
+                }
+
+                var dx = candidates[other].WorldX - seed.WorldX;
+                var dy = candidates[other].WorldY - seed.WorldY;
+                if (dx * dx + dy * dy <= radiusSquared)
+                {
+                    members.Add(other);
+                }
+            }
+
+            // Match openOMSI's intent: one car stopped at a light is not a jam.
+            if (members.Count < 3)
+            {
+                continue;
+            }
+
+            foreach (var member in members)
+            {
+                consumed[member] = true;
+            }
+
+            var centreWorldX =
+                members.Average(member => candidates[member].WorldX);
+            var centreWorldY =
+                members.Average(member => candidates[member].WorldY);
+            var averageSpeed =
+                members.Average(member => candidates[member].Speed);
+
+            var pixelX =
+                centreWorldX * bitmap.PixelWidth / worldWidth;
+            var pixelY =
+                bitmap.PixelHeight -
+                centreWorldY * bitmap.PixelHeight / worldHeight;
+            if (!double.IsFinite(pixelX) || !double.IsFinite(pixelY))
+            {
+                continue;
+            }
+
+            var severity =
+                Math.Clamp(1d - averageSpeed / 18d, 0d, 1d);
+            var diameter =
+                Math.Clamp(28d + members.Count * 5d, 38d, 86d);
+            var fill = severity >= 0.60d
+                ? Color.FromArgb(92, 215, 62, 55)
+                : Color.FromArgb(78, 232, 165, 48);
+            var stroke = severity >= 0.60d
+                ? Color.FromArgb(185, 255, 108, 93)
+                : Color.FromArgb(170, 255, 203, 94);
+
+            var marker = new Ellipse
+            {
+                Width = diameter,
+                Height = diameter,
+                Fill = new SolidColorBrush(fill),
+                Stroke = new SolidColorBrush(stroke),
+                StrokeThickness = 1.5d,
+                IsHitTestVisible = false,
+                ToolTip =
+                    $"Tráfego lento • {members.Count} veículos • {averageSpeed:F0} km/h"
+            };
+
+            Canvas.SetLeft(
+                marker,
+                imageLeft + pixelX * scale - diameter / 2d);
+            Canvas.SetTop(
+                marker,
+                imageTop + pixelY * scale - diameter / 2d);
+            _fullMapCanvas.Children.Add(marker);
         }
     }
 
