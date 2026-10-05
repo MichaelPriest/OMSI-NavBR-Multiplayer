@@ -23,6 +23,7 @@ public partial class HudOverlayWindow
     private ComboBox? _inGameHudSingleWidgetCombo;
     private ComboBox? _inGamePerformanceCombo;
     private CheckBox? _inGameGroundGuidanceToggle;
+    private TextBlock? _inGameGroundGuidanceStatusText;
     private CheckBox? _inGameFreeRoamToggle;
     private CheckBox? _inGameMapRouteToggle;
     private CheckBox? _inGameMapRejoinToggle;
@@ -734,6 +735,16 @@ public partial class HudOverlayWindow
         mapLayers.Children.Add(_inGameMapCongestionToggle);
         root.Children.Add(mapLayers);
 
+        _inGameGroundGuidanceStatusText = new TextBlock
+        {
+            Text = $"SETAS 3D • {GroundRouteGuidanceStatus}",
+            Foreground = new SolidColorBrush(Color.FromArgb(180, 216, 224, 232)),
+            FontSize = 9d,
+            Margin = new Thickness(7d, 0d, 7d, 7d),
+            TextWrapping = TextWrapping.Wrap
+        };
+        root.Children.Add(_inGameGroundGuidanceStatusText);
+
         root.Children.Add(BuildInGameSectionTitle("HUD"));
 
         _inGameHudMasterToggle = BuildInGameCheckBox(
@@ -976,6 +987,11 @@ public partial class HudOverlayWindow
             if (_inGameVoiceToggle is not null) _inGameVoiceToggle.IsChecked = _inGameVoiceEnabled;
             if (_inGamePhysicalVehiclesToggle is not null) _inGamePhysicalVehiclesToggle.IsChecked = _inGamePhysicalVehiclesEnabled;
             if (_inGameGroundGuidanceToggle is not null) _inGameGroundGuidanceToggle.IsChecked = settings.GroundRouteGuidanceEnabled;
+            if (_inGameGroundGuidanceStatusText is not null)
+            {
+                _inGameGroundGuidanceStatusText.Text =
+                    $"SETAS 3D • {GroundRouteGuidanceStatus}";
+            }
             if (_inGameFreeRoamToggle is not null) _inGameFreeRoamToggle.IsChecked = settings.RoleplayFreeRoamEnabled;
             if (_inGameMapRouteToggle is not null) _inGameMapRouteToggle.IsChecked = settings.MapShowRoute;
             if (_inGameMapRejoinToggle is not null) _inGameMapRejoinToggle.IsChecked = settings.MapShowRejoin;
@@ -1017,6 +1033,17 @@ public partial class HudOverlayWindow
         {
             RefreshInGameFeatureControls();
         }
+    }
+
+    internal void UpdateInGameGroundGuidanceStatus(string status)
+    {
+        if (_inGameGroundGuidanceStatusText is null)
+        {
+            return;
+        }
+
+        _inGameGroundGuidanceStatusText.Text =
+            $"SETAS 3D • {status}";
     }
 
     private static TextBlock BuildInGameStatusText() =>
