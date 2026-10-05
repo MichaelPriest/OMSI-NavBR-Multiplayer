@@ -3539,6 +3539,45 @@ function Settings({
               </label>
             </div>
           </article>
+
+          <article className="card settings-general-card optimizer-settings-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{pick("OTIMIZADOR OMSI", "OMSI OPTIMIZER", "OPTIMIZADOR OMSI", "OMSI-OPTIMIERER", "OPTIMISEUR OMSI")}</span>
+                <h3>{pick("Desempenho adaptativo", "Adaptive performance", "Rendimiento adaptativo", "Adaptive Leistung", "Performances adaptatives")}</h3>
+              </div>
+              <span className={`compatibility-badge ${system.sessionHealth.pluginPerformance.queueBackpressureActive ? "warning" : "compatible"}`}>
+                {pick("PRESSÃO", "PRESSURE", "PRESIÓN", "LAST", "PRESSION")} {system.sessionHealth.pluginPerformance.pressureLevel ?? 0}/3
+              </span>
+            </div>
+            <p>{pick(
+              "O mesmo governador usado pelo plugin e pelo HUD pode ser controlado aqui. O modo Automático reduz a carga do NavBR quando o frame time do OMSI aumenta.",
+              "The same governor used by the plugin and HUD is controlled here. Automatic mode reduces NavBR workload when OMSI frame time rises.",
+              "El mismo gobernador usado por el plugin y el HUD se controla aquí. El modo Automático reduce la carga de NavBR cuando aumenta el tiempo de cuadro de OMSI.",
+              "Derselbe Regler wie im Plugin und HUD wird hier gesteuert. Automatik reduziert die NavBR-Last bei steigendem OMSI-Framezeit.",
+              "Le même régulateur que le plugin et le HUD se contrôle ici. Le mode Automatique réduit la charge NavBR lorsque le temps de trame OMSI augmente."
+            )}</p>
+            <div className="diagnostic-facts optimizer-runtime-facts">
+              <span><small>{pick("PERFIL", "PROFILE", "PERFIL", "PROFIL", "PROFIL")}</small><strong>{system.sessionHealth.pluginPerformance.activeProfile || system.sessionHealth.pluginPerformance.configuredProfile}</strong></span>
+              <span><small>{pick("FRAME MÉDIO", "AVG FRAME", "FRAME MEDIO", "Ø FRAME", "TRAME MOY.")}</small><strong>{system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageFrameIntervalMilliseconds, 1)} ms`}</strong></span>
+              <span><small>{pick("TRABALHO PLUGIN", "PLUGIN WORK", "TRABAJO PLUGIN", "PLUGIN-ARBEIT", "TRAVAIL PLUGIN")}</small><strong>{system.sessionHealth.pluginPerformance.averageWorkMilliseconds == null ? "—" : `${format(system.sessionHealth.pluginPerformance.averageWorkMilliseconds, 2)} ms`}</strong></span>
+            </div>
+            <div className="room-actions">
+              {(["auto", "stability", "multiplayer", "quality", "diagnostics"] as const).map(profile => (
+                <button
+                  key={profile}
+                  className={`button ${system.sessionHealth.pluginPerformance.configuredProfile === profile ? "primary" : "ghost"} compact`}
+                  onClick={() => sendCommand("setPerformanceProfile", { profile })}
+                >
+                  {profile === "auto" ? pick("Automático", "Automatic", "Automático", "Automatisch", "Automatique") :
+                   profile === "stability" ? pick("Estabilidade", "Stability", "Estabilidad", "Stabilität", "Stabilité") :
+                   profile === "multiplayer" ? "Multiplayer" :
+                   profile === "quality" ? pick("Qualidade", "Quality", "Calidad", "Qualität", "Qualité") :
+                   pick("Diagnóstico", "Diagnostics", "Diagnóstico", "Diagnose", "Diagnostic")}
+                </button>
+              ))}
+            </div>
+          </article>
         </section>
       )}
 
