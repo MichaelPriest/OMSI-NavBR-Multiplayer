@@ -19,6 +19,21 @@ public partial class HudOverlayWindow
     private TextBlock? _inGameOperationsText;
     private TextBlock? _inGameDispatchText;
     private ComboBox? _inGameRoleplayCombo;
+    private ComboBox? _inGameHudModeCombo;
+    private ComboBox? _inGameHudSingleWidgetCombo;
+    private ComboBox? _inGamePerformanceCombo;
+    private CheckBox? _inGameGroundGuidanceToggle;
+    private CheckBox? _inGameFreeRoamToggle;
+    private CheckBox? _inGameMapRouteToggle;
+    private CheckBox? _inGameMapRejoinToggle;
+    private CheckBox? _inGameMapStopsToggle;
+    private CheckBox? _inGameMapPlayersToggle;
+    private CheckBox? _inGameMapTrafficToggle;
+    private CheckBox? _inGameHudDashboardToggle;
+    private CheckBox? _inGameHudMinimapToggle;
+    private CheckBox? _inGameHudMultiplayerToggle;
+    private CheckBox? _inGameHudAlertsToggle;
+    private CheckBox? _inGameHudStatusToggle;
     private Button? _inGameRoleplayButton;
     private Button? _inGameConnectButton;
     private Button? _inGameAssistanceButton;
@@ -29,6 +44,9 @@ public partial class HudOverlayWindow
     private string? _inGameDispatchReportId;
     private string? _inGameConnectionNotice;
     private bool _inGamePanelOpen;
+    private bool _inGameControlsLoading;
+
+    private sealed record InGameChoice(string Id, string Label);
 
     public event Action? InGamePanelOpened;
     public event Action? InGameConnectRequested;
@@ -38,6 +56,8 @@ public partial class HudOverlayWindow
     public event Action<string>? InGameDispatchAcknowledgeRequested;
     public event Action<string>? InGameDispatchResolveRequested;
     public event Action<string>? InGameRoleplaySelectionRequested;
+    public event Action<bool>? InGameRoleplayFreeRoamChanged;
+    public event Action<string>? InGamePerformanceProfileChanged;
 
     public bool IsInGamePanelOpen => _inGamePanelOpen;
 
@@ -250,11 +270,21 @@ public partial class HudOverlayWindow
         body.Children.Add(_inGameOperationsText);
         body.Children.Add(_inGameDispatchText);
         body.Children.Add(_inGameRoleplayCombo);
+        body.Children.Add(BuildInGameFeatureControls());
         body.Children.Add(actionGrid);
+
+        var panelScroll = new ScrollViewer
+        {
+            Content = body,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 720d
+        };
 
         _inGamePanel = new Border
         {
-            Width = 500d,
+            Width = 650d,
+            MaxHeight = 760d,
             Padding = new Thickness(16d),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
@@ -262,13 +292,15 @@ public partial class HudOverlayWindow
             BorderBrush = new SolidColorBrush(Color.FromArgb(220, 55, 139, 174)),
             BorderThickness = new Thickness(1.5d),
             CornerRadius = new CornerRadius(15d),
-            Child = body,
+            Child = panelScroll,
             Visibility = Visibility.Collapsed,
             Focusable = true
         };
         _inGamePanel.PreviewKeyDown += InGamePanel_PreviewKeyDown;
         Panel.SetZIndex(_inGamePanel, 1300);
         OverlayRoot.Children.Add(_inGamePanel);
+
+        RefreshInGameFeatureControls();
 
         UpdateInGamePanelState(
             connected: false,
@@ -568,6 +600,7 @@ public partial class HudOverlayWindow
         }
 
         InGamePanelOpened?.Invoke();
+        RefreshInGameFeatureControls();
 
         _inGamePanelOpen = true;
         if (_inGameInputShield is not null)
@@ -589,6 +622,283 @@ public partial class HudOverlayWindow
 
         e.Handled = true;
         CloseInGamePanel();
+    }
+
+    private UIElement BuildInGameFeatureControls()
+    {
+        var root = new StackPanel
+        {
+            Margin = new Thickness(0d, 12d, 0d, 2d)
+        };
+
+        root.Children.Add(BuildInGameSectionTitle(
+            InGameText(
+                "NAVEGAÇÃO E MAPA",
+                "NAVIGATION & MAP",
+                "NAVEGACIÓN Y MAPA",
+                "NAVIGATION & KARTE",
+                "NAVIGATION ET CARTE")));
+
+        var mapButtons = new UniformGrid { Columns = 3 };
+        mapButtons.Children.Add(BuildInGameButton(
+            InGameText("MAPA COMPLETO", "FULL MAP", "MAPA COMPLETO", "VOLLBILD-KARTE", "CARTE COMPLÈTE"),
+            new SolidColorBrush(Color.FromRgb(20, 90, 125)),
+            () => OpenFullMapOverlay()));
+        mapButtons.Children.Add(BuildInGameButton(
+            "MAP −",
+            new SolidColorBrush(Color.FromRgb(38, 66, 86)),
+            () => AdjustFullMapZoom(-0.20d)));
+        mapButtons.Children.Add(BuildInGameButton(
+            "MAP +",
+            new SolidColorBrush(Color.FromRgb(38, 66, 86)),
+            () => AdjustFullMapZoom(0.20d)));
+        root.Children.Add(mapButtons);
+
+        _inGameGroundGuidanceToggle = BuildInGameCheckBox(
+            InGameText(
+                "Setas 3D no chão (rota)",
+                "3D ground route arrows",
+                "Flechas 3D en el suelo",
+                "3D-Routenpfeile am Boden",
+                "Flèches 3D au sol"),
+            value => SaveInGameSettings(settings => settings with
+            {
+                GroundRouteGuidanceEnabled = value
+            }));
+
+        var mapLayers = new WrapPanel { Margin = new Thickness(0d, 4d, 0d, 8d) };
+        _inGameMapRouteToggle = BuildInGameCheckBox(
+            InGameText("Rota", "Route", "Ruta", "Route", "Itinéraire"),
+            value => SaveInGameSettings(settings => settings with { MapShowRoute = value }));
+        _inGameMapRejoinToggle = BuildInGameCheckBox(
+            InGameText("Retorno à rota", "Rejoin", "Retorno", "Rückkehr", "Rejoindre"),
+            value => SaveInGameSettings(settings => settings with { MapShowRejoin = value }));
+        _inGameMapStopsToggle = BuildInGameCheckBox(
+            InGameText("Paradas", "Stops", "Paradas", "Haltestellen", "Arrêts"),
+            value => SaveInGameSettings(settings => settings with { MapShowStops = value }));
+        _inGameMapPlayersToggle = BuildInGameCheckBox(
+            InGameText("Jogadores", "Players", "Jugadores", "Spieler", "Joueurs"),
+            value => SaveInGameSettings(settings => settings with { MapShowPlayers = value }));
+        _inGameMapTrafficToggle = BuildInGameCheckBox(
+            InGameText("IA / tráfego", "AI / traffic", "IA / tráfico", "KI / Verkehr", "IA / trafic"),
+            value => SaveInGameSettings(settings => settings with { MapShowTraffic = value }));
+        mapLayers.Children.Add(_inGameGroundGuidanceToggle);
+        mapLayers.Children.Add(_inGameMapRouteToggle);
+        mapLayers.Children.Add(_inGameMapRejoinToggle);
+        mapLayers.Children.Add(_inGameMapStopsToggle);
+        mapLayers.Children.Add(_inGameMapPlayersToggle);
+        mapLayers.Children.Add(_inGameMapTrafficToggle);
+        root.Children.Add(mapLayers);
+
+        root.Children.Add(BuildInGameSectionTitle("HUD"));
+
+        var hudSelectors = new Grid { Margin = new Thickness(0d, 2d, 0d, 6d) };
+        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        hudSelectors.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        _inGameHudModeCombo = BuildInGameCombo();
+        _inGameHudModeCombo.ItemsSource = new[]
+        {
+            new InGameChoice("single", InGameText("Somente um HUD", "Single HUD", "Un solo HUD", "Ein HUD", "Un seul HUD")),
+            new InGameChoice("selected", InGameText("HUDs selecionados", "Selected HUDs", "HUD seleccionados", "Ausgewählte HUDs", "HUD sélectionnés"))
+        };
+        _inGameHudModeCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameHudModeCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameHudModeCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameHudModeCombo.SelectedValue is not string mode)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with { HudSelectionMode = mode });
+        };
+
+        _inGameHudSingleWidgetCombo = BuildInGameCombo();
+        _inGameHudSingleWidgetCombo.ItemsSource = new[]
+        {
+            new InGameChoice("dashboard", InGameText("Painel principal", "Main dashboard", "Panel principal", "Hauptpanel", "Panneau principal")),
+            new InGameChoice("minimap", InGameText("Mapa / GPS", "Map / GPS", "Mapa / GPS", "Karte / GPS", "Carte / GPS")),
+            new InGameChoice("multiplayer", "Multiplayer"),
+            new InGameChoice("alerts", InGameText("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes")),
+            new InGameChoice("status", InGameText("Status do veículo", "Vehicle status", "Estado del vehículo", "Fahrzeugstatus", "État véhicule"))
+        };
+        _inGameHudSingleWidgetCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameHudSingleWidgetCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameHudSingleWidgetCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameHudSingleWidgetCombo.SelectedValue is not string widget)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with { HudSingleWidget = widget });
+        };
+        Grid.SetColumn(_inGameHudModeCombo, 0);
+        Grid.SetColumn(_inGameHudSingleWidgetCombo, 1);
+        hudSelectors.Children.Add(_inGameHudModeCombo);
+        hudSelectors.Children.Add(_inGameHudSingleWidgetCombo);
+        root.Children.Add(hudSelectors);
+
+        var hudModules = new WrapPanel { Margin = new Thickness(0d, 0d, 0d, 8d) };
+        _inGameHudDashboardToggle = BuildInGameCheckBox(
+            InGameText("Painel", "Dashboard", "Panel", "Panel", "Panneau"),
+            value => SaveInGameSettings(settings => settings with { DashboardEnabled = value }));
+        _inGameHudMinimapToggle = BuildInGameCheckBox(
+            InGameText("Mapa", "Map", "Mapa", "Karte", "Carte"),
+            value => SaveInGameSettings(settings => settings with { DashboardShowMinimap = value }));
+        _inGameHudMultiplayerToggle = BuildInGameCheckBox(
+            "Multiplayer",
+            value => SaveInGameSettings(settings => settings with { DashboardShowMultiplayer = value }));
+        _inGameHudAlertsToggle = BuildInGameCheckBox(
+            InGameText("Alertas", "Alerts", "Alertas", "Warnungen", "Alertes"),
+            value => SaveInGameSettings(settings => settings with { DashboardShowAlerts = value }));
+        _inGameHudStatusToggle = BuildInGameCheckBox(
+            InGameText("Status", "Status", "Estado", "Status", "État"),
+            value => SaveInGameSettings(settings => settings with { DashboardShowSideIndicators = value }));
+        hudModules.Children.Add(_inGameHudDashboardToggle);
+        hudModules.Children.Add(_inGameHudMinimapToggle);
+        hudModules.Children.Add(_inGameHudMultiplayerToggle);
+        hudModules.Children.Add(_inGameHudAlertsToggle);
+        hudModules.Children.Add(_inGameHudStatusToggle);
+        root.Children.Add(hudModules);
+
+        root.Children.Add(BuildInGameSectionTitle(
+            InGameText("ROLEPLAY", "ROLEPLAY", "ROLEPLAY", "ROLLENSPIEL", "JEU DE RÔLE")));
+        _inGameFreeRoamToggle = BuildInGameCheckBox(
+            InGameText(
+                "Modo livre (sem limite de distância do ônibus)",
+                "Free roam (no bus distance limit)",
+                "Modo libre (sin límite de distancia)",
+                "Freies Bewegen (ohne Bus-Distanzlimit)",
+                "Mode libre (sans limite de distance)"),
+            value =>
+            {
+                SaveInGameSettings(settings => settings with { RoleplayFreeRoamEnabled = value });
+                InGameRoleplayFreeRoamChanged?.Invoke(value);
+            });
+        root.Children.Add(_inGameFreeRoamToggle);
+
+        root.Children.Add(BuildInGameSectionTitle(
+            InGameText("OTIMIZADOR", "OPTIMIZER", "OPTIMIZADOR", "OPTIMIERER", "OPTIMISEUR")));
+        _inGamePerformanceCombo = BuildInGameCombo();
+        _inGamePerformanceCombo.ItemsSource = new[]
+        {
+            new InGameChoice("auto", InGameText("Automático", "Automatic", "Automático", "Automatisch", "Automatique")),
+            new InGameChoice("stability", InGameText("Estabilidade", "Stability", "Estabilidad", "Stabilität", "Stabilité")),
+            new InGameChoice("multiplayer", "Multiplayer"),
+            new InGameChoice("quality", InGameText("Qualidade", "Quality", "Calidad", "Qualität", "Qualité")),
+            new InGameChoice("diagnostics", InGameText("Diagnóstico", "Diagnostics", "Diagnóstico", "Diagnose", "Diagnostic"))
+        };
+        _inGamePerformanceCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGamePerformanceCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGamePerformanceCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGamePerformanceCombo.SelectedValue is not string profile)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with { PerformanceProfile = profile });
+            InGamePerformanceProfileChanged?.Invoke(profile);
+        };
+        root.Children.Add(_inGamePerformanceCombo);
+
+        return root;
+    }
+
+    private static TextBlock BuildInGameSectionTitle(string text) =>
+        new()
+        {
+            Text = text,
+            Foreground = new SolidColorBrush(Color.FromRgb(105, 230, 192)),
+            FontSize = 9.5d,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(4d, 8d, 4d, 4d)
+        };
+
+    private static ComboBox BuildInGameCombo() =>
+        new()
+        {
+            Height = 34d,
+            Margin = new Thickness(4d),
+            Padding = new Thickness(8d, 3d, 8d, 3d)
+        };
+
+    private CheckBox BuildInGameCheckBox(
+        string text,
+        Action<bool> changed)
+    {
+        var check = new CheckBox
+        {
+            Content = text,
+            Foreground = Brushes.White,
+            Margin = new Thickness(7d, 4d, 10d, 4d),
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 9.5d
+        };
+        check.Click += (_, _) =>
+        {
+            if (!_inGameControlsLoading)
+            {
+                changed(check.IsChecked == true);
+            }
+        };
+        return check;
+    }
+
+    private void SaveInGameSettings(
+        Func<MultiplayerSettings, MultiplayerSettings> update)
+    {
+        if (_inGameControlsLoading)
+        {
+            return;
+        }
+
+        var current = MultiplayerSettingsStore.Load();
+        var updated = update(current);
+        MultiplayerSettingsStore.Save(updated);
+        _hudSettings = updated;
+        ApplyModularWidgetSettings(updated);
+        RenderEnhancedMiniMap();
+        RenderFullMapOverlay();
+        RenderGroundRouteGuidance();
+        RefreshInGameFeatureControls();
+    }
+
+    private void RefreshInGameFeatureControls()
+    {
+        _inGameControlsLoading = true;
+        try
+        {
+            var settings = MultiplayerSettingsStore.Load();
+            if (_inGameGroundGuidanceToggle is not null) _inGameGroundGuidanceToggle.IsChecked = settings.GroundRouteGuidanceEnabled;
+            if (_inGameFreeRoamToggle is not null) _inGameFreeRoamToggle.IsChecked = settings.RoleplayFreeRoamEnabled;
+            if (_inGameMapRouteToggle is not null) _inGameMapRouteToggle.IsChecked = settings.MapShowRoute;
+            if (_inGameMapRejoinToggle is not null) _inGameMapRejoinToggle.IsChecked = settings.MapShowRejoin;
+            if (_inGameMapStopsToggle is not null) _inGameMapStopsToggle.IsChecked = settings.MapShowStops;
+            if (_inGameMapPlayersToggle is not null) _inGameMapPlayersToggle.IsChecked = settings.MapShowPlayers;
+            if (_inGameMapTrafficToggle is not null) _inGameMapTrafficToggle.IsChecked = settings.MapShowTraffic;
+            if (_inGameHudDashboardToggle is not null) _inGameHudDashboardToggle.IsChecked = settings.DashboardEnabled;
+            if (_inGameHudMinimapToggle is not null) _inGameHudMinimapToggle.IsChecked = settings.DashboardShowMinimap;
+            if (_inGameHudMultiplayerToggle is not null) _inGameHudMultiplayerToggle.IsChecked = settings.DashboardShowMultiplayer;
+            if (_inGameHudAlertsToggle is not null) _inGameHudAlertsToggle.IsChecked = settings.DashboardShowAlerts;
+            if (_inGameHudStatusToggle is not null) _inGameHudStatusToggle.IsChecked = settings.DashboardShowSideIndicators;
+            if (_inGameHudModeCombo is not null) _inGameHudModeCombo.SelectedValue = settings.HudSelectionMode;
+            if (_inGameHudSingleWidgetCombo is not null)
+            {
+                _inGameHudSingleWidgetCombo.SelectedValue = settings.HudSingleWidget;
+                _inGameHudSingleWidgetCombo.IsEnabled =
+                    string.Equals(settings.HudSelectionMode, "single", StringComparison.OrdinalIgnoreCase);
+            }
+            if (_inGamePerformanceCombo is not null) _inGamePerformanceCombo.SelectedValue = settings.PerformanceProfile;
+        }
+        finally
+        {
+            _inGameControlsLoading = false;
+        }
     }
 
     private static TextBlock BuildInGameStatusText() =>
