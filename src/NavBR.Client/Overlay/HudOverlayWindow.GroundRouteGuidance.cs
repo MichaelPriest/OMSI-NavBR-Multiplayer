@@ -121,10 +121,13 @@ public partial class HudOverlayWindow
             return;
         }
 
+        var localX = telemetry.LocalX ?? 0d;
+        var localY = telemetry.LocalY ?? 0d;
+        var localZ = telemetry.LocalZ ?? 0d;
         var hasNativePose =
-            telemetry.LocalX is double localX &&
-            telemetry.LocalY is double localY &&
-            telemetry.LocalZ is double localZ &&
+            telemetry.LocalX.HasValue &&
+            telemetry.LocalY.HasValue &&
+            telemetry.LocalZ.HasValue &&
             double.IsFinite(localX) &&
             double.IsFinite(localY) &&
             double.IsFinite(localZ);
