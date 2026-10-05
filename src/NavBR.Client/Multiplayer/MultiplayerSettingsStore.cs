@@ -192,6 +192,20 @@ public static class MultiplayerSettingsStore
             "diagnostics" => "diagnostics",
             _ => "auto"
         };
+        var hudSelectionMode = settings.HudSelectionMode?.Trim().ToLowerInvariant() switch
+        {
+            "single" => "single",
+            "selected" => "selected",
+            _ => "all"
+        };
+        var hudSingleWidget = settings.HudSingleWidget?.Trim().ToLowerInvariant() switch
+        {
+            "minimap" => "minimap",
+            "multiplayer" => "multiplayer",
+            "alerts" => "alerts",
+            "status" => "status",
+            _ => "dashboard"
+        };
 
         // Network settings version 2 makes the shared Render service the
         // out-of-box multiplayer transport. Only migrate the historical
@@ -320,7 +334,15 @@ public static class MultiplayerSettingsStore
             ServerUrl = serverUrl,
             EnableApplicationRelay = enableApplicationRelay,
             RelayServerUrl = relayServerUrl,
-            PerformanceProfile = performanceProfile
+            PerformanceProfile = performanceProfile,
+            InGameFullMapZoom = Math.Clamp(
+                double.IsFinite(settings.InGameFullMapZoom)
+                    ? settings.InGameFullMapZoom
+                    : 1d,
+                0.75d,
+                4d),
+            HudSelectionMode = hudSelectionMode,
+            HudSingleWidget = hudSingleWidget
         };
     }
 }
