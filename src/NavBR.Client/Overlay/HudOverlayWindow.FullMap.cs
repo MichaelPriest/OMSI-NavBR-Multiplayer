@@ -16,6 +16,13 @@ public partial class HudOverlayWindow
     private TextBlock? _fullMapTitle;
     private TextBlock? _fullMapZoomText;
     private bool _fullMapOpen;
+    private bool _fullMapFollowLocal = true;
+    private bool _fullMapDragging;
+    private Point _fullMapDragStart;
+    private double _fullMapPanStartX;
+    private double _fullMapPanStartY;
+    private double _fullMapPanX;
+    private double _fullMapPanY;
 
     internal void InitializeFullMapOverlay()
     {
@@ -57,6 +64,33 @@ public partial class HudOverlayWindow
             VerticalAlignment = VerticalAlignment.Center
         };
         buttons.Children.Add(BuildInGameButton(
+            "SEGUIR",
+            new SolidColorBrush(Color.FromRgb(22, 92, 112)),
+            () =>
+            {
+                _fullMapFollowLocal = true;
+                _fullMapPanX = 0d;
+                _fullMapPanY = 0d;
+                RenderFullMapOverlay();
+            }));
+        buttons.Children.Add(BuildInGameButton(
+            "VISÃO GERAL",
+            new SolidColorBrush(Color.FromRgb(38, 66, 86)),
+            () =>
+            {
+                _fullMapFollowLocal = false;
+                _fullMapPanX = 0d;
+                _fullMapPanY = 0d;
+                var settings = MultiplayerSettingsStore.Load();
+                if (Math.Abs(settings.InGameFullMapZoom - 1d) > 0.001d)
+                {
+                    var updated = settings with { InGameFullMapZoom = 1d };
+                    MultiplayerSettingsStore.Save(updated);
+                    _hudSettings = updated;
+                }
+                RenderFullMapOverlay();
+            }));
+        buttons.Children.Add(BuildInGameButton(
             "−",
             new SolidColorBrush(Color.FromRgb(38, 66, 86)),
             () => AdjustFullMapZoom(-0.20d)));
@@ -80,6 +114,42 @@ public partial class HudOverlayWindow
         _fullMapCanvas.PreviewMouseWheel += (_, e) =>
         {
             AdjustFullMapZoom(e.Delta > 0 ? 0.15d : -0.15d);
+            e.Handled = true;
+        };
+        _fullMapCanvas.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            _fullMapDragging = true;
+            _fullMapFollowLocal = false;
+            _fullMapDragStart = e.GetPosition(_fullMapCanvas);
+            _fullMapPanStartX = _fullMapPanX;
+            _fullMapPanStartY = _fullMapPanY;
+            _fullMapCanvas.CaptureMouse();
+            e.Handled = true;
+        };
+        _fullMapCanvas.PreviewMouseMove += (_, e) =>
+        {
+            if (!_fullMapDragging || e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            var position = e.GetPosition(_fullMapCanvas);
+            _fullMapPanX =
+                _fullMapPanStartX + position.X - _fullMapDragStart.X;
+            _fullMapPanY =
+                _fullMapPanStartY + position.Y - _fullMapDragStart.Y;
+            RenderFullMapOverlay();
+            e.Handled = true;
+        };
+        _fullMapCanvas.PreviewMouseLeftButtonUp += (_, e) =>
+        {
+            if (!_fullMapDragging)
+            {
+                return;
+            }
+
+            _fullMapDragging = false;
+            _fullMapCanvas.ReleaseMouseCapture();
             e.Handled = true;
         };
         _fullMapCanvas.PreviewKeyDown += (_, e) =>
@@ -288,18 +358,21 @@ public partial class HudOverlayWindow
         double imageLeft;
         double imageTop;
 
-        if (zoom <= 1.001d || !hasLocalPixel)
-        {
-            imageLeft = (width - imageWidth) / 2d;
-            imageTop = (height - imageHeight) / 2d;
-        }
-        else
+        if (_fullMapFollowLocal &&
+            zoom > 1.001d &&
+            hasLocalPixel)
         {
             imageLeft = width / 2d - focusPixelX * scale;
             imageTop = height / 2d - focusPixelY * scale;
-            imageLeft = ClampMapOffset(imageLeft, width, imageWidth);
-            imageTop = ClampMapOffset(imageTop, height, imageHeight);
         }
+        else
+        {
+            imageLeft = (width - imageWidth) / 2d + _fullMapPanX;
+            imageTop = (height - imageHeight) / 2d + _fullMapPanY;
+        }
+
+        imageLeft = ClampMapOffset(imageLeft, width, imageWidth);
+        imageTop = ClampMapOffset(imageTop, height, imageHeight);
 
         _fullMapCanvas.Children.Clear();
 
