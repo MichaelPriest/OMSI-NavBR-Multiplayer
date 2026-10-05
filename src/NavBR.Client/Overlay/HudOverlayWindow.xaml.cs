@@ -430,33 +430,47 @@ public partial class HudOverlayWindow : Window
         Canvas.SetLeft(MiniMapImage, canvasWidth / 2d - localPixelX * scale);
         Canvas.SetTop(MiniMapImage, canvasHeight / 2d - localPixelY * scale);
 
-        foreach (var frame in _remotePlayers.Values)
+        if (_hudSettings.MapShowPlayers)
         {
-            RenderRemoteMarker(
-                frame,
-                map,
+            foreach (var frame in _remotePlayers.Values)
+            {
+                RenderRemoteMarker(
+                    frame,
+                    map,
+                    layout,
+                    bitmap,
+                    localPixelX,
+                    localPixelY,
+                    scale,
+                    canvasWidth,
+                    canvasHeight);
+            }
+        }
+        else
+        {
+            HideAllRemoteMarkers();
+        }
+
+        if (_hudSettings.MapShowTraffic)
+        {
+            RenderTrafficMarkers(
+                telemetry,
                 layout,
                 bitmap,
+                gridX,
+                gridY,
+                tileX,
+                tileY,
                 localPixelX,
                 localPixelY,
                 scale,
                 canvasWidth,
                 canvasHeight);
         }
-
-        RenderTrafficMarkers(
-            telemetry,
-            layout,
-            bitmap,
-            gridX,
-            gridY,
-            tileX,
-            tileY,
-            localPixelX,
-            localPixelY,
-            scale,
-            canvasWidth,
-            canvasHeight);
+        else
+        {
+            HideAllTrafficMarkers();
+        }
     }
 
     private void RenderRemoteMarker(
