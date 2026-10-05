@@ -98,7 +98,10 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityAdvancedTelemetry,
                         PluginBridgeProtocol.CapabilityPerformanceGovernor,
                         PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
-                        PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot
+                        PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot,
+                        PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
+                        PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
