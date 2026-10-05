@@ -102,7 +102,11 @@ public partial class HudOverlayWindow
             telemetry.DestinationName);
         if (_routeTracePoints.Count < 2)
         {
-            SetGroundRouteGuidanceStatus("rota não encontrada");
+            var routeMode =
+                OmsiRouteTraceReader.LastDiagnostics?.Mode ??
+                "sem diagnóstico";
+            SetGroundRouteGuidanceStatus(
+                $"rota não encontrada • {routeMode}");
             HideGroundRouteGuidance();
             return;
         }
