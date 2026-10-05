@@ -72,6 +72,7 @@ public sealed record MultiplayerSettings(
     bool MapShowStops = true,
     bool MapShowPlayers = true,
     bool MapShowTraffic = true,
+    bool MapShowCongestion = true,
     [property: JsonIgnore] string? EphemeralRoomPassword = null,
     [property: JsonIgnore] bool EphemeralCreatePrivateRoom = false)
 {
