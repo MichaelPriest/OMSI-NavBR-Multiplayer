@@ -65,7 +65,7 @@ public sealed record MultiplayerSettings(
     double InGameFullMapZoom = 1d,
     bool GroundRouteGuidanceEnabled = false,
     bool RoleplayFreeRoamEnabled = false,
-    string HudSelectionMode = "selected",
+    string HudSelectionMode = "all",
     string HudSingleWidget = "dashboard",
     bool MapShowRoute = true,
     bool MapShowRejoin = true,
