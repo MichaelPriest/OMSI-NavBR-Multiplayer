@@ -698,6 +698,7 @@ public partial class HudOverlayWindow
         _inGameHudModeCombo = BuildInGameCombo();
         _inGameHudModeCombo.ItemsSource = new[]
         {
+            new InGameChoice("all", InGameText("Todos / padrão", "All / default", "Todos / predeterminado", "Alle / Standard", "Tous / défaut")),
             new InGameChoice("single", InGameText("Somente um HUD", "Single HUD", "Un solo HUD", "Ein HUD", "Un seul HUD")),
             new InGameChoice("selected", InGameText("HUDs selecionados", "Selected HUDs", "HUD seleccionados", "Ausgewählte HUDs", "HUD sélectionnés"))
         };
