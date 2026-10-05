@@ -466,6 +466,12 @@ public partial class MultiplayerWindow
                 2d));
     }
 
+    internal bool VoiceEnabledForShell =>
+        VoiceEnabledCheckBox.IsChecked == true;
+
+    internal bool PhysicalVehiclesEnabledForShell =>
+        ExperimentalFeatureFlags.PhysicalVehiclesEnabled;
+
     internal bool IsHostRunningForWeb => _host.IsRunning;
 
     internal void ConfigureHotkeysFromWeb(string? chatHotkey, string? voiceHotkey)
