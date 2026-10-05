@@ -217,6 +217,8 @@ public partial class MainWindow
         hud.InGameDispatchAcknowledgeRequested += HandleHudInGameDispatchAcknowledgeRequested;
         hud.InGameDispatchResolveRequested += HandleHudInGameDispatchResolveRequested;
         hud.InGameRoleplaySelectionRequested += HandleHudInGameRoleplaySelectionRequestedForShell;
+        hud.InGameRoleplayFreeRoamChanged += HandleHudInGameRoleplayFreeRoamChanged;
+        hud.InGamePerformanceProfileChanged += HandleHudInGamePerformanceProfileChanged;
         var processId = GetActiveSimulatorProcessIdForHud();
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
@@ -235,6 +237,8 @@ public partial class MainWindow
             hud.InGameDispatchAcknowledgeRequested -= HandleHudInGameDispatchAcknowledgeRequested;
             hud.InGameDispatchResolveRequested -= HandleHudInGameDispatchResolveRequested;
             hud.InGameRoleplaySelectionRequested -= HandleHudInGameRoleplaySelectionRequestedForShell;
+            hud.InGameRoleplayFreeRoamChanged -= HandleHudInGameRoleplayFreeRoamChanged;
+            hud.InGamePerformanceProfileChanged -= HandleHudInGamePerformanceProfileChanged;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -361,6 +365,18 @@ public partial class MainWindow
         _lastHudRoadTraffic = _telemetryProvider.ReadRoadTraffic(
             maxVehicles: 48,
             radiusMeters: 900d);
+    }
+
+    private void HandleHudInGameRoleplayFreeRoamChanged(bool enabled)
+    {
+        _roleplayCharacterController?.SetFreeRoamEnabled(enabled);
+        UpdateHudRoleplayStateForShell();
+    }
+
+    private async void HandleHudInGamePerformanceProfileChanged(string profile)
+    {
+        await SetPerformanceProfileFromWebAsync(profile);
+        UpdateHudLocalState();
     }
 
     private void HandleHudInGamePanelOpened()
