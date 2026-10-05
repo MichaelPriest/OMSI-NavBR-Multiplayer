@@ -52,7 +52,7 @@ local function nearby_snapshot()
       num(item.z),
       num(item.heading),
       num(speed)
-    }, "~")
+    }, ",")
   end
 
   return table.concat(rows, ";")
