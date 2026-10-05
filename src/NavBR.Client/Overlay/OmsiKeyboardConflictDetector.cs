@@ -21,7 +21,9 @@ internal sealed record OmsiKeyboardConflictResult(
 internal static class OmsiKeyboardConflictDetector
 {
     private const int SupportedModifierMask =
-        NavBRHotkeyCatalog.OmsiShiftModifier | NavBRHotkeyCatalog.OmsiCtrlModifier;
+        NavBRHotkeyCatalog.OmsiShiftModifier |
+        NavBRHotkeyCatalog.OmsiCtrlModifier |
+        NavBRHotkeyCatalog.OmsiAltModifier;
 
     public static OmsiKeyboardConflictResult AnalyzeProcessInstallation(int processId)
     {
