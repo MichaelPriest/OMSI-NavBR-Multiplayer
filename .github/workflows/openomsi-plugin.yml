@@ -2,7 +2,7 @@ name: openOMSI plugin
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/openomsi-navbr-plugin ]
     paths:
       - 'src/NavBR.OpenOmsiPlugin/**'
       - 'src/NavBR.Shared/OpenOmsi/**'
