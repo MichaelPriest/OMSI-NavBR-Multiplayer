@@ -146,8 +146,27 @@ try
     await File.WriteAllTextAsync(
         Path.Combine(ttData, "StnLinks.cfg"),
         "[StnLink]\n120\n1001\n1002\n0\n0\n0\n0\n0\n0\n" +
-        "[StnLink_entry]\n5001\n2\n7\n60\n-1\n0\n0\n" +
-        "[StnLink_entry]\n5002\n0\n7\n60\n-1\n0\n0\n");
+        "[StnLink_entry]\n5001\n2\n0\n60\n-1\n0\n0\n" +
+        "[StnLink_entry]\n5002\n0\n0\n60\n-1\n0\n0\n");
+
+    var mapDir = Path.Combine(smokeRoot, "maps", "Grundorf");
+    await File.WriteAllTextAsync(
+        Path.Combine(mapDir, "global.cfg"),
+        "[name]\nGrundorf\n[map]\n0\n0\ntile_0_0.map\n");
+
+    await File.WriteAllTextAsync(
+        Path.Combine(mapDir, "tile_0_0.map"),
+        "[version]\n14\n" +
+        "[object]\n0\nSceneryobjects\\Test\\road.sco\n5001\n100\n100\n0\n0\n0\n0\n0\n" +
+        "[object]\n0\nSceneryobjects\\Test\\road.sco\n5002\n100\n160\n0\n0\n0\n0\n0\n");
+
+    var sceneryDir = Path.Combine(smokeRoot, "Sceneryobjects", "Test");
+    Directory.CreateDirectory(sceneryDir);
+    await File.WriteAllTextAsync(
+        Path.Combine(sceneryDir, "road.sco"),
+        "[path]\n0\n0\n0\n0\n0\n20\n0\n0\n0\n3\n0\n0\n" +
+        "[path]\n0\n0\n0\n0\n0\n20\n0\n0\n0\n3\n0\n0\n" +
+        "[path]\n0\n0\n0\n0\n0\n60\n0\n0\n0\n3\n0\n0\n");
 
     var content = OpenOmsiContentLocator.Resolve("Grundorf");
     Require(content.RootAvailable, "Configured content root was not found.");
@@ -167,12 +186,24 @@ try
     Require(resolvedSteps.Length == 2, "StnLinks route step count mismatch.");
     Require(resolvedSteps[0].ObjectId == 5001, "First route step object mismatch.");
     Require(resolvedSteps[0].PathIndex == 2, "First route step path mismatch.");
-    Require(resolvedSteps[0].TileIndex == 7, "First route step tile mismatch.");
+    Require(resolvedSteps[0].TileIndex == 0, "First route step tile mismatch.");
     Require(resolvedSteps[0].Leg == 0 && !resolvedSteps[0].IsTrack, "Station-link route step metadata mismatch.");
 
+    var geometry = OpenOmsiRouteGeometryResolver.Resolve(content, resolvedSteps);
+    Require(geometry.Length > 20, "Automatic route geometry point count.");
+    Require(Math.Abs(geometry[0].X - 100d) < 0.2d, "Automatic route geometry start X.");
+    Require(Math.Abs(geometry[0].Y - 100d) < 0.2d, "Automatic route geometry start Y.");
+    Require(Math.Abs(geometry[^1].Y - 220d) < 0.5d, "Automatic route geometry end Y.");
+
+    OpenOmsiRouteRuntime.Clear();
     OpenOmsiTimetableRuntime.Reset();
     var cachedRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
     Require(cachedRuntime.RouteSteps.Length == 2, "Cached timetable route steps mismatch.");
+    Require(cachedRuntime.RoutePoints.Length == geometry.Length, "Cached automatic geometry mismatch.");
+
+    var automaticRoute = OpenOmsiRouteRuntime.Build(snapshot);
+    Require(automaticRoute.RouteLoaded, "Automatic route was not loaded into rejoin runtime.");
+    Require(automaticRoute.RoutePointCount == geometry.Length, "Automatic route point count mismatch.");
 }
 finally
 {
@@ -184,7 +215,7 @@ OpenOmsiRouteRuntime.Clear();
 OpenOmsiTimetableRuntime.Reset();
 OpenOmsiHudState.Reset();
 
-Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin + TTData + StnLinks runtime smoke passed.");
+Console.WriteLine("openOMSI phase 1 navigation + HUD + automatic TTData/StnLinks geometry runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
