@@ -67,6 +67,21 @@ Require(guidance.Maneuver == "right", $"Expected right turn, got {guidance.Maneu
 Require(guidance.DistanceToManeuverMeters is >= 79d and <= 81d, "Turn distance mismatch.");
 Require(guidance.TurnAngleDegrees is >= 89d and <= 91d, "Turn angle mismatch.");
 
+var miniMap = OpenOmsiMiniMapRuntime.Build(
+[
+    new OpenOmsiRoutePoint(0, 0, 0),
+    new OpenOmsiRoutePoint(0, 100, 0),
+    new OpenOmsiRoutePoint(100, 100, 0)
+],
+0,
+20);
+Require(miniMap.Available, "Minimap runtime unavailable.");
+Require(miniMap.RouteLengthMeters is >= 199d and <= 201d, "Minimap route length mismatch.");
+Require(miniMap.ProgressMeters is >= 19d and <= 21d, "Minimap progress mismatch.");
+Require(miniMap.RouteRemainingMeters is >= 179d and <= 181d, "Minimap remaining distance mismatch.");
+Require(miniMap.GuidanceWaypoints.Length > 0, "Guidance waypoints missing.");
+Require(miniMap.GuidanceWaypoints.All(p => p.DistanceAheadMeters > 0d), "Invalid guidance waypoint distance.");
+
 var bridge = PluginExports.BuildStatus();
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime) == true,
@@ -74,6 +89,12 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance) == true,
     "Turn guidance capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime) == true,
+    "Minimap runtime capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints) == true,
+    "Guidance waypoint capability was not advertised.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
