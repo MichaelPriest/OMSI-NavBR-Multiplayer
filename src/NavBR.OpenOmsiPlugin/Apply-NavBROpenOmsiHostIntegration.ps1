@@ -25,6 +25,7 @@ $plugin = Join-Path $OpenOmsiSource "crates/omsi-plugin/src/lib.rs"
 $appLib = Join-Path $OpenOmsiSource "crates/omsi-app/src/lib.rs"
 $app = Join-Path $OpenOmsiSource "crates/omsi-app/src/app.rs"
 $events = Join-Path $OpenOmsiSource "crates/omsi-app/src/app_events.rs"
+$navigator = Join-Path $OpenOmsiSource "crates/omsi-app/src/navigator.rs"
 $ui = Join-Path $OpenOmsiSource "crates/omsi-app/src/ui.rs"
 
 # --- omsi-plugin: optional in-process renderer export.
@@ -210,6 +211,61 @@ Replace-Required $events @'
                         self.service_msg = Some(m);
                     }
                     self.navbr_overlay.update(overlay_frames);
+'@
+
+# --- optional NavBR camera hints for the existing navigator.
+Replace-Required $navigator @'
+    pub follow_window: bool,
+    pub dt: f32,
+'@ @'
+    pub follow_window: bool,
+    pub navbr_radius_meters: Option<f64>,
+    pub navbr_orientation_mode: Option<&'a str>,
+    pub dt: f32,
+'@
+
+Replace-Required $events @'
+                            follow_window: if vr_active {
+                                true
+                            } else {
+                                self.settings.ui_scale_window
+                            },
+                            dt,
+'@ @'
+                            follow_window: if vr_active {
+                                true
+                            } else {
+                                self.settings.ui_scale_window
+                            },
+                            navbr_radius_meters: self.navbr_overlay.overlay_2d.as_ref().map(|n| n.radius_meters),
+                            navbr_orientation_mode: self.navbr_overlay.overlay_2d.as_ref().map(|n| n.orientation_mode.as_str()),
+                            dt,
+'@
+
+Replace-Required $navigator @'
+        let want = (110.0 + f.speed_kmh as f64 * 2.2).clamp(110.0, 280.0);
+        if self.first {
+            self.zoom = want;
+            self.cam_heading = f.heading;
+        }
+        self.zoom += (want - self.zoom) * ease(f.dt, 1.8);
+        self.cam_heading += angle_diff(self.cam_heading, f.heading) * ease(f.dt, 0.3);
+'@ @'
+        let want = f
+            .navbr_radius_meters
+            .filter(|v| v.is_finite())
+            .map(|v| v.clamp(110.0, 2400.0))
+            .unwrap_or_else(|| (110.0 + f.speed_kmh as f64 * 2.2).clamp(110.0, 280.0));
+        let wanted_heading = match f.navbr_orientation_mode {
+            Some("north-up") => 0.0,
+            _ => f.heading,
+        };
+        if self.first {
+            self.zoom = want;
+            self.cam_heading = wanted_heading;
+        }
+        self.zoom += (want - self.zoom) * ease(f.dt, 1.8);
+        self.cam_heading += angle_diff(self.cam_heading, wanted_heading) * ease(f.dt, 0.3);
 '@
 
 # --- let NavBR drive the existing openOMSI navigator layers for this frame.
@@ -460,6 +516,8 @@ pub(crate) struct Overlay2D {
     pub(crate) route_guidance_visible: bool,
     pub(crate) traffic_visible: bool,
     pub(crate) players_visible: bool,
+    pub(crate) radius_meters: f64,
+    pub(crate) orientation_mode: String,
     pub(crate) tele_matrix_line: Option<String>,
     pub(crate) tele_matrix_destination: Option<String>,
     pub(crate) tele_matrix_next_stop: Option<String>,
