@@ -207,7 +207,6 @@ public static class PluginExports
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
         var route = OpenOmsiRouteRuntime.Build(snapshot);
-        var hud = OpenOmsiHudState.Current;
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
