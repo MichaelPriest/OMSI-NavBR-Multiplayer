@@ -97,6 +97,26 @@ O openOMSI stock continua funcionando normalmente sem essa extensão. O fallback
 os mesmos helper objects das route arrows nativas; o modo `mesh` usa uma malha
 translúcida compartilhada e é validado separadamente no CI.
 
+
+## Integração com o Navigator nativo
+
+Em uma build do openOMSI com a extensão host aplicada, o NavBR não cria um segundo
+minimapa. O frame v2 controla temporariamente o próprio `Navigator` do openOMSI:
+
+- `MiniMapVisible` liga/desliga o painel do navigator;
+- `TrafficVisible` controla os veículos IA no mapa;
+- `PlayersVisible` controla os jogadores LAN no mapa;
+- `RouteGuidanceVisible` habilita orientação, mas as `nav_arrows` nativas só são usadas
+  como fallback quando o `WorldGuidance` NavBR não estiver ativo;
+- rota, congestionamento, road network, stops, autozoom e heading-up continuam vindo do
+  pipeline nativo do openOMSI.
+
+As preferências originais do Navigator são restauradas após o frame, portanto a extensão
+não grava nem sobrescreve permanentemente as configurações do usuário.
+
+O overlay próprio fica restrito ao que o Navigator não oferece: cartão compacto de
+manobra, TeleMatrix e guidance 3D estilo NavBR.
+
 ## Separação obrigatória
 
 Este projeto não usa:
