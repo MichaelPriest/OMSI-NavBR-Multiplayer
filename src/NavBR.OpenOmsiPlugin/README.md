@@ -190,3 +190,10 @@ O aplicador host-side usa o navigator/city map do próprio openOMSI:
 
 Esse último detalhe preserva a interação nativa: se o usuário fechar o city map com Escape
 ou clique, ele permanece fechado até o toggle NavBR ser desligado e ligado novamente.
+
+
+### HUD de navegação
+
+O cartão compacto do host aprimorado também recebe `RouteProgressPercent` e desenha uma
+barra de progresso da rota. Em estado off-route a barra muda de aparência, sem alterar o
+cálculo ou a seleção da rota.
