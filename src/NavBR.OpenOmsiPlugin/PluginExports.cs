@@ -444,7 +444,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
-                PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
+                PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives
             ]);
     }
 
