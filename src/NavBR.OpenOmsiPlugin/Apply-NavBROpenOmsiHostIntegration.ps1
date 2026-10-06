@@ -204,10 +204,11 @@ Replace-Required $events @'
                     plugins.frame(&mut io);
                     let overlay_frames = plugins.overlay_frames_v2();
                     let commands = std::mem::take(&mut io.commands);
-                    if let Some(m) = io.message {
+                    let message = io.message.take();
+                    drop(io);
+                    if let Some(m) = message {
                         self.service_msg = Some(m);
                     }
-                    drop(io);
                     self.navbr_overlay.update(overlay_frames);
 '@
 
