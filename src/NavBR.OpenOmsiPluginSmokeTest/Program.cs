@@ -167,6 +167,18 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame) == true,
     "Overlay-frame capability was not advertised.");
 Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1) == true,
+    "Overlay export v1 capability was not advertised.");
+
+var overlayRequired = OpenOmsiOverlayExport.RequiredBytes;
+Require(overlayRequired > 1, "Overlay export did not cache a payload.");
+var overlayBuffer = new byte[overlayRequired];
+var overlayWritten = OpenOmsiOverlayExport.CopyLatest(overlayBuffer);
+Require(overlayWritten > 0, "Overlay export copy failed.");
+Require(overlayBuffer[overlayWritten] == 0, "Overlay export is not null-terminated.");
+var overlayJson = System.Text.Encoding.UTF8.GetString(overlayBuffer, 0, overlayWritten);
+Require(overlayJson.Contains("\"orientationMode\"", StringComparison.Ordinal), "Overlay export JSON missing orientation.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
