@@ -149,3 +149,14 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 4. ligar CCO/empresa/crachá/chat/voz ao transporte de rede do plugin;
 5. criar HUD/painel/setas 3D somente quando houver API gráfica oficial no openOMSI;
 6. manter o modo RP delegado ao `on_foot.rs` nativo.
+
+
+## Overlay nativo opcional do openOMSI
+
+O DLL exporta adicionalmente `OpenOmsiGetOverlayFrame`. Esse símbolo não substitui nem
+altera a ABI OMSI clássica; uma build do openOMSI pode detectá-lo opcionalmente e consumir
+o frame de HUD/mapa/setas já calculado pelo NavBR.
+
+O contrato completo está em `OPENOMSI_OVERLAY_ABI.md`. O payload de setas representa
+dados de navegação em coordenadas do mundo; uma build stock do openOMSI ainda não possui
+API pública de plugin para desenhar essas setas 3D por conta própria.
