@@ -44,5 +44,8 @@
     <None Update="OPENOMSI_WORLD_GUIDANCE_RENDERER.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="patches\**\*.patch">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
