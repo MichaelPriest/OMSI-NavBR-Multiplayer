@@ -1,0 +1,208 @@
+diff --git a/crates/omsi-app/src/lib.rs b/crates/omsi-app/src/lib.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/lib.rs
++++ b/crates/omsi-app/src/lib.rs
+@@
+ mod player;
+ mod plugins;
++mod navbr_overlay;
+ mod services;
+@@
+         log_state: Default::default(),
+         plugins: None,
++        navbr_overlay: Default::default(),
+         career: Default::default(),
+diff --git a/crates/omsi-app/src/app.rs b/crates/omsi-app/src/app.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app.rs
++++ b/crates/omsi-app/src/app.rs
+@@
+     /// The OMSI plugins (`plugins/*.opl`), loaded with the first frame.
+     pub(crate) plugins: Option<omsi_plugin::Plugins>,
++    /// Latest renderer payload from an enhanced in-process OMSI plugin.
++    pub(crate) navbr_overlay: crate::navbr_overlay::State,
+     /// The on-screen controls of a phone (see `touch.rs`).
+     pub(crate) touch: crate::touch::Touch,
+diff --git a/crates/omsi-app/src/app_events.rs b/crates/omsi-app/src/app_events.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app_events.rs
++++ b/crates/omsi-app/src/app_events.rs
+@@
+                     let mut io = crate::plugins::Io { vehicle: self.player.as_mut().map(|p| &mut p.vehicle), others, dt, message: None, info, commands: Vec::new(), keys, events };
+                     plugins.frame(&mut io);
++                    let overlay_frames = plugins.overlay_frames_v2();
+                     let commands = std::mem::take(&mut io.commands);
+                     if let Some(m) = io.message {
+                         self.service_msg = Some(m);
+                     }
++                    self.navbr_overlay.update(overlay_frames);
+                     // what the plugins asked the game to do: lines of the game menu
+diff --git a/crates/omsi-app/src/navbr_overlay.rs b/crates/omsi-app/src/navbr_overlay.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/omsi-app/src/navbr_overlay.rs
+@@
++//! Optional renderer data from enhanced in-process OMSI plugins.
++//!
++//! The legacy OMSI ABI remains untouched. This module only consumes the additive
++//! `OpenOmsiGetOverlayFrameV2` payload exposed by a plugin such as NavBR.
++
++use serde::Deserialize;
++
++#[derive(Debug, Clone, Default)]
++pub(crate) struct State {
++    timestamp: i64,
++    pub(crate) overlay_2d: Option<Overlay2D>,
++    pub(crate) world: Option<WorldGuidance>,
++}
++
++impl State {
++    pub(crate) fn update(&mut self, frames: Vec<Vec<u8>>) {
++        let newest = frames
++            .into_iter()
++            .filter_map(|bytes| serde_json::from_slice::<Envelope>(&bytes).ok())
++            .filter(|frame| frame.version == 2)
++            .max_by_key(|frame| frame.timestamp_unix_milliseconds);
++
++        let Some(frame) = newest else { return };
++        if frame.timestamp_unix_milliseconds <= self.timestamp {
++            return;
++        }
++
++        self.timestamp = frame.timestamp_unix_milliseconds;
++        self.overlay_2d = Some(frame.overlay_2_d);
++        self.world = Some(frame.world_guidance);
++    }
++
++    pub(crate) fn timestamp(&self) -> i64 {
++        self.timestamp
++    }
++}
++
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++struct Envelope {
++    version: i32,
++    timestamp_unix_milliseconds: i64,
++    #[serde(rename = "Overlay2D")]
++    overlay_2_d: Overlay2D,
++    world_guidance: WorldGuidance,
++}
++
++#[allow(dead_code)]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++pub(crate) struct Overlay2D {
++    pub(crate) mini_map_visible: bool,
++    pub(crate) full_map_visible: bool,
++    pub(crate) compact_hud_visible: bool,
++    pub(crate) tele_matrix_visible: bool,
++    pub(crate) center_x: Option<f64>,
++    pub(crate) center_y: Option<f64>,
++    pub(crate) rotation_degrees: f64,
++    pub(crate) radius_meters: f64,
++    pub(crate) orientation_mode: String,
++    pub(crate) primary_text: Option<String>,
++    pub(crate) secondary_text: Option<String>,
++    pub(crate) maneuver_icon: Option<String>,
++    pub(crate) distance_to_maneuver_meters: Option<f64>,
++    pub(crate) route_remaining_meters: Option<f64>,
++    pub(crate) off_route: bool,
++    pub(crate) traveled_route: Vec<RoutePoint>,
++    pub(crate) forward_route: Vec<RoutePoint>,
++    pub(crate) rejoin_route: Vec<RoutePoint>,
++    pub(crate) markers: Vec<Marker>,
++}
++
++#[allow(dead_code)]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++pub(crate) struct WorldGuidance {
++    pub(crate) visible: bool,
++    pub(crate) ground_arrow_primitives: Vec<GroundArrowPrimitive>,
++}
++
++#[allow(dead_code)]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++pub(crate) struct RoutePoint {
++    pub(crate) x: f64,
++    pub(crate) y: f64,
++    pub(crate) z: Option<f64>,
++    pub(crate) stop_name: Option<String>,
++}
++
++#[allow(dead_code)]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++pub(crate) struct Marker {
++    pub(crate) id: String,
++    pub(crate) kind: String,
++    pub(crate) label: Option<String>,
++    pub(crate) x: f64,
++    pub(crate) y: f64,
++    pub(crate) z: f64,
++    pub(crate) heading_degrees: f64,
++    pub(crate) speed_kph: Option<f64>,
++}
++
++#[allow(dead_code)]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(rename_all = "PascalCase")]
++pub(crate) struct GroundArrowPrimitive {
++    pub(crate) x: f64,
++    pub(crate) y: f64,
++    pub(crate) z: f64,
++    pub(crate) heading_degrees: f64,
++    pub(crate) width_meters: f64,
++    pub(crate) length_meters: f64,
++    pub(crate) height_offset_meters: f64,
++    pub(crate) opacity: f64,
++    pub(crate) distance_ahead_meters: f64,
++    pub(crate) kind: String,
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn parses_v2_and_ignores_older_frame() {
++        let json = br#"{
++            "Version":2,
++            "TimestampUnixMilliseconds":20,
++            "Overlay2D":{
++                "MiniMapVisible":true,
++                "FullMapVisible":false,
++                "CompactHudVisible":true,
++                "TeleMatrixVisible":true,
++                "CenterX":100.0,
++                "CenterY":200.0,
++                "RotationDegrees":0.0,
++                "RadiusMeters":900.0,
++                "OrientationMode":"heading-up",
++                "PrimaryText":"Vire à direita",
++                "SecondaryText":"Próxima: Rathaus",
++                "ManeuverIcon":"turn-right",
++                "DistanceToManeuverMeters":80.0,
++                "RouteRemainingMeters":1200.0,
++                "OffRoute":false,
++                "TraveledRoute":[],
++                "ForwardRoute":[],
++                "RejoinRoute":[],
++                "Markers":[]
++            },
++            "WorldGuidance":{
++                "Visible":true,
++                "GroundArrows":[],
++                "GroundArrowPrimitives":[]
++            }
++        }"#;
++
++        let mut state = State::default();
++        state.update(vec![json.to_vec()]);
++        assert_eq!(state.timestamp(), 20);
++        assert!(state.overlay_2d.as_ref().unwrap().mini_map_visible);
++        assert!(state.world.as_ref().unwrap().visible);
++    }
++}
