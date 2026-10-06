@@ -1,3 +1,17 @@
+diff --git a/crates/omsi-app/src/app_events.rs b/crates/omsi-app/src/app_events.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app_events.rs
++++ b/crates/omsi-app/src/app_events.rs
+@@
+-                        self.navbr_world_guidance.tick(dt, w, r, scene, frame);
++                        self.navbr_world_guidance.tick(
++                            dt,
++                            self.started.elapsed().as_secs_f32(),
++                            w,
++                            r,
++                            scene,
++                            frame,
++                        );
 diff --git a/crates/omsi-app/src/navbr_world_guidance.rs b/crates/omsi-app/src/navbr_world_guidance.rs
 index 0000000..0000000 100644
 --- a/crates/omsi-app/src/navbr_world_guidance.rs
@@ -102,7 +116,8 @@ index 0000000..0000000 100644
          &mut self,
 -        dt: f32,
 -        world: &World,
-+        dt: f32,
++        _dt: f32,
++        seconds: f32,
 +        world: &crate::scene::World,
          renderer: &Renderer,
          scene: &mut Scene,
@@ -162,7 +177,6 @@ index 0000000..0000000 100644
 +            self.instances.push(instance);
 +        }
 +
-+        let seconds = scene.time_seconds();
 +        for (slot, primitive) in wanted.iter().enumerate() {
 +            let instance = self.instances[slot];
 +            let road_z = world
