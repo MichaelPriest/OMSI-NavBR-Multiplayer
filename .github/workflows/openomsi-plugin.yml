@@ -123,6 +123,8 @@ jobs:
             'omsi.others(',
             'omsi.other_var(',
             'omsi.save()',
+            'info.trips',
+            'info.next_stop_number',
             'omsi.every(0.25'
           )) {
             if (-not $lua.Contains($requiredLuaApi)) {
