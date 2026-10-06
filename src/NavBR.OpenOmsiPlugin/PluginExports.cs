@@ -204,6 +204,7 @@ public static class PluginExports
             string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal));
         var nearbyPlayerCount = nearbyVehicles.Count(vehicle =>
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
+        var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -266,6 +267,12 @@ public static class PluginExports
             OpenOmsiNextStopArrival: snapshot?.NextStopArrival,
             OpenOmsiNextStopDeparture: snapshot?.NextStopDeparture,
             OpenOmsiNearbyVehicles: nearbyVehicles,
+            OpenOmsiSuggestedMapRadiusMeters: navigation.SuggestedMapRadiusMeters,
+            OpenOmsiCongestionLevel: navigation.CongestionLevel,
+            OpenOmsiAverageNearbyTrafficSpeedKph: navigation.AverageNearbyTrafficSpeedKph,
+            OpenOmsiNearbyMovingAiCount: navigation.NearbyMovingAiCount,
+            OpenOmsiNearbySlowAiCount: navigation.NearbySlowAiCount,
+            OpenOmsiNearbyStoppedAiCount: navigation.NearbyStoppedAiCount,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -274,7 +281,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot,
                 PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
                 PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
-                PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot
+                PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
+                PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime
             ]);
     }
 
