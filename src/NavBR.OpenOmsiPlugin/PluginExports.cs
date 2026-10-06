@@ -206,6 +206,7 @@ public static class PluginExports
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
+        var hud = OpenOmsiHudState.Current;
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -391,6 +392,7 @@ public static class PluginExports
         Volatile.Write(ref _ibisDelaySeconds, null);
         Volatile.Write(ref _ibisDelayState, null);
         PerformanceProfile = "auto";
+        OpenOmsiHudState.Reset();
         OpenOmsiHudState.Reset();
     }
 }
