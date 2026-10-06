@@ -513,6 +513,41 @@ Replace-Required $events @'
                     if let (Some(ui), Some(s)) = (self.ui.as_mut(), self.surface.as_ref()) {
 '@
 
+# --- NavBR panel hitboxes belong to the native UI and follow panel origin shifts.
+Replace-Required $ui @'
+pub struct Ui {
+    origin_x: f32,
+    pub text: TextCache,
+    pub chat: ChatWidget,
+    /// Where the game menu's lines were drawn this frame (physical pixels), for the mouse.
+'@ @'
+pub struct Ui {
+    origin_x: f32,
+    pub text: TextCache,
+    pub chat: ChatWidget,
+    pub navbr_panel_rects: Vec<[f32; 4]>,
+    /// Where the game menu's lines were drawn this frame (physical pixels), for the mouse.
+'@
+
+Replace-Required $ui @'
+        for rect in self
+            .menu_rects
+            .iter_mut()
+            .chain(self.menu_side.iter_mut())
+'@ @'
+        for rect in self
+            .navbr_panel_rects
+            .iter_mut()
+            .chain(self.menu_rects.iter_mut())
+            .chain(self.menu_side.iter_mut())
+'@
+
+Replace-Required $ui @'
+        Some(Ui { origin_x: 0.0, text: TextCache::new()?, chat: ChatWidget::default(), menu_rects: Vec::new(),
+'@ @'
+        Some(Ui { origin_x: 0.0, text: TextCache::new()?, chat: ChatWidget::default(), navbr_panel_rects: Vec::new(), menu_rects: Vec::new(),
+'@
+
 # --- native 2D UI frame.
 Replace-Required $ui @'
     pub notice_anchor: Option<[f32; 4]>,
