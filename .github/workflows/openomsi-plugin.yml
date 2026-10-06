@@ -163,7 +163,7 @@ jobs:
 
           git clone --filter=blob:none https://github.com/openOMSI-Project/openOMSI.git $upstream
           Push-Location $upstream
-          git checkout 1b5180ba9c019b27cc6fa9be863ac4e45c9c895c
+          git checkout 100f7f6a2322f3b35207694850a7a4970fe0bb17
           Pop-Location
 
           $patchRoot = Resolve-Path "src/NavBR.OpenOmsiPlugin/patches"
