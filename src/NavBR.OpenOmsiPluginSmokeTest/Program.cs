@@ -498,6 +498,13 @@ Require(!updatedHud.TrafficEnabled, "Traffic layer toggle.");
 Require(updatedHud.RouteGuidanceEnabled, "Route guidance toggle.");
 Require(updatedHud.TeleMatrixEnabled, "Unspecified HUD settings must remain unchanged.");
 
+var configuredBridge = PluginExports.BuildStatus();
+Require(configuredBridge.OpenOmsiMiniMapEnabled == false, "HUD state was not published.");
+Require(configuredBridge.OpenOmsiTrafficLayerEnabled == false, "Traffic toggle was not published.");
+Require(
+    configuredBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration) == true,
+    "HUD configuration capability was not advertised.");
+
 OpenOmsiHudState.Reset();
 PluginExports.ApplyHostHudFlags(
     mask: (1u << 0) | (1u << 5) | (1u << 9),
@@ -507,14 +514,11 @@ Require(!hostHud.MiniMapEnabled, "Host HUD minimap bit did not turn off.");
 Require(hostHud.TeleMatrixEnabled, "Host HUD TeleMatrix bit did not stay on.");
 Require(!hostHud.RouteGuidanceEnabled, "Host HUD guidance bit did not turn off.");
 Require(hostHud.TrafficEnabled, "Host HUD masked update changed unrelated traffic flag.");
+var hostBridge = PluginExports.BuildStatus();
+Require(hostBridge.OpenOmsiMiniMapEnabled == false, "Host HUD minimap state was not published.");
+Require(hostBridge.OpenOmsiTeleMatrixEnabled == true, "Host HUD TeleMatrix state was not published.");
+Require(hostBridge.OpenOmsiRouteGuidanceEnabled == false, "Host HUD guidance state was not published.");
 OpenOmsiHudState.Reset();
-
-var configuredBridge = PluginExports.BuildStatus();
-Require(configuredBridge.OpenOmsiMiniMapEnabled == false, "HUD state was not published.");
-Require(configuredBridge.OpenOmsiTrafficLayerEnabled == false, "Traffic toggle was not published.");
-Require(
-    configuredBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration) == true,
-    "HUD configuration capability was not advertised.");
 
 var routeKey = OpenOmsiRouteRuntime.BuildRouteKey(snapshot);
 Require(!string.IsNullOrWhiteSpace(routeKey), "Live duty route key.");
