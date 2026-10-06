@@ -102,7 +102,8 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
                         PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
                         PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
-                        PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime
+                        PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
+                        PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -130,6 +131,16 @@ internal static class OpenOmsiBridge
                                 StringComparison.Ordinal))
                         {
                             PluginExports.SetPerformanceProfile(message.PerformanceProfile);
+                            QueueStatus(PluginExports.BuildStatus());
+                            continue;
+                        }
+
+                        if (string.Equals(
+                                message.Type,
+                                PluginBridgeProtocol.SetOpenOmsiHudConfiguration,
+                                StringComparison.Ordinal))
+                        {
+                            OpenOmsiHudState.Apply(message);
                             QueueStatus(PluginExports.BuildStatus());
                         }
                     }
