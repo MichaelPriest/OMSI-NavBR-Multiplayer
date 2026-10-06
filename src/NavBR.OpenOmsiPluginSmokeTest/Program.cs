@@ -105,8 +105,11 @@ var offRouteSnapshot = snapshot with { X = 100d, Y = 180d };
 var offRoute = OpenOmsiRouteRuntime.Build(offRouteSnapshot);
 Require(offRoute.OffRoute, "Off-route vehicle was not detected.");
 Require(offRoute.DistanceFromRouteMeters is >= 79d and <= 81d, "Off-route distance mismatch.");
-Require(offRoute.RejoinRoutePointIndex == 3, "Rejoin look-ahead point mismatch.");
-Require(offRoute.RejoinTargetX == 250d && offRoute.RejoinTargetY == 100d, "Rejoin target mismatch.");
+Require(offRoute.RejoinRoutePointIndex == 2, "Distance-based rejoin point mismatch.");
+Require(
+    offRoute.RejoinTargetX is >= 159.9d and <= 160.1d &&
+    offRoute.RejoinTargetY is >= 99.9d and <= 100.1d,
+    "Distance-based rejoin target mismatch.");
 
 var routeBridge = PluginExports.BuildStatus();
 Require(
