@@ -13,7 +13,7 @@ internal static class OpenOmsiGuidanceRuntime
 {
     private const double MinimumTurnDegrees = 22d;
     private const double SearchAheadMeters = 800d;
-    private const double TurnWindowMeters = 18d;
+    private const double TurnWindowMeters = 24d;
 
     public static OpenOmsiGuidanceState Build(
         OpenOmsiRoutePoint[] route,
