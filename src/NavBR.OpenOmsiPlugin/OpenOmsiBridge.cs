@@ -151,7 +151,7 @@ internal static class OpenOmsiBridge
                                 PluginBridgeProtocol.SetOpenOmsiRoutePolyline,
                                 StringComparison.Ordinal))
                         {
-                            OpenOmsiRouteRuntime.SetRoute(message.OpenOmsiRoutePoints);
+                            OpenOmsiRouteRuntime.SetRoute(message);
                             QueueStatus(PluginExports.BuildStatus());
                         }
                     }
