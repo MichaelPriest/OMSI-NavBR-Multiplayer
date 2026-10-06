@@ -235,7 +235,10 @@ public sealed record PluginBridgeMessage(
     int? OpenOmsiNearestRoutePointIndex = null,
     int? OpenOmsiRejoinRoutePointIndex = null,
     double? OpenOmsiRejoinTargetX = null,
-    double? OpenOmsiRejoinTargetY = null);
+    double? OpenOmsiRejoinTargetY = null,
+    bool? OpenOmsiContentRootAvailable = null,
+    bool? OpenOmsiMapContentAvailable = null,
+    bool? OpenOmsiTimetableDataAvailable = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
