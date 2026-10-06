@@ -262,6 +262,11 @@ public static class PluginExports
             overlayFrames.Full,
             overlayFrames.Overlay2D,
             overlayFrames.World);
+        var includeHeavyOverlayInBridge =
+            string.Equals(
+                PerformanceProfile,
+                "diagnostics",
+                StringComparison.OrdinalIgnoreCase);
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
@@ -415,9 +420,15 @@ public static class PluginExports
             OpenOmsiCompactHudRouteRemainingMeters: compactHud.RouteRemainingMeters,
             OpenOmsiCompactHudOffRoute: compactHud.OffRoute,
             OpenOmsiGroundArrows: groundArrows,
-            OpenOmsiOverlayFrame: overlayFrames.Full,
-            OpenOmsiOverlay2DFrame: overlayFrames.Overlay2D,
-            OpenOmsiWorldGuidanceFrame: overlayFrames.World,
+            OpenOmsiOverlayFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.Full
+                : null,
+            OpenOmsiOverlay2DFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.Overlay2D
+                : null,
+            OpenOmsiWorldGuidanceFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.World
+                : null,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
