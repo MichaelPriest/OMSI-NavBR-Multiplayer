@@ -173,6 +173,17 @@ Replace-Required $plugin @'
         self.set_navbr_hud_flags(mask, values)
     }
 
+    pub fn set_navbr_hud_preset(&self, preset: usize) -> bool {
+        let all = (1u32 << 10) - 1;
+        let values = match preset {
+            0 => (1u32 << 0) | (1u32 << 2) | (1u32 << 3) | (1u32 << 9),
+            1 => (1u32 << 0) | (1u32 << 2) | (1u32 << 3) | (1u32 << 4)
+                | (1u32 << 5) | (1u32 << 6) | (1u32 << 8) | (1u32 << 9),
+            _ => all,
+        };
+        self.set_navbr_hud_flags(all, values)
+    }
+
     pub fn finalize(&mut self) {
 '@
 
@@ -729,8 +740,6 @@ Replace-Required $ui @'
                 let ly = y + (30.0 * s - label.h as f32) * 0.5;
                 scene.overlays.push((label.tex, [lx, ly, lx + label.w as f32, ly + label.h as f32]));
             }
-            y += 38.0 * s;
-
             let rp = self.text.label(
                 r,
                 scene,
