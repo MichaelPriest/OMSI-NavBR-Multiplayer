@@ -213,6 +213,10 @@ public static class PluginExports
             timetableRuntime.RoutePoints,
             snapshot?.X,
             snapshot?.Y);
+        var miniMap = OpenOmsiMiniMapRuntime.Build(
+            timetableRuntime.RoutePoints,
+            snapshot?.X,
+            snapshot?.Y);
         var timetable = timetableRuntime.Trip;
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
@@ -330,6 +334,12 @@ public static class PluginExports
             OpenOmsiDistanceToManeuverMeters: guidance.DistanceToManeuverMeters,
             OpenOmsiManeuverTargetX: guidance.TargetX,
             OpenOmsiManeuverTargetY: guidance.TargetY,
+            OpenOmsiMiniMapRuntimeAvailable: miniMap.Available,
+            OpenOmsiRouteLengthMeters: miniMap.RouteLengthMeters,
+            OpenOmsiRouteProgressMeters: miniMap.ProgressMeters,
+            OpenOmsiRouteRemainingMeters: miniMap.RemainingMeters,
+            OpenOmsiRouteProgressPercent: miniMap.ProgressPercent,
+            OpenOmsiGuidanceWaypoints: miniMap.GuidanceWaypoints,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -345,7 +355,9 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
                 PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps,
                 PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry,
-                PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance
+                PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance,
+                PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints
             ]);
     }
 
