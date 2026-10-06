@@ -13,6 +13,7 @@ internal sealed record OpenOmsiMapPresentationState(
 
 internal static class OpenOmsiMapPresentationRuntime
 {
+    private const double ManualMapRadiusMeters = 900d;
     public static OpenOmsiMapPresentationState Build(
         OpenOmsiLuaSnapshot? snapshot,
         OpenOmsiNavigationRuntimeState navigation,
@@ -34,8 +35,11 @@ internal static class OpenOmsiMapPresentationRuntime
                 []);
         }
 
-        var radius = navigation.SuggestedMapRadiusMeters;
-        if (guidance.Available &&
+        var radius = hud.AutoZoomEnabled
+            ? navigation.SuggestedMapRadiusMeters
+            : ManualMapRadiusMeters;
+        if (hud.AutoZoomEnabled &&
+            guidance.Available &&
             guidance.DistanceToManeuverMeters is > 0d and < 450d)
         {
             radius = Math.Min(
@@ -46,7 +50,7 @@ internal static class OpenOmsiMapPresentationRuntime
                     900d));
         }
 
-        if (snapshot.OnFoot)
+        if (hud.AutoZoomEnabled && snapshot.OnFoot)
         {
             radius = Math.Min(radius, 250d);
         }
