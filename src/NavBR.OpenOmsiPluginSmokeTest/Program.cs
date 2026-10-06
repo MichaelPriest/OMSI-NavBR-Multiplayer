@@ -169,6 +169,9 @@ Require(
 Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
 Require(bridge.OpenOmsiOverlay2DFrame is not null, "2D overlay frame was not published.");
 Require(bridge.OpenOmsiOverlay2DFrame!.TeleMatrixLine == "76", "Overlay TeleMatrix line mismatch.");
+Require(bridge.OpenOmsiOverlay2DFrame.RouteGuidanceVisible, "Overlay route-guidance flag mismatch.");
+Require(bridge.OpenOmsiOverlay2DFrame.TrafficVisible, "Overlay traffic flag mismatch.");
+Require(bridge.OpenOmsiOverlay2DFrame.PlayersVisible, "Overlay player flag mismatch.");
 Require(bridge.OpenOmsiOverlay2DFrame.TeleMatrixNextStop == "Rathaus", "Overlay TeleMatrix next stop mismatch.");
 Require(bridge.OpenOmsiWorldGuidanceFrame is not null, "World guidance frame was not published.");
 Require(
