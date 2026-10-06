@@ -435,7 +435,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime,
                 PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
                 PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
-                PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1
             ]);
     }
 
