@@ -207,6 +207,7 @@ public static class PluginExports
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
         var route = OpenOmsiRouteRuntime.Build(snapshot);
+        var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -297,6 +298,9 @@ public static class PluginExports
             OpenOmsiRejoinRoutePointIndex: route.RejoinRoutePointIndex,
             OpenOmsiRejoinTargetX: route.RejoinTargetX,
             OpenOmsiRejoinTargetY: route.RejoinTargetY,
+            OpenOmsiContentRootAvailable: content.RootAvailable,
+            OpenOmsiMapContentAvailable: content.MapAvailable,
+            OpenOmsiTimetableDataAvailable: content.TimetableAvailable,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
