@@ -287,12 +287,23 @@ Replace-Required $navigator @'
 
 # --- apply full-map toggle on transitions only, preserving native Escape/click close.
 Replace-Required $events @'
-                    if let (Some(nav), Some(r), Some(scene)) = (self.navigator.as_mut(), self.renderer.as_ref(), self.scene.as_mut()) {
+                    if let (Some(nav), Some(p), Some(_)) = (
+                        self.navigator.as_mut(),
+                        self.player.as_ref(),
+                        self.surface.as_ref(),
+                    ) {
+                        let old_enabled = nav.enabled;
 '@ @'
-                    if let (Some(nav), Some(r), Some(scene)) = (self.navigator.as_mut(), self.renderer.as_ref(), self.scene.as_mut()) {
-                        if let Some(open) = self.navbr_overlay.take_full_map_change() {
+                    let navbr_full_map_change = self.navbr_overlay.take_full_map_change();
+                    if let (Some(nav), Some(p), Some(_)) = (
+                        self.navigator.as_mut(),
+                        self.player.as_ref(),
+                        self.surface.as_ref(),
+                    ) {
+                        if let Some(open) = navbr_full_map_change {
                             nav.city.open = open;
                         }
+                        let old_enabled = nav.enabled;
 '@
 
 # --- let NavBR drive the existing openOMSI navigator layers for this frame.
