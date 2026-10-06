@@ -6,7 +6,7 @@ injeção gráfica ou hacks específicos do OMSI 2 original.
 ## Base upstream validada
 
 A implementação desta branch está alinhada ao openOMSI
-`openOMSI-Project/openOMSI@c97872833b8179cf756af7d1d560597a2248f8c2`.
+`openOMSI-Project/openOMSI@100f7f6a2322f3b35207694850a7a4970fe0bb17`.
 
 São usados somente contratos públicos existentes nesse HEAD:
 
@@ -36,7 +36,7 @@ O pacote tem duas partes complementares e independentes do NavBR Desktop:
    - velocidade dos veículos próximos via `omsi.other_var(id, "Velocity")`;
    - classificação nativa `ai` / `player`.
 
-O snapshot Lua v3 é compatível com os leitores v1/v2 e agora inclui `trips` e `next_stop_number`. Em movimento ou multiplayer ele é
+O snapshot Lua v4 mantém compatibilidade com os leitores v1/v2/v3 e inclui `trips`, `next_stop_number`, `map_path`, `trip_name`, `stops`, `destination`, fabricante e modelo. Em movimento ou multiplayer ele é
 persistido a até 2 Hz; parado, a 1 Hz. O loop de 0,25 s apenas decide se há trabalho,
 evitando gravação por frame.
 
@@ -87,18 +87,15 @@ dois controladores competindo pelo mesmo personagem.
 
 ## Limites atuais da API pública do openOMSI
 
-No HEAD validado, a API Lua não expõe um canvas/egui customizado, desenho 3D de plugin,
-registro de widgets próprios no navigator, nem um comando público para acionar
-`get_up()`. Portanto, estes itens **não serão implementados por hook/injeção**:
+A API Lua pública continua sem expor canvas/egui customizado, desenho 3D arbitrário,
+registro de widgets próprios no navigator nem comando público para acionar `get_up()`.
+Por isso o plugin não usa hook/injeção. Para builds aprimoradas do openOMSI, o pacote
+agora inclui um contrato opcional de host (`OpenOmsiGetOverlayFrameV2`) e um aplicador
+reproduzível que integra o frame 2D e o world guidance no código do próprio openOMSI.
 
-- painel NavBR moderno desenhado dentro da janela do jogo;
-- HUDs gráficos customizados;
-- setas 3D estilo Forza Horizon;
-- ativar o modo on-foot programaticamente pelo plugin.
-
-O openOMSI já possui navigator, city map, `nav_ai`, `nav_arrows` e o on-foot nativo.
-A integração NavBR deve reutilizar esses recursos até o upstream disponibilizar uma API
-de extensão gráfica/configuração em runtime.
+O openOMSI stock continua funcionando normalmente sem essa extensão. O fallback 3D usa
+os mesmos helper objects das route arrows nativas; o modo `mesh` usa uma malha
+translúcida compartilhada e é validado separadamente no CI.
 
 ## Separação obrigatória
 
@@ -143,12 +140,11 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 
 ## Próximas etapas
 
-1. completar a geometria automática da rota usando `StnLinks.cfg`, `.ttr` e paths do mapa;
-2. alimentar o mapa/GPS com o timetable resolvido diretamente do content root;
-3. evoluir rejoin e congestionamento sobre a geometria viária nativa;
+1. manter stock + mesh host integration compilando contra o upstream pinado;
+2. evoluir o HUD 2D para minimapa completo/TeleMatrix no caminho nativo;
+3. melhorar a mesh de guidance com estilo de manobra e tema noturno;
 4. ligar CCO/empresa/crachá/chat/voz ao transporte de rede do plugin;
-5. criar HUD/painel/setas 3D somente quando houver API gráfica oficial no openOMSI;
-6. manter o modo RP delegado ao `on_foot.rs` nativo.
+5. manter o modo RP delegado ao `on_foot.rs` nativo.
 
 
 ## Overlay nativo opcional do openOMSI
