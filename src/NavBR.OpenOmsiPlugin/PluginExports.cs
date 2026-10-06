@@ -206,7 +206,7 @@ public static class PluginExports
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
-        var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
+        var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName, snapshot?.MapPath);
         var timetableRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
         var route = OpenOmsiRouteRuntime.Build(snapshot);
         var timetable = timetableRuntime.Trip;
