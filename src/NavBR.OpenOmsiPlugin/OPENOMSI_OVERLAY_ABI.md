@@ -116,3 +116,32 @@ available and fall back to v1.
 `Overlay2D.RouteProgressPercent` is an optional 0..100 value derived from the current
 projection onto the active route. Hosts may use it for compact progress bars or trip
 progress indicators. It is absent when no valid route/minimap runtime is available.
+
+
+## Host -> plugin HUD control
+
+Enhanced openOMSI hosts may optionally resolve:
+
+```c
+void __stdcall OpenOmsiSetHudFlagsV1(uint32_t mask, uint32_t values);
+```
+
+Only bits present in `mask` are changed. For each selected bit, the corresponding bit in
+`values` is the new boolean value.
+
+| Bit | HUD setting |
+|---:|---|
+| 0 | MiniMapEnabled |
+| 1 | FullMapEnabled |
+| 2 | AutoZoomEnabled |
+| 3 | FollowVehicleEnabled |
+| 4 | TimetableEnabled |
+| 5 | TeleMatrixEnabled |
+| 6 | TrafficEnabled |
+| 7 | MultiplayerEnabled |
+| 8 | CongestionEnabled |
+| 9 | RouteGuidanceEnabled |
+
+The export is additive to the traditional OMSI ABI. Stock openOMSI and OMSI-compatible
+plugin loaders may ignore it. The NavBR enhanced host uses it for the in-game control
+panel; the next overlay frame reflects the updated state.
