@@ -208,6 +208,7 @@ public static class PluginExports
         var hud = OpenOmsiHudState.Current;
         var route = OpenOmsiRouteRuntime.Build(snapshot);
         var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
+        var timetable = OpenOmsiTimetableResolver.Resolve(content, snapshot);
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -301,6 +302,11 @@ public static class PluginExports
             OpenOmsiContentRootAvailable: content.RootAvailable,
             OpenOmsiMapContentAvailable: content.MapAvailable,
             OpenOmsiTimetableDataAvailable: content.TimetableAvailable,
+            OpenOmsiResolvedTripName: timetable?.TripName,
+            OpenOmsiResolvedTripTerminus: timetable?.Terminus,
+            OpenOmsiResolvedProfileIndex: timetable?.ProfileIndex,
+            OpenOmsiResolvedDepartureMinutes: timetable?.DepartureMinutes,
+            OpenOmsiResolvedStops: timetable?.Stops,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -312,7 +318,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
                 PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
                 PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
-                PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
+                PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver
             ]);
     }
 
