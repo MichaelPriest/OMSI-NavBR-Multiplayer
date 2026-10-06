@@ -25,6 +25,7 @@ $plugin = Join-Path $OpenOmsiSource "crates/omsi-plugin/src/lib.rs"
 $appLib = Join-Path $OpenOmsiSource "crates/omsi-app/src/lib.rs"
 $app = Join-Path $OpenOmsiSource "crates/omsi-app/src/app.rs"
 $events = Join-Path $OpenOmsiSource "crates/omsi-app/src/app_events.rs"
+$inputScript = Join-Path $OpenOmsiSource "crates/omsi-app/src/input_script.rs"
 $navigator = Join-Path $OpenOmsiSource "crates/omsi-app/src/navigator.rs"
 $offscreen = Join-Path $OpenOmsiSource "crates/omsi-app/src/offscreen.rs"
 $ui = Join-Path $OpenOmsiSource "crates/omsi-app/src/ui.rs"
@@ -35,6 +36,7 @@ type AccessTriggerFn = unsafe extern "system" fn(u16, *mut u8);
 '@ @'
 type AccessTriggerFn = unsafe extern "system" fn(u16, *mut u8);
 type OverlayFrameFn = unsafe extern "system" fn(*mut u8, i32) -> i32;
+type HudFlagsFn = unsafe extern "system" fn(u32, u32);
 '@
 
 Replace-Required $plugin @'
@@ -43,6 +45,7 @@ Replace-Required $plugin @'
 '@ @'
     string: Option<AccessStringFn>,
     overlay_frame_v2: Option<OverlayFrameFn>,
+    hud_flags_v1: Option<HudFlagsFn>,
 }
 '@
 
@@ -55,7 +58,11 @@ Replace-Required $plugin @'
                 .get::<OverlayFrameFn>(b"OpenOmsiGetOverlayFrameV2\0")
                 .ok()
                 .map(|s| *s);
-            Ok(Library { _lib: lib, start, finalize, variable, trigger, system, string, overlay_frame_v2 })
+            let hud_flags_v1 = lib
+                .get::<HudFlagsFn>(b"OpenOmsiSetHudFlagsV1\0")
+                .ok()
+                .map(|s| *s);
+            Ok(Library { _lib: lib, start, finalize, variable, trigger, system, string, overlay_frame_v2, hud_flags_v1 })
 '@
 
 Replace-Required $plugin @'
@@ -67,6 +74,12 @@ Replace-Required $plugin @'
 '@ @'
     pub fn procs(&self) -> Procs {
         Procs { variable: self.variable.is_some(), trigger: self.trigger.is_some(), system: self.system.is_some(), string: self.string.is_some() }
+    }
+
+    pub fn set_hud_flags_v1(&self, mask: u32, values: u32) -> bool {
+        let Some(set) = self.hud_flags_v1 else { return false };
+        unsafe { set(mask, values) };
+        true
     }
 
     pub fn overlay_frame_v2(&self) -> Option<Vec<u8>> {
@@ -113,6 +126,13 @@ Replace-Required $plugin @'
         }
     }
 
+    pub fn set_hud_flags_v1(&self, mask: u32, values: u32) -> bool {
+        match &self.backend {
+            Backend::Local(lib) => lib.set_hud_flags_v1(mask, values),
+            Backend::Remote(_) => false,
+        }
+    }
+
     /// Run one frame. `system` / `var` / `string` read a value by name (None: no such
 '@
 
@@ -139,6 +159,14 @@ Replace-Required $plugin @'
 
     pub fn overlay_frames_v2(&self) -> Vec<Vec<u8>> {
         self.loaded.iter().filter_map(Plugin::overlay_frame_v2).collect()
+    }
+
+    pub fn set_navbr_hud_flag(&self, bit: u32, enabled: bool) -> bool {
+        let mask = 1u32 << bit;
+        let values = if enabled { mask } else { 0 };
+        self.loaded
+            .iter()
+            .any(|plugin| plugin.set_hud_flags_v1(mask, values))
     }
 
     pub fn finalize(&mut self) {
@@ -174,6 +202,7 @@ Replace-Required $appLib @'
         log_state: Default::default(),
         plugins: None,
         navbr_overlay: Default::default(),
+        navbr_panel_open: false,
         career:
 '@
 
@@ -192,6 +221,7 @@ Replace-Required $app @'
 '@ @'
     pub(crate) plugins: Option<omsi_plugin::Plugins>,
     pub(crate) navbr_overlay: crate::navbr_overlay::State,
+    pub(crate) navbr_panel_open: bool,
     /// The on-screen controls
 '@
 
@@ -212,6 +242,45 @@ Replace-Required $events @'
                         self.service_msg = Some(m);
                     }
                     self.navbr_overlay.update(overlay_frames);
+'@
+
+# --- NavBR in-game panel shortcut: Ctrl+Alt+N; Escape closes it first.
+Replace-Required $inputScript @'
+            if pressed && !repeat {
+                self.keys.insert(code);
+            } else if !pressed {
+                self.keys.remove(&code);
+            }
+            // Alt+Enter: full screen on and off
+'@ @'
+            if pressed && !repeat {
+                self.keys.insert(code);
+            } else if !pressed {
+                self.keys.remove(&code);
+            }
+
+            let navbr_ctrl = self.keys.contains(&KeyCode::ControlLeft)
+                || self.keys.contains(&KeyCode::ControlRight);
+            let navbr_alt = self.keys.contains(&KeyCode::AltLeft)
+                || self.keys.contains(&KeyCode::AltRight);
+            if pressed && !repeat && code == KeyCode::KeyN && navbr_ctrl && navbr_alt {
+                self.navbr_panel_open = !self.navbr_panel_open;
+                self.service_msg = Some((
+                    if self.navbr_panel_open {
+                        "NavBR: painel aberto"
+                    } else {
+                        "NavBR: painel fechado"
+                    }.to_string(),
+                    2.0,
+                ));
+                return;
+            }
+            if pressed && !repeat && code == KeyCode::Escape && self.navbr_panel_open {
+                self.navbr_panel_open = false;
+                return;
+            }
+
+            // Alt+Enter: full screen on and off
 '@
 
 # --- optional NavBR camera hints for the existing navigator.
@@ -404,6 +473,7 @@ Replace-Required $ui @'
 '@ @'
     pub notice_anchor: Option<[f32; 4]>,
     pub navbr_overlay: Option<&'a crate::navbr_overlay::Overlay2D>,
+    pub navbr_panel_open: bool,
     /// What kind of menu the lines belong to.
 '@
 
@@ -414,6 +484,7 @@ Replace-Required $events @'
                             notices: &self.notices,
                             notice_anchor: self.navigator.as_ref().and_then(|n| n.screen_rect()),
                             navbr_overlay: self.navbr_overlay.overlay_2d.as_ref(),
+                            navbr_panel_open: self.navbr_panel_open,
 '@
 
 Replace-Required $ui @'
@@ -583,6 +654,10 @@ pub(crate) struct Overlay2D {
     pub(crate) route_guidance_visible: bool,
     pub(crate) traffic_visible: bool,
     pub(crate) players_visible: bool,
+    pub(crate) auto_zoom_enabled: bool,
+    pub(crate) follow_vehicle_enabled: bool,
+    pub(crate) timetable_visible: bool,
+    pub(crate) congestion_visible: bool,
     pub(crate) radius_meters: f64,
     pub(crate) orientation_mode: String,
     pub(crate) tele_matrix_line: Option<String>,
