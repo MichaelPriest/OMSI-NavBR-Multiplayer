@@ -64,7 +64,7 @@ internal static class OpenOmsiOverlayExport
             var required = payload.Length + 1;
 
             // Probe mode: the host asks how much room is needed.
-            if (buffer is null || capacity <= 0)
+            if (buffer == null || capacity <= 0)
             {
                 return required;
             }
