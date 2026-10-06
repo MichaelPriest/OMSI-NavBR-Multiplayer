@@ -84,3 +84,28 @@ ABI. The existing exports remain:
 
 This lets the same NavBR DLL continue to behave as a standard plugin while enhanced
 openOMSI builds opt into the overlay frame.
+
+
+## ABI v2
+
+A second optional export keeps v1 intact and exposes a versioned envelope with the 2D and
+world-space render paths already separated:
+
+```c
+int __stdcall OpenOmsiGetOverlayFrameV2(
+    unsigned char* buffer,
+    int capacity);
+```
+
+Probe/read semantics, UTF-8 encoding, NUL termination and the 262144-byte cap are identical
+to v1.
+
+The v2 JSON root is `OpenOmsiOverlayExportEnvelopeV2`:
+
+- `Version = 2`;
+- `TimestampUnixMilliseconds`;
+- `Overlay2D`: minimap/full-map/HUD/TeleMatrix, routes and screen-overlay markers;
+- `WorldGuidance`: world-space ground-arrow payload.
+
+The bridge capability is `openomsi-overlay-export-v2`. Consumers should prefer v2 when
+available and fall back to v1.
