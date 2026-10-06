@@ -548,7 +548,12 @@ try
     Require(resolvedTrip.Terminus == "Bahnhof", "Resolved trip terminus mismatch.");
     Require(resolvedTrip.Stops.SequenceEqual(["Rathaus", "Bahnhof"]), "Resolved stop sequence mismatch.");
 
+    OpenOmsiStopMarkerResolver.ResetCache();
     var stopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
+    var cachedStopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
+    Require(
+        ReferenceEquals(stopMarkers, cachedStopMarkers),
+        "Stop-marker resolver did not reuse cached result.");
 
     var resolvedSteps = OpenOmsiRouteStepResolver.Resolve(content, resolvedTrip);
     Require(resolvedSteps.Length == 2, "StnLinks route step count mismatch.");
