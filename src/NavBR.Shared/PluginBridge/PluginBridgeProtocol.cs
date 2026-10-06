@@ -21,6 +21,7 @@ public static class PluginBridgeProtocol
     public const string ClearTrafficVehicles = "clear-traffic-vehicles";
     public const string SetPerformanceProfile = "set-performance-profile";
     public const string SetOpenOmsiHudConfiguration = "set-openomsi-hud-configuration";
+    public const string SetOpenOmsiRoutePolyline = "set-openomsi-route-polyline";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -64,6 +65,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiNativeOnFoot = "openomsi-native-on-foot";
     public const string CapabilityOpenOmsiNavigationRuntime = "openomsi-navigation-runtime";
     public const string CapabilityOpenOmsiHudConfiguration = "openomsi-hud-configuration";
+    public const string CapabilityOpenOmsiRouteRejoin = "openomsi-route-rejoin";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -220,7 +222,16 @@ public sealed record PluginBridgeMessage(
     bool? OpenOmsiTrafficLayerEnabled = null,
     bool? OpenOmsiMultiplayerLayerEnabled = null,
     bool? OpenOmsiCongestionLayerEnabled = null,
-    bool? OpenOmsiRouteGuidanceEnabled = null);
+    bool? OpenOmsiRouteGuidanceEnabled = null,
+    OpenOmsiRoutePoint[]? OpenOmsiRoutePoints = null,
+    bool? OpenOmsiRouteLoaded = null,
+    int? OpenOmsiRoutePointCount = null,
+    double? OpenOmsiDistanceFromRouteMeters = null,
+    bool? OpenOmsiOffRoute = null,
+    int? OpenOmsiNearestRoutePointIndex = null,
+    int? OpenOmsiRejoinRoutePointIndex = null,
+    double? OpenOmsiRejoinTargetX = null,
+    double? OpenOmsiRejoinTargetY = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
@@ -231,3 +242,9 @@ public sealed record OpenOmsiNearbyVehicleState(
     double Z,
     double HeadingDegrees,
     double? SpeedKph = null);
+
+public sealed record OpenOmsiRoutePoint(
+    double X,
+    double Y,
+    double? Z = null,
+    string? StopName = null);
