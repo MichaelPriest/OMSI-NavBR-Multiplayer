@@ -64,6 +64,7 @@ internal static class OpenOmsiOverlayFrameRuntime
             SecondaryText: compactHud.SecondaryText,
             ManeuverIcon: compactHud.ManeuverIcon,
             DistanceToManeuverMeters: compactHud.DistanceToManeuverMeters,
+            RouteProgressPercent: miniMap.Available ? miniMap.ProgressPercent : null,
             RouteRemainingMeters: compactHud.RouteRemainingMeters,
             OffRoute: compactHud.OffRoute,
             TraveledRoute: visual.TraveledRoute,
