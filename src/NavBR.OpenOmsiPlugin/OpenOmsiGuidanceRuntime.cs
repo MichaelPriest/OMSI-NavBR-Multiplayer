@@ -13,6 +13,7 @@ internal static class OpenOmsiGuidanceRuntime
 {
     private const double MinimumTurnDegrees = 22d;
     private const double SearchAheadMeters = 800d;
+    private const double TurnWindowMeters = 18d;
 
     public static OpenOmsiGuidanceState Build(
         OpenOmsiRoutePoint[] route,
@@ -35,23 +36,42 @@ internal static class OpenOmsiGuidanceRuntime
             return Empty();
         }
 
-        var accumulated = Math.Max(
-            0d,
-            SegmentLength(
-                route[nearest.Value.Segment],
-                route[nearest.Value.Segment + 1]) *
-            (1d - nearest.Value.T));
+        var cumulative = BuildCumulative(route);
+        var segmentLength = SegmentLength(
+            route[nearest.Value.Segment],
+            route[nearest.Value.Segment + 1]);
+        var currentAlong =
+            cumulative[nearest.Value.Segment] +
+            segmentLength * nearest.Value.T;
 
         for (var i = nearest.Value.Segment + 1;
-             i < route.Length - 1 && accumulated <= SearchAheadMeters;
+             i < route.Length - 1;
              i++)
         {
-            var a = route[i - 1];
-            var b = route[i];
-            var c = route[i + 1];
+            var at = cumulative[i];
+            var distanceAhead = at - currentAlong;
+            if (distanceAhead < 0d)
+            {
+                continue;
+            }
 
-            var incoming = Heading(a, b);
-            var outgoing = Heading(b, c);
+            if (distanceAhead > SearchAheadMeters)
+            {
+                break;
+            }
+
+            var before = PointAtDistance(
+                route,
+                cumulative,
+                Math.Max(0d, at - TurnWindowMeters));
+            var after = PointAtDistance(
+                route,
+                cumulative,
+                Math.Min(cumulative[^1], at + TurnWindowMeters));
+            var pivot = route[i];
+
+            var incoming = Heading(before, pivot);
+            var outgoing = Heading(pivot, after);
             var angle = WrapDegrees(outgoing - incoming);
             if (Math.Abs(angle) >= MinimumTurnDegrees)
             {
@@ -59,12 +79,10 @@ internal static class OpenOmsiGuidanceRuntime
                     Available: true,
                     Maneuver: Classify(angle),
                     TurnAngleDegrees: Math.Round(angle, 1),
-                    DistanceToManeuverMeters: Math.Round(accumulated, 1),
-                    TargetX: b.X,
-                    TargetY: b.Y);
+                    DistanceToManeuverMeters: Math.Round(distanceAhead, 1),
+                    TargetX: pivot.X,
+                    TargetY: pivot.Y);
             }
-
-            accumulated += SegmentLength(b, c);
         }
 
         return new(
@@ -109,6 +127,62 @@ internal static class OpenOmsiGuidanceRuntime
         }
 
         return best;
+    }
+
+    private static double[] BuildCumulative(OpenOmsiRoutePoint[] route)
+    {
+        var cumulative = new double[route.Length];
+        for (var i = 1; i < route.Length; i++)
+        {
+            cumulative[i] =
+                cumulative[i - 1] +
+                SegmentLength(route[i - 1], route[i]);
+        }
+
+        return cumulative;
+    }
+
+    private static OpenOmsiRoutePoint PointAtDistance(
+        OpenOmsiRoutePoint[] route,
+        double[] cumulative,
+        double distance)
+    {
+        if (distance <= 0d)
+        {
+            return route[0];
+        }
+
+        if (distance >= cumulative[^1])
+        {
+            return route[^1];
+        }
+
+        var index = Array.BinarySearch(cumulative, distance);
+        if (index >= 0)
+        {
+            return route[index];
+        }
+
+        index = ~index;
+        var aIndex = Math.Max(0, index - 1);
+        var bIndex = Math.Min(route.Length - 1, index);
+        var span = cumulative[bIndex] - cumulative[aIndex];
+        var t = span <= 1e-9d
+            ? 0d
+            : Math.Clamp(
+                (distance - cumulative[aIndex]) / span,
+                0d,
+                1d);
+
+        var a = route[aIndex];
+        var b = route[bIndex];
+        return new(
+            X: a.X + (b.X - a.X) * t,
+            Y: a.Y + (b.Y - a.Y) * t,
+            Z: a.Z is not null && b.Z is not null
+                ? a.Z.Value + (b.Z.Value - a.Z.Value) * t
+                : a.Z ?? b.Z,
+            StopName: null);
     }
 
     private static string Classify(double angle)
