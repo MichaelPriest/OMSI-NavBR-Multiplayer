@@ -289,6 +289,7 @@ public static class PluginExports
             OpenOmsiCongestionLayerEnabled: hud.CongestionEnabled,
             OpenOmsiRouteGuidanceEnabled: hud.RouteGuidanceEnabled,
             OpenOmsiRouteLoaded: route.RouteLoaded,
+            OpenOmsiRouteKey: route.RouteKey,
             OpenOmsiRoutePointCount: route.RoutePointCount,
             OpenOmsiDistanceFromRouteMeters: route.DistanceFromRouteMeters,
             OpenOmsiOffRoute: route.OffRoute,
