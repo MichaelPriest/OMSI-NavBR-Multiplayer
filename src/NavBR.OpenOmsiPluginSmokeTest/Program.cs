@@ -518,6 +518,35 @@ var hostBridge = PluginExports.BuildStatus();
 Require(hostBridge.OpenOmsiMiniMapEnabled == false, "Host HUD minimap state was not published.");
 Require(hostBridge.OpenOmsiTeleMatrixEnabled == true, "Host HUD TeleMatrix state was not published.");
 Require(hostBridge.OpenOmsiRouteGuidanceEnabled == false, "Host HUD guidance state was not published.");
+
+OpenOmsiHudState.Reset();
+PluginExports.ApplyHostHudPreset(0);
+var gpsPreset = OpenOmsiHudState.Current;
+Require(gpsPreset.MiniMapEnabled, "GPS preset missing minimap.");
+Require(gpsPreset.AutoZoomEnabled && gpsPreset.FollowVehicleEnabled, "GPS preset navigation flags.");
+Require(gpsPreset.RouteGuidanceEnabled, "GPS preset missing route guidance.");
+Require(!gpsPreset.TeleMatrixEnabled && !gpsPreset.TrafficEnabled, "GPS preset enabled operation layers.");
+
+PluginExports.ApplyHostHudPreset(1);
+var operationPreset = OpenOmsiHudState.Current;
+Require(operationPreset.TeleMatrixEnabled && operationPreset.TrafficEnabled, "Operation preset missing operation layers.");
+Require(operationPreset.TimetableEnabled && operationPreset.CongestionEnabled, "Operation preset missing timetable/congestion.");
+Require(!operationPreset.MultiplayerEnabled, "Operation preset unexpectedly enabled players.");
+
+PluginExports.ApplyHostHudPreset(2);
+var allPreset = OpenOmsiHudState.Current;
+Require(
+    allPreset.MiniMapEnabled &&
+    allPreset.FullMapEnabled &&
+    allPreset.AutoZoomEnabled &&
+    allPreset.FollowVehicleEnabled &&
+    allPreset.TimetableEnabled &&
+    allPreset.TeleMatrixEnabled &&
+    allPreset.TrafficEnabled &&
+    allPreset.MultiplayerEnabled &&
+    allPreset.CongestionEnabled &&
+    allPreset.RouteGuidanceEnabled,
+    "All preset did not enable every HUD flag.");
 OpenOmsiHudState.Reset();
 
 var routeKey = OpenOmsiRouteRuntime.BuildRouteKey(snapshot);
