@@ -83,20 +83,26 @@ internal static class OpenOmsiMapLayoutReader
         double localX,
         double localY)
     {
+        var (kx, ky) = TileScale(layout, tileY);
+        return (
+            tileX * layout.TileSizeMeters + localX * kx,
+            tileY * layout.TileSizeMeters + localY * ky);
+    }
+
+    public static (double X, double Y) TileScale(
+        OpenOmsiMapLayout layout,
+        int tileY)
+    {
         if (!layout.WorldCoordinates)
         {
-            return (
-                tileX * layout.TileSizeMeters + localX,
-                tileY * layout.TileSizeMeters + localY);
+            return (1d, 1d);
         }
 
         var w0 = WorldRowWidth(tileY);
         var w1 = WorldRowWidth(tileY + 1);
-        var kx = layout.TileSizeMeters / ((w0 + w1) / 2d);
-        var ky = layout.TileSizeMeters / w1;
         return (
-            tileX * layout.TileSizeMeters + localX * kx,
-            tileY * layout.TileSizeMeters + localY * ky);
+            layout.TileSizeMeters / ((w0 + w1) / 2d),
+            layout.TileSizeMeters / w1);
     }
 
     private static double WorldTileSize(IEnumerable<int> rows)
