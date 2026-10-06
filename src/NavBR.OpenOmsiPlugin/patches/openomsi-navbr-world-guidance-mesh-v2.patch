@@ -102,8 +102,8 @@ index 0000000..0000000 100644
          &mut self,
 -        dt: f32,
 -        world: &World,
-+        _dt: f32,
-+        _world: &crate::scene::World,
++        dt: f32,
++        world: &crate::scene::World,
          renderer: &Renderer,
          scene: &mut Scene,
          frame: &Frame,
@@ -162,18 +162,29 @@ index 0000000..0000000 100644
 +            self.instances.push(instance);
 +        }
 +
++        let seconds = scene.time_seconds();
 +        for (slot, primitive) in wanted.iter().enumerate() {
 +            let instance = self.instances[slot];
++            let road_z = world
++                .walk_height(primitive.x, primitive.y)
++                .filter(|z| (z - primitive.z).abs() < 0.75);
++            let z = road_z
++                .map(|surface| surface + primitive.height_offset_meters)
++                .unwrap_or(primitive.z);
++            let beat = pulse(&primitive.kind, seconds);
 +            renderer.set_transform(
 +                scene,
 +                instance,
-+                DVec3::new(primitive.x, primitive.y, primitive.z),
-+                transform(primitive),
++                DVec3::new(primitive.x, primitive.y, z),
++                transform(primitive, beat),
 +            );
++            let alpha = (primitive.opacity as f32
++                * if primitive.kind == "route" { 0.88 } else { 1.0 })
++                .clamp(0.0, 1.0);
 +            renderer.set_params(
 +                scene,
 +                instance,
-+                &[primitive.opacity.clamp(0.0, 1.0) as f32],
++                &[alpha],
 +                true,
 +                &[],
 +            );
@@ -226,10 +237,19 @@ index 0000000..0000000 100644
 +            distance_ahead_meters: 20.0,
 +            kind: "route".into(),
 +        };
-+        let m = transform(&p);
++        let m = transform(&p, 1.0);
 +        let tip = m.transform_point3(Vec3::new(0.0, 0.5, 0.0));
 +        assert!((tip.x - 2.5).abs() < 1e-4);
 +        assert!(tip.y.abs() < 1e-4);
++    }
++
++    #[test]
++    fn maneuver_pulse_is_subtle() {
++        let lo = pulse("right", 0.0);
++        let hi = pulse("right", 0.3125);
++        assert!((lo - 1.0).abs() < 0.001);
++        assert!((hi - 1.0).abs() <= 0.036);
++        assert_eq!(pulse("route", 10.0), 1.0);
 +    }
 +}
 -            }
