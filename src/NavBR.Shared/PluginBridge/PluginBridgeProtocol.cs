@@ -20,6 +20,7 @@ public static class PluginBridgeProtocol
     public const string TrafficSnapshotState = "traffic-snapshot-state";
     public const string ClearTrafficVehicles = "clear-traffic-vehicles";
     public const string SetPerformanceProfile = "set-performance-profile";
+    public const string SetOpenOmsiHudConfiguration = "set-openomsi-hud-configuration";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -62,6 +63,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiTimetableContext = "openomsi-timetable-context";
     public const string CapabilityOpenOmsiNativeOnFoot = "openomsi-native-on-foot";
     public const string CapabilityOpenOmsiNavigationRuntime = "openomsi-navigation-runtime";
+    public const string CapabilityOpenOmsiHudConfiguration = "openomsi-hud-configuration";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -208,7 +210,17 @@ public sealed record PluginBridgeMessage(
     double? OpenOmsiAverageNearbyTrafficSpeedKph = null,
     int? OpenOmsiNearbyMovingAiCount = null,
     int? OpenOmsiNearbySlowAiCount = null,
-    int? OpenOmsiNearbyStoppedAiCount = null);
+    int? OpenOmsiNearbyStoppedAiCount = null,
+    bool? OpenOmsiMiniMapEnabled = null,
+    bool? OpenOmsiFullMapEnabled = null,
+    bool? OpenOmsiAutoZoomEnabled = null,
+    bool? OpenOmsiFollowVehicleEnabled = null,
+    bool? OpenOmsiTimetableHudEnabled = null,
+    bool? OpenOmsiTeleMatrixEnabled = null,
+    bool? OpenOmsiTrafficLayerEnabled = null,
+    bool? OpenOmsiMultiplayerLayerEnabled = null,
+    bool? OpenOmsiCongestionLayerEnabled = null,
+    bool? OpenOmsiRouteGuidanceEnabled = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
