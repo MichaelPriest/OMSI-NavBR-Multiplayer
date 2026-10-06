@@ -168,6 +168,8 @@ Require(
     "Overlay-frame capability was not advertised.");
 Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
 Require(bridge.OpenOmsiOverlay2DFrame is not null, "2D overlay frame was not published.");
+Require(bridge.OpenOmsiOverlay2DFrame!.TeleMatrixLine == "76", "Overlay TeleMatrix line mismatch.");
+Require(bridge.OpenOmsiOverlay2DFrame.TeleMatrixNextStop == "Rathaus", "Overlay TeleMatrix next stop mismatch.");
 Require(bridge.OpenOmsiWorldGuidanceFrame is not null, "World guidance frame was not published.");
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame) == true,
