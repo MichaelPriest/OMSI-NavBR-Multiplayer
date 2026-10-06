@@ -1,0 +1,175 @@
+diff --git a/crates/omsi-app/src/lib.rs b/crates/omsi-app/src/lib.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/lib.rs
++++ b/crates/omsi-app/src/lib.rs
+@@
+ mod navbr_overlay;
++mod navbr_world_guidance;
+ mod services;
+@@
+         route_arrows: Default::default(),
++        navbr_world_guidance: Default::default(),
+         game_keys: omsi_content::KeyboardCfg::load(&crate::startup::keyboard_cfg(&args_root_for_keys)).unwrap_or_default().with_game_defaults().with_vr_defaults().game,
+diff --git a/crates/omsi-app/src/app.rs b/crates/omsi-app/src/app.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app.rs
++++ b/crates/omsi-app/src/app.rs
+@@
+     /// OMSI 2's route arrows over the road (the `nav_arrows` setting).
+     pub(crate) route_arrows: crate::route_arrows::RouteArrows,
++    /// NavBR/openOMSI enhanced-plugin world guidance. Uses stock helper objects as a
++    /// compatibility renderer until a dedicated instanced arrow material is available.
++    pub(crate) navbr_world_guidance: crate::navbr_world_guidance::WorldGuidance,
+diff --git a/crates/omsi-app/src/app_events.rs b/crates/omsi-app/src/app_events.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app_events.rs
++++ b/crates/omsi-app/src/app_events.rs
+@@
+                         } else if self.route_arrows.any() {
+                             // (switched off in the menu: the ones standing go too)
+                             if let Some(w) = self.world.as_ref() {
+                                 self.route_arrows.clear(w, r, scene);
+                             }
+                         }
+                     }
++
++                    // Enhanced-plugin world guidance is independent from the stock
++                    // navigator toggle. The compatibility renderer uses the same helper
++                    // object path as OMSI's dynamic route arrows and can later be replaced
++                    // by an instanced custom mesh without changing the plugin ABI.
++                    if let (Some(w), Some(frame)) =
++                        (self.world.as_ref(), self.navbr_overlay.world.as_ref())
++                    {
++                        self.navbr_world_guidance.tick(dt, w, r, scene, frame);
++                    } else if self.navbr_world_guidance.any() {
++                        if let Some(w) = self.world.as_ref() {
++                            self.navbr_world_guidance.clear(w, r, scene);
++                        }
++                    }
++
+                     if let (Some(ui), Some(s)) = (self.ui.as_mut(), self.surface.as_ref()) {
+diff --git a/crates/omsi-app/src/navbr_world_guidance.rs b/crates/omsi-app/src/navbr_world_guidance.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/omsi-app/src/navbr_world_guidance.rs
+@@
++//! Compatibility renderer for enhanced-plugin world guidance.
++//!
++//! It deliberately uses the game's existing helper-object path, so a stock openOMSI
++//! build can show NavBR guidance without memory hooks. A later renderer may replace
++//! these objects with an instanced translucent mesh while keeping the same v2 payload.
++
++use crate::navbr_overlay::{GroundArrowPrimitive, WorldGuidance as Frame};
++use crate::scene::{TileGpu, World};
++use glam::DVec3;
++use omsi_render::{Renderer, Scene};
++use std::hash::{Hash, Hasher};
++
++#[derive(Default)]
++pub(crate) struct WorldGuidance {
++    placed: Vec<(u64, TileGpu)>,
++    wait: f32,
++}
++
++fn sco(kind: &str) -> &'static str {
++    match kind {
++        "left" | "slight-left" => "Sceneryobjects\\Generic\\routearrow_L_dyn.sco",
++        "right" | "slight-right" => "Sceneryobjects\\Generic\\routearrow_R_dyn.sco",
++        _ => "Sceneryobjects\\Generic\\routearrow_dn_dyn.sco",
++    }
++}
++
++fn key(p: &GroundArrowPrimitive) -> u64 {
++    let mut h = std::collections::hash_map::DefaultHasher::new();
++    ((p.x * 10.0).round() as i64).hash(&mut h);
++    ((p.y * 10.0).round() as i64).hash(&mut h);
++    ((p.z * 10.0).round() as i64).hash(&mut h);
++    ((p.heading_degrees * 10.0).round() as i64).hash(&mut h);
++    p.kind.hash(&mut h);
++    h.finish()
++}
++
++impl WorldGuidance {
++    pub(crate) fn tick(
++        &mut self,
++        dt: f32,
++        world: &World,
++        renderer: &Renderer,
++        scene: &mut Scene,
++        frame: &Frame,
++    ) {
++        self.wait -= dt;
++        if self.wait > 0.0 {
++            return;
++        }
++        self.wait = 0.5;
++
++        if !frame.visible {
++            self.clear(world, renderer, scene);
++            return;
++        }
++
++        let wanted: Vec<u64> = frame
++            .ground_arrow_primitives
++            .iter()
++            .filter(|p| p.opacity > 0.05)
++            .map(key)
++            .collect();
++
++        let mut kept = Vec::with_capacity(self.placed.len());
++        for (k, object) in self.placed.drain(..) {
++            if wanted.contains(&k) {
++                kept.push((k, object));
++            } else {
++                world.remove_helper_object(renderer, scene, object);
++            }
++        }
++        self.placed = kept;
++
++        for primitive in frame
++            .ground_arrow_primitives
++            .iter()
++            .filter(|p| p.opacity > 0.05)
++        {
++            let k = key(primitive);
++            if self.placed.iter().any(|(existing, _)| *existing == k) {
++                continue;
++            }
++
++            // NavBR already lifts the primitive above the route surface. For the stock
++            // scenery fallback, prefer the world's walk surface when it agrees closely
++            // with that route height, exactly like openOMSI's native route arrows.
++            let z = world
++                .walk_height(primitive.x, primitive.y)
++                .filter(|z| (z - primitive.z).abs() < 1.5)
++                .unwrap_or(primitive.z);
++            let pos = DVec3::new(primitive.x, primitive.y, z);
++            if let Some(object) = world.add_helper_object(
++                renderer,
++                scene,
++                sco(&primitive.kind),
++                pos,
++                primitive.heading_degrees,
++                &[],
++            ) {
++                self.placed.push((k, object));
++            }
++        }
++    }
++
++    pub(crate) fn any(&self) -> bool {
++        !self.placed.is_empty()
++    }
++
++    pub(crate) fn clear(
++        &mut self,
++        world: &World,
++        renderer: &Renderer,
++        scene: &mut Scene,
++    ) {
++        for (_, object) in self.placed.drain(..) {
++            world.remove_helper_object(renderer, scene, object);
++        }
++        self.wait = 0.0;
++    }
++}
