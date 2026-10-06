@@ -79,6 +79,20 @@ public static class PluginExports
         QueueCurrentStatus();
     }
 
+    internal static void ApplyHostHudPreset(int preset)
+    {
+        const uint all = (1u << 10) - 1u;
+        var values = preset switch
+        {
+            0 => (1u << 0) | (1u << 2) | (1u << 3) | (1u << 9),
+            1 => (1u << 0) | (1u << 2) | (1u << 3) | (1u << 4) |
+                 (1u << 5) | (1u << 6) | (1u << 8) | (1u << 9),
+            2 => all,
+            _ => all
+        };
+        ApplyHostHudFlags(all, values);
+    }
+
     private static void QueueCurrentStatus() =>
         OpenOmsiBridge.QueueStatus(BuildStatus());
 
