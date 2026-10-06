@@ -116,6 +116,10 @@ jobs:
             }
           }
 
+          if ($exports -notmatch "(?m)\bOpenOmsiGetOverlayFrame\b") {
+            throw "Plugin is missing openOMSI optional overlay export: OpenOmsiGetOverlayFrame"
+          }
+
           $lua = Get-Content "artifacts/NavBR.OpenOmsiPlugin/main.lua" -Raw
           foreach ($requiredLuaApi in @(
             'omsi.position()',
