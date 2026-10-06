@@ -9,6 +9,7 @@ on:
       - 'src/NavBR.Shared/PluginBridge/**'
       - 'src/NavBR.OpenOmsiLanSmokeTest/**'
       - 'src/NavBR.OpenOmsiGatewaySmokeTest/**'
+      - 'src/NavBR.OpenOmsiPluginSmokeTest/**'
       - '.github/workflows/openomsi-plugin.yml'
   pull_request:
     branches: [ main, feature/alpha26-app-polish ]
@@ -45,6 +46,7 @@ jobs:
           dotnet restore src/NavBR.Shared/NavBR.Shared.csproj
           dotnet restore src/NavBR.OpenOmsiLanSmokeTest/NavBR.OpenOmsiLanSmokeTest.csproj
           dotnet restore src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj
+          dotnet restore src/NavBR.OpenOmsiPluginSmokeTest/NavBR.OpenOmsiPluginSmokeTest.csproj -r win-x64
           dotnet restore src/NavBR.OpenOmsiPlugin/NavBR.OpenOmsiPlugin.csproj -r win-x64
 
       - name: Smoke-test openOMSI LAN v6 codec
@@ -54,6 +56,10 @@ jobs:
       - name: Smoke-test openOMSI loopback gateway
         shell: pwsh
         run: dotnet run --project src/NavBR.OpenOmsiGatewaySmokeTest/NavBR.OpenOmsiGatewaySmokeTest.csproj -c Release --no-restore
+
+      - name: Smoke-test openOMSI phase 1 navigation runtime
+        shell: pwsh
+        run: dotnet run --project src/NavBR.OpenOmsiPluginSmokeTest/NavBR.OpenOmsiPluginSmokeTest.csproj -c Release -r win-x64 --no-restore
 
       - name: Publish Native AOT x64 plugin
         shell: pwsh
