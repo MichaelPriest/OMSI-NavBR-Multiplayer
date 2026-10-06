@@ -664,7 +664,17 @@ Replace-Required $ui @'
 
             let title = self.text.label(r, scene, "NavBR", (24.0 * s) as u32, [255, 255, 255, 0]);
             scene.overlays.push((title.tex, [x0 + pad, y0 + 14.0 * s, x0 + pad + title.w as f32, y0 + 14.0 * s + title.h as f32]));
-            let sub = self.text.label(r, scene, "Painel do openOMSI  ·  Ctrl+Alt+N", (12.0 * s) as u32, [170, 185, 205, 0]);
+            let sub = self.text.label(
+                r,
+                scene,
+                if f.navbr_overlay.is_some() {
+                    "Painel do openOMSI  ·  Ctrl+Alt+N  ·  conectado"
+                } else {
+                    "Painel do openOMSI  ·  Ctrl+Alt+N  ·  aguardando plugin"
+                },
+                (12.0 * s) as u32,
+                [170, 185, 205, 0],
+            );
             scene.overlays.push((sub.tex, [x0 + pad, y0 + 42.0 * s, x0 + pad + sub.w as f32, y0 + 42.0 * s + sub.h as f32]));
 
             let mut y = y0 + 66.0 * s;
