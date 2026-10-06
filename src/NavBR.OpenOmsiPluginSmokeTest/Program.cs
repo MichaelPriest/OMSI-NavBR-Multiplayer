@@ -168,6 +168,16 @@ try
         "[path]\n0\n0\n0\n0\n0\n20\n0\n0\n0\n3\n0\n0\n" +
         "[path]\n0\n0\n0\n0\n0\n60\n0\n0\n0\n3\n0\n0\n");
 
+    var splineDir = Path.Combine(smokeRoot, "Splines", "Test");
+    Directory.CreateDirectory(splineDir);
+    await File.WriteAllTextAsync(
+        Path.Combine(splineDir, "grade.sli"),
+        "[halfcantwidth]\n1\n[path]\n0\n2\n0\n3\n0\n");
+
+    await File.AppendAllTextAsync(
+        Path.Combine(mapDir, "tile_0_0.map"),
+        "[spline_h]\n0\nSplines\\Test\\grade.sli\n6001\n0\n0\n50\n5\n50\n0\n100\n0\n0\n0\n10\n10\n10\n");
+
     var content = OpenOmsiContentLocator.Resolve("Grundorf");
     Require(content.RootAvailable, "Configured content root was not found.");
     Require(content.MapAvailable, "Map directory was not found.");
@@ -195,6 +205,13 @@ try
     Require(Math.Abs(geometry[0].Y - 100d) < 0.2d, "Automatic route geometry start Y.");
     Require(Math.Abs(geometry[^1].Y - 220d) < 0.5d, "Automatic route geometry end Y.");
 
+    var splineGeometry = OpenOmsiRouteGeometryResolver.Resolve(
+        content,
+        [new OpenOmsiRouteStep(0, 0, 6001, 0, 100d, false)]);
+    Require(splineGeometry.Length > 20, "Spline geometry point count.");
+    Require(Math.Abs((splineGeometry[0].Z ?? 0d) - 4.9d) < 0.15d, "Spline cant start height.");
+    Require(Math.Abs((splineGeometry[^1].Z ?? 0d) - 14.9d) < 0.2d, "Spline_h end height.");
+
     OpenOmsiRouteRuntime.Clear();
     OpenOmsiTimetableRuntime.Reset();
     var cachedRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
@@ -204,6 +221,19 @@ try
     var automaticRoute = OpenOmsiRouteRuntime.Build(snapshot);
     Require(automaticRoute.RouteLoaded, "Automatic route was not loaded into rejoin runtime.");
     Require(automaticRoute.RoutePointCount == geometry.Length, "Automatic route point count mismatch.");
+
+    var duplicateMapDir = Path.Combine(smokeRoot, "maps", "DuplicateMap");
+    Directory.CreateDirectory(duplicateMapDir);
+    await File.WriteAllTextAsync(
+        Path.Combine(duplicateMapDir, "global.cfg"),
+        "[map]\n0\n0\ntile_0_0.map\n" +
+        "[map]\n0\n0\ntile_0_0.map\n" +
+        "[map]\n1\n0\ntile_1_0.map\n");
+    var duplicateContent = OpenOmsiContentLocator.Resolve("DuplicateMap");
+    var duplicateLayout = OpenOmsiMapLayoutReader.Read(duplicateContent);
+    Require(duplicateLayout is not null, "Duplicate-map layout did not resolve.");
+    Require(duplicateLayout!.Tiles.Length == 2, "Duplicate global tile was not deduplicated.");
+    Require(duplicateLayout.Tiles[1].Index == 2, "Raw global tile index was not preserved.");
 }
 finally
 {
@@ -215,7 +245,7 @@ OpenOmsiRouteRuntime.Clear();
 OpenOmsiTimetableRuntime.Reset();
 OpenOmsiHudState.Reset();
 
-Console.WriteLine("openOMSI phase 1 navigation + HUD + automatic TTData/StnLinks geometry runtime smoke passed.");
+Console.WriteLine("openOMSI phase 1 navigation + HUD + precise automatic route geometry runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
