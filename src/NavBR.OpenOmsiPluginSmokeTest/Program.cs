@@ -190,6 +190,7 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame) == true,
     "Overlay-frame capability was not advertised.");
 Require(bridge.OpenOmsiMapMarkers is null, "Duplicate map markers leaked into normal bridge status.");
+Require(bridge.OpenOmsiRouteSteps is null, "Detailed route steps leaked into normal bridge status.");
 Require(bridge.OpenOmsiOverlayFrame is null, "Heavy overlay frame leaked into normal bridge status.");
 Require(bridge.OpenOmsiOverlay2DFrame is null, "Heavy 2D overlay leaked into normal bridge status.");
 Require(bridge.OpenOmsiWorldGuidanceFrame is null, "Heavy world overlay leaked into normal bridge status.");
