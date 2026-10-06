@@ -1,0 +1,273 @@
+diff --git a/crates/omsi-app/src/navbr_world_guidance.rs b/crates/omsi-app/src/navbr_world_guidance.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/navbr_world_guidance.rs
++++ b/crates/omsi-app/src/navbr_world_guidance.rs
+@@
+-//! Compatibility renderer for enhanced-plugin world guidance.
+-//!
+-//! It deliberately uses the game's existing helper-object path, so a stock openOMSI
+-//! build can show NavBR guidance without memory hooks. A later renderer may replace
+-//! these objects with an instanced translucent mesh while keeping the same v2 payload.
++//! Native world-space renderer for enhanced-plugin guidance.
++//!
++//! One shared arrow mesh/material is instanced along the route. The plugin has already
++//! decided placement, size, opacity and culling; the renderer only mirrors that state.
+ 
+ use crate::navbr_overlay::{GroundArrowPrimitive, WorldGuidance as Frame};
+-use crate::scene::{TileGpu, World};
+-use glam::DVec3;
+-use omsi_render::{Renderer, Scene};
+-use std::hash::{Hash, Hasher};
++use glam::{DVec3, Mat4, Vec2, Vec3};
++use omsi_geometry::MeshData;
++use omsi_render::{AlphaMode, MaterialId, MeshId, RenderPhase, Renderer, Scene};
+ 
+ #[derive(Default)]
+ pub(crate) struct WorldGuidance {
+-    placed: Vec<(u64, TileGpu)>,
+-    wait: f32,
++    mesh: Option<MeshId>,
++    material: Option<MaterialId>,
++    instances: Vec<usize>,
+ }
+ 
+-fn sco(kind: &str) -> &'static str {
+-    match kind {
+-        "left" | "slight-left" => "Sceneryobjects\\Generic\\routearrow_L_dyn.sco",
+-        "right" | "slight-right" => "Sceneryobjects\\Generic\\routearrow_R_dyn.sco",
+-        _ => "Sceneryobjects\\Generic\\routearrow_dn_dyn.sco",
++fn arrow_mesh() -> MeshData {
++    // Unit arrow authored along +Y. Width/length arrive per primitive.
++    // Six outline points, triangulated around a short shaft and triangular head.
++    let positions = vec![
++        Vec3::new( 0.00,  0.50, 0.0), // tip
++        Vec3::new( 0.50,  0.05, 0.0), // right shoulder
++        Vec3::new( 0.18,  0.05, 0.0), // shaft right top
++        Vec3::new( 0.18, -0.50, 0.0), // shaft right bottom
++        Vec3::new(-0.18, -0.50, 0.0), // shaft left bottom
++        Vec3::new(-0.18,  0.05, 0.0), // shaft left top
++    ];
++    MeshData {
++        positions,
++        normals: vec![Vec3::Z; 6],
++        uvs: vec![Vec2::ZERO; 6],
++        ranges: vec![(0, 12, 0)],
++        indices: vec![
++            0, 1, 2,
++            0, 2, 5,
++            5, 2, 3,
++            5, 3, 4,
++        ],
++        one_sided: false,
+     }
+ }
+ 
+-fn key(p: &GroundArrowPrimitive) -> u64 {
+-    let mut h = std::collections::hash_map::DefaultHasher::new();
+-    ((p.x * 10.0).round() as i64).hash(&mut h);
+-    ((p.y * 10.0).round() as i64).hash(&mut h);
+-    ((p.z * 10.0).round() as i64).hash(&mut h);
+-    ((p.heading_degrees * 10.0).round() as i64).hash(&mut h);
+-    p.kind.hash(&mut h);
+-    h.finish()
++fn transform(p: &GroundArrowPrimitive) -> Mat4 {
++    // openOMSI heading: 0 = +Y, clockwise positive. The mesh points along +Y and
++    // glam's +Z rotation is counter-clockwise, hence the negative angle.
++    Mat4::from_rotation_z(-(p.heading_degrees as f32).to_radians())
++        * Mat4::from_scale(Vec3::new(
++            p.width_meters as f32,
++            p.length_meters as f32,
++            1.0,
++        ))
+ }
+ 
+ impl WorldGuidance {
++    fn ensure_assets(&mut self, renderer: &Renderer, scene: &mut Scene) -> (MeshId, MaterialId) {
++        let mesh = *self.mesh.get_or_insert_with(|| renderer.add_mesh(scene, &arrow_mesh()));
++        let material = *self.material.get_or_insert_with(|| {
++            // Unlit + alpha blend gives the road-guidance glow without adding a scene
++            // light. Dynamic per-instance alpha applies the distance fade.
++            renderer.add_material(
++                scene,
++                None,
++                AlphaMode::Blend,
++                [0.10, 0.72, 1.00, 0.88],
++                true,
++            )
++        });
++        (mesh, material)
++    }
++
+     pub(crate) fn tick(
+         &mut self,
+-        dt: f32,
+-        world: &World,
++        _dt: f32,
++        _world: &crate::scene::World,
+         renderer: &Renderer,
+         scene: &mut Scene,
+         frame: &Frame,
+     ) {
+-        self.wait -= dt;
+-        if self.wait > 0.0 {
+-            return;
+-        }
+-        self.wait = 0.5;
+-
+         if !frame.visible {
+-            self.clear(world, renderer, scene);
++            self.hide_all(renderer, scene);
+             return;
+         }
+ 
+-        let wanted: Vec<u64> = frame
++        let wanted: Vec<&GroundArrowPrimitive> = frame
+             .ground_arrow_primitives
+             .iter()
+             .filter(|p| p.opacity > 0.05)
+-            .map(key)
++            .take(24)
+             .collect();
+ 
+-        let mut kept = Vec::with_capacity(self.placed.len());
+-        for (k, object) in self.placed.drain(..) {
+-            if wanted.contains(&k) {
+-                kept.push((k, object));
+-            } else {
+-                world.remove_helper_object(renderer, scene, object);
+-            }
+-        }
+-        self.placed = kept;
++        let (mesh, material) = self.ensure_assets(renderer, scene);
+ 
+-        for primitive in frame
+-            .ground_arrow_primitives
+-            .iter()
+-            .filter(|p| p.opacity > 0.05)
+-        {
+-            let k = key(primitive);
+-            if self.placed.iter().any(|(existing, _)| *existing == k) {
+-                continue;
++        while self.instances.len() < wanted.len() {
++            let instance = renderer.add_instance(
++                scene,
++                mesh,
++                DVec3::ZERO,
++                Mat4::IDENTITY,
++                vec![material],
++            );
++            scene.instances[instance].render_phase = RenderPhase::AfterVehicles;
++            scene.instances[instance].casts_shadow = false;
++            scene.instances[instance].surface_bias = false;
++            self.instances.push(instance);
++        }
++
++        for (slot, primitive) in wanted.iter().enumerate() {
++            let instance = self.instances[slot];
++            renderer.set_transform(
++                scene,
++                instance,
++                DVec3::new(primitive.x, primitive.y, primitive.z),
++                transform(primitive),
++            );
++            renderer.set_params(
++                scene,
++                instance,
++                &[primitive.opacity.clamp(0.0, 1.0) as f32],
++                true,
++                &[],
++            );
++        }
++
++        for &instance in self.instances.iter().skip(wanted.len()) {
++            renderer.set_params(scene, instance, &[], false, &[]);
++        }
++    }
++
++    fn hide_all(&mut self, renderer: &Renderer, scene: &mut Scene) {
++        for &instance in &self.instances {
++            renderer.set_params(scene, instance, &[], false, &[]);
++        }
++    }
++
++    pub(crate) fn any(&self) -> bool {
++        !self.instances.is_empty()
++    }
++
++    pub(crate) fn clear(
++        &mut self,
++        _world: &crate::scene::World,
++        renderer: &Renderer,
++        scene: &mut Scene,
++    ) {
++        for instance in self.instances.drain(..) {
++            renderer.remove_instance(scene, instance);
++        }
++        self.mesh = None;
++        self.material = None;
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn heading_and_scale_follow_openomsi_convention() {
++        let p = GroundArrowPrimitive {
++            x: 0.0,
++            y: 0.0,
++            z: 0.06,
++            heading_degrees: 90.0,
++            width_meters: 2.0,
++            length_meters: 5.0,
++            height_offset_meters: 0.06,
++            opacity: 1.0,
++            distance_ahead_meters: 20.0,
++            kind: "route".into(),
++        };
++        let m = transform(&p);
++        let tip = m.transform_point3(Vec3::new(0.0, 0.5, 0.0));
++        assert!((tip.x - 2.5).abs() < 1e-4);
++        assert!(tip.y.abs() < 1e-4);
++    }
++}
+-            }
+-
+-            // NavBR already lifts the primitive above the route surface. For the stock
+-            // scenery fallback, prefer the world's walk surface when it agrees closely
+-            // with that route height, exactly like openOMSI's native route arrows.
+-            let z = world
+-                .walk_height(primitive.x, primitive.y)
+-                .filter(|z| (z - primitive.z).abs() < 1.5)
+-                .unwrap_or(primitive.z);
+-            let pos = DVec3::new(primitive.x, primitive.y, z);
+-            if let Some(object) = world.add_helper_object(
+-                renderer,
+-                scene,
+-                sco(&primitive.kind),
+-                pos,
+-                primitive.heading_degrees,
+-                &[],
+-            ) {
+-                self.placed.push((k, object));
+-            }
+-        }
+-    }
+-
+-    pub(crate) fn any(&self) -> bool {
+-        !self.placed.is_empty()
+-    }
+-
+-    pub(crate) fn clear(
+-        &mut self,
+-        world: &World,
+-        renderer: &Renderer,
+-        scene: &mut Scene,
+-    ) {
+-        for (_, object) in self.placed.drain(..) {
+-            world.remove_helper_object(renderer, scene, object);
+-        }
+-        self.wait = 0.0;
+-    }
+-}
