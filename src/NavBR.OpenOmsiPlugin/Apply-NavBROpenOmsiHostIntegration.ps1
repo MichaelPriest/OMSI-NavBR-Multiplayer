@@ -447,6 +447,26 @@ Replace-Required $events @'
                 })
             });
             if let Some(bit) = hit {
+                if bit >= 10 {
+                    let changed = self
+                        .plugins
+                        .as_ref()
+                        .is_some_and(|plugins| plugins.set_navbr_hud_preset(bit - 10));
+                    self.service_msg = Some((
+                        if changed {
+                            match bit {
+                                10 => "NavBR: preset GPS aplicado".to_string(),
+                                11 => "NavBR: preset Operação aplicado".to_string(),
+                                _ => "NavBR: preset Tudo aplicado".to_string(),
+                            }
+                        } else {
+                            "NavBR: controle host indisponível".to_string()
+                        },
+                        2.5,
+                    ));
+                    return;
+                }
+
                 let current = self.navbr_overlay.overlay_2d.as_ref().is_some_and(|n| match bit {
                     0 => n.mini_map_visible,
                     1 => n.full_map_visible,
@@ -688,6 +708,28 @@ Replace-Required $ui @'
                 let ly = rect[1] + (30.0 * s - label.h as f32) * 0.5;
                 scene.overlays.push((label.tex, [lx, ly, lx + label.w as f32, ly + label.h as f32]));
             }
+
+            y += 6.0 * s;
+            let preset_gap = 8.0 * s;
+            let preset_w = (width - pad * 2.0 - preset_gap * 2.0) / 3.0;
+            for (preset, name) in ["GPS", "Operação", "Tudo"].iter().enumerate() {
+                let px = x0 + pad + preset as f32 * (preset_w + preset_gap);
+                let rect = [px, y, px + preset_w, y + 30.0 * s];
+                self.navbr_panel_rects.push(rect);
+                let hovered = f.cursor.0 >= rect[0] && f.cursor.0 <= rect[2]
+                    && f.cursor.1 >= rect[1] && f.cursor.1 <= rect[3];
+                let bg = self.text.solid(
+                    r,
+                    scene,
+                    if hovered { [45, 145, 235, 220] } else { [45, 52, 64, 220] },
+                );
+                scene.overlays.push((bg, rect));
+                let label = self.text.label(r, scene, name, (12.0 * s) as u32, [245, 247, 250, 0]);
+                let lx = px + (preset_w - label.w as f32) * 0.5;
+                let ly = y + (30.0 * s - label.h as f32) * 0.5;
+                scene.overlays.push((label.tex, [lx, ly, lx + label.w as f32, ly + label.h as f32]));
+            }
+            y += 38.0 * s;
 
             let rp = self.text.label(
                 r,
