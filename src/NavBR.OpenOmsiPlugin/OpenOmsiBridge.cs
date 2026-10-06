@@ -112,7 +112,8 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime,
                         PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints,
                         PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState,
-                        PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation
+                        PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
