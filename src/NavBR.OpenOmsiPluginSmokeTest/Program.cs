@@ -80,9 +80,36 @@ Require(
     configuredBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration) == true,
     "HUD configuration capability was not advertised.");
 
+OpenOmsiRouteRuntime.SetRoute(
+[
+    new OpenOmsiRoutePoint(100, 100),
+    new OpenOmsiRoutePoint(150, 100),
+    new OpenOmsiRoutePoint(200, 100),
+    new OpenOmsiRoutePoint(250, 100),
+    new OpenOmsiRoutePoint(300, 100)
+]);
+
+var onRoute = OpenOmsiRouteRuntime.Build(snapshot);
+Require(onRoute.RouteLoaded, "Route must be loaded.");
+Require(!onRoute.OffRoute, "Vehicle on route was marked off-route.");
+Require(onRoute.NearestRoutePointIndex == 0, "Nearest route point mismatch.");
+
+var offRouteSnapshot = snapshot with { X = 100d, Y = 180d };
+var offRoute = OpenOmsiRouteRuntime.Build(offRouteSnapshot);
+Require(offRoute.OffRoute, "Off-route vehicle was not detected.");
+Require(offRoute.DistanceFromRouteMeters is >= 79d and <= 81d, "Off-route distance mismatch.");
+Require(offRoute.RejoinRoutePointIndex == 3, "Rejoin look-ahead point mismatch.");
+Require(offRoute.RejoinTargetX == 250d && offRoute.RejoinTargetY == 100d, "Rejoin target mismatch.");
+
+var routeBridge = PluginExports.BuildStatus();
+Require(
+    routeBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin) == true,
+    "Route rejoin capability was not advertised.");
+
+OpenOmsiRouteRuntime.Clear();
 OpenOmsiHudState.Reset();
 
-Console.WriteLine("openOMSI phase 1 navigation + HUD runtime smoke passed.");
+Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
