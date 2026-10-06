@@ -206,6 +206,7 @@ public static class PluginExports
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
+        var route = OpenOmsiRouteRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
 
         return new PluginBridgeMessage(
@@ -285,6 +286,14 @@ public static class PluginExports
             OpenOmsiMultiplayerLayerEnabled: hud.MultiplayerEnabled,
             OpenOmsiCongestionLayerEnabled: hud.CongestionEnabled,
             OpenOmsiRouteGuidanceEnabled: hud.RouteGuidanceEnabled,
+            OpenOmsiRouteLoaded: route.RouteLoaded,
+            OpenOmsiRoutePointCount: route.RoutePointCount,
+            OpenOmsiDistanceFromRouteMeters: route.DistanceFromRouteMeters,
+            OpenOmsiOffRoute: route.OffRoute,
+            OpenOmsiNearestRoutePointIndex: route.NearestRoutePointIndex,
+            OpenOmsiRejoinRoutePointIndex: route.RejoinRoutePointIndex,
+            OpenOmsiRejoinTargetX: route.RejoinTargetX,
+            OpenOmsiRejoinTargetY: route.RejoinTargetY,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -295,7 +304,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
                 PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
                 PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
-                PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration
+                PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin
             ]);
     }
 
@@ -393,6 +403,7 @@ public static class PluginExports
         Volatile.Write(ref _ibisDelayState, null);
         PerformanceProfile = "auto";
         OpenOmsiHudState.Reset();
+        OpenOmsiRouteRuntime.Clear();
         OpenOmsiHudState.Reset();
     }
 }
