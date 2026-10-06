@@ -82,6 +82,9 @@ Require(miniMap.RemainingMeters is >= 179d and <= 181d, "Minimap remaining dista
 Require(miniMap.GuidanceWaypoints.Length > 0, "Guidance waypoints missing.");
 Require(miniMap.GuidanceWaypoints.All(p => p.DistanceAheadMeters > 0d), "Invalid guidance waypoint distance.");
 
+var visualRouteKey = OpenOmsiRouteRuntime.BuildRouteKey(snapshot);
+Require(!string.IsNullOrWhiteSpace(visualRouteKey), "Visual route key.");
+
 var visualRoute = OpenOmsiMapVisualRuntime.Build(
 [
     new OpenOmsiRoutePoint(0, 0),
@@ -92,7 +95,7 @@ var visualRoute = OpenOmsiMapVisualRuntime.Build(
 snapshot with { X = 0d, Y = 55d },
 new OpenOmsiRouteRuntimeState(
     true,
-    routeKey,
+    visualRouteKey,
     4,
     5d,
     false,
