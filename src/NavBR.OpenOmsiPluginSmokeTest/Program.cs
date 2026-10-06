@@ -78,7 +78,7 @@ var miniMap = OpenOmsiMiniMapRuntime.Build(
 Require(miniMap.Available, "Minimap runtime unavailable.");
 Require(miniMap.RouteLengthMeters is >= 199d and <= 201d, "Minimap route length mismatch.");
 Require(miniMap.ProgressMeters is >= 19d and <= 21d, "Minimap progress mismatch.");
-Require(miniMap.RouteRemainingMeters is >= 179d and <= 181d, "Minimap remaining distance mismatch.");
+Require(miniMap.RemainingMeters is >= 179d and <= 181d, "Minimap remaining distance mismatch.");
 Require(miniMap.GuidanceWaypoints.Length > 0, "Guidance waypoints missing.");
 Require(miniMap.GuidanceWaypoints.All(p => p.DistanceAheadMeters > 0d), "Invalid guidance waypoint distance.");
 
