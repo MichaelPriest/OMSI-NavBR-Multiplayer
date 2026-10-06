@@ -47,6 +47,41 @@ public static class PluginExports
         ResetState();
     }
 
+    [UnmanagedCallersOnly(
+        CallConvs = [typeof(CallConvStdcall)],
+        EntryPoint = "OpenOmsiSetHudFlagsV1")]
+    public static void OpenOmsiSetHudFlagsV1(uint mask, uint values)
+    {
+        ApplyHostHudFlags(mask, values);
+    }
+
+    internal static void ApplyHostHudFlags(uint mask, uint values)
+    {
+        bool? Bit(int bit) =>
+            (mask & (1u << bit)) == 0
+                ? null
+                : (values & (1u << bit)) != 0;
+
+        OpenOmsiHudState.Apply(new PluginBridgeMessage(
+            PluginBridgeProtocol.SetOpenOmsiHudConfiguration,
+            PluginBridgeProtocol.Version,
+            OpenOmsiMiniMapEnabled: Bit(0),
+            OpenOmsiFullMapEnabled: Bit(1),
+            OpenOmsiAutoZoomEnabled: Bit(2),
+            OpenOmsiFollowVehicleEnabled: Bit(3),
+            OpenOmsiTimetableHudEnabled: Bit(4),
+            OpenOmsiTeleMatrixEnabled: Bit(5),
+            OpenOmsiTrafficLayerEnabled: Bit(6),
+            OpenOmsiMultiplayerLayerEnabled: Bit(7),
+            OpenOmsiCongestionLayerEnabled: Bit(8),
+            OpenOmsiRouteGuidanceEnabled: Bit(9)));
+
+        QueueCurrentStatus();
+    }
+
+    private static void QueueCurrentStatus() =>
+        OpenOmsiBridge.QueueStatus(BuildStatus());
+
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)], EntryPoint = nameof(AccessVariable))]
     public static void AccessVariable(ushort index, IntPtr value, IntPtr writeValue)
     {
@@ -462,7 +497,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
                 PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame,
-                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives
+                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives,
+                PluginBridgeProtocol.CapabilityOpenOmsiHostHudControlV1
             ]);
     }
 
