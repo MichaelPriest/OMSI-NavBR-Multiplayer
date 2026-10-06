@@ -66,6 +66,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiNavigationRuntime = "openomsi-navigation-runtime";
     public const string CapabilityOpenOmsiHudConfiguration = "openomsi-hud-configuration";
     public const string CapabilityOpenOmsiRouteRejoin = "openomsi-route-rejoin";
+    public const string CapabilityOpenOmsiTimetableResolver = "openomsi-timetable-resolver";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -238,7 +239,12 @@ public sealed record PluginBridgeMessage(
     double? OpenOmsiRejoinTargetY = null,
     bool? OpenOmsiContentRootAvailable = null,
     bool? OpenOmsiMapContentAvailable = null,
-    bool? OpenOmsiTimetableDataAvailable = null);
+    bool? OpenOmsiTimetableDataAvailable = null,
+    string? OpenOmsiResolvedTripName = null,
+    string? OpenOmsiResolvedTripTerminus = null,
+    int? OpenOmsiResolvedProfileIndex = null,
+    double? OpenOmsiResolvedDepartureMinutes = null,
+    string[]? OpenOmsiResolvedStops = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
