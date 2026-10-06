@@ -58,7 +58,31 @@ Require(
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
-Console.WriteLine("openOMSI phase 1 navigation runtime smoke passed.");
+var defaults = OpenOmsiHudState.Current;
+Require(defaults.MiniMapEnabled && defaults.AutoZoomEnabled, "Default HUD state.");
+
+var updatedHud = OpenOmsiHudState.Apply(new PluginBridgeMessage(
+    PluginBridgeProtocol.SetOpenOmsiHudConfiguration,
+    PluginBridgeProtocol.Version,
+    OpenOmsiMiniMapEnabled: false,
+    OpenOmsiTrafficLayerEnabled: false,
+    OpenOmsiRouteGuidanceEnabled: true));
+
+Require(!updatedHud.MiniMapEnabled, "Minimap toggle.");
+Require(!updatedHud.TrafficEnabled, "Traffic layer toggle.");
+Require(updatedHud.RouteGuidanceEnabled, "Route guidance toggle.");
+Require(updatedHud.TeleMatrixEnabled, "Unspecified HUD settings must remain unchanged.");
+
+var configuredBridge = PluginExports.BuildStatus();
+Require(configuredBridge.OpenOmsiMiniMapEnabled == false, "HUD state was not published.");
+Require(configuredBridge.OpenOmsiTrafficLayerEnabled == false, "Traffic toggle was not published.");
+Require(
+    configuredBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration) == true,
+    "HUD configuration capability was not advertised.");
+
+OpenOmsiHudState.Reset();
+
+Console.WriteLine("openOMSI phase 1 navigation + HUD runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
