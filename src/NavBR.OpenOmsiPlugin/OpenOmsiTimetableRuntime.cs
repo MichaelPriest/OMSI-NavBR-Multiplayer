@@ -1,3 +1,4 @@
+using NavBR.Shared.PluginBridge;
 namespace NavBR.OpenOmsiPlugin;
 
 internal sealed record OpenOmsiTimetableRuntimeState(
