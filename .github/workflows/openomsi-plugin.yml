@@ -168,13 +168,26 @@ jobs:
           Pop-Location
 
           $apply = Resolve-Path "src/NavBR.OpenOmsiPlugin/Apply-NavBROpenOmsiHostIntegration.ps1"
-          & $apply -OpenOmsiSource $upstream
+          & $apply -OpenOmsiSource $upstream -WorldGuidanceRenderer stock
 
           Push-Location $upstream
           cargo check -p omsi-plugin -p omsi-app
           if ($LASTEXITCODE -ne 0) {
             Pop-Location
-            throw "Patched openOMSI host did not compile."
+            throw "Patched openOMSI stock-guidance host did not compile."
+          }
+
+          git reset --hard 100f7f6a2322f3b35207694850a7a4970fe0bb17
+          git clean -fd
+          Pop-Location
+
+          & $apply -OpenOmsiSource $upstream -WorldGuidanceRenderer mesh
+
+          Push-Location $upstream
+          cargo check -p omsi-plugin -p omsi-app
+          if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            throw "Patched openOMSI mesh-guidance host did not compile."
           }
           Pop-Location
 
