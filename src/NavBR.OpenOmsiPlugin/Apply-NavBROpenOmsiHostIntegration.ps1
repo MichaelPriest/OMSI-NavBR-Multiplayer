@@ -396,6 +396,8 @@ Replace-Required $events @'
 '@
 
 Replace-Required $ui @'
+        if let Some(fps) = f.fps {
+'@ @'
         if let Some(nav) = f.navbr_overlay.filter(|n| n.tele_matrix_visible) {
             let s = f.scale.max(0.5) * f.ui_scale;
             let width = (300.0 * s).min(f.width * 0.36);
@@ -427,8 +429,6 @@ Replace-Required $ui @'
             }
         }
 
-        if let Some(fps) = f.fps {
-'@ @'
         if let Some(nav) = f.navbr_overlay.filter(|n| n.compact_hud_visible) {
             let s = f.scale.max(0.5) * f.ui_scale;
             let width = (430.0 * s).min(f.width * 0.56);
