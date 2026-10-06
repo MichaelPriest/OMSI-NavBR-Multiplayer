@@ -286,7 +286,14 @@ Replace-Required $events @'
                     if let (Some(w), Some(frame)) =
                         (self.world.as_ref(), self.navbr_overlay.world.as_ref())
                     {
-                        self.navbr_world_guidance.tick(dt, w, r, scene, frame);
+                        self.navbr_world_guidance.tick(
+                            dt,
+                            self.started.elapsed().as_secs_f32(),
+                            w,
+                            r,
+                            scene,
+                            frame,
+                        );
                     } else if self.navbr_world_guidance.any() {
                         if let Some(w) = self.world.as_ref() {
                             self.navbr_world_guidance.clear(w, r, scene);
@@ -523,6 +530,7 @@ impl WorldGuidance {
     pub(crate) fn tick(
         &mut self,
         dt: f32,
+        _seconds: f32,
         world: &World,
         renderer: &Renderer,
         scene: &mut Scene,
@@ -638,6 +646,7 @@ impl WorldGuidance {
     pub(crate) fn tick(
         &mut self,
         _dt: f32,
+        seconds: f32,
         world: &crate::scene::World,
         renderer: &Renderer,
         scene: &mut Scene,
@@ -678,9 +687,18 @@ impl WorldGuidance {
                 .walk_height(p.x, p.y)
                 .filter(|z| (z - p.z).abs() < 0.75)
                 .unwrap_or(p.z);
+            let maneuver = matches!(
+                p.kind.as_str(),
+                "left" | "right" | "slight-left" | "slight-right" | "uturn"
+            );
+            let pulse = if maneuver || p.kind == "rejoin" {
+                1.0 + 0.035 * (seconds * std::f32::consts::TAU * 0.8).sin() as f64
+            } else {
+                1.0
+            };
             let semantic_scale = match p.kind.as_str() {
-                "left" | "right" | "slight-left" | "slight-right" | "uturn" => 1.10,
-                "rejoin" => 1.06,
+                "left" | "right" | "slight-left" | "slight-right" | "uturn" => 1.10 * pulse,
+                "rejoin" => 1.06 * pulse,
                 _ => 1.0,
             };
             let semantic_alpha = match p.kind.as_str() {
