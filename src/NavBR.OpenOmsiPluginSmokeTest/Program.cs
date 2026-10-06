@@ -73,6 +73,27 @@ Require(guidance.Maneuver == "right", $"Expected right turn, got {guidance.Maneu
 Require(guidance.DistanceToManeuverMeters is >= 79d and <= 81d, "Turn distance mismatch.");
 Require(guidance.TurnAngleDegrees is >= 89d and <= 91d, "Turn angle mismatch.");
 
+var smoothCurve = Enumerable.Range(0, 19)
+    .Select(i =>
+    {
+        var a = i * 5d * Math.PI / 180d;
+        return new OpenOmsiRoutePoint(
+            50d * (1d - Math.Cos(a)),
+            50d * Math.Sin(a));
+    })
+    .ToArray();
+var smoothGuidance = OpenOmsiGuidanceRuntime.Build(
+    smoothCurve,
+    smoothCurve[0].X,
+    smoothCurve[0].Y);
+Require(smoothGuidance.Available, "Smooth-curve guidance unavailable.");
+Require(
+    smoothGuidance.Maneuver is "right" or "slight-right",
+    $"Smooth right curve not detected: {smoothGuidance.Maneuver}.");
+Require(
+    smoothGuidance.TurnAngleDegrees is > 22d,
+    "Smooth-curve turn angle stayed below guidance threshold.");
+
 var miniMap = OpenOmsiMiniMapRuntime.Build(
 [
     new OpenOmsiRoutePoint(0, 0, 0),
