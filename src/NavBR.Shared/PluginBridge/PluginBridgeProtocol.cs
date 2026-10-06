@@ -82,6 +82,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiOverlayExportV2 = "openomsi-overlay-export-v2";
     public const string CapabilityOpenOmsiOverlay2DFrame = "openomsi-overlay-2d-frame";
     public const string CapabilityOpenOmsiWorldGuidanceFrame = "openomsi-world-guidance-frame";
+    public const string CapabilityOpenOmsiGroundArrowPrimitives = "openomsi-ground-arrow-primitives";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -406,7 +407,20 @@ public sealed record OpenOmsiOverlay2DFrameState(
 
 public sealed record OpenOmsiWorldGuidanceFrameState(
     bool Visible,
-    OpenOmsiGroundArrowState[] GroundArrows);
+    OpenOmsiGroundArrowState[] GroundArrows,
+    OpenOmsiGroundArrowPrimitiveState[] GroundArrowPrimitives);
+
+public sealed record OpenOmsiGroundArrowPrimitiveState(
+    double X,
+    double Y,
+    double Z,
+    double HeadingDegrees,
+    double WidthMeters,
+    double LengthMeters,
+    double HeightOffsetMeters,
+    double Opacity,
+    double DistanceAheadMeters,
+    string Kind);
 
 public sealed record OpenOmsiOverlayExportEnvelopeV2(
     int Version,
