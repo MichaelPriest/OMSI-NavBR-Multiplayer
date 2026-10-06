@@ -19,11 +19,18 @@ in this order when building an enhanced openOMSI host for NavBR:
 4. `openomsi-navbr-world-guidance-stock-fallback-v2.patch`
    - shows world guidance with the same helper-object system already used by openOMSI route
      arrows;
-   - serves as a safe compatibility renderer until the dedicated instanced translucent
-     arrow mesh described in `OPENOMSI_WORLD_GUIDANCE_RENDERER.md` is implemented.
+   - safe compatibility renderer using stock route-arrow objects.
+
+5. `openomsi-navbr-world-guidance-mesh-v2.patch`
+   - replaces the stock-object fallback with one shared custom arrow mesh/material;
+   - reuses up to 24 scene instances, updates transform/alpha only, uses
+     `RenderPhase::AfterVehicles`, no shadows and no separate render pass;
+   - this is the preferred Forza-style world-guidance renderer once the first four patches
+     have been validated on the target openOMSI revision.
 
 The first two patches are infrastructure. The third is native 2D UI integration. The
 fourth provides immediate in-world guidance using stock assets without memory injection.
+The fifth upgrades that fallback to the custom translucent mesh renderer.
 
 These patches are intentionally shipped with the NavBR plugin rather than applied to the
 upstream repository automatically. They do not modify the user's openOMSI installation.
