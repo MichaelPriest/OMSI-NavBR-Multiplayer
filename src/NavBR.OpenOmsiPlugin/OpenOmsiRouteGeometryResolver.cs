@@ -14,6 +14,11 @@ internal static class OpenOmsiRouteGeometryResolver
         double Heading,
         double Length,
         double Radius,
+        double GradientStart,
+        double GradientEnd,
+        double? DeltaHeight,
+        double CantStart,
+        double CantEnd,
         bool Mirror);
 
     private sealed record PathShape(
@@ -203,10 +208,26 @@ internal static class OpenOmsiRouteGeometryResolver
             var hr = h * Math.PI / 180d;
             var rightX = Math.Cos(hr);
             var rightY = -Math.Sin(hr);
+            var t = s / Math.Max(length, 1e-6d);
+            var centerZ = SplineHeightAt(
+                element.Z,
+                length,
+                s,
+                element.GradientStart,
+                element.GradientEnd,
+                element.DeltaHeight);
+            var cant = element.CantStart +
+                (element.CantEnd - element.CantStart) * t;
+            var cantX = Math.Clamp(
+                lateral,
+                -offset.Value.HalfCantWidth,
+                offset.Value.HalfCantWidth);
+            var cantZ = -cantX * cant / 100d;
+
             points.Add((
                 x + rightX * lateral,
                 y + rightY * lateral,
-                element.Z + offset.Value.Z));
+                centerZ + offset.Value.Z + cantZ));
         }
 
         return ToWorldPoints(layout, tile, points, alreadyScaledLocal: true);
@@ -253,6 +274,35 @@ internal static class OpenOmsiRouteGeometryResolver
         }
 
         return result;
+    }
+
+
+    private static double SplineHeightAt(
+        double startZ,
+        double length,
+        double distance,
+        double gradientStart,
+        double gradientEnd,
+        double? deltaHeight)
+    {
+        var l = Math.Max(length, 1e-6d);
+        var t = Math.Clamp(distance / l, 0d, 1d);
+        if (deltaHeight is not null)
+        {
+            var m0 = gradientStart / 100d * l;
+            var m1 = gradientEnd / 100d * l;
+            var t2 = t * t;
+            var t3 = t2 * t;
+            return startZ +
+                (t3 - 2d * t2 + t) * m0 +
+                (3d * t2 - 2d * t3) * deltaHeight.Value +
+                (t3 - t2) * m1;
+        }
+
+        var gradient =
+            gradientStart +
+            (gradientEnd - gradientStart) * t * 0.5d;
+        return startZ + distance * gradient / 100d;
     }
 
     private static (double X, double Y, double Heading) ArcPoint(
@@ -352,6 +402,11 @@ internal static class OpenOmsiRouteGeometryResolver
                         heading.Value,
                         0d,
                         0d,
+                        0d,
+                        0d,
+                        null,
+                        0d,
+                        0d,
                         false);
                 }
 
@@ -390,16 +445,17 @@ internal static class OpenOmsiRouteGeometryResolver
             var sh = ParseDouble(ReadParameter(lines, ref splineCursor));
             var length = ParseDouble(ReadParameter(lines, ref splineCursor));
             var radius = ParseDouble(ReadParameter(lines, ref splineCursor));
-            _ = ReadParameter(lines, ref splineCursor);
-            _ = ReadParameter(lines, ref splineCursor);
-            if (keyword == "spline_h")
-            {
-                _ = ReadParameter(lines, ref splineCursor);
-            }
+            var gradientStart = ParseDouble(ReadParameter(lines, ref splineCursor)) ?? 0d;
+            var gradientEnd = ParseDouble(ReadParameter(lines, ref splineCursor)) ?? 0d;
+            var deltaHeight = keyword == "spline_h"
+                ? ParseDouble(ReadParameter(lines, ref splineCursor))
+                : null;
+            var cantStart = 0d;
+            var cantEnd = 0d;
             if (Has(version, 5))
             {
-                _ = ReadParameter(lines, ref splineCursor);
-                _ = ReadParameter(lines, ref splineCursor);
+                cantStart = ParseDouble(ReadParameter(lines, ref splineCursor)) ?? 0d;
+                cantEnd = ParseDouble(ReadParameter(lines, ref splineCursor)) ?? 0d;
             }
 
             var mirror = false;
@@ -447,6 +503,11 @@ internal static class OpenOmsiRouteGeometryResolver
                     sh.Value,
                     length.Value,
                     radius.Value,
+                    gradientStart,
+                    gradientEnd,
+                    deltaHeight,
+                    cantStart,
+                    cantEnd,
                     mirror);
             }
 
@@ -500,12 +561,28 @@ internal static class OpenOmsiRouteGeometryResolver
         return null;
     }
 
-    private static (double X, double Z)? ReadSplinePathOffset(
+    private static (double X, double Z, double HalfCantWidth)? ReadSplinePathOffset(
         string path,
         int wantedIndex)
     {
         var lines = ReadLines(path);
         var index = -1;
+        var halfCantWidth = 10d;
+
+        for (var h = 0; h < lines.Length; h++)
+        {
+            if (NormalizeKeyword(lines[h]) != "halfcantwidth")
+            {
+                continue;
+            }
+
+            var cursor = h;
+            var parsed = ParseDouble(ReadParameter(lines, ref cursor));
+            if (parsed is >= 0d)
+            {
+                halfCantWidth = parsed.Value;
+            }
+        }
         for (var i = 0; i < lines.Length; i++)
         {
             var keyword = NormalizeKeyword(lines[i]);
@@ -527,7 +604,7 @@ internal static class OpenOmsiRouteGeometryResolver
 
             if (index == wantedIndex && x is not null && z is not null)
             {
-                return (x.Value, z.Value);
+                return (x.Value, z.Value, halfCantWidth);
             }
         }
 
