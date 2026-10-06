@@ -407,6 +407,7 @@ public sealed record OpenOmsiOverlay2DFrameState(
     string? SecondaryText,
     string? ManeuverIcon,
     double? DistanceToManeuverMeters,
+    double? RouteProgressPercent,
     double? RouteRemainingMeters,
     bool OffRoute,
     OpenOmsiRoutePoint[] TraveledRoute,
