@@ -34,6 +34,8 @@ var snapshot = new OpenOmsiLuaSnapshot(
     ReportedSpeedKph: 32d,
     NextStopArrival: 36120d,
     NextStopDeparture: 36140d,
+    TripsCount: 4,
+    NextStopNumber: 2,
     NearbyVehicles:
     [
         new OpenOmsiNearbyVehicleState("ai-1", "ai", "AI 1", 110, 100, 0, 90, 0),
@@ -80,6 +82,9 @@ Require(
     configuredBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration) == true,
     "HUD configuration capability was not advertised.");
 
+var routeKey = OpenOmsiRouteRuntime.BuildRouteKey(snapshot);
+Require(!string.IsNullOrWhiteSpace(routeKey), "Live duty route key.");
+
 OpenOmsiRouteRuntime.SetRoute(
 [
     new OpenOmsiRoutePoint(100, 100),
@@ -87,10 +92,12 @@ OpenOmsiRouteRuntime.SetRoute(
     new OpenOmsiRoutePoint(200, 100),
     new OpenOmsiRoutePoint(250, 100),
     new OpenOmsiRoutePoint(300, 100)
-]);
+],
+routeKey);
 
 var onRoute = OpenOmsiRouteRuntime.Build(snapshot);
 Require(onRoute.RouteLoaded, "Route must be loaded.");
+Require(onRoute.RouteKey == routeKey, "Route key mismatch.");
 Require(!onRoute.OffRoute, "Vehicle on route was marked off-route.");
 Require(onRoute.NearestRoutePointIndex == 0, "Nearest route point mismatch.");
 
@@ -105,6 +112,18 @@ var routeBridge = PluginExports.BuildStatus();
 Require(
     routeBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin) == true,
     "Route rejoin capability was not advertised.");
+
+var changedDuty = snapshot with { TripIndex = 2 };
+var staleRoute = OpenOmsiRouteRuntime.Build(changedDuty);
+Require(!staleRoute.RouteLoaded, "Route geometry survived a duty/trip change.");
+
+var parsedV3 = OpenOmsiLuaSnapshotReader.TryParsePayloadForSmoke(
+    "3|8|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds() +
+    "|1|100|200|3|90|Grundorf|76|1|1|Bahnhof|Rathaus|driver|0|0|30|Test%20Bus|36000|6|2026|1|20|32|36120|36140|4|2|ai-1,ai,AI%201,110,200,3,90,5");
+Require(parsedV3 is not null, "Snapshot v3 did not parse.");
+Require(parsedV3!.TripsCount == 4, "Snapshot v3 trips count.");
+Require(parsedV3.NextStopNumber == 2, "Snapshot v3 next stop number.");
+Require(parsedV3.NearbyVehicles.Length == 1, "Snapshot v3 nearby vehicles.");
 
 OpenOmsiRouteRuntime.Clear();
 OpenOmsiHudState.Reset();
