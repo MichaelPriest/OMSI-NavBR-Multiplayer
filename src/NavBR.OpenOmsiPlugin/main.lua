@@ -2,7 +2,7 @@
 -- Uses only the documented Lua API exposed by openOMSI.
 -- No process memory, native offsets, sockets or external file access.
 
-local SNAPSHOT_VERSION = 3
+local SNAPSHOT_VERSION = 4
 local NEARBY_RADIUS_METERS = 1200
 local MAX_NEARBY_VEHICLES = 128
 local last_publish_at = -1000
@@ -103,6 +103,12 @@ local function publish(force)
     num(info.next_stop_departure),
     num(info.trips),
     num(info.next_stop_number),
+    pct(info.map_path),
+    pct(info.trip_name),
+    num(info.stops),
+    pct(info.destination),
+    pct(info.vehicle_manufacturer),
+    pct(info.vehicle_model),
     nearby_snapshot()
   }, "|")
 
