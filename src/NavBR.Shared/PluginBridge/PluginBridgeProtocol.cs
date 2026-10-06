@@ -74,6 +74,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiGuidanceWaypoints = "openomsi-guidance-waypoints";
     public const string CapabilityOpenOmsiMapVisualState = "openomsi-map-visual-state";
     public const string CapabilityOpenOmsiMapPresentation = "openomsi-map-presentation";
+    public const string CapabilityOpenOmsiTeleMatrixRuntime = "openomsi-telematrix-runtime";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -278,7 +279,17 @@ public sealed record PluginBridgeMessage(
     double? OpenOmsiMapRotationDegrees = null,
     double? OpenOmsiMapRadiusMeters = null,
     string? OpenOmsiMapOrientationMode = null,
-    OpenOmsiMapMarkerState[]? OpenOmsiMapMarkers = null);
+    OpenOmsiMapMarkerState[]? OpenOmsiMapMarkers = null,
+    bool? OpenOmsiTeleMatrixRuntimeAvailable = null,
+    string? OpenOmsiTeleMatrixLine = null,
+    string? OpenOmsiTeleMatrixDestination = null,
+    string? OpenOmsiTeleMatrixNextStop = null,
+    int? OpenOmsiTeleMatrixStopNumber = null,
+    int? OpenOmsiTeleMatrixStopCount = null,
+    int? OpenOmsiTeleMatrixDelaySeconds = null,
+    double? OpenOmsiTeleMatrixNextArrivalSeconds = null,
+    double? OpenOmsiTeleMatrixNextDepartureSeconds = null,
+    string? OpenOmsiTeleMatrixPunctualityState = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
