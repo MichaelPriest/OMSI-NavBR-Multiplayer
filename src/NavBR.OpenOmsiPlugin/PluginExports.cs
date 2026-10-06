@@ -209,6 +209,7 @@ public static class PluginExports
         var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
         var timetableRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
         var route = OpenOmsiRouteRuntime.Build(snapshot);
+        var timetable = timetableRuntime.Trip;
         var guidance = OpenOmsiGuidanceRuntime.Build(
             timetableRuntime.RoutePoints,
             snapshot?.X,
@@ -233,7 +234,6 @@ public static class PluginExports
         var teleMatrix = OpenOmsiTeleMatrixRuntime.Build(
             snapshot,
             timetable);
-        var timetable = timetableRuntime.Trip;
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
