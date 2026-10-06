@@ -234,6 +234,23 @@ public static class PluginExports
         var teleMatrix = OpenOmsiTeleMatrixRuntime.Build(
             snapshot,
             timetable);
+        var compactHud = OpenOmsiCompactHudRuntime.Build(
+            guidance,
+            miniMap,
+            teleMatrix,
+            route);
+        var groundArrows = OpenOmsiGroundArrowRuntime.Build(
+            miniMap.GuidanceWaypoints,
+            guidance,
+            route)
+            .Select(arrow => new NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState(
+                arrow.X,
+                arrow.Y,
+                arrow.Z,
+                arrow.HeadingDegrees,
+                arrow.DistanceAheadMeters,
+                arrow.Kind))
+            .ToArray();
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
@@ -378,6 +395,15 @@ public static class PluginExports
             OpenOmsiTeleMatrixNextArrivalSeconds: teleMatrix.NextArrivalSeconds,
             OpenOmsiTeleMatrixNextDepartureSeconds: teleMatrix.NextDepartureSeconds,
             OpenOmsiTeleMatrixPunctualityState: teleMatrix.PunctualityState,
+            OpenOmsiCompactHudAvailable: compactHud.Available,
+            OpenOmsiCompactHudPrimaryText: compactHud.PrimaryText,
+            OpenOmsiCompactHudSecondaryText: compactHud.SecondaryText,
+            OpenOmsiCompactHudManeuver: compactHud.Maneuver,
+            OpenOmsiCompactHudManeuverIcon: compactHud.ManeuverIcon,
+            OpenOmsiCompactHudDistanceMeters: compactHud.DistanceToManeuverMeters,
+            OpenOmsiCompactHudRouteRemainingMeters: compactHud.RouteRemainingMeters,
+            OpenOmsiCompactHudOffRoute: compactHud.OffRoute,
+            OpenOmsiGroundArrows: groundArrows,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -398,7 +424,9 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints,
                 PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState,
                 PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation,
-                PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime
+                PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
+                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrows
             ]);
     }
 
