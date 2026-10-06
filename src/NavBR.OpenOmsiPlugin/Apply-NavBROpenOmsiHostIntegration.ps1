@@ -264,6 +264,37 @@ Replace-Required $events @'
 '@
 
 Replace-Required $ui @'
+        if let Some(nav) = f.navbr_overlay.filter(|n| n.tele_matrix_visible) {
+            let s = f.scale.max(0.5) * f.ui_scale;
+            let width = (300.0 * s).min(f.width * 0.36);
+            let x = 16.0 * s;
+            let y = 70.0 * s;
+            let pad = 10.0 * s;
+            let line = nav.tele_matrix_line.as_deref().unwrap_or("--");
+            let destination = nav.tele_matrix_destination.as_deref().unwrap_or("Sem destino");
+            let next = nav.tele_matrix_next_stop.as_deref().unwrap_or("Sem próxima parada");
+            let delay = nav.tele_matrix_delay_seconds.map(|v| {
+                let sign = if v > 0 { "+" } else { "" };
+                format!("{sign}{} min", v / 60)
+            }).unwrap_or_else(|| "--".into());
+            let state = nav.tele_matrix_punctuality_state.as_deref().unwrap_or("unknown");
+
+            let title = self.text.label(r, scene, &format!("Linha {line}  {delay}"), (16.0 * s) as u32, [255, 255, 255, 0]);
+            let dest = self.text.label(r, scene, destination, (14.0 * s) as u32, [225, 225, 225, 0]);
+            let stop = self.text.label(r, scene, &format!("Próxima: {next}"), (13.0 * s) as u32, [205, 215, 230, 0]);
+            let status = self.text.label(r, scene, state, (11.0 * s) as u32, [170, 190, 210, 0]);
+            let h = title.h as f32 + dest.h as f32 + stop.h as f32 + status.h as f32 + pad * 2.0 + 10.0 * s;
+            let plate = self.text.plate(r, scene, 3);
+            scene.overlays.push((plate, [x, y, x + width, y + h]));
+
+            let tx = x + pad;
+            let mut ty = y + pad;
+            for label in [title, dest, stop, status] {
+                scene.overlays.push((label.tex, [tx, ty, tx + label.w as f32, ty + label.h as f32]));
+                ty += label.h as f32 + 3.0 * s;
+            }
+        }
+
         if let Some(fps) = f.fps {
 '@ @'
         if let Some(nav) = f.navbr_overlay.filter(|n| n.compact_hud_visible) {
@@ -367,6 +398,11 @@ pub(crate) struct Overlay2D {
     pub(crate) full_map_visible: bool,
     pub(crate) compact_hud_visible: bool,
     pub(crate) tele_matrix_visible: bool,
+    pub(crate) tele_matrix_line: Option<String>,
+    pub(crate) tele_matrix_destination: Option<String>,
+    pub(crate) tele_matrix_next_stop: Option<String>,
+    pub(crate) tele_matrix_delay_seconds: Option<i32>,
+    pub(crate) tele_matrix_punctuality_state: Option<String>,
     pub(crate) primary_text: Option<String>,
     pub(crate) secondary_text: Option<String>,
     pub(crate) maneuver_icon: Option<String>,
