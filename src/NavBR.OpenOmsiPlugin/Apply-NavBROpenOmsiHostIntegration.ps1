@@ -26,6 +26,7 @@ $appLib = Join-Path $OpenOmsiSource "crates/omsi-app/src/lib.rs"
 $app = Join-Path $OpenOmsiSource "crates/omsi-app/src/app.rs"
 $events = Join-Path $OpenOmsiSource "crates/omsi-app/src/app_events.rs"
 $navigator = Join-Path $OpenOmsiSource "crates/omsi-app/src/navigator.rs"
+$offscreen = Join-Path $OpenOmsiSource "crates/omsi-app/src/offscreen.rs"
 $ui = Join-Path $OpenOmsiSource "crates/omsi-app/src/ui.rs"
 
 # --- omsi-plugin: optional in-process renderer export.
@@ -240,6 +241,16 @@ Replace-Required $events @'
                             navbr_radius_meters: self.navbr_overlay.overlay_2d.as_ref().map(|n| n.radius_meters),
                             navbr_orientation_mode: self.navbr_overlay.overlay_2d.as_ref().map(|n| n.orientation_mode.as_str()),
                             dt,
+'@
+
+Replace-Required $offscreen @'
+                follow_window: settings.ui_scale_window,
+                dt: 0.1,
+'@ @'
+                follow_window: settings.ui_scale_window,
+                navbr_radius_meters: None,
+                navbr_orientation_mode: None,
+                dt: 0.1,
 '@
 
 Replace-Required $navigator @'
