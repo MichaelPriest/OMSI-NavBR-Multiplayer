@@ -69,6 +69,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiTimetableResolver = "openomsi-timetable-resolver";
     public const string CapabilityOpenOmsiRouteSteps = "openomsi-route-steps";
     public const string CapabilityOpenOmsiAutomaticRouteGeometry = "openomsi-automatic-route-geometry";
+    public const string CapabilityOpenOmsiTurnGuidance = "openomsi-turn-guidance";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -249,7 +250,13 @@ public sealed record PluginBridgeMessage(
     string[]? OpenOmsiResolvedStops = null,
     OpenOmsiRouteStepState[]? OpenOmsiRouteSteps = null,
     bool? OpenOmsiAutomaticRouteGeometryAvailable = null,
-    int? OpenOmsiAutomaticRoutePointCount = null);
+    int? OpenOmsiAutomaticRoutePointCount = null,
+    bool? OpenOmsiGuidanceAvailable = null,
+    string? OpenOmsiNextManeuver = null,
+    double? OpenOmsiNextTurnAngleDegrees = null,
+    double? OpenOmsiDistanceToManeuverMeters = null,
+    double? OpenOmsiManeuverTargetX = null,
+    double? OpenOmsiManeuverTargetY = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
