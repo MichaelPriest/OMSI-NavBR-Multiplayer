@@ -259,6 +259,31 @@ Replace-Required $events @'
                     self.navbr_overlay.update(overlay_frames);
 '@
 
+# --- NavBR is always reachable from the native pause menu.
+Replace-Required $inputScript @'
+        let mut v: Vec<(&'static str, &'static str)> = game_menu_for(&self.args).to_vec();
+        let mut at = 1;
+'@ @'
+        let mut v: Vec<(&'static str, &'static str)> = game_menu_for(&self.args).to_vec();
+        if let Some(pos) = v.iter().position(|x| x.0 == "controls") {
+            v.insert(pos + 1, ("navbr", "NavBR..."));
+        }
+        let mut at = 1;
+'@
+
+Replace-Required $inputScript @'
+            "controls" => self.open_list(crate::game_lists::ListKind::Controls),
+            "camera" => {
+'@ @'
+            "controls" => self.open_list(crate::game_lists::ListKind::Controls),
+            "navbr" => {
+                self.close_game_menu();
+                self.navbr_panel_open = true;
+                self.service_msg = Some(("NavBR: painel aberto".to_string(), 2.0));
+            }
+            "camera" => {
+'@
+
 # --- NavBR panel shortcut at the raw window-key boundary.
 # This runs before chat/menu/game actions can consume N.
 Replace-Required $events @'
