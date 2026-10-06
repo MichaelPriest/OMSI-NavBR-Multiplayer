@@ -489,6 +489,7 @@ pub(crate) struct GroundArrowPrimitive {
     pub(crate) heading_degrees: f64,
     pub(crate) width_meters: f64,
     pub(crate) length_meters: f64,
+    pub(crate) height_offset_meters: f64,
     pub(crate) opacity: f64,
     pub(crate) kind: String,
 }
@@ -686,6 +687,7 @@ impl WorldGuidance {
             let z = world
                 .walk_height(p.x, p.y)
                 .filter(|z| (z - p.z).abs() < 0.75)
+                .map(|surface| surface + p.height_offset_meters)
                 .unwrap_or(p.z);
             let maneuver = matches!(
                 p.kind.as_str(),
