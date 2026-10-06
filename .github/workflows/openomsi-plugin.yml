@@ -153,6 +153,52 @@ jobs:
             throw "OPL DLL path is not relative to the openOMSI Plugins root."
           }
 
+      - name: Validate host patches against pinned openOMSI
+        shell: pwsh
+        run: |
+          $upstream = Join-Path $env:RUNNER_TEMP "openOMSI-upstream"
+          if (Test-Path $upstream) {
+            Remove-Item $upstream -Recurse -Force
+          }
+
+          git clone --filter=blob:none https://github.com/openOMSI-Project/openOMSI.git $upstream
+          Push-Location $upstream
+          git checkout 1b5180ba9c019b27cc6fa9be863ac4e45c9c895c
+          Pop-Location
+
+          $patchRoot = Resolve-Path "src/NavBR.OpenOmsiPlugin/patches"
+          $patches = @(
+            "openomsi-navbr-overlay-loader-v2.patch",
+            "openomsi-navbr-overlay-app-state-v2.patch",
+            "openomsi-navbr-overlay-ui-v2.patch",
+            "openomsi-navbr-world-guidance-stock-fallback-v2.patch",
+            "openomsi-navbr-world-guidance-mesh-v2.patch"
+          )
+
+          foreach ($patch in $patches) {
+            $full = Join-Path $patchRoot $patch
+            Push-Location $upstream
+            git apply --check $full
+            if ($LASTEXITCODE -ne 0) {
+              Pop-Location
+              throw "Host patch does not apply to pinned openOMSI: $patch"
+            }
+            git apply $full
+            if ($LASTEXITCODE -ne 0) {
+              Pop-Location
+              throw "Host patch failed to apply to pinned openOMSI: $patch"
+            }
+            Pop-Location
+          }
+
+          Push-Location $upstream
+          cargo check -p omsi-plugin -p omsi-app
+          if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            throw "Patched openOMSI host did not compile."
+          }
+          Pop-Location
+
       - name: Smoke-test content-root install and removal
         shell: pwsh
         run: |
