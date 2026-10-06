@@ -12,6 +12,7 @@ internal sealed record OpenOmsiTimetableTrip(
     string? TripLine,
     int ProfileIndex,
     double DepartureMinutes,
+    long[] StationIds,
     string[] Stops);
 
 internal static class OpenOmsiTimetableResolver
@@ -80,6 +81,7 @@ internal static class OpenOmsiTimetableResolver
             TripLine: trip.Value.Line,
             ProfileIndex: selected.ProfileIndex,
             DepartureMinutes: selected.DepartureMinutes,
+            StationIds: trip.Value.StationIds,
             Stops: stops);
     }
 
