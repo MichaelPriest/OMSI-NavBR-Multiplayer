@@ -58,6 +58,12 @@ internal static class OpenOmsiOverlayExport
     internal static int RequiredBytesV2 =>
         Volatile.Read(ref _latestV2).Length + 1;
 
+    internal static int PayloadBytesV2 =>
+        Volatile.Read(ref _latestV2).Length;
+
+    internal static int MaximumPayloadBytesForSmoke =>
+        MaximumPayloadBytes;
+
     internal static int CopyLatest(Span<byte> destination) =>
         Copy(Volatile.Read(ref _latestV1), destination);
 
