@@ -310,7 +310,7 @@ try
     Require(geometry.Length > 20, "Automatic route geometry point count.");
     Require(Math.Abs(geometry[0].X - 100d) < 0.2d, "Automatic route geometry start X.");
     Require(Math.Abs(geometry[0].Y - 100d) < 0.2d, "Automatic route geometry start Y.");
-    Require(Math.Abs(geometry[^1].Y - 220d) < 0.5d, "Automatic route geometry end Y.");
+    Require(Math.Abs(geometry[^1].Y - 180d) < 0.5d, "Automatic route geometry end Y.");
 
     stopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
     Require(stopMarkers.Length == 2, "Timetable stop marker count mismatch.");
