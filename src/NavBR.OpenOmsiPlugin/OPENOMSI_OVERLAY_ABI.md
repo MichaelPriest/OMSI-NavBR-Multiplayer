@@ -109,3 +109,10 @@ The v2 JSON root is `OpenOmsiOverlayExportEnvelopeV2`:
 
 The bridge capability is `openomsi-overlay-export-v2`. Consumers should prefer v2 when
 available and fall back to v1.
+
+
+### Route progress
+
+`Overlay2D.RouteProgressPercent` is an optional 0..100 value derived from the current
+projection onto the active route. Hosts may use it for compact progress bars or trip
+progress indicators. It is absent when no valid route/minimap runtime is available.
