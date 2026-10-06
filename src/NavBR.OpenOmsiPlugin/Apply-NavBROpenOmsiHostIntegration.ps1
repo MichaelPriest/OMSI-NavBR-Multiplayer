@@ -593,7 +593,7 @@ use omsi_render::{AlphaMode, MaterialId, MeshId, RenderPhase, Renderer, Scene};
 #[derive(Default)]
 pub(crate) struct WorldGuidance {
     mesh: Option<MeshId>,
-    materials: Option<[MaterialId; 3]>,
+    material: Option<MaterialId>,
     instances: Vec<usize>,
     active: usize,
 }
@@ -622,14 +622,12 @@ fn transform(heading: f64, width: f64, length: f64) -> Mat4 {
 }
 
 impl WorldGuidance {
-    fn ensure_assets(&mut self, renderer: &Renderer, scene: &mut Scene) -> (MeshId, [MaterialId; 3]) {
+    fn ensure_assets(&mut self, renderer: &Renderer, scene: &mut Scene) -> (MeshId, MaterialId) {
         let mesh = *self.mesh.get_or_insert_with(|| renderer.add_mesh(scene, &arrow_mesh()));
-        let materials = *self.materials.get_or_insert_with(|| [
-            renderer.add_material(scene, None, AlphaMode::Blend, [0.10, 0.72, 1.00, 0.82], true),
-            renderer.add_material(scene, None, AlphaMode::Blend, [0.28, 0.90, 1.00, 0.98], true),
-            renderer.add_material(scene, None, AlphaMode::Blend, [1.00, 0.62, 0.16, 0.96], true),
-        ]);
-        (mesh, materials)
+        let material = *self.material.get_or_insert_with(|| {
+            renderer.add_material(scene, None, AlphaMode::Blend, [0.10, 0.72, 1.00, 0.90], true)
+        });
+        (mesh, material)
     }
 
     pub(crate) fn tick(
@@ -653,7 +651,7 @@ impl WorldGuidance {
             .filter(|p| p.opacity > 0.05)
             .take(24)
             .collect();
-        let (mesh, materials) = self.ensure_assets(renderer, scene);
+        let (mesh, material) = self.ensure_assets(renderer, scene);
 
         while self.instances.len() < wanted.len() {
             let instance = renderer.add_instance(
@@ -661,7 +659,7 @@ impl WorldGuidance {
                 mesh,
                 DVec3::ZERO,
                 Mat4::IDENTITY,
-                vec![materials[0]],
+                vec![material],
             );
             scene.instances[instance].render_phase = RenderPhase::AfterVehicles;
             scene.instances[instance].casts_shadow = false;
@@ -675,25 +673,30 @@ impl WorldGuidance {
                 .walk_height(p.x, p.y)
                 .filter(|z| (z - p.z).abs() < 0.75)
                 .unwrap_or(p.z);
-            let material = match p.kind.as_str() {
-                "left" | "right" | "slight-left" | "slight-right" | "uturn" => materials[1],
-                "rejoin" => materials[2],
-                _ => materials[0],
+            let semantic_scale = match p.kind.as_str() {
+                "left" | "right" | "slight-left" | "slight-right" | "uturn" => 1.10,
+                "rejoin" => 1.06,
+                _ => 1.0,
             };
-            if scene.instances[instance].materials[0] != material {
-                scene.instances[instance].materials[0] = material;
-                scene.dirty = true;
-            }
+            let semantic_alpha = match p.kind.as_str() {
+                "left" | "right" | "slight-left" | "slight-right" | "uturn" => 1.0,
+                "rejoin" => 0.96,
+                _ => 0.84,
+            };
             renderer.set_transform(
                 scene,
                 instance,
                 DVec3::new(p.x, p.y, z),
-                transform(p.heading_degrees, p.width_meters, p.length_meters),
+                transform(
+                    p.heading_degrees,
+                    p.width_meters * semantic_scale,
+                    p.length_meters * semantic_scale,
+                ),
             );
             renderer.set_params(
                 scene,
                 instance,
-                &[p.opacity.clamp(0.0, 1.0) as f32],
+                &[(p.opacity * semantic_alpha).clamp(0.0, 1.0) as f32],
                 true,
                 &[],
             );
