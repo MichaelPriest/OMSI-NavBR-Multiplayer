@@ -30,6 +30,8 @@ internal sealed record OpenOmsiLuaSnapshot(
     double? ReportedSpeedKph,
     double? NextStopArrival,
     double? NextStopDeparture,
+    int? TripsCount,
+    int? NextStopNumber,
     OpenOmsiNearbyVehicleState[] NearbyVehicles);
 
 internal static class OpenOmsiLuaSnapshotReader
@@ -158,7 +160,7 @@ internal static class OpenOmsiLuaSnapshotReader
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out var version) ||
-            version is < 1 or > 2 ||
+            version is < 1 or > 3 ||
             !long.TryParse(
                 fields[1],
                 NumberStyles.Integer,
@@ -179,6 +181,11 @@ internal static class OpenOmsiLuaSnapshotReader
         }
 
         if (version == 2 && fields.Length != 28)
+        {
+            return null;
+        }
+
+        if (version == 3 && fields.Length != 30)
         {
             return null;
         }
@@ -204,9 +211,12 @@ internal static class OpenOmsiLuaSnapshotReader
             hasPosition = false;
         }
 
-        var nearby = version >= 2
-            ? ParseNearbyVehicles(fields[27])
-            : [];
+        var nearby = version switch
+        {
+            >= 3 => ParseNearbyVehicles(fields[29]),
+            2 => ParseNearbyVehicles(fields[27]),
+            _ => []
+        };
 
         return new OpenOmsiLuaSnapshot(
             sequence,
@@ -235,6 +245,8 @@ internal static class OpenOmsiLuaSnapshotReader
             version >= 2 ? ParseDouble(fields[24]) : null,
             version >= 2 ? ParseDouble(fields[25]) : null,
             version >= 2 ? ParseDouble(fields[26]) : null,
+            version >= 3 ? ParseRoundedInt(fields[27]) : null,
+            version >= 3 ? ParseRoundedInt(fields[28]) : null,
             nearby);
     }
 
