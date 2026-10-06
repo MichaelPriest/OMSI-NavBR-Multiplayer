@@ -178,7 +178,13 @@ var overlayWritten = OpenOmsiOverlayExport.CopyLatest(overlayBuffer);
 Require(overlayWritten > 0, "Overlay export copy failed.");
 Require(overlayBuffer[overlayWritten] == 0, "Overlay export is not null-terminated.");
 var overlayJson = System.Text.Encoding.UTF8.GetString(overlayBuffer, 0, overlayWritten);
-Require(overlayJson.Contains("\"orientationMode\"", StringComparison.Ordinal), "Overlay export JSON missing orientation.");
+using (var overlayDoc = System.Text.Json.JsonDocument.Parse(overlayJson))
+{
+    Require(
+        overlayDoc.RootElement.TryGetProperty("OrientationMode", out var orientation) &&
+        orientation.GetString() == bridge.OpenOmsiOverlayFrame!.OrientationMode,
+        "Overlay export JSON missing orientation.");
+}
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
