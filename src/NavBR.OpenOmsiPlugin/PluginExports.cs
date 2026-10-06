@@ -221,11 +221,15 @@ public static class PluginExports
             timetableRuntime.RoutePoints,
             snapshot,
             route);
+        var stopMarkers = OpenOmsiStopMarkerResolver.Resolve(
+            content,
+            timetable);
         var mapPresentation = OpenOmsiMapPresentationRuntime.Build(
             snapshot,
             navigation,
             guidance,
-            hud);
+            hud,
+            stopMarkers);
         var timetable = timetableRuntime.Trip;
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
