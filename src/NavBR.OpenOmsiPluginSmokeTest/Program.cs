@@ -307,6 +307,7 @@ var exportFrames = OpenOmsiOverlayFrameRuntime.Build(
     OpenOmsiHudState.Current,
     presentation,
     visualRoute,
+    miniMap,
     exportCompactHud,
     exportTeleMatrix,
     exportGroundArrows);
@@ -359,6 +360,9 @@ using (var overlayDocV2 = System.Text.Json.JsonDocument.Parse(overlayJsonV2))
     Require(overlay2D.GetProperty("RouteGuidanceVisible").GetBoolean(), "Overlay export v2 route-guidance flag mismatch.");
     Require(overlay2D.GetProperty("TrafficVisible").GetBoolean(), "Overlay export v2 traffic flag mismatch.");
     Require(overlay2D.GetProperty("PlayersVisible").GetBoolean(), "Overlay export v2 player flag mismatch.");
+    Require(
+        overlay2D.GetProperty("RouteProgressPercent").GetDouble() is >= 9d and <= 11d,
+        "Overlay export v2 route progress mismatch.");
 }
 
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
