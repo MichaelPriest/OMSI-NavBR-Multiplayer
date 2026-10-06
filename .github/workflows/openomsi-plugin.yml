@@ -119,6 +119,9 @@ jobs:
           if ($exports -notmatch "(?m)\bOpenOmsiGetOverlayFrame\b") {
             throw "Plugin is missing openOMSI optional overlay export: OpenOmsiGetOverlayFrame"
           }
+          if ($exports -notmatch "(?m)\bOpenOmsiGetOverlayFrameV2\b") {
+            throw "Plugin is missing openOMSI optional overlay export: OpenOmsiGetOverlayFrameV2"
+          }
 
           $lua = Get-Content "artifacts/NavBR.OpenOmsiPlugin/main.lua" -Raw
           foreach ($requiredLuaApi in @(
