@@ -76,7 +76,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiMapPresentation = "openomsi-map-presentation";
     public const string CapabilityOpenOmsiTeleMatrixRuntime = "openomsi-telematrix-runtime";
     public const string CapabilityOpenOmsiCompactHud = "openomsi-compact-hud";
-    public const string CapabilityOpenOmsiGroundArrows = "openomsi-ground-arrows";
+    public const string CapabilityOpenOmsiGroundArrowPayload = "openomsi-ground-arrow-payload";
+    public const string CapabilityOpenOmsiOverlayFrame = "openomsi-overlay-frame";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -300,7 +301,8 @@ public sealed record PluginBridgeMessage(
     double? OpenOmsiCompactHudDistanceMeters = null,
     double? OpenOmsiCompactHudRouteRemainingMeters = null,
     bool? OpenOmsiCompactHudOffRoute = null,
-    OpenOmsiGroundArrowState[]? OpenOmsiGroundArrows = null);
+    OpenOmsiGroundArrowState[]? OpenOmsiGroundArrows = null,
+    OpenOmsiOverlayFrameState? OpenOmsiOverlayFrame = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
@@ -350,3 +352,27 @@ public sealed record OpenOmsiGroundArrowState(
     double HeadingDegrees,
     double DistanceAheadMeters,
     string Kind);
+
+public sealed record OpenOmsiOverlayFrameState(
+    long TimestampUnixMilliseconds,
+    bool MiniMapVisible,
+    bool FullMapVisible,
+    bool CompactHudVisible,
+    bool TeleMatrixVisible,
+    bool RouteGuidanceVisible,
+    double? CenterX,
+    double? CenterY,
+    double RotationDegrees,
+    double RadiusMeters,
+    string OrientationMode,
+    string? PrimaryText,
+    string? SecondaryText,
+    string? ManeuverIcon,
+    double? DistanceToManeuverMeters,
+    double? RouteRemainingMeters,
+    bool OffRoute,
+    OpenOmsiRoutePoint[] TraveledRoute,
+    OpenOmsiRoutePoint[] ForwardRoute,
+    OpenOmsiRoutePoint[] RejoinRoute,
+    OpenOmsiMapMarkerState[] Markers,
+    OpenOmsiGroundArrowState[] GroundArrows);
