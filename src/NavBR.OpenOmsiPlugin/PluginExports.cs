@@ -251,13 +251,13 @@ public static class PluginExports
                 arrow.DistanceAheadMeters,
                 arrow.Kind))
             .ToArray();
-        var overlayFrame = OpenOmsiOverlayFrameRuntime.Build(
+        var overlayFrames = OpenOmsiOverlayFrameRuntime.Build(
             hud,
             mapPresentation,
             mapVisual,
             compactHud,
             groundArrows);
-        OpenOmsiOverlayExport.Publish(overlayFrame);
+        OpenOmsiOverlayExport.Publish(overlayFrames.Full);
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
@@ -411,7 +411,9 @@ public static class PluginExports
             OpenOmsiCompactHudRouteRemainingMeters: compactHud.RouteRemainingMeters,
             OpenOmsiCompactHudOffRoute: compactHud.OffRoute,
             OpenOmsiGroundArrows: groundArrows,
-            OpenOmsiOverlayFrame: overlayFrame,
+            OpenOmsiOverlayFrame: overlayFrames.Full,
+            OpenOmsiOverlay2DFrame: overlayFrames.Overlay2D,
+            OpenOmsiWorldGuidanceFrame: overlayFrames.World,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -436,7 +438,9 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
                 PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
-                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
             ]);
     }
 
