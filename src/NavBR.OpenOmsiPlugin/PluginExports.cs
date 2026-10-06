@@ -208,7 +208,17 @@ public static class PluginExports
         var hud = OpenOmsiHudState.Current;
         var route = OpenOmsiRouteRuntime.Build(snapshot);
         var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
-        var timetable = OpenOmsiTimetableResolver.Resolve(content, snapshot);
+        var timetableRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
+        var timetable = timetableRuntime.Trip;
+        var routeSteps = timetableRuntime.RouteSteps
+            .Select(step => new OpenOmsiRouteStepState(
+                step.Leg,
+                step.TileIndex,
+                step.ObjectId,
+                step.PathIndex,
+                step.LengthMeters,
+                step.IsTrack))
+            .ToArray();
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -307,6 +317,7 @@ public static class PluginExports
             OpenOmsiResolvedProfileIndex: timetable?.ProfileIndex,
             OpenOmsiResolvedDepartureMinutes: timetable?.DepartureMinutes,
             OpenOmsiResolvedStops: timetable?.Stops,
+            OpenOmsiRouteSteps: routeSteps,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -319,7 +330,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
                 PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
                 PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
-                PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver
+                PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps
             ]);
     }
 
@@ -418,6 +430,7 @@ public static class PluginExports
         PerformanceProfile = "auto";
         OpenOmsiHudState.Reset();
         OpenOmsiRouteRuntime.Clear();
+        OpenOmsiTimetableRuntime.Reset();
         OpenOmsiHudState.Reset();
     }
 }
