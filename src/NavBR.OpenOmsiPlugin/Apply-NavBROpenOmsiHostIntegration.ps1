@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$OpenOmsiSource
+    [string]$OpenOmsiSource,
+    [ValidateSet("stock", "mesh")]
+    [string]$WorldGuidanceRenderer = "stock"
 )
 
 $ErrorActionPreference = "Stop"
@@ -452,6 +454,130 @@ impl WorldGuidance {
     }
 }
 '@
+if ($WorldGuidanceRenderer -eq "mesh") {
+    $world = @'
+use crate::navbr_overlay::WorldGuidance as Frame;
+use glam::{DVec3, Mat4, Vec2, Vec3};
+use omsi_geometry::MeshData;
+use omsi_render::{AlphaMode, MaterialId, MeshId, Renderer, Scene};
+
+#[derive(Default)]
+pub(crate) struct WorldGuidance {
+    mesh: Option<MeshId>,
+    material: Option<MaterialId>,
+    instances: Vec<usize>,
+}
+
+fn arrow_mesh() -> MeshData {
+    MeshData {
+        positions: vec![
+            Vec3::new( 0.00,  0.50, 0.0),
+            Vec3::new( 0.50,  0.05, 0.0),
+            Vec3::new( 0.18,  0.05, 0.0),
+            Vec3::new( 0.18, -0.50, 0.0),
+            Vec3::new(-0.18, -0.50, 0.0),
+            Vec3::new(-0.18,  0.05, 0.0),
+        ],
+        normals: vec![Vec3::Z; 6],
+        uvs: vec![Vec2::ZERO; 6],
+        ranges: vec![(0, 12, 0)],
+        indices: vec![0, 1, 2, 0, 2, 5, 5, 2, 3, 5, 3, 4],
+        one_sided: false,
+    }
+}
+
+fn transform(heading: f64, width: f64, length: f64) -> Mat4 {
+    Mat4::from_rotation_z(-(heading as f32).to_radians())
+        * Mat4::from_scale(Vec3::new(width as f32, length as f32, 1.0))
+}
+
+impl WorldGuidance {
+    fn ensure_assets(&mut self, renderer: &Renderer, scene: &mut Scene) -> (MeshId, MaterialId) {
+        let mesh = *self.mesh.get_or_insert_with(|| renderer.add_mesh(scene, &arrow_mesh()));
+        let material = *self.material.get_or_insert_with(|| {
+            renderer.add_material(scene, None, AlphaMode::Blend, [0.10, 0.72, 1.00, 0.88], true)
+        });
+        (mesh, material)
+    }
+
+    pub(crate) fn tick(
+        &mut self,
+        _dt: f32,
+        world: &crate::scene::World,
+        renderer: &Renderer,
+        scene: &mut Scene,
+        frame: &Frame,
+    ) {
+        if !frame.visible {
+            for &instance in &self.instances {
+                renderer.set_params(scene, instance, &[], false, &[]);
+            }
+            return;
+        }
+
+        let wanted: Vec<_> = frame
+            .ground_arrow_primitives
+            .iter()
+            .filter(|p| p.opacity > 0.05)
+            .take(24)
+            .collect();
+        let (mesh, material) = self.ensure_assets(renderer, scene);
+
+        while self.instances.len() < wanted.len() {
+            self.instances.push(renderer.add_instance(
+                scene,
+                mesh,
+                DVec3::ZERO,
+                Mat4::IDENTITY,
+                vec![material],
+            ));
+        }
+
+        for (slot, p) in wanted.iter().enumerate() {
+            let instance = self.instances[slot];
+            let z = world
+                .walk_height(p.x, p.y)
+                .filter(|z| (z - p.z).abs() < 0.75)
+                .unwrap_or(p.z);
+            renderer.set_transform(
+                scene,
+                instance,
+                DVec3::new(p.x, p.y, z),
+                transform(p.heading_degrees, p.width_meters, p.length_meters),
+            );
+            renderer.set_params(
+                scene,
+                instance,
+                &[p.opacity.clamp(0.0, 1.0) as f32],
+                true,
+                &[],
+            );
+        }
+        for &instance in self.instances.iter().skip(wanted.len()) {
+            renderer.set_params(scene, instance, &[], false, &[]);
+        }
+    }
+
+    pub(crate) fn any(&self) -> bool {
+        !self.instances.is_empty()
+    }
+
+    pub(crate) fn clear(
+        &mut self,
+        _world: &crate::scene::World,
+        renderer: &Renderer,
+        scene: &mut Scene,
+    ) {
+        for instance in self.instances.drain(..) {
+            renderer.remove_instance(scene, instance);
+        }
+        self.mesh = None;
+        self.material = None;
+    }
+}
+'@
+}
+
 Set-Content -LiteralPath (Join-Path $OpenOmsiSource "crates/omsi-app/src/navbr_world_guidance.rs") -Value $world -Encoding UTF8 -NoNewline
 
-Write-Host "NavBR openOMSI host integration applied."
+Write-Host "NavBR openOMSI host integration applied ($WorldGuidanceRenderer world guidance)."
