@@ -60,16 +60,12 @@ internal static class OpenOmsiContentLocator
             yield return envRoot;
         }
 
+        string? configured = null;
         try
         {
             if (File.Exists(ConfigFilePath))
             {
-                var configured = File.ReadAllText(ConfigFilePath).Trim();
-                if (TryNormalizeRoot(configured, out var configuredRoot) &&
-                    seen.Add(configuredRoot))
-                {
-                    yield return configuredRoot;
-                }
+                configured = File.ReadAllText(ConfigFilePath).Trim();
             }
         }
         catch (IOException)
@@ -77,6 +73,12 @@ internal static class OpenOmsiContentLocator
         }
         catch (UnauthorizedAccessException)
         {
+        }
+
+        if (TryNormalizeRoot(configured, out var configuredRoot) &&
+            seen.Add(configuredRoot))
+        {
+            yield return configuredRoot;
         }
 
         var omsiContent = Environment.GetEnvironmentVariable("OMSI_CONTENT");
