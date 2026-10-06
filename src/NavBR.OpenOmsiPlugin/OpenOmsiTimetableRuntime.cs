@@ -3,7 +3,8 @@ namespace NavBR.OpenOmsiPlugin;
 internal sealed record OpenOmsiTimetableRuntimeState(
     string? DutyKey,
     OpenOmsiTimetableTrip? Trip,
-    OpenOmsiRouteStep[] RouteSteps);
+    OpenOmsiRouteStep[] RouteSteps,
+    OpenOmsiRoutePoint[] RoutePoints);
 
 internal static class OpenOmsiTimetableRuntime
 {
@@ -11,7 +12,7 @@ internal static class OpenOmsiTimetableRuntime
     private static string? _cachedDutyKey;
     private static string? _cachedTimetableDirectory;
     private static OpenOmsiTimetableRuntimeState _cached =
-        new(null, null, []);
+        new(null, null, [], []);
 
     public static OpenOmsiTimetableRuntimeState Resolve(
         OpenOmsiContentContext content,
@@ -36,10 +37,16 @@ internal static class OpenOmsiTimetableRuntime
 
             var trip = OpenOmsiTimetableResolver.Resolve(content, snapshot);
             var steps = OpenOmsiRouteStepResolver.Resolve(content, trip);
+            var points = OpenOmsiRouteGeometryResolver.Resolve(content, steps);
+
+            if (!string.IsNullOrWhiteSpace(dutyKey) && points.Length >= 2)
+            {
+                OpenOmsiRouteRuntime.SetRoute(points, dutyKey);
+            }
 
             _cachedDutyKey = dutyKey;
             _cachedTimetableDirectory = directory;
-            _cached = new(dutyKey, trip, steps);
+            _cached = new(dutyKey, trip, steps, points);
             return _cached;
         }
     }
@@ -50,7 +57,7 @@ internal static class OpenOmsiTimetableRuntime
         {
             _cachedDutyKey = null;
             _cachedTimetableDirectory = null;
-            _cached = new(null, null, []);
+            _cached = new(null, null, [], []);
         }
     }
 }
