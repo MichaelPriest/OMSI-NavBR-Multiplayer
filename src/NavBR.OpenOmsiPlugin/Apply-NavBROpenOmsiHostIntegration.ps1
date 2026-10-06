@@ -484,10 +484,12 @@ Replace-Required $ui @'
             let p = self.text.label(r, scene, &title, (21.0 * s) as u32, [255, 255, 255, 0]);
             let d = self.text.label(r, scene, detail, (14.0 * s) as u32, [220, 220, 220, 0]);
             let rem = self.text.label(r, scene, &remaining, (12.0 * s) as u32, [190, 205, 220, 0]);
+            let progress = nav.route_progress_percent.map(|v| (v / 100.0).clamp(0.0, 1.0) as f32);
 
             let mut h = p.h as f32 + pad * 2.0;
             if !detail.is_empty() { h += d.h as f32 + 4.0 * s; }
             if !remaining.is_empty() { h += rem.h as f32 + 3.0 * s; }
+            if progress.is_some() { h += 8.0 * s; }
 
             let plate = self.text.plate(r, scene, if nav.off_route { 6 } else { 3 });
             scene.overlays.push((plate, [x, y, x + width, y + h]));
@@ -501,6 +503,19 @@ Replace-Required $ui @'
             }
             if !remaining.is_empty() {
                 scene.overlays.push((rem.tex, [tx, ty, tx + rem.w as f32, ty + rem.h as f32]));
+                ty += rem.h as f32 + 4.0 * s;
+            }
+            if let Some(progress) = progress {
+                let track_w = width - pad * 2.0;
+                let track_h = 4.0 * s;
+                let track = self.text.solid(r, scene, [70, 78, 90, 180]);
+                let fill = self.text.solid(
+                    r,
+                    scene,
+                    if nav.off_route { [230, 126, 70, 230] } else { [80, 170, 255, 230] },
+                );
+                scene.overlays.push((track, [tx, ty, tx + track_w, ty + track_h]));
+                scene.overlays.push((fill, [tx, ty, tx + track_w * progress, ty + track_h]));
             }
         }
 
@@ -579,6 +594,7 @@ pub(crate) struct Overlay2D {
     pub(crate) secondary_text: Option<String>,
     pub(crate) maneuver_icon: Option<String>,
     pub(crate) distance_to_maneuver_meters: Option<f64>,
+    pub(crate) route_progress_percent: Option<f64>,
     pub(crate) route_remaining_meters: Option<f64>,
     pub(crate) off_route: bool,
 }
