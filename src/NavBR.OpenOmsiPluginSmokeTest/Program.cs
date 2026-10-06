@@ -114,6 +114,29 @@ Require(visualRoute.TraveledRoute.Length == 2, "Traveled route segmentation mism
 Require(visualRoute.ForwardRoute.Length == 3, "Forward route segmentation mismatch.");
 Require(visualRoute.RejoinRoute.Length == 0, "Unexpected rejoin segment.");
 
+var longVisualPoints = Enumerable.Range(0, 2000)
+    .Select(i => new OpenOmsiRoutePoint(0, i * 3d))
+    .ToArray();
+var longVisual = OpenOmsiMapVisualRuntime.Build(
+    longVisualPoints,
+    snapshot with { X = 0d, Y = 3000d },
+    new OpenOmsiRouteRuntimeState(
+        true,
+        visualRouteKey,
+        longVisualPoints.Length,
+        0d,
+        false,
+        1000,
+        1000,
+        0d,
+        3000d));
+Require(longVisual.Available, "Long map visual unavailable.");
+Require(longVisual.TraveledRoute.Length <= 72, "Traveled visual window exceeded point cap.");
+Require(longVisual.ForwardRoute.Length <= 180, "Forward visual window exceeded point cap.");
+Require(longVisual.TraveledRoute[^1].Y == 3000d, "Traveled visual window lost current point.");
+Require(longVisual.ForwardRoute[0].Y == 3000d, "Forward visual window lost current point.");
+Require(longVisual.ForwardRoute[^1].Y <= 5400d, "Forward visual window exceeded distance cap.");
+
 var presentation = OpenOmsiMapPresentationRuntime.Build(
     snapshot,
     state,
