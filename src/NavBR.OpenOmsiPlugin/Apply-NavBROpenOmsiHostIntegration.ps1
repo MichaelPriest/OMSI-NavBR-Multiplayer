@@ -469,6 +469,7 @@ pub(crate) struct WorldGuidance {
     mesh: Option<MeshId>,
     material: Option<MaterialId>,
     instances: Vec<usize>,
+    active: usize,
 }
 
 fn arrow_mesh() -> MeshData {
@@ -559,10 +560,11 @@ impl WorldGuidance {
         for &instance in self.instances.iter().skip(wanted.len()) {
             renderer.set_params(scene, instance, &[], false, &[]);
         }
+        self.active = wanted.len();
     }
 
     pub(crate) fn any(&self) -> bool {
-        !self.instances.is_empty()
+        self.active > 0
     }
 
     pub(crate) fn clear(
@@ -571,11 +573,10 @@ impl WorldGuidance {
         renderer: &Renderer,
         scene: &mut Scene,
     ) {
-        for instance in self.instances.drain(..) {
-            renderer.remove_instance(scene, instance);
+        for &instance in &self.instances {
+            renderer.set_params(scene, instance, &[], false, &[]);
         }
-        self.mesh = None;
-        self.material = None;
+        self.active = 0;
     }
 }
 '@
