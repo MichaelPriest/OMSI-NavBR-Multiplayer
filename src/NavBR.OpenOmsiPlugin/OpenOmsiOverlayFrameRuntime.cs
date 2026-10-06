@@ -9,7 +9,7 @@ internal static class OpenOmsiOverlayFrameRuntime
         OpenOmsiMapPresentationState map,
         OpenOmsiMapVisualState visual,
         OpenOmsiCompactHudState compactHud,
-        OpenOmsiGroundArrowState[] groundArrows)
+        NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState[] groundArrows)
     {
         return new(
             TimestampUnixMilliseconds: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
