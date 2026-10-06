@@ -32,6 +32,12 @@ internal sealed record OpenOmsiLuaSnapshot(
     double? NextStopDeparture,
     int? TripsCount,
     int? NextStopNumber,
+    string? MapPath,
+    string? TripName,
+    int? StopCount,
+    string? Destination,
+    string? VehicleManufacturer,
+    string? VehicleModel,
     OpenOmsiNearbyVehicleState[] NearbyVehicles);
 
 internal static class OpenOmsiLuaSnapshotReader
@@ -160,7 +166,7 @@ internal static class OpenOmsiLuaSnapshotReader
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out var version) ||
-            version is < 1 or > 3 ||
+            version is < 1 or > 4 ||
             !long.TryParse(
                 fields[1],
                 NumberStyles.Integer,
@@ -190,6 +196,11 @@ internal static class OpenOmsiLuaSnapshotReader
             return null;
         }
 
+        if (version == 4 && fields.Length != 36)
+        {
+            return null;
+        }
+
         DateTimeOffset capturedAt;
         try
         {
@@ -213,7 +224,8 @@ internal static class OpenOmsiLuaSnapshotReader
 
         var nearby = version switch
         {
-            >= 3 => ParseNearbyVehicles(fields[29]),
+            >= 4 => ParseNearbyVehicles(fields[35]),
+            3 => ParseNearbyVehicles(fields[29]),
             2 => ParseNearbyVehicles(fields[27]),
             _ => []
         };
@@ -247,6 +259,12 @@ internal static class OpenOmsiLuaSnapshotReader
             version >= 2 ? ParseDouble(fields[26]) : null,
             version >= 3 ? ParseRoundedInt(fields[27]) : null,
             version >= 3 ? ParseRoundedInt(fields[28]) : null,
+            version >= 4 ? Decode(fields[29]) : null,
+            version >= 4 ? Decode(fields[30]) : null,
+            version >= 4 ? ParseRoundedInt(fields[31]) : null,
+            version >= 4 ? Decode(fields[32]) : null,
+            version >= 4 ? Decode(fields[33]) : null,
+            version >= 4 ? Decode(fields[34]) : null,
             nearby);
     }
 
