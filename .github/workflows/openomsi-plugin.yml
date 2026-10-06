@@ -82,6 +82,7 @@ jobs:
             "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_OVERLAY_ABI.md",
             "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_HOST_INTEGRATION.md",
             "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_WORLD_GUIDANCE_RENDERER.md",
+            "artifacts/NavBR.OpenOmsiPlugin/Apply-NavBROpenOmsiHostIntegration.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/patches/README.md",
             "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-overlay-loader-v2.patch",
             "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-overlay-app-state-v2.patch",
@@ -166,30 +167,8 @@ jobs:
           git checkout 100f7f6a2322f3b35207694850a7a4970fe0bb17
           Pop-Location
 
-          $patchRoot = Resolve-Path "src/NavBR.OpenOmsiPlugin/patches"
-          $patches = @(
-            "openomsi-navbr-overlay-loader-v2.patch",
-            "openomsi-navbr-overlay-app-state-v2.patch",
-            "openomsi-navbr-overlay-ui-v2.patch",
-            "openomsi-navbr-world-guidance-stock-fallback-v2.patch",
-            "openomsi-navbr-world-guidance-mesh-v2.patch"
-          )
-
-          foreach ($patch in $patches) {
-            $full = Join-Path $patchRoot $patch
-            Push-Location $upstream
-            git apply --check $full
-            if ($LASTEXITCODE -ne 0) {
-              Pop-Location
-              throw "Host patch does not apply to pinned openOMSI: $patch"
-            }
-            git apply $full
-            if ($LASTEXITCODE -ne 0) {
-              Pop-Location
-              throw "Host patch failed to apply to pinned openOMSI: $patch"
-            }
-            Pop-Location
-          }
+          $apply = Resolve-Path "src/NavBR.OpenOmsiPlugin/Apply-NavBROpenOmsiHostIntegration.ps1"
+          & $apply -OpenOmsiSource $upstream
 
           Push-Location $upstream
           cargo check -p omsi-plugin -p omsi-app
