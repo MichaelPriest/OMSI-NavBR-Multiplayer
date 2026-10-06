@@ -348,6 +348,8 @@ pub(crate) struct GroundArrowPrimitive {
     pub(crate) y: f64,
     pub(crate) z: f64,
     pub(crate) heading_degrees: f64,
+    pub(crate) width_meters: f64,
+    pub(crate) length_meters: f64,
     pub(crate) opacity: f64,
     pub(crate) kind: String,
 }
