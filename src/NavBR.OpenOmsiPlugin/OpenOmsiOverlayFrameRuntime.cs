@@ -12,6 +12,7 @@ internal static class OpenOmsiOverlayFrameRuntime
         OpenOmsiHudConfiguration hud,
         OpenOmsiMapPresentationState map,
         OpenOmsiMapVisualState visual,
+        OpenOmsiMiniMapRuntimeState miniMap,
         OpenOmsiCompactHudState compactHud,
         OpenOmsiTeleMatrixState teleMatrix,
         NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState[] groundArrows)
@@ -32,6 +33,7 @@ internal static class OpenOmsiOverlayFrameRuntime
             SecondaryText: compactHud.SecondaryText,
             ManeuverIcon: compactHud.ManeuverIcon,
             DistanceToManeuverMeters: compactHud.DistanceToManeuverMeters,
+            RouteProgressPercent: miniMap.Available ? miniMap.ProgressPercent : null,
             RouteRemainingMeters: compactHud.RouteRemainingMeters,
             OffRoute: compactHud.OffRoute,
             TraveledRoute: visual.TraveledRoute,
