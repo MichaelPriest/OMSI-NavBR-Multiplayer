@@ -146,6 +146,16 @@ var presentation = OpenOmsiMapPresentationRuntime.Build(
 Require(presentation.Available, "Map presentation unavailable.");
 Require(presentation.OrientationMode == "heading-up", "Map orientation mode mismatch.");
 Require(presentation.RadiusMeters < state.SuggestedMapRadiusMeters, "Turn-aware autozoom did not tighten.");
+
+var manualZoomPresentation = OpenOmsiMapPresentationRuntime.Build(
+    snapshot,
+    state,
+    guidance,
+    OpenOmsiHudState.Current with { AutoZoomEnabled = false },
+    []);
+Require(
+    Math.Abs(manualZoomPresentation.RadiusMeters - 900d) < 0.1d,
+    "Manual map radius mismatch when autozoom is disabled.");
 Require(presentation.Markers.Length == snapshot.NearbyVehicles.Length, "Map marker projection mismatch.");
 
 var trafficHidden = OpenOmsiMapPresentationRuntime.Build(
