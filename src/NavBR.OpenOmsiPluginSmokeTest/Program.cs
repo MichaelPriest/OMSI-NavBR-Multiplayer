@@ -53,10 +53,27 @@ Require(state.NearbySlowAiCount == 2, "Slow AI count.");
 Require(state.NearbyMovingAiCount == 1, "Moving AI count.");
 Require(state.AverageNearbyTrafficSpeedKph is > 10d and < 11d, "Average traffic speed.");
 
+var guidance = OpenOmsiGuidanceRuntime.Build(
+[
+    new OpenOmsiRoutePoint(0, 0),
+    new OpenOmsiRoutePoint(0, 100),
+    new OpenOmsiRoutePoint(100, 100),
+    new OpenOmsiRoutePoint(200, 100)
+],
+0,
+20);
+Require(guidance.Available, "Turn guidance unavailable.");
+Require(guidance.Maneuver == "right", $"Expected right turn, got {guidance.Maneuver}.");
+Require(guidance.DistanceToManeuverMeters is >= 79d and <= 81d, "Turn distance mismatch.");
+Require(guidance.TurnAngleDegrees is >= 89d and <= 91d, "Turn angle mismatch.");
+
 var bridge = PluginExports.BuildStatus();
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime) == true,
     "Navigation capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance) == true,
+    "Turn guidance capability was not advertised.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
