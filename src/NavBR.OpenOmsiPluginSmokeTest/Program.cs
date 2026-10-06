@@ -94,6 +94,24 @@ Require(
     smoothGuidance.TurnAngleDegrees is > 22d,
     "Smooth-curve turn angle stayed below guidance threshold.");
 
+var gentleCurve = Enumerable.Range(0, 19)
+    .Select(i =>
+    {
+        var a = i * 5d * Math.PI / 180d;
+        return new OpenOmsiRoutePoint(
+            220d * (1d - Math.Cos(a)),
+            220d * Math.Sin(a));
+    })
+    .ToArray();
+var gentleGuidance = OpenOmsiGuidanceRuntime.Build(
+    gentleCurve,
+    gentleCurve[0].X,
+    gentleCurve[0].Y);
+Require(gentleGuidance.Available, "Gentle-curve guidance unavailable.");
+Require(
+    gentleGuidance.Maneuver == "continue",
+    $"Gentle road bend became a false maneuver: {gentleGuidance.Maneuver}.");
+
 var miniMap = OpenOmsiMiniMapRuntime.Build(
 [
     new OpenOmsiRoutePoint(0, 0, 0),
