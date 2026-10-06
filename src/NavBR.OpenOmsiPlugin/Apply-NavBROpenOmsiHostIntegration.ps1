@@ -205,6 +205,8 @@ Replace-Required $navigator @'
     zoom: f64,
     /// Optional target supplied by an enhanced plugin for this frame.
     pub navbr_zoom: Option<f64>,
+    /// Keep north at the top for an enhanced plugin's full-map/follow-off mode.
+    pub navbr_north_up: bool,
     cam_heading: f64,
 '@
 
@@ -214,6 +216,7 @@ Replace-Required $navigator @'
 '@ @'
             zoom: 120.0,
             navbr_zoom: None,
+            navbr_north_up: false,
             cam_heading: 0.0,
 '@
 
@@ -290,7 +293,8 @@ Replace-Required $navigator @'
             self.cam_heading = f.heading;
         }
         self.zoom += (want - self.zoom) * ease(f.dt, 1.8);
-        self.cam_heading += angle_diff(self.cam_heading, f.heading) * ease(f.dt, 0.3);
+        let wanted_heading = if self.navbr_north_up { 0.0 } else { f.heading };
+        self.cam_heading += angle_diff(self.cam_heading, wanted_heading) * ease(f.dt, 0.3);
 '@ @'
         let want = f
             .navbr_radius_meters
@@ -330,6 +334,7 @@ Replace-Required $events @'
                         let old_arrows = nav.arrows;
                         let old_show_ai = nav.show_ai;
                         let old_navbr_zoom = nav.navbr_zoom;
+                        let old_navbr_north_up = nav.navbr_north_up;
                         nav.cockpit_display = vr_active;
                         if vr_active {
                             nav.enabled = vr_nav_display.is_some_and(|d| d.placement.enabled);
@@ -344,6 +349,7 @@ Replace-Required $events @'
                             nav.arrows = n.route_guidance_visible && !navbr_world_visible;
                             nav.show_ai = n.traffic_visible;
                             nav.navbr_zoom = Some((n.radius_meters / 5.0).clamp(110.0, 280.0));
+                            nav.navbr_north_up = n.orientation_mode == "north-up";
                         }
 '@
 
@@ -368,6 +374,7 @@ Replace-Required $events @'
                         nav.arrows = old_arrows;
                         nav.show_ai = old_show_ai;
                         nav.navbr_zoom = old_navbr_zoom;
+                        nav.navbr_north_up = old_navbr_north_up;
 '@
 
 # --- world-space fallback guidance using native helper objects.
