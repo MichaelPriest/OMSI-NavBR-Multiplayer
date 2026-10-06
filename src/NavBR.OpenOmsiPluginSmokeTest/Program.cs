@@ -161,8 +161,12 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiCompactHud) == true,
     "Compact HUD capability was not advertised.");
 Require(
-    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiGroundArrows) == true,
-    "Ground-arrow capability was not advertised.");
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload) == true,
+    "Ground-arrow payload capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame) == true,
+    "Overlay-frame capability was not advertised.");
+Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
