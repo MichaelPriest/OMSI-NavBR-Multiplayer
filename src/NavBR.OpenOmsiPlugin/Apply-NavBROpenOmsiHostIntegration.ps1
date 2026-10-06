@@ -268,21 +268,55 @@ Replace-Required $ui @'
 '@ @'
         if let Some(nav) = f.navbr_overlay.filter(|n| n.compact_hud_visible) {
             let s = f.scale.max(0.5) * f.ui_scale;
-            let width = (360.0 * s).min(f.width * 0.48);
+            let width = (430.0 * s).min(f.width * 0.56);
             let pad = 12.0 * s;
             let x = ((f.width - width) * 0.5).round();
             let y = 58.0 * s;
             let primary = nav.primary_text.as_deref().unwrap_or("Navigation");
             let detail = nav.secondary_text.as_deref().unwrap_or("");
-            let p = self.text.label(r, scene, primary, (22.0 * s) as u32, [255, 255, 255, 0]);
+
+            let distance = nav.distance_to_maneuver_meters.map(|m| {
+                if m >= 1000.0 { format!("{:.1} km", m / 1000.0) } else { format!("{:.0} m", m) }
+            }).unwrap_or_default();
+            let remaining = nav.route_remaining_meters.map(|m| {
+                if m >= 1000.0 { format!("{:.1} km restantes", m / 1000.0) } else { format!("{:.0} m restantes", m) }
+            }).unwrap_or_default();
+            let icon = match nav.maneuver_icon.as_deref() {
+                Some("turn-left") => "←",
+                Some("turn-right") => "→",
+                Some("slight-left") => "↖",
+                Some("slight-right") => "↗",
+                Some("uturn") => "↶",
+                Some("rejoin") => "⤴",
+                _ => "↑",
+            };
+
+            let title = if distance.is_empty() {
+                format!("{icon} {primary}")
+            } else {
+                format!("{icon} {distance}  {primary}")
+            };
+
+            let p = self.text.label(r, scene, &title, (21.0 * s) as u32, [255, 255, 255, 0]);
             let d = self.text.label(r, scene, detail, (14.0 * s) as u32, [220, 220, 220, 0]);
-            let h = p.h as f32 + d.h as f32 + pad * 2.0 + 4.0 * s;
+            let rem = self.text.label(r, scene, &remaining, (12.0 * s) as u32, [190, 205, 220, 0]);
+
+            let mut h = p.h as f32 + pad * 2.0;
+            if !detail.is_empty() { h += d.h as f32 + 4.0 * s; }
+            if !remaining.is_empty() { h += rem.h as f32 + 3.0 * s; }
+
             let plate = self.text.plate(r, scene, if nav.off_route { 6 } else { 3 });
             scene.overlays.push((plate, [x, y, x + width, y + h]));
-            scene.overlays.push((p.tex, [x + pad, y + pad, x + pad + p.w as f32, y + pad + p.h as f32]));
+            let tx = x + pad;
+            let mut ty = y + pad;
+            scene.overlays.push((p.tex, [tx, ty, tx + p.w as f32, ty + p.h as f32]));
+            ty += p.h as f32 + 4.0 * s;
             if !detail.is_empty() {
-                let sy = y + pad + p.h as f32 + 4.0 * s;
-                scene.overlays.push((d.tex, [x + pad, sy, x + pad + d.w as f32, sy + d.h as f32]));
+                scene.overlays.push((d.tex, [tx, ty, tx + d.w as f32, ty + d.h as f32]));
+                ty += d.h as f32 + 3.0 * s;
+            }
+            if !remaining.is_empty() {
+                scene.overlays.push((rem.tex, [tx, ty, tx + rem.w as f32, ty + rem.h as f32]));
             }
         }
 
@@ -329,9 +363,15 @@ struct Envelope {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Overlay2D {
+    pub(crate) mini_map_visible: bool,
+    pub(crate) full_map_visible: bool,
     pub(crate) compact_hud_visible: bool,
+    pub(crate) tele_matrix_visible: bool,
     pub(crate) primary_text: Option<String>,
     pub(crate) secondary_text: Option<String>,
+    pub(crate) maneuver_icon: Option<String>,
+    pub(crate) distance_to_maneuver_meters: Option<f64>,
+    pub(crate) route_remaining_meters: Option<f64>,
     pub(crate) off_route: bool,
 }
 
