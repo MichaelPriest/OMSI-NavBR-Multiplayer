@@ -61,6 +61,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiNearbyVehicles = "openomsi-nearby-vehicles";
     public const string CapabilityOpenOmsiTimetableContext = "openomsi-timetable-context";
     public const string CapabilityOpenOmsiNativeOnFoot = "openomsi-native-on-foot";
+    public const string CapabilityOpenOmsiNavigationRuntime = "openomsi-navigation-runtime";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -201,7 +202,13 @@ public sealed record PluginBridgeMessage(
     int? OpenOmsiNearbyPlayerCount = null,
     double? OpenOmsiNextStopArrival = null,
     double? OpenOmsiNextStopDeparture = null,
-    OpenOmsiNearbyVehicleState[]? OpenOmsiNearbyVehicles = null);
+    OpenOmsiNearbyVehicleState[]? OpenOmsiNearbyVehicles = null,
+    double? OpenOmsiSuggestedMapRadiusMeters = null,
+    string? OpenOmsiCongestionLevel = null,
+    double? OpenOmsiAverageNearbyTrafficSpeedKph = null,
+    int? OpenOmsiNearbyMovingAiCount = null,
+    int? OpenOmsiNearbySlowAiCount = null,
+    int? OpenOmsiNearbyStoppedAiCount = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
