@@ -79,6 +79,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiGroundArrowPayload = "openomsi-ground-arrow-payload";
     public const string CapabilityOpenOmsiOverlayFrame = "openomsi-overlay-frame";
     public const string CapabilityOpenOmsiOverlayExportV1 = "openomsi-overlay-export-v1";
+    public const string CapabilityOpenOmsiOverlay2DFrame = "openomsi-overlay-2d-frame";
+    public const string CapabilityOpenOmsiWorldGuidanceFrame = "openomsi-world-guidance-frame";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -303,7 +305,9 @@ public sealed record PluginBridgeMessage(
     double? OpenOmsiCompactHudRouteRemainingMeters = null,
     bool? OpenOmsiCompactHudOffRoute = null,
     OpenOmsiGroundArrowState[]? OpenOmsiGroundArrows = null,
-    OpenOmsiOverlayFrameState? OpenOmsiOverlayFrame = null);
+    OpenOmsiOverlayFrameState? OpenOmsiOverlayFrame = null,
+    OpenOmsiOverlay2DFrameState? OpenOmsiOverlay2DFrame = null,
+    OpenOmsiWorldGuidanceFrameState? OpenOmsiWorldGuidanceFrame = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
@@ -376,4 +380,29 @@ public sealed record OpenOmsiOverlayFrameState(
     OpenOmsiRoutePoint[] ForwardRoute,
     OpenOmsiRoutePoint[] RejoinRoute,
     OpenOmsiMapMarkerState[] Markers,
+    OpenOmsiGroundArrowState[] GroundArrows);
+
+public sealed record OpenOmsiOverlay2DFrameState(
+    bool MiniMapVisible,
+    bool FullMapVisible,
+    bool CompactHudVisible,
+    bool TeleMatrixVisible,
+    double? CenterX,
+    double? CenterY,
+    double RotationDegrees,
+    double RadiusMeters,
+    string OrientationMode,
+    string? PrimaryText,
+    string? SecondaryText,
+    string? ManeuverIcon,
+    double? DistanceToManeuverMeters,
+    double? RouteRemainingMeters,
+    bool OffRoute,
+    OpenOmsiRoutePoint[] TraveledRoute,
+    OpenOmsiRoutePoint[] ForwardRoute,
+    OpenOmsiRoutePoint[] RejoinRoute,
+    OpenOmsiMapMarkerState[] Markers);
+
+public sealed record OpenOmsiWorldGuidanceFrameState(
+    bool Visible,
     OpenOmsiGroundArrowState[] GroundArrows);
