@@ -167,6 +167,14 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame) == true,
     "Overlay-frame capability was not advertised.");
 Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
+Require(bridge.OpenOmsiOverlay2DFrame is not null, "2D overlay frame was not published.");
+Require(bridge.OpenOmsiWorldGuidanceFrame is not null, "World guidance frame was not published.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame) == true,
+    "2D overlay capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame) == true,
+    "World guidance capability was not advertised.");
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1) == true,
     "Overlay export v1 capability was not advertised.");
