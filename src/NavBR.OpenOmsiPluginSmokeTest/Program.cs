@@ -143,6 +143,12 @@ try
         Path.Combine(ttData, "Busstops.cfg"),
         "[busstop]\nRathaus\n0\n1001\n0\n0\n0\n[busstop]\nBahnhof\n0\n1002\n0\n0\n0\n");
 
+    await File.WriteAllTextAsync(
+        Path.Combine(ttData, "StnLinks.cfg"),
+        "[StnLink]\n120\n1001\n1002\n0\n0\n0\n0\n0\n0\n" +
+        "[StnLink_entry]\n5001\n2\n7\n60\n-1\n0\n0\n" +
+        "[StnLink_entry]\n5002\n0\n7\n60\n-1\n0\n0\n");
+
     var content = OpenOmsiContentLocator.Resolve("Grundorf");
     Require(content.RootAvailable, "Configured content root was not found.");
     Require(content.MapAvailable, "Map directory was not found.");
@@ -156,6 +162,17 @@ try
     Require(resolvedTrip!.TripName == "TripA", "Resolved trip name mismatch.");
     Require(resolvedTrip.Terminus == "Bahnhof", "Resolved trip terminus mismatch.");
     Require(resolvedTrip.Stops.SequenceEqual(["Rathaus", "Bahnhof"]), "Resolved stop sequence mismatch.");
+
+    var resolvedSteps = OpenOmsiRouteStepResolver.Resolve(content, resolvedTrip);
+    Require(resolvedSteps.Length == 2, "StnLinks route step count mismatch.");
+    Require(resolvedSteps[0].ObjectId == 5001, "First route step object mismatch.");
+    Require(resolvedSteps[0].PathIndex == 2, "First route step path mismatch.");
+    Require(resolvedSteps[0].TileIndex == 7, "First route step tile mismatch.");
+    Require(resolvedSteps[0].Leg == 0 && !resolvedSteps[0].IsTrack, "Station-link route step metadata mismatch.");
+
+    OpenOmsiTimetableRuntime.Reset();
+    var cachedRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
+    Require(cachedRuntime.RouteSteps.Length == 2, "Cached timetable route steps mismatch.");
 }
 finally
 {
@@ -164,9 +181,10 @@ finally
 }
 
 OpenOmsiRouteRuntime.Clear();
+OpenOmsiTimetableRuntime.Reset();
 OpenOmsiHudState.Reset();
 
-Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin + TTData runtime smoke passed.");
+Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin + TTData + StnLinks runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
