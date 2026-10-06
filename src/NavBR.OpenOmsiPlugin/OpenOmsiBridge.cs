@@ -117,7 +117,9 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
                         PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
-                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
+                        PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
