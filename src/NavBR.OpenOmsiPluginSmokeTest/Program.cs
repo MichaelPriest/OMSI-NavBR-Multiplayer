@@ -207,6 +207,60 @@ Require(
     trafficHidden.Markers.All(marker => marker.Kind != "ai"),
     "Traffic markers were not hidden.");
 
+var crowdedSnapshot = snapshot with
+{
+    NearbyVehicles =
+    [
+        .. Enumerable.Range(0, 80).Select(i => new OpenOmsiNearbyVehicleState(
+            $"player-{i:D3}",
+            "player",
+            $"Player {i:D3}",
+            100d + i,
+            100d,
+            0d,
+            90d,
+            20d)),
+        .. Enumerable.Range(0, 500).Select(i => new OpenOmsiNearbyVehicleState(
+            $"ai-{i:D3}",
+            "ai",
+            $"AI {i:D3}",
+            100d + i * 2d,
+            120d,
+            0d,
+            90d,
+            15d))
+    ]
+};
+var crowdedStops = Enumerable.Range(0, 120)
+    .Select(i => new OpenOmsiMapMarkerState(
+        $"stop:{i}",
+        "stop",
+        $"Stop {i:D3}",
+        100d + i * 3d,
+        80d,
+        0d,
+        0d,
+        null))
+    .ToArray();
+var crowdedPresentation = OpenOmsiMapPresentationRuntime.Build(
+    crowdedSnapshot,
+    OpenOmsiNavigationRuntime.Build(crowdedSnapshot),
+    guidance,
+    OpenOmsiHudState.Current,
+    crowdedStops);
+Require(
+    crowdedPresentation.Markers.Length <= 160,
+    "Crowded map marker cap exceeded.");
+Require(
+    crowdedPresentation.Markers.Count(marker => marker.Kind == "player") == 48,
+    "Crowded map did not preserve prioritized players.");
+Require(
+    crowdedPresentation.Markers.Count(marker => marker.Kind == "stop") == 64,
+    "Crowded map did not preserve prioritized stops.");
+Require(
+    crowdedPresentation.Markers.Count(marker => marker.Kind == "ai") == 48,
+    "Crowded map AI fill count mismatch.");
+
 var bridge = PluginExports.BuildStatus();
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime) == true,
