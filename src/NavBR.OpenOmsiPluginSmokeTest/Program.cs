@@ -125,6 +125,27 @@ Require(parsedV3!.TripsCount == 4, "Snapshot v3 trips count.");
 Require(parsedV3.NextStopNumber == 2, "Snapshot v3 next stop number.");
 Require(parsedV3.NearbyVehicles.Length == 1, "Snapshot v3 nearby vehicles.");
 
+
+var previousContentRoot = Environment.GetEnvironmentVariable("NAVBR_OPENOMSI_CONTENT_ROOT");
+var smokeRoot = Path.Combine(Path.GetTempPath(), "NavBR-openOMSI-content-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(Path.Combine(smokeRoot, "maps", "Grundorf", "TTData"));
+Environment.SetEnvironmentVariable("NAVBR_OPENOMSI_CONTENT_ROOT", smokeRoot);
+try
+{
+    var content = OpenOmsiContentLocator.Resolve("Grundorf");
+    Require(content.RootAvailable, "Configured content root was not found.");
+    Require(content.MapAvailable, "Map directory was not found.");
+    Require(content.TimetableAvailable, "TTData directory was not found.");
+
+    var pathStyleContent = OpenOmsiContentLocator.Resolve("maps/Grundorf/global.cfg");
+    Require(pathStyleContent.MapAvailable, "Path-style map name did not resolve.");
+}
+finally
+{
+    Environment.SetEnvironmentVariable("NAVBR_OPENOMSI_CONTENT_ROOT", previousContentRoot);
+    try { Directory.Delete(smokeRoot, recursive: true); } catch { }
+}
+
 OpenOmsiRouteRuntime.Clear();
 OpenOmsiHudState.Reset();
 
