@@ -562,6 +562,7 @@ public static class PluginExports
         OpenOmsiHudState.Reset();
         OpenOmsiRouteRuntime.Clear();
         OpenOmsiTimetableRuntime.Reset();
+        OpenOmsiStopMarkerResolver.ResetCache();
         OpenOmsiOverlayExport.Reset();
     }
 }
