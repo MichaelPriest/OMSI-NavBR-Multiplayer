@@ -17,7 +17,8 @@ internal static class OpenOmsiMapPresentationRuntime
         OpenOmsiLuaSnapshot? snapshot,
         OpenOmsiNavigationRuntimeState navigation,
         OpenOmsiGuidanceState guidance,
-        OpenOmsiHudConfiguration hud)
+        OpenOmsiHudConfiguration hud,
+        OpenOmsiMapMarkerState[] stopMarkers)
     {
         if (snapshot?.HasPosition != true ||
             snapshot.X is null ||
@@ -57,7 +58,7 @@ internal static class OpenOmsiMapPresentationRuntime
             ? NormalizeDegrees(-(snapshot.HeadingDegrees ?? 0d))
             : 0d;
 
-        var markers = snapshot.NearbyVehicles
+        var movingMarkers = snapshot.NearbyVehicles
             .Where(vehicle =>
                 (hud.TrafficEnabled &&
                  string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal)) ||
@@ -71,7 +72,10 @@ internal static class OpenOmsiMapPresentationRuntime
                 Y: vehicle.Y,
                 Z: vehicle.Z,
                 HeadingDegrees: vehicle.HeadingDegrees,
-                SpeedKph: vehicle.SpeedKph))
+                SpeedKph: vehicle.SpeedKph));
+
+        var markers = movingMarkers
+            .Concat(stopMarkers)
             .ToArray();
 
         return new(
