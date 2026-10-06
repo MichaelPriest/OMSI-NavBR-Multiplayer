@@ -5,6 +5,12 @@ namespace NavBR.OpenOmsiPlugin;
 
 internal static class OpenOmsiStopMarkerResolver
 {
+    private const int MaxCachedTrips = 16;
+    private static readonly object CacheSync = new();
+    private static readonly Dictionary<string, OpenOmsiMapMarkerState[]> Cache =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Queue<string> CacheOrder = new();
+
     public static OpenOmsiMapMarkerState[] Resolve(
         OpenOmsiContentContext content,
         OpenOmsiTimetableTrip? trip)
@@ -14,6 +20,15 @@ internal static class OpenOmsiStopMarkerResolver
             trip.StationIds.Length == 0)
         {
             return [];
+        }
+
+        var cacheKey = BuildCacheKey(content, trip);
+        lock (CacheSync)
+        {
+            if (Cache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
         }
 
         var layout = OpenOmsiMapLayoutReader.Read(content);
@@ -57,10 +72,47 @@ internal static class OpenOmsiStopMarkerResolver
             }
         }
 
-        return found
+        var result = found
             .Where(marker => marker is not null)
             .Select(marker => marker!)
             .ToArray();
+
+        lock (CacheSync)
+        {
+            if (!Cache.ContainsKey(cacheKey))
+            {
+                Cache[cacheKey] = result;
+                CacheOrder.Enqueue(cacheKey);
+                while (CacheOrder.Count > MaxCachedTrips)
+                {
+                    var stale = CacheOrder.Dequeue();
+                    Cache.Remove(stale);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    internal static void ResetCache()
+    {
+        lock (CacheSync)
+        {
+            Cache.Clear();
+            CacheOrder.Clear();
+        }
+    }
+
+    private static string BuildCacheKey(
+        OpenOmsiContentContext content,
+        OpenOmsiTimetableTrip trip)
+    {
+        var map = content.MapDirectory ?? string.Empty;
+        var stations = string.Join(',', trip.StationIds);
+        var labels = string.Join(
+            '\u001f',
+            trip.Stops.Select(stop => stop ?? string.Empty));
+        return $"{map}|{stations}|{labels}";
     }
 
     private static IEnumerable<OpenOmsiMapMarkerState> ReadStopObjects(
