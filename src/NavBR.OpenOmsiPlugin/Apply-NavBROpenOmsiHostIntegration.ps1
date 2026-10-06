@@ -259,6 +259,45 @@ Replace-Required $events @'
                     self.navbr_overlay.update(overlay_frames);
 '@
 
+# --- NavBR panel shortcut at the raw window-key boundary.
+# This runs before chat/menu/game actions can consume N.
+Replace-Required $events @'
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed && self.menu_edit_icao {
+'@ @'
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed && !event.repeat {
+                    if let PhysicalKey::Code(KeyCode::KeyN) = event.physical_key {
+                        let ctrl = self.keys.contains(&KeyCode::ControlLeft)
+                            || self.keys.contains(&KeyCode::ControlRight);
+                        let alt = self.keys.contains(&KeyCode::AltLeft)
+                            || self.keys.contains(&KeyCode::AltRight);
+                        let shift = self.keys.contains(&KeyCode::ShiftLeft)
+                            || self.keys.contains(&KeyCode::ShiftRight);
+                        if ctrl && (alt || shift) {
+                            self.navbr_panel_open = !self.navbr_panel_open;
+                            self.service_msg = Some((
+                                if self.navbr_panel_open {
+                                    "NavBR: painel aberto"
+                                } else {
+                                    "NavBR: painel fechado"
+                                }.to_string(),
+                                2.0,
+                            ));
+                            return;
+                        }
+                    }
+                    if let PhysicalKey::Code(KeyCode::Escape) = event.physical_key {
+                        if self.navbr_panel_open {
+                            self.navbr_panel_open = false;
+                            return;
+                        }
+                    }
+                }
+
+                if event.state == ElementState::Pressed && self.menu_edit_icao {
+'@
+
 # --- NavBR in-game panel shortcut: Ctrl+Alt+N; Escape closes it first.
 Replace-Required $inputScript @'
             if pressed && !repeat {
