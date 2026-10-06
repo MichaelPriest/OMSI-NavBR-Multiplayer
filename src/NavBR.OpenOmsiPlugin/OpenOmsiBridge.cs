@@ -107,7 +107,8 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
                         PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
                         PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps,
-                        PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry
+                        PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
