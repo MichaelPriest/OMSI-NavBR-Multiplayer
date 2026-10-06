@@ -257,6 +257,7 @@ public static class PluginExports
             mapVisual,
             compactHud,
             groundArrows);
+        OpenOmsiOverlayExport.Publish(overlayFrame);
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
@@ -534,5 +535,6 @@ public static class PluginExports
         OpenOmsiHudState.Reset();
         OpenOmsiRouteRuntime.Clear();
         OpenOmsiTimetableRuntime.Reset();
+        OpenOmsiOverlayExport.Reset();
     }
 }
