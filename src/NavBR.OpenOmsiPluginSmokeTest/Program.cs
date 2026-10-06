@@ -275,6 +275,46 @@ Require(
     bridgeJson.Length <= PluginBridgeProtocol.MaxMessageChars,
     $"Bridge status exceeded max message size: {bridgeJson.Length} chars.");
 
+var exportTeleMatrix = OpenOmsiTeleMatrixRuntime.Build(snapshot, null);
+var exportRouteState = new OpenOmsiRouteRuntimeState(
+    RouteLoaded: false,
+    RouteKey: null,
+    RoutePointCount: 0,
+    DistanceFromRouteMeters: null,
+    OffRoute: false,
+    NearestRoutePointIndex: null,
+    RejoinRoutePointIndex: null,
+    RejoinTargetX: null,
+    RejoinTargetY: null);
+var exportCompactHud = OpenOmsiCompactHudRuntime.Build(
+    guidance,
+    miniMap,
+    exportTeleMatrix,
+    exportRouteState);
+var exportGroundArrows = OpenOmsiGroundArrowRuntime.Build(
+    miniMap.GuidanceWaypoints,
+    guidance,
+    exportRouteState)
+    .Select(arrow => new NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState(
+        arrow.X,
+        arrow.Y,
+        arrow.Z,
+        arrow.HeadingDegrees,
+        arrow.DistanceAheadMeters,
+        arrow.Kind))
+    .ToArray();
+var exportFrames = OpenOmsiOverlayFrameRuntime.Build(
+    OpenOmsiHudState.Current,
+    presentation,
+    visualRoute,
+    exportCompactHud,
+    exportTeleMatrix,
+    exportGroundArrows);
+OpenOmsiOverlayExport.Publish(
+    exportFrames.Full,
+    exportFrames.Overlay2D,
+    exportFrames.World);
+
 var overlayRequired = OpenOmsiOverlayExport.RequiredBytes;
 Require(overlayRequired > 1, "Overlay export did not cache a payload.");
 var overlayBuffer = new byte[overlayRequired];
