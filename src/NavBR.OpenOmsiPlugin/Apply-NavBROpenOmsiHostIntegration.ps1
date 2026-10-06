@@ -379,11 +379,11 @@ Replace-Required $events @'
 # --- native 2D UI frame.
 Replace-Required $ui @'
     pub notice_anchor: Option<[f32; 4]>,
-    /// What kind of menu
+    /// What kind of menu the lines belong to.
 '@ @'
     pub notice_anchor: Option<[f32; 4]>,
     pub navbr_overlay: Option<&'a crate::navbr_overlay::Overlay2D>,
-    /// What kind of menu
+    /// What kind of menu the lines belong to.
 '@
 
 Replace-Required $events @'
