@@ -400,7 +400,9 @@ public static class PluginExports
             OpenOmsiMapRotationDegrees: mapPresentation.RotationDegrees,
             OpenOmsiMapRadiusMeters: mapPresentation.RadiusMeters,
             OpenOmsiMapOrientationMode: mapPresentation.OrientationMode,
-            OpenOmsiMapMarkers: mapPresentation.Markers,
+            OpenOmsiMapMarkers: includeHeavyOverlayInBridge
+                ? mapPresentation.Markers
+                : null,
             OpenOmsiTeleMatrixRuntimeAvailable: teleMatrix.Available,
             OpenOmsiTeleMatrixLine: teleMatrix.Line,
             OpenOmsiTeleMatrixDestination: teleMatrix.Destination,
