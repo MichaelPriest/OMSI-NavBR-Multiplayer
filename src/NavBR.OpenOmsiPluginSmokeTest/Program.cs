@@ -36,6 +36,12 @@ var snapshot = new OpenOmsiLuaSnapshot(
     NextStopDeparture: 36140d,
     TripsCount: 4,
     NextStopNumber: 2,
+    MapPath: null,
+    TripName: "TripA",
+    StopCount: 2,
+    Destination: "Bahnhof",
+    VehicleManufacturer: "Test",
+    VehicleModel: "Bus",
     NearbyVehicles:
     [
         new OpenOmsiNearbyVehicleState("ai-1", "ai", "AI 1", 110, 100, 0, 90, 0),
@@ -228,6 +234,16 @@ Require(parsedV3!.TripsCount == 4, "Snapshot v3 trips count.");
 Require(parsedV3.NextStopNumber == 2, "Snapshot v3 next stop number.");
 Require(parsedV3.NearbyVehicles.Length == 1, "Snapshot v3 nearby vehicles.");
 
+var parsedV4 = OpenOmsiLuaSnapshotReader.TryParsePayloadForSmoke(
+    "4|9|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds() +
+    "|1|100|200|3|90|Grundorf|76|1|1|Bahnhof|Rathaus|driver|0|0|30|Test%20Bus|36000|6|2026|1|20|32|36120|36140|4|2|maps%2FGrundorf%2Fglobal.cfg|TripA|2|Bahnhof|Test|Bus|ai-1,ai,AI%201,110,200,3,90,5");
+Require(parsedV4 is not null, "Snapshot v4 did not parse.");
+Require(parsedV4!.MapPath == "maps/Grundorf/global.cfg", "Snapshot v4 map path.");
+Require(parsedV4.TripName == "TripA", "Snapshot v4 trip name.");
+Require(parsedV4.StopCount == 2, "Snapshot v4 stop count.");
+Require(parsedV4.VehicleManufacturer == "Test", "Snapshot v4 manufacturer.");
+Require(parsedV4.NearbyVehicles.Length == 1, "Snapshot v4 nearby vehicles.");
+
 
 var previousContentRoot = Environment.GetEnvironmentVariable("NAVBR_OPENOMSI_CONTENT_ROOT");
 var smokeRoot = Path.Combine(Path.GetTempPath(), "NavBR-openOMSI-content-" + Guid.NewGuid().ToString("N"));
@@ -290,6 +306,17 @@ try
 
     var pathStyleContent = OpenOmsiContentLocator.Resolve("maps/Grundorf/global.cfg");
     Require(pathStyleContent.MapAvailable, "Path-style map name did not resolve.");
+
+    var nativePathContent = OpenOmsiContentLocator.Resolve(
+        "Nome Diferente",
+        Path.Combine(mapDir, "global.cfg"));
+    Require(nativePathContent.MapAvailable, "Native map_path did not resolve.");
+    Require(
+        string.Equals(
+            nativePathContent.MapDirectory,
+            mapDir,
+            StringComparison.OrdinalIgnoreCase),
+        "Native map_path resolved the wrong directory.");
 
     var resolvedTrip = OpenOmsiTimetableResolver.Resolve(content, snapshot);
     Require(resolvedTrip is not null, "Live TTData trip did not resolve.");
