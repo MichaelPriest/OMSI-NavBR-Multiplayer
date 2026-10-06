@@ -132,6 +132,17 @@ Directory.CreateDirectory(Path.Combine(smokeRoot, "maps", "Grundorf", "TTData"))
 Environment.SetEnvironmentVariable("NAVBR_OPENOMSI_CONTENT_ROOT", smokeRoot);
 try
 {
+    var ttData = Path.Combine(smokeRoot, "maps", "Grundorf", "TTData");
+    await File.WriteAllTextAsync(
+        Path.Combine(ttData, "76.ttl"),
+        "[newtour]\n1\nDepot\n0\n[addtrip]\nTripA\n0\n600\n[addtrip]\nTripB\n1\n630\n");
+    await File.WriteAllTextAsync(
+        Path.Combine(ttData, "TripA.ttp"),
+        "[trip]\n\nBahnhof\n76\n[station_typ2]\n1001\n[station_typ2]\n1002\n");
+    await File.WriteAllTextAsync(
+        Path.Combine(ttData, "Busstops.cfg"),
+        "[busstop]\nRathaus\n0\n1001\n0\n0\n0\n[busstop]\nBahnhof\n0\n1002\n0\n0\n0\n");
+
     var content = OpenOmsiContentLocator.Resolve("Grundorf");
     Require(content.RootAvailable, "Configured content root was not found.");
     Require(content.MapAvailable, "Map directory was not found.");
@@ -139,6 +150,12 @@ try
 
     var pathStyleContent = OpenOmsiContentLocator.Resolve("maps/Grundorf/global.cfg");
     Require(pathStyleContent.MapAvailable, "Path-style map name did not resolve.");
+
+    var resolvedTrip = OpenOmsiTimetableResolver.Resolve(content, snapshot);
+    Require(resolvedTrip is not null, "Live TTData trip did not resolve.");
+    Require(resolvedTrip!.TripName == "TripA", "Resolved trip name mismatch.");
+    Require(resolvedTrip.Terminus == "Bahnhof", "Resolved trip terminus mismatch.");
+    Require(resolvedTrip.Stops.SequenceEqual(["Rathaus", "Bahnhof"]), "Resolved stop sequence mismatch.");
 }
 finally
 {
@@ -149,7 +166,7 @@ finally
 OpenOmsiRouteRuntime.Clear();
 OpenOmsiHudState.Reset();
 
-Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin runtime smoke passed.");
+Console.WriteLine("openOMSI phase 1 navigation + HUD + rejoin + TTData runtime smoke passed.");
 
 static void Require(bool condition, string message)
 {
