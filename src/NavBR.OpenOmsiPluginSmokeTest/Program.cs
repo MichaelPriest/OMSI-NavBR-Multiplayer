@@ -264,12 +264,16 @@ var overlayWritten = OpenOmsiOverlayExport.CopyLatest(overlayBuffer);
 Require(overlayWritten > 0, "Overlay export copy failed.");
 Require(overlayBuffer[overlayWritten] == 0, "Overlay export is not null-terminated.");
 var overlayJson = System.Text.Encoding.UTF8.GetString(overlayBuffer, 0, overlayWritten);
+string? exportedOrientation = null;
 using (var overlayDoc = System.Text.Json.JsonDocument.Parse(overlayJson))
 {
     Require(
-        overlayDoc.RootElement.TryGetProperty("OrientationMode", out var orientation) &&
-        orientation.GetString() == "heading-up",
+        overlayDoc.RootElement.TryGetProperty("OrientationMode", out var orientation),
         "Overlay export JSON missing orientation.");
+    exportedOrientation = orientation.GetString();
+    Require(
+        exportedOrientation is "heading-up" or "north-up",
+        $"Overlay export JSON invalid orientation: {exportedOrientation ?? "<null>"}.");
 }
 var overlayRequiredV2 = OpenOmsiOverlayExport.RequiredBytesV2;
 Require(overlayRequiredV2 > 1, "Overlay export v2 did not cache a payload.");
@@ -289,6 +293,9 @@ using (var overlayDocV2 = System.Text.Json.JsonDocument.Parse(overlayJsonV2))
         overlayDocV2.RootElement.TryGetProperty("WorldGuidance", out _),
         "Overlay export v2 missing world frame.");
     var overlay2D = overlayDocV2.RootElement.GetProperty("Overlay2D");
+    Require(
+        overlay2D.GetProperty("OrientationMode").GetString() == exportedOrientation,
+        "Overlay export v1/v2 orientation mismatch.");
     Require(overlay2D.GetProperty("TeleMatrixLine").GetString() == "76", "Overlay export v2 TeleMatrix line mismatch.");
     Require(overlay2D.GetProperty("TeleMatrixNextStop").GetString() == "Rathaus", "Overlay export v2 next stop mismatch.");
     Require(overlay2D.GetProperty("RouteGuidanceVisible").GetBoolean(), "Overlay export v2 route-guidance flag mismatch.");
