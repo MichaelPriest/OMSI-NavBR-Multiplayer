@@ -176,3 +176,17 @@ o frame de HUD/mapa/setas já calculado pelo NavBR.
 O contrato completo está em `OPENOMSI_OVERLAY_ABI.md`. O payload de setas representa
 dados de navegação em coordenadas do mundo; uma build stock do openOMSI ainda não possui
 API pública de plugin para desenhar essas setas 3D por conta própria.
+
+
+### Integração nativa de mapa no host aprimorado
+
+O aplicador host-side usa o navigator/city map do próprio openOMSI:
+
+- minimapa NavBR habilita/desabilita o navigator nativo;
+- IA e players seguem os toggles do payload;
+- o raio de navegação do NavBR alimenta o autozoom do navigator;
+- `heading-up` e `north-up` são respeitados sem criar um segundo mapa;
+- o mapa completo é aberto por **transição de toggle**, não forçado a cada frame.
+
+Esse último detalhe preserva a interação nativa: se o usuário fechar o city map com Escape
+ou clique, ele permanece fechado até o toggle NavBR ser desligado e ligado novamente.
