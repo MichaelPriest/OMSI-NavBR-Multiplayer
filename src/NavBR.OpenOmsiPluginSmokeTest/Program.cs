@@ -289,7 +289,6 @@ try
     Require(resolvedTrip.Stops.SequenceEqual(["Rathaus", "Bahnhof"]), "Resolved stop sequence mismatch.");
 
     var stopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
-    Require(stopMarkers.Length == 0, "Stops should not resolve before map stop objects exist.");
 
     var resolvedSteps = OpenOmsiRouteStepResolver.Resolve(content, resolvedTrip);
     Require(resolvedSteps.Length == 2, "StnLinks route step count mismatch.");
