@@ -60,9 +60,24 @@ internal static class OpenOmsiOverlayFrameRuntime
             RejoinRoute: visual.RejoinRoute,
             Markers: map.Markers);
 
+        var primitives = OpenOmsiGroundArrowPrimitiveRuntime.Build(groundArrows)
+            .Select(primitive => new OpenOmsiGroundArrowPrimitiveState(
+                primitive.X,
+                primitive.Y,
+                primitive.Z,
+                primitive.HeadingDegrees,
+                primitive.WidthMeters,
+                primitive.LengthMeters,
+                primitive.HeightOffsetMeters,
+                primitive.Opacity,
+                primitive.DistanceAheadMeters,
+                primitive.Kind))
+            .ToArray();
+
         var world = new OpenOmsiWorldGuidanceFrameState(
-            Visible: hud.RouteGuidanceEnabled && groundArrows.Length > 0,
-            GroundArrows: groundArrows);
+            Visible: hud.RouteGuidanceEnabled && primitives.Length > 0,
+            GroundArrows: groundArrows,
+            GroundArrowPrimitives: primitives);
 
         return (full, overlay2D, world);
     }
