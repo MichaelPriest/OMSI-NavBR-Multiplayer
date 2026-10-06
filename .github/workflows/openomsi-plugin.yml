@@ -201,8 +201,10 @@ jobs:
 
           $hostArtifact = Join-Path $env:GITHUB_WORKSPACE "artifacts\NavBR.OpenOmsiHost"
           New-Item -ItemType Directory -Path $hostArtifact -Force | Out-Null
-          Copy-Item "target\x86_64-pc-windows-msvc\release\openomsi.exe" (Join-Path $hostArtifact "openomsi-navbr.exe") -Force
+          Copy-Item "target\x86_64-pc-windows-msvc\release\openomsi.exe" (Join-Path $hostArtifact "openomsi.exe") -Force
           Copy-Item "assets\steam_redist\steam_api64.dll" (Join-Path $hostArtifact "steam_api64.dll") -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "src\NavBR.OpenOmsiPlugin\Install-NavBROpenOmsiHost.ps1") (Join-Path $hostArtifact "Install-NavBROpenOmsiHost.ps1") -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "src\NavBR.OpenOmsiPlugin\Restore-OriginalOpenOmsiHost.ps1") (Join-Path $hostArtifact "Restore-OriginalOpenOmsiHost.ps1") -Force
           Pop-Location
 
           @(
@@ -212,10 +214,12 @@ jobs:
             "World guidance renderer: mesh",
             "",
             "Use with the NavBR openOMSI plugin artifact from the same workflow run.",
-            "Back up your current openOMSI executable before testing.",
-            "Place openomsi-navbr.exe and steam_api64.dll in the existing openOMSI folder/content root.",
-            "Start openomsi-navbr.exe and use Ctrl+Alt+N to open the NavBR panel.",
-            "Esc closes the NavBR panel first."
+            "The correct entry point remains openomsi.exe.",
+            "Run Install-NavBROpenOmsiHost.ps1 against the existing openOMSI folder.",
+            "The installer backs up the original executable as openomsi.navbr-original.exe and replaces openomsi.exe with this NavBR test host.",
+            "Start openomsi.exe normally and use Ctrl+Alt+N to open the NavBR panel.",
+            "Esc closes the NavBR panel first.",
+            "Run Restore-OriginalOpenOmsiHost.ps1 to restore the original executable."
           ) | Set-Content -LiteralPath (Join-Path $hostArtifact "README-NAVBR-HOST-TEST.txt") -Encoding UTF8
 
       - name: Smoke-test content-root install and removal
@@ -261,6 +265,36 @@ jobs:
               throw "Remover left file behind: $removed"
             }
           }
+
+          Remove-Item $fakeRoot -Recurse -Force
+
+      - name: Smoke-test NavBR host install and restore
+        shell: pwsh
+        run: |
+          $fakeRoot = Join-Path $env:RUNNER_TEMP "NavBR-openOMSI-Host-CI"
+          if (Test-Path $fakeRoot) {
+            Remove-Item $fakeRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $fakeRoot -Force | Out-Null
+          [System.IO.File]::WriteAllBytes((Join-Path $fakeRoot "openomsi.exe"), [byte[]](1,2,3,4))
+          $package = Resolve-Path "artifacts/NavBR.OpenOmsiHost"
+          & (Join-Path $package "Install-NavBROpenOmsiHost.ps1") -OpenOmsiRoot $fakeRoot
+
+          $backup = Join-Path $fakeRoot "openomsi.navbr-original.exe"
+          $manifest = Join-Path $fakeRoot ".navbr-openomsi-host-test"
+          if (-not (Test-Path $backup)) { throw "Host installer did not create backup." }
+          if (-not (Test-Path $manifest)) { throw "Host installer did not create manifest." }
+          if ((Get-Item (Join-Path $fakeRoot "openomsi.exe")).Length -le 4) {
+            throw "Host installer did not replace openomsi.exe."
+          }
+
+          & (Join-Path $package "Restore-OriginalOpenOmsiHost.ps1") -OpenOmsiRoot $fakeRoot
+          $restored = [System.IO.File]::ReadAllBytes((Join-Path $fakeRoot "openomsi.exe"))
+          if ($restored.Length -ne 4 -or $restored[0] -ne 1 -or $restored[3] -ne 4) {
+            throw "Host restore did not restore the original openomsi.exe."
+          }
+          if (Test-Path $backup) { throw "Host restore left backup behind." }
+          if (Test-Path $manifest) { throw "Host restore left manifest behind." }
 
           Remove-Item $fakeRoot -Recurse -Force
 
