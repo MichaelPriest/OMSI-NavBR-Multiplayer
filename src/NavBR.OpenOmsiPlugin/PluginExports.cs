@@ -374,7 +374,9 @@ public static class PluginExports
             OpenOmsiResolvedProfileIndex: timetable?.ProfileIndex,
             OpenOmsiResolvedDepartureMinutes: timetable?.DepartureMinutes,
             OpenOmsiResolvedStops: timetable?.Stops,
-            OpenOmsiRouteSteps: routeSteps,
+            OpenOmsiRouteSteps: includeHeavyOverlayInBridge
+                ? routeSteps
+                : null,
             OpenOmsiAutomaticRouteGeometryAvailable: timetableRuntime.RoutePoints.Length >= 2,
             OpenOmsiAutomaticRoutePointCount: timetableRuntime.RoutePoints.Length,
             OpenOmsiGuidanceAvailable: guidance.Available,
