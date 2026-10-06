@@ -279,6 +279,12 @@ Replace-Required $navigator @'
         self.cam_heading += angle_diff(self.cam_heading, wanted_heading) * ease(f.dt, 0.3);
 '@
 
+Replace-Required $navigator @'
+        NavFrame { traffic: self.traffic, players: self.players.clone(), bus: self.bus, heading: self.heading, speed_kmh: self.speed_kmh, outside_temp: self.outside_temp, inside_temp: self.inside_temp, line: self.line.clone(), terminus: self.terminus.clone(), stops: self.stops.clone(), delay: self.delay, passengers: self.passengers, time: self.time, weekday: self.weekday, language: self.language, screen: self.screen, ui_scale: self.ui_scale, follow_window: self.follow_window, dt: self.dt, stop_requested: self.stop_requested, info_rect: self.info_rect }
+'@ @'
+        NavFrame { traffic: self.traffic, players: self.players.clone(), bus: self.bus, heading: self.heading, speed_kmh: self.speed_kmh, outside_temp: self.outside_temp, inside_temp: self.inside_temp, line: self.line.clone(), terminus: self.terminus.clone(), stops: self.stops.clone(), delay: self.delay, passengers: self.passengers, time: self.time, weekday: self.weekday, language: self.language, screen: self.screen, ui_scale: self.ui_scale, follow_window: self.follow_window, navbr_radius_meters: self.navbr_radius_meters, navbr_orientation_mode: self.navbr_orientation_mode, dt: self.dt, stop_requested: self.stop_requested, info_rect: self.info_rect }
+'@
+
 # --- let NavBR drive the existing openOMSI navigator layers for this frame.
 Replace-Required $events @'
                         let old_enabled = nav.enabled;
