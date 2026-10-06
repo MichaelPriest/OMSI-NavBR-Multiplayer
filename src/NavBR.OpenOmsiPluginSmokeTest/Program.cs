@@ -178,6 +178,9 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1) == true,
     "Overlay export v1 capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2) == true,
+    "Overlay export v2 capability was not advertised.");
 
 var overlayRequired = OpenOmsiOverlayExport.RequiredBytes;
 Require(overlayRequired > 1, "Overlay export did not cache a payload.");
@@ -193,6 +196,25 @@ using (var overlayDoc = System.Text.Json.JsonDocument.Parse(overlayJson))
         orientation.GetString() == bridge.OpenOmsiOverlayFrame!.OrientationMode,
         "Overlay export JSON missing orientation.");
 }
+var overlayRequiredV2 = OpenOmsiOverlayExport.RequiredBytesV2;
+Require(overlayRequiredV2 > 1, "Overlay export v2 did not cache a payload.");
+var overlayBufferV2 = new byte[overlayRequiredV2];
+var overlayWrittenV2 = OpenOmsiOverlayExport.CopyLatestV2(overlayBufferV2);
+Require(overlayWrittenV2 > 0, "Overlay export v2 copy failed.");
+var overlayJsonV2 = System.Text.Encoding.UTF8.GetString(overlayBufferV2, 0, overlayWrittenV2);
+using (var overlayDocV2 = System.Text.Json.JsonDocument.Parse(overlayJsonV2))
+{
+    Require(
+        overlayDocV2.RootElement.GetProperty("Version").GetInt32() == 2,
+        "Overlay export v2 version mismatch.");
+    Require(
+        overlayDocV2.RootElement.TryGetProperty("Overlay2D", out _),
+        "Overlay export v2 missing 2D frame.");
+    Require(
+        overlayDocV2.RootElement.TryGetProperty("WorldGuidance", out _),
+        "Overlay export v2 missing world frame.");
+}
+
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
