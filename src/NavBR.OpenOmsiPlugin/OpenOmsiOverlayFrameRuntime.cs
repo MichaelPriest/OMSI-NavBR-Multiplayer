@@ -13,6 +13,7 @@ internal static class OpenOmsiOverlayFrameRuntime
         OpenOmsiMapPresentationState map,
         OpenOmsiMapVisualState visual,
         OpenOmsiCompactHudState compactHud,
+        OpenOmsiTeleMatrixState teleMatrix,
         NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState[] groundArrows)
     {
         var full = new OpenOmsiOverlayFrameState(
@@ -43,7 +44,12 @@ internal static class OpenOmsiOverlayFrameRuntime
             MiniMapVisible: hud.MiniMapEnabled,
             FullMapVisible: hud.FullMapEnabled,
             CompactHudVisible: hud.RouteGuidanceEnabled && compactHud.Available,
-            TeleMatrixVisible: hud.TeleMatrixEnabled,
+            TeleMatrixVisible: hud.TeleMatrixEnabled && teleMatrix.Available,
+            TeleMatrixLine: teleMatrix.Line,
+            TeleMatrixDestination: teleMatrix.Destination,
+            TeleMatrixNextStop: teleMatrix.NextStop,
+            TeleMatrixDelaySeconds: teleMatrix.DelaySeconds,
+            TeleMatrixPunctualityState: teleMatrix.PunctualityState,
             CenterX: map.CenterX,
             CenterY: map.CenterY,
             RotationDegrees: map.RotationDegrees,
