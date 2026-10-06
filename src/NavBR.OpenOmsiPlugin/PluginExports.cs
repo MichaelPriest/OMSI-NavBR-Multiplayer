@@ -256,6 +256,7 @@ public static class PluginExports
             mapPresentation,
             mapVisual,
             compactHud,
+            teleMatrix,
             groundArrows);
         OpenOmsiOverlayExport.Publish(
             overlayFrames.Full,
