@@ -79,6 +79,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiGroundArrowPayload = "openomsi-ground-arrow-payload";
     public const string CapabilityOpenOmsiOverlayFrame = "openomsi-overlay-frame";
     public const string CapabilityOpenOmsiOverlayExportV1 = "openomsi-overlay-export-v1";
+    public const string CapabilityOpenOmsiOverlayExportV2 = "openomsi-overlay-export-v2";
     public const string CapabilityOpenOmsiOverlay2DFrame = "openomsi-overlay-2d-frame";
     public const string CapabilityOpenOmsiWorldGuidanceFrame = "openomsi-world-guidance-frame";
 
@@ -406,3 +407,9 @@ public sealed record OpenOmsiOverlay2DFrameState(
 public sealed record OpenOmsiWorldGuidanceFrameState(
     bool Visible,
     OpenOmsiGroundArrowState[] GroundArrows);
+
+public sealed record OpenOmsiOverlayExportEnvelopeV2(
+    int Version,
+    long TimestampUnixMilliseconds,
+    OpenOmsiOverlay2DFrameState Overlay2D,
+    OpenOmsiWorldGuidanceFrameState WorldGuidance);
