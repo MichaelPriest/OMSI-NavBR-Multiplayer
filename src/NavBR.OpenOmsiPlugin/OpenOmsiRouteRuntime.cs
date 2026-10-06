@@ -16,7 +16,7 @@ internal sealed record OpenOmsiRouteRuntimeState(
 internal static class OpenOmsiRouteRuntime
 {
     private const double OffRouteThresholdMeters = 45d;
-    private const int RejoinLookAheadPoints = 3;
+    private const double RejoinLookAheadMeters = 60d;
     private static readonly object Sync = new();
     private static OpenOmsiRoutePoint[] _route = [];
     private static string? _routeKey;
@@ -88,36 +88,35 @@ internal static class OpenOmsiRouteRuntime
             return new(true, routeKey, route.Length, null, false, null, null, null, null);
         }
 
-        var nearestIndex = 0;
-        var nearestDistance = double.MaxValue;
-        for (var i = 0; i < route.Length; i++)
+        var projection = ProjectToRoute(
+            route,
+            snapshot.X.Value,
+            snapshot.Y.Value);
+        if (projection is null)
         {
-            var distance = Distance2D(
-                snapshot.X.Value,
-                snapshot.Y.Value,
-                route[i].X,
-                route[i].Y);
-            if (distance < nearestDistance)
-            {
-                nearestDistance = distance;
-                nearestIndex = i;
-            }
+            return new(true, routeKey, route.Length, null, false, null, null, null, null);
         }
 
-        var offRoute = nearestDistance > OffRouteThresholdMeters;
-        var rejoinIndex = offRoute
-            ? Math.Min(nearestIndex + RejoinLookAheadPoints, route.Length - 1)
-            : nearestIndex;
-        var target = route[rejoinIndex];
+        var offRoute = projection.Value.Distance > OffRouteThresholdMeters;
+        var target = offRoute
+            ? AdvanceAlongRoute(
+                route,
+                projection.Value.SegmentIndex,
+                projection.Value.T,
+                RejoinLookAheadMeters)
+            : new RejoinTarget(
+                projection.Value.NearestPointIndex,
+                projection.Value.X,
+                projection.Value.Y);
 
         return new(
             RouteLoaded: true,
             RouteKey: routeKey,
             RoutePointCount: route.Length,
-            DistanceFromRouteMeters: Math.Round(nearestDistance, 1),
+            DistanceFromRouteMeters: Math.Round(projection.Value.Distance, 1),
             OffRoute: offRoute,
-            NearestRoutePointIndex: nearestIndex,
-            RejoinRoutePointIndex: rejoinIndex,
+            NearestRoutePointIndex: projection.Value.NearestPointIndex,
+            RejoinRoutePointIndex: target.Index,
             RejoinTargetX: target.X,
             RejoinTargetY: target.Y);
     }
@@ -151,6 +150,128 @@ internal static class OpenOmsiRouteRuntime
             NormalizePart(line),
             NormalizePart(tour),
             tripIndex.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private readonly record struct RouteProjection(
+        int SegmentIndex,
+        double T,
+        double X,
+        double Y,
+        double Distance,
+        int NearestPointIndex);
+
+    private readonly record struct RejoinTarget(
+        int Index,
+        double X,
+        double Y);
+
+    private static RouteProjection? ProjectToRoute(
+        OpenOmsiRoutePoint[] route,
+        double x,
+        double y)
+    {
+        if (route.Length == 1)
+        {
+            return new(
+                0,
+                0d,
+                route[0].X,
+                route[0].Y,
+                Distance2D(x, y, route[0].X, route[0].Y),
+                0);
+        }
+
+        RouteProjection? best = null;
+        for (var i = 0; i < route.Length - 1; i++)
+        {
+            var a = route[i];
+            var b = route[i + 1];
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var lengthSquared = dx * dx + dy * dy;
+            var t = lengthSquared <= 1e-9d
+                ? 0d
+                : Math.Clamp(
+                    ((x - a.X) * dx + (y - a.Y) * dy) /
+                    lengthSquared,
+                    0d,
+                    1d);
+
+            var px = a.X + dx * t;
+            var py = a.Y + dy * t;
+            var distance = Distance2D(x, y, px, py);
+            var nearestPoint = t < 0.5d ? i : i + 1;
+            var candidate = new RouteProjection(
+                i,
+                t,
+                px,
+                py,
+                distance,
+                nearestPoint);
+
+            if (best is null ||
+                candidate.Distance < best.Value.Distance)
+            {
+                best = candidate;
+            }
+        }
+
+        return best;
+    }
+
+    private static RejoinTarget AdvanceAlongRoute(
+        OpenOmsiRoutePoint[] route,
+        int segmentIndex,
+        double segmentT,
+        double distanceMeters)
+    {
+        if (route.Length == 1)
+        {
+            return new(0, route[0].X, route[0].Y);
+        }
+
+        var segment = Math.Clamp(segmentIndex, 0, route.Length - 2);
+        var a = route[segment];
+        var b = route[segment + 1];
+        var segmentLength = Distance2D(a.X, a.Y, b.X, b.Y);
+        var remainingOnSegment =
+            Math.Max(0d, segmentLength * (1d - Math.Clamp(segmentT, 0d, 1d)));
+
+        if (distanceMeters <= remainingOnSegment &&
+            segmentLength > 1e-9d)
+        {
+            var t = segmentT + distanceMeters / segmentLength;
+            return new(
+                segment + 1,
+                a.X + (b.X - a.X) * t,
+                a.Y + (b.Y - a.Y) * t);
+        }
+
+        var remaining = Math.Max(0d, distanceMeters - remainingOnSegment);
+        for (var i = segment + 1; i < route.Length - 1; i++)
+        {
+            a = route[i];
+            b = route[i + 1];
+            segmentLength = Distance2D(a.X, a.Y, b.X, b.Y);
+            if (segmentLength <= 1e-9d)
+            {
+                continue;
+            }
+
+            if (remaining <= segmentLength)
+            {
+                var t = remaining / segmentLength;
+                return new(
+                    i + 1,
+                    a.X + (b.X - a.X) * t,
+                    a.Y + (b.Y - a.Y) * t);
+            }
+
+            remaining -= segmentLength;
+        }
+
+        var last = route[^1];
+        return new(route.Length - 1, last.X, last.Y);
     }
 
     private static OpenOmsiRouteRuntimeState Empty() =>
