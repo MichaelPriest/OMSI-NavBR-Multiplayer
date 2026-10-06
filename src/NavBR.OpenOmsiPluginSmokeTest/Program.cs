@@ -189,14 +189,9 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame) == true,
     "Overlay-frame capability was not advertised.");
-Require(bridge.OpenOmsiOverlayFrame is not null, "Overlay frame was not published.");
-Require(bridge.OpenOmsiOverlay2DFrame is not null, "2D overlay frame was not published.");
-Require(bridge.OpenOmsiOverlay2DFrame!.TeleMatrixLine == "76", "Overlay TeleMatrix line mismatch.");
-Require(bridge.OpenOmsiOverlay2DFrame.RouteGuidanceVisible, "Overlay route-guidance flag mismatch.");
-Require(bridge.OpenOmsiOverlay2DFrame.TrafficVisible, "Overlay traffic flag mismatch.");
-Require(bridge.OpenOmsiOverlay2DFrame.PlayersVisible, "Overlay player flag mismatch.");
-Require(bridge.OpenOmsiOverlay2DFrame.TeleMatrixNextStop == "Rathaus", "Overlay TeleMatrix next stop mismatch.");
-Require(bridge.OpenOmsiWorldGuidanceFrame is not null, "World guidance frame was not published.");
+Require(bridge.OpenOmsiOverlayFrame is null, "Heavy overlay frame leaked into normal bridge status.");
+Require(bridge.OpenOmsiOverlay2DFrame is null, "Heavy 2D overlay leaked into normal bridge status.");
+Require(bridge.OpenOmsiWorldGuidanceFrame is null, "Heavy world overlay leaked into normal bridge status.");
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame) == true,
     "2D overlay capability was not advertised.");
@@ -224,7 +219,7 @@ using (var overlayDoc = System.Text.Json.JsonDocument.Parse(overlayJson))
 {
     Require(
         overlayDoc.RootElement.TryGetProperty("OrientationMode", out var orientation) &&
-        orientation.GetString() == bridge.OpenOmsiOverlayFrame!.OrientationMode,
+        orientation.GetString() == "heading-up",
         "Overlay export JSON missing orientation.");
 }
 var overlayRequiredV2 = OpenOmsiOverlayExport.RequiredBytesV2;
@@ -244,6 +239,12 @@ using (var overlayDocV2 = System.Text.Json.JsonDocument.Parse(overlayJsonV2))
     Require(
         overlayDocV2.RootElement.TryGetProperty("WorldGuidance", out _),
         "Overlay export v2 missing world frame.");
+    var overlay2D = overlayDocV2.RootElement.GetProperty("Overlay2D");
+    Require(overlay2D.GetProperty("TeleMatrixLine").GetString() == "76", "Overlay export v2 TeleMatrix line mismatch.");
+    Require(overlay2D.GetProperty("TeleMatrixNextStop").GetString() == "Rathaus", "Overlay export v2 next stop mismatch.");
+    Require(overlay2D.GetProperty("RouteGuidanceVisible").GetBoolean(), "Overlay export v2 route-guidance flag mismatch.");
+    Require(overlay2D.GetProperty("TrafficVisible").GetBoolean(), "Overlay export v2 traffic flag mismatch.");
+    Require(overlay2D.GetProperty("PlayersVisible").GetBoolean(), "Overlay export v2 player flag mismatch.");
 }
 
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
