@@ -205,6 +205,7 @@ public static class PluginExports
         var nearbyPlayerCount = nearbyVehicles.Count(vehicle =>
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
+        var hud = OpenOmsiHudState.Current;
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -273,6 +274,16 @@ public static class PluginExports
             OpenOmsiNearbyMovingAiCount: navigation.NearbyMovingAiCount,
             OpenOmsiNearbySlowAiCount: navigation.NearbySlowAiCount,
             OpenOmsiNearbyStoppedAiCount: navigation.NearbyStoppedAiCount,
+            OpenOmsiMiniMapEnabled: hud.MiniMapEnabled,
+            OpenOmsiFullMapEnabled: hud.FullMapEnabled,
+            OpenOmsiAutoZoomEnabled: hud.AutoZoomEnabled,
+            OpenOmsiFollowVehicleEnabled: hud.FollowVehicleEnabled,
+            OpenOmsiTimetableHudEnabled: hud.TimetableEnabled,
+            OpenOmsiTeleMatrixEnabled: hud.TeleMatrixEnabled,
+            OpenOmsiTrafficLayerEnabled: hud.TrafficEnabled,
+            OpenOmsiMultiplayerLayerEnabled: hud.MultiplayerEnabled,
+            OpenOmsiCongestionLayerEnabled: hud.CongestionEnabled,
+            OpenOmsiRouteGuidanceEnabled: hud.RouteGuidanceEnabled,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -282,7 +293,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
                 PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
                 PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
-                PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime
+                PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration
             ]);
     }
 
@@ -379,5 +391,6 @@ public static class PluginExports
         Volatile.Write(ref _ibisDelaySeconds, null);
         Volatile.Write(ref _ibisDelayState, null);
         PerformanceProfile = "auto";
+        OpenOmsiHudState.Reset();
     }
 }
