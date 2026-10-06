@@ -255,6 +255,7 @@ public static class PluginExports
             hud,
             mapPresentation,
             mapVisual,
+            miniMap,
             compactHud,
             teleMatrix,
             groundArrows);
