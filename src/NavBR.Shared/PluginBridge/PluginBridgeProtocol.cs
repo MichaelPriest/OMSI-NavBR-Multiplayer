@@ -228,6 +228,7 @@ public sealed record PluginBridgeMessage(
     bool? OpenOmsiRouteGuidanceEnabled = null,
     OpenOmsiRoutePoint[]? OpenOmsiRoutePoints = null,
     bool? OpenOmsiRouteLoaded = null,
+    string? OpenOmsiRouteKey = null,
     int? OpenOmsiRoutePointCount = null,
     double? OpenOmsiDistanceFromRouteMeters = null,
     bool? OpenOmsiOffRoute = null,
