@@ -106,3 +106,14 @@ built from the frame's world-space arrow points; they should not be faked as scr
 - never call route parsing or TTData work from the renderer;
 - a malformed optional frame must not mark the OMSI plugin failed;
 - no fixed memory addresses or process injection are required.
+
+
+## Preferred v2 host flow
+
+A host that finds `OpenOmsiGetOverlayFrameV2` should prefer it over v1. Parse the
+`Overlay2D` member on the app/UI side and pass it to the same stage that calls
+`Ui::draw`. Parse `WorldGuidance` separately and hand it to the 3D scene builder before
+the final render pass. If v2 is absent, v1 remains available as the compatibility payload.
+
+The world-guidance path should remain independent of screen DPI, HUD scaling and
+triple-screen overlay placement because its coordinates are map-space X/Y/Z.
