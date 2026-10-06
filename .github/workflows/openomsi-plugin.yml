@@ -298,6 +298,45 @@ jobs:
 
           Remove-Item $fakeRoot -Recurse -Force
 
+      - name: Assemble complete NavBR openOMSI test bundle
+        shell: pwsh
+        run: |
+          $bundle = "artifacts/NavBR.OpenOmsiCompleteTest"
+          if (Test-Path $bundle) {
+            Remove-Item $bundle -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $bundle -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $bundle "Plugin") -Force | Out-Null
+
+          Copy-Item "artifacts/NavBR.OpenOmsiHost/openomsi.exe" (Join-Path $bundle "openomsi.exe") -Force
+          if (Test-Path "artifacts/NavBR.OpenOmsiHost/steam_api64.dll") {
+            Copy-Item "artifacts/NavBR.OpenOmsiHost/steam_api64.dll" (Join-Path $bundle "steam_api64.dll") -Force
+          }
+          Copy-Item "artifacts/NavBR.OpenOmsiHost/Install-NavBROpenOmsiHost.ps1" (Join-Path $bundle "Install-NavBROpenOmsiHost.ps1") -Force
+          Copy-Item "artifacts/NavBR.OpenOmsiHost/Restore-OriginalOpenOmsiHost.ps1" (Join-Path $bundle "Restore-OriginalOpenOmsiHost.ps1") -Force
+          Copy-Item "artifacts/NavBR.OpenOmsiPlugin/*" (Join-Path $bundle "Plugin") -Recurse -Force
+
+          @(
+            "NavBR openOMSI - COMPLETE TEST BUILD",
+            "",
+            "The normal entry point remains openomsi.exe.",
+            "1. Run Install-NavBROpenOmsiHost.ps1 against the existing openOMSI folder.",
+            "2. Run Plugin\Install-NavBROpenOmsiPlugin.ps1 against the same openOMSI folder.",
+            "3. Start openomsi.exe normally.",
+            "4. Press Ctrl+Alt+N to open/close the NavBR panel.",
+            "5. Esc closes the NavBR panel before the normal game menu.",
+            "",
+            "Restore-OriginalOpenOmsiHost.ps1 restores the original executable."
+          ) | Set-Content -LiteralPath (Join-Path $bundle "LEIA-ME-TESTE.txt") -Encoding UTF8
+
+      - name: Upload complete NavBR openOMSI test
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-OpenOMSI-Complete-Test-win-x64
+          path: artifacts/NavBR.OpenOmsiCompleteTest
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload NavBR openOMSI host test
         uses: actions/upload-artifact@v4
         with:
