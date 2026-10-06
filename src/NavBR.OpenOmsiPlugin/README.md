@@ -36,7 +36,7 @@ O pacote tem duas partes complementares e independentes do NavBR Desktop:
    - velocidade dos veículos próximos via `omsi.other_var(id, "Velocity")`;
    - classificação nativa `ai` / `player`.
 
-O snapshot Lua v2 é compatível com o leitor v1. Em movimento ou multiplayer ele é
+O snapshot Lua v3 é compatível com os leitores v1/v2 e agora inclui `trips` e `next_stop_number`. Em movimento ou multiplayer ele é
 persistido a até 2 Hz; parado, a 1 Hz. O loop de 0,25 s apenas decide se há trabalho,
 evitando gravação por frame.
 
@@ -47,7 +47,10 @@ Disponível:
 - velocidade e telemetria básica do veículo;
 - posição XYZ e heading;
 - mapa e contexto do timetable;
-- line, tour, trip, destino e próxima parada;
+- line, tour, trip, quantidade de trips, índice da próxima parada, destino e próxima parada;
+- content root registrado pelo instalador e descoberta autônoma de `maps/<map>/TTData`;
+- resolução real de `.ttl` → tour → trip → `.ttp` → sequência de paradas via `Busstops.cfg`;
+- geometria de rota vinculada ao duty atual, com descarte automático ao trocar line/tour/trip;
 - previsão de chegada/partida da próxima parada;
 - IA próxima no mapa;
 - jogadores openOMSI próximos no mapa;
@@ -140,9 +143,9 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 
 ## Próximas etapas
 
-1. consumir o snapshot v2 diretamente no mapa/GPS do plugin;
-2. montar o grafo de rota/timetable sem reutilizar parsers específicos do desktop;
-3. adicionar rejoin de rota e congestionamento sobre os veículos nativos;
+1. completar a geometria automática da rota usando `StnLinks.cfg`, `.ttr` e paths do mapa;
+2. alimentar o mapa/GPS com o timetable resolvido diretamente do content root;
+3. evoluir rejoin e congestionamento sobre a geometria viária nativa;
 4. ligar CCO/empresa/crachá/chat/voz ao transporte de rede do plugin;
 5. criar HUD/painel/setas 3D somente quando houver API gráfica oficial no openOMSI;
 6. manter o modo RP delegado ao `on_foot.rs` nativo.
