@@ -210,6 +210,15 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2) == true,
     "Overlay export v2 capability was not advertised.");
 
+PluginExports.SetPerformanceProfile("diagnostics");
+var diagnosticBridge = PluginExports.BuildStatus();
+Require(diagnosticBridge.OpenOmsiOverlayFrame is not null, "Diagnostics overlay frame missing.");
+Require(diagnosticBridge.OpenOmsiOverlay2DFrame is not null, "Diagnostics 2D overlay missing.");
+Require(diagnosticBridge.OpenOmsiWorldGuidanceFrame is not null, "Diagnostics world overlay missing.");
+Require(diagnosticBridge.OpenOmsiRouteSteps is not null, "Diagnostics route steps missing.");
+Require(diagnosticBridge.OpenOmsiMapMarkers is not null, "Diagnostics map markers missing.");
+PluginExports.SetPerformanceProfile("auto");
+
 var bridgeJson = System.Text.Json.JsonSerializer.Serialize(
     bridge,
     OpenOmsiPluginJsonContext.Default.PluginBridgeMessage);
