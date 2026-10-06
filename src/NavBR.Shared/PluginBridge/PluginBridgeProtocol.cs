@@ -83,6 +83,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiOverlay2DFrame = "openomsi-overlay-2d-frame";
     public const string CapabilityOpenOmsiWorldGuidanceFrame = "openomsi-world-guidance-frame";
     public const string CapabilityOpenOmsiGroundArrowPrimitives = "openomsi-ground-arrow-primitives";
+    public const string CapabilityOpenOmsiHostHudControlV1 = "openomsi-host-hud-control-v1";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -393,6 +394,10 @@ public sealed record OpenOmsiOverlay2DFrameState(
     bool RouteGuidanceVisible,
     bool TrafficVisible,
     bool PlayersVisible,
+    bool AutoZoomEnabled,
+    bool FollowVehicleEnabled,
+    bool TimetableVisible,
+    bool CongestionVisible,
     string? TeleMatrixLine,
     string? TeleMatrixDestination,
     string? TeleMatrixNextStop,
