@@ -82,6 +82,29 @@ Require(miniMap.RemainingMeters is >= 179d and <= 181d, "Minimap remaining dista
 Require(miniMap.GuidanceWaypoints.Length > 0, "Guidance waypoints missing.");
 Require(miniMap.GuidanceWaypoints.All(p => p.DistanceAheadMeters > 0d), "Invalid guidance waypoint distance.");
 
+var visualRoute = OpenOmsiMapVisualRuntime.Build(
+[
+    new OpenOmsiRoutePoint(0, 0),
+    new OpenOmsiRoutePoint(0, 50),
+    new OpenOmsiRoutePoint(0, 100),
+    new OpenOmsiRoutePoint(50, 100)
+],
+snapshot with { X = 0d, Y = 55d },
+new OpenOmsiRouteRuntimeState(
+    true,
+    routeKey,
+    4,
+    5d,
+    false,
+    1,
+    1,
+    0d,
+    55d));
+Require(visualRoute.Available, "Map visual state unavailable.");
+Require(visualRoute.TraveledRoute.Length == 2, "Traveled route segmentation mismatch.");
+Require(visualRoute.ForwardRoute.Length == 3, "Forward route segmentation mismatch.");
+Require(visualRoute.RejoinRoute.Length == 0, "Unexpected rejoin segment.");
+
 var bridge = PluginExports.BuildStatus();
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime) == true,
@@ -95,6 +118,9 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints) == true,
     "Guidance waypoint capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState) == true,
+    "Map visual-state capability was not advertised.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
