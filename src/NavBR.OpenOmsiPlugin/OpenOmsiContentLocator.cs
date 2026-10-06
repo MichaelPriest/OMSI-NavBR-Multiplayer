@@ -14,8 +14,16 @@ internal static class OpenOmsiContentLocator
 {
     private const string RootEnvironmentVariable = "NAVBR_OPENOMSI_CONTENT_ROOT";
 
-    public static OpenOmsiContentContext Resolve(string? mapName)
+    public static OpenOmsiContentContext Resolve(
+        string? mapName,
+        string? mapPath = null)
     {
+        var direct = ResolveFromMapPath(mapPath);
+        if (direct is not null)
+        {
+            return direct;
+        }
+
         foreach (var root in EnumerateRoots())
         {
             if (!Directory.Exists(root))
@@ -35,6 +43,70 @@ internal static class OpenOmsiContentLocator
         }
 
         return new(null, null, null);
+    }
+
+    private static OpenOmsiContentContext? ResolveFromMapPath(string? mapPath)
+    {
+        if (string.IsNullOrWhiteSpace(mapPath))
+        {
+            return null;
+        }
+
+        foreach (var candidate in ResolveMapPathCandidates(mapPath))
+        {
+            try
+            {
+                if (!File.Exists(candidate) ||
+                    !string.Equals(
+                        Path.GetFileName(candidate),
+                        "global.cfg",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var mapDirectory = Path.GetDirectoryName(candidate);
+                var mapsDirectory = string.IsNullOrWhiteSpace(mapDirectory)
+                    ? null
+                    : Directory.GetParent(mapDirectory)?.FullName;
+                var root = string.IsNullOrWhiteSpace(mapsDirectory)
+                    ? null
+                    : Directory.GetParent(mapsDirectory)?.FullName;
+                if (string.IsNullOrWhiteSpace(root) ||
+                    !string.Equals(
+                        Path.GetFileName(mapsDirectory),
+                        "maps",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                return new(
+                    ContentRoot: root,
+                    MapDirectory: mapDirectory,
+                    TimetableDirectory: ResolveChildDirectory(mapDirectory!, "TTData"));
+            }
+            catch
+            {
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> ResolveMapPathCandidates(string mapPath)
+    {
+        var trimmed = mapPath.Trim().Replace('\\', Path.DirectorySeparatorChar);
+        if (Path.IsPathRooted(trimmed))
+        {
+            yield return Path.GetFullPath(trimmed);
+            yield break;
+        }
+
+        foreach (var root in EnumerateRoots())
+        {
+            yield return Path.GetFullPath(Path.Combine(root, trimmed));
+        }
     }
 
     internal static string ConfigFilePath
