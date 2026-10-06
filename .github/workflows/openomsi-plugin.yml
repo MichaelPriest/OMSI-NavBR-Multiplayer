@@ -78,7 +78,15 @@ jobs:
             "artifacts/NavBR.OpenOmsiPlugin/main.lua",
             "artifacts/NavBR.OpenOmsiPlugin/Install-NavBROpenOmsiPlugin.ps1",
             "artifacts/NavBR.OpenOmsiPlugin/Remove-NavBROpenOmsiPlugin.ps1",
-            "artifacts/NavBR.OpenOmsiPlugin/README.md"
+            "artifacts/NavBR.OpenOmsiPlugin/README.md",
+            "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_OVERLAY_ABI.md",
+            "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_HOST_INTEGRATION.md",
+            "artifacts/NavBR.OpenOmsiPlugin/OPENOMSI_WORLD_GUIDANCE_RENDERER.md",
+            "artifacts/NavBR.OpenOmsiPlugin/patches/README.md",
+            "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-overlay-loader-v2.patch",
+            "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-overlay-app-state-v2.patch",
+            "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-overlay-ui-v2.patch",
+            "artifacts/NavBR.OpenOmsiPlugin/patches/openomsi-navbr-world-guidance-stock-fallback-v2.patch"
           )) {
             if (-not (Test-Path $required)) {
               throw "openOMSI package incomplete: $required"
