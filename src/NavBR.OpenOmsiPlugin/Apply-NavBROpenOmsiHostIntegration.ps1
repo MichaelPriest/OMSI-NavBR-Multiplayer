@@ -232,7 +232,12 @@ Replace-Required $events @'
                             nav.opacity = vr_nav_display.map(|d| d.placement.opacity).unwrap_or(0.95);
                         } else if let Some(n) = self.navbr_overlay.overlay_2d.as_ref() {
                             nav.enabled = n.mini_map_visible;
-                            nav.arrows = n.route_guidance_visible;
+                            let navbr_world_visible = self
+                                .navbr_overlay
+                                .world
+                                .as_ref()
+                                .is_some_and(|world| world.visible);
+                            nav.arrows = n.route_guidance_visible && !navbr_world_visible;
                             nav.show_ai = n.traffic_visible;
                         }
 '@
