@@ -230,6 +230,9 @@ public static class PluginExports
             guidance,
             hud,
             stopMarkers);
+        var teleMatrix = OpenOmsiTeleMatrixRuntime.Build(
+            snapshot,
+            timetable);
         var timetable = timetableRuntime.Trip;
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
@@ -365,6 +368,16 @@ public static class PluginExports
             OpenOmsiMapRadiusMeters: mapPresentation.RadiusMeters,
             OpenOmsiMapOrientationMode: mapPresentation.OrientationMode,
             OpenOmsiMapMarkers: mapPresentation.Markers,
+            OpenOmsiTeleMatrixRuntimeAvailable: teleMatrix.Available,
+            OpenOmsiTeleMatrixLine: teleMatrix.Line,
+            OpenOmsiTeleMatrixDestination: teleMatrix.Destination,
+            OpenOmsiTeleMatrixNextStop: teleMatrix.NextStop,
+            OpenOmsiTeleMatrixStopNumber: teleMatrix.StopNumber,
+            OpenOmsiTeleMatrixStopCount: teleMatrix.StopCount,
+            OpenOmsiTeleMatrixDelaySeconds: teleMatrix.DelaySeconds,
+            OpenOmsiTeleMatrixNextArrivalSeconds: teleMatrix.NextArrivalSeconds,
+            OpenOmsiTeleMatrixNextDepartureSeconds: teleMatrix.NextDepartureSeconds,
+            OpenOmsiTeleMatrixPunctualityState: teleMatrix.PunctualityState,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -384,7 +397,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime,
                 PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints,
                 PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState,
-                PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation
+                PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation,
+                PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime
             ]);
     }
 
