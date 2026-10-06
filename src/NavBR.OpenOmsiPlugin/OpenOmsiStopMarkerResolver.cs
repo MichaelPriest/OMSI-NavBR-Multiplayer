@@ -47,7 +47,12 @@ internal static class OpenOmsiStopMarkerResolver
                     continue;
                 }
 
-                found[index] = marker;
+                found[index] = marker with
+                {
+                    Label = index < trip.Stops.Length
+                        ? trip.Stops[index]
+                        : marker.Label
+                };
                 wanted.Remove(ParseMarkerId(marker.Id));
             }
         }
