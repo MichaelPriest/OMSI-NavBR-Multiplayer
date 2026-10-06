@@ -41,5 +41,8 @@
     <None Update="OPENOMSI_HOST_INTEGRATION.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="OPENOMSI_WORLD_GUIDANCE_RENDERER.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
