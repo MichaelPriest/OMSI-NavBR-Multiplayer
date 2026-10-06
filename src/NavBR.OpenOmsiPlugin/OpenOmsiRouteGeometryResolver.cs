@@ -1,3 +1,4 @@
+using NavBR.Shared.PluginBridge;
 using System.Globalization;
 
 namespace NavBR.OpenOmsiPlugin;
