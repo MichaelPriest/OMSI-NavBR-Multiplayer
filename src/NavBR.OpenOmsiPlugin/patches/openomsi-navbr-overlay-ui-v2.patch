@@ -1,0 +1,100 @@
+diff --git a/crates/omsi-app/src/app_events.rs b/crates/omsi-app/src/app_events.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/app_events.rs
++++ b/crates/omsi-app/src/app_events.rs
+@@
+                             tags,
+                             notices: &self.notices,
+                             notice_anchor: self.navigator.as_ref().and_then(|n| n.screen_rect()),
++                            navbr_overlay: self.navbr_overlay.overlay_2d.as_ref(),
+                         };
+                         ui.draw_at(r, scene, &frame, dt, hud[0]);
+diff --git a/crates/omsi-app/src/ui.rs b/crates/omsi-app/src/ui.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-app/src/ui.rs
++++ b/crates/omsi-app/src/ui.rs
+@@
+ pub struct Frame<'a> {
+@@
+     /// Where the navigator is on the screen (the notifications stand over it, or under it
+     /// in a top corner); none: they go to the top middle.
+     pub notice_anchor: Option<[f32; 4]>,
++    /// Optional enhanced plugin overlay, already parsed/cached by the app.
++    pub navbr_overlay: Option<&'a crate::navbr_overlay::Overlay2D>,
+@@
+         if !f.notices.is_empty() {
+@@
+         }
++
++        // --- optional enhanced-plugin navigation card. It deliberately uses the same
++        // TextCache/overlay path as the game's own UI: no second window, hook or injected
++        // renderer is involved.
++        if let Some(nav) = f.navbr_overlay.filter(|n| n.compact_hud_visible) {
++            let s = f.scale.max(0.5) * f.ui_scale;
++            let width = (360.0 * s).min(f.width * 0.48);
++            let pad = 12.0 * s;
++            let primary_px = (22.0 * s) as u32;
++            let secondary_px = (14.0 * s) as u32;
++            let x = ((f.width - width) * 0.5).round();
++            let y = 58.0 * s;
++
++            let primary = nav.primary_text.as_deref().unwrap_or("Navigation");
++            let mut detail = nav.secondary_text.clone().unwrap_or_default();
++            if let Some(m) = nav.distance_to_maneuver_meters {
++                let distance = if m >= 1000.0 {
++                    format!("{:.1} km", m / 1000.0)
++                } else {
++                    format!("{:.0} m", m)
++                };
++                if !detail.is_empty() {
++                    detail.push_str(" · ");
++                }
++                detail.push_str(&distance);
++            }
++
++            let primary_label = self.text.label(
++                r,
++                scene,
++                primary,
++                primary_px | BOLD,
++                [255, 255, 255, 0],
++            );
++            let detail_label = (!detail.is_empty()).then(|| {
++                self.text.label(
++                    r,
++                    scene,
++                    &detail,
++                    secondary_px,
++                    [220, 220, 220, 0],
++                )
++            });
++
++            let content_h = primary_label.h as f32
++                + detail_label.map_or(0.0, |l| l.h as f32 + 4.0 * s);
++            let height = content_h + pad * 2.0;
++            let plate = self.text.plate(r, scene, if nav.off_route { 6 } else { 3 });
++            scene.overlays.push((plate, [x, y, x + width, y + height]));
++
++            let px0 = x + pad;
++            let py0 = y + pad;
++            scene.overlays.push((
++                primary_label.tex,
++                [
++                    px0,
++                    py0,
++                    px0 + primary_label.w as f32,
++                    py0 + primary_label.h as f32,
++                ],
++            ));
++
++            if let Some(label) = detail_label {
++                let sy = py0 + primary_label.h as f32 + 4.0 * s;
++                scene.overlays.push((
++                    label.tex,
++                    [px0, sy, px0 + label.w as f32, sy + label.h as f32],
++                ));
++            }
++        }
++
+         if let Some(fps) = f.fps {
+             let l = self.text.label(r, scene, &format!("{fps:.0} fps"), (13.0 * s) as u32, [255, 255, 255, 200]);
