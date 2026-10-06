@@ -192,7 +192,31 @@ jobs:
             Pop-Location
             throw "Patched openOMSI mesh-guidance host did not compile."
           }
+
+          cargo build --locked --release --target x86_64-pc-windows-msvc -p omsi-app
+          if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            throw "Patched openOMSI NavBR host release build failed."
+          }
+
+          $hostArtifact = Join-Path $env:GITHUB_WORKSPACE "artifacts\NavBR.OpenOmsiHost"
+          New-Item -ItemType Directory -Path $hostArtifact -Force | Out-Null
+          Copy-Item "target\x86_64-pc-windows-msvc\release\openomsi.exe" (Join-Path $hostArtifact "openomsi-navbr.exe") -Force
+          Copy-Item "assets\steam_redist\steam_api64.dll" (Join-Path $hostArtifact "steam_api64.dll") -Force
           Pop-Location
+
+          @(
+            "NavBR enhanced openOMSI host - TEST BUILD",
+            "",
+            "Upstream openOMSI: 100f7f6a2322f3b35207694850a7a4970fe0bb17",
+            "World guidance renderer: mesh",
+            "",
+            "Use with the NavBR openOMSI plugin artifact from the same workflow run.",
+            "Back up your current openOMSI executable before testing.",
+            "Place openomsi-navbr.exe and steam_api64.dll in the existing openOMSI folder/content root.",
+            "Start openomsi-navbr.exe and use Ctrl+Alt+N to open the NavBR panel.",
+            "Esc closes the NavBR panel first."
+          ) | Set-Content -LiteralPath (Join-Path $hostArtifact "README-NAVBR-HOST-TEST.txt") -Encoding UTF8
 
       - name: Smoke-test content-root install and removal
         shell: pwsh
@@ -240,6 +264,13 @@ jobs:
 
           Remove-Item $fakeRoot -Recurse -Force
 
+      - name: Upload NavBR openOMSI host test
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMSI-NavBR-OpenOMSI-Host-win-x64
+          path: artifacts/NavBR.OpenOmsiHost
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload openOMSI plugin
         uses: actions/upload-artifact@v4
         with:
