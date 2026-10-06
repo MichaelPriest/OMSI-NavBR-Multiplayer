@@ -206,9 +206,9 @@ public static class PluginExports
             string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
         var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
         var hud = OpenOmsiHudState.Current;
-        var route = OpenOmsiRouteRuntime.Build(snapshot);
         var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName);
         var timetableRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
+        var route = OpenOmsiRouteRuntime.Build(snapshot);
         var timetable = timetableRuntime.Trip;
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
@@ -318,6 +318,8 @@ public static class PluginExports
             OpenOmsiResolvedDepartureMinutes: timetable?.DepartureMinutes,
             OpenOmsiResolvedStops: timetable?.Stops,
             OpenOmsiRouteSteps: routeSteps,
+            OpenOmsiAutomaticRouteGeometryAvailable: timetableRuntime.RoutePoints.Length >= 2,
+            OpenOmsiAutomaticRoutePointCount: timetableRuntime.RoutePoints.Length,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
@@ -331,7 +333,8 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
                 PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
                 PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
-                PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps,
+                PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry
             ]);
     }
 
@@ -431,6 +434,5 @@ public static class PluginExports
         OpenOmsiHudState.Reset();
         OpenOmsiRouteRuntime.Clear();
         OpenOmsiTimetableRuntime.Reset();
-        OpenOmsiHudState.Reset();
     }
 }
