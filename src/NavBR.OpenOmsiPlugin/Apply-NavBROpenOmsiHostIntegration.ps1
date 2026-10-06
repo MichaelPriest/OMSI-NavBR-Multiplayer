@@ -427,6 +427,53 @@ Replace-Required $events @'
                         nav.show_ai = old_show_ai;
 '@
 
+# --- NavBR panel clicks: each row maps directly to OpenOmsiSetHudFlagsV1 bit 0..9.
+Replace-Required $events @'
+    pub(crate) fn left_button(&mut self, event_loop: &ActiveEventLoop, pressed: bool) {
+        if let Some(edit) = self.vr_nav_edit.as_mut() { edit.moving = pressed; return; }
+'@ @'
+    pub(crate) fn left_button(&mut self, event_loop: &ActiveEventLoop, pressed: bool) {
+        if pressed && self.navbr_panel_open {
+            let hit = self.ui.as_ref().and_then(|ui| {
+                ui.navbr_panel_rects.iter().position(|r| {
+                    self.cursor.0 >= r[0]
+                        && self.cursor.0 <= r[2]
+                        && self.cursor.1 >= r[1]
+                        && self.cursor.1 <= r[3]
+                })
+            });
+            if let Some(bit) = hit {
+                let current = self.navbr_overlay.overlay_2d.as_ref().is_some_and(|n| match bit {
+                    0 => n.mini_map_visible,
+                    1 => n.full_map_visible,
+                    2 => n.auto_zoom_enabled,
+                    3 => n.follow_vehicle_enabled,
+                    4 => n.timetable_visible,
+                    5 => n.tele_matrix_visible,
+                    6 => n.traffic_visible,
+                    7 => n.players_visible,
+                    8 => n.congestion_visible,
+                    9 => n.route_guidance_visible,
+                    _ => false,
+                });
+                let changed = self
+                    .plugins
+                    .as_ref()
+                    .is_some_and(|plugins| plugins.set_navbr_hud_flag(bit as u32, !current));
+                self.service_msg = Some((
+                    if changed {
+                        format!("NavBR: opção {} {}", bit + 1, if current { "desativada" } else { "ativada" })
+                    } else {
+                        "NavBR: controle host indisponível".to_string()
+                    },
+                    2.5,
+                ));
+                return;
+            }
+        }
+        if let Some(edit) = self.vr_nav_edit.as_mut() { edit.moving = pressed; return; }
+'@
+
 # --- world-space fallback guidance using native helper objects.
 Replace-Required $events @'
                         } else if self.route_arrows.any() {
@@ -490,6 +537,89 @@ Replace-Required $events @'
 Replace-Required $ui @'
         if let Some(fps) = f.fps {
 '@ @'
+        self.navbr_panel_rects.clear();
+        if f.navbr_panel_open {
+            let s = f.scale.max(0.5) * f.ui_scale;
+            let width = (370.0 * s).min(f.width * 0.46);
+            let row_h = 38.0 * s;
+            let pad = 16.0 * s;
+            let x1 = f.width - 18.0 * s;
+            let x0 = x1 - width;
+            let y0 = 78.0 * s;
+            let rows = f.navbr_overlay.map(|n| [
+                ("Minimapa / GPS", n.mini_map_visible),
+                ("Mapa completo", n.full_map_visible),
+                ("Zoom automático", n.auto_zoom_enabled),
+                ("Seguir veículo", n.follow_vehicle_enabled),
+                ("Horários", n.timetable_visible),
+                ("TeleMatrix", n.tele_matrix_visible),
+                ("Tráfego IA", n.traffic_visible),
+                ("Jogadores", n.players_visible),
+                ("Congestionamento", n.congestion_visible),
+                ("Setas / rota 3D", n.route_guidance_visible),
+            ]).unwrap_or([
+                ("Minimapa / GPS", false),
+                ("Mapa completo", false),
+                ("Zoom automático", false),
+                ("Seguir veículo", false),
+                ("Horários", false),
+                ("TeleMatrix", false),
+                ("Tráfego IA", false),
+                ("Jogadores", false),
+                ("Congestionamento", false),
+                ("Setas / rota 3D", false),
+            ]);
+            let height = 66.0 * s + row_h * rows.len() as f32 + 42.0 * s;
+            let panel = self.text.solid(r, scene, [18, 21, 27, 235]);
+            scene.overlays.push((panel, [x0, y0, x1, y0 + height]));
+
+            let title = self.text.label(r, scene, "NavBR", (24.0 * s) as u32, [255, 255, 255, 0]);
+            scene.overlays.push((title.tex, [x0 + pad, y0 + 14.0 * s, x0 + pad + title.w as f32, y0 + 14.0 * s + title.h as f32]));
+            let sub = self.text.label(r, scene, "Painel do openOMSI  ·  Ctrl+Alt+N", (12.0 * s) as u32, [170, 185, 205, 0]);
+            scene.overlays.push((sub.tex, [x0 + pad, y0 + 42.0 * s, x0 + pad + sub.w as f32, y0 + 42.0 * s + sub.h as f32]));
+
+            let mut y = y0 + 66.0 * s;
+            for (index, (name, enabled)) in rows.iter().enumerate() {
+                let rect = [x0 + 8.0 * s, y, x1 - 8.0 * s, y + row_h];
+                self.navbr_panel_rects.push(rect);
+                let hovered = f.cursor.0 >= rect[0] && f.cursor.0 <= rect[2]
+                    && f.cursor.1 >= rect[1] && f.cursor.1 <= rect[3];
+                if hovered {
+                    let hot = self.text.solid(r, scene, [255, 255, 255, 16]);
+                    scene.overlays.push((hot, rect));
+                }
+                let label = self.text.label(r, scene, name, (15.0 * s) as u32, [235, 239, 245, 0]);
+                let ly = y + (row_h - label.h as f32) * 0.5;
+                scene.overlays.push((label.tex, [x0 + pad, ly, x0 + pad + label.w as f32, ly + label.h as f32]));
+
+                let sw_w = 42.0 * s;
+                let sw_h = 20.0 * s;
+                let sx = x1 - pad - sw_w;
+                let sy = y + (row_h - sw_h) * 0.5;
+                let track = self.text.solid(
+                    r,
+                    scene,
+                    if *enabled { [45, 145, 235, 230] } else { [72, 78, 88, 220] },
+                );
+                scene.overlays.push((track, [sx, sy, sx + sw_w, sy + sw_h]));
+                let knob = self.text.solid(r, scene, [245, 247, 250, 255]);
+                let kw = 16.0 * s;
+                let kx = if *enabled { sx + sw_w - kw - 2.0 * s } else { sx + 2.0 * s };
+                scene.overlays.push((knob, [kx, sy + 2.0 * s, kx + kw, sy + sw_h - 2.0 * s]));
+                let _ = index;
+                y += row_h;
+            }
+
+            let rp = self.text.label(
+                r,
+                scene,
+                "RP/personagem: controles nativos do openOMSI",
+                (12.0 * s) as u32,
+                [155, 174, 198, 0],
+            );
+            scene.overlays.push((rp.tex, [x0 + pad, y + 12.0 * s, x0 + pad + rp.w as f32, y + 12.0 * s + rp.h as f32]));
+        }
+
         if let Some(nav) = f.navbr_overlay.filter(|n| n.tele_matrix_visible) {
             let s = f.scale.max(0.5) * f.ui_scale;
             let width = (300.0 * s).min(f.width * 0.36);
