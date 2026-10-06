@@ -365,6 +365,64 @@ using (var overlayDocV2 = System.Text.Json.JsonDocument.Parse(overlayJsonV2))
         "Overlay export v2 route progress mismatch.");
 }
 
+var baselineOverlayV2Bytes = OpenOmsiOverlayExport.PayloadBytesV2;
+Require(
+    baselineOverlayV2Bytes > 0 &&
+    baselineOverlayV2Bytes <= OpenOmsiOverlayExport.MaximumPayloadBytesForSmoke,
+    "Overlay export v2 baseline payload size invalid.");
+
+var stressRoute = Enumerable.Range(0, 180)
+    .Select(i => new OpenOmsiRoutePoint(
+        X: i * 12d,
+        Y: Math.Sin(i / 8d) * 250d,
+        Z: i % 3 == 0 ? i * 0.02d : null,
+        StopName: i % 15 == 0 ? $"Stop {i:D3}" : null))
+    .ToArray();
+var stressMarkers = Enumerable.Range(0, 320)
+    .Select(i => new OpenOmsiMapMarkerState(
+        Id: $"marker-{i:D4}",
+        Kind: i % 5 == 0 ? "player" : "ai",
+        Label: $"Vehicle {i:D4}",
+        X: 1000d + i * 7d,
+        Y: 2000d - i * 3d,
+        Z: 0d,
+        HeadingDegrees: i % 360,
+        SpeedKph: i % 80))
+    .ToArray();
+var stressOverlay = exportFrames.Overlay2D with
+{
+    TraveledRoute = stressRoute.Take(72).ToArray(),
+    ForwardRoute = stressRoute,
+    Markers = stressMarkers
+};
+OpenOmsiOverlayExport.Publish(
+    exportFrames.Full,
+    stressOverlay,
+    exportFrames.World);
+Require(
+    OpenOmsiOverlayExport.PayloadBytesV2 <= OpenOmsiOverlayExport.MaximumPayloadBytesForSmoke,
+    "Overlay export v2 exceeded payload cap.");
+
+var retainedPayloadBytes = OpenOmsiOverlayExport.PayloadBytesV2;
+var oversizedMarkers = Enumerable.Range(0, 6000)
+    .Select(i => new OpenOmsiMapMarkerState(
+        Id: $"oversized-marker-{i:D5}",
+        Kind: "ai",
+        Label: new string('X', 80),
+        X: i,
+        Y: -i,
+        Z: 0d,
+        HeadingDegrees: 0d,
+        SpeedKph: 0d))
+    .ToArray();
+OpenOmsiOverlayExport.Publish(
+    exportFrames.Full,
+    stressOverlay with { Markers = oversizedMarkers },
+    exportFrames.World);
+Require(
+    OpenOmsiOverlayExport.PayloadBytesV2 == retainedPayloadBytes,
+    "Oversized overlay replaced the last valid v2 frame.");
+
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
