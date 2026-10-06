@@ -208,6 +208,13 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2) == true,
     "Overlay export v2 capability was not advertised.");
 
+var bridgeJson = System.Text.Json.JsonSerializer.Serialize(
+    bridge,
+    OpenOmsiPluginJsonContext.Default.PluginBridgeMessage);
+Require(
+    bridgeJson.Length <= PluginBridgeProtocol.MaxMessageChars,
+    $"Bridge status exceeded max message size: {bridgeJson.Length} chars.");
+
 var overlayRequired = OpenOmsiOverlayExport.RequiredBytes;
 Require(overlayRequired > 1, "Overlay export did not cache a payload.");
 var overlayBuffer = new byte[overlayRequired];
