@@ -195,6 +195,36 @@ Replace-Required $app @'
     /// The on-screen controls
 '@
 
+# --- optional NavBR zoom target for the native navigator.
+Replace-Required $navigator @'
+    /// Map camera: distance, heading, both smoothed.
+    zoom: f64,
+    cam_heading: f64,
+'@ @'
+    /// Map camera: distance, heading, both smoothed.
+    zoom: f64,
+    /// Optional target supplied by an enhanced plugin for this frame.
+    pub navbr_zoom: Option<f64>,
+    cam_heading: f64,
+'@
+
+Replace-Required $navigator @'
+            zoom: 120.0,
+            cam_heading: 0.0,
+'@ @'
+            zoom: 120.0,
+            navbr_zoom: None,
+            cam_heading: 0.0,
+'@
+
+Replace-Required $navigator @'
+        let want = (110.0 + f.speed_kmh as f64 * 2.2).clamp(110.0, 280.0);
+'@ @'
+        let want = self
+            .navbr_zoom
+            .unwrap_or_else(|| (110.0 + f.speed_kmh as f64 * 2.2).clamp(110.0, 280.0));
+'@
+
 # --- consume the cached v2 export after normal plugin frame work.
 Replace-Required $events @'
                     plugins.frame(&mut io);
@@ -299,6 +329,7 @@ Replace-Required $events @'
                         let old_opacity = nav.opacity;
                         let old_arrows = nav.arrows;
                         let old_show_ai = nav.show_ai;
+                        let old_navbr_zoom = nav.navbr_zoom;
                         nav.cockpit_display = vr_active;
                         if vr_active {
                             nav.enabled = vr_nav_display.is_some_and(|d| d.placement.enabled);
@@ -312,6 +343,7 @@ Replace-Required $events @'
                                 .is_some_and(|world| world.visible);
                             nav.arrows = n.route_guidance_visible && !navbr_world_visible;
                             nav.show_ai = n.traffic_visible;
+                            nav.navbr_zoom = Some((n.radius_meters / 5.0).clamp(110.0, 280.0));
                         }
 '@
 
@@ -335,6 +367,7 @@ Replace-Required $events @'
                         nav.opacity = old_opacity;
                         nav.arrows = old_arrows;
                         nav.show_ai = old_show_ai;
+                        nav.navbr_zoom = old_navbr_zoom;
 '@
 
 # --- world-space fallback guidance using native helper objects.
