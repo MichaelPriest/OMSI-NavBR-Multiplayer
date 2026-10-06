@@ -112,7 +112,8 @@ var presentation = OpenOmsiMapPresentationRuntime.Build(
     snapshot,
     state,
     guidance,
-    OpenOmsiHudState.Current);
+    OpenOmsiHudState.Current,
+    []);
 Require(presentation.Available, "Map presentation unavailable.");
 Require(presentation.OrientationMode == "heading-up", "Map orientation mode mismatch.");
 Require(presentation.RadiusMeters < state.SuggestedMapRadiusMeters, "Turn-aware autozoom did not tighten.");
@@ -122,7 +123,8 @@ var trafficHidden = OpenOmsiMapPresentationRuntime.Build(
     snapshot,
     state,
     guidance,
-    OpenOmsiHudState.Current with { TrafficEnabled = false });
+    OpenOmsiHudState.Current with { TrafficEnabled = false },
+    []);
 Require(
     trafficHidden.Markers.All(marker => marker.Kind != "ai"),
     "Traffic markers were not hidden.");
@@ -250,7 +252,9 @@ try
         Path.Combine(mapDir, "tile_0_0.map"),
         "[version]\n14\n" +
         "[object]\n0\nSceneryobjects\\Test\\road.sco\n5001\n100\n100\n0\n0\n0\n0\n0\n" +
-        "[object]\n0\nSceneryobjects\\Test\\road.sco\n5002\n100\n160\n0\n0\n0\n0\n0\n");
+        "[object]\n0\nSceneryobjects\\Test\\road.sco\n5002\n100\n160\n0\n0\n0\n0\n0\n" +
+        "[object]\n0\nSceneryobjects\\Test\\stop.sco\n1001\n98\n95\n0\n0\n0\n0\n0\n" +
+        "[object]\n0\nSceneryobjects\\Test\\stop.sco\n1002\n102\n225\n0\n180\n0\n0\n0\n");
 
     var sceneryDir = Path.Combine(smokeRoot, "Sceneryobjects", "Test");
     Directory.CreateDirectory(sceneryDir);
@@ -284,6 +288,9 @@ try
     Require(resolvedTrip.Terminus == "Bahnhof", "Resolved trip terminus mismatch.");
     Require(resolvedTrip.Stops.SequenceEqual(["Rathaus", "Bahnhof"]), "Resolved stop sequence mismatch.");
 
+    var stopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
+    Require(stopMarkers.Length == 0, "Stops should not resolve before map stop objects exist.");
+
     var resolvedSteps = OpenOmsiRouteStepResolver.Resolve(content, resolvedTrip);
     Require(resolvedSteps.Length == 2, "StnLinks route step count mismatch.");
     Require(resolvedSteps[0].ObjectId == 5001, "First route step object mismatch.");
@@ -296,6 +303,12 @@ try
     Require(Math.Abs(geometry[0].X - 100d) < 0.2d, "Automatic route geometry start X.");
     Require(Math.Abs(geometry[0].Y - 100d) < 0.2d, "Automatic route geometry start Y.");
     Require(Math.Abs(geometry[^1].Y - 220d) < 0.5d, "Automatic route geometry end Y.");
+
+    stopMarkers = OpenOmsiStopMarkerResolver.Resolve(content, resolvedTrip);
+    Require(stopMarkers.Length == 2, "Timetable stop marker count mismatch.");
+    Require(stopMarkers[0].Label == "Rathaus", "First stop marker label mismatch.");
+    Require(Math.Abs(stopMarkers[0].X - 98d) < 0.2d, "First stop marker X mismatch.");
+    Require(Math.Abs(stopMarkers[1].Y - 225d) < 0.2d, "Second stop marker Y mismatch.");
 
     var splineGeometry = OpenOmsiRouteGeometryResolver.Resolve(
         content,
