@@ -17,9 +17,13 @@ internal static class OpenOmsiRouteRuntime
 {
     private const double OffRouteThresholdMeters = 45d;
     private const double RejoinLookAheadMeters = 60d;
+    private const int FreeProgressWindowSegments = 24;
+    private const double ProgressPenaltyPerSegment = 0.75d;
+    private const double MaximumProgressPenaltyMeters = 70d;
     private static readonly object Sync = new();
     private static OpenOmsiRoutePoint[] _route = [];
     private static string? _routeKey;
+    private static int? _lastProjectionSegment;
 
     public static void SetRoute(
         OpenOmsiRoutePoint[]? route,
@@ -27,15 +31,30 @@ internal static class OpenOmsiRouteRuntime
     {
         lock (Sync)
         {
-            _route = route?
+            var normalizedKey = NormalizeRouteKey(routeKey);
+            var next = route?
                 .Where(point =>
                     double.IsFinite(point.X) &&
                     double.IsFinite(point.Y))
                 .ToArray()
                 ?? [];
+
+            var sameRoute =
+                next.Length > 0 &&
+                _route.Length == next.Length &&
+                string.Equals(
+                    _routeKey,
+                    normalizedKey,
+                    StringComparison.Ordinal);
+
+            _route = next;
             _routeKey = _route.Length == 0
                 ? null
-                : NormalizeRouteKey(routeKey);
+                : normalizedKey;
+            if (!sameRoute)
+            {
+                _lastProjectionSegment = null;
+            }
         }
     }
 
@@ -54,6 +73,7 @@ internal static class OpenOmsiRouteRuntime
         {
             _route = [];
             _routeKey = null;
+            _lastProjectionSegment = null;
         }
     }
 
@@ -61,10 +81,12 @@ internal static class OpenOmsiRouteRuntime
     {
         OpenOmsiRoutePoint[] route;
         string? routeKey;
+        int? lastProjectionSegment;
         lock (Sync)
         {
             route = _route;
             routeKey = _routeKey;
+            lastProjectionSegment = _lastProjectionSegment;
         }
 
         if (route.Length == 0)
@@ -91,10 +113,22 @@ internal static class OpenOmsiRouteRuntime
         var projection = ProjectToRoute(
             route,
             snapshot.X.Value,
-            snapshot.Y.Value);
+            snapshot.Y.Value,
+            snapshot.HeadingDegrees,
+            lastProjectionSegment);
         if (projection is null)
         {
             return new(true, routeKey, route.Length, null, false, null, null, null, null);
+        }
+
+        lock (Sync)
+        {
+            if (ReferenceEquals(_route, route) ||
+                (_route.Length == route.Length &&
+                 string.Equals(_routeKey, routeKey, StringComparison.Ordinal)))
+            {
+                _lastProjectionSegment = projection.Value.SegmentIndex;
+            }
         }
 
         var offRoute = projection.Value.Distance > OffRouteThresholdMeters;
@@ -168,7 +202,9 @@ internal static class OpenOmsiRouteRuntime
     private static RouteProjection? ProjectToRoute(
         OpenOmsiRoutePoint[] route,
         double x,
-        double y)
+        double y,
+        double? vehicleHeadingDegrees,
+        int? previousSegment)
     {
         if (route.Length == 1)
         {
@@ -182,6 +218,8 @@ internal static class OpenOmsiRouteRuntime
         }
 
         RouteProjection? best = null;
+        var bestScore = double.PositiveInfinity;
+
         for (var i = 0; i < route.Length - 1; i++)
         {
             var a = route[i];
@@ -209,10 +247,46 @@ internal static class OpenOmsiRouteRuntime
                 distance,
                 nearestPoint);
 
-            if (best is null ||
-                candidate.Distance < best.Value.Distance)
+            var score = distance;
+            if (lengthSquared > 1e-9d &&
+                vehicleHeadingDegrees is double vehicleHeading &&
+                double.IsFinite(vehicleHeading))
+            {
+                var segmentHeading =
+                    Math.Atan2(dx, dy) *
+                    180d / Math.PI;
+                var mismatch = Math.Abs(
+                    WrapDegrees(segmentHeading - vehicleHeading));
+                score += mismatch switch
+                {
+                    > 120d => 35d,
+                    > 80d => 16d,
+                    > 50d => 6d,
+                    _ => 0d
+                };
+            }
+
+            if (previousSegment is int previous)
+            {
+                var jump = Math.Abs(i - previous);
+                if (jump > FreeProgressWindowSegments)
+                {
+                    score += Math.Min(
+                        MaximumProgressPenaltyMeters,
+                        (jump - FreeProgressWindowSegments) *
+                        ProgressPenaltyPerSegment);
+                }
+
+                if (i < previous - 3)
+                {
+                    score += 8d;
+                }
+            }
+
+            if (score < bestScore)
             {
                 best = candidate;
+                bestScore = score;
             }
         }
 
@@ -272,6 +346,17 @@ internal static class OpenOmsiRouteRuntime
 
         var last = route[^1];
         return new(route.Length - 1, last.X, last.Y);
+    }
+
+    private static double WrapDegrees(double value)
+    {
+        var wrapped = (value + 180d) % 360d;
+        if (wrapped < 0d)
+        {
+            wrapped += 360d;
+        }
+
+        return wrapped - 180d;
     }
 
     private static OpenOmsiRouteRuntimeState Empty() =>
