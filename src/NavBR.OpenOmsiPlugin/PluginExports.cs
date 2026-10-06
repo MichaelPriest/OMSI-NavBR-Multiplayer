@@ -257,7 +257,10 @@ public static class PluginExports
             mapVisual,
             compactHud,
             groundArrows);
-        OpenOmsiOverlayExport.Publish(overlayFrames.Full);
+        OpenOmsiOverlayExport.Publish(
+            overlayFrames.Full,
+            overlayFrames.Overlay2D,
+            overlayFrames.World);
         var routeSteps = timetableRuntime.RouteSteps
             .Select(step => new OpenOmsiRouteStepState(
                 step.Leg,
@@ -439,6 +442,7 @@ public static class PluginExports
                 PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
                 PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
                 PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
             ]);
