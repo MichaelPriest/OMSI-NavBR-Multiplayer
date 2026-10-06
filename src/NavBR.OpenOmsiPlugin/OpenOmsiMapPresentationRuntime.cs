@@ -14,6 +14,9 @@ internal sealed record OpenOmsiMapPresentationState(
 internal static class OpenOmsiMapPresentationRuntime
 {
     private const double ManualMapRadiusMeters = 900d;
+    private const int MaximumOverlayMarkers = 160;
+    private const int MaximumPlayerMarkers = 48;
+    private const int MaximumStopMarkers = 64;
     public static OpenOmsiMapPresentationState Build(
         OpenOmsiLuaSnapshot? snapshot,
         OpenOmsiNavigationRuntimeState navigation,
@@ -62,24 +65,41 @@ internal static class OpenOmsiMapPresentationRuntime
             ? NormalizeDegrees(-(snapshot.HeadingDegrees ?? 0d))
             : 0d;
 
-        var movingMarkers = snapshot.NearbyVehicles
-            .Where(vehicle =>
-                (hud.TrafficEnabled &&
-                 string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal)) ||
-                (hud.MultiplayerEnabled &&
-                 string.Equals(vehicle.Kind, "player", StringComparison.Ordinal)))
-            .Select(vehicle => new OpenOmsiMapMarkerState(
-                Id: vehicle.Id,
-                Kind: vehicle.Kind,
-                Label: vehicle.Name,
-                X: vehicle.X,
-                Y: vehicle.Y,
-                Z: vehicle.Z,
-                HeadingDegrees: vehicle.HeadingDegrees,
-                SpeedKph: vehicle.SpeedKph));
+        var centerX = snapshot.X.Value;
+        var centerY = snapshot.Y.Value;
 
-        var markers = movingMarkers
-            .Concat(stopMarkers)
+        var players = hud.MultiplayerEnabled
+            ? snapshot.NearbyVehicles
+                .Where(vehicle =>
+                    string.Equals(vehicle.Kind, "player", StringComparison.Ordinal))
+                .OrderBy(vehicle => DistanceSquared(centerX, centerY, vehicle.X, vehicle.Y))
+                .Take(MaximumPlayerMarkers)
+                .Select(ToMarker)
+                .ToArray()
+            : [];
+
+        var stops = stopMarkers
+            .OrderBy(marker => DistanceSquared(centerX, centerY, marker.X, marker.Y))
+            .Take(MaximumStopMarkers)
+            .ToArray();
+
+        var remaining = Math.Max(
+            0,
+            MaximumOverlayMarkers - players.Length - stops.Length);
+        var ai = hud.TrafficEnabled && remaining > 0
+            ? snapshot.NearbyVehicles
+                .Where(vehicle =>
+                    string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal))
+                .OrderBy(vehicle => DistanceSquared(centerX, centerY, vehicle.X, vehicle.Y))
+                .Take(remaining)
+                .Select(ToMarker)
+                .ToArray()
+            : [];
+
+        var markers = players
+            .Concat(stops)
+            .Concat(ai)
+            .Take(MaximumOverlayMarkers)
             .ToArray();
 
         return new(
@@ -90,6 +110,29 @@ internal static class OpenOmsiMapPresentationRuntime
             RadiusMeters: Math.Round(radius, 1),
             OrientationMode: orientationMode,
             Markers: markers);
+    }
+
+    private static OpenOmsiMapMarkerState ToMarker(
+        OpenOmsiNearbyVehicleState vehicle) =>
+        new(
+            Id: vehicle.Id,
+            Kind: vehicle.Kind,
+            Label: vehicle.Name,
+            X: vehicle.X,
+            Y: vehicle.Y,
+            Z: vehicle.Z,
+            HeadingDegrees: vehicle.HeadingDegrees,
+            SpeedKph: vehicle.SpeedKph);
+
+    private static double DistanceSquared(
+        double centerX,
+        double centerY,
+        double x,
+        double y)
+    {
+        var dx = x - centerX;
+        var dy = y - centerY;
+        return dx * dx + dy * dy;
     }
 
     private static double NormalizeDegrees(double value)
