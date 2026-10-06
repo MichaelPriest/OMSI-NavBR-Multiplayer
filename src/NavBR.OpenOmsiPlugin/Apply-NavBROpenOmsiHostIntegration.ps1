@@ -161,12 +161,16 @@ Replace-Required $plugin @'
         self.loaded.iter().filter_map(Plugin::overlay_frame_v2).collect()
     }
 
-    pub fn set_navbr_hud_flag(&self, bit: u32, enabled: bool) -> bool {
-        let mask = 1u32 << bit;
-        let values = if enabled { mask } else { 0 };
+    pub fn set_navbr_hud_flags(&self, mask: u32, values: u32) -> bool {
         self.loaded
             .iter()
             .any(|plugin| plugin.set_hud_flags_v1(mask, values))
+    }
+
+    pub fn set_navbr_hud_flag(&self, bit: u32, enabled: bool) -> bool {
+        let mask = 1u32 << bit;
+        let values = if enabled { mask } else { 0 };
+        self.set_navbr_hud_flags(mask, values)
     }
 
     pub fn finalize(&mut self) {
@@ -456,13 +460,32 @@ Replace-Required $events @'
                     9 => n.route_guidance_visible,
                     _ => false,
                 });
-                let changed = self
-                    .plugins
-                    .as_ref()
-                    .is_some_and(|plugins| plugins.set_navbr_hud_flag(bit as u32, !current));
+                let plugins = self.plugins.as_ref();
+                let (changed, message) = match bit {
+                    0..=9 => {
+                        let changed = plugins
+                            .is_some_and(|p| p.set_navbr_hud_flag(bit as u32, !current));
+                        (
+                            changed,
+                            format!("NavBR: opção {} {}", bit + 1, if current { "desativada" } else { "ativada" }),
+                        )
+                    }
+                    10..=12 => {
+                        let all = (1u32 << 10) - 1;
+                        let (name, values) = match bit {
+                            10 => ("GPS", (1u32 << 0) | (1u32 << 2) | (1u32 << 3) | (1u32 << 9)),
+                            11 => ("Operação", (1u32 << 0) | (1u32 << 2) | (1u32 << 3) | (1u32 << 4) | (1u32 << 5) | (1u32 << 6) | (1u32 << 8) | (1u32 << 9)),
+                            _ => ("Tudo", all),
+                        };
+                        let changed = plugins
+                            .is_some_and(|p| p.set_navbr_hud_flags(all, values));
+                        (changed, format!("NavBR: preset {name} aplicado"))
+                    }
+                    _ => (false, "NavBR: opção inválida".to_string()),
+                };
                 self.service_msg = Some((
                     if changed {
-                        format!("NavBR: opção {} {}", bit + 1, if current { "desativada" } else { "ativada" })
+                        message
                     } else {
                         "NavBR: controle host indisponível".to_string()
                     },
@@ -604,7 +627,7 @@ Replace-Required $ui @'
                 ("Congestionamento", false),
                 ("Setas / rota 3D", false),
             ]);
-            let height = 66.0 * s + row_h * rows.len() as f32 + 42.0 * s;
+            let height = 66.0 * s + row_h * rows.len() as f32 + 94.0 * s;
             let panel = self.text.solid(r, scene, [18, 21, 27, 235]);
             scene.overlays.push((panel, [x0, y0, x1, y0 + height]));
 
@@ -645,6 +668,27 @@ Replace-Required $ui @'
                 y += row_h;
             }
 
+            let preset_y = y + 8.0 * s;
+            let gap = 8.0 * s;
+            let preset_w = (width - pad * 2.0 - gap * 2.0) / 3.0;
+            for (index, name) in ["GPS", "Operação", "Tudo"].iter().enumerate() {
+                let px = x0 + pad + index as f32 * (preset_w + gap);
+                let rect = [px, preset_y, px + preset_w, preset_y + 30.0 * s];
+                self.navbr_panel_rects.push(rect);
+                let hovered = f.cursor.0 >= rect[0] && f.cursor.0 <= rect[2]
+                    && f.cursor.1 >= rect[1] && f.cursor.1 <= rect[3];
+                let bg = self.text.solid(
+                    r,
+                    scene,
+                    if hovered { [52, 115, 178, 235] } else { [35, 74, 112, 225] },
+                );
+                scene.overlays.push((bg, rect));
+                let label = self.text.label(r, scene, name, (13.0 * s) as u32, [245, 248, 252, 0]);
+                let lx = rect[0] + (preset_w - label.w as f32) * 0.5;
+                let ly = rect[1] + (30.0 * s - label.h as f32) * 0.5;
+                scene.overlays.push((label.tex, [lx, ly, lx + label.w as f32, ly + label.h as f32]));
+            }
+
             let rp = self.text.label(
                 r,
                 scene,
@@ -652,7 +696,8 @@ Replace-Required $ui @'
                 (12.0 * s) as u32,
                 [155, 174, 198, 0],
             );
-            scene.overlays.push((rp.tex, [x0 + pad, y + 12.0 * s, x0 + pad + rp.w as f32, y + 12.0 * s + rp.h as f32]));
+            let rp_y = preset_y + 40.0 * s;
+            scene.overlays.push((rp.tex, [x0 + pad, rp_y, x0 + pad + rp.w as f32, rp_y + rp.h as f32]));
         }
 
         if let Some(nav) = f.navbr_overlay.filter(|n| n.tele_matrix_visible) {
