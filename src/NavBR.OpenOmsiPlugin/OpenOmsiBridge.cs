@@ -118,6 +118,7 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
                         PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
                     ])));
