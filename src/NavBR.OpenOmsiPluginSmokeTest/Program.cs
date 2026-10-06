@@ -357,6 +357,28 @@ Require(
     offRoute.RejoinTargetY is >= 99.9d and <= 100.1d,
     "Distance-based rejoin target mismatch.");
 
+OpenOmsiRouteRuntime.SetRoute(
+[
+    new OpenOmsiRoutePoint(0, -100),
+    new OpenOmsiRoutePoint(0, 0),
+    new OpenOmsiRoutePoint(0, 100),
+    new OpenOmsiRoutePoint(100, 100),
+    new OpenOmsiRoutePoint(100, 0),
+    new OpenOmsiRoutePoint(0, 0),
+    new OpenOmsiRoutePoint(-100, 0)
+],
+routeKey);
+var crossingApproach = OpenOmsiRouteRuntime.Build(
+    snapshot with { X = 0d, Y = -20d, HeadingDegrees = 0d });
+Require(
+    crossingApproach.NearestRoutePointIndex is 0 or 1,
+    "Self-crossing approach selected the wrong route branch.");
+var crossingAtJunction = OpenOmsiRouteRuntime.Build(
+    snapshot with { X = 0d, Y = 0d, HeadingDegrees = 0d });
+Require(
+    crossingAtJunction.NearestRoutePointIndex is <= 2,
+    "Self-crossing projection jumped to a later crossing branch.");
+
 var routeBridge = PluginExports.BuildStatus();
 Require(
     routeBridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin) == true,
