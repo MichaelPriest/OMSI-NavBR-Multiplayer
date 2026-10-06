@@ -108,6 +108,25 @@ Require(visualRoute.TraveledRoute.Length == 2, "Traveled route segmentation mism
 Require(visualRoute.ForwardRoute.Length == 3, "Forward route segmentation mismatch.");
 Require(visualRoute.RejoinRoute.Length == 0, "Unexpected rejoin segment.");
 
+var presentation = OpenOmsiMapPresentationRuntime.Build(
+    snapshot,
+    state,
+    guidance,
+    OpenOmsiHudState.Current);
+Require(presentation.Available, "Map presentation unavailable.");
+Require(presentation.OrientationMode == "heading-up", "Map orientation mode mismatch.");
+Require(presentation.RadiusMeters < state.SuggestedMapRadiusMeters, "Turn-aware autozoom did not tighten.");
+Require(presentation.Markers.Length == snapshot.NearbyVehicles.Length, "Map marker projection mismatch.");
+
+var trafficHidden = OpenOmsiMapPresentationRuntime.Build(
+    snapshot,
+    state,
+    guidance,
+    OpenOmsiHudState.Current with { TrafficEnabled = false });
+Require(
+    trafficHidden.Markers.All(marker => marker.Kind != "ai"),
+    "Traffic markers were not hidden.");
+
 var bridge = PluginExports.BuildStatus();
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime) == true,
@@ -124,6 +143,9 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState) == true,
     "Map visual-state capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation) == true,
+    "Map presentation capability was not advertised.");
 Require(bridge.OpenOmsiSuggestedMapRadiusMeters is > 0d, "Navigation zoom was not published.");
 Require(!string.IsNullOrWhiteSpace(bridge.OpenOmsiCongestionLevel), "Congestion level was not published.");
 
