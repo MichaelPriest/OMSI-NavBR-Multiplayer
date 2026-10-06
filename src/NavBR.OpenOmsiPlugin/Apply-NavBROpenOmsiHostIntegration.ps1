@@ -285,6 +285,16 @@ Replace-Required $navigator @'
         NavFrame { traffic: self.traffic, players: self.players.clone(), bus: self.bus, heading: self.heading, speed_kmh: self.speed_kmh, outside_temp: self.outside_temp, inside_temp: self.inside_temp, line: self.line.clone(), terminus: self.terminus.clone(), stops: self.stops.clone(), delay: self.delay, passengers: self.passengers, time: self.time, weekday: self.weekday, language: self.language, screen: self.screen, ui_scale: self.ui_scale, follow_window: self.follow_window, navbr_radius_meters: self.navbr_radius_meters, navbr_orientation_mode: self.navbr_orientation_mode, dt: self.dt, stop_requested: self.stop_requested, info_rect: self.info_rect }
 '@
 
+# --- apply full-map toggle on transitions only, preserving native Escape/click close.
+Replace-Required $events @'
+                    if let (Some(nav), Some(r), Some(scene)) = (self.navigator.as_mut(), self.renderer.as_ref(), self.scene.as_mut()) {
+'@ @'
+                    if let (Some(nav), Some(r), Some(scene)) = (self.navigator.as_mut(), self.renderer.as_ref(), self.scene.as_mut()) {
+                        if let Some(open) = self.navbr_overlay.take_full_map_change() {
+                            nav.city.open = open;
+                        }
+'@
+
 # --- let NavBR drive the existing openOMSI navigator layers for this frame.
 Replace-Required $events @'
                         let old_enabled = nav.enabled;
@@ -494,6 +504,7 @@ pub(crate) struct State {
     timestamp: i64,
     pub(crate) overlay_2d: Option<Overlay2D>,
     pub(crate) world: Option<WorldGuidance>,
+    full_map_change: Option<bool>,
 }
 
 impl State {
@@ -507,9 +518,22 @@ impl State {
         if frame.timestamp_unix_milliseconds <= self.timestamp {
             return;
         }
+        let full_map = frame.overlay_2_d.full_map_visible;
+        let previous_full_map = self
+            .overlay_2d
+            .as_ref()
+            .is_some_and(|overlay| overlay.full_map_visible);
+        if full_map != previous_full_map {
+            self.full_map_change = Some(full_map);
+        }
+
         self.timestamp = frame.timestamp_unix_milliseconds;
         self.overlay_2d = Some(frame.overlay_2_d);
         self.world = Some(frame.world_guidance);
+    }
+
+    pub(crate) fn take_full_map_change(&mut self) -> Option<bool> {
+        self.full_map_change.take()
     }
 }
 
