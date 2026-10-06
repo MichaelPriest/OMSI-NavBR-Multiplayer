@@ -312,6 +312,9 @@ Require(
 Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2) == true,
     "Overlay export v2 capability was not advertised.");
+Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiHostHudControlV1) == true,
+    "Host HUD control capability was not advertised.");
 
 PluginExports.SetPerformanceProfile("diagnostics");
 var diagnosticBridge = PluginExports.BuildStatus();
@@ -494,6 +497,17 @@ Require(!updatedHud.MiniMapEnabled, "Minimap toggle.");
 Require(!updatedHud.TrafficEnabled, "Traffic layer toggle.");
 Require(updatedHud.RouteGuidanceEnabled, "Route guidance toggle.");
 Require(updatedHud.TeleMatrixEnabled, "Unspecified HUD settings must remain unchanged.");
+
+OpenOmsiHudState.Reset();
+PluginExports.ApplyHostHudFlags(
+    mask: (1u << 0) | (1u << 5) | (1u << 9),
+    values: (1u << 5));
+var hostHud = OpenOmsiHudState.Current;
+Require(!hostHud.MiniMapEnabled, "Host HUD minimap bit did not turn off.");
+Require(hostHud.TeleMatrixEnabled, "Host HUD TeleMatrix bit did not stay on.");
+Require(!hostHud.RouteGuidanceEnabled, "Host HUD guidance bit did not turn off.");
+Require(hostHud.TrafficEnabled, "Host HUD masked update changed unrelated traffic flag.");
+OpenOmsiHudState.Reset();
 
 var configuredBridge = PluginExports.BuildStatus();
 Require(configuredBridge.OpenOmsiMiniMapEnabled == false, "HUD state was not published.");
