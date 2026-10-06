@@ -176,6 +176,9 @@ Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame) == true,
     "World guidance capability was not advertised.");
 Require(
+    bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives) == true,
+    "Ground-arrow primitive capability was not advertised.");
+Require(
     bridge.Capabilities?.Contains(PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1) == true,
     "Overlay export v1 capability was not advertised.");
 Require(
