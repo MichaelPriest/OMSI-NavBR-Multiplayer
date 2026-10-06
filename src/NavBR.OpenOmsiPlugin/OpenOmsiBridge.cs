@@ -120,7 +120,8 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
                         PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
-                        PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame
+                        PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame,
+                        PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
