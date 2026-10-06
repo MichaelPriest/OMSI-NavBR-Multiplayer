@@ -212,6 +212,53 @@ Replace-Required $events @'
                     self.navbr_overlay.update(overlay_frames);
 '@
 
+# --- let NavBR drive the existing openOMSI navigator layers for this frame.
+Replace-Required $events @'
+                        let old_enabled = nav.enabled;
+                        let old_opacity = nav.opacity;
+                        nav.cockpit_display = vr_active;
+                        if vr_active {
+                            nav.enabled = vr_nav_display.is_some_and(|d| d.placement.enabled);
+                            nav.opacity = vr_nav_display.map(|d| d.placement.opacity).unwrap_or(0.95);
+                        }
+'@ @'
+                        let old_enabled = nav.enabled;
+                        let old_opacity = nav.opacity;
+                        let old_arrows = nav.arrows;
+                        let old_show_ai = nav.show_ai;
+                        nav.cockpit_display = vr_active;
+                        if vr_active {
+                            nav.enabled = vr_nav_display.is_some_and(|d| d.placement.enabled);
+                            nav.opacity = vr_nav_display.map(|d| d.placement.opacity).unwrap_or(0.95);
+                        } else if let Some(n) = self.navbr_overlay.overlay_2d.as_ref() {
+                            nav.enabled = n.mini_map_visible;
+                            nav.arrows = n.route_guidance_visible;
+                            nav.show_ai = n.traffic_visible;
+                        }
+'@
+
+Replace-Required $events @'
+                            players: self.lan.as_ref().map(|l| crate::lan::nav_players(&self.remotes, l.my_id)).unwrap_or_default(),
+'@ @'
+                            players: if self.navbr_overlay.overlay_2d.as_ref().is_none_or(|n| n.players_visible) {
+                                self.lan.as_ref().map(|l| crate::lan::nav_players(&self.remotes, l.my_id)).unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            },
+'@
+
+Replace-Required $events @'
+                        nav.frame_at(r, scene, &frame, hud[0]);
+                        nav.enabled = old_enabled;
+                        nav.opacity = old_opacity;
+'@ @'
+                        nav.frame_at(r, scene, &frame, hud[0]);
+                        nav.enabled = old_enabled;
+                        nav.opacity = old_opacity;
+                        nav.arrows = old_arrows;
+                        nav.show_ai = old_show_ai;
+'@
+
 # --- world-space fallback guidance using native helper objects.
 Replace-Required $events @'
                         } else if self.route_arrows.any() {
@@ -398,6 +445,9 @@ pub(crate) struct Overlay2D {
     pub(crate) full_map_visible: bool,
     pub(crate) compact_hud_visible: bool,
     pub(crate) tele_matrix_visible: bool,
+    pub(crate) route_guidance_visible: bool,
+    pub(crate) traffic_visible: bool,
+    pub(crate) players_visible: bool,
     pub(crate) tele_matrix_line: Option<String>,
     pub(crate) tele_matrix_destination: Option<String>,
     pub(crate) tele_matrix_next_stop: Option<String>,
