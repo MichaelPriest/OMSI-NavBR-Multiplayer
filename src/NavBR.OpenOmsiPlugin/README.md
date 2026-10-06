@@ -197,3 +197,17 @@ ou clique, ele permanece fechado até o toggle NavBR ser desligado e ligado nova
 O cartão compacto do host aprimorado também recebe `RouteProgressPercent` e desenha uma
 barra de progresso da rota. Em estado off-route a barra muda de aparência, sem alterar o
 cálculo ou a seleção da rota.
+
+
+### Painel dentro do jogo
+
+Em uma build do openOMSI com a extensão host NavBR aplicada:
+
+- **Ctrl+Alt+N** abre/fecha o painel NavBR;
+- **Esc** fecha o painel antes de abrir o menu do jogo;
+- os switches controlam diretamente o plugin por `OpenOmsiSetHudFlagsV1`;
+- disponíveis: minimapa/GPS, mapa completo, autozoom, seguir veículo, horários,
+  TeleMatrix, tráfego IA, players, congestionamento e setas/rota 3D;
+- RP/personagem continua usando os controles nativos do openOMSI.
+
+O painel não depende do NavBR Desktop e não usa WebView/React.
