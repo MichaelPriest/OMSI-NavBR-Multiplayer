@@ -78,6 +78,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiCompactHud = "openomsi-compact-hud";
     public const string CapabilityOpenOmsiGroundArrowPayload = "openomsi-ground-arrow-payload";
     public const string CapabilityOpenOmsiOverlayFrame = "openomsi-overlay-frame";
+    public const string CapabilityOpenOmsiOverlayExportV1 = "openomsi-overlay-export-v1";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
