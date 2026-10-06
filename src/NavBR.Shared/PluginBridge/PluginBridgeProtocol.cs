@@ -75,6 +75,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityOpenOmsiMapVisualState = "openomsi-map-visual-state";
     public const string CapabilityOpenOmsiMapPresentation = "openomsi-map-presentation";
     public const string CapabilityOpenOmsiTeleMatrixRuntime = "openomsi-telematrix-runtime";
+    public const string CapabilityOpenOmsiCompactHud = "openomsi-compact-hud";
+    public const string CapabilityOpenOmsiGroundArrows = "openomsi-ground-arrows";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -289,7 +291,16 @@ public sealed record PluginBridgeMessage(
     int? OpenOmsiTeleMatrixDelaySeconds = null,
     double? OpenOmsiTeleMatrixNextArrivalSeconds = null,
     double? OpenOmsiTeleMatrixNextDepartureSeconds = null,
-    string? OpenOmsiTeleMatrixPunctualityState = null);
+    string? OpenOmsiTeleMatrixPunctualityState = null,
+    bool? OpenOmsiCompactHudAvailable = null,
+    string? OpenOmsiCompactHudPrimaryText = null,
+    string? OpenOmsiCompactHudSecondaryText = null,
+    string? OpenOmsiCompactHudManeuver = null,
+    string? OpenOmsiCompactHudManeuverIcon = null,
+    double? OpenOmsiCompactHudDistanceMeters = null,
+    double? OpenOmsiCompactHudRouteRemainingMeters = null,
+    bool? OpenOmsiCompactHudOffRoute = null,
+    OpenOmsiGroundArrowState[]? OpenOmsiGroundArrows = null);
 
 public sealed record OpenOmsiNearbyVehicleState(
     string Id,
@@ -331,3 +342,11 @@ public sealed record OpenOmsiMapMarkerState(
     double Z,
     double HeadingDegrees,
     double? SpeedKph = null);
+
+public sealed record OpenOmsiGroundArrowState(
+    double X,
+    double Y,
+    double? Z,
+    double HeadingDegrees,
+    double DistanceAheadMeters,
+    string Kind);
