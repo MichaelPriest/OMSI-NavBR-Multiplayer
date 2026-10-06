@@ -17,6 +17,8 @@ namespace NavBR.OpenOmsiPlugin;
 [JsonSerializable(typeof(OpenOmsiMapMarkerState[]))]
 [JsonSerializable(typeof(NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState[]))]
 [JsonSerializable(typeof(OpenOmsiOverlayFrameState))]
+[JsonSerializable(typeof(OpenOmsiOverlay2DFrameState))]
+[JsonSerializable(typeof(OpenOmsiWorldGuidanceFrameState))]
 [JsonSerializable(typeof(VehicleSectionPose[]))]
 internal partial class OpenOmsiPluginJsonContext : JsonSerializerContext
 {
