@@ -30,6 +30,8 @@ internal static class OpenOmsiMapLayoutReader
 
         var lines = ReadLines(globalPath);
         var tiles = new List<OpenOmsiMapTileRef>();
+        var rawIndex = 0;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var worldCoordinates = false;
 
         for (var i = 0; i < lines.Length; i++)
@@ -54,11 +56,17 @@ internal static class OpenOmsiMapLayoutReader
                 continue;
             }
 
-            tiles.Add(new(
-                Index: tiles.Count,
-                X: x.Value,
-                Y: y.Value,
-                File: file));
+            var key = $"{x.Value}|{y.Value}|{file.Replace('\\', '/').Trim()}";
+            if (seen.Add(key))
+            {
+                tiles.Add(new(
+                    Index: rawIndex,
+                    X: x.Value,
+                    Y: y.Value,
+                    File: file));
+            }
+
+            rawIndex++;
         }
 
         if (tiles.Count == 0)
