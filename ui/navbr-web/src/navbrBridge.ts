@@ -27,6 +27,8 @@ export interface NavBrPlayer {
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
+  openOmsiVisualSyncStatus?: "none" | "pending" | "basic" | "compatible" | "mismatch" | null;
+  openOmsiVisualSyncHash?: string | null;
   physicalTelemetryGridX?: number | null;
   physicalTelemetryGridY?: number | null;
   physicalTelemetryNavigationGridX?: number | null;
