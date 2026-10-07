@@ -528,7 +528,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             IsActive: true,
             CharacterId: selected.Id,
             CharacterName: selected.DisplayName,
-            HumanIndex: result.CharacterHumanIndex);
+            HumanIndex: result.CharacterHumanIndex,
+            CourseDegrees: NormalizeHeading(heading));
 
         ResetNativeActivityObservation();
         UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
@@ -980,6 +981,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var speed = Math.Sqrt(
                 _movementVelocityX * _movementVelocityX +
                 _movementVelocityY * _movementVelocityY);
+            var courseDegrees = speed > 0.05d
+                ? NormalizeHeading(
+                    Math.Atan2(
+                        _movementVelocityX,
+                        _movementVelocityY) *
+                    180d / Math.PI)
+                : heading;
             var activity = speed <= 0.05d
                 ? RoleplayCharacterActivity.Idle
                 : running && speed > WalkSpeedMps * 1.15d
@@ -994,7 +1002,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 LocalZ = z,
                 HeadingDegrees = heading,
                 SpeedMps = speed,
-                Activity = activity
+                Activity = activity,
+                CourseDegrees = courseDegrees
             };
 
             var result = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
