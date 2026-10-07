@@ -388,6 +388,44 @@ await using (var client = new OpenOmsiLanPeerSession())
         chatAtClient.Text == "Resposta do host",
         "SAY host→client did not preserve text");
 
+    var hostSawClientCommand =
+        new TaskCompletionSource<(ushort Id, string Command)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var clientSawHostCommand =
+        new TaskCompletionSource<(ushort Id, string Command)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    host.CommandReceived += (id, command) =>
+    {
+        if (id == client.LocalPlayerId)
+        {
+            hostSawClientCommand.TrySetResult((id, command));
+        }
+    };
+    client.CommandReceived += (id, command) =>
+    {
+        if (id == 1)
+        {
+            clientSawHostCommand.TrySetResult((id, command));
+        }
+    };
+
+    await client.SendCommandAsync(1, "cco:hold-position");
+    var commandAtHost =
+        await hostSawClientCommand.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        commandAtHost.Command == "cco:hold-position",
+        "CMD client→host payload mismatch");
+
+    await host.SendCommandAsync(
+        client.LocalPlayerId,
+        "cco:resume");
+    var commandAtClient =
+        await clientSawHostCommand.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        commandAtClient.Command == "cco:resume",
+        "CMD host→client payload mismatch");
+
     var clientSawHostVars =
         new TaskCompletionSource<OpenOmsiVarsFrame>(
             TaskCreationOptions.RunContinuationsAsynchronously);
