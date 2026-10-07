@@ -1429,11 +1429,65 @@ internal sealed class RemotePhysicalVehicleCoordinator
         return HasCoherentPhysicalPose(recovered);
     }
 
-    private static PlayerTelemetryFrame ApplyOpenOmsiWorldAnchor(
+    private PlayerTelemetryFrame ApplyOpenOmsiWorldAnchor(
         PlayerTelemetryFrame frame,
         OmsiPhysicalRoadAnchor anchor)
     {
         var telemetry = frame.Telemetry;
+        VehicleSectionPose[]? rearSections = null;
+
+        if (telemetry.RearSections is { Length: > 0 } incomingRear)
+        {
+            var converted = new List<VehicleSectionPose>(
+                Math.Min(
+                    incomingRear.Length,
+                    OpenOmsiLanProtocol.MaxRearSections));
+
+            foreach (var section in incomingRear.Take(
+                         OpenOmsiLanProtocol.MaxRearSections))
+            {
+                // Incoming openOMSI rear poses are staged in world metres:
+                // LocalX=world X, LocalZ=world ground Y, LocalY=world vertical Z.
+                var heading = QuaternionHeadingDegrees(
+                    section.RotationX,
+                    section.RotationY,
+                    section.RotationZ,
+                    section.RotationW);
+                var sectionTelemetry = telemetry with
+                {
+                    X = section.LocalX,
+                    Y = section.LocalZ,
+                    Z = section.LocalY,
+                    HeadingDegrees = heading,
+                    RearSections = null
+                };
+
+                if (!_physicalRoadAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                        sectionTelemetry,
+                        out var sectionAnchor))
+                {
+                    continue;
+                }
+
+                converted.Add(
+                    new VehicleSectionPose(
+                        sectionAnchor.LocalX,
+                        sectionAnchor.LocalY,
+                        sectionAnchor.LocalZ,
+                        sectionAnchor.RotationX,
+                        sectionAnchor.RotationY,
+                        sectionAnchor.RotationZ,
+                        sectionAnchor.RotationW,
+                        sectionAnchor.GridX,
+                        sectionAnchor.GridY,
+                        MapTileIndex: null));
+            }
+
+            if (converted.Count > 0)
+            {
+                rearSections = converted.ToArray();
+            }
+        }
 
         return frame with
         {
@@ -1469,9 +1523,34 @@ internal sealed class RemotePhysicalVehicleCoordinator
                 VelocityY =
                     telemetry.VelocityZ,
                 VelocityZ =
-                    telemetry.VelocityY
+                    telemetry.VelocityY,
+                RearSections = rearSections
             }
         };
+    }
+
+    private static double QuaternionHeadingDegrees(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var lengthSquared = x * x + y * y + z * z + w * w;
+        if (!double.IsFinite(lengthSquared) || lengthSquared < 0.00000001d)
+        {
+            return 0d;
+        }
+
+        var inverse = 1d / Math.Sqrt(lengthSquared);
+        x *= inverse;
+        y *= inverse;
+        z *= inverse;
+        w *= inverse;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        var degrees = Math.Atan2(sinYaw, cosYaw) * (180d / Math.PI);
+        return (degrees + 360d) % 360d;
     }
 
     private static PlayerTelemetryFrame ApplyPhysicalRoadAnchor(
