@@ -401,7 +401,11 @@ public sealed partial class MultiplayerClientService
                         GridY: 0,
                         MapTileIndex: null);
                 })
-                .ToArray());
+                .ToArray(),
+            SyncTableHash: info?.SyncTableHash,
+            OpenOmsiLamps: state.Lamps.ToArray(),
+            OpenOmsiSwitches: state.Switches.ToArray(),
+            OpenOmsiValues: state.Values.ToArray());
 
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
