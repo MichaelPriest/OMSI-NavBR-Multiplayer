@@ -178,12 +178,11 @@ public partial class MultiplayerWindow
                         : "lan-only";
         var transportMode = !_client.IsConnected
             ? "none"
-            : _host.IsRunning
-                ? "direct-host"
-                : _settings.EnableApplicationRelay &&
-                  !IsLoopbackServerUrl(ServerTextBox.Text.Trim())
-                    ? "dedicated-server"
-                    : "remote-host";
+            : _client.UsesOpenOmsiV6Transport
+                ? _client.IsOpenOmsiV6Host
+                    ? "openomsi-host"
+                    : "openomsi-client"
+                : "service-sidecar-only";
 
         return new
         {
@@ -234,7 +233,7 @@ public partial class MultiplayerWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
-            physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
+            physicalVehiclesEnabled = true,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
             openOmsiV6 = new
             {
@@ -490,8 +489,7 @@ public partial class MultiplayerWindow
     internal bool VoiceEnabledForShell =>
         VoiceEnabledCheckBox.IsChecked == true;
 
-    internal bool PhysicalVehiclesEnabledForShell =>
-        ExperimentalFeatureFlags.PhysicalVehiclesEnabled;
+    internal bool PhysicalVehiclesEnabledForShell => true;
 
     internal bool IsHostRunningForWeb => _host.IsRunning;
 
