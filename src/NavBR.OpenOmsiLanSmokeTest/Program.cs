@@ -286,6 +286,23 @@ await using (var client = new OpenOmsiLanPeerSession())
     Near(clientAtHost.X, 100d, 0.01, "peer client x");
     Require(clientAtHost.Walker is not null, "peer client walker/RP state missing");
 
+    await host.PublishInfoAsync(
+        new OpenOmsiLanVehicleInfo(
+            1,
+            "Host",
+            @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+            string.Empty,
+            "76",
+            "Rathaus",
+            12d,
+            2.5d,
+            -2d,
+            0u,
+            "76/1",
+            [],
+            null,
+            []));
+
     var hostState = OpenOmsiLanVehicleState.Empty(1, 1) with
     {
         Flags = OpenOmsiLanProtocol.FlagVehicle |
@@ -301,6 +318,21 @@ await using (var client = new OpenOmsiLanPeerSession())
 
     var hostAtClient = await clientSawHostState.Task.WaitAsync(TimeSpan.FromSeconds(3));
     Near(hostAtClient.Y, 220d, 0.01, "peer host y");
+
+    var nearby = await client.RequestNearAsync(
+        new OpenOmsiLanFootprint(
+            110d,
+            220d,
+            4d,
+            180d,
+            12d,
+            2.5d));
+    Require(nearby.Count >= 1, "PLACE/NEAR returned no host footprint");
+    var hostFootprint = nearby[0];
+    Near(hostFootprint.X, 110d, 0.05, "NEAR host footprint x");
+    Near(hostFootprint.Y, 222d, 0.05, "NEAR host footprint box offset y");
+    Near(hostFootprint.LengthMeters, 12d, 0.05, "NEAR host footprint length");
+    Near(hostFootprint.WidthMeters, 2.5d, 0.05, "NEAR host footprint width");
 
     var clientSawHostVars =
         new TaskCompletionSource<OpenOmsiVarsFrame>(
