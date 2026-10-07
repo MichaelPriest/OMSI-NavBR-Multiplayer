@@ -1090,7 +1090,12 @@ public sealed partial class MultiplayerClientService
             true,
             null,
             presence.DisplayName,
-            null);
+            null,
+            CourseDegrees: walker.CourseDegrees,
+            Seated: walker.Seated,
+            AboardOwner: walker.AboardOwner,
+            AboardLocal: walker.AboardLocal?.ToArray(),
+            Seat: walker.Seat);
         ApplyRoleplayCharacter(new RoleplayCharacterFrame(presence, state));
     }
 
@@ -2266,11 +2271,11 @@ public sealed partial class MultiplayerClientService
             worldZ,
             (float)rp.HeadingDegrees,
             (float)rp.SpeedMps,
-            (float)rp.HeadingDegrees,
-            false,
-            null,
-            null,
-            null);
+            (float)(rp.CourseDegrees ?? rp.HeadingDegrees),
+            rp.Seated,
+            rp.AboardOwner,
+            rp.AboardLocal,
+            rp.Seat);
     }
 
     private void SetOpenOmsiLocalRoleplayState(RoleplayCharacterState? state) =>
