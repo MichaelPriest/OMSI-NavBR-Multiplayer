@@ -79,6 +79,7 @@ public sealed partial class MultiplayerClientService
         session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
         session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
+            session.ChatReceived += HandleOpenOmsiChat;
         session.RemoteLeft += HandleOpenOmsiRemoteLeft;
         _openOmsiV6Session = session;
         StartOpenOmsiPlaybackLoop();
@@ -158,6 +159,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
+            session.ChatReceived += HandleOpenOmsiChat;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
@@ -894,6 +896,45 @@ public sealed partial class MultiplayerClientService
                syncTable.DoorIds.All(ids.Contains);
     }
 
+    private void HandleOpenOmsiChat(
+        ushort lanId,
+        string displayName,
+        string text)
+    {
+        PlayerPresence? presence = null;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(lanId, out presence);
+        }
+
+        string playerId;
+        string name;
+        if (_openOmsiV6Session?.LocalPlayerId == lanId &&
+            _joinRequest is not null)
+        {
+            playerId = _joinRequest.PlayerId;
+            name = _joinRequest.DisplayName;
+        }
+        else
+        {
+            playerId =
+                presence?.PlayerId ??
+                $"openomsi:{lanId}";
+            name =
+                presence?.DisplayName ??
+                (string.IsNullOrWhiteSpace(displayName)
+                    ? $"Player {lanId}"
+                    : displayName);
+        }
+
+        ChatMessageReceived?.Invoke(
+            new ChatMessage(
+                playerId,
+                name,
+                text,
+                DateTimeOffset.UtcNow));
+    }
+
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
     {
         PlayerPresence? presence;
@@ -1473,6 +1514,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
+            session.ChatReceived += HandleOpenOmsiChat;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
