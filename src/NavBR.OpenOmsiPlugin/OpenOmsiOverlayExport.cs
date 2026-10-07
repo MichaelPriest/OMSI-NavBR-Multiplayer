@@ -11,6 +11,7 @@ internal static class OpenOmsiOverlayExport
     private const int MaximumPayloadBytes = 262_144;
     private static byte[] _latestV1 = [];
     private static byte[] _latestV2 = [];
+    private static OpenOmsiOverlay2DFrameState? _latestOverlay2D;
 
     internal static void Publish(
         OpenOmsiOverlayFrameState frame,
@@ -19,6 +20,7 @@ internal static class OpenOmsiOverlayExport
     {
         try
         {
+            Volatile.Write(ref _latestOverlay2D, overlay2D);
             PublishJson(
                 frame,
                 OpenOmsiPluginJsonContext.Default.OpenOmsiOverlayFrameState,
@@ -51,6 +53,9 @@ internal static class OpenOmsiOverlayExport
             Volatile.Write(ref target, bytes);
         }
     }
+
+    internal static OpenOmsiOverlay2DFrameState? LatestOverlay2D =>
+        Volatile.Read(ref _latestOverlay2D);
 
     internal static int RequiredBytes =>
         Volatile.Read(ref _latestV1).Length + 1;
@@ -87,6 +92,7 @@ internal static class OpenOmsiOverlayExport
     {
         Volatile.Write(ref _latestV1, []);
         Volatile.Write(ref _latestV2, []);
+        Volatile.Write(ref _latestOverlay2D, null);
     }
 
     [UnmanagedCallersOnly(
