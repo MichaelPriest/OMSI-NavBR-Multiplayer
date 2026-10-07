@@ -813,8 +813,65 @@ internal static class PhysicalVehicleLifecycleSupervisor
             applied++;
         }
 
+        var stringCount =
+            snapshot.Strings.Count > 0
+                ? OmsiNativeInterop.TryGetRoadVehicleStringVarCount(
+                    instance.VehiclePointer)
+                : 0;
+        if (snapshot.Strings.Count > 0)
+        {
+            if (stringCount <= 0)
+            {
+                return;
+            }
+
+            var maxStringId = snapshot.Strings.Keys.Max();
+            if (maxStringId >= stringCount)
+            {
+                return;
+            }
+        }
+
+        var appliedStrings = 0;
+        foreach (var pair in snapshot.Strings.Take(64))
+        {
+            // The native writer compares the live UnicodeString first. Stable
+            // IBIS/destination values therefore do not allocate every callback.
+            if (pair.Key >= stringCount ||
+                pair.Value.Length > 255 ||
+                pair.Value.Any(char.IsControl) ||
+                !OmsiNativeInterop.TryWriteRoadVehicleStringVar(
+                    instance.VehiclePointer,
+                    pair.Key,
+                    pair.Value))
+            {
+                var failedKey =
+                    $"{varTableHash:X8}:string-fail:{pair.Key}:{stringCount}";
+                lock (Sync)
+                {
+                    if (!LastVarPinKey.TryGetValue(
+                            instanceId,
+                            out var previous) ||
+                        !string.Equals(
+                            previous,
+                            failedKey,
+                            StringComparison.Ordinal))
+                    {
+                        LastVarPinKey[instanceId] = failedKey;
+                        PluginLogWriter.Enqueue(
+                            $"physical-vars-pin id={instanceId} " +
+                            $"table={varTableHash:X8} status=string-write-failed " +
+                            $"var={pair.Key} stringVars={stringCount}");
+                    }
+                }
+                return;
+            }
+
+            appliedStrings++;
+        }
+
         var successKey =
-            $"{varTableHash:X8}:ok:{count}:{applied}:strings={snapshot.Strings.Count}";
+            $"{varTableHash:X8}:ok:{count}:{applied}:strings={appliedStrings}";
         lock (Sync)
         {
             if (LastVarPinKey.TryGetValue(
@@ -835,7 +892,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             $"physical-vars-pin id={instanceId} " +
             $"table={varTableHash:X8} status=active " +
             $"vars={applied} publicVars={count} " +
-            $"strings={snapshot.Strings.Count} stringMode=receive-only");
+            $"strings={appliedStrings} stringMode=delphi-heap");
     }
 
     private static void PinRemoteVisualSyncVars(
