@@ -3,6 +3,7 @@ using NavBR.Server.Multiplayer;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Telemetry;
 using NavBR.Shared.Network;
+using NavBR.Shared.OpenOmsi;
 
 namespace NavBR.Server.Hubs;
 
@@ -234,6 +235,31 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             Context.ConnectionId,
             voiceEnabled,
             latencyMs);
+        if (updated is null)
+        {
+            return;
+        }
+
+        await Clients
+            .Group(presence.RoomId)
+            .SendAsync("playerPresenceChanged", updated);
+    }
+
+    public async Task UpdateOpenOmsiTransport(OpenOmsiTransportDescriptor? transport)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before updating openOMSI transport.");
+        }
+
+        if (transport is not null && !transport.IsValid)
+        {
+            throw new HubException("Invalid openOMSI transport descriptor.");
+        }
+
+        var updated = registry.UpdateOpenOmsiTransport(
+            Context.ConnectionId,
+            transport);
         if (updated is null)
         {
             return;
