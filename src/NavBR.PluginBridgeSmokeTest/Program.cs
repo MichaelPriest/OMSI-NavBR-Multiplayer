@@ -1871,6 +1871,54 @@ Require(
         new[] { "Linha 875A" }) == true,
     "remote VARS payload mismatch");
 
+var remoteVisualState = new PluginBridgeMessage(
+    PluginBridgeProtocol.RemoteVehicleState,
+    PluginBridgeProtocol.Version,
+    PlayerId: "remote-visual-smoke",
+    SyncTableHash: 0x13572468u,
+    SyncLamps: new float[] { 1f, 0.25f },
+    SyncSwitches: new float[] { 0.75f },
+    SyncValues: new float[] { 12.5f, -3f },
+    SyncDoors: new float[] { 1f, 0f },
+    SyncLampVariableIndices: new ushort[] { 10, 11 },
+    SyncSwitchVariableIndices: new ushort[] { 20 },
+    SyncValueVariableIndices: new ushort[] { 30, 31 },
+    SyncDoorVariableIndices: new ushort[] { 40, 41 });
+var remoteVisualRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(remoteVisualState, cts.Token);
+var remoteVisualLine = await remoteVisualRead;
+var receivedRemoteVisual =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        remoteVisualLine ??
+        throw new InvalidOperationException(
+            "remote visual SyncTable state not received"));
+Require(
+    receivedRemoteVisual?.Type ==
+        PluginBridgeProtocol.RemoteVehicleState &&
+    receivedRemoteVisual.PlayerId == "remote-visual-smoke" &&
+    receivedRemoteVisual.SyncTableHash == 0x13572468u,
+    "remote visual SyncTable identity/hash mismatch");
+Require(
+    receivedRemoteVisual.SyncLamps?.SequenceEqual(
+        new float[] { 1f, 0.25f }) == true &&
+    receivedRemoteVisual.SyncSwitches?.SequenceEqual(
+        new float[] { 0.75f }) == true &&
+    receivedRemoteVisual.SyncValues?.SequenceEqual(
+        new float[] { 12.5f, -3f }) == true &&
+    receivedRemoteVisual.SyncDoors?.SequenceEqual(
+        new float[] { 1f, 0f }) == true,
+    "remote visual SyncTable values mismatch");
+Require(
+    receivedRemoteVisual.SyncLampVariableIndices?.SequenceEqual(
+        new ushort[] { 10, 11 }) == true &&
+    receivedRemoteVisual.SyncSwitchVariableIndices?.SequenceEqual(
+        new ushort[] { 20 }) == true &&
+    receivedRemoteVisual.SyncValueVariableIndices?.SequenceEqual(
+        new ushort[] { 30, 31 }) == true &&
+    receivedRemoteVisual.SyncDoorVariableIndices?.SequenceEqual(
+        new ushort[] { 40, 41 }) == true,
+    "remote visual SyncTable ids mismatch");
+
 LocalOmsiScriptVarsSnapshotStore.Clear();
 var localVarsSnapshot = new PluginBridgeMessage(
     PluginBridgeProtocol.LocalVehicleVars,
