@@ -83,6 +83,29 @@ public static class OmsiPluginBridgeRelay
         return SendBestEffortAsync(message, cancellationToken);
     }
 
+    public static Task ForwardRemoteVarsAsync(
+        string playerId,
+        NavBR.Shared.OpenOmsi.OpenOmsiVarsFrame vars,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.RemoteVehicleVars,
+            PluginBridgeProtocol.Version,
+            PlayerId: playerId,
+            SyncTableHash: vars.TableHash,
+            VariableIndices: vars.Floats.Select(item => item.Index).ToArray(),
+            VariableValues: vars.Floats.Select(item => item.Value).ToArray(),
+            StringVariableIndices: vars.Strings.Select(item => item.Index).ToArray(),
+            StringVariableValues: vars.Strings.Select(item => item.Value).ToArray());
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
     public static Task RemoveRemotePlayerAsync(
         string playerId,
         CancellationToken cancellationToken = default)
