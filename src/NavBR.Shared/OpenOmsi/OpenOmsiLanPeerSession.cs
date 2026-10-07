@@ -47,12 +47,34 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     {
         get
         {
-            if (!IsHost || Port is not int port)
+            if (_sessionId == 0)
             {
                 return null;
             }
 
-            var address = ResolveAdvertiseAddress();
+            IPAddress address;
+            int port;
+            if (IsHost)
+            {
+                if (Port is not int localPort)
+                {
+                    return null;
+                }
+
+                address = ResolveAdvertiseAddress();
+                port = localPort;
+            }
+            else
+            {
+                if (_hostEndpoint is null)
+                {
+                    return null;
+                }
+
+                address = _hostEndpoint.Address;
+                port = _hostEndpoint.Port;
+            }
+
             return new OpenOmsiSessionCode(
                 OpenOmsiLanProtocol.ProtocolVersion,
                 address,
