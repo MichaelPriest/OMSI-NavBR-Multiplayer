@@ -336,10 +336,68 @@ await using (var client = new OpenOmsiLanPeerSession())
     Require(varsAtClient.TableHash == 0xA1B2C3D4u, "VARS table hash mismatch");
     Require(varsAtClient.Floats.Any(item => item.Index == 10 && Math.Abs(item.Value - 1f) < 0.001f),
         "VARS float did not cross host/client session");
+
+
+    var fragmentedFloats = Enumerable.Range(0, 240)
+        .Select(i => ((ushort)(300 + i), (float)i / 10f))
+        .ToArray();
+    var fragmentedStrings = Enumerable.Range(0, 18)
+        .Select(i => (
+            (ushort)(70 + i),
+            $"route-{i:D2}-" + new string('x', 90)))
+        .ToArray();
+    var receivedFloatIds = new HashSet<ushort>();
+    var receivedStringIds = new HashSet<ushort>();
+    var fragmentSync = new object();
+    var fragmentedComplete =
+        new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    client.RemoteVarsReceived += vars =>
+    {
+        if (vars.PlayerId != 1 ||
+            vars.TableHash != 0xBEEFF00Du)
+        {
+            return;
+        }
+
+        lock (fragmentSync)
+        {
+            foreach (var item in vars.Floats)
+            {
+                receivedFloatIds.Add(item.Index);
+            }
+            foreach (var item in vars.Strings)
+            {
+                receivedStringIds.Add(item.Index);
+            }
+
+            if (receivedFloatIds.Count == fragmentedFloats.Length &&
+                receivedStringIds.Count == fragmentedStrings.Length)
+            {
+                fragmentedComplete.TrySetResult(true);
+            }
+        }
+    };
+
+    await host.PublishVarsAsync(
+        new OpenOmsiVarsFrame(
+            1,
+            0xBEEFF00Du,
+            fragmentedFloats,
+            fragmentedStrings));
+
+    await fragmentedComplete.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        fragmentedFloats.All(item => receivedFloatIds.Contains(item.Item1)),
+        "fragmented VARS lost float ids");
+    Require(
+        fragmentedStrings.All(item => receivedStringIds.Contains(item.Item1)),
+        "fragmented VARS lost string ids");
 }
 
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + VARS.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + fragmented VARS.");
 
 static void Require(bool condition, string message)
 {
