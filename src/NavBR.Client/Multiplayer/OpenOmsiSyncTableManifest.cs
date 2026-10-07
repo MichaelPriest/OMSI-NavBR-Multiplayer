@@ -6,6 +6,7 @@ namespace NavBR.Client.Multiplayer;
 
 internal sealed record OpenOmsiSyncTableManifest(
     uint Hash,
+    uint VarTableHash,
     ushort[] LampIds,
     ushort[] SwitchIds,
     ushort[] ValueIds,
@@ -171,6 +172,7 @@ internal static class OpenOmsiSyncTableManifestBuilder
 
         return new OpenOmsiSyncTableManifest(
             hash,
+            variables.Hash,
             lamps.Select(item => item.Id).ToArray(),
             switches.Select(item => item.Id).ToArray(),
             values.Select(item => item.Id).ToArray(),
