@@ -383,7 +383,25 @@ public sealed partial class MultiplayerClientService
             ReverseGear: (state.Flags & OpenOmsiLanProtocol.FlagReverse) != 0,
             VehicleCompatibilityId: presence.Compatibility?.VehicleCompatibilityId,
             HofCompatibilityId: presence.Compatibility?.HofCompatibilityId,
-            SourceTimestampUnixMilliseconds: timestamp.ToUnixTimeMilliseconds());
+            SourceTimestampUnixMilliseconds: timestamp.ToUnixTimeMilliseconds(),
+            RearSections: state.RearSections
+                .Take(OpenOmsiLanProtocol.MaxRearSections)
+                .Select(section =>
+                {
+                    var half = section.HeadingDegrees * (Math.PI / 360d);
+                    return new VehicleSectionPose(
+                        LocalX: section.X,
+                        LocalY: section.Z,
+                        LocalZ: section.Y,
+                        RotationX: 0d,
+                        RotationY: Math.Sin(half),
+                        RotationZ: 0d,
+                        RotationW: Math.Cos(half),
+                        GridX: 0,
+                        GridY: 0,
+                        MapTileIndex: null);
+                })
+                .ToArray());
 
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
