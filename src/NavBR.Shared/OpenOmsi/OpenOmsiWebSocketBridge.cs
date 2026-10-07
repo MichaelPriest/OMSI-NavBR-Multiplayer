@@ -69,11 +69,46 @@ public sealed class OpenOmsiWebSocketGateway : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(port));
         }
 
-        var listener = new HttpListener();
-        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        listener.Start();
+        HttpListener? listener = null;
+        var boundPort = port;
+        Exception? lastError = null;
 
-        var gateway = new OpenOmsiWebSocketGateway(listener, udpTarget, port);
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var candidate = port + attempt;
+            if (candidate > 65535)
+            {
+                break;
+            }
+
+            var candidateListener = new HttpListener();
+            candidateListener.Prefixes.Add(
+                $"http://127.0.0.1:{candidate}/");
+            try
+            {
+                candidateListener.Start();
+                listener = candidateListener;
+                boundPort = candidate;
+                break;
+            }
+            catch (HttpListenerException ex)
+            {
+                lastError = ex;
+                candidateListener.Close();
+            }
+        }
+
+        if (listener is null)
+        {
+            throw new InvalidOperationException(
+                $"Unable to bind openOMSI WebSocket gateway near port {port}.",
+                lastError);
+        }
+
+        var gateway = new OpenOmsiWebSocketGateway(
+            listener,
+            udpTarget,
+            boundPort);
         gateway._acceptLoop = gateway.AcceptLoopAsync(gateway._cts.Token);
         cancellationToken.Register(() => gateway._cts.Cancel());
         return Task.FromResult(gateway);
