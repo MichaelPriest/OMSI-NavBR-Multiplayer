@@ -107,7 +107,7 @@ public partial class HudOverlayWindow
 
         _fullMapCanvas = new Canvas
         {
-            Background = new SolidColorBrush(Color.FromRgb(4, 9, 14)),
+            Background = new SolidColorBrush(Color.FromArgb(210, 10, 10, 10)),
             ClipToBounds = true,
             Focusable = true
         };
@@ -164,8 +164,8 @@ public partial class HudOverlayWindow
         var mapFrame = new Border
         {
             Margin = new Thickness(12d, 0d, 12d, 12d),
-            Background = new SolidColorBrush(Color.FromRgb(4, 9, 14)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(38, 68, 88)),
+            Background = new SolidColorBrush(Color.FromArgb(205, 10, 10, 10)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(150, 178, 178, 178)),
             BorderThickness = new Thickness(1d),
             CornerRadius = new CornerRadius(12d),
             ClipToBounds = true,
@@ -186,8 +186,8 @@ public partial class HudOverlayWindow
             Padding = new Thickness(4d),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
-            Background = new SolidColorBrush(Color.FromArgb(248, 5, 14, 21)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(235, 57, 135, 174)),
+            Background = new SolidColorBrush(Color.FromArgb(225, 8, 8, 8)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(175, 178, 178, 178)),
             BorderThickness = new Thickness(1.5d),
             CornerRadius = new CornerRadius(17d),
             Child = body,
@@ -382,7 +382,7 @@ public partial class HudOverlayWindow
             Width = imageWidth,
             Height = imageHeight,
             Stretch = Stretch.Fill,
-            Opacity = Math.Clamp(settings.HudMapOpacity + 0.30d, 0.55d, 1d),
+            Opacity = Math.Clamp(settings.HudMapOpacity, 0.10d, 1d),
             IsHitTestVisible = false
         };
         Canvas.SetLeft(image, imageLeft);
@@ -422,7 +422,7 @@ public partial class HudOverlayWindow
                 scale,
                 imageLeft,
                 imageTop,
-                new SolidColorBrush(Color.FromRgb(255, 148, 34)),
+                new SolidColorBrush(Color.FromRgb(214, 48, 40)),
                 4.5d);
         }
 
@@ -469,7 +469,7 @@ public partial class HudOverlayWindow
                 scale,
                 imageLeft,
                 imageTop,
-                new SolidColorBrush(Color.FromRgb(87, 207, 255)),
+                new SolidColorBrush(Color.FromRgb(90, 160, 240)),
                 3.2d);
         }
 
@@ -507,7 +507,7 @@ public partial class HudOverlayWindow
                 imageTop + focusPixelY * scale,
                 telemetry.HeadingDegrees,
                 18d,
-                new SolidColorBrush(Color.FromRgb(255, 145, 35)),
+                new SolidColorBrush(Color.FromRgb(235, 235, 235)),
                 "Você");
         }
 
@@ -539,7 +539,7 @@ public partial class HudOverlayWindow
                     imageTop + y * scale,
                     remote.HeadingDegrees,
                     14d,
-                    new SolidColorBrush(Color.FromRgb(80, 177, 255)),
+                    new SolidColorBrush(Color.FromRgb(190, 96, 255)),
                     frame.Player.DisplayName);
             }
         }
@@ -589,7 +589,7 @@ public partial class HudOverlayWindow
                         traffic.RotationZ,
                         traffic.RotationW),
                     9d,
-                    new SolidColorBrush(Color.FromRgb(102, 166, 208)),
+                    new SolidColorBrush(Color.FromRgb(70, 140, 255)),
                     "IA");
             }
         }
