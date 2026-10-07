@@ -104,6 +104,79 @@ public static class OpenOmsiLanProtocol
         return $"NEAR|{playerId.ToString(CultureInfo.InvariantCulture)}|{body}";
     }
 
+    public static bool TryDecodeNear(
+        string text,
+        ushort expectedPlayerId,
+        out IReadOnlyList<OpenOmsiLanFootprint> footprints)
+    {
+        footprints = Array.Empty<OpenOmsiLanFootprint>();
+        var parts = text.Split('|', 3);
+        if (parts.Length < 2 ||
+            !string.Equals(parts[0], "NEAR", StringComparison.Ordinal) ||
+            !ushort.TryParse(
+                parts[1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var playerId) ||
+            playerId != expectedPlayerId)
+        {
+            return false;
+        }
+
+        if (parts.Length < 3 || string.IsNullOrWhiteSpace(parts[2]))
+        {
+            return true;
+        }
+
+        var parsed = new List<OpenOmsiLanFootprint>(28);
+        foreach (var encoded in parts[2]
+                     .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                     .Take(28))
+        {
+            var values = encoded.Split(',');
+            if (values.Length != 6)
+            {
+                continue;
+            }
+
+            var numbers = new double[6];
+            var valid = true;
+            for (var i = 0; i < numbers.Length; i++)
+            {
+                if (!double.TryParse(
+                        values[i],
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out numbers[i]) ||
+                    !double.IsFinite(numbers[i]))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (!valid ||
+                Math.Abs(numbers[0]) > 100_000_000d ||
+                Math.Abs(numbers[1]) > 100_000_000d ||
+                Math.Abs(numbers[2]) > 100_000d)
+            {
+                continue;
+            }
+
+            parsed.Add(
+                new OpenOmsiLanFootprint(
+                    numbers[0],
+                    numbers[1],
+                    numbers[2],
+                    ((numbers[3] % 360d) + 360d) % 360d,
+                    Math.Clamp(numbers[4], 0d, 60d),
+                    Math.Clamp(numbers[5], 0d, 8d)));
+        }
+
+        footprints = parsed;
+        return true;
+    }
+
     public static string EncodeInfo(OpenOmsiLanVehicleInfo info)
     {
         var bus = NormalizeVehiclePath(info.VehiclePath);
