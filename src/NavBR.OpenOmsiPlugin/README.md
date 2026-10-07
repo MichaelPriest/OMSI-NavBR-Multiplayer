@@ -203,8 +203,8 @@ cálculo ou a seleção da rota.
 
 Em uma build do openOMSI com a extensão host NavBR aplicada:
 
-- **Ctrl+Alt+N** abre/fecha o painel NavBR;
-- **Esc** fecha o painel antes de abrir o menu do jogo;
+- **F10** abre/fecha o painel NavBR;
+- **Esc** fica reservado ao openOMSI; F10 abre/fecha o painel;
 - os switches controlam diretamente o plugin por `OpenOmsiSetHudFlagsV1`;
 - disponíveis: minimapa/GPS, mapa completo, autozoom, seguir veículo, horários,
   TeleMatrix, tráfego IA, players, congestionamento e setas/rota 3D;
