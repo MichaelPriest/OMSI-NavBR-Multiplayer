@@ -98,6 +98,20 @@ jobs:
             /OUT:artifacts/interop/NavBR.OmsiInterop.dll
           if ($LASTEXITCODE -ne 0) { throw "Native OMSI interop build failed." }
 
+          $exports = (& dumpbin /nologo /exports "artifacts/interop/NavBR.OmsiInterop.dll") -join "`n"
+          foreach ($name in @(
+            'NavBR_GetRoadVehiclePublicVarCount',
+            'NavBR_ReadRoadVehiclePublicVar',
+            'NavBR_WriteRoadVehiclePublicVar',
+            'NavBR_GetRoadVehicleStringVarCount',
+            'NavBR_ReadRoadVehicleStringVarUtf16',
+            'NavBR_WriteRoadVehicleStringVarUtf16'
+          )) {
+            if ($exports -notmatch "(?m)\b$([regex]::Escape($name))\b") {
+              throw "Native OMSI interop is missing multiplayer script-var export: $name"
+            }
+          }
+
       - name: Publish OMSI plugin x86
         shell: pwsh
         run: |
