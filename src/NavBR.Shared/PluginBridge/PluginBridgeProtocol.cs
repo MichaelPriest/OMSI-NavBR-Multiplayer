@@ -20,6 +20,8 @@ public static class PluginBridgeProtocol
     public const string TrafficSnapshotState = "traffic-snapshot-state";
     public const string ClearTrafficVehicles = "clear-traffic-vehicles";
     public const string SetPerformanceProfile = "set-performance-profile";
+    public const string SetOpenOmsiHudConfiguration = "set-openomsi-hud-configuration";
+    public const string SetOpenOmsiRoutePolyline = "set-openomsi-route-polyline";
 
     // Alpha.11 experimental write-side commands. These messages are accepted only
     // when the plugin reports the corresponding capability and experimental writes
@@ -58,6 +60,30 @@ public static class PluginBridgeProtocol
     public const string CapabilityPerformanceGovernor = "performance-governor";
     public const string CapabilityOpenOmsiStandardPlugin = "openomsi-standard-plugin";
     public const string CapabilityOpenOmsiLuaSnapshot = "openomsi-lua-snapshot";
+    public const string CapabilityOpenOmsiNearbyVehicles = "openomsi-nearby-vehicles";
+    public const string CapabilityOpenOmsiTimetableContext = "openomsi-timetable-context";
+    public const string CapabilityOpenOmsiNativeOnFoot = "openomsi-native-on-foot";
+    public const string CapabilityOpenOmsiNavigationRuntime = "openomsi-navigation-runtime";
+    public const string CapabilityOpenOmsiHudConfiguration = "openomsi-hud-configuration";
+    public const string CapabilityOpenOmsiRouteRejoin = "openomsi-route-rejoin";
+    public const string CapabilityOpenOmsiTimetableResolver = "openomsi-timetable-resolver";
+    public const string CapabilityOpenOmsiRouteSteps = "openomsi-route-steps";
+    public const string CapabilityOpenOmsiAutomaticRouteGeometry = "openomsi-automatic-route-geometry";
+    public const string CapabilityOpenOmsiTurnGuidance = "openomsi-turn-guidance";
+    public const string CapabilityOpenOmsiMiniMapRuntime = "openomsi-minimap-runtime";
+    public const string CapabilityOpenOmsiGuidanceWaypoints = "openomsi-guidance-waypoints";
+    public const string CapabilityOpenOmsiMapVisualState = "openomsi-map-visual-state";
+    public const string CapabilityOpenOmsiMapPresentation = "openomsi-map-presentation";
+    public const string CapabilityOpenOmsiTeleMatrixRuntime = "openomsi-telematrix-runtime";
+    public const string CapabilityOpenOmsiCompactHud = "openomsi-compact-hud";
+    public const string CapabilityOpenOmsiGroundArrowPayload = "openomsi-ground-arrow-payload";
+    public const string CapabilityOpenOmsiOverlayFrame = "openomsi-overlay-frame";
+    public const string CapabilityOpenOmsiOverlayExportV1 = "openomsi-overlay-export-v1";
+    public const string CapabilityOpenOmsiOverlayExportV2 = "openomsi-overlay-export-v2";
+    public const string CapabilityOpenOmsiOverlay2DFrame = "openomsi-overlay-2d-frame";
+    public const string CapabilityOpenOmsiWorldGuidanceFrame = "openomsi-world-guidance-frame";
+    public const string CapabilityOpenOmsiGroundArrowPrimitives = "openomsi-ground-arrow-primitives";
+    public const string CapabilityOpenOmsiHostHudControlV1 = "openomsi-host-hud-control-v1";
 
     public const string ErrorMotionReadbackUnavailable = "motion-readback-unavailable";
     public const string ErrorMotionTransformMismatch = "motion-transform-mismatch";
@@ -189,4 +215,230 @@ public sealed record PluginBridgeMessage(
     double? AccelerationLocalX = null,
     double? AccelerationLocalY = null,
     double? AccelerationLocalZ = null,
-    VehicleSectionPose[]? RearSections = null);
+    VehicleSectionPose[]? RearSections = null,
+    string? OpenOmsiView = null,
+    bool? OpenOmsiOnFoot = null,
+    bool? OpenOmsiMultiplayer = null,
+    int? OpenOmsiTrafficCount = null,
+    int? OpenOmsiNearbyAiCount = null,
+    int? OpenOmsiNearbyPlayerCount = null,
+    double? OpenOmsiNextStopArrival = null,
+    double? OpenOmsiNextStopDeparture = null,
+    int? OpenOmsiTripIndex = null,
+    int? OpenOmsiTripsCount = null,
+    int? OpenOmsiNextStopNumber = null,
+    OpenOmsiNearbyVehicleState[]? OpenOmsiNearbyVehicles = null,
+    double? OpenOmsiSuggestedMapRadiusMeters = null,
+    string? OpenOmsiCongestionLevel = null,
+    double? OpenOmsiAverageNearbyTrafficSpeedKph = null,
+    int? OpenOmsiNearbyMovingAiCount = null,
+    int? OpenOmsiNearbySlowAiCount = null,
+    int? OpenOmsiNearbyStoppedAiCount = null,
+    bool? OpenOmsiMiniMapEnabled = null,
+    bool? OpenOmsiFullMapEnabled = null,
+    bool? OpenOmsiAutoZoomEnabled = null,
+    bool? OpenOmsiFollowVehicleEnabled = null,
+    bool? OpenOmsiTimetableHudEnabled = null,
+    bool? OpenOmsiTeleMatrixEnabled = null,
+    bool? OpenOmsiTrafficLayerEnabled = null,
+    bool? OpenOmsiMultiplayerLayerEnabled = null,
+    bool? OpenOmsiCongestionLayerEnabled = null,
+    bool? OpenOmsiRouteGuidanceEnabled = null,
+    OpenOmsiRoutePoint[]? OpenOmsiRoutePoints = null,
+    bool? OpenOmsiRouteLoaded = null,
+    string? OpenOmsiRouteKey = null,
+    int? OpenOmsiRoutePointCount = null,
+    double? OpenOmsiDistanceFromRouteMeters = null,
+    bool? OpenOmsiOffRoute = null,
+    int? OpenOmsiNearestRoutePointIndex = null,
+    int? OpenOmsiRejoinRoutePointIndex = null,
+    double? OpenOmsiRejoinTargetX = null,
+    double? OpenOmsiRejoinTargetY = null,
+    bool? OpenOmsiContentRootAvailable = null,
+    bool? OpenOmsiMapContentAvailable = null,
+    bool? OpenOmsiTimetableDataAvailable = null,
+    string? OpenOmsiResolvedTripName = null,
+    string? OpenOmsiResolvedTripTerminus = null,
+    int? OpenOmsiResolvedProfileIndex = null,
+    double? OpenOmsiResolvedDepartureMinutes = null,
+    string[]? OpenOmsiResolvedStops = null,
+    OpenOmsiRouteStepState[]? OpenOmsiRouteSteps = null,
+    bool? OpenOmsiAutomaticRouteGeometryAvailable = null,
+    int? OpenOmsiAutomaticRoutePointCount = null,
+    bool? OpenOmsiGuidanceAvailable = null,
+    string? OpenOmsiNextManeuver = null,
+    double? OpenOmsiNextTurnAngleDegrees = null,
+    double? OpenOmsiDistanceToManeuverMeters = null,
+    double? OpenOmsiManeuverTargetX = null,
+    double? OpenOmsiManeuverTargetY = null,
+    bool? OpenOmsiMiniMapRuntimeAvailable = null,
+    double? OpenOmsiRouteLengthMeters = null,
+    double? OpenOmsiRouteProgressMeters = null,
+    double? OpenOmsiRouteRemainingMeters = null,
+    double? OpenOmsiRouteProgressPercent = null,
+    OpenOmsiGuidanceWaypointState[]? OpenOmsiGuidanceWaypoints = null,
+    bool? OpenOmsiMapVisualAvailable = null,
+    OpenOmsiRoutePoint[]? OpenOmsiTraveledRoute = null,
+    OpenOmsiRoutePoint[]? OpenOmsiForwardRoute = null,
+    OpenOmsiRoutePoint[]? OpenOmsiRejoinRoute = null,
+    int? OpenOmsiCurrentRoutePointIndex = null,
+    bool? OpenOmsiMapPresentationAvailable = null,
+    double? OpenOmsiMapCenterX = null,
+    double? OpenOmsiMapCenterY = null,
+    double? OpenOmsiMapRotationDegrees = null,
+    double? OpenOmsiMapRadiusMeters = null,
+    string? OpenOmsiMapOrientationMode = null,
+    OpenOmsiMapMarkerState[]? OpenOmsiMapMarkers = null,
+    bool? OpenOmsiTeleMatrixRuntimeAvailable = null,
+    string? OpenOmsiTeleMatrixLine = null,
+    string? OpenOmsiTeleMatrixDestination = null,
+    string? OpenOmsiTeleMatrixNextStop = null,
+    int? OpenOmsiTeleMatrixStopNumber = null,
+    int? OpenOmsiTeleMatrixStopCount = null,
+    int? OpenOmsiTeleMatrixDelaySeconds = null,
+    double? OpenOmsiTeleMatrixNextArrivalSeconds = null,
+    double? OpenOmsiTeleMatrixNextDepartureSeconds = null,
+    string? OpenOmsiTeleMatrixPunctualityState = null,
+    bool? OpenOmsiCompactHudAvailable = null,
+    string? OpenOmsiCompactHudPrimaryText = null,
+    string? OpenOmsiCompactHudSecondaryText = null,
+    string? OpenOmsiCompactHudManeuver = null,
+    string? OpenOmsiCompactHudManeuverIcon = null,
+    double? OpenOmsiCompactHudDistanceMeters = null,
+    double? OpenOmsiCompactHudRouteRemainingMeters = null,
+    bool? OpenOmsiCompactHudOffRoute = null,
+    OpenOmsiGroundArrowState[]? OpenOmsiGroundArrows = null,
+    OpenOmsiOverlayFrameState? OpenOmsiOverlayFrame = null,
+    OpenOmsiOverlay2DFrameState? OpenOmsiOverlay2DFrame = null,
+    OpenOmsiWorldGuidanceFrameState? OpenOmsiWorldGuidanceFrame = null);
+
+public sealed record OpenOmsiNearbyVehicleState(
+    string Id,
+    string Kind,
+    string? Name,
+    double X,
+    double Y,
+    double Z,
+    double HeadingDegrees,
+    double? SpeedKph = null);
+
+public sealed record OpenOmsiRoutePoint(
+    double X,
+    double Y,
+    double? Z = null,
+    string? StopName = null);
+
+public sealed record OpenOmsiRouteStepState(
+    int Leg,
+    int TileIndex,
+    long ObjectId,
+    int PathIndex,
+    double LengthMeters,
+    bool IsTrack);
+
+public sealed record OpenOmsiGuidanceWaypointState(
+    double X,
+    double Y,
+    double? Z,
+    double DistanceAheadMeters,
+    double HeadingDegrees);
+
+public sealed record OpenOmsiMapMarkerState(
+    string Id,
+    string Kind,
+    string? Label,
+    double X,
+    double Y,
+    double Z,
+    double HeadingDegrees,
+    double? SpeedKph = null);
+
+public sealed record OpenOmsiGroundArrowState(
+    double X,
+    double Y,
+    double? Z,
+    double HeadingDegrees,
+    double DistanceAheadMeters,
+    string Kind);
+
+public sealed record OpenOmsiOverlayFrameState(
+    long TimestampUnixMilliseconds,
+    bool MiniMapVisible,
+    bool FullMapVisible,
+    bool CompactHudVisible,
+    bool TeleMatrixVisible,
+    bool RouteGuidanceVisible,
+    double? CenterX,
+    double? CenterY,
+    double RotationDegrees,
+    double RadiusMeters,
+    string OrientationMode,
+    string? PrimaryText,
+    string? SecondaryText,
+    string? ManeuverIcon,
+    double? DistanceToManeuverMeters,
+    double? RouteProgressPercent,
+    double? RouteRemainingMeters,
+    bool OffRoute,
+    OpenOmsiRoutePoint[] TraveledRoute,
+    OpenOmsiRoutePoint[] ForwardRoute,
+    OpenOmsiRoutePoint[] RejoinRoute,
+    OpenOmsiMapMarkerState[] Markers,
+    OpenOmsiGroundArrowState[] GroundArrows);
+
+public sealed record OpenOmsiOverlay2DFrameState(
+    bool MiniMapVisible,
+    bool FullMapVisible,
+    bool CompactHudVisible,
+    bool TeleMatrixVisible,
+    bool RouteGuidanceVisible,
+    bool TrafficVisible,
+    bool PlayersVisible,
+    bool AutoZoomEnabled,
+    bool FollowVehicleEnabled,
+    bool TimetableVisible,
+    bool CongestionVisible,
+    string? TeleMatrixLine,
+    string? TeleMatrixDestination,
+    string? TeleMatrixNextStop,
+    int? TeleMatrixDelaySeconds,
+    string? TeleMatrixPunctualityState,
+    double? CenterX,
+    double? CenterY,
+    double RotationDegrees,
+    double RadiusMeters,
+    string OrientationMode,
+    string? PrimaryText,
+    string? SecondaryText,
+    string? ManeuverIcon,
+    double? DistanceToManeuverMeters,
+    double? RouteProgressPercent,
+    double? RouteRemainingMeters,
+    bool OffRoute,
+    OpenOmsiRoutePoint[] TraveledRoute,
+    OpenOmsiRoutePoint[] ForwardRoute,
+    OpenOmsiRoutePoint[] RejoinRoute,
+    OpenOmsiMapMarkerState[] Markers);
+
+public sealed record OpenOmsiWorldGuidanceFrameState(
+    bool Visible,
+    OpenOmsiGroundArrowState[] GroundArrows,
+    OpenOmsiGroundArrowPrimitiveState[] GroundArrowPrimitives);
+
+public sealed record OpenOmsiGroundArrowPrimitiveState(
+    double X,
+    double Y,
+    double Z,
+    double HeadingDegrees,
+    double WidthMeters,
+    double LengthMeters,
+    double HeightOffsetMeters,
+    double Opacity,
+    double DistanceAheadMeters,
+    string Kind);
+
+public sealed record OpenOmsiOverlayExportEnvelopeV2(
+    int Version,
+    long TimestampUnixMilliseconds,
+    OpenOmsiOverlay2DFrameState Overlay2D,
+    OpenOmsiWorldGuidanceFrameState WorldGuidance);

@@ -10,6 +10,17 @@ namespace NavBR.OpenOmsiPlugin;
     GenerationMode = JsonSourceGenerationMode.Metadata)]
 [JsonSerializable(typeof(PluginBridgeMessage))]
 [JsonSerializable(typeof(TrafficVehicleState[]))]
+[JsonSerializable(typeof(OpenOmsiNearbyVehicleState[]))]
+[JsonSerializable(typeof(OpenOmsiRoutePoint[]))]
+[JsonSerializable(typeof(OpenOmsiRouteStepState[]))]
+[JsonSerializable(typeof(OpenOmsiGuidanceWaypointState[]))]
+[JsonSerializable(typeof(OpenOmsiMapMarkerState[]))]
+[JsonSerializable(typeof(NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState[]))]
+[JsonSerializable(typeof(OpenOmsiOverlayFrameState))]
+[JsonSerializable(typeof(OpenOmsiOverlay2DFrameState))]
+[JsonSerializable(typeof(OpenOmsiWorldGuidanceFrameState))]
+[JsonSerializable(typeof(OpenOmsiOverlayExportEnvelopeV2))]
+[JsonSerializable(typeof(OpenOmsiGroundArrowPrimitiveState[]))]
 [JsonSerializable(typeof(VehicleSectionPose[]))]
 internal partial class OpenOmsiPluginJsonContext : JsonSerializerContext
 {

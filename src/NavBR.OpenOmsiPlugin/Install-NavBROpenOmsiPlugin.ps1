@@ -54,5 +54,11 @@ foreach ($file in $files) {
     "main.lua"
 ) | Set-Content -LiteralPath $manifest -Encoding UTF8
 
+$configDir = Join-Path $env:LOCALAPPDATA "NavBR"
+$configFile = Join-Path $configDir "openomsi-content-root.txt"
+New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+Set-Content -LiteralPath $configFile -Value $root -Encoding UTF8
+
 Write-Host "NavBR for openOMSI instalado em: $target"
+Write-Host "Content root registrado em: $configFile"
 Write-Host "Inicie/reinicie o openOMSI para carregar o plugin."

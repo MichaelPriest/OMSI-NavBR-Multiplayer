@@ -98,7 +98,31 @@ internal static class OpenOmsiBridge
                         PluginBridgeProtocol.CapabilityAdvancedTelemetry,
                         PluginBridgeProtocol.CapabilityPerformanceGovernor,
                         PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
-                        PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot
+                        PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot,
+                        PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
+                        PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
+                        PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
+                        PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
+                        PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
+                        PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps,
+                        PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance,
+                        PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime,
+                        PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints,
+                        PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState,
+                        PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation,
+                        PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime,
+                        PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
+                        PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
+                        PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
+                        PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame,
+                        PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives,
+                        PluginBridgeProtocol.CapabilityOpenOmsiHostHudControlV1
                     ])));
 
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -126,6 +150,26 @@ internal static class OpenOmsiBridge
                                 StringComparison.Ordinal))
                         {
                             PluginExports.SetPerformanceProfile(message.PerformanceProfile);
+                            QueueStatus(PluginExports.BuildStatus());
+                            continue;
+                        }
+
+                        if (string.Equals(
+                                message.Type,
+                                PluginBridgeProtocol.SetOpenOmsiHudConfiguration,
+                                StringComparison.Ordinal))
+                        {
+                            OpenOmsiHudState.Apply(message);
+                            QueueStatus(PluginExports.BuildStatus());
+                            continue;
+                        }
+
+                        if (string.Equals(
+                                message.Type,
+                                PluginBridgeProtocol.SetOpenOmsiRoutePolyline,
+                                StringComparison.Ordinal))
+                        {
+                            OpenOmsiRouteRuntime.SetRoute(message);
                             QueueStatus(PluginExports.BuildStatus());
                         }
                     }

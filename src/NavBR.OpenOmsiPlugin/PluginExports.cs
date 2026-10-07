@@ -38,14 +38,65 @@ public static class PluginExports
     {
         ResetState();
         OpenOmsiBridge.Start();
+        OpenOmsiStandaloneOverlay.Start();
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)], EntryPoint = nameof(PluginFinalize))]
     public static void PluginFinalize()
     {
+        OpenOmsiStandaloneOverlay.Stop();
         OpenOmsiBridge.Stop();
         ResetState();
     }
+
+    [UnmanagedCallersOnly(
+        CallConvs = [typeof(CallConvStdcall)],
+        EntryPoint = "OpenOmsiSetHudFlagsV1")]
+    public static void OpenOmsiSetHudFlagsV1(uint mask, uint values)
+    {
+        ApplyHostHudFlags(mask, values);
+    }
+
+    internal static void ApplyHostHudFlags(uint mask, uint values)
+    {
+        bool? Bit(int bit) =>
+            (mask & (1u << bit)) == 0
+                ? null
+                : (values & (1u << bit)) != 0;
+
+        OpenOmsiHudState.Apply(new PluginBridgeMessage(
+            PluginBridgeProtocol.SetOpenOmsiHudConfiguration,
+            PluginBridgeProtocol.Version,
+            OpenOmsiMiniMapEnabled: Bit(0),
+            OpenOmsiFullMapEnabled: Bit(1),
+            OpenOmsiAutoZoomEnabled: Bit(2),
+            OpenOmsiFollowVehicleEnabled: Bit(3),
+            OpenOmsiTimetableHudEnabled: Bit(4),
+            OpenOmsiTeleMatrixEnabled: Bit(5),
+            OpenOmsiTrafficLayerEnabled: Bit(6),
+            OpenOmsiMultiplayerLayerEnabled: Bit(7),
+            OpenOmsiCongestionLayerEnabled: Bit(8),
+            OpenOmsiRouteGuidanceEnabled: Bit(9)));
+
+        QueueCurrentStatus();
+    }
+
+    internal static void ApplyHostHudPreset(int preset)
+    {
+        const uint all = (1u << 10) - 1u;
+        var values = preset switch
+        {
+            0 => (1u << 0) | (1u << 2) | (1u << 3) | (1u << 9),
+            1 => (1u << 0) | (1u << 2) | (1u << 3) | (1u << 4) |
+                 (1u << 5) | (1u << 6) | (1u << 8) | (1u << 9),
+            2 => all,
+            _ => all
+        };
+        ApplyHostHudFlags(all, values);
+    }
+
+    private static void QueueCurrentStatus() =>
+        OpenOmsiBridge.QueueStatus(BuildStatus());
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)], EntryPoint = nameof(AccessVariable))]
     public static void AccessVariable(ushort index, IntPtr value, IntPtr writeValue)
@@ -199,6 +250,84 @@ public static class PluginExports
         var ibisLine = Volatile.Read(ref _ibisLineCourse);
         var ibisRoute = Volatile.Read(ref _ibisRouteCode);
         var ibisTerminus = Volatile.Read(ref _ibisTerminusName);
+        var nearbyVehicles = snapshot?.NearbyVehicles ?? [];
+        var nearbyAiCount = nearbyVehicles.Count(vehicle =>
+            string.Equals(vehicle.Kind, "ai", StringComparison.Ordinal));
+        var nearbyPlayerCount = nearbyVehicles.Count(vehicle =>
+            string.Equals(vehicle.Kind, "player", StringComparison.Ordinal));
+        var navigation = OpenOmsiNavigationRuntime.Build(snapshot);
+        var hud = OpenOmsiHudState.Current;
+        var content = OpenOmsiContentLocator.Resolve(snapshot?.MapName, snapshot?.MapPath);
+        var timetableRuntime = OpenOmsiTimetableRuntime.Resolve(content, snapshot);
+        var route = OpenOmsiRouteRuntime.Build(snapshot);
+        var timetable = timetableRuntime.Trip;
+        var guidance = OpenOmsiGuidanceRuntime.Build(
+            timetableRuntime.RoutePoints,
+            snapshot?.X,
+            snapshot?.Y);
+        var miniMap = OpenOmsiMiniMapRuntime.Build(
+            timetableRuntime.RoutePoints,
+            snapshot?.X,
+            snapshot?.Y);
+        var mapVisual = OpenOmsiMapVisualRuntime.Build(
+            timetableRuntime.RoutePoints,
+            snapshot,
+            route);
+        var stopMarkers = OpenOmsiStopMarkerResolver.Resolve(
+            content,
+            timetable);
+        var mapPresentation = OpenOmsiMapPresentationRuntime.Build(
+            snapshot,
+            navigation,
+            guidance,
+            hud,
+            stopMarkers);
+        var teleMatrix = OpenOmsiTeleMatrixRuntime.Build(
+            snapshot,
+            timetable);
+        var compactHud = OpenOmsiCompactHudRuntime.Build(
+            guidance,
+            miniMap,
+            teleMatrix,
+            route);
+        var groundArrows = OpenOmsiGroundArrowRuntime.Build(
+            miniMap.GuidanceWaypoints,
+            guidance,
+            route)
+            .Select(arrow => new NavBR.Shared.PluginBridge.OpenOmsiGroundArrowState(
+                arrow.X,
+                arrow.Y,
+                arrow.Z,
+                arrow.HeadingDegrees,
+                arrow.DistanceAheadMeters,
+                arrow.Kind))
+            .ToArray();
+        var overlayFrames = OpenOmsiOverlayFrameRuntime.Build(
+            hud,
+            mapPresentation,
+            mapVisual,
+            miniMap,
+            compactHud,
+            teleMatrix,
+            groundArrows);
+        OpenOmsiOverlayExport.Publish(
+            overlayFrames.Full,
+            overlayFrames.Overlay2D,
+            overlayFrames.World);
+        var includeHeavyOverlayInBridge =
+            string.Equals(
+                PerformanceProfile,
+                "diagnostics",
+                StringComparison.OrdinalIgnoreCase);
+        var routeSteps = timetableRuntime.RouteSteps
+            .Select(step => new OpenOmsiRouteStepState(
+                step.Leg,
+                step.TileIndex,
+                step.ObjectId,
+                step.PathIndex,
+                step.LengthMeters,
+                step.IsTrack))
+            .ToArray();
 
         return new PluginBridgeMessage(
             PluginBridgeProtocol.PluginStatus,
@@ -213,7 +342,7 @@ public static class PluginExports
             Y: snapshot?.Y,
             Z: snapshot?.Z,
             HeadingDegrees: snapshot?.HeadingDegrees,
-            SpeedKph: ReadFinite(_speedKph),
+            SpeedKph: ReadFinite(_speedKph) ?? snapshot?.ReportedSpeedKph,
             IsInGame: snapshot is null
                 ? null
                 : snapshot.HasPosition && !snapshot.OnFoot,
@@ -252,12 +381,140 @@ public static class PluginExports
             PluginMaxCommandsPerSlice: 0,
             PerformanceProfile: PerformanceProfile,
             ExperimentalWritesEnabled: false,
+            OpenOmsiView: snapshot?.View,
+            OpenOmsiOnFoot: snapshot?.OnFoot,
+            OpenOmsiMultiplayer: snapshot?.Multiplayer,
+            OpenOmsiTrafficCount: snapshot?.TrafficCount,
+            OpenOmsiNearbyAiCount: nearbyAiCount,
+            OpenOmsiNearbyPlayerCount: nearbyPlayerCount,
+            OpenOmsiNextStopArrival: snapshot?.NextStopArrival,
+            OpenOmsiNextStopDeparture: snapshot?.NextStopDeparture,
+            OpenOmsiTripIndex: snapshot?.TripIndex,
+            OpenOmsiTripsCount: snapshot?.TripsCount,
+            OpenOmsiNextStopNumber: snapshot?.NextStopNumber,
+            OpenOmsiNearbyVehicles: nearbyVehicles,
+            OpenOmsiSuggestedMapRadiusMeters: navigation.SuggestedMapRadiusMeters,
+            OpenOmsiCongestionLevel: navigation.CongestionLevel,
+            OpenOmsiAverageNearbyTrafficSpeedKph: navigation.AverageNearbyTrafficSpeedKph,
+            OpenOmsiNearbyMovingAiCount: navigation.NearbyMovingAiCount,
+            OpenOmsiNearbySlowAiCount: navigation.NearbySlowAiCount,
+            OpenOmsiNearbyStoppedAiCount: navigation.NearbyStoppedAiCount,
+            OpenOmsiMiniMapEnabled: hud.MiniMapEnabled,
+            OpenOmsiFullMapEnabled: hud.FullMapEnabled,
+            OpenOmsiAutoZoomEnabled: hud.AutoZoomEnabled,
+            OpenOmsiFollowVehicleEnabled: hud.FollowVehicleEnabled,
+            OpenOmsiTimetableHudEnabled: hud.TimetableEnabled,
+            OpenOmsiTeleMatrixEnabled: hud.TeleMatrixEnabled,
+            OpenOmsiTrafficLayerEnabled: hud.TrafficEnabled,
+            OpenOmsiMultiplayerLayerEnabled: hud.MultiplayerEnabled,
+            OpenOmsiCongestionLayerEnabled: hud.CongestionEnabled,
+            OpenOmsiRouteGuidanceEnabled: hud.RouteGuidanceEnabled,
+            OpenOmsiRouteLoaded: route.RouteLoaded,
+            OpenOmsiRouteKey: route.RouteKey,
+            OpenOmsiRoutePointCount: route.RoutePointCount,
+            OpenOmsiDistanceFromRouteMeters: route.DistanceFromRouteMeters,
+            OpenOmsiOffRoute: route.OffRoute,
+            OpenOmsiNearestRoutePointIndex: route.NearestRoutePointIndex,
+            OpenOmsiRejoinRoutePointIndex: route.RejoinRoutePointIndex,
+            OpenOmsiRejoinTargetX: route.RejoinTargetX,
+            OpenOmsiRejoinTargetY: route.RejoinTargetY,
+            OpenOmsiContentRootAvailable: content.RootAvailable,
+            OpenOmsiMapContentAvailable: content.MapAvailable,
+            OpenOmsiTimetableDataAvailable: content.TimetableAvailable,
+            OpenOmsiResolvedTripName: timetable?.TripName,
+            OpenOmsiResolvedTripTerminus: timetable?.Terminus,
+            OpenOmsiResolvedProfileIndex: timetable?.ProfileIndex,
+            OpenOmsiResolvedDepartureMinutes: timetable?.DepartureMinutes,
+            OpenOmsiResolvedStops: timetable?.Stops,
+            OpenOmsiRouteSteps: includeHeavyOverlayInBridge
+                ? routeSteps
+                : null,
+            OpenOmsiAutomaticRouteGeometryAvailable: timetableRuntime.RoutePoints.Length >= 2,
+            OpenOmsiAutomaticRoutePointCount: timetableRuntime.RoutePoints.Length,
+            OpenOmsiGuidanceAvailable: guidance.Available,
+            OpenOmsiNextManeuver: guidance.Maneuver,
+            OpenOmsiNextTurnAngleDegrees: guidance.TurnAngleDegrees,
+            OpenOmsiDistanceToManeuverMeters: guidance.DistanceToManeuverMeters,
+            OpenOmsiManeuverTargetX: guidance.TargetX,
+            OpenOmsiManeuverTargetY: guidance.TargetY,
+            OpenOmsiMiniMapRuntimeAvailable: miniMap.Available,
+            OpenOmsiRouteLengthMeters: miniMap.RouteLengthMeters,
+            OpenOmsiRouteProgressMeters: miniMap.ProgressMeters,
+            OpenOmsiRouteRemainingMeters: miniMap.RemainingMeters,
+            OpenOmsiRouteProgressPercent: miniMap.ProgressPercent,
+            OpenOmsiGuidanceWaypoints: miniMap.GuidanceWaypoints,
+            OpenOmsiMapVisualAvailable: mapVisual.Available,
+            OpenOmsiTraveledRoute: mapVisual.TraveledRoute,
+            OpenOmsiForwardRoute: mapVisual.ForwardRoute,
+            OpenOmsiRejoinRoute: mapVisual.RejoinRoute,
+            OpenOmsiCurrentRoutePointIndex: mapVisual.CurrentRoutePointIndex,
+            OpenOmsiMapPresentationAvailable: mapPresentation.Available,
+            OpenOmsiMapCenterX: mapPresentation.CenterX,
+            OpenOmsiMapCenterY: mapPresentation.CenterY,
+            OpenOmsiMapRotationDegrees: mapPresentation.RotationDegrees,
+            OpenOmsiMapRadiusMeters: mapPresentation.RadiusMeters,
+            OpenOmsiMapOrientationMode: mapPresentation.OrientationMode,
+            OpenOmsiMapMarkers: includeHeavyOverlayInBridge
+                ? mapPresentation.Markers
+                : null,
+            OpenOmsiTeleMatrixRuntimeAvailable: teleMatrix.Available,
+            OpenOmsiTeleMatrixLine: teleMatrix.Line,
+            OpenOmsiTeleMatrixDestination: teleMatrix.Destination,
+            OpenOmsiTeleMatrixNextStop: teleMatrix.NextStop,
+            OpenOmsiTeleMatrixStopNumber: teleMatrix.StopNumber,
+            OpenOmsiTeleMatrixStopCount: teleMatrix.StopCount,
+            OpenOmsiTeleMatrixDelaySeconds: teleMatrix.DelaySeconds,
+            OpenOmsiTeleMatrixNextArrivalSeconds: teleMatrix.NextArrivalSeconds,
+            OpenOmsiTeleMatrixNextDepartureSeconds: teleMatrix.NextDepartureSeconds,
+            OpenOmsiTeleMatrixPunctualityState: teleMatrix.PunctualityState,
+            OpenOmsiCompactHudAvailable: compactHud.Available,
+            OpenOmsiCompactHudPrimaryText: compactHud.PrimaryText,
+            OpenOmsiCompactHudSecondaryText: compactHud.SecondaryText,
+            OpenOmsiCompactHudManeuver: compactHud.Maneuver,
+            OpenOmsiCompactHudManeuverIcon: compactHud.ManeuverIcon,
+            OpenOmsiCompactHudDistanceMeters: compactHud.DistanceToManeuverMeters,
+            OpenOmsiCompactHudRouteRemainingMeters: compactHud.RouteRemainingMeters,
+            OpenOmsiCompactHudOffRoute: compactHud.OffRoute,
+            OpenOmsiGroundArrows: groundArrows,
+            OpenOmsiOverlayFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.Full
+                : null,
+            OpenOmsiOverlay2DFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.Overlay2D
+                : null,
+            OpenOmsiWorldGuidanceFrame: includeHeavyOverlayInBridge
+                ? overlayFrames.World
+                : null,
             Capabilities:
             [
                 PluginBridgeProtocol.CapabilityAdvancedTelemetry,
                 PluginBridgeProtocol.CapabilityPerformanceGovernor,
                 PluginBridgeProtocol.CapabilityOpenOmsiStandardPlugin,
-                PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot
+                PluginBridgeProtocol.CapabilityOpenOmsiLuaSnapshot,
+                PluginBridgeProtocol.CapabilityOpenOmsiNearbyVehicles,
+                PluginBridgeProtocol.CapabilityOpenOmsiTimetableContext,
+                PluginBridgeProtocol.CapabilityOpenOmsiNativeOnFoot,
+                PluginBridgeProtocol.CapabilityOpenOmsiNavigationRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiHudConfiguration,
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteRejoin,
+                PluginBridgeProtocol.CapabilityOpenOmsiTimetableResolver,
+                PluginBridgeProtocol.CapabilityOpenOmsiRouteSteps,
+                PluginBridgeProtocol.CapabilityOpenOmsiAutomaticRouteGeometry,
+                PluginBridgeProtocol.CapabilityOpenOmsiTurnGuidance,
+                PluginBridgeProtocol.CapabilityOpenOmsiMiniMapRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiGuidanceWaypoints,
+                PluginBridgeProtocol.CapabilityOpenOmsiMapVisualState,
+                PluginBridgeProtocol.CapabilityOpenOmsiMapPresentation,
+                PluginBridgeProtocol.CapabilityOpenOmsiTeleMatrixRuntime,
+                PluginBridgeProtocol.CapabilityOpenOmsiCompactHud,
+                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPayload,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV1,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlayExportV2,
+                PluginBridgeProtocol.CapabilityOpenOmsiOverlay2DFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiWorldGuidanceFrame,
+                PluginBridgeProtocol.CapabilityOpenOmsiGroundArrowPrimitives,
+                PluginBridgeProtocol.CapabilityOpenOmsiHostHudControlV1
             ]);
     }
 
@@ -354,5 +611,10 @@ public static class PluginExports
         Volatile.Write(ref _ibisDelaySeconds, null);
         Volatile.Write(ref _ibisDelayState, null);
         PerformanceProfile = "auto";
+        OpenOmsiHudState.Reset();
+        OpenOmsiRouteRuntime.Clear();
+        OpenOmsiTimetableRuntime.Reset();
+        OpenOmsiStopMarkerResolver.ResetCache();
+        OpenOmsiOverlayExport.Reset();
     }
 }

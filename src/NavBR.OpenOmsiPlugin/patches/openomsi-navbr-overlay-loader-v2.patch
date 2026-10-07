@@ -1,0 +1,114 @@
+diff --git a/crates/omsi-plugin/src/lib.rs b/crates/omsi-plugin/src/lib.rs
+index 0000000..0000000 100644
+--- a/crates/omsi-plugin/src/lib.rs
++++ b/crates/omsi-plugin/src/lib.rs
+@@
+ type StartFn = unsafe extern "system" fn(*mut std::ffi::c_void);
+ type FinalizeFn = unsafe extern "system" fn();
+ type AccessFloatFn = unsafe extern "system" fn(u16, *mut f32, *mut u8);
+ type AccessStringFn = unsafe extern "system" fn(u16, *mut u16, *mut u8);
+ type AccessTriggerFn = unsafe extern "system" fn(u16, *mut u8);
++type OverlayFrameFn = unsafe extern "system" fn(*mut u8, i32) -> i32;
+@@
+ pub struct Library {
+     _lib: libloading::Library,
+     start: StartFn,
+     finalize: FinalizeFn,
+     variable: Option<AccessFloatFn>,
+     trigger: Option<AccessTriggerFn>,
+     system: Option<AccessFloatFn>,
+     string: Option<AccessStringFn>,
++    overlay_frame_v2: Option<OverlayFrameFn>,
+ }
+@@
+             let variable = lib.get::<AccessFloatFn>(b"AccessVariable\0").ok().map(|s| *s);
+             let trigger = lib.get::<AccessTriggerFn>(b"AccessTrigger\0").ok().map(|s| *s);
+             let system = lib.get::<AccessFloatFn>(b"AccessSystemVariable\0").ok().map(|s| *s);
+             let string = lib.get::<AccessStringFn>(b"AccessStringVariable\0").ok().map(|s| *s);
+-            Ok(Library { _lib: lib, start, finalize, variable, trigger, system, string })
++            let overlay_frame_v2 = lib
++                .get::<OverlayFrameFn>(b"OpenOmsiGetOverlayFrameV2\0")
++                .ok()
++                .map(|s| *s);
++            Ok(Library {
++                _lib: lib,
++                start,
++                finalize,
++                variable,
++                trigger,
++                system,
++                string,
++                overlay_frame_v2,
++            })
+         }
+     }
++
++    /// Latest optional renderer frame exposed by enhanced openOMSI plugins.
++    ///
++    /// This is intentionally not part of the legacy OMSI ABI. A plugin without the
++    /// symbol simply returns None. The payload is UTF-8 JSON; parsing belongs to the
++    /// application crate, not to omsi-plugin.
++    pub fn overlay_frame_v2(&self) -> Option<Vec<u8>> {
++        let read = self.overlay_frame_v2?;
++        let required = unsafe { read(std::ptr::null_mut(), 0) };
++        if !(2..=262_144).contains(&required) {
++            return None;
++        }
++
++        let mut bytes = vec![0u8; required as usize];
++        let written = unsafe { read(bytes.as_mut_ptr(), required) };
++        if written <= 0 {
++            return None;
++        }
++        if written >= required {
++            // The producer published a newer, larger frame between probe and read.
++            // Resize to the newly requested capacity and retry once.
++            if written > 262_144 {
++                return None;
++            }
++            bytes.resize(written as usize, 0);
++            let second = unsafe { read(bytes.as_mut_ptr(), written) };
++            if second <= 0 || second >= written {
++                return None;
++            }
++            bytes.truncate(second as usize);
++            return Some(bytes);
++        }
++
++        bytes.truncate(written as usize);
++        Some(bytes)
++    }
+@@
+ impl Plugin {
+@@
+     pub fn procs(&self) -> Procs {
+         self.procs
+     }
++
++    /// The optional openOMSI renderer payload is only available for in-process
++    /// libraries. Legacy 32-bit OMSI plugins continue through the remote host unchanged.
++    pub fn overlay_frame_v2(&self) -> Option<Vec<u8>> {
++        match &self.backend {
++            Backend::Local(lib) => lib.overlay_frame_v2(),
++            Backend::Remote(_) => None,
++        }
++    }
+@@
+ impl Plugins {
+@@
+     pub fn frame(&mut self, io: &mut dyn PluginIo) {
+         for p in &mut self.loaded {
+             p.frame(io);
+         }
+         for p in &mut self.lua {
+             p.frame(io);
+         }
+     }
++
++    /// Renderer frames from local enhanced plugins.
++    pub fn overlay_frames_v2(&self) -> Vec<Vec<u8>> {
++        self.loaded
++            .iter()
++            .filter_map(Plugin::overlay_frame_v2)
++            .collect()
++    }

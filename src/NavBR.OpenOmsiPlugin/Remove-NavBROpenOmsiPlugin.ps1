@@ -30,4 +30,12 @@ if ((Test-Path -LiteralPath $target) -and @(Get-ChildItem -LiteralPath $target -
     Remove-Item -LiteralPath $target -Force
 }
 
+$configFile = Join-Path (Join-Path $env:LOCALAPPDATA "NavBR") "openomsi-content-root.txt"
+if (Test-Path -LiteralPath $configFile -PathType Leaf) {
+    $configured = (Get-Content -LiteralPath $configFile -Raw).Trim()
+    if ($configured -and ([System.IO.Path]::GetFullPath($configured) -eq $root)) {
+        Remove-Item -LiteralPath $configFile -Force
+    }
+}
+
 Write-Host "NavBR for openOMSI removido."
