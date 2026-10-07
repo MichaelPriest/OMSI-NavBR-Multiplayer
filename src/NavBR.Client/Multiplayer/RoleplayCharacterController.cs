@@ -46,12 +46,12 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const int VkRightShift = 0xA1;
 
     private const double WalkSpeedMps = 1.45d;
-    private const double RunSpeedMps = 3.25d;
-    private const double StandingTurnSpeedDegreesPerSecond = 120d;
-    private const double MovingTurnSpeedDegreesPerSecond = 96d;
-    private const double MovementResponsePerSecond = 9.5d;
-    private const double AirControlResponsePerSecond = 2.0d;
-    private const double JumpImpulseMps = 3.65d;
+    private const double RunSpeedMps = 4.3d;
+    private const double StandingTurnSpeedDegreesPerSecond = 110d;
+    private const double MovingTurnSpeedDegreesPerSecond = 220d;
+    private const double MovementResponsePerSecond = 7.0d;
+    private const double AirControlResponsePerSecond = 1.0d;
+    private const double JumpImpulseMps = 4.0d;
     private const double GravityMps2 = 9.81d;
     private const double JumpLandingToleranceMeters = 0.08d;
     private const double MaxDistanceFromBusMeters = 85d;
