@@ -150,7 +150,15 @@ export interface NavBrMultiplayerState {
     isRoomOwner: boolean;
     isTrafficAuthority: boolean;
   };
-  transportMode: "none" | "direct-host" | "remote-host" | "relay" | "dedicated-server";
+  transportMode:
+    | "none"
+    | "openomsi-host"
+    | "openomsi-client"
+    | "service-sidecar-only"
+    | "direct-host"
+    | "remote-host"
+    | "relay"
+    | "dedicated-server";
   roomCompatibility: {
     level: "none" | "waiting" | "compatible" | "partial" | "warning" | "blocked";
     remoteCount: number;
