@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Shared.Multiplayer;
 
 namespace NavBR.Client.Multiplayer;
@@ -11,34 +10,21 @@ public sealed partial class MultiplayerClientService
     public event Action<RoleplayCharacterFrame>? RoleplayCharacterReceived;
     public event Action<string>? RoleplayCharacterRemoved;
 
-    public async Task PublishRoleplayCharacterAsync(
+    public Task PublishRoleplayCharacterAsync(
         RoleplayCharacterState character,
         CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        if (connection is null || connection.State != HubConnectionState.Connected)
-        {
-            return;
-        }
-
-        await connection.SendAsync(
-            "PublishRoleplayCharacter",
-            character,
-            cancellationToken);
+        _ = cancellationToken;
+        SetOpenOmsiLocalRoleplayState(character);
+        return Task.CompletedTask;
     }
 
-    public async Task ReleaseRoleplayCharacterAsync(
+    public Task ReleaseRoleplayCharacterAsync(
         CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        if (connection is null || connection.State != HubConnectionState.Connected)
-        {
-            return;
-        }
-
-        await connection.SendAsync(
-            "ReleaseRoleplayCharacter",
-            cancellationToken);
+        _ = cancellationToken;
+        SetOpenOmsiLocalRoleplayState(null);
+        return Task.CompletedTask;
     }
 
     private void ApplyRoleplayCharacter(RoleplayCharacterFrame frame)
