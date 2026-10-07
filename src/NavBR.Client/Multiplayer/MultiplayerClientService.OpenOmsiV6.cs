@@ -38,6 +38,8 @@ public sealed partial class MultiplayerClientService
     private string? _openOmsiConfiguredLocalSampleKey;
     private DateTimeOffset? _openOmsiLastPublishedLocalVarsAt;
     private RoleplayCharacterState? _openOmsiLocalRoleplayState;
+    private CancellationTokenSource? _openOmsiPlaybackCts;
+    private Task? _openOmsiPlaybackTask;
 
     public bool UsesOpenOmsiV6Transport => _openOmsiV6Session?.IsRunning == true;
     public bool IsOpenOmsiV6Host => _openOmsiV6Session?.IsHost == true;
@@ -79,6 +81,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
         session.RemoteLeft += HandleOpenOmsiRemoteLeft;
         _openOmsiV6Session = session;
+        StartOpenOmsiPlaybackLoop();
 
         if (IsTrafficAuthority)
         {
@@ -157,6 +160,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
+            StartOpenOmsiPlaybackLoop();
         }
 
         if (session.IsRunning)
@@ -412,14 +416,13 @@ public sealed partial class MultiplayerClientService
                 state.PlayerId,
                 static _ =>
                     new OpenOmsiRemoteStateInterpolator());
-        if (!interpolator.TryPushAndInterpolate(
-                state,
-                out var renderedState))
-        {
-            return;
-        }
+        _ = interpolator.TryPushAndInterpolate(
+            state,
+            out _);
+    }
 
-        state = renderedState;
+    private void ApplyOpenOmsiRenderedState(OpenOmsiLanVehicleState state)
+    {
         PlayerPresence? presence;
         OpenOmsiLanVehicleInfo? info;
         lock (_openOmsiV6Sync)
@@ -572,6 +575,56 @@ public sealed partial class MultiplayerClientService
         if (state.Walker is { } walker)
         {
             ApplyOpenOmsiWalkerPresence(presence, walker, timestamp);
+        }
+    }
+
+    }
+
+    private void StartOpenOmsiPlaybackLoop()
+    {
+        if (_openOmsiPlaybackCts is not null)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _openOmsiPlaybackCts = cts;
+        _openOmsiPlaybackTask =
+            Task.Run(
+                () => OpenOmsiPlaybackLoopAsync(cts.Token));
+    }
+
+    private async Task OpenOmsiPlaybackLoopAsync(
+        CancellationToken cancellationToken)
+    {
+        using var timer =
+            new PeriodicTimer(
+                TimeSpan.FromMilliseconds(50));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(
+                       cancellationToken))
+            {
+                if (_openOmsiV6Session?.IsRunning != true)
+                {
+                    continue;
+                }
+
+                foreach (var pair in
+                         _openOmsiStateInterpolatorByLanId.ToArray())
+                {
+                    if (pair.Value.TryInterpolateCurrent(
+                            out var rendered))
+                    {
+                        ApplyOpenOmsiRenderedState(
+                            rendered);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 
@@ -1355,6 +1408,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
+            StartOpenOmsiPlaybackLoop();
 
             var world = new OpenOmsiLanWorld(
                 NormalizeOpenOmsiMapPath(_joinRequest.MapName),
@@ -1455,6 +1509,24 @@ public sealed partial class MultiplayerClientService
 
     private async Task StopOpenOmsiV6Async()
     {
+        var playbackCts = _openOmsiPlaybackCts;
+        var playbackTask = _openOmsiPlaybackTask;
+        _openOmsiPlaybackCts = null;
+        _openOmsiPlaybackTask = null;
+        playbackCts?.Cancel();
+
+        if (playbackTask is not null)
+        {
+            try
+            {
+                await playbackTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+        playbackCts?.Dispose();
+
         var session = _openOmsiV6Session;
         var webSocketClient = _openOmsiWebSocketClient;
         var webSocketGateway = _openOmsiWebSocketGateway;
