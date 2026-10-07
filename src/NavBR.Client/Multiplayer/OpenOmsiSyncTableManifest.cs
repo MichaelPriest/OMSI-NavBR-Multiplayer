@@ -10,6 +10,7 @@ internal sealed record OpenOmsiSyncTableManifest(
     ushort[] SwitchIds,
     ushort[] ValueIds,
     ushort[] DoorIds,
+    ushort? EngineNId,
     string[] LampNames,
     string[] SwitchNames,
     string[] ValueNames);
@@ -158,12 +159,18 @@ internal static class OpenOmsiSyncTableManifestBuilder
             hash = 1;
         }
 
+        var engineNId =
+            varIds.TryGetValue("engine_n", out var engineId)
+                ? engineId
+                : (ushort?)null;
+
         return new OpenOmsiSyncTableManifest(
             hash,
             lamps.Select(item => item.Id).ToArray(),
             switches.Select(item => item.Id).ToArray(),
             values.Select(item => item.Id).ToArray(),
             doors.ToArray(),
+            engineNId,
             lamps.Select(item => item.Name).ToArray(),
             switches.Select(item => item.Name).ToArray(),
             values.Select(item => item.Name).ToArray());
