@@ -497,7 +497,7 @@
                 <Grid x:Name="MiniMapViewport"
                       Width="300" Height="190" HorizontalAlignment="Left">
                     <Border x:Name="MiniMapFrame"
-                            Background="#D60D1319"
+                            Background="#8F0A0A0A"
                             BorderBrush="#78FFFFFF"
                             BorderThickness="1"
                             CornerRadius="14"
@@ -507,7 +507,7 @@
                                 Width="296"
                                 Height="186"
                                 ClipToBounds="True"
-                                Background="#24101820"
+                                Background="#240A0A0A"
                                 RenderTransformOrigin="0.5,0.5">
                             <Canvas.RenderTransform>
                                 <TransformGroup>
@@ -527,7 +527,7 @@
                                       StrokeEndLineCap="Round"
                                       Visibility="Collapsed" />
                             <Polyline x:Name="ActiveRoutePolyline"
-                                      Stroke="#FFFF9D24"
+                                      Stroke="#FFD63028"
                                       StrokeThickness="4.5"
                                       StrokeLineJoin="Round"
                                       StrokeStartLineCap="Round"
@@ -541,7 +541,7 @@
                                       StrokeEndLineCap="Round"
                                       Visibility="Collapsed" />
                             <Polyline x:Name="RejoinRoutePolyline"
-                                      Stroke="#FF71D8FF"
+                                      Stroke="#FF5AA0F0"
                                       StrokeThickness="3.8"
                                       StrokeDashArray="3,2"
                                       StrokeLineJoin="Round"
