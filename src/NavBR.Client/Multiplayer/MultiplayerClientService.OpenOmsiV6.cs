@@ -18,6 +18,7 @@ public sealed partial class MultiplayerClientService
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
+    private OpenOmsiQuickTunnel? _openOmsiQuickTunnel;
     private string? _openOmsiPublicWebSocketUrl;
     private ushort _openOmsiLocalSequence;
     private RoleplayCharacterState? _openOmsiLocalRoleplayState;
@@ -728,9 +729,28 @@ public sealed partial class MultiplayerClientService
                 new IPEndPoint(IPAddress.Loopback, udpPort),
                 cancellationToken);
 
-        // A public tunnel URL, when available, replaces this local address.
-        _openOmsiPublicWebSocketUrl ??=
+        _openOmsiPublicWebSocketUrl =
             $"http://127.0.0.1:{_openOmsiWebSocketGateway.Port}";
+
+        if (_openOmsiQuickTunnel is not null)
+        {
+            await _openOmsiQuickTunnel.DisposeAsync();
+            _openOmsiQuickTunnel = null;
+        }
+
+        _openOmsiQuickTunnel = await OpenOmsiQuickTunnel.StartAsync(
+            _openOmsiWebSocketGateway.Port,
+            cancellationToken);
+        if (_openOmsiQuickTunnel is not null)
+        {
+            var publicUrl = await _openOmsiQuickTunnel.WaitForUrlAsync(
+                TimeSpan.FromSeconds(15),
+                cancellationToken);
+            if (!string.IsNullOrWhiteSpace(publicUrl))
+            {
+                _openOmsiPublicWebSocketUrl = publicUrl;
+            }
+        }
     }
 
     internal void SetOpenOmsiPublicWebSocketUrl(string? url)
@@ -746,9 +766,11 @@ public sealed partial class MultiplayerClientService
         var session = _openOmsiV6Session;
         var webSocketClient = _openOmsiWebSocketClient;
         var webSocketGateway = _openOmsiWebSocketGateway;
+        var quickTunnel = _openOmsiQuickTunnel;
         _openOmsiV6Session = null;
         _openOmsiWebSocketClient = null;
         _openOmsiWebSocketGateway = null;
+        _openOmsiQuickTunnel = null;
         _openOmsiPublicWebSocketUrl = null;
         _openOmsiLocalRoleplayState = null;
         lock (_openOmsiV6Sync)
@@ -771,6 +793,11 @@ public sealed partial class MultiplayerClientService
         if (webSocketGateway is not null)
         {
             await webSocketGateway.DisposeAsync();
+        }
+
+        if (quickTunnel is not null)
+        {
+            await quickTunnel.DisposeAsync();
         }
     }
 
