@@ -337,8 +337,21 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         string text,
         CancellationToken cancellationToken = default)
     {
+        var openOmsi = _openOmsiV6Session;
+        if (openOmsi?.IsRunning == true &&
+            openOmsi.LocalPlayerId != 0)
+        {
+            await openOmsi.SendChatAsync(
+                text,
+                cancellationToken);
+            return;
+        }
+
         var connection = RequireConnectedConnection();
-        await connection.SendAsync("SendChatMessage", text, cancellationToken);
+        await connection.SendAsync(
+            "SendChatMessage",
+            text,
+            cancellationToken);
     }
 
     public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
