@@ -190,22 +190,38 @@ public sealed class OpenOmsiWebSocketGateway : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested &&
                socket.State == WebSocketState.Open)
         {
-            var result = await socket.ReceiveAsync(buffer, cancellationToken);
-            if (result.MessageType == WebSocketMessageType.Close)
+            var count = 0;
+            WebSocketReceiveResult? result;
+            do
             {
-                break;
-            }
+                if (count >= buffer.Length)
+                {
+                    result = null;
+                    break;
+                }
 
-            if (result.MessageType != WebSocketMessageType.Binary ||
-                !result.EndOfMessage ||
-                result.Count == 0 ||
-                result.Count > OpenOmsiLanProtocol.MaxDatagramBytes)
+                result = await socket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer, count, buffer.Length - count),
+                    cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    return;
+                }
+
+                count += result.Count;
+            }
+            while (result is not null && !result.EndOfMessage);
+
+            if (result is null ||
+                result.MessageType != WebSocketMessageType.Binary ||
+                count == 0 ||
+                count > OpenOmsiLanProtocol.MaxDatagramBytes)
             {
                 continue;
             }
 
             await udp.SendAsync(
-                buffer.AsMemory(0, result.Count),
+                buffer.AsMemory(0, count),
                 target,
                 cancellationToken);
         }
@@ -282,6 +298,10 @@ public sealed class OpenOmsiWebSocketClient : IAsyncDisposable
         var uri = new Uri(url, UriKind.Absolute);
         var socket = new ClientWebSocket();
         socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+        if (uri.IsLoopback)
+        {
+            socket.Options.Proxy = null;
+        }
         await socket.ConnectAsync(uri, cancellationToken);
 
         var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
@@ -338,11 +358,27 @@ public sealed class OpenOmsiWebSocketClient : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested &&
                _webSocket.State == WebSocketState.Open)
         {
-            var result = await _webSocket.ReceiveAsync(buffer, cancellationToken);
-            if (result.MessageType == WebSocketMessageType.Close)
+            var count = 0;
+            WebSocketReceiveResult? result;
+            do
             {
-                break;
+                if (count >= buffer.Length)
+                {
+                    result = null;
+                    break;
+                }
+
+                result = await _webSocket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer, count, buffer.Length - count),
+                    cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    return;
+                }
+
+                count += result.Count;
             }
+            while (result is not null && !result.EndOfMessage);
 
             IPEndPoint? destination;
             lock (_sync)
@@ -351,15 +387,15 @@ public sealed class OpenOmsiWebSocketClient : IAsyncDisposable
             }
 
             if (destination is null ||
+                result is null ||
                 result.MessageType != WebSocketMessageType.Binary ||
-                !result.EndOfMessage ||
-                result.Count == 0)
+                count == 0)
             {
                 continue;
             }
 
             await _localUdp.SendAsync(
-                buffer.AsMemory(0, result.Count),
+                buffer.AsMemory(0, count),
                 destination,
                 cancellationToken);
         }
