@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using NavBR.Client.Multiplayer;
 using NavBR.Server;
@@ -26,6 +27,28 @@ var previousBackend =
     Environment.GetEnvironmentVariable(
         "NAVBR_OMSI_PHYSICAL_BACKEND");
 
+var tempOmsiRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-v6-kachel-" +
+    Guid.NewGuid().ToString("N"));
+var mapDirectory =
+    Path.Combine(
+        tempOmsiRoot,
+        "maps",
+        mapName);
+Directory.CreateDirectory(mapDirectory);
+File.WriteAllText(
+    Path.Combine(mapDirectory, "global.cfg"),
+    "[name]\nGrundorf\n\n" +
+    "[map]\n1\n1\ntile_1_1.map\n\n" +
+    "[map]\n2\n1\ntile_2_1.map\n");
+File.WriteAllText(
+    Path.Combine(mapDirectory, "tile_1_1.map"),
+    string.Empty);
+File.WriteAllText(
+    Path.Combine(mapDirectory, "tile_2_1.map"),
+    string.Empty);
+
 var tcpPort = GetFreeTcpPort();
 var serverUrl = $"http://127.0.0.1:{tcpPort}";
 var app = NavBRServerApplication.Build(
@@ -48,7 +71,9 @@ try
 
     await app.StartAsync();
 
-    receiver = new MultiplayerClientService();
+    receiver = new MultiplayerClientService(
+        omsiInstallDirectorySource:
+            () => tempOmsiRoot);
     sender = new MultiplayerClientService();
 
     var receiverManifest =
@@ -322,6 +347,112 @@ try
         firstState.Doors[1] > 0.99f,
         "openOMSI v6 STATE lost middle door state.");
 
+    var physicalFrameBuilder =
+        typeof(MultiplayerClientService).GetMethod(
+            "TryBuildOpenOmsiPhysicalFrame",
+            BindingFlags.Instance |
+            BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "openOMSI v6 physical Kachel converter not found");
+
+    var articulatedState =
+        firstState with
+        {
+            RearSections =
+            [
+                new OpenOmsiLanPartPose(
+                    605.0,
+                    450.0,
+                    1.55,
+                    50f)
+            ]
+        };
+    object?[] physicalArgs =
+    [
+        sidecarFrame,
+        articulatedState,
+        null
+    ];
+    var physicalResolved =
+        (bool)(physicalFrameBuilder.Invoke(
+            receiver,
+            physicalArgs) ?? false);
+    var physicalFrame =
+        physicalArgs[2] as PlayerTelemetryFrame;
+
+    Require(
+        physicalResolved &&
+        physicalFrame is not null,
+        "openOMSI v6 world pose did not resolve into OMSI Kachel coordinates.");
+    Require(
+        physicalFrame!.Telemetry.PhysicalGridX == 1 &&
+        physicalFrame.Telemetry.PhysicalGridY == 1,
+        "Front section resolved to the wrong OMSI Kachel.");
+    Near(
+        physicalFrame.Telemetry.LocalX ?? double.NaN,
+        25.0,
+        0.02,
+        "front local x");
+    Near(
+        physicalFrame.Telemetry.LocalY ?? double.NaN,
+        1.5,
+        0.02,
+        "front local y");
+    Near(
+        physicalFrame.Telemetry.LocalZ ?? double.NaN,
+        142.0,
+        0.02,
+        "front local z");
+
+    var convertedRear =
+        physicalFrame.Telemetry.RearSections ??
+        Array.Empty<VehicleSectionPose>();
+    Require(
+        convertedRear.Length == 1 &&
+        convertedRear[0].GridX == 2 &&
+        convertedRear[0].GridY == 1,
+        "RearSection did not resolve independently onto Kachel 2,1.");
+    Near(
+        convertedRear[0].LocalX,
+        5.0,
+        0.02,
+        "rear local x");
+    Near(
+        convertedRear[0].LocalY,
+        1.55,
+        0.02,
+        "rear local y");
+    Near(
+        convertedRear[0].LocalZ,
+        150.0,
+        0.02,
+        "rear local z");
+
+    var unresolvedRearState =
+        articulatedState with
+        {
+            RearSections =
+            [
+                new OpenOmsiLanPartPose(
+                    905.0,
+                    450.0,
+                    1.55,
+                    50f)
+            ]
+        };
+    object?[] unresolvedArgs =
+    [
+        sidecarFrame,
+        unresolvedRearState,
+        null
+    ];
+    Require(
+        !(bool)(physicalFrameBuilder.Invoke(
+            receiver,
+            unresolvedArgs) ?? true) &&
+        unresolvedArgs[2] is null,
+        "Articulated v6 frame was admitted with an unresolved RearSection Kachel.");
+
     var legacyGateway =
         OpenOmsiLanGateway.Shared.GetStatus();
     Require(
@@ -459,6 +590,16 @@ finally
     Environment.SetEnvironmentVariable(
         "NAVBR_OMSI_PHYSICAL_BACKEND",
         previousBackend);
+
+    try
+    {
+        Directory.Delete(
+            tempOmsiRoot,
+            recursive: true);
+    }
+    catch
+    {
+    }
 }
 
 
