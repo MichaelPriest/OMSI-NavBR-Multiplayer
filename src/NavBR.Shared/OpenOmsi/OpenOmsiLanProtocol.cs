@@ -82,6 +82,34 @@ public static class OpenOmsiLanProtocol
             CleanText(world.Season, 16),
             FormatFinite(speed, 0.01d, 1_000d));
 
+    public static bool TryDecodeClock(
+        string text,
+        out OpenOmsiLanClock clock)
+    {
+        clock = default!;
+        var parts = text.Split('|');
+        if (parts.Length < 7 ||
+            !string.Equals(
+                parts[0],
+                "CLOCK",
+                StringComparison.Ordinal) ||
+            !TryFinite(parts[3], 0d, 86_400d, out var time) ||
+            !TryFinite(parts[6], 0.01d, 1_000d, out var speed))
+        {
+            return false;
+        }
+
+        clock = new OpenOmsiLanClock(
+            new OpenOmsiLanWorld(
+                CleanText(parts[1], 260),
+                CleanDate(parts[2]),
+                time,
+                CleanText(parts[4], 260),
+                CleanText(parts[5], 16)),
+            speed);
+        return true;
+    }
+
     public static string EncodeNear(
         ushort playerId,
         IEnumerable<OpenOmsiLanFootprint>? footprints = null)
@@ -526,6 +554,10 @@ public sealed record OpenOmsiLanWorld(
     double TimeSeconds,
     string Weather,
     string Season);
+
+public sealed record OpenOmsiLanClock(
+    OpenOmsiLanWorld World,
+    double Speed);
 
 public sealed record OpenOmsiLanHello(
     byte Protocol,
