@@ -219,7 +219,7 @@ public static class OpenOmsiWorldDescriptionCodec
         if (string.IsNullOrWhiteSpace(path) ||
             path.Length > 260 ||
             path.StartsWith(
-                '/',
+                "/",
                 StringComparison.Ordinal) ||
             path.Contains(':') ||
             path.Contains('|') ||
