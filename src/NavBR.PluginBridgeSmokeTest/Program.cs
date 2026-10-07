@@ -1809,7 +1809,8 @@ var localVarsConfig = new PluginBridgeMessage(
     PluginBridgeProtocol.ConfigureLocalVehicleVars,
     PluginBridgeProtocol.Version,
     VarTableHash: 0x1234ABCDu,
-    VariableIndices: new ushort[] { 2, 5, 9 });
+    VariableIndices: new ushort[] { 2, 5, 9 },
+    StringVariableIndices: new ushort[] { 1, 6 });
 var localVarsConfigRead = reader.ReadLineAsync(cts.Token).AsTask();
 await server.SendMessageAsync(localVarsConfig, cts.Token);
 var localVarsConfigLine = await localVarsConfigRead;
@@ -1829,6 +1830,10 @@ Require(
     receivedLocalVarsConfig?.VariableIndices?.SequenceEqual(
         new ushort[] { 2, 5, 9 }) == true,
     "local VARS configuration ids mismatch");
+Require(
+    receivedLocalVarsConfig?.StringVariableIndices?.SequenceEqual(
+        new ushort[] { 1, 6 }) == true,
+    "local VARS configuration string ids mismatch");
 
 var remoteVarsMessage = new PluginBridgeMessage(
     PluginBridgeProtocol.RemoteVehicleVars,
@@ -1836,7 +1841,9 @@ var remoteVarsMessage = new PluginBridgeMessage(
     PlayerId: "remote-vars-smoke",
     VarTableHash: 0x89ABCDEFu,
     VariableIndices: new ushort[] { 3, 7 },
-    VariableValues: new float[] { 1.25f, -0.5f });
+    VariableValues: new float[] { 1.25f, -0.5f },
+    StringVariableIndices: new ushort[] { 2 },
+    StringVariableValues: new[] { "Linha 875A" });
 var remoteVarsRead = reader.ReadLineAsync(cts.Token).AsTask();
 await server.SendMessageAsync(remoteVarsMessage, cts.Token);
 var remoteVarsLine = await remoteVarsRead;
@@ -1857,7 +1864,11 @@ Require(
     receivedRemoteVars.VariableIndices?.SequenceEqual(
         new ushort[] { 3, 7 }) == true &&
     receivedRemoteVars.VariableValues?.SequenceEqual(
-        new float[] { 1.25f, -0.5f }) == true,
+        new float[] { 1.25f, -0.5f }) == true &&
+    receivedRemoteVars.StringVariableIndices?.SequenceEqual(
+        new ushort[] { 2 }) == true &&
+    receivedRemoteVars.StringVariableValues?.SequenceEqual(
+        new[] { "Linha 875A" }) == true,
     "remote VARS payload mismatch");
 
 LocalOmsiScriptVarsSnapshotStore.Clear();
@@ -1869,7 +1880,9 @@ var localVarsSnapshot = new PluginBridgeMessage(
         DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
     VarTableHash: 0xCAFEBABEu,
     VariableIndices: new ushort[] { 1, 4 },
-    VariableValues: new float[] { 0.75f, 22.5f });
+    VariableValues: new float[] { 0.75f, 22.5f },
+    StringVariableIndices: new ushort[] { 0, 3 },
+    StringVariableValues: new[] { "NBR-1001", "Centro" });
 await writer.WriteLineAsync(
     JsonSerializer.Serialize(localVarsSnapshot));
 
@@ -1892,7 +1905,11 @@ Require(
     storedLocalVars.VariableIndices.SequenceEqual(
         new ushort[] { 1, 4 }) &&
     storedLocalVars.VariableValues.SequenceEqual(
-        new float[] { 0.75f, 22.5f }),
+        new float[] { 0.75f, 22.5f }) &&
+    storedLocalVars.StringVariableIndices.SequenceEqual(
+        new ushort[] { 0, 3 }) &&
+    storedLocalVars.StringVariableValues.SequenceEqual(
+        new[] { "NBR-1001", "Centro" }),
     "local VARS snapshot contents mismatch");
 
 var trafficVehicle = new TrafficVehicleState(
