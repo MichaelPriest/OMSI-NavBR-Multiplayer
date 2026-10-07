@@ -377,7 +377,10 @@ Require(
     decodedWorld.Cars[0].Lights &&
     decodedWorld.Cars[0].AtStation == -1,
     "WORLD car visual state mismatch");
-Require(decodedWorld.People.Count == 4, "WORLD people count mismatch");
+Require(
+    decodedWorld.People.Count == 4,
+    $"WORLD people count mismatch: actual={decodedWorld.People.Count}; " +
+    $"people={string.Join(",", decodedWorld.People.Select(person => $"{person.Id}:{person.PlaceKind}"))}");
 Require(
     decodedWorld.People[0].WaitingStopObjectId == 3_000_123_456L &&
     decodedWorld.People[0].WaitingPlace == 3,
