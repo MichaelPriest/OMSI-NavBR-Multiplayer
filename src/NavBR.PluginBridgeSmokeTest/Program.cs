@@ -2330,6 +2330,68 @@ Require(
         new[] { "NBR-1001", "Centro" }),
     "local VARS snapshot contents mismatch");
 
+// A missing OMSI StringVar must not prevent valid PublicVars from crossing
+// the real plugin pipe; conversely, a vehicle may expose only StringVars.
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var floatsOnlyVars = localVarsSnapshot with
+{
+    TimestampUnixMilliseconds =
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VariableIndices = new ushort[] { 4 },
+    VariableValues = new float[] { 12.5f },
+    StringVariableIndices = [],
+    StringVariableValues = []
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(floatsOnlyVars));
+LocalOmsiScriptVarsSnapshot? floatsOnlyStored = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    floatsOnlyStored = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (floatsOnlyStored is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    floatsOnlyStored is not null &&
+    floatsOnlyStored.VariableIndices.SequenceEqual(new ushort[] { 4 }) &&
+    floatsOnlyStored.VariableValues.SequenceEqual(new float[] { 12.5f }) &&
+    floatsOnlyStored.StringVariableIndices.Length == 0 &&
+    floatsOnlyStored.StringVariableValues.Length == 0,
+    "partial local VARS lost valid floats when StringVars were unavailable");
+
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var stringsOnlyVars = localVarsSnapshot with
+{
+    TimestampUnixMilliseconds =
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VariableIndices = [],
+    VariableValues = [],
+    StringVariableIndices = new ushort[] { 3 },
+    StringVariableValues = new[] { "Centro" }
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(stringsOnlyVars));
+LocalOmsiScriptVarsSnapshot? stringsOnlyStored = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    stringsOnlyStored = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (stringsOnlyStored is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    stringsOnlyStored is not null &&
+    stringsOnlyStored.VariableIndices.Length == 0 &&
+    stringsOnlyStored.VariableValues.Length == 0 &&
+    stringsOnlyStored.StringVariableIndices.SequenceEqual(new ushort[] { 3 }) &&
+    stringsOnlyStored.StringVariableValues.SequenceEqual(new[] { "Centro" }),
+    "partial local VARS lost valid strings when PublicVars were unavailable");
+
 var trafficVehicle = new TrafficVehicleState(
     "traffic-17",
     "Vehicles\\MAN_NL_NG\\MAN_NL263.bus",
