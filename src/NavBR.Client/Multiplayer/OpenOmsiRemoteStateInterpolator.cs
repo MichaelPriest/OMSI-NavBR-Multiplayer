@@ -80,6 +80,25 @@ internal sealed class OpenOmsiRemoteStateInterpolator
         }
     }
 
+    internal bool TryInterpolateCurrent(
+        out OpenOmsiLanVehicleState interpolated)
+    {
+        lock (_sync)
+        {
+            var current =
+                InterpolateCore(
+                    MonotonicSeconds());
+            if (current is null)
+            {
+                interpolated = default!;
+                return false;
+            }
+
+            interpolated = current;
+            return true;
+        }
+    }
+
     internal void Reset()
     {
         lock (_sync)
