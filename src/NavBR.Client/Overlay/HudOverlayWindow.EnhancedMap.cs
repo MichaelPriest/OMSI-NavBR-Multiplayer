@@ -189,13 +189,13 @@ public partial class HudOverlayWindow
 
     private void ApplyOpenOmsiNavigatorOpacity(double opacity)
     {
-        opacity = Math.Clamp(opacity, 0.10d, 1d);
+        opacity = Math.Clamp(opacity, 0.05d, 1d);
         MiniMapImage.Opacity = opacity;
 
         // openOMSI-style navigator: the world stays visible through the panel,
         // while route/markers remain crisp and independent from the map opacity.
-        var panelAlpha = (byte)Math.Round(255d * Math.Clamp(0.16d + opacity * 0.48d, 0.20d, 0.72d));
-        var canvasAlpha = (byte)Math.Round(255d * Math.Clamp(0.03d + opacity * 0.14d, 0.04d, 0.20d));
+        var panelAlpha = (byte)Math.Round(255d * Math.Clamp(0.06d + opacity * 0.34d, 0.08d, 0.46d));
+        var canvasAlpha = (byte)Math.Round(255d * Math.Clamp(0.01d + opacity * 0.08d, 0.01d, 0.10d));
         MiniMapFrame.Background = new SolidColorBrush(
             Color.FromArgb(panelAlpha, 10, 10, 10));
         MiniMapCanvas.Background = new SolidColorBrush(
