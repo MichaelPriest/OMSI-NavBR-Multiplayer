@@ -522,6 +522,86 @@ await using (var client = new OpenOmsiLanPeerSession())
             "host accepted a HELLO carrying the wrong session id");
     }
 
+    var clientSawWorld =
+        new TaskCompletionSource<OpenOmsiWorldFrame>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var hostSawClientWorld =
+        new TaskCompletionSource<(ushort PlayerId, OpenOmsiWorldFrame Frame)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    client.WorldFrameReceived += frameValue =>
+        clientSawWorld.TrySetResult(frameValue);
+    host.ClientWorldFrameReceived += (playerId, frameValue) =>
+        hostSawClientWorld.TrySetResult((playerId, frameValue));
+
+    await host.PublishWorldAsync(worldFrame);
+    var worldAtClient =
+        await clientSawWorld.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        worldAtClient.Cars.Count == 2 &&
+        worldAtClient.People.Count == 4 &&
+        worldAtClient.Lights.Count == 1,
+        "host WORLD did not reach client intact");
+
+    var attemptedClientWorld = new OpenOmsiWorldFrame(
+        9,
+        222u,
+        [
+            new OpenOmsiWorldCarState(
+                999,
+                100d,
+                100d,
+                0d,
+                0f,
+                0f,
+                0f,
+                5f,
+                0f,
+                0,
+                false,
+                false,
+                0)
+        ],
+        [
+            new OpenOmsiWorldPersonState(
+                901,
+                OpenOmsiWorldActivity.Walk,
+                OpenOmsiWorldPersonPlaceKind.Foot,
+                100d,
+                100d,
+                0d,
+                0f,
+                1f)
+        ],
+        [
+            new OpenOmsiWorldLightState(
+                1234,
+                2d,
+                false)
+        ],
+        [
+            (IsPerson: false, Id: 999u),
+            (IsPerson: true, Id: 901u)
+        ],
+        true,
+        [55u]);
+
+    await client.PublishWorldAsync(attemptedClientWorld);
+    var clientWorldAtHost =
+        await hostSawClientWorld.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        clientWorldAtHost.PlayerId == client.LocalPlayerId,
+        "client WORLD was attributed to wrong peer");
+    Require(
+        clientWorldAtHost.Frame.Cars.Count == 0 &&
+        clientWorldAtHost.Frame.Lights.Count == 0,
+        "host accepted client authority over cars/lights");
+    Require(
+        clientWorldAtHost.Frame.People.Count == 1 &&
+        clientWorldAtHost.Frame.Gone.All(item => item.IsPerson) &&
+        clientWorldAtHost.Frame.ParkedComplete is null,
+        "client WORLD sanitation mismatch");
+
     var clientState = OpenOmsiLanVehicleState.Empty(client.LocalPlayerId, 1) with
     {
         Flags = OpenOmsiLanProtocol.FlagVehicle |
