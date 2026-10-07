@@ -299,6 +299,36 @@ public sealed class MultiplayerRoomRegistry
         return null;
     }
 
+    public PlayerPresence? UpdateOpenOmsiLanId(
+        string connectionId,
+        ushort? lanId)
+    {
+        if (lanId is 0)
+        {
+            lanId = null;
+        }
+
+        while (_connections.TryGetValue(connectionId, out var current))
+        {
+            if (current.OpenOmsiLanId == lanId)
+            {
+                return null;
+            }
+
+            var updated = current with
+            {
+                OpenOmsiLanId = lanId
+            };
+
+            if (_connections.TryUpdate(connectionId, updated, current))
+            {
+                return updated;
+            }
+        }
+
+        return null;
+    }
+
     public PlayerPresence? UpdateOpenOmsiTransport(
         string connectionId,
         OpenOmsiTransportDescriptor? transport)
