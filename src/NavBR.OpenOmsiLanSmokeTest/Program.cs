@@ -839,6 +839,13 @@ await using (var client = new OpenOmsiLanPeerSession())
         Z = 3d,
         HeadingDegrees = 90f,
         SpeedKph = 32f,
+        // Exercise physical articulated bus parts and real visual variables
+        // over the host/client UDP session, not only the local codec.
+        RearSections = [new OpenOmsiLanPartPose(94d, 200.4d, 3.1d, 88f)],
+        Doors = [1f, 0.5f],
+        Lamps = [1f, 0.25f],
+        Switches = [1f, -1f],
+        Values = [1200f, 0.75f],
         Walker = new OpenOmsiLanWalker(
             101d,
             201d,
@@ -857,6 +864,23 @@ await using (var client = new OpenOmsiLanPeerSession())
     var clientAtHost = await hostSawClientState.Task.WaitAsync(TimeSpan.FromSeconds(3));
     Near(clientAtHost.X, 100d, 0.01, "peer client x");
     Require(clientAtHost.Walker is not null, "peer client walker/RP state missing");
+    Require(clientAtHost.RearSections.Count == 1,
+        "peer client articulated rear section missing");
+    Near(clientAtHost.RearSections[0].X, 94d, 0.01,
+        "peer client articulated section x");
+    Require(clientAtHost.Doors.Count == 2 &&
+            clientAtHost.Lamps.Count == 2 &&
+            clientAtHost.Switches.Count == 2 &&
+            clientAtHost.Values.Count == 2,
+        "peer client visual SyncTable cardinality missing");
+    Near(clientAtHost.Doors[1], 0.5f, 0.01,
+        "peer client middle door");
+    Near(clientAtHost.Lamps[1], 0.25f, 0.01,
+        "peer client lamp intensity");
+    Require(clientAtHost.Switches[1] == -1f,
+        "peer client switch");
+    Near(clientAtHost.Values[0], 1200f, 0.5,
+        "peer client analog value");
 
     await host.PublishInfoAsync(
         new OpenOmsiLanVehicleInfo(
@@ -884,12 +908,35 @@ await using (var client = new OpenOmsiLanPeerSession())
         Z = 4d,
         HeadingDegrees = 180f,
         SpeedKph = 20f,
+        RearSections = [new OpenOmsiLanPartPose(106d, 220.7d, 4.1d, 179f)],
+        Doors = [0f, 1f],
+        Lamps = [0f, 1f],
+        Switches = [-1f, 1f],
+        Values = [650f, 1f],
+        Walker = new OpenOmsiLanWalker(
+            111d, 221d, 4.2d, 185f, 1.5f, 185f,
+            false, null, null, null),
         SentMilliseconds = 75
     };
     await host.PublishStateAsync(hostState);
 
     var hostAtClient = await clientSawHostState.Task.WaitAsync(TimeSpan.FromSeconds(3));
     Near(hostAtClient.Y, 220d, 0.01, "peer host y");
+    Require(hostAtClient.Walker is not null,
+        "peer host walker/RP state missing");
+    Require(hostAtClient.RearSections.Count == 1,
+        "peer host articulated rear section missing");
+    Near(hostAtClient.RearSections[0].HeadingDegrees, 179f, 0.01,
+        "peer host articulated section heading");
+    Require(hostAtClient.Doors.Count == 2 &&
+            hostAtClient.Lamps.Count == 2 &&
+            hostAtClient.Switches.Count == 2 &&
+            hostAtClient.Values.Count == 2,
+        "peer host visual SyncTable cardinality missing");
+    Near(hostAtClient.Doors[1], 1f, 0.01, "peer host door");
+    Near(hostAtClient.Lamps[1], 1f, 0.01, "peer host lamp");
+    Require(hostAtClient.Switches[0] == -1f, "peer host switch");
+    Near(hostAtClient.Values[0], 650f, 0.5, "peer host analog value");
 
     var nearby = await client.RequestNearAsync(
         new OpenOmsiLanFootprint(
