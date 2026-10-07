@@ -173,6 +173,8 @@ internal static class PluginBridgeClient
         long? pluginFrameStallCount = null,
         string? performanceProfile = null)
     {
+        LocalVehicleVarsSampler.Sample();
+
         int? physicalGridX = null;
         int? physicalGridY = null;
         int? physicalMapTileIndex = null;
@@ -442,6 +444,17 @@ internal static class PluginBridgeClient
                 }
             }
 
+            var localVars = LocalVehicleVarsSampler.TakePending();
+            if (localVars is not null)
+            {
+                var varsJson = SerializeMessage(localVars);
+                if (varsJson.Length <= PluginBridgeProtocol.MaxMessageChars)
+                {
+                    await writer.WriteLineAsync(varsJson.AsMemory(), cancellationToken);
+                    wroteMessage = true;
+                }
+            }
+
             if (wroteMessage)
             {
                 await writer.FlushAsync(cancellationToken);
@@ -469,6 +482,21 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal))
         {
             SetLocalState(IsValidLocalState(message) ? message : null);
+            return null;
+        }
+
+        if (string.Equals(
+                message.Type,
+                PluginBridgeProtocol.ConfigureLocalVehicleVars,
+                StringComparison.Ordinal))
+        {
+            if (!LocalVehicleVarsSampler.Configure(
+                    message,
+                    out var localVarsRejection))
+            {
+                Log(
+                    $"local-vars-config rejeitado reason={localVarsRejection ?? "unknown"}");
+            }
             return null;
         }
 
@@ -635,6 +663,7 @@ internal static class PluginBridgeClient
         SetLocalState(null);
         RemoteVehicles.Clear();
         RemoteVehicleVarsRegistry.Clear();
+        LocalVehicleVarsSampler.Clear();
         TrafficVehicles.Clear();
         OmsiThreadCommandQueue.Clear();
         // The pipe worker cannot touch OMSI objects directly. Ask the callback
@@ -674,6 +703,7 @@ internal static class PluginBridgeClient
             .GetCapabilities()
             .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
             .Append(PluginBridgeProtocol.CapabilityRemoteScriptVars)
+            .Append(PluginBridgeProtocol.CapabilityLocalScriptVars)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         Interlocked.CompareExchange(
