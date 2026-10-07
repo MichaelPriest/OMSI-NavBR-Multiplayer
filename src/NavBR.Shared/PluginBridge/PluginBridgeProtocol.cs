@@ -15,6 +15,7 @@ public static class PluginBridgeProtocol
     public const string ClientHello = "client-hello";
     public const string LocalVehicleState = "local-vehicle-state";
     public const string RemoteVehicleState = "remote-vehicle-state";
+    public const string RemoteVehicleVars = "remote-vehicle-vars";
     public const string RemoteVehicleRemoved = "remote-vehicle-removed";
     public const string ClearRemoteVehicles = "clear-remote-vehicles";
     public const string TrafficSnapshotState = "traffic-snapshot-state";
@@ -43,6 +44,7 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleTransform = "vehicle-transform";
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
+    public const string CapabilityRemoteScriptVars = "remote-script-vars";
     public const string CapabilityVehicleTileSync = "vehicle-tile-sync";
     // Capability marker for the physical-grid/world-pose multiplayer path
     // introduced with state interop 25. Requiring this on the desktop makes a
@@ -189,4 +191,9 @@ public sealed record PluginBridgeMessage(
     double? AccelerationLocalX = null,
     double? AccelerationLocalY = null,
     double? AccelerationLocalZ = null,
-    VehicleSectionPose[]? RearSections = null);
+    VehicleSectionPose[]? RearSections = null,
+    uint? SyncTableHash = null,
+    ushort[]? VariableIndices = null,
+    float[]? VariableValues = null,
+    ushort[]? StringVariableIndices = null,
+    string[]? StringVariableValues = null);
