@@ -605,16 +605,21 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
+        _openOmsiCompatibleRemoteSyncTable.TryGetValue(
+            state.PlayerId,
+            out var compatibleSyncTable);
+
         var visualSyncCompatible =
             info is { SyncTableHash: > 0 } &&
             _openOmsiCompatibleRemoteSyncHash.TryGetValue(
                 state.PlayerId,
                 out var compatibleHash) &&
             compatibleHash == info.SyncTableHash &&
-            _openOmsiCompatibleRemoteSyncTable.TryGetValue(
-                state.PlayerId,
-                out var compatibleSyncTable) &&
-            compatibleSyncTable.Hash == info.SyncTableHash;
+            compatibleSyncTable is not null &&
+            compatibleSyncTable.Hash == info.SyncTableHash &&
+            HasCompatibleOpenOmsiVisualState(
+                state,
+                compatibleSyncTable);
 
         var doors = VehicleDoorFlags.None;
         if (visualSyncCompatible)
@@ -795,13 +800,20 @@ public sealed partial class MultiplayerClientService
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
         _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
-        _ = RouteRemotePhysicalTelemetryAsync(frame);
 
         if (state.Walker is { } walker)
         {
             ApplyOpenOmsiWalkerPresence(presence, walker, timestamp);
         }
     }
+
+    private static bool HasCompatibleOpenOmsiVisualState(
+        OpenOmsiLanVehicleState state,
+        OpenOmsiSyncTableManifest syncTable) =>
+        state.Lamps.Count == syncTable.LampIds.Length &&
+        state.Switches.Count == syncTable.SwitchIds.Length &&
+        state.Values.Count == syncTable.ValueIds.Length &&
+        state.Doors.Count == syncTable.DoorIds.Length;
 
     private void StartOpenOmsiPlaybackLoop()
     {
@@ -909,9 +921,57 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
+        var forwardedVars = vars;
+        if (info is { SyncTableHash: > 0 } &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                vars.PlayerId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash &&
+            _openOmsiCompatibleRemoteSyncTable.TryGetValue(
+                vars.PlayerId,
+                out var compatibleSyncTable) &&
+            compatibleSyncTable.Hash == info.SyncTableHash)
+        {
+            var stateOwnedIds = compatibleSyncTable.LampIds
+                .Concat(compatibleSyncTable.SwitchIds)
+                .Concat(compatibleSyncTable.ValueIds)
+                .Concat(compatibleSyncTable.DoorIds)
+                .ToHashSet();
+
+            foreach (var optionalId in new ushort?[]
+                     {
+                         compatibleSyncTable.EngineNId,
+                         compatibleSyncTable.AiEngineId,
+                         compatibleSyncTable.AiLightId,
+                         compatibleSyncTable.AiInteriorId,
+                         compatibleSyncTable.ThrottleId,
+                         compatibleSyncTable.BrakeId
+                     })
+            {
+                if (optionalId is ushort id)
+                {
+                    stateOwnedIds.Add(id);
+                }
+            }
+
+            var nonVisualFloats = vars.Floats
+                .Where(item => !stateOwnedIds.Contains(item.Index))
+                .ToArray();
+            forwardedVars = vars with
+            {
+                Floats = nonVisualFloats
+            };
+        }
+
+        if (forwardedVars.Floats.Count == 0 &&
+            forwardedVars.Strings.Count == 0)
+        {
+            return;
+        }
+
         await OmsiPluginBridgeRelay.ForwardRemoteVarsAsync(
             presence.PlayerId,
-            vars);
+            forwardedVars);
     }
 
     private async Task<OpenOmsiVarTableManifest?>
@@ -1546,10 +1606,14 @@ public sealed partial class MultiplayerClientService
         var walker = BuildOpenOmsiLocalWalker(baseState, telemetry);
         var state = baseState with { Walker = walker };
 
+        var syncTableHash =
+            visualSnapshot is not null && syncTable is not null
+                ? syncTable.Hash
+                : 0u;
         var info = BuildOpenOmsiLocalInfo(
             session.LocalPlayerId,
             frame,
-            syncTable?.Hash ?? 0u);
+            syncTableHash);
         await session.PublishInfoAsync(info, cancellationToken);
         await session.PublishStateAsync(state, cancellationToken);
 
@@ -1697,7 +1761,7 @@ public sealed partial class MultiplayerClientService
             (telemetry.Lights & VehicleLightFlags.Interior) != 0 ? 3 : 0);
 
         IReadOnlyList<float> doors;
-        if (visual is { Doors.Length: > 0 })
+        if (visual is not null)
         {
             doors = visual.Doors;
         }
