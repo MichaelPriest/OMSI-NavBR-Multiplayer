@@ -1435,10 +1435,24 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         out double headingDegrees)
     {
         headingDegrees = 0d;
-        if (snapshot is not { } camera ||
-            DateTimeOffset.UtcNow - camera.CapturedAtUtc >
+        return snapshot is { } camera &&
+               TryResolveCameraHeadingFromMatrices(
+                   camera.View,
+                   camera.Projection,
+                   camera.CapturedAtUtc,
+                   out headingDegrees);
+    }
+
+    internal static bool TryResolveCameraHeadingFromMatrices(
+        Matrix4x4 view,
+        Matrix4x4 projection,
+        DateTimeOffset capturedAtUtc,
+        out double headingDegrees)
+    {
+        headingDegrees = 0d;
+        if (DateTimeOffset.UtcNow - capturedAtUtc >
                 TimeSpan.FromSeconds(2d) ||
-            !Matrix4x4.Invert(camera.View, out var worldFromView))
+            !Matrix4x4.Invert(view, out var worldFromView))
         {
             return false;
         }
@@ -1446,8 +1460,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         // Direct3D left-handed projections use +Z in view space while
         // right-handed projections use -Z. M34 carries that handedness in the
         // projection matrix, so the same resolver works with the matrices OMSI
-        // exposes and with the System.Numerics test matrices.
-        var viewForward = camera.Projection.M34 >= 0f
+        // exposes and with System.Numerics reference matrices.
+        var viewForward = projection.M34 >= 0f
             ? Vector3.UnitZ
             : -Vector3.UnitZ;
         var worldForward = Vector3.TransformNormal(
@@ -1475,10 +1489,16 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
         return double.IsFinite(headingDegrees);
     }
 
-    private static double WrapSignedDegrees(double value) =>
-        (value + 180d) % 360d is var wrapped && wrapped < 0d
-            ? wrapped + 180d
-            : wrapped - 180d;
+    private static double WrapSignedDegrees(double value)
+    {
+        var wrapped = (value + 180d) % 360d;
+        if (wrapped < 0d)
+        {
+            wrapped += 360d;
+        }
+
+        return wrapped - 180d;
+    }
 
     private static double NormalizeHeading(double value)
     {
