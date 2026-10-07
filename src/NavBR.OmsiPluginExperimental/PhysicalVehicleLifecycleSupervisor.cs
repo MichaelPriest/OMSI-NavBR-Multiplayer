@@ -93,10 +93,10 @@ internal static class PhysicalVehicleLifecycleSupervisor
                 StringComparison.OrdinalIgnoreCase);
         if (!explicitlyAdmitted)
         {
-            // Raw network telemetry remains useful to RemoteVehicleRegistry,
-            // but only the desktop-admitted physical stream may touch native
-            // OMSI lifecycle state. This also prevents openOMSI world-axis
-            // telemetry from overwriting its locally converted OMSI Kachel pose.
+            // Raw service telemetry remains useful to RemoteVehicleRegistry,
+            // but only a state explicitly admitted by the room-bound openOMSI
+            // v6 path may touch native OMSI lifecycle state. SignalR sidecar
+            // frames never receive VehicleInstanceId and cannot move buses.
             return;
         }
 
@@ -110,12 +110,10 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
         lock (Sync)
         {
-            // The desktop coordinator remains the admission authority for
-            // physical players (distance, compatibility, asset fingerprint and
-            // bounded player count). openOMSI drives each remote from the
-            // continuous state stream, so an explicitly admitted state may
-            // create the lifecycle entry without a second synchronous spawn
-            // command. Raw RemoteVehicleState messages never carry
+            // The room-bound openOMSI v6 stream is the admission authority for
+            // physical players. The plugin still enforces a usable native
+            // target and the bounded player count before creating a lifecycle
+            // entry. Raw RemoteVehicleState sidecar messages never carry
             // VehicleInstanceId and therefore cannot auto-admit themselves.
             if (PendingRemovals.Contains(instanceId))
             {
