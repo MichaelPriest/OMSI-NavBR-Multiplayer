@@ -399,7 +399,12 @@ public static class OmsiPluginBridgeRelay
             SyncTableHash: telemetry.SyncTableHash,
             SyncLamps: telemetry.OpenOmsiLamps,
             SyncSwitches: telemetry.OpenOmsiSwitches,
-            SyncValues: telemetry.OpenOmsiValues);
+            SyncValues: telemetry.OpenOmsiValues,
+            SyncDoors: telemetry.OpenOmsiDoors,
+            SyncLampVariableIndices: telemetry.OpenOmsiLampIds,
+            SyncSwitchVariableIndices: telemetry.OpenOmsiSwitchIds,
+            SyncValueVariableIndices: telemetry.OpenOmsiValueIds,
+            SyncDoorVariableIndices: telemetry.OpenOmsiDoorIds);
     }
 
     private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(
