@@ -86,8 +86,8 @@ internal static class RemoteVehicleVarsRegistry
         rejectionReason = null;
         var playerId = message.PlayerId?.Trim();
         if (string.IsNullOrWhiteSpace(playerId) ||
-            message.SyncTableHash is not uint varTableHash ||
-            varTableHash == 0)
+            message.SyncTableHash is not uint syncTableHash ||
+            syncTableHash == 0)
         {
             rejectionReason = "missing-player-or-table";
             return false;
