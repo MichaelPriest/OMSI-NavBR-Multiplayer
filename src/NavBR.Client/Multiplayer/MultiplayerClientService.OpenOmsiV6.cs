@@ -804,16 +804,17 @@ public sealed partial class MultiplayerClientService
         // has a matching INFO vehicle identity. Convert the openOMSI world
         // pose into the receiver's real OMSI Kachel/local coordinate system
         // before the plugin is allowed to touch a native RoadVehicle.
+        PlayerTelemetryFrame? physicalFrame = null;
         var physicalStateAdmitted =
             (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0 &&
             info?.VehiclePath is { Length: > 0 } &&
             TryBuildOpenOmsiPhysicalFrame(
                 frame,
                 state,
-                out var physicalFrame);
-        _ = physicalStateAdmitted
+                out physicalFrame);
+        _ = physicalStateAdmitted && physicalFrame is not null
             ? OmsiPluginBridgeRelay
-                .ForwardAdmittedRemotePhysicalStateAsync(physicalFrame!)
+                .ForwardAdmittedRemotePhysicalStateAsync(physicalFrame)
             : OmsiPluginBridgeRelay
                 .ForwardRemoteTelemetryAsync(frame);
 
