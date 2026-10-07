@@ -988,17 +988,17 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             text.StartsWith("WANT|", StringComparison.Ordinal) &&
             OpenOmsiWorldDescriptionCodec.TryDecodeWant(
                 text,
-                out var requesterId,
+                out var wantRequesterId,
                 out var requested) &&
             _peers.TryGetValue(
-                requesterId,
+                wantRequesterId,
                 out var requestingPeer) &&
             requestingPeer.Endpoint.Equals(from))
         {
             requestingPeer.LastSeenUtc =
                 DateTimeOffset.UtcNow;
             WorldDescriptionsRequested?.Invoke(
-                requesterId,
+                wantRequesterId,
                 requested);
             return;
         }
