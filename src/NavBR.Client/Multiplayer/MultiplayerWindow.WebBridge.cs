@@ -234,6 +234,7 @@ public partial class MultiplayerWindow
                 isHost = _client.IsOpenOmsiV6Host,
                 port = _client.OpenOmsiV6Port,
                 sessionCode = _client.OpenOmsiV6SessionCode,
+                webSocketUrl = _client.OpenOmsiV6WebSocketUrl,
                 role = !_client.UsesOpenOmsiV6Transport
                     ? "offline"
                     : _client.IsOpenOmsiV6Host
