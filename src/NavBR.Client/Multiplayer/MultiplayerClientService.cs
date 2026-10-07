@@ -191,6 +191,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 cancellationToken);
 
             ApplyRoomSnapshotMetadata(snapshot);
+            await ConfigureOpenOmsiV6Async(snapshot, cancellationToken);
             ConnectionStateChanged?.Invoke(connection.State);
             RoomSnapshotReceived?.Invoke(snapshot);
             return snapshot;
@@ -311,6 +312,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             compatibilityId,
             cancellationToken);
 
+        // Physical multiplayer now uses the openOMSI LAN v6 transport.
+        // SignalR keeps this telemetry only for NavBR service features such as
+        // CCO/company/map status; it no longer drives remote RoadVehicles.
+        await PublishOpenOmsiTelemetryAsync(outgoing, cancellationToken);
         await connection.SendAsync("PublishTelemetry", outgoing, cancellationToken);
     }
 
@@ -500,6 +505,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _connection = null;
         _joinRequest = null;
         ResetRoomMetadata();
+        await StopOpenOmsiV6Async();
         ClearRemoteTelemetryOrder();
         _physicalVehicles.SetLocalManifest(null);
         _physicalVehicles.SetLocalTelemetry(null);
@@ -538,8 +544,16 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
     private void RegisterHandlers(HubConnection connection)
     {
-        connection.On<PlayerPresence>("playerJoined", player => PlayerJoined?.Invoke(player));
-        connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
+        connection.On<PlayerPresence>("playerJoined", player =>
+        {
+            PlayerJoined?.Invoke(player);
+            _ = HandleOpenOmsiPresenceAsync(player);
+        });
+        connection.On<PlayerPresence>("playerPresenceChanged", player =>
+        {
+            PlayerPresenceChanged?.Invoke(player);
+            _ = HandleOpenOmsiPresenceAsync(player);
+        });
         connection.On<string>("playerLeft", playerId =>
         {
             ForgetRemoteTelemetryOrder(playerId);
@@ -556,9 +570,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 return;
             }
 
+            // Service-side telemetry remains useful for CCO/company/status.
+            // Never use it for physical movement: openOMSI LAN v6 is now the
+            // single authoritative remote-motion path.
             TelemetryReceived?.Invoke(frame);
-            _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
-            _ = RouteRemotePhysicalTelemetryAsync(frame);
         });
         connection.On<TrafficSnapshot>("trafficSnapshot", snapshot =>
         {
