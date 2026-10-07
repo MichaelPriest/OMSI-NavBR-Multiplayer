@@ -513,6 +513,54 @@ await using (var client = new OpenOmsiLanPeerSession())
     await host.StartHostAsync(world);
     Require(host.Port is not null, "host did not bind an openOMSI LAN port");
 
+    var multiAddressCode = new OpenOmsiSessionCode(
+        OpenOmsiLanProtocol.ProtocolVersion,
+        IPAddress.Parse("203.0.113.1"),
+        checked((ushort)host.Port.Value),
+        host.SessionId)
+    {
+        Addresses =
+        [
+            IPAddress.Parse("203.0.113.1"),
+            IPAddress.Loopback
+        ]
+    }.Encode();
+
+    Require(
+        OpenOmsiSessionCode.TryDecode(
+            multiAddressCode,
+            out var decodedMultiCode),
+        "multi-address session code did not decode");
+    Require(
+        decodedMultiCode.EffectiveAddresses.Count == 2 &&
+        decodedMultiCode.EffectiveAddresses[0].Equals(
+            IPAddress.Parse("203.0.113.1")) &&
+        decodedMultiCode.EffectiveAddresses[1].Equals(
+            IPAddress.Loopback),
+        "multi-address session code lost endpoint order");
+
+    await using (var multiClient = new OpenOmsiLanPeerSession())
+    {
+        await multiClient.JoinByCodeAsync(
+            multiAddressCode,
+            world,
+            "Multi Client",
+            @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
+
+        Require(
+            multiClient.LocalPlayerId >= 2,
+            "multi-address client did not join through the reachable candidate");
+        Require(
+            multiClient.SessionId == host.SessionId,
+            "multi-address client joined the wrong session");
+        Require(
+            string.Equals(
+                multiClient.SessionCode,
+                multiAddressCode,
+                StringComparison.Ordinal),
+            "multi-address client did not preserve the canonical invite code");
+    }
+
     var hostSawClientState =
         new TaskCompletionSource<OpenOmsiLanVehicleState>(
             TaskCreationOptions.RunContinuationsAsynchronously);
