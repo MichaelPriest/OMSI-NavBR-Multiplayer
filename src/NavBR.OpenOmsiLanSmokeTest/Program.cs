@@ -197,6 +197,238 @@ Require(hello.Nonce == 0x0011223344556677UL, "HELLO nonce mismatch");
 
 
 
+var worldFrame = new OpenOmsiWorldFrame(
+    Sequence: ushort.MaxValue,
+    HostMilliseconds: 123_456_789u,
+    Cars:
+    [
+        new OpenOmsiWorldCarState(
+            7,
+            892_248.18,
+            4_196_461.37,
+            33.21,
+            271.3f,
+            -1.2f,
+            0.4f,
+            13.85f,
+            -7.5f,
+            2,
+            true,
+            true,
+            -1),
+        new OpenOmsiWorldCarState(
+            OpenOmsiWorldCodec.MaxId,
+            893_100.02,
+            4_196_461.37,
+            33.21,
+            45f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0,
+            false,
+            false,
+            0)
+    ],
+    People:
+    [
+        new OpenOmsiWorldPersonState(
+            12,
+            OpenOmsiWorldActivity.Sit,
+            OpenOmsiWorldPersonPlaceKind.Foot,
+            892_250.5,
+            4_196_470.25,
+            33.9,
+            45f,
+            0f,
+            3_000_123_456L,
+            3),
+        new OpenOmsiWorldPersonState(
+            13,
+            OpenOmsiWorldActivity.Walk,
+            OpenOmsiWorldPersonPlaceKind.Foot,
+            892_240d,
+            4_196_400d,
+            34d,
+            180f,
+            1.4f),
+        new OpenOmsiWorldPersonState(
+            14,
+            OpenOmsiWorldActivity.Sit,
+            OpenOmsiWorldPersonPlaceKind.Vehicle,
+            -0.62d,
+            -8.4d,
+            1.05d,
+            180f,
+            0f,
+            VehicleId: 7,
+            Seat: 12),
+        new OpenOmsiWorldPersonState(
+            15,
+            OpenOmsiWorldActivity.Stand,
+            OpenOmsiWorldPersonPlaceKind.PlayerBus,
+            0.4d,
+            2d,
+            1d,
+            90f,
+            0f,
+            VehicleId: 3,
+            Seat: null)
+    ],
+    Lights:
+    [
+        new OpenOmsiWorldLightState(
+            4711,
+            63.45d,
+            true)
+    ],
+    Gone:
+    [
+        (false, 3u),
+        (true, 99u)
+    ],
+    ParkedComplete: true,
+    ParkedMapIds:
+    [
+        242_685u,
+        7u
+    ]);
+
+var worldPackets = OpenOmsiWorldCodec.Encode(worldFrame);
+Require(worldPackets.Count == 1, "WORLD fixture unexpectedly fragmented");
+Require(
+    worldPackets.All(packetValue =>
+        packetValue.Length <= OpenOmsiWorldCodec.MaxDatagramBytes),
+    "WORLD exceeded datagram limit");
+Require(
+    OpenOmsiWorldCodec.TryDecode(
+        worldPackets[0],
+        out var decodedWorld),
+    "WORLD did not decode");
+Require(
+    decodedWorld.Sequence == ushort.MaxValue &&
+    decodedWorld.HostMilliseconds == 123_456_789u,
+    "WORLD header mismatch");
+Require(decodedWorld.Cars.Count == 2, "WORLD car count mismatch");
+Near(decodedWorld.Cars[0].X, 892_248.18d, 0.006d, "WORLD car x");
+Near(decodedWorld.Cars[0].Y, 4_196_461.37d, 0.006d, "WORLD car y");
+Near(decodedWorld.Cars[0].Z, 33.21d, 0.006d, "WORLD car z");
+Near(decodedWorld.Cars[0].HeadingDegrees, 271.3d, 0.05d, "WORLD car heading");
+Near(decodedWorld.Cars[0].SpeedMetersPerSecond, 13.85d, 0.026d, "WORLD car speed");
+Require(
+    decodedWorld.Cars[0].TurnSignal == 2 &&
+    decodedWorld.Cars[0].Brake &&
+    decodedWorld.Cars[0].Lights &&
+    decodedWorld.Cars[0].AtStation == -1,
+    "WORLD car visual state mismatch");
+Require(decodedWorld.People.Count == 4, "WORLD people count mismatch");
+Require(
+    decodedWorld.People[0].WaitingStopObjectId == 3_000_123_456L &&
+    decodedWorld.People[0].WaitingPlace == 3,
+    "WORLD waiting person mismatch");
+Require(
+    decodedWorld.People[2].PlaceKind ==
+        OpenOmsiWorldPersonPlaceKind.Vehicle &&
+    decodedWorld.People[2].VehicleId == 7 &&
+    decodedWorld.People[2].Seat == 12,
+    "WORLD onboard person mismatch");
+Require(
+    decodedWorld.People[3].PlaceKind ==
+        OpenOmsiWorldPersonPlaceKind.PlayerBus &&
+    decodedWorld.People[3].VehicleId == 3 &&
+    decodedWorld.People[3].Seat is null,
+    "WORLD player-bus person mismatch");
+Require(
+    decodedWorld.Lights.Count == 1 &&
+    decodedWorld.Lights[0].Held,
+    "WORLD light mismatch");
+Near(
+    decodedWorld.Lights[0].CycleSeconds,
+    63.45d,
+    0.026d,
+    "WORLD light cycle");
+Require(
+    decodedWorld.Gone.SequenceEqual(
+        new[]
+        {
+            (IsPerson: false, Id: 3u),
+            (IsPerson: true, Id: 99u)
+        }),
+    "WORLD gone list mismatch");
+Require(
+    decodedWorld.ParkedComplete == true &&
+    decodedWorld.ParkedMapIds?.SequenceEqual(
+        new uint[] { 242_685u, 7u }) == true,
+    "WORLD parked list mismatch");
+
+var busyWorld = new OpenOmsiWorldFrame(
+    77,
+    50_000u,
+    Enumerable.Range(0, 150)
+        .Select(index =>
+            new OpenOmsiWorldCarState(
+                (uint)index,
+                892_000d + index * 5d,
+                4_196_000d,
+                30d,
+                0f,
+                0f,
+                0f,
+                8f,
+                0f,
+                0,
+                false,
+                false,
+                0))
+        .ToArray(),
+    Enumerable.Range(0, 300)
+        .Select(index =>
+            new OpenOmsiWorldPersonState(
+                (uint)(1000 + index),
+                OpenOmsiWorldActivity.Walk,
+                OpenOmsiWorldPersonPlaceKind.Foot,
+                892_000d + index,
+                4_196_000d,
+                30d,
+                0f,
+                1.2f,
+                index % 3 == 0 ? index : null,
+                index % 3 == 0 ? (byte)1 : null))
+        .ToArray(),
+    Enumerable.Range(0, 10)
+        .Select(index =>
+            new OpenOmsiWorldLightState(index, 1d, false))
+        .ToArray(),
+    Array.Empty<(bool IsPerson, uint Id)>());
+
+var busyPackets = OpenOmsiWorldCodec.Encode(busyWorld);
+Require(busyPackets.Count > 1, "busy WORLD did not fragment");
+Require(
+    busyPackets.All(packetValue =>
+        packetValue.Length <= OpenOmsiWorldCodec.MaxDatagramBytes),
+    "fragmented WORLD exceeded datagram limit");
+var busyDecoded = busyPackets
+    .Select(packetValue =>
+    {
+        Require(
+            OpenOmsiWorldCodec.TryDecode(
+                packetValue,
+                out var decodedPacket),
+            "fragmented WORLD packet did not decode");
+        return decodedPacket;
+    })
+    .ToArray();
+Require(
+    busyDecoded.Sum(item => item.Cars.Count) == 150,
+    "fragmented WORLD lost cars");
+Require(
+    busyDecoded.Sum(item => item.People.Count) == 300,
+    "fragmented WORLD lost people");
+Require(
+    busyDecoded.Sum(item => item.Lights.Count) == 10,
+    "fragmented WORLD lost lights");
+
 var codeFixture = new OpenOmsiSessionCode(
     OpenOmsiLanProtocol.ProtocolVersion,
     IPAddress.Loopback,
