@@ -21,4 +21,9 @@ public sealed record RoleplayCharacterState(
     bool IsActive,
     string? CharacterId = null,
     string? CharacterName = null,
-    int? HumanIndex = null);
+    int? HumanIndex = null,
+    double? CourseDegrees = null,
+    bool Seated = false,
+    ushort? AboardOwner = null,
+    float[]? AboardLocal = null,
+    ushort? Seat = null);
