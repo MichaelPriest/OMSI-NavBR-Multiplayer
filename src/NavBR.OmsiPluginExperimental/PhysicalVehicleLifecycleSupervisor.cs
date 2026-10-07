@@ -484,8 +484,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              StringComparison.Ordinal))
                 {
                     ProbeRemoteScriptVarBounds(entry.InstanceId, instance);
-                    PinRemoteScriptVars(entry.InstanceId, instance);
                     PinRemoteVisualSyncVars(entry.InstanceId, instance);
+                    PinRemoteScriptVars(entry.InstanceId, instance);
                     if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
@@ -761,17 +761,27 @@ internal static class PhysicalVehicleLifecycleSupervisor
             return;
         }
 
+        var smoothIds = snapshot.LampIds
+            .Concat(snapshot.SwitchIds)
+            .Concat(snapshot.ValueIds)
+            .Concat(snapshot.DoorIds)
+            .ToHashSet();
+        var scriptFloats = snapshot.Floats
+            .Where(pair => !smoothIds.Contains(pair.Key))
+            .Take(256)
+            .ToArray();
+
         var count =
             OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
                 instance.VehiclePointer);
-        if (snapshot.Floats.Count > 0)
+        if (scriptFloats.Length > 0)
         {
             if (count <= 0)
             {
                 return;
             }
 
-            var maxId = snapshot.Floats.Keys.Max();
+            var maxId = scriptFloats.Max(pair => pair.Key);
             if (maxId >= count)
             {
                 return;
@@ -779,7 +789,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var applied = 0;
-        foreach (var pair in snapshot.Floats.Take(256))
+        foreach (var pair in scriptFloats)
         {
             if (!float.IsFinite(pair.Value) ||
                 pair.Key >= count ||
