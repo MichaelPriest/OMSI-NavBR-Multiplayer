@@ -27,6 +27,7 @@ public sealed partial class MultiplayerClientService
     public bool IsOpenOmsiV6Host => _openOmsiV6Session?.IsHost == true;
     public string? OpenOmsiV6SessionCode => _openOmsiV6Session?.SessionCode;
     public int? OpenOmsiV6Port => _openOmsiV6Session?.Port;
+    public string? OpenOmsiV6WebSocketUrl => _openOmsiPublicWebSocketUrl;
 
     private async Task ConfigureOpenOmsiV6Async(
         RoomSnapshot snapshot,
