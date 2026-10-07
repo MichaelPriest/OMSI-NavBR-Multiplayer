@@ -11,9 +11,7 @@ public sealed partial class MultiplayerClientService
     /// the connected OMSI plugin reports the spawn/transform capabilities.
     /// </summary>
     public bool IsPhysicalMultiplayerAvailable =>
-        _physicalVehicles.IsPhysicalMultiplayerAvailable ||
-        (ExperimentalFeatureFlags.PhysicalVehiclesEnabled &&
-         OpenOmsiLanGateway.Shared.IsClientConnected);
+        _physicalVehicles.IsPhysicalMultiplayerAvailable;
 
     public bool IsRemotePhysicalVehicleSpawned(string playerId)
     {
