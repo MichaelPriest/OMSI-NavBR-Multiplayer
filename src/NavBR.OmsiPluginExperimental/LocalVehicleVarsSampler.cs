@@ -98,36 +98,51 @@ internal static class LocalVehicleVarsSampler
             OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(player);
         var stringCount =
             OmsiNativeInterop.TryGetRoadVehicleStringVarCount(player);
-        if ((ids.Length > 0 &&
-             (count <= 0 || ids.Any(id => id >= count))) ||
-            (stringIds.Length > 0 &&
-             (stringCount < 0 || stringIds.Any(id => id >= stringCount))))
+        // A vehicle may expose only a subset of the declared script slots
+        // (notably StringVars while a bus is still loading). Do not let one
+        // missing slot suppress otherwise valid float/visual STATE samples.
+        var sampledFloatIds = new List<ushort>(ids.Length);
+        var sampledValues = new List<float>(ids.Length);
+        if (count > 0)
+        {
+            foreach (var id in ids)
+            {
+                if (id >= count ||
+                    !OmsiNativeInterop.TryReadRoadVehiclePublicVar(
+                        player, id, out var value) ||
+                    !float.IsFinite(value))
+                {
+                    continue;
+                }
+
+                sampledFloatIds.Add(id);
+                sampledValues.Add(value);
+            }
+        }
+
+        var sampledStringIds = new List<ushort>(stringIds.Length);
+        var sampledStringValues = new List<string>(stringIds.Length);
+        if (stringCount > 0)
+        {
+            foreach (var id in stringIds)
+            {
+                if (id >= stringCount ||
+                    !OmsiNativeInterop.TryReadRoadVehicleStringVar(
+                        player, id, out var value) ||
+                    value.Length > 255)
+                {
+                    continue;
+                }
+
+                sampledStringIds.Add(id);
+                sampledStringValues.Add(value);
+            }
+        }
+
+        if (sampledFloatIds.Count == 0 &&
+            sampledStringIds.Count == 0)
         {
             return;
-        }
-
-        var values = new float[ids.Length];
-        for (var i = 0; i < ids.Length; i++)
-        {
-            if (!OmsiNativeInterop.TryReadRoadVehiclePublicVar(
-                    player,
-                    ids[i],
-                    out values[i]))
-            {
-                return;
-            }
-        }
-
-        var stringValues = new string[stringIds.Length];
-        for (var i = 0; i < stringIds.Length; i++)
-        {
-            if (!OmsiNativeInterop.TryReadRoadVehicleStringVar(
-                    player,
-                    stringIds[i],
-                    out stringValues[i]))
-            {
-                return;
-            }
         }
 
         var snapshot = new PluginBridgeMessage(
@@ -137,14 +152,16 @@ internal static class LocalVehicleVarsSampler
             TimestampUnixMilliseconds:
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             VarTableHash: hash,
-            VariableIndices: ids,
-            VariableValues: values,
-            StringVariableIndices: stringIds,
-            StringVariableValues: stringValues);
+            VariableIndices: sampledFloatIds.ToArray(),
+            VariableValues: sampledValues.ToArray(),
+            StringVariableIndices: sampledStringIds.ToArray(),
+            StringVariableValues: sampledStringValues.ToArray());
 
         lock (Sync)
         {
-            if (_varTableHash == hash)
+            if (_varTableHash == hash &&
+                ReferenceEquals(_floatIds, ids) &&
+                ReferenceEquals(_stringIds, stringIds))
             {
                 _pending = snapshot;
             }
