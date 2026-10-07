@@ -298,6 +298,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
         string.Equals(type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.ConfigureLocalVehicleVars, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.RemoteVehicleVars, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.TrafficSnapshotState, StringComparison.Ordinal) ||
