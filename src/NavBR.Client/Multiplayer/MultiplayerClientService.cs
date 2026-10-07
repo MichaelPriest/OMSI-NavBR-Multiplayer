@@ -307,18 +307,21 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         await connection.SendAsync("PublishTelemetry", outgoing, cancellationToken);
     }
 
-    public async Task PublishTrafficSnapshotAsync(
+    public Task PublishTrafficSnapshotAsync(
         TrafficSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        if (!IsTrafficAuthority ||
-            connection is null || connection.State != HubConnectionState.Connected)
+        if (!IsTrafficAuthority)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        await connection.SendAsync("PublishTrafficSnapshot", snapshot, cancellationToken);
+        // Physical/shared traffic is owned exclusively by openOMSI WORLD v6.
+        // SignalR remains the NavBR service plane and must never carry a second
+        // authoritative copy of AI movement.
+        return PublishOpenOmsiTrafficSnapshotAsync(
+            snapshot,
+            cancellationToken);
     }
 
     public async Task SendChatMessageAsync(
