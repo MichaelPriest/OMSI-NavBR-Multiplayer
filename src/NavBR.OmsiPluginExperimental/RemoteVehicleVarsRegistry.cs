@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.PluginBridge;
 
 namespace NavBR.OmsiPluginExperimental;
@@ -105,7 +106,7 @@ internal static class RemoteVehicleVarsRegistry
         var doorIds = message.SyncDoorVariableIndices ?? [];
         if (lamps.Length > 127 ||
             switches.Length > 31 ||
-            values.Length > 63 ||
+            values.Length > OpenOmsiLanProtocol.MaxValues + 6 ||
             doors.Length > 7 ||
             lamps.Length != lampIds.Length ||
             switches.Length != switchIds.Length ||
