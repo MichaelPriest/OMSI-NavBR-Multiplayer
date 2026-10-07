@@ -26,4 +26,6 @@ public sealed record PlayerPresence(
     public IReadOnlyList<string>? PhysicalVehiclePlayerIds { get; init; }
 
     public OpenOmsiTransportDescriptor? OpenOmsiTransport { get; init; }
+
+    public ushort? OpenOmsiLanId { get; init; }
 }
