@@ -594,8 +594,6 @@ public sealed partial class MultiplayerClientService
         }
     }
 
-    }
-
     private void StartOpenOmsiPlaybackLoop()
     {
         if (_openOmsiPlaybackCts is not null)
