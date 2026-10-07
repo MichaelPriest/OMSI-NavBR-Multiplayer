@@ -59,7 +59,7 @@ internal static class OpenOmsiSyncTableManifestBuilder
             return null;
         }
 
-        var paintVars = ReadPaintVariables(vehicleFiles);
+        var paintVars = ReadPaintVariables(vehicleFiles[0]);
         var lampCandidates = new List<string>();
         var switchCandidates = new List<string>();
         var visibleValueCandidates = new List<string>();
@@ -112,14 +112,15 @@ internal static class OpenOmsiSyncTableManifestBuilder
 
         // Sound variables are appended after visible moving parts, just as openOMSI
         // does, so a capped table gives visual animations priority.
-        foreach (var vehicle in vehicleFiles)
+        for (var vehicleIndex = 0;
+             vehicleIndex < vehicleFiles.Count &&
+             values.Count < OpenOmsiLanProtocol.MaxValues;
+             vehicleIndex++)
         {
-            if (values.Count >= OpenOmsiLanProtocol.MaxValues)
-            {
-                break;
-            }
-
-            var names = ReadOutsideSoundVariables(vehicle);
+            var vehicle = vehicleFiles[vehicleIndex];
+            var names = ReadSoundVariablesForPart(
+                vehicle,
+                isLead: vehicleIndex == 0);
             var already = values.Select(item => item.Id).ToHashSet();
             var more = Collect(
                 names,
@@ -289,29 +290,71 @@ internal static class OpenOmsiSyncTableManifestBuilder
     }
 
     private static HashSet<string> ReadPaintVariables(
-        IReadOnlyList<VehicleFiles> vehicles)
+        VehicleFiles lead)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var vehicle in vehicles)
+        if (lead.ModelPath is null || !File.Exists(lead.ModelPath))
         {
-            var baseDir = Path.GetDirectoryName(vehicle.BusPath);
-            if (string.IsNullOrWhiteSpace(baseDir) ||
-                !Directory.Exists(baseDir))
+            return result;
+        }
+
+        string[] modelLines;
+        try
+        {
+            modelLines = ReadLegacyLines(lead.ModelPath);
+        }
+        catch
+        {
+            return result;
+        }
+
+        var busDir = Path.GetDirectoryName(lead.BusPath) ?? string.Empty;
+        var ctcDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenItem = false;
+
+        for (var i = 0; i < modelLines.Length; i++)
+        {
+            var keyword = NormalizeKeyword(modelLines[i]);
+            if (keyword == "item")
             {
+                seenItem = true;
                 continue;
             }
 
-            IEnumerable<string> files;
+            var cursor = i + 1;
+            if (keyword == "setvar" &&
+                seenItem &&
+                TryNextValue(modelLines, ref cursor, out var inlineVar))
+            {
+                result.Add(inlineVar.Trim());
+                continue;
+            }
+
+            if (keyword == "ctc" &&
+                TryValues(modelLines, i + 1, 3, out var ctc))
+            {
+                var directory = ResolveRelative(busDir, ctc[1]);
+                if (directory is not null && Directory.Exists(directory))
+                {
+                    ctcDirectories.Add(directory);
+                }
+            }
+        }
+
+        foreach (var directory in ctcDirectories)
+        {
+            string[] files;
             try
             {
                 files = Directory
-                    .EnumerateFiles(baseDir, "*.cti", SearchOption.AllDirectories)
+                    .EnumerateFiles(directory, "*.cti", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                     .Take(512)
                     .ToArray();
             }
             catch
             {
-                files = Array.Empty<string>();
+                continue;
             }
 
             foreach (var file in files)
@@ -326,9 +369,17 @@ internal static class OpenOmsiSyncTableManifestBuilder
                     continue;
                 }
 
+                var hasItem = false;
                 for (var i = 0; i < lines.Length; i++)
                 {
-                    if (NormalizeKeyword(lines[i]) != "setvar")
+                    var keyword = NormalizeKeyword(lines[i]);
+                    if (keyword == "item")
+                    {
+                        hasItem = true;
+                        continue;
+                    }
+
+                    if (keyword != "setvar" || !hasItem)
                     {
                         continue;
                     }
@@ -374,10 +425,48 @@ internal static class OpenOmsiSyncTableManifestBuilder
             return;
         }
 
+        var modelDir = Path.GetDirectoryName(modelPath) ?? string.Empty;
+        var vehicleDir = Directory.GetParent(modelDir)?.FullName ?? modelDir;
         MeshScan? mesh = null;
+        string? currentMaterialLightmap = null;
+
+        void FlushMaterial()
+        {
+            if (!string.IsNullOrWhiteSpace(currentMaterialLightmap))
+            {
+                lamps.Add(currentMaterialLightmap);
+            }
+            currentMaterialLightmap = null;
+        }
+
+        bool MeshExists(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return false;
+            }
+
+            foreach (var baseDir in new[]
+                     {
+                         modelDir,
+                         vehicleDir,
+                         Path.Combine(vehicleDir, "model")
+                     })
+            {
+                var resolved = ResolveRelative(baseDir, raw);
+                if (resolved is not null && File.Exists(resolved))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         void FlushMesh()
         {
-            if (mesh is null)
+            FlushMaterial();
+            if (mesh is null || !MeshExists(mesh.File))
             {
                 return;
             }
@@ -416,6 +505,23 @@ internal static class OpenOmsiSyncTableManifestBuilder
                         mesh.File = meshFile.Trim();
                     }
                     break;
+                case "matl":
+                case "matl_item":
+                    FlushMaterial();
+                    break;
+                case "matl_change":
+                    FlushMaterial();
+                    if (TryValues(lines, i + 1, 3, out var change))
+                    {
+                        lamps.Add(change[2]);
+                    }
+                    break;
+                case "matl_lightmap":
+                    if (TryValues(lines, i + 1, 2, out var lightmap))
+                    {
+                        currentMaterialLightmap = lightmap[1];
+                    }
+                    break;
                 case "mesh_ident":
                     if (mesh is not null &&
                         TryNextValue(lines, ref cursor, out var ident))
@@ -442,18 +548,6 @@ internal static class OpenOmsiSyncTableManifestBuilder
                         TryNextValue(lines, ref cursor, out var animation))
                     {
                         mesh.Animations.Add(animation.Trim());
-                    }
-                    break;
-                case "matl_change":
-                    if (TryValues(lines, i + 1, 3, out var change))
-                    {
-                        lamps.Add(change[2]);
-                    }
-                    break;
-                case "matl_lightmap":
-                    if (TryValues(lines, i + 1, 2, out var lightmap))
-                    {
-                        lamps.Add(lightmap[1]);
                     }
                     break;
                 case "light_enh":
@@ -502,10 +596,25 @@ internal static class OpenOmsiSyncTableManifestBuilder
         FlushMesh();
     }
 
-    private static IEnumerable<string> ReadOutsideSoundVariables(
-        VehicleFiles vehicle)
+    private static IEnumerable<string> ReadSoundVariablesForPart(
+        VehicleFiles vehicle,
+        bool isLead)
     {
         var output = new List<string>();
+
+        if (!isLead)
+        {
+            var selected = vehicle.SoundAiPath ?? vehicle.SoundPath;
+            if (selected is not null)
+            {
+                output.AddRange(
+                    ReadSoundVariables(
+                        selected,
+                        outsideOnly: false));
+            }
+            return output;
+        }
+
         if (vehicle.SoundAiPath is not null)
         {
             output.AddRange(
@@ -617,6 +726,7 @@ internal static class OpenOmsiSyncTableManifestBuilder
                         TryNextValue(lines, ref cursor, out var condition))
                     {
                         entry.Variables.Add(condition);
+                        entry.OutsideHints.Add(condition);
                     }
                     break;
                 case "trigger":
