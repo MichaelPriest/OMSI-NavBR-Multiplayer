@@ -65,10 +65,11 @@ public static class OmsiPluginBridgeRelay
         }
 
         // openOMSI keeps remote vehicle lifecycle driven by the continuous
-        // network state stream instead of waiting on a second synchronous
-        // spawn/update request. VehicleInstanceId marks this state as already
-        // admitted by the desktop coordinator after compatibility, distance,
-        // asset fingerprint and coherent physical-pose checks.
+        // v6 state stream instead of waiting on a second synchronous
+        // spawn/update request. VehicleInstanceId marks a state that the
+        // desktop received from a room-bound openOMSI v6 peer with a concrete
+        // INFO vehicle identity. SignalR sidecar telemetry never receives this
+        // marker and therefore cannot command native OMSI RoadVehicles.
         var message = CreateStateMessage(
             PluginBridgeProtocol.RemoteVehicleState,
             telemetry,
