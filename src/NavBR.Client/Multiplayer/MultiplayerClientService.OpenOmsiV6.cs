@@ -146,7 +146,10 @@ public sealed partial class MultiplayerClientService
             OpenOmsiLanProtocol.ProtocolVersion,
             address,
             port,
-            OpenOmsiLanProtocol.SessionHex(session.SessionId));
+            OpenOmsiLanProtocol.SessionHex(session.SessionId))
+        {
+            SessionCode = session.SessionCode
+        };
 
         await connection.InvokeAsync(
             "UpdateOpenOmsiTransport",
