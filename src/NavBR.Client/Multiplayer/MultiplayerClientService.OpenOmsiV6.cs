@@ -494,13 +494,53 @@ public sealed partial class MultiplayerClientService
         {
             var values = state.Values.ToList();
             var ids = compatibleSyncTable!.ValueIds.ToList();
-            if (compatibleSyncTable.EngineNId is ushort engineId &&
-                !ids.Contains(engineId) &&
-                float.IsFinite(state.EngineRpm))
+
+            void AddAux(ushort? id, float value)
             {
-                ids.Add(engineId);
-                values.Add(state.EngineRpm);
+                if (id is not ushort variableId ||
+                    ids.Contains(variableId) ||
+                    !float.IsFinite(value))
+                {
+                    return;
+                }
+
+                ids.Add(variableId);
+                values.Add(value);
             }
+
+            AddAux(
+                compatibleSyncTable.EngineNId,
+                state.EngineRpm);
+
+            var engineActive =
+                (state.Flags & OpenOmsiLanProtocol.FlagEngine) != 0 ||
+                ((state.Flags & OpenOmsiLanProtocol.FlagElectrics) != 0 &&
+                 compatibleSyncTable.EngineNId is not null)
+                    ? 1f
+                    : -1f;
+            AddAux(
+                compatibleSyncTable.AiEngineId,
+                engineActive);
+
+            var lightInput = state.HeadLightLevel switch
+            {
+                1 => 0.5f,
+                2 => 1f,
+                >= 3 => 2f,
+                _ => 0f
+            };
+            AddAux(
+                compatibleSyncTable.AiLightId,
+                lightInput);
+            AddAux(
+                compatibleSyncTable.AiInteriorId,
+                state.InteriorLightLevel > 0 ? 1f : 0f);
+            AddAux(
+                compatibleSyncTable.ThrottleId,
+                state.Throttle);
+            AddAux(
+                compatibleSyncTable.BrakeId,
+                state.Brake);
 
             remoteVisualValues = values.ToArray();
             remoteVisualValueIds = ids.ToArray();
