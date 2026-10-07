@@ -1,6 +1,8 @@
+using System.Numerics;
 using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Maps;
+using NavBR.Client.Telemetry;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -64,6 +66,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
     private readonly Func<string?> _mapKeySource;
+    private readonly Func<OmsiCameraProjectionSnapshot?> _cameraProjectionSource;
     private readonly DispatcherTimer _timer;
     private readonly object _inputSync = new();
     private readonly HashSet<int> _pressedKeys = [];
@@ -109,11 +112,14 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public RoleplayCharacterController(
         Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource,
-        Func<string?> mapKeySource)
+        Func<string?> mapKeySource,
+        Func<OmsiCameraProjectionSnapshot?>? cameraProjectionSource = null)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
         _mapKeySource = mapKeySource;
+        _cameraProjectionSource =
+            cameraProjectionSource ?? (() => null);
         _freeRoamEnabled =
             MultiplayerSettingsStore.Load().RoleplayFreeRoamEnabled;
 
@@ -812,8 +818,26 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var currentHorizontalSpeed = Math.Sqrt(
                 _movementVelocityX * _movementVelocityX +
                 _movementVelocityY * _movementVelocityY);
-            if (turnLeft ^ turnRight)
+            var hasCameraHeading = TryResolveCameraHeading(
+                _cameraProjectionSource(),
+                out var cameraHeading);
+
+            if (hasCameraHeading)
             {
+                // openOMSI's walker moves relative to where the camera looks
+                // and the body eases towards that yaw instead of snapping.
+                var turnSpeed = currentHorizontalSpeed > 0.3d
+                    ? MovingTurnSpeedDegreesPerSecond
+                    : StandingTurnSpeedDegreesPerSecond;
+                var delta = WrapSignedDegrees(cameraHeading - heading);
+                var maxStep = turnSpeed * deltaSeconds;
+                heading = NormalizeHeading(
+                    heading + Math.Clamp(delta, -maxStep, maxStep));
+            }
+            else if (turnLeft ^ turnRight)
+            {
+                // Fail closed when the exact OMSI camera profile is
+                // unavailable: preserve the existing keyboard-heading fallback.
                 var turnSpeed = currentHorizontalSpeed > 0.15d
                     ? MovingTurnSpeedDegreesPerSecond
                     : StandingTurnSpeedDegreesPerSecond;
@@ -823,9 +847,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 heading = NormalizeHeading(heading);
             }
 
-            // openOMSI moves the on-foot avatar from a normalized WASD vector
-            // instead of treating A/D as steering. Keep the same behavior here:
-            // W/S move along the body heading, A/D strafe, and arrows rotate.
+            // openOMSI uses a normalized WASD vector relative to camera yaw.
+            // If camera projection is unavailable, heading remains the stable
+            // fallback so RP remains controllable without guessing memory.
             var forwardAxis = (forward ? 1d : 0d) - (backward ? 1d : 0d);
             var rightAxis = (strafeRight ? 1d : 0d) - (strafeLeft ? 1d : 0d);
             var inputLength = Math.Sqrt(
@@ -840,7 +864,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var targetSpeed = inputLength > 0d
                 ? running ? RunSpeedMps : WalkSpeedMps
                 : 0d;
-            var radians = heading * Math.PI / 180d;
+            var movementHeading =
+                hasCameraHeading ? cameraHeading : heading;
+            var radians = movementHeading * Math.PI / 180d;
             var forwardX = Math.Sin(radians);
             var forwardY = Math.Cos(radians);
             var rightX = Math.Cos(radians);
@@ -1403,6 +1429,56 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                    currentMapName,
                    StringComparison.OrdinalIgnoreCase);
     }
+
+    internal static bool TryResolveCameraHeading(
+        OmsiCameraProjectionSnapshot? snapshot,
+        out double headingDegrees)
+    {
+        headingDegrees = 0d;
+        if (snapshot is not { } camera ||
+            DateTimeOffset.UtcNow - camera.CapturedAtUtc >
+                TimeSpan.FromSeconds(2d) ||
+            !Matrix4x4.Invert(camera.View, out var worldFromView))
+        {
+            return false;
+        }
+
+        // Direct3D left-handed projections use +Z in view space while
+        // right-handed projections use -Z. M34 carries that handedness in the
+        // projection matrix, so the same resolver works with the matrices OMSI
+        // exposes and with the System.Numerics test matrices.
+        var viewForward = camera.Projection.M34 >= 0f
+            ? Vector3.UnitZ
+            : -Vector3.UnitZ;
+        var worldForward = Vector3.TransformNormal(
+            viewForward,
+            worldFromView);
+
+        if (!float.IsFinite(worldForward.X) ||
+            !float.IsFinite(worldForward.Z))
+        {
+            return false;
+        }
+
+        var horizontalLengthSquared =
+            worldForward.X * worldForward.X +
+            worldForward.Z * worldForward.Z;
+        if (!float.IsFinite(horizontalLengthSquared) ||
+            horizontalLengthSquared < 1.0e-6f)
+        {
+            return false;
+        }
+
+        headingDegrees = NormalizeHeading(
+            Math.Atan2(worldForward.X, worldForward.Z) *
+            180d / Math.PI);
+        return double.IsFinite(headingDegrees);
+    }
+
+    private static double WrapSignedDegrees(double value) =>
+        (value + 180d) % 360d is var wrapped && wrapped < 0d
+            ? wrapped + 180d
+            : wrapped - 180d;
 
     private static double NormalizeHeading(double value)
     {
