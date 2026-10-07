@@ -96,6 +96,115 @@ finally
 }
 
 
+
+var varTableBuilderType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.OpenOmsiVarTableManifestBuilder",
+        throwOnError: true)!;
+var tryBuildVarTable =
+    varTableBuilderType.GetMethod(
+        "TryBuild",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "openOMSI VarTable manifest builder not found");
+var engineFed =
+    varTableBuilderType.GetMethod(
+        "EngineFed",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "openOMSI engine-fed filter not found");
+
+Require(
+    (bool)(engineFed.Invoke(null, ["door_0"]) ?? false) &&
+    (bool)(engineFed.Invoke(null, ["AI_Light"]) ?? false) &&
+    !(bool)(engineFed.Invoke(null, ["engine_n"]) ?? true) &&
+    !(bool)(engineFed.Invoke(null, ["wiperpos"]) ?? true),
+    "openOMSI engine-fed variable filter diverged");
+
+var varTableRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-vartable-" + Guid.NewGuid().ToString("N"));
+var varTableBusDir = Path.Combine(varTableRoot, "Vehicles", "VarTableSmoke");
+var varTableProgramDir = Path.Combine(varTableRoot, "program");
+Directory.CreateDirectory(varTableBusDir);
+Directory.CreateDirectory(varTableProgramDir);
+File.WriteAllText(
+    Path.Combine(varTableProgramDir, "varlist_roadvehicle.txt"),
+    "Velocity\nAI_Light\n");
+File.WriteAllText(
+    Path.Combine(varTableProgramDir, "stringvarlist_roadvehicle.txt"),
+    "ident\nnumber\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "vars.txt"),
+    "door_0\nengine_n\nwiperpos\nmy_custom\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "strings.txt"),
+    "destination\nIBIS_line\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "Smoke.bus"),
+    "[varnamelist]\n1\nvars.txt\n\n[stringvarnamelist]\n1\nstrings.txt\n");
+
+try
+{
+    var manifest = tryBuildVarTable.Invoke(
+        null,
+        [
+            varTableRoot,
+            @"Vehicles\VarTableSmoke\Smoke.bus"
+        ]) ?? throw new InvalidOperationException(
+            "openOMSI VarTable manifest was not built");
+
+    var hashProperty = manifest.GetType().GetProperty("Hash")
+        ?? throw new InvalidOperationException("VarTable Hash property missing");
+    var floatNamesProperty = manifest.GetType().GetProperty("FloatNames")
+        ?? throw new InvalidOperationException("VarTable FloatNames property missing");
+    var stringNamesProperty = manifest.GetType().GetProperty("StringNames")
+        ?? throw new InvalidOperationException("VarTable StringNames property missing");
+
+    var actualVarHash = (uint)(hashProperty.GetValue(manifest)
+        ?? throw new InvalidOperationException("VarTable hash missing"));
+    var actualFloatNames = (string[])(floatNamesProperty.GetValue(manifest)
+        ?? Array.Empty<string>());
+    var actualStringNames = (string[])(stringNamesProperty.GetValue(manifest)
+        ?? Array.Empty<string>());
+
+    Require(
+        actualFloatNames.SequenceEqual(
+            new[] { "engine_n", "wiperpos", "my_custom" },
+            StringComparer.OrdinalIgnoreCase),
+        "VarTable float filtering/order diverged from openOMSI");
+    Require(
+        actualStringNames.SequenceEqual(
+            new[] { "ident", "number", "destination", "IBIS_line" },
+            StringComparer.OrdinalIgnoreCase),
+        "VarTable string order diverged from openOMSI");
+
+    static uint OpenOmsiVarHash(IEnumerable<string> names)
+    {
+        var hash = 0x811C9DC5u;
+        foreach (var name in names)
+        {
+            foreach (var b in Encoding.UTF8
+                         .GetBytes(name.ToLowerInvariant())
+                         .Append((byte)0))
+            {
+                hash = unchecked((hash ^ b) * 0x01000193u);
+            }
+        }
+        return hash;
+    }
+
+    var expectedVarHash = OpenOmsiVarHash(
+        actualFloatNames.Concat(actualStringNames));
+    Require(
+        actualVarHash == expectedVarHash,
+        $"VarTable FNV-1a mismatch: got {actualVarHash:X8}, expected {expectedVarHash:X8}");
+}
+finally
+{
+    Directory.Delete(varTableRoot, recursive: true);
+}
+
 var updaterType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Updates.NavBRAutoUpdateService",
