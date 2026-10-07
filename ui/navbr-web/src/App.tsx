@@ -5523,6 +5523,23 @@ function Multiplayer({
                     </small>
                     {!player.isLocal &&
                       multiplayer.physicalVehiclesEnabled &&
+                      player.openOmsiVisualSyncStatus &&
+                      player.openOmsiVisualSyncStatus !== "none" && (
+                        <small className="physical-runtime-detail">
+                          {pick("Sync visual", "Visual sync", "Sync visual", "Visual-Sync", "Sync visuelle")}: {
+                            player.openOmsiVisualSyncStatus === "compatible"
+                              ? pick("compatível", "compatible", "compatible", "kompatibel", "compatible")
+                              : player.openOmsiVisualSyncStatus === "mismatch"
+                                ? pick("incompatível", "mismatch", "incompatible", "inkompatibel", "incompatible")
+                                : player.openOmsiVisualSyncStatus === "basic"
+                                  ? pick("fallback básico", "basic fallback", "fallback básico", "Basis-Fallback", "fallback de base")
+                                  : pick("aguardando", "pending", "pendiente", "ausstehend", "en attente")
+                          }
+                          {player.openOmsiVisualSyncHash ? ` · ${player.openOmsiVisualSyncHash}` : ""}
+                        </small>
+                      )}
+                    {!player.isLocal &&
+                      multiplayer.physicalVehiclesEnabled &&
                       player.physicalVehicleErrorMessage &&
                       player.physicalVehicleState !== "active" &&
                       player.physicalVehicleState !== "active-openomsi" &&
