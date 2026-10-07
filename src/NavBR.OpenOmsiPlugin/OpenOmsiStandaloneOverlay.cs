@@ -16,6 +16,7 @@ internal static class OpenOmsiStandaloneOverlay
     private const int RowHeight = 33;
     private const int Footer = 54;
     private const int RowCount = 10;
+    private const int TimerId = 0x4E42;
 
     private const uint WS_POPUP = 0x80000000;
     private const uint WS_VISIBLE = 0x10000000;
@@ -26,6 +27,7 @@ internal static class OpenOmsiStandaloneOverlay
 
     private const uint WM_DESTROY = 0x0002;
     private const uint WM_PAINT = 0x000F;
+    private const uint WM_TIMER = 0x0113;
     private const uint WM_LBUTTONDOWN = 0x0201;
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_NCLBUTTONDOWN = 0x00A1;
@@ -148,6 +150,7 @@ internal static class OpenOmsiStandaloneOverlay
 
             SetLayeredWindowAttributes(_window, 0, 242, LWA_ALPHA);
             RegisterHotKey(_window, HOTKEY_ID, 0, VK_F10);
+            SetTimer(_window, TimerId, 250, IntPtr.Zero);
             ShowWindow(_window, SW_SHOWNOACTIVATE);
             InvalidateRect(_window, IntPtr.Zero, true);
 
@@ -165,6 +168,7 @@ internal static class OpenOmsiStandaloneOverlay
         {
             if (_window != IntPtr.Zero)
             {
+                KillTimer(_window, TimerId);
                 UnregisterHotKey(_window, HOTKEY_ID);
                 DestroyWindow(_window);
                 _window = IntPtr.Zero;
@@ -180,6 +184,13 @@ internal static class OpenOmsiStandaloneOverlay
             case WM_HOTKEY when wParam.ToInt32() == HOTKEY_ID:
                 _visible = !_visible;
                 ShowWindow(hwnd, _visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+                if (_visible)
+                {
+                    InvalidateRect(hwnd, IntPtr.Zero, false);
+                }
+                return IntPtr.Zero;
+
+            case WM_TIMER when wParam.ToInt32() == TimerId:
                 if (_visible)
                 {
                     InvalidateRect(hwnd, IntPtr.Zero, false);
@@ -687,6 +698,12 @@ internal static class OpenOmsiStandaloneOverlay
 
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern UIntPtr SetTimer(IntPtr hwnd, int idEvent, uint elapse, IntPtr timerFunc);
+
+    [DllImport("user32.dll")]
+    private static extern bool KillTimer(IntPtr hwnd, int idEvent);
 
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
