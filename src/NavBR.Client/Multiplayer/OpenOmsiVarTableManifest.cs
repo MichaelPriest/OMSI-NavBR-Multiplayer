@@ -7,7 +7,9 @@ internal sealed record OpenOmsiVarTableManifest(
     ushort[] FloatIds,
     ushort[] StringIds,
     string[] FloatNames,
-    string[] StringNames);
+    string[] StringNames,
+    string[] AllFloatNames,
+    string[] AllStringNames);
 
 internal static class OpenOmsiVarTableManifestBuilder
 {
@@ -129,7 +131,9 @@ internal static class OpenOmsiVarTableManifestBuilder
             floatIds.ToArray(),
             stringIds.ToArray(),
             floatNames.ToArray(),
-            stringNames.ToArray());
+            stringNames.ToArray(),
+            vars.ToArray(),
+            strings.ToArray());
     }
 
     internal static bool EngineFed(string name)
