@@ -24,6 +24,8 @@ public sealed partial class MultiplayerClientService
     private OpenOmsiQuickTunnel? _openOmsiQuickTunnel;
     private string? _openOmsiPublicWebSocketUrl;
     private ushort _openOmsiLocalSequence;
+    private uint? _openOmsiConfiguredLocalVarHash;
+    private DateTimeOffset? _openOmsiLastPublishedLocalVarsAt;
     private RoleplayCharacterState? _openOmsiLocalRoleplayState;
 
     public bool UsesOpenOmsiV6Transport => _openOmsiV6Session?.IsRunning == true;
@@ -577,6 +579,72 @@ public sealed partial class MultiplayerClientService
             new PlayerTelemetryFrame(localPresence, telemetry));
         await session.PublishInfoAsync(info, cancellationToken);
         await session.PublishStateAsync(state, cancellationToken);
+
+        await PublishOpenOmsiLocalVarsAsync(
+            session,
+            telemetry,
+            cancellationToken);
+    }
+
+    private async Task PublishOpenOmsiLocalVarsAsync(
+        OpenOmsiLanPeerSession session,
+        VehicleTelemetry telemetry,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            return;
+        }
+
+        var manifest = await ResolveLocalOpenOmsiVarTableAsync(
+            telemetry.VehiclePath);
+        if (manifest is null ||
+            manifest.Hash == 0 ||
+            manifest.FloatIds.Length == 0)
+        {
+            return;
+        }
+
+        if (_openOmsiConfiguredLocalVarHash != manifest.Hash)
+        {
+            await OmsiPluginBridgeRelay.ConfigureLocalVarsAsync(
+                manifest.Hash,
+                manifest.FloatIds,
+                cancellationToken);
+            _openOmsiConfiguredLocalVarHash = manifest.Hash;
+            _openOmsiLastPublishedLocalVarsAt = null;
+        }
+
+        var snapshot =
+            LocalOmsiScriptVarsSnapshotStore.Latest;
+        if (snapshot is null ||
+            snapshot.VarTableHash != manifest.Hash ||
+            snapshot.VariableIndices.Length !=
+                snapshot.VariableValues.Length ||
+            DateTimeOffset.UtcNow - snapshot.CapturedAtUtc >
+                TimeSpan.FromSeconds(2) ||
+            _openOmsiLastPublishedLocalVarsAt is DateTimeOffset last &&
+            snapshot.CapturedAtUtc <= last)
+        {
+            return;
+        }
+
+        var floats = snapshot.VariableIndices
+            .Zip(
+                snapshot.VariableValues,
+                static (id, value) => (id, value))
+            .ToArray();
+
+        await session.PublishVarsAsync(
+            new OpenOmsiVarsFrame(
+                session.LocalPlayerId,
+                snapshot.VarTableHash,
+                floats,
+                Array.Empty<(ushort Index, string Value)>()),
+            cancellationToken);
+
+        _openOmsiLastPublishedLocalVarsAt =
+            snapshot.CapturedAtUtc;
     }
 
 
@@ -1013,6 +1081,9 @@ public sealed partial class MultiplayerClientService
         _openOmsiQuickTunnel = null;
         _openOmsiPublicWebSocketUrl = null;
         _openOmsiLocalRoleplayState = null;
+        _openOmsiConfiguredLocalVarHash = null;
+        _openOmsiLastPublishedLocalVarsAt = null;
+        LocalOmsiScriptVarsSnapshotStore.Clear();
         lock (_openOmsiV6Sync)
         {
             _openOmsiPresenceByLanId.Clear();
