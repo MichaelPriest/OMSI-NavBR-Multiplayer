@@ -615,6 +615,14 @@ await using (var client = new OpenOmsiLanPeerSession())
         client.SessionId == host.SessionId,
         "session-code join did not keep the requested session id");
 
+    Require(
+        string.Equals(
+            client.SessionCode,
+            loopbackCode,
+            StringComparison.Ordinal),
+        "direct v6 client did not expose the canonical OMSI session code");
+
+
     await using (var wrongSessionClient = new OpenOmsiLanPeerSession())
     {
         var wrongSessionCode = new OpenOmsiSessionCode(
