@@ -124,6 +124,13 @@ export interface NavBrMultiplayerState {
   relayServerUrl: string;
   physicalVehiclesEnabled: boolean;
   physicalVehiclesAvailable: boolean;
+  openOmsiV6: {
+    active: boolean;
+    isHost: boolean;
+    port?: number | null;
+    sessionCode?: string | null;
+    role: "offline" | "host" | "client";
+  };
   networkQuality: {
     level: string;
     roundTripMs?: number | null;
