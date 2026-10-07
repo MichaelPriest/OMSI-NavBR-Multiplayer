@@ -7,6 +7,7 @@ internal static class LocalVehicleVarsSampler
     private static readonly object Sync = new();
     private static uint? _varTableHash;
     private static ushort[] _floatIds = [];
+    private static ushort[] _stringIds = [];
     private static long _lastSampleTickMs;
     private static PluginBridgeMessage? _pending;
     private const long MinimumSampleIntervalMs = 100;
@@ -23,8 +24,11 @@ internal static class LocalVehicleVarsSampler
         }
 
         var ids = message.VariableIndices ?? [];
+        var stringIds = message.StringVariableIndices ?? [];
         if (ids.Length > 256 ||
-            ids.Distinct().Count() != ids.Length)
+            stringIds.Length > 64 ||
+            ids.Distinct().Count() != ids.Length ||
+            stringIds.Distinct().Count() != stringIds.Length)
         {
             rejectionReason = "invalid-variable-ids";
             return false;
@@ -34,6 +38,7 @@ internal static class LocalVehicleVarsSampler
         {
             _varTableHash = hash;
             _floatIds = ids.ToArray();
+            _stringIds = stringIds.ToArray();
             _lastSampleTickMs = 0;
             _pending = null;
         }
@@ -47,6 +52,7 @@ internal static class LocalVehicleVarsSampler
         {
             _varTableHash = null;
             _floatIds = [];
+            _stringIds = [];
             _lastSampleTickMs = 0;
             _pending = null;
         }
@@ -59,10 +65,11 @@ internal static class LocalVehicleVarsSampler
     {
         uint hash;
         ushort[] ids;
+        ushort[] stringIds;
         lock (Sync)
         {
             if (_varTableHash is not uint configured ||
-                _floatIds.Length == 0)
+                (_floatIds.Length == 0 && _stringIds.Length == 0))
             {
                 return;
             }
@@ -78,6 +85,7 @@ internal static class LocalVehicleVarsSampler
             _lastSampleTickMs = now;
             hash = configured;
             ids = _floatIds;
+            stringIds = _stringIds;
         }
 
         var player = OmsiNativeInterop.GetPlayerVehiclePointer();
@@ -88,8 +96,12 @@ internal static class LocalVehicleVarsSampler
 
         var count =
             OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(player);
-        if (count <= 0 ||
-            ids.Any(id => id >= count))
+        var stringCount =
+            OmsiNativeInterop.TryGetRoadVehicleStringVarCount(player);
+        if ((ids.Length > 0 &&
+             (count <= 0 || ids.Any(id => id >= count))) ||
+            (stringIds.Length > 0 &&
+             (stringCount < 0 || stringIds.Any(id => id >= stringCount))))
         {
             return;
         }
@@ -106,6 +118,18 @@ internal static class LocalVehicleVarsSampler
             }
         }
 
+        var stringValues = new string[stringIds.Length];
+        for (var i = 0; i < stringIds.Length; i++)
+        {
+            if (!OmsiNativeInterop.TryReadRoadVehicleStringVar(
+                    player,
+                    stringIds[i],
+                    out stringValues[i]))
+            {
+                return;
+            }
+        }
+
         var snapshot = new PluginBridgeMessage(
             PluginBridgeProtocol.LocalVehicleVars,
             PluginBridgeProtocol.Version,
@@ -114,7 +138,9 @@ internal static class LocalVehicleVarsSampler
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             VarTableHash: hash,
             VariableIndices: ids,
-            VariableValues: values);
+            VariableValues: values,
+            StringVariableIndices: stringIds,
+            StringVariableValues: stringValues);
 
         lock (Sync)
         {
