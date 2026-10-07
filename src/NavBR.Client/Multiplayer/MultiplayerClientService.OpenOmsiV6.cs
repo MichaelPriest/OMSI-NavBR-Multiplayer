@@ -24,6 +24,8 @@ public sealed partial class MultiplayerClientService
         _openOmsiRemoteSyncProbeKey = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, uint>
         _openOmsiCompatibleRemoteSyncHash = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, OpenOmsiSyncTableManifest>
+        _openOmsiCompatibleRemoteSyncTable = new();
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
@@ -327,6 +329,7 @@ public sealed partial class MultiplayerClientService
 
         _openOmsiRemoteSyncProbeKey[info.PlayerId] = probeKey;
         _openOmsiCompatibleRemoteSyncHash[info.PlayerId] = 0u;
+        _openOmsiCompatibleRemoteSyncTable.TryRemove(info.PlayerId, out _);
         _ = ResolveRemoteOpenOmsiSyncCompatibilityAsync(
             info,
             probeKey);
@@ -366,10 +369,20 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
-        _openOmsiCompatibleRemoteSyncHash[info.PlayerId] =
-            syncTable?.Hash == info.SyncTableHash
-                ? info.SyncTableHash
-                : 0u;
+        if (syncTable?.Hash == info.SyncTableHash)
+        {
+            _openOmsiCompatibleRemoteSyncHash[info.PlayerId] =
+                info.SyncTableHash;
+            _openOmsiCompatibleRemoteSyncTable[info.PlayerId] =
+                syncTable;
+        }
+        else
+        {
+            _openOmsiCompatibleRemoteSyncHash[info.PlayerId] = 0u;
+            _openOmsiCompatibleRemoteSyncTable.TryRemove(
+                info.PlayerId,
+                out _);
+        }
     }
 
     private void HandleOpenOmsiRemoteState(OpenOmsiLanVehicleState state)
@@ -392,7 +405,11 @@ public sealed partial class MultiplayerClientService
             _openOmsiCompatibleRemoteSyncHash.TryGetValue(
                 state.PlayerId,
                 out var compatibleHash) &&
-            compatibleHash == info.SyncTableHash;
+            compatibleHash == info.SyncTableHash &&
+            _openOmsiCompatibleRemoteSyncTable.TryGetValue(
+                state.PlayerId,
+                out var compatibleSyncTable) &&
+            compatibleSyncTable.Hash == info.SyncTableHash;
 
         var doors = VehicleDoorFlags.None;
         if (visualSyncCompatible)
@@ -494,7 +511,25 @@ public sealed partial class MultiplayerClientService
             OpenOmsiSwitches:
                 visualSyncCompatible ? state.Switches.ToArray() : null,
             OpenOmsiValues:
-                visualSyncCompatible ? state.Values.ToArray() : null);
+                visualSyncCompatible ? state.Values.ToArray() : null,
+            OpenOmsiDoors:
+                visualSyncCompatible ? state.Doors.ToArray() : null,
+            OpenOmsiLampIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.LampIds.ToArray()
+                    : null,
+            OpenOmsiSwitchIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.SwitchIds.ToArray()
+                    : null,
+            OpenOmsiValueIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.ValueIds.ToArray()
+                    : null,
+            OpenOmsiDoorIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.DoorIds.ToArray()
+                    : null);
 
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
@@ -720,6 +755,7 @@ public sealed partial class MultiplayerClientService
         PlayerPresence? presence;
         _openOmsiRemoteSyncProbeKey.TryRemove(lanId, out _);
         _openOmsiCompatibleRemoteSyncHash.TryRemove(lanId, out _);
+        _openOmsiCompatibleRemoteSyncTable.TryRemove(lanId, out _);
         lock (_openOmsiV6Sync)
         {
             _openOmsiInfoByLanId.Remove(lanId);
@@ -1409,6 +1445,7 @@ public sealed partial class MultiplayerClientService
         _openOmsiSyncTableByVehicle.Clear();
         _openOmsiRemoteSyncProbeKey.Clear();
         _openOmsiCompatibleRemoteSyncHash.Clear();
+        _openOmsiCompatibleRemoteSyncTable.Clear();
 
         if (session is not null)
         {
