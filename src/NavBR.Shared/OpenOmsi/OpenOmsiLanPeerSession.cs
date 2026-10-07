@@ -281,7 +281,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     {
         var packets = new List<byte[]>();
 
-        if (frame.Floats.Count > 0)
+        var floatIndex = 0;
+        while (floatIndex < frame.Floats.Count)
         {
             var data = new List<byte>(OpenOmsiVarsCodec.MaxPayloadBytes);
             data.AddRange(OpenOmsiVarsCodec.Header(frame.PlayerId, frame.TableHash, 0));
@@ -289,11 +290,13 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             data.Add(0);
             ushort count = 0;
 
-            foreach (var (index, value) in frame.Floats)
+            while (floatIndex < frame.Floats.Count &&
+                   data.Count + 6 <= OpenOmsiVarsCodec.MaxPayloadBytes)
             {
-                if (data.Count + 6 > OpenOmsiVarsCodec.MaxPayloadBytes)
+                var (index, value) = frame.Floats[floatIndex++];
+                if (!float.IsFinite(value))
                 {
-                    break;
+                    continue;
                 }
 
                 data.Add((byte)index);
@@ -314,7 +317,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             }
         }
 
-        if (frame.Strings.Count > 0)
+        var stringIndex = 0;
+        while (stringIndex < frame.Strings.Count)
         {
             var data = new List<byte>(OpenOmsiVarsCodec.MaxPayloadBytes);
             data.AddRange(OpenOmsiVarsCodec.Header(frame.PlayerId, frame.TableHash, 2));
@@ -322,22 +326,26 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             data.Add(0);
             ushort count = 0;
 
-            foreach (var (index, raw) in frame.Strings)
+            while (stringIndex < frame.Strings.Count)
             {
-                var clean = new string((raw ?? string.Empty)
-                    .Where(ch => !char.IsControl(ch))
-                    .ToArray());
-                var bytes = Encoding.UTF8.GetBytes(clean);
-                if (bytes.Length > OpenOmsiVarsCodec.MaxTextBytes)
+                var (index, raw) = frame.Strings[stringIndex];
+                var bytes = EncodeVarsUtf8(raw ?? string.Empty);
+                if (data.Count + 4 + bytes.Length >
+                    OpenOmsiVarsCodec.MaxPayloadBytes)
                 {
-                    bytes = bytes[..OpenOmsiVarsCodec.MaxTextBytes];
+                    if (count > 0)
+                    {
+                        break;
+                    }
+
+                    // EncodeVarsUtf8 already caps a single value to the wire
+                    // limit, so this can only happen if the packet constants
+                    // become inconsistent.
+                    stringIndex++;
+                    continue;
                 }
 
-                if (data.Count + 4 + bytes.Length > OpenOmsiVarsCodec.MaxPayloadBytes)
-                {
-                    break;
-                }
-
+                stringIndex++;
                 data.Add((byte)index);
                 data.Add((byte)(index >> 8));
                 data.Add((byte)bytes.Length);
@@ -355,6 +363,30 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
 
         return packets;
+    }
+
+    private static byte[] EncodeVarsUtf8(string value)
+    {
+        var clean = new string(
+            value
+                .Where(ch => !char.IsControl(ch))
+                .ToArray());
+        var bytes = Encoding.UTF8.GetBytes(clean);
+        if (bytes.Length <= OpenOmsiVarsCodec.MaxTextBytes)
+        {
+            return bytes;
+        }
+
+        var length = OpenOmsiVarsCodec.MaxTextBytes;
+        while (length > 0 &&
+               (bytes[length] & 0xC0) == 0x80)
+        {
+            length--;
+        }
+
+        return length > 0
+            ? bytes[..length]
+            : Array.Empty<byte>();
     }
 
     public async Task LeaveAsync(CancellationToken cancellationToken = default)
