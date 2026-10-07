@@ -4,6 +4,7 @@ using NavBR.Client.Diagnostics;
 using NavBR.Client.Maps;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
 
