@@ -1,67 +1,15 @@
 # Third-party notices
 
-OMSI NavBR Multiplayer usa bibliotecas de terceiros distribuídas sob licenças permissivas. Este arquivo acompanha o código-fonte e deve acompanhar os pacotes binários/release quando aplicável.
+## openOMSI
 
-## Microsoft ASP.NET Core / SignalR
+Parts of the NavBR map/navigation presentation are inspired by and behaviourally aligned with the openOMSI navigator and city-map implementation.
 
-- Pacote principal usado pelo cliente: `Microsoft.AspNetCore.SignalR.Client`
-- Framework usado pelo servidor/host: ASP.NET Core
-- Licença: MIT
-- Projeto: https://github.com/dotnet/aspnetcore
-- Texto da licença: `licenses/ASP.NET-Core-LICENSE.txt`
+Source: openOMSI-Project/openOMSI
 
-## NAudio
+License: MIT
 
-- Uso no NavBR: captura do microfone e reprodução/mixagem do chat de voz no Windows
-- Versão planejada nesta release: `2.4.0`
-- Licença: MIT
-- Projeto: https://github.com/naudio/NAudio
-- Texto da licença: `licenses/NAudio-LICENSE.txt`
+Copyright (c) 2026 usonskyyyy
 
-## Concentus / Opus
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to inclusion of the copyright notice and permission notice in substantial portions.
 
-- Uso no NavBR: codificação e decodificação Opus do chat de voz
-- Versão planejada nesta release: `2.2.2`
-- Licença: licença permissiva do projeto/Opus, com obrigação de preservar o aviso e disclaimer em redistribuições binárias
-- Projeto: https://github.com/lostromb/concentus
-- Texto da licença: `licenses/Concentus-LICENSE.txt`
-
-## DNNE
-
-- Uso no NavBR: gerar a camada nativa x86/exportações C necessárias para o protótipo experimental de plugin do OMSI
-- Versão usada no protótipo: `2.1.2`
-- Licença: MIT
-- Projeto: https://github.com/AaronRobinsonMSFT/DNNE
-- Texto da licença: `licenses/DNNE-LICENSE.txt`
-- O plugin continua experimental e não integra o pacote normal do cliente enquanto não houver validação real no OMSI.
-
-## .NET / WPF
-
-O aplicativo também é construído sobre .NET e WPF. As distribuições self-contained incluem componentes do runtime e seus próprios avisos de terceiros gerados pela cadeia oficial do .NET. O projeto NavBR não altera os termos desses componentes.
-
-## openOMSI / omsi-net
-
-- Projeto: `turbo-devv/openOMSI`
-- Licença: MIT
-- Uso no NavBR: interoperabilidade com o protocolo LAN público v6, formato binário `STATE`, mensagens `HELLO/WELCOME/INFO/CLOCK` e referência das APIs públicas de plugin/Lua.
-- O NavBR mantém implementação C# própria do codec/gateway; não incorpora binários Rust do openOMSI e não lê memória interna do processo.
-- Texto da licença: `licenses/openOMSI-LICENSE.txt`
-
-## OMSI e marcas de terceiros
-
-OMSI, Aerosoft, M-R-Software, Steam, Valve, Grand Theft Auto, GTA, Rockstar Games e outras marcas citadas pertencem aos respectivos titulares. O OMSI NavBR Multiplayer é um projeto independente e não incorpora assets proprietários dessas marcas.
-
-A interface HUD do NavBR pode se inspirar em padrões de HUD de jogos de mundo aberto, mas deve manter identidade visual, ícones e layout próprios, sem copiar assets ou telas proprietárias.
-
-
-## Referências técnicas OMSI públicas
-
-Durante a investigação do multiplayer físico foram consultados projetos públicos de interoperabilidade com OMSI, principalmente:
-
-- **Omsi-Extensions / OmsiHook** — `space928/Omsi-Extensions` — LGPL-3.0;
-- fork **multiplayer_quickstart** — `tpeterka1/Omsi-Extensions` — LGPL-3.0;
-- **OmsiLaunch** — `lmonteirotech/OmsiLaunch` — LGPL-3.0.
-
-Esses projetos foram usados como **referência técnica** para estruturas, offsets e comportamento de runtime, incluindo o estado de transformação de `RoadVehicle`. O NavBR mantém implementação própria no seu interop/plugin e não redistribui binários desses projetos.
-
-As respectivas licenças e avisos permanecem sob responsabilidade de seus repositórios originais.
+The NavBR implementation remains a separate WPF/x86 implementation for OMSI 2 original and does not bundle the openOMSI executable.
