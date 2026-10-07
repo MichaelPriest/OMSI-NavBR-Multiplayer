@@ -245,6 +245,31 @@ public sealed partial class MultiplayerHub(MultiplayerRoomRegistry registry) : H
             .SendAsync("playerPresenceChanged", updated);
     }
 
+    public async Task UpdateOpenOmsiLanId(ushort? lanId)
+    {
+        if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
+        {
+            throw new HubException("Join a room before updating openOMSI LAN id.");
+        }
+
+        if (lanId is 0)
+        {
+            lanId = null;
+        }
+
+        var updated = registry.UpdateOpenOmsiLanId(
+            Context.ConnectionId,
+            lanId);
+        if (updated is null)
+        {
+            return;
+        }
+
+        await Clients
+            .Group(presence.RoomId)
+            .SendAsync("playerPresenceChanged", updated);
+    }
+
     public async Task UpdateOpenOmsiTransport(OpenOmsiTransportDescriptor? transport)
     {
         if (!registry.TryGet(Context.ConnectionId, out var presence) || presence is null)
