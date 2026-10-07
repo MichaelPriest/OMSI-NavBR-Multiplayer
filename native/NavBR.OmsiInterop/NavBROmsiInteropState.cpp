@@ -8,12 +8,6 @@
 #error NavBR.OmsiInterop must be compiled for x86.
 #endif
 
-// Implemented in NavBROmsiInterop.cpp. These wrappers call Delphi's own
-// GetMem/FreeMem (OMSI 2.3.004) through Borland fastcall, so managed
-// UnicodeString storage belongs to the same memory manager as OMSI.
-extern "C" int __cdecl NavBR_GetMem(int bytes);
-extern "C" int __cdecl NavBR_FreeMem(int address);
-
 namespace
 {
     constexpr std::uintptr_t PreferredImageBase = 0x00400000u;
@@ -3868,242 +3862,22 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_WriteRoadVehicleStringVarUtf1
     const std::uint16_t* value,
     int lengthChars)
 {
-    if (!IsRoadVehiclePointer(vehiclePointer) ||
-        index < 0 ||
-        lengthChars < 0 ||
-        lengthChars > 255 ||
-        (lengthChars > 0 && value == nullptr))
-    {
-        return 0;
-    }
+    (void)vehiclePointer;
+    (void)index;
+    (void)value;
+    (void)lengthChars;
 
-    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
-    if (playerVehicleAtWrite != 0 &&
-        vehiclePointer == playerVehicleAtWrite)
-    {
-        return 0;
-    }
-
-    const int count =
-        NavBR_GetRoadVehicleStringVarCount(vehiclePointer);
-    if (count < 0 || index >= count)
-    {
-        return 0;
-    }
-
-    const auto base =
-        static_cast<std::uintptr_t>(vehiclePointer);
-    if (!IsReadableRange(
-            base + ComplObjInstanceOffset,
-            sizeof(int)))
-    {
-        return 0;
-    }
-
-    const int complObjInstance =
-        *reinterpret_cast<const int*>(
-            base + ComplObjInstanceOffset);
-    if (complObjInstance == 0)
-    {
-        return 0;
-    }
-
-    const auto child =
-        static_cast<std::uintptr_t>(complObjInstance);
-    if (!IsReadableRange(
-            child + ComplObjInstanceStringVarsOffset,
-            sizeof(int)))
-    {
-        return 0;
-    }
-
-    const int data =
-        *reinterpret_cast<const int*>(
-            child + ComplObjInstanceStringVarsOffset);
-    if (data == 0)
-    {
-        return 0;
-    }
-
-    const auto entryAddress =
-        static_cast<std::uintptr_t>(data) +
-        static_cast<std::uintptr_t>(index) * sizeof(int);
-    if (!IsReadableRange(entryAddress, sizeof(int)) ||
-        !IsWritableRange(entryAddress, sizeof(int)))
-    {
-        return 0;
-    }
-
-    const int currentPointer =
-        *reinterpret_cast<const int*>(entryAddress);
-
-    // Avoid reallocating stable IBIS/destination strings every callback.
-    if (currentPointer != 0)
-    {
-        const auto currentAddress =
-            static_cast<std::uintptr_t>(currentPointer);
-        if (currentAddress >= 12u &&
-            IsReadableRange(
-                currentAddress - 12u,
-                12u))
-        {
-            const auto currentLength =
-                *reinterpret_cast<const std::int32_t*>(
-                    currentAddress - 4u);
-            const auto currentCharSize =
-                *reinterpret_cast<const std::uint16_t*>(
-                    currentAddress - 10u);
-            if (currentLength == lengthChars &&
-                currentCharSize == 2u &&
-                (lengthChars == 0 ||
-                 (IsReadableRange(
-                      currentAddress,
-                      static_cast<std::size_t>(lengthChars) *
-                          sizeof(std::uint16_t)) &&
-                  std::memcmp(
-                      reinterpret_cast<const void*>(currentAddress),
-                      value,
-                      static_cast<std::size_t>(lengthChars) *
-                          sizeof(std::uint16_t)) == 0)))
-            {
-                return 1;
-            }
-        }
-    }
-    else if (lengthChars == 0)
-    {
-        return 1;
-    }
-
-    int newStringPointer = 0;
-    int allocation = 0;
-    if (lengthChars > 0)
-    {
-        const auto payloadBytes =
-            static_cast<std::size_t>(lengthChars + 1) *
-            sizeof(std::uint16_t);
-        const auto allocationBytes =
-            12u + payloadBytes;
-        if (allocationBytes > 4096u)
-        {
-            return 0;
-        }
-
-        allocation =
-            NavBR_GetMem(
-                static_cast<int>(allocationBytes));
-        if (allocation == 0 ||
-            !IsWritableRange(
-                static_cast<std::uintptr_t>(allocation),
-                allocationBytes))
-        {
-            if (allocation != 0)
-            {
-                (void)NavBR_FreeMem(allocation);
-            }
-            return 0;
-        }
-
-        auto* header =
-            reinterpret_cast<unsigned char*>(
-                static_cast<std::uintptr_t>(allocation));
-
-        std::uint16_t codePage = 1200u;
-        if (currentPointer > 12)
-        {
-            const auto oldHeader =
-                static_cast<std::uintptr_t>(
-                    currentPointer - 12);
-            if (IsReadableRange(oldHeader, 12u))
-            {
-                const auto oldCodePage =
-                    *reinterpret_cast<const std::uint16_t*>(
-                        oldHeader);
-                const auto oldCharSize =
-                    *reinterpret_cast<const std::uint16_t*>(
-                        oldHeader + 2u);
-                if (oldCharSize == 2u &&
-                    oldCodePage != 0u)
-                {
-                    codePage = oldCodePage;
-                }
-            }
-        }
-
-        const std::uint16_t charSize = 2u;
-        const std::int32_t refCount = 1;
-        const std::int32_t stringLength =
-            lengthChars;
-        std::memcpy(
-            header + 0u,
-            &codePage,
-            sizeof(codePage));
-        std::memcpy(
-            header + 2u,
-            &charSize,
-            sizeof(charSize));
-        std::memcpy(
-            header + 4u,
-            &refCount,
-            sizeof(refCount));
-        std::memcpy(
-            header + 8u,
-            &stringLength,
-            sizeof(stringLength));
-
-        auto* chars =
-            reinterpret_cast<std::uint16_t*>(
-                header + 12u);
-        std::memcpy(
-            chars,
-            value,
-            static_cast<std::size_t>(lengthChars) *
-                sizeof(std::uint16_t));
-        chars[lengthChars] = 0u;
-        newStringPointer =
-            allocation + 12;
-    }
-
-    const int oldPointer =
-        static_cast<int>(
-            InterlockedExchange(
-                reinterpret_cast<volatile LONG*>(
-                    entryAddress),
-                static_cast<LONG>(
-                    newStringPointer)));
-
-    if (oldPointer > 12 &&
-        oldPointer != newStringPointer)
-    {
-        const auto oldHeader =
-            static_cast<std::uintptr_t>(
-                oldPointer - 12);
-        const auto refAddress =
-            static_cast<std::uintptr_t>(
-                oldPointer - 8);
-        if (IsReadableRange(oldHeader, 12u) &&
-            IsWritableRange(refAddress, sizeof(LONG)))
-        {
-            auto* refCount =
-                reinterpret_cast<volatile LONG*>(
-                    refAddress);
-            const LONG refs = *refCount;
-
-            // Delphi managed strings use -1 for static constants.
-            // Dynamic strings use a positive refcount.
-            if (refs > 1)
-            {
-                (void)InterlockedDecrement(refCount);
-            }
-            else if (refs == 1)
-            {
-                (void)NavBR_FreeMem(
-                    static_cast<int>(oldHeader));
-            }
-        }
-    }
-
-    return 1;
+    // Intentionally disabled.
+    //
+    // OmsiComplObjInst.StringVars contains Delphi UnicodeString references.
+    // Replacing those references by allocating/fabricating a UnicodeString
+    // header and changing refcounts manually is not safe enough for OMSI's
+    // memory manager. Keep this export as an ABI-compatible guard that always
+    // refuses writes until we can call the simulator's Delphi RTL assignment
+    // routine (or another verified OMSI-owned setter) on the OMSI callback
+    // thread. Read access remains supported by
+    // NavBR_ReadRoadVehicleStringVarUtf16.
+    return 0;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_WriteRoadVehiclePublicVar(
