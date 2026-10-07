@@ -61,6 +61,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     public event Action<string?>? TrafficAuthorityChanged;
     public event Action<string?>? RoomOwnerChanged;
     public event Action<ChatMessage>? ChatMessageReceived;
+    public event Action<string, string>? SessionCommandReceived;
     public event Action<VoiceFrame>? VoiceFrameReceived;
 
     public HubConnectionState State => _connection?.State ?? HubConnectionState.Disconnected;
