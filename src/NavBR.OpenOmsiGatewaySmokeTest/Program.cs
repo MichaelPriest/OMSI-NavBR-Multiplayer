@@ -12,7 +12,7 @@ Environment.SetEnvironmentVariable(
     "NAVBR_OMSI_PHYSICAL_BACKEND",
     "1");
 
-await using var gateway = new OpenOmsiLanGateway();
+var gateway = new OpenOmsiLanGateway();
 var localTelemetryTcs =
     new TaskCompletionSource<VehicleTelemetry>(
         TaskCreationOptions.RunContinuationsAsynchronously);
@@ -816,6 +816,8 @@ finally
     }
 }
 
+
+await gateway.DisposeAsync();
 
 var bridgeWorld = new OpenOmsiLanWorld(
     "maps/Grundorf/global.cfg",
