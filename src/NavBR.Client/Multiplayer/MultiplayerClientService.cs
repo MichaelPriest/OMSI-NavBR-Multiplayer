@@ -30,7 +30,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         Func<IReadOnlyList<string>>? openOmsiContentRootsSource = null)
     {
         var installDirectorySource =
-            omsiInstallDirectorySource ?? static () => null;
+            omsiInstallDirectorySource ?? (() => null);
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
             installDirectorySource);
         _openOmsiWorldAnchorResolver =
