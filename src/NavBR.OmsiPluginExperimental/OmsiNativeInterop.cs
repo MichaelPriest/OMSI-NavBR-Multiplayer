@@ -1039,6 +1039,92 @@ internal static class OmsiNativeInterop
         }
     }
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehicleStringVarCount")]
+    private static extern int GetRoadVehicleStringVarCount(
+        int vehiclePointer);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehicleStringVarUtf16")]
+    private static extern int ReadRoadVehicleStringVarUtf16(
+        int vehiclePointer,
+        int index,
+        nint buffer,
+        int capacityChars);
+
+    internal static int TryGetRoadVehicleStringVarCount(
+        int vehiclePointer)
+    {
+        if (!IsShimReady)
+        {
+            return -1;
+        }
+
+        try
+        {
+            var count = GetRoadVehicleStringVarCount(vehiclePointer);
+            return count is >= 0 and <= 4096 ? count : -1;
+        }
+        catch (DllNotFoundException)
+        {
+            return -1;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return -1;
+        }
+        catch (BadImageFormatException)
+        {
+            return -1;
+        }
+    }
+
+    internal static bool TryReadRoadVehicleStringVar(
+        int vehiclePointer,
+        int index,
+        out string value)
+    {
+        value = string.Empty;
+        if (!IsShimReady || index < 0)
+        {
+            return false;
+        }
+
+        const int capacityChars = 256;
+        var buffer = Marshal.AllocHGlobal(capacityChars * sizeof(char));
+        try
+        {
+            var copied = ReadRoadVehicleStringVarUtf16(
+                vehiclePointer,
+                index,
+                buffer,
+                capacityChars);
+            if (copied < 0)
+            {
+                return false;
+            }
+
+            value = copied == 0
+                ? string.Empty
+                : Marshal.PtrToStringUni(buffer, copied) ?? string.Empty;
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_WriteRoadVehiclePublicVar")]
     private static extern int WriteRoadVehiclePublicVar(
         int vehiclePointer,
