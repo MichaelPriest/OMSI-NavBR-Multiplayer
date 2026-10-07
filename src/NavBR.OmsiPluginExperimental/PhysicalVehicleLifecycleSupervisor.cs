@@ -755,8 +755,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
                 instanceId,
                 out var snapshot) ||
             snapshot.VarTableHash is not uint varTableHash ||
-            (snapshot.Floats.Count == 0 &&
-             snapshot.Strings.Count == 0))
+            snapshot.Floats.Count == 0)
         {
             return;
         }
@@ -823,65 +822,15 @@ internal static class PhysicalVehicleLifecycleSupervisor
             applied++;
         }
 
-        var stringCount =
-            snapshot.Strings.Count > 0
-                ? OmsiNativeInterop.TryGetRoadVehicleStringVarCount(
-                    instance.VehiclePointer)
-                : 0;
-        if (snapshot.Strings.Count > 0)
-        {
-            if (stringCount <= 0)
-            {
-                return;
-            }
-
-            var maxStringId = snapshot.Strings.Keys.Max();
-            if (maxStringId >= stringCount)
-            {
-                return;
-            }
-        }
-
-        var appliedStrings = 0;
-        foreach (var pair in snapshot.Strings.Take(64))
-        {
-            // The native writer compares the live UnicodeString first. Stable
-            // IBIS/destination values therefore do not allocate every callback.
-            if (pair.Key >= stringCount ||
-                pair.Value.Length > 255 ||
-                pair.Value.Any(char.IsControl) ||
-                !OmsiNativeInterop.TryWriteRoadVehicleStringVar(
-                    instance.VehiclePointer,
-                    pair.Key,
-                    pair.Value))
-            {
-                var failedKey =
-                    $"{varTableHash:X8}:string-fail:{pair.Key}:{stringCount}";
-                lock (Sync)
-                {
-                    if (!LastVarPinKey.TryGetValue(
-                            instanceId,
-                            out var previous) ||
-                        !string.Equals(
-                            previous,
-                            failedKey,
-                            StringComparison.Ordinal))
-                    {
-                        LastVarPinKey[instanceId] = failedKey;
-                        PluginLogWriter.Enqueue(
-                            $"physical-vars-pin id={instanceId} " +
-                            $"table={varTableHash:X8} status=string-write-failed " +
-                            $"var={pair.Key} stringVars={stringCount}");
-                    }
-                }
-                return;
-            }
-
-            appliedStrings++;
-        }
+        // Remote StringVars remain receive/read-only for now. They are kept
+        // in RemoteVehicleVarsRegistry so the protocol path can be observed,
+        // but are deliberately not written into OMSI's Delphi UnicodeString
+        // slots until a verified simulator/RTL assignment routine owns the
+        // allocation and refcount lifecycle.
+        var receivedStrings = snapshot.Strings.Count;
 
         var successKey =
-            $"{varTableHash:X8}:ok:{count}:{applied}:strings={appliedStrings}";
+            $"{varTableHash:X8}:ok:{count}:{applied}:strings-readonly={receivedStrings}";
         lock (Sync)
         {
             if (LastVarPinKey.TryGetValue(
@@ -902,7 +851,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             $"physical-vars-pin id={instanceId} " +
             $"table={varTableHash:X8} status=active " +
             $"vars={applied} publicVars={count} " +
-            $"strings={appliedStrings} stringMode=delphi-heap");
+            $"stringsReceived={receivedStrings} stringMode=read-only");
     }
 
     private static void PinRemoteVisualSyncVars(
