@@ -801,15 +801,19 @@ public sealed partial class MultiplayerClientService
         TelemetryReceived?.Invoke(frame);
 
         // This frame came from the authenticated room's openOMSI v6 peer and
-        // has a matching INFO vehicle identity. That v6 stream, not SignalR,
-        // is the physical admission authority for OMSI 2 remote RoadVehicles.
-        // Frames without a concrete vehicle remain informational only.
+        // has a matching INFO vehicle identity. Convert the openOMSI world
+        // pose into the receiver's real OMSI Kachel/local coordinate system
+        // before the plugin is allowed to touch a native RoadVehicle.
         var physicalStateAdmitted =
             (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0 &&
-            info?.VehiclePath is { Length: > 0 };
+            info?.VehiclePath is { Length: > 0 } &&
+            TryBuildOpenOmsiPhysicalFrame(
+                frame,
+                state,
+                out var physicalFrame);
         _ = physicalStateAdmitted
             ? OmsiPluginBridgeRelay
-                .ForwardAdmittedRemotePhysicalStateAsync(frame)
+                .ForwardAdmittedRemotePhysicalStateAsync(physicalFrame!)
             : OmsiPluginBridgeRelay
                 .ForwardRemoteTelemetryAsync(frame);
 
@@ -826,6 +830,102 @@ public sealed partial class MultiplayerClientService
         state.Switches.Count == syncTable.SwitchIds.Length &&
         state.Values.Count == syncTable.ValueIds.Length &&
         state.Doors.Count == syncTable.DoorIds.Length;
+
+    private bool TryBuildOpenOmsiPhysicalFrame(
+        PlayerTelemetryFrame frame,
+        OpenOmsiLanVehicleState state,
+        out PlayerTelemetryFrame? physicalFrame)
+    {
+        physicalFrame = null;
+        var telemetry = frame.Telemetry;
+
+        // OmsiPhysicalRoadAnchorResolver expects openOMSI's wire convention:
+        // X/Y are the ground plane and Z is vertical. The public telemetry
+        // frame above is already converted to OMSI/D3D X/Z ground + Y up, so
+        // reconstruct the wire-space pose only for local Kachel resolution.
+        var worldTelemetry = telemetry with
+        {
+            X = state.X,
+            Y = state.Y,
+            Z = state.Z,
+            HeadingDegrees = state.HeadingDegrees,
+            RearSections = null
+        };
+
+        if (!_openOmsiWorldAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                worldTelemetry,
+                out var frontAnchor))
+        {
+            return false;
+        }
+
+        var rearSections =
+            new List<VehicleSectionPose>(
+                Math.Min(
+                    state.RearSections.Count,
+                    OpenOmsiLanProtocol.MaxRearSections));
+
+        foreach (var section in state.RearSections.Take(
+                     OpenOmsiLanProtocol.MaxRearSections))
+        {
+            var sectionWorld = worldTelemetry with
+            {
+                X = section.X,
+                Y = section.Y,
+                Z = section.Z,
+                HeadingDegrees = section.HeadingDegrees
+            };
+
+            if (!_openOmsiWorldAnchorResolver
+                    .TryResolveOpenOmsiWorldAnchor(
+                        sectionWorld,
+                        out var sectionAnchor))
+            {
+                // Never shift articulated-section indices by silently dropping
+                // an unresolved part. Hold the previous physical target until
+                // every section can be mapped to a real receiver-side Kachel.
+                return false;
+            }
+
+            rearSections.Add(
+                new VehicleSectionPose(
+                    sectionAnchor.LocalX,
+                    sectionAnchor.LocalY,
+                    sectionAnchor.LocalZ,
+                    sectionAnchor.RotationX,
+                    sectionAnchor.RotationY,
+                    sectionAnchor.RotationZ,
+                    sectionAnchor.RotationW,
+                    sectionAnchor.GridX,
+                    sectionAnchor.GridY,
+                    MapTileIndex: null));
+        }
+
+        physicalFrame = frame with
+        {
+            Telemetry = telemetry with
+            {
+                GridX = frontAnchor.GridX,
+                GridY = frontAnchor.GridY,
+                PhysicalGridX = frontAnchor.GridX,
+                PhysicalGridY = frontAnchor.GridY,
+                TileX = frontAnchor.LocalX,
+                TileY = frontAnchor.LocalZ,
+                LocalX = frontAnchor.LocalX,
+                LocalY = frontAnchor.LocalY,
+                LocalZ = frontAnchor.LocalZ,
+                MapTileIndex = null,
+                HeadingDegrees = frontAnchor.HeadingDegrees,
+                RotationX = frontAnchor.RotationX,
+                RotationY = frontAnchor.RotationY,
+                RotationZ = frontAnchor.RotationZ,
+                RotationW = frontAnchor.RotationW,
+                RearSections = rearSections.ToArray()
+            }
+        };
+
+        return true;
+    }
 
     private void StartOpenOmsiPlaybackLoop()
     {
