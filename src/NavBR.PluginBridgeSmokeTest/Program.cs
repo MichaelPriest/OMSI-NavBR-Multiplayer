@@ -7,6 +7,7 @@ using NavBR.Client.Multiplayer;
 using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
 
@@ -125,8 +126,10 @@ var varTableRoot = Path.Combine(
     Path.GetTempPath(),
     "NavBR-openOMSI-vartable-" + Guid.NewGuid().ToString("N"));
 var varTableBusDir = Path.Combine(varTableRoot, "Vehicles", "VarTableSmoke");
+var varTableModelDir = Path.Combine(varTableBusDir, "model");
 var varTableProgramDir = Path.Combine(varTableRoot, "program");
 Directory.CreateDirectory(varTableBusDir);
+Directory.CreateDirectory(varTableModelDir);
 Directory.CreateDirectory(varTableProgramDir);
 File.WriteAllText(
     Path.Combine(varTableProgramDir, "varlist_roadvehicle.txt"),
@@ -141,8 +144,11 @@ File.WriteAllText(
     Path.Combine(varTableBusDir, "strings.txt"),
     "destination\nIBIS_line\n");
 File.WriteAllText(
+    Path.Combine(varTableModelDir, "Smoke.cfg"),
+    "[matl_change]\nsmoke.bmp\n0\nmy_custom\n\n[visible]\nwiperpos\n");
+File.WriteAllText(
     Path.Combine(varTableBusDir, "Smoke.bus"),
-    "[varnamelist]\n1\nvars.txt\n\n[stringvarnamelist]\n1\nstrings.txt\n");
+    "[model]\nmodel\\Smoke.cfg\n\n[varnamelist]\n1\nvars.txt\n\n[stringvarnamelist]\n1\nstrings.txt\n");
 
 try
 {
@@ -196,9 +202,191 @@ try
 
     var expectedVarHash = OpenOmsiVarHash(
         actualFloatNames.Concat(actualStringNames));
+
     Require(
         actualVarHash == expectedVarHash,
         $"VarTable FNV-1a mismatch: got {actualVarHash:X8}, expected {expectedVarHash:X8}");
+
+
+    var syncTableBuilderType =
+        typeof(OmsiPluginBridgeServer).Assembly.GetType(
+            "NavBR.Client.Multiplayer.OpenOmsiSyncTableManifestBuilder",
+            throwOnError: true)!;
+    var tryBuildSyncTable =
+        syncTableBuilderType.GetMethod(
+            "TryBuild",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "openOMSI SyncTable manifest builder not found");
+    var syncManifest =
+        tryBuildSyncTable.Invoke(
+            null,
+            [
+                varTableRoot,
+                @"Vehicles\VarTableSmoke\Smoke.bus",
+                manifest
+            ])
+        ?? throw new InvalidOperationException(
+            "openOMSI SyncTable manifest was not built");
+
+    static T ReadManifestProperty<T>(
+        object instance,
+        string propertyName) =>
+        (T)(instance.GetType().GetProperty(propertyName)?.GetValue(instance)
+            ?? throw new InvalidOperationException(
+                $"SyncTable property {propertyName} missing"));
+
+    var syncHash = ReadManifestProperty<uint>(syncManifest, "Hash");
+    var lampIds = ReadManifestProperty<ushort[]>(syncManifest, "LampIds");
+    var switchIds = ReadManifestProperty<ushort[]>(syncManifest, "SwitchIds");
+    var valueIds = ReadManifestProperty<ushort[]>(syncManifest, "ValueIds");
+    var doorIds = ReadManifestProperty<ushort[]>(syncManifest, "DoorIds");
+    var engineNId = ReadManifestProperty<ushort?>(syncManifest, "EngineNId");
+    var lampNames = ReadManifestProperty<string[]>(syncManifest, "LampNames");
+    var switchNames = ReadManifestProperty<string[]>(syncManifest, "SwitchNames");
+
+    Require(
+        syncHash != 0 &&
+        lampIds.Length == 1 &&
+        switchIds.Length == 1 &&
+        doorIds.Length == 1 &&
+        lampNames.SequenceEqual(
+            new[] { "my_custom" },
+            StringComparer.OrdinalIgnoreCase) &&
+        switchNames.SequenceEqual(
+            new[] { "wiperpos" },
+            StringComparer.OrdinalIgnoreCase),
+        "openOMSI visual SyncTable manifest did not preserve lamp/switch/door layout");
+
+    var sampledValues = new Dictionary<ushort, float>();
+    foreach (var id in lampIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    foreach (var id in switchIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    foreach (var id in valueIds)
+    {
+        sampledValues[id] = 0.5f;
+    }
+    foreach (var id in doorIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    if (engineNId is ushort rpmId)
+    {
+        sampledValues[rpmId] = 1500f;
+    }
+
+    var scriptSnapshot = new LocalOmsiScriptVarsSnapshot(
+        DateTimeOffset.UtcNow,
+        actualVarHash,
+        sampledValues.Keys.ToArray(),
+        sampledValues.Values.ToArray(),
+        [],
+        []);
+
+    var multiplayerServiceType = typeof(MultiplayerClientService);
+    var buildVisualSnapshot =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiVisualSnapshot",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI visual snapshot builder not found");
+    var visualSnapshot =
+        buildVisualSnapshot.Invoke(
+            null,
+            [syncManifest, scriptSnapshot])
+        ?? throw new InvalidOperationException(
+            "local openOMSI visual snapshot was not produced");
+
+    var telemetry = new VehicleTelemetry(
+        "sync-local",
+        DateTimeOffset.UtcNow,
+        "Grundorf",
+        "SyncTableSmoke",
+        null,
+        null,
+        100d,
+        200d,
+        0d,
+        90d,
+        0d,
+        true,
+        VehiclePath: @"Vehicles\VarTableSmoke\Smoke.bus");
+    var presence = new PlayerPresence(
+        "sync-local",
+        "Sync Local",
+        "sync-room",
+        "Grundorf",
+        DateTimeOffset.UtcNow);
+    var frame = new PlayerTelemetryFrame(
+        presence,
+        telemetry);
+    var buildLocalState =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiLocalState",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI STATE builder not found");
+    var localState =
+        (OpenOmsiLanVehicleState?)buildLocalState.Invoke(
+            null,
+            [
+                (ushort)27,
+                (ushort)9,
+                frame,
+                visualSnapshot,
+                12_345u
+            ])
+        ?? throw new InvalidOperationException(
+            "local openOMSI STATE was not produced");
+
+    Require(
+        localState.Lamps.Count == lampIds.Length &&
+        localState.Switches.Count == switchIds.Length &&
+        localState.Values.Count == valueIds.Length &&
+        localState.Doors.Count == doorIds.Length &&
+        Math.Abs(localState.EngineRpm - 1500f) < 0.01f,
+        "local visual snapshot was not mapped into openOMSI STATE arrays");
+
+    var statePacket = OpenOmsiLanStateCodec.Encode(localState);
+    Require(
+        OpenOmsiLanStateCodec.TryDecode(
+            statePacket,
+            out var decodedVisualState),
+        "openOMSI visual STATE did not survive v6 encode/decode");
+    Require(
+        decodedVisualState.Lamps.Count == lampIds.Length &&
+        decodedVisualState.Switches.Count == switchIds.Length &&
+        decodedVisualState.Values.Count == valueIds.Length &&
+        decodedVisualState.Doors.Count == doorIds.Length &&
+        decodedVisualState.Lamps.All(value => Math.Abs(value - 1f) < 0.001f) &&
+        decodedVisualState.Switches.All(value => Math.Abs(value - 1f) < 0.001f) &&
+        decodedVisualState.Doors.All(value => Math.Abs(value - 1f) < 0.001f),
+        "openOMSI visual STATE arrays changed across the v6 wire codec");
+
+    var hasCompatibleVisualState =
+        multiplayerServiceType.GetMethod(
+            "HasCompatibleOpenOmsiVisualState",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "remote openOMSI SyncTable compatibility guard not found");
+    Require(
+        (bool)(hasCompatibleVisualState.Invoke(
+            null,
+            [decodedVisualState, syncManifest]) ?? false),
+        "remote openOMSI visual SyncTable rejected a matching STATE");
+    Require(
+        !(bool)(hasCompatibleVisualState.Invoke(
+            null,
+            [
+                decodedVisualState with { Lamps = [] },
+                syncManifest
+            ]) ?? true),
+        "remote openOMSI visual SyncTable accepted mismatched STATE cardinality");
 }
 finally
 {
