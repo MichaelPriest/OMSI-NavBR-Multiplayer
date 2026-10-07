@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.SignalR.Client;
+using NavBR.Client.OpenOmsi;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.OpenOmsi;
@@ -15,6 +16,8 @@ public sealed partial class MultiplayerClientService
     private readonly Dictionary<string, PlayerPresence> _openOmsiPresenceByPlayerId =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ushort, OpenOmsiLanVehicleInfo> _openOmsiInfoByLanId = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiVarTableManifest>
+        _openOmsiVarTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
@@ -444,12 +447,17 @@ public sealed partial class MultiplayerClientService
         ApplyRoleplayCharacter(new RoleplayCharacterFrame(presence, state));
     }
 
-    private void HandleOpenOmsiRemoteVars(OpenOmsiVarsFrame vars)
+    private void HandleOpenOmsiRemoteVars(OpenOmsiVarsFrame vars) =>
+        _ = HandleOpenOmsiRemoteVarsAsync(vars);
+
+    private async Task HandleOpenOmsiRemoteVarsAsync(OpenOmsiVarsFrame vars)
     {
         PlayerPresence? presence;
+        OpenOmsiLanVehicleInfo? info;
         lock (_openOmsiV6Sync)
         {
             _openOmsiPresenceByLanId.TryGetValue(vars.PlayerId, out presence);
+            _openOmsiInfoByLanId.TryGetValue(vars.PlayerId, out info);
         }
 
         if (presence is null)
@@ -457,9 +465,62 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
-        _ = OmsiPluginBridgeRelay.ForwardRemoteVarsAsync(
+        var vehiclePath =
+            info?.VehiclePath ??
+            presence.Compatibility?.VehiclePath;
+        if (string.IsNullOrWhiteSpace(vehiclePath))
+        {
+            return;
+        }
+
+        var manifest = await ResolveLocalOpenOmsiVarTableAsync(vehiclePath);
+        if (manifest is null ||
+            manifest.Hash != vars.TableHash)
+        {
+            return;
+        }
+
+        await OmsiPluginBridgeRelay.ForwardRemoteVarsAsync(
             presence.PlayerId,
             vars);
+    }
+
+    private async Task<OpenOmsiVarTableManifest?>
+        ResolveLocalOpenOmsiVarTableAsync(string vehiclePath)
+    {
+        if (_openOmsiVarTableByVehicle.TryGetValue(
+                vehiclePath,
+                out var cached))
+        {
+            return cached;
+        }
+
+        var roots =
+            OpenOmsiEnvironmentLocator.ResolveContentSearchRoots();
+        var manifest = await Task.Run(
+            () =>
+            {
+                foreach (var root in roots)
+                {
+                    var candidate =
+                        OpenOmsiVarTableManifestBuilder.TryBuild(
+                            root,
+                            vehiclePath);
+                    if (candidate is not null)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            });
+
+        if (manifest is not null)
+        {
+            _openOmsiVarTableByVehicle[vehiclePath] = manifest;
+        }
+
+        return manifest;
     }
 
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
@@ -958,6 +1019,7 @@ public sealed partial class MultiplayerClientService
             _openOmsiPresenceByPlayerId.Clear();
             _openOmsiInfoByLanId.Clear();
         }
+        _openOmsiVarTableByVehicle.Clear();
 
         if (session is not null)
         {
