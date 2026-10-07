@@ -1805,6 +1805,96 @@ var afterInvalidCounters = server.GetConnectionInfo();
 Require(afterInvalidCounters.LastStatus?.SystemVariableCallbacks == 123,
     "runtime status with invalid counters was accepted");
 
+var localVarsConfig = new PluginBridgeMessage(
+    PluginBridgeProtocol.ConfigureLocalVehicleVars,
+    PluginBridgeProtocol.Version,
+    VarTableHash: 0x1234ABCDu,
+    VariableIndices: new ushort[] { 2, 5, 9 });
+var localVarsConfigRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(localVarsConfig, cts.Token);
+var localVarsConfigLine = await localVarsConfigRead;
+var receivedLocalVarsConfig =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        localVarsConfigLine ??
+        throw new InvalidOperationException(
+            "local VARS configuration not received"));
+Require(
+    receivedLocalVarsConfig?.Type ==
+        PluginBridgeProtocol.ConfigureLocalVehicleVars,
+    "unexpected local VARS configuration message type");
+Require(
+    receivedLocalVarsConfig?.VarTableHash == 0x1234ABCDu,
+    "local VARS configuration hash mismatch");
+Require(
+    receivedLocalVarsConfig?.VariableIndices?.SequenceEqual(
+        new ushort[] { 2, 5, 9 }) == true,
+    "local VARS configuration ids mismatch");
+
+var remoteVarsMessage = new PluginBridgeMessage(
+    PluginBridgeProtocol.RemoteVehicleVars,
+    PluginBridgeProtocol.Version,
+    PlayerId: "remote-vars-smoke",
+    VarTableHash: 0x89ABCDEFu,
+    VariableIndices: new ushort[] { 3, 7 },
+    VariableValues: new float[] { 1.25f, -0.5f });
+var remoteVarsRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(remoteVarsMessage, cts.Token);
+var remoteVarsLine = await remoteVarsRead;
+var receivedRemoteVars =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        remoteVarsLine ??
+        throw new InvalidOperationException(
+            "remote VARS message not received"));
+Require(
+    receivedRemoteVars?.Type ==
+        PluginBridgeProtocol.RemoteVehicleVars,
+    "unexpected remote VARS message type");
+Require(
+    receivedRemoteVars?.PlayerId == "remote-vars-smoke" &&
+    receivedRemoteVars.VarTableHash == 0x89ABCDEFu,
+    "remote VARS identity/hash mismatch");
+Require(
+    receivedRemoteVars.VariableIndices?.SequenceEqual(
+        new ushort[] { 3, 7 }) == true &&
+    receivedRemoteVars.VariableValues?.SequenceEqual(
+        new float[] { 1.25f, -0.5f }) == true,
+    "remote VARS payload mismatch");
+
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var localVarsSnapshot = new PluginBridgeMessage(
+    PluginBridgeProtocol.LocalVehicleVars,
+    PluginBridgeProtocol.Version,
+    ProcessId: 4242,
+    TimestampUnixMilliseconds:
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VarTableHash: 0xCAFEBABEu,
+    VariableIndices: new ushort[] { 1, 4 },
+    VariableValues: new float[] { 0.75f, 22.5f });
+await writer.WriteLineAsync(
+    JsonSerializer.Serialize(localVarsSnapshot));
+
+LocalOmsiScriptVarsSnapshot? storedLocalVars = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    storedLocalVars = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (storedLocalVars is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    storedLocalVars is not null,
+    "local VARS snapshot was not stored by the bridge");
+Require(
+    storedLocalVars!.VarTableHash == 0xCAFEBABEu &&
+    storedLocalVars.VariableIndices.SequenceEqual(
+        new ushort[] { 1, 4 }) &&
+    storedLocalVars.VariableValues.SequenceEqual(
+        new float[] { 0.75f, 22.5f }),
+    "local VARS snapshot contents mismatch");
+
 var trafficVehicle = new TrafficVehicleState(
     "traffic-17",
     "Vehicles\\MAN_NL_NG\\MAN_NL263.bus",
@@ -1857,7 +1947,7 @@ var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
 Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
     "traffic clear message type mismatch");
 
-Console.WriteLine("Plugin bridge v3 smoke test passed: handshake + runtime capability refresh + status + traffic delivery + rejection checks.");
+Console.WriteLine("Plugin bridge v3 smoke test passed: handshake + status + local/remote VARS + traffic delivery + rejection checks.");
 
 static void Require(bool condition, string message)
 {
