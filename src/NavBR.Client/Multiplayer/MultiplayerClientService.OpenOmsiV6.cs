@@ -60,6 +60,99 @@ public sealed partial class MultiplayerClientService
     public int? OpenOmsiV6Port => _openOmsiV6Session?.Port;
     public string? OpenOmsiV6WebSocketUrl => _openOmsiPublicWebSocketUrl;
 
+    public string GetRemoteOpenOmsiVisualSyncStatus(
+        string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return "none";
+        }
+
+        ushort lanId;
+        lock (_openOmsiV6Sync)
+        {
+            if (!_openOmsiPresenceByPlayerId.TryGetValue(
+                    playerId,
+                    out var presence) ||
+                presence.OpenOmsiLanId is not ushort mappedLanId ||
+                mappedLanId == 0)
+            {
+                return "none";
+            }
+
+            lanId = mappedLanId;
+        }
+
+        OpenOmsiLanVehicleInfo? info;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiInfoByLanId.TryGetValue(lanId, out info);
+        }
+
+        if (info is null)
+        {
+            return "pending";
+        }
+
+        if (info.SyncTableHash == 0)
+        {
+            return "basic";
+        }
+
+        if (_openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                lanId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash)
+        {
+            return "compatible";
+        }
+
+        if (_openOmsiRemoteSyncProbeKey.ContainsKey(lanId) &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                lanId,
+                out compatibleHash) &&
+            compatibleHash == 0)
+        {
+            return "mismatch";
+        }
+
+        return "pending";
+    }
+
+    public uint? GetRemoteOpenOmsiVisualSyncHash(
+        string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return null;
+        }
+
+        ushort lanId;
+        lock (_openOmsiV6Sync)
+        {
+            if (!_openOmsiPresenceByPlayerId.TryGetValue(
+                    playerId,
+                    out var presence) ||
+                presence.OpenOmsiLanId is not ushort mappedLanId ||
+                mappedLanId == 0)
+            {
+                return null;
+            }
+
+            lanId = mappedLanId;
+        }
+
+        lock (_openOmsiV6Sync)
+        {
+            return _openOmsiInfoByLanId.TryGetValue(
+                    lanId,
+                    out var info) &&
+                   info.SyncTableHash != 0
+                ? info.SyncTableHash
+                : null;
+        }
+    }
+
     public event Action<OpenOmsiLanClock>? OpenOmsiClockReceived;
     public event Action<OpenOmsiWorldFrame>? OpenOmsiWorldFrameReceived;
     public event Action<ushort, OpenOmsiWorldFrame>? OpenOmsiClientWorldFrameReceived;
