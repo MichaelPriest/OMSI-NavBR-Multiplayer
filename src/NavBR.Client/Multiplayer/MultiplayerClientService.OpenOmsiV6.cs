@@ -488,6 +488,24 @@ public sealed partial class MultiplayerClientService
             _ => TurnSignalState.Off
         };
 
+        float[]? remoteVisualValues = null;
+        ushort[]? remoteVisualValueIds = null;
+        if (visualSyncCompatible)
+        {
+            var values = state.Values.ToList();
+            var ids = compatibleSyncTable!.ValueIds.ToList();
+            if (compatibleSyncTable.EngineNId is ushort engineId &&
+                !ids.Contains(engineId) &&
+                float.IsFinite(state.EngineRpm))
+            {
+                ids.Add(engineId);
+                values.Add(state.EngineRpm);
+            }
+
+            remoteVisualValues = values.ToArray();
+            remoteVisualValueIds = ids.ToArray();
+        }
+
         var timestamp = DateTimeOffset.UtcNow;
         var telemetry = new VehicleTelemetry(
             presence.PlayerId,
@@ -547,7 +565,7 @@ public sealed partial class MultiplayerClientService
             OpenOmsiSwitches:
                 visualSyncCompatible ? state.Switches.ToArray() : null,
             OpenOmsiValues:
-                visualSyncCompatible ? state.Values.ToArray() : null,
+                remoteVisualValues,
             OpenOmsiDoors:
                 visualSyncCompatible ? state.Doors.ToArray() : null,
             OpenOmsiLampIds:
@@ -559,9 +577,7 @@ public sealed partial class MultiplayerClientService
                     ? compatibleSyncTable!.SwitchIds.ToArray()
                     : null,
             OpenOmsiValueIds:
-                visualSyncCompatible
-                    ? compatibleSyncTable!.ValueIds.ToArray()
-                    : null,
+                remoteVisualValueIds,
             OpenOmsiDoorIds:
                 visualSyncCompatible
                     ? compatibleSyncTable!.DoorIds.ToArray()
@@ -783,7 +799,11 @@ public sealed partial class MultiplayerClientService
             : syncTable.LampIds
                 .Concat(syncTable.SwitchIds)
                 .Concat(syncTable.ValueIds)
-                .Concat(syncTable.DoorIds);
+                .Concat(syncTable.DoorIds)
+                .Concat(
+                    syncTable.EngineNId is ushort engineId
+                        ? new[] { engineId }
+                        : Array.Empty<ushort>());
 
         var sampleIds = visualIds
             .Concat(variables.FloatIds)
@@ -1113,7 +1133,7 @@ public sealed partial class MultiplayerClientService
             head,
             interior,
             (byte)telemetry.TurnSignal,
-            0f,
+            visual?.EngineRpm ?? 0f,
             (float)Math.Clamp((telemetry.ThrottlePercent ?? 0d) / 100d, 0d, 1d),
             (float)Math.Clamp((telemetry.BrakePercent ?? 0d) / 100d, 0d, 1d),
             0,
@@ -1131,7 +1151,8 @@ public sealed partial class MultiplayerClientService
         float[] Lamps,
         float[] Switches,
         float[] Values,
-        float[] Doors);
+        float[] Doors,
+        float EngineRpm);
 
     private static OpenOmsiLocalVisualSnapshot?
         BuildOpenOmsiVisualSnapshot(
@@ -1172,6 +1193,13 @@ public sealed partial class MultiplayerClientService
         var switches = Resolve(syncTable.SwitchIds);
         var values = Resolve(syncTable.ValueIds);
         var doors = Resolve(syncTable.DoorIds);
+        var engineRpm = 0f;
+        if (syncTable.EngineNId is ushort engineId &&
+            (!valuesById.TryGetValue(engineId, out engineRpm) ||
+             !float.IsFinite(engineRpm)))
+        {
+            return null;
+        }
 
         if ((syncTable.LampIds.Length > 0 && lamps.Length == 0) ||
             (syncTable.SwitchIds.Length > 0 && switches.Length == 0) ||
@@ -1185,7 +1213,8 @@ public sealed partial class MultiplayerClientService
             lamps,
             switches,
             values,
-            doors);
+            doors,
+            engineRpm);
     }
 
     private static IReadOnlyList<OpenOmsiLanPartPose>
