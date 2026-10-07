@@ -74,6 +74,10 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         WorldDescriptionsRequested;
     public event Action<ushort, OpenOmsiWorldDescription.Person>?
         ClientWorldDescriptionReceived;
+    public event Action<ushort, IReadOnlyList<uint>>?
+        WorldPeopleClaimed;
+    public event Action<IReadOnlyList<uint>, bool>?
+        WorldPeopleClaimResult;
     public event Action<ushort, OpenOmsiWorldFrame>? ClientWorldFrameReceived;
     public event Action<ushort, string, string>? ChatReceived;
     public event Action<ushort, string>? CommandReceived;
@@ -478,6 +482,97 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                     chunk),
                 _hostEndpoint,
                 cancellationToken);
+        }
+    }
+
+    public async Task ClaimWorldPeopleAsync(
+        IEnumerable<uint> people,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (IsHost ||
+            _hostEndpoint is null ||
+            LocalPlayerId == 0)
+        {
+            return;
+        }
+
+        var pending = people
+            .Where(id =>
+                id <= OpenOmsiWorldCodec.MaxId)
+            .Distinct()
+            .ToArray();
+
+        for (var offset = 0;
+             offset < pending.Length;
+             offset += 64)
+        {
+            var chunk = pending
+                .Skip(offset)
+                .Take(64)
+                .ToArray();
+            if (chunk.Length == 0)
+            {
+                continue;
+            }
+
+            await SendTextAsync(
+                OpenOmsiWorldDescriptionCodec.EncodeClaim(
+                    LocalPlayerId,
+                    chunk),
+                _hostEndpoint,
+                cancellationToken);
+        }
+    }
+
+    public async Task AnswerWorldPeopleClaimAsync(
+        ushort targetPlayerId,
+        IEnumerable<uint> granted,
+        IEnumerable<uint> denied,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (!IsHost ||
+            !_peers.TryGetValue(
+                targetPlayerId,
+                out var target))
+        {
+            return;
+        }
+
+        foreach (var (isGranted, list) in new[]
+                 {
+                     (true, granted),
+                     (false, denied)
+                 })
+        {
+            var ids = list
+                .Where(id =>
+                    id <= OpenOmsiWorldCodec.MaxId)
+                .Distinct()
+                .ToArray();
+
+            for (var offset = 0;
+                 offset < ids.Length;
+                 offset += 64)
+            {
+                var chunk = ids
+                    .Skip(offset)
+                    .Take(64)
+                    .ToArray();
+                if (chunk.Length == 0)
+                {
+                    continue;
+                }
+
+                await SendTextAsync(
+                    OpenOmsiWorldDescriptionCodec
+                        .EncodeClaimResult(
+                            isGranted,
+                            chunk),
+                    target.Endpoint,
+                    cancellationToken);
+            }
         }
     }
 
@@ -1000,6 +1095,43 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             WorldDescriptionsRequested?.Invoke(
                 wantRequesterId,
                 requested);
+            return;
+        }
+
+        if (IsHost &&
+            text.StartsWith("CLAIM|", StringComparison.Ordinal) &&
+            OpenOmsiWorldDescriptionCodec.TryDecodeClaim(
+                text,
+                out var claimRequesterId,
+                out var claimedPeople) &&
+            _peers.TryGetValue(
+                claimRequesterId,
+                out var claimingPeer) &&
+            claimingPeer.Endpoint.Equals(from))
+        {
+            claimingPeer.LastSeenUtc =
+                DateTimeOffset.UtcNow;
+            WorldPeopleClaimed?.Invoke(
+                claimRequesterId,
+                claimedPeople);
+            return;
+        }
+
+        if (!IsHost &&
+            _hostEndpoint?.Equals(from) == true &&
+            (text.StartsWith("GRANT|", StringComparison.Ordinal) ||
+             text.StartsWith("DENY|", StringComparison.Ordinal)) &&
+            OpenOmsiWorldDescriptionCodec.TryDecodeClaimResult(
+                text,
+                out var granted,
+                out var people))
+        {
+            _lastHostPacketUtc =
+                DateTimeOffset.UtcNow;
+            _hostLostAtUtc = null;
+            WorldPeopleClaimResult?.Invoke(
+                people,
+                granted);
             return;
         }
 
