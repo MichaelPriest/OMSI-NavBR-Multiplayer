@@ -37,6 +37,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private ulong? _requestedSessionId;
     private OpenOmsiLanVehicleInfo? _localInfo;
     private OpenOmsiLanVehicleState? _localState;
+    private string? _lastLocalInfoWire;
+    private DateTimeOffset _lastLocalInfoSentUtc;
 
     public bool IsHost { get; private set; }
     public bool IsRunning => _udp is not null;
@@ -280,16 +282,31 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     {
         EnsureConnected();
         info = info with { PlayerId = LocalPlayerId };
-        var text = OpenOmsiLanProtocol.EncodeInfo(info);
+        var wire = OpenOmsiLanProtocol.EncodeInfo(info);
         _localInfo = info;
+
+        var now = DateTimeOffset.UtcNow;
+        var changed = !string.Equals(
+            _lastLocalInfoWire,
+            wire,
+            StringComparison.Ordinal);
+        var refreshDue =
+            now - _lastLocalInfoSentUtc >= TimeSpan.FromSeconds(5);
+        if (!changed && !refreshDue)
+        {
+            return;
+        }
+
+        _lastLocalInfoWire = wire;
+        _lastLocalInfoSentUtc = now;
 
         if (IsHost)
         {
-            await BroadcastTextAsync(text, null, cancellationToken);
+            await BroadcastTextAsync(wire, null, cancellationToken);
         }
         else
         {
-            await SendTextAsync(text, _hostEndpoint!, cancellationToken);
+            await SendTextAsync(wire, _hostEndpoint!, cancellationToken);
         }
     }
 
@@ -1522,6 +1539,31 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
         await SendTextAsync(welcome, from, cancellationToken);
         await SendTextAsync("NOTE|Connected through openOMSI LAN v6.", from, cancellationToken);
+
+        // A late joiner must receive the current identity/vehicle metadata
+        // immediately. This lets INFO stay change-driven instead of being
+        // broadcast every telemetry frame.
+        if (_localInfo is not null)
+        {
+            await SendTextAsync(
+                OpenOmsiLanProtocol.EncodeInfo(_localInfo),
+                from,
+                cancellationToken);
+        }
+
+        foreach (var existingPeer in _peers.Values)
+        {
+            if (existingPeer.Id == peer.Id ||
+                existingPeer.Info is null)
+            {
+                continue;
+            }
+
+            await SendTextAsync(
+                OpenOmsiLanProtocol.EncodeInfo(existingPeer.Info),
+                from,
+                cancellationToken);
+        }
     }
 
     private void HandleWelcome(string text, IPEndPoint from)
@@ -1802,6 +1844,10 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         cts?.Cancel();
         _udp?.Dispose();
         _udp = null;
+        _localInfo = null;
+        _localState = null;
+        _lastLocalInfoWire = null;
+        _lastLocalInfoSentUtc = default;
 
         foreach (var task in new[] { receive, maintenance })
         {
