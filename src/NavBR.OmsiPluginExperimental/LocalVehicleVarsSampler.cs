@@ -8,6 +8,7 @@ internal static class LocalVehicleVarsSampler
     private static uint? _varTableHash;
     private static ushort[] _floatIds = [];
     private static ushort[] _stringIds = [];
+    private static ushort[] _stringIds = [];
     private static long _lastSampleTickMs;
     private static PluginBridgeMessage? _pending;
     private const long MinimumSampleIntervalMs = 100;
@@ -86,6 +87,7 @@ internal static class LocalVehicleVarsSampler
             hash = configured;
             ids = _floatIds;
             stringIds = _stringIds;
+            stringIds = _stringIds;
         }
 
         var player = OmsiNativeInterop.GetPlayerVehiclePointer();
@@ -113,6 +115,18 @@ internal static class LocalVehicleVarsSampler
                     player,
                     ids[i],
                     out values[i]))
+            {
+                return;
+            }
+        }
+
+        var stringValues = new string[stringIds.Length];
+        for (var i = 0; i < stringIds.Length; i++)
+        {
+            if (!OmsiNativeInterop.TryReadRoadVehicleStringVar(
+                    player,
+                    stringIds[i],
+                    out stringValues[i]))
             {
                 return;
             }
