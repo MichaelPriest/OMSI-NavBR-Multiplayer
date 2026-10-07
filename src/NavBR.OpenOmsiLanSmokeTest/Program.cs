@@ -324,10 +324,10 @@ await using (var client = new OpenOmsiLanPeerSession())
         0.1f);
     Require(varsPackets.Count > 0, "VARS sender produced no datagrams");
 
-    foreach (var packet in varsPackets)
+    foreach (var varsPacket in varsPackets)
     {
         Require(
-            OpenOmsiVarsCodec.TryDecode(packet, out var decodedVars),
+            OpenOmsiVarsCodec.TryDecode(varsPacket, out var decodedVars),
             "VARS datagram did not decode");
         await host.PublishVarsAsync(decodedVars);
     }
