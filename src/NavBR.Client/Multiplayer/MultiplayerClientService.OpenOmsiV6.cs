@@ -600,7 +600,8 @@ public sealed partial class MultiplayerClientService
             telemetry.VehiclePath);
         if (manifest is null ||
             manifest.Hash == 0 ||
-            manifest.FloatIds.Length == 0)
+            (manifest.FloatIds.Length == 0 &&
+             manifest.StringIds.Length == 0))
         {
             return;
         }
@@ -610,6 +611,7 @@ public sealed partial class MultiplayerClientService
             await OmsiPluginBridgeRelay.ConfigureLocalVarsAsync(
                 manifest.Hash,
                 manifest.FloatIds,
+                manifest.StringIds,
                 cancellationToken);
             _openOmsiConfiguredLocalVarHash = manifest.Hash;
             _openOmsiLastPublishedLocalVarsAt = null;
@@ -621,6 +623,8 @@ public sealed partial class MultiplayerClientService
             snapshot.VarTableHash != manifest.Hash ||
             snapshot.VariableIndices.Length !=
                 snapshot.VariableValues.Length ||
+            snapshot.StringVariableIndices.Length !=
+                snapshot.StringVariableValues.Length ||
             DateTimeOffset.UtcNow - snapshot.CapturedAtUtc >
                 TimeSpan.FromSeconds(2) ||
             _openOmsiLastPublishedLocalVarsAt is DateTimeOffset last &&
@@ -635,12 +639,18 @@ public sealed partial class MultiplayerClientService
                 static (id, value) => (id, value))
             .ToArray();
 
+        var strings = snapshot.StringVariableIndices
+            .Zip(
+                snapshot.StringVariableValues,
+                static (id, value) => (id, value))
+            .ToArray();
+
         await session.PublishVarsAsync(
             new OpenOmsiVarsFrame(
                 session.LocalPlayerId,
                 snapshot.VarTableHash,
                 floats,
-                Array.Empty<(ushort Index, string Value)>()),
+                strings),
             cancellationToken);
 
         _openOmsiLastPublishedLocalVarsAt =
