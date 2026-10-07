@@ -261,7 +261,8 @@ internal static class OpenOmsiStandaloneOverlay
             var white = Rgb(245, 248, 252);
             var muted = Rgb(170, 185, 205);
 
-            FillRect(hdc, ref Rect(0, 0, Width, Height), bg);
+            var clientRect = Rect(0, 0, Width, Height);
+            FillRect(hdc, ref clientRect, bg);
             SetBkMode(hdc, 1);
             SetTextColor(hdc, white);
             TextOut(hdc, 16, 14, "NavBR", 5);
