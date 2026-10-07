@@ -69,6 +69,11 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
     public event Action<OpenOmsiWorldFrame>? WorldFrameReceived;
     public event Action<OpenOmsiLanClock>? ClockReceived;
+    public event Action<OpenOmsiWorldDescription>? WorldDescriptionReceived;
+    public event Action<ushort, IReadOnlyList<OpenOmsiWorldEntityRef>>?
+        WorldDescriptionsRequested;
+    public event Action<ushort, OpenOmsiWorldDescription.Person>?
+        ClientWorldDescriptionReceived;
     public event Action<ushort, OpenOmsiWorldFrame>? ClientWorldFrameReceived;
     public event Action<ushort, string, string>? ChatReceived;
     public event Action<ushort, string>? CommandReceived;
@@ -385,6 +390,78 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                     _hostEndpoint,
                     cancellationToken);
             }
+        }
+    }
+
+    public async Task SendWorldDescriptionAsync(
+        ushort targetPlayerId,
+        OpenOmsiWorldDescription description,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (!IsHost ||
+            !_peers.TryGetValue(targetPlayerId, out var target))
+        {
+            return;
+        }
+
+        await SendTextAsync(
+            OpenOmsiWorldDescriptionCodec.Encode(description),
+            target.Endpoint,
+            cancellationToken);
+    }
+
+    public async Task SendWorldDescriptionUpAsync(
+        OpenOmsiWorldDescription.Person description,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (IsHost || _hostEndpoint is null)
+        {
+            return;
+        }
+
+        await SendTextAsync(
+            OpenOmsiWorldDescriptionCodec.Encode(description),
+            _hostEndpoint,
+            cancellationToken);
+    }
+
+    public async Task RequestWorldDescriptionsAsync(
+        IEnumerable<OpenOmsiWorldEntityRef> references,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (IsHost ||
+            _hostEndpoint is null ||
+            LocalPlayerId == 0)
+        {
+            return;
+        }
+
+        var pending = references
+            .Where(item =>
+                item.Id <= OpenOmsiWorldCodec.MaxId)
+            .Distinct()
+            .ToArray();
+
+        for (var offset = 0; offset < pending.Length; offset += 64)
+        {
+            var chunk = pending
+                .Skip(offset)
+                .Take(64)
+                .ToArray();
+            if (chunk.Length == 0)
+            {
+                continue;
+            }
+
+            await SendTextAsync(
+                OpenOmsiWorldDescriptionCodec.EncodeWant(
+                    LocalPlayerId,
+                    chunk),
+                _hostEndpoint,
+                cancellationToken);
         }
     }
 
@@ -887,6 +964,56 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                      info.PlayerId != LocalPlayerId)
             {
                 RemoteInfoReceived?.Invoke(info);
+            }
+            return;
+        }
+
+        if (IsHost &&
+            text.StartsWith("WANT|", StringComparison.Ordinal) &&
+            OpenOmsiWorldDescriptionCodec.TryDecodeWant(
+                text,
+                out var requesterId,
+                out var requested) &&
+            _peers.TryGetValue(
+                requesterId,
+                out var requestingPeer) &&
+            requestingPeer.Endpoint.Equals(from))
+        {
+            requestingPeer.LastSeenUtc =
+                DateTimeOffset.UtcNow;
+            WorldDescriptionsRequested?.Invoke(
+                requesterId,
+                requested);
+            return;
+        }
+
+        if (text.StartsWith("DESC|", StringComparison.Ordinal) &&
+            OpenOmsiWorldDescriptionCodec.TryDecode(
+                text,
+                out var description))
+        {
+            if (IsHost)
+            {
+                var source = _peers.Values.FirstOrDefault(
+                    peer => peer.Endpoint.Equals(from));
+                if (source is not null &&
+                    description is
+                        OpenOmsiWorldDescription.Person person)
+                {
+                    source.LastSeenUtc =
+                        DateTimeOffset.UtcNow;
+                    ClientWorldDescriptionReceived?.Invoke(
+                        source.Id,
+                        person);
+                }
+            }
+            else if (_hostEndpoint?.Equals(from) == true)
+            {
+                _lastHostPacketUtc =
+                    DateTimeOffset.UtcNow;
+                _hostLostAtUtc = null;
+                WorldDescriptionReceived?.Invoke(
+                    description);
             }
             return;
         }
