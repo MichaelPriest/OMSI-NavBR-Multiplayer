@@ -26,7 +26,7 @@ internal static class LocalVehicleVarsSampler
 
         var ids = message.VariableIndices ?? [];
         var stringIds = message.StringVariableIndices ?? [];
-        if (ids.Length > 256 ||
+        if (ids.Length > 512 ||
             stringIds.Length > 64 ||
             ids.Distinct().Count() != ids.Length ||
             stringIds.Distinct().Count() != stringIds.Length)
