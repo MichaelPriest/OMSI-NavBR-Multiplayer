@@ -16,6 +16,8 @@ public sealed partial class MultiplayerClientService
     private readonly Dictionary<string, PlayerPresence> _openOmsiPresenceByPlayerId =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ushort, OpenOmsiLanVehicleInfo> _openOmsiInfoByLanId = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, OpenOmsiRemoteStateInterpolator>
+        _openOmsiStateInterpolatorByLanId = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiVarTableManifest>
         _openOmsiVarTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiSyncTableManifest>
@@ -308,9 +310,27 @@ public sealed partial class MultiplayerClientService
 
     private void HandleOpenOmsiRemoteInfo(OpenOmsiLanVehicleInfo info)
     {
+        OpenOmsiLanVehicleInfo? previousInfo;
         lock (_openOmsiV6Sync)
         {
+            _openOmsiInfoByLanId.TryGetValue(
+                info.PlayerId,
+                out previousInfo);
             _openOmsiInfoByLanId[info.PlayerId] = info;
+        }
+
+        if (previousInfo is not null &&
+            !string.Equals(
+                previousInfo.VehiclePath,
+                info.VehiclePath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (_openOmsiStateInterpolatorByLanId.TryGetValue(
+                    info.PlayerId,
+                    out var existingInterpolator))
+            {
+                existingInterpolator.Reset();
+            }
         }
 
         var vehiclePath = info.VehiclePath?.Trim() ?? string.Empty;
@@ -387,6 +407,19 @@ public sealed partial class MultiplayerClientService
 
     private void HandleOpenOmsiRemoteState(OpenOmsiLanVehicleState state)
     {
+        var interpolator =
+            _openOmsiStateInterpolatorByLanId.GetOrAdd(
+                state.PlayerId,
+                static _ =>
+                    new OpenOmsiRemoteStateInterpolator());
+        if (!interpolator.TryPushAndInterpolate(
+                state,
+                out var renderedState))
+        {
+            return;
+        }
+
+        state = renderedState;
         PlayerPresence? presence;
         OpenOmsiLanVehicleInfo? info;
         lock (_openOmsiV6Sync)
@@ -753,6 +786,7 @@ public sealed partial class MultiplayerClientService
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
     {
         PlayerPresence? presence;
+        _openOmsiStateInterpolatorByLanId.TryRemove(lanId, out _);
         _openOmsiRemoteSyncProbeKey.TryRemove(lanId, out _);
         _openOmsiCompatibleRemoteSyncHash.TryRemove(lanId, out _);
         _openOmsiCompatibleRemoteSyncTable.TryRemove(lanId, out _);
@@ -1443,6 +1477,7 @@ public sealed partial class MultiplayerClientService
         }
         _openOmsiVarTableByVehicle.Clear();
         _openOmsiSyncTableByVehicle.Clear();
+        _openOmsiStateInterpolatorByLanId.Clear();
         _openOmsiRemoteSyncProbeKey.Clear();
         _openOmsiCompatibleRemoteSyncHash.Clear();
         _openOmsiCompatibleRemoteSyncTable.Clear();
