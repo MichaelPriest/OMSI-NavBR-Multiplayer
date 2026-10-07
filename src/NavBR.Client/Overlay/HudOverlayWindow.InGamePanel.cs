@@ -860,13 +860,13 @@ public partial class HudOverlayWindow
             }));
         _inGameMapOpacitySlider = BuildInGameSliderRow(
             InGameText(
-                "Opacidade do mapa",
-                "Map opacity",
-                "Opacidad del mapa",
-                "Karten-Deckkraft",
-                "Opacité carte"),
-            0.30d,
-            0.90d,
+                "Transparência do minimapa",
+                "Minimap transparency",
+                "Transparencia del minimapa",
+                "Minimap-Transparenz",
+                "Transparence mini-carte"),
+            0.05d,
+            1.00d,
             0.02d,
             value => SaveInGameSettings(settings => settings with
             {
@@ -884,11 +884,11 @@ public partial class HudOverlayWindow
         visualTuning.Children.Add(_inGameHudZoomSlider);
         visualTuning.Children.Add(BuildInGameSliderLabel(
             InGameText(
-                "Opacidade do mapa",
-                "Map opacity",
-                "Opacidad del mapa",
-                "Karten-Deckkraft",
-                "Opacité carte")));
+                "Transparência do minimapa",
+                "Minimap transparency",
+                "Transparencia del minimapa",
+                "Minimap-Transparenz",
+                "Transparence mini-carte")));
         visualTuning.Children.Add(_inGameMapOpacitySlider);
 
         _inGameHudModeCombo = BuildInGameCombo();
