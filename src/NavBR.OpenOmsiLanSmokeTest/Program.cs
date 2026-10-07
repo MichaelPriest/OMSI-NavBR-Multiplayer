@@ -720,6 +720,57 @@ await using (var client = new OpenOmsiLanPeerSession())
         clientWorldAtHost.Frame.ParkedComplete is null,
         "client WORLD sanitation mismatch");
 
+    var hostSawClaim =
+        new TaskCompletionSource<
+            (ushort PlayerId, IReadOnlyList<uint> People)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var clientSawGrant =
+        new TaskCompletionSource<IReadOnlyList<uint>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var clientSawDeny =
+        new TaskCompletionSource<IReadOnlyList<uint>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    host.WorldPeopleClaimed += (playerId, people) =>
+        hostSawClaim.TrySetResult((playerId, people));
+    client.WorldPeopleClaimResult += (people, granted) =>
+    {
+        if (granted)
+        {
+            clientSawGrant.TrySetResult(people);
+        }
+        else
+        {
+            clientSawDeny.TrySetResult(people);
+        }
+    };
+
+    await client.ClaimWorldPeopleAsync(
+        new uint[] { 12u, 13u });
+    var claimAtHost =
+        await hostSawClaim.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    Require(
+        claimAtHost.PlayerId == client.LocalPlayerId &&
+        claimAtHost.People.SequenceEqual(
+            new uint[] { 12u, 13u }),
+        "CLAIM client→host payload mismatch");
+
+    await host.AnswerWorldPeopleClaimAsync(
+        client.LocalPlayerId,
+        new uint[] { 12u },
+        new uint[] { 13u });
+    var grantAtClient =
+        await clientSawGrant.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    var denyAtClient =
+        await clientSawDeny.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    Require(
+        grantAtClient.SequenceEqual(new uint[] { 12u }) &&
+        denyAtClient.SequenceEqual(new uint[] { 13u }),
+        "GRANT/DENY host→client payload mismatch");
+
     var clientState = OpenOmsiLanVehicleState.Empty(client.LocalPlayerId, 1) with
     {
         Flags = OpenOmsiLanProtocol.FlagVehicle |
@@ -983,7 +1034,7 @@ await using (var client = new OpenOmsiLanPeerSession())
 }
 
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + fragmented VARS + CLOCK + WORLD DESC/WANT.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + fragmented VARS + CLOCK + WORLD DESC/WANT + CLAIM/GRANT/DENY.");
 
 static void Require(bool condition, string message)
 {
