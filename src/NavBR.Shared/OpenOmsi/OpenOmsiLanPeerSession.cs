@@ -75,7 +75,9 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             TaskCreationOptions.RunContinuationsAsynchronously);
         StartLoops();
 
-        var nonce = RandomNumberGenerator.GetUInt64().ToString("X16", CultureInfo.InvariantCulture);
+        Span<byte> nonceBytes = stackalloc byte[8];
+        RandomNumberGenerator.Fill(nonceBytes);
+        var nonce = BitConverter.ToUInt64(nonceBytes).ToString("X16", CultureInfo.InvariantCulture);
         var hello = string.Join(
             "|",
             "HELLO",
@@ -359,7 +361,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
 
         var parts = text.Split('|');
-        if (parts.Length < 12 ||
+        if (parts.Length < 11 ||
             parts[0] != "WELCOME" ||
             !byte.TryParse(parts[1], out var protocol) ||
             protocol != OpenOmsiLanProtocol.ProtocolVersion ||
@@ -375,9 +377,9 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             _sessionId = session;
         }
 
-        if (double.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
+        if (double.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
         {
-            World = new OpenOmsiLanWorld(parts[6], parts[7], time, parts[9], parts[10]);
+            World = new OpenOmsiLanWorld(parts[5], parts[6], time, parts[8], parts[9]);
         }
 
         _joinTcs?.TrySetResult(true);
