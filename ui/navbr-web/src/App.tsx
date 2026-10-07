@@ -4326,6 +4326,7 @@ function RoleplayPanel({
             <div><small>{pick("MAPA PRONTO", "MAP READY", "MAPA LISTO", "KARTE BEREIT", "CARTE PRÊTE")}</small><strong>{roleplay.mapReady ? pick("Sim", "Yes", "Sí", "Ja", "Oui") : pick("Não", "No", "No", "Nein", "Non")}</strong></div>
             <div><small>MULTIPLAYER</small><strong>{multiplayer.connected ? multiplayer.roomId : pick("Não conectado", "Not connected", "No conectado", "Nicht verbunden", "Non connecté")}</strong></div>
             <div><small>{pick("TERRENO", "TERRAIN", "TERRENO", "GELÄNDE", "TERRAIN")}</small><strong>{roleplay.active ? roleplay.terrainFollowing ? pick("Seguindo spline", "Following spline", "Siguiendo spline", "Spline-Folge aktiv", "Suivi de spline") : pick("Altura preservada", "Height preserved", "Altura conservada", "Höhe beibehalten", "Hauteur conservée") : "—"}</strong></div>
+            <div><small>{pick("MOVIMENTO", "MOVEMENT", "MOVIMIENTO", "BEWEGUNG", "MOUVEMENT")}</small><strong>{roleplay.active ? roleplay.cameraRelativeMovement ? pick("Câmera openOMSI", "openOMSI camera", "Cámara openOMSI", "openOMSI-Kamera", "Caméra openOMSI") : pick("Fallback heading", "Heading fallback", "Fallback de dirección", "Heading-Fallback", "Fallback direction") : "—"}</strong></div>
             <div><small>{pick("DISTÂNCIA DO ÔNIBUS", "BUS DISTANCE", "DISTANCIA DEL AUTOBÚS", "BUS-ENTFERNUNG", "DISTANCE DU BUS")}</small><strong>{roleplay.active ? `${format(roleplay.busDistanceMeters, 1)} m` : "—"}</strong></div>
           </div>
 
