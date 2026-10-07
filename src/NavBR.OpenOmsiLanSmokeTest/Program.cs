@@ -979,11 +979,11 @@ await using (var client = new OpenOmsiLanPeerSession())
 
         Require(
             replayedHostInfo.Name == "Host" &&
-            replayedHostInfo.Route == "76/1",
+            replayedHostInfo.Tour == "76/1",
             "late joiner did not receive cached host INFO");
         Require(
             replayedClientInfo.Name == "Client" &&
-            replayedClientInfo.Route == "76/2",
+            replayedClientInfo.Tour == "76/2",
             "late joiner did not receive cached peer INFO");
     }
 
