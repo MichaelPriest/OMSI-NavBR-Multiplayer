@@ -389,7 +389,7 @@ public sealed partial class MultiplayerClientService
             telemetry.MapCompatibilityId,
             _joinRequest.Compatibility);
 
-        var baseState = BuildRemoteState(
+        var baseState = BuildOpenOmsiLocalState(
             session.LocalPlayerId,
             unchecked(++_openOmsiLocalSequence),
             new PlayerTelemetryFrame(localPresence, telemetry),
@@ -398,11 +398,112 @@ public sealed partial class MultiplayerClientService
         var walker = BuildOpenOmsiLocalWalker(baseState, telemetry);
         var state = baseState with { Walker = walker };
 
-        var info = BuildRemoteInfo(
+        var info = BuildOpenOmsiLocalInfo(
             session.LocalPlayerId,
             new PlayerTelemetryFrame(localPresence, telemetry));
         await session.PublishInfoAsync(info, cancellationToken);
         await session.PublishStateAsync(state, cancellationToken);
+    }
+
+
+    private static OpenOmsiLanVehicleInfo BuildOpenOmsiLocalInfo(
+        ushort id,
+        PlayerTelemetryFrame frame)
+    {
+        var telemetry = frame.Telemetry;
+        var vehiclePath = OpenOmsiLanProtocol.NormalizeVehiclePath(
+            telemetry.VehiclePath ??
+            frame.Player.Compatibility?.VehiclePath);
+
+        return new OpenOmsiLanVehicleInfo(
+            id,
+            frame.Player.DisplayName,
+            vehiclePath,
+            string.Empty,
+            telemetry.Line ?? string.Empty,
+            telemetry.DestinationName ?? string.Empty,
+            12d,
+            2.55d,
+            0d,
+            0,
+            telemetry.Route ?? string.Empty,
+            [],
+            null,
+            []);
+    }
+
+    private static OpenOmsiLanVehicleState BuildOpenOmsiLocalState(
+        ushort id,
+        ushort sequence,
+        PlayerTelemetryFrame frame,
+        uint sentMilliseconds)
+    {
+        var telemetry = frame.Telemetry;
+
+        var flags =
+            OpenOmsiLanProtocol.FlagVehicle |
+            OpenOmsiLanProtocol.FlagEngine |
+            OpenOmsiLanProtocol.FlagElectrics;
+        if (telemetry.HornActive) flags |= OpenOmsiLanProtocol.FlagHorn;
+        if (telemetry.ReverseGear) flags |= OpenOmsiLanProtocol.FlagReverse;
+        if (telemetry.WipersActive) flags |= OpenOmsiLanProtocol.FlagWipers;
+        if (telemetry.ParkingBrakeActive) flags |= OpenOmsiLanProtocol.FlagStopBrake;
+        if ((telemetry.Lights & VehicleLightFlags.Brake) != 0 ||
+            telemetry.BrakePercent is > 1d)
+        {
+            flags |= OpenOmsiLanProtocol.FlagBrake;
+        }
+        if ((telemetry.Lights & VehicleLightFlags.Fog) != 0)
+        {
+            flags |= OpenOmsiLanProtocol.FlagFog;
+        }
+
+        var head = (byte)(
+            (telemetry.Lights & VehicleLightFlags.HighBeam) != 0 ? 3 :
+            (telemetry.Lights & VehicleLightFlags.LowBeam) != 0 ? 2 :
+            (telemetry.Lights & VehicleLightFlags.Position) != 0 ? 1 : 0);
+        var interior = (byte)(
+            (telemetry.Lights & VehicleLightFlags.Interior) != 0 ? 3 : 0);
+
+        var doors = new float[5];
+        doors[0] = (telemetry.Doors & VehicleDoorFlags.Front) != 0 ? 1f : 0f;
+        doors[1] = (telemetry.Doors & VehicleDoorFlags.Middle) != 0 ? 1f : 0f;
+        doors[2] = (telemetry.Doors & VehicleDoorFlags.Rear) != 0 ? 1f : 0f;
+        doors[3] = (telemetry.Doors & VehicleDoorFlags.Extra1) != 0 ? 1f : 0f;
+        doors[4] = (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
+
+        var useNativeAxes =
+            telemetry.LocalX is double &&
+            telemetry.LocalY is double &&
+            telemetry.LocalZ is double;
+
+        return new OpenOmsiLanVehicleState(
+            id,
+            sequence,
+            flags,
+            telemetry.X,
+            useNativeAxes ? telemetry.Z : telemetry.Y,
+            useNativeAxes ? telemetry.Y : telemetry.Z,
+            (float)telemetry.HeadingDegrees,
+            0f,
+            0f,
+            (float)telemetry.SpeedKph,
+            (float)(telemetry.SteeringDegrees ?? 0d),
+            head,
+            interior,
+            (byte)telemetry.TurnSignal,
+            0f,
+            (float)Math.Clamp((telemetry.ThrottlePercent ?? 0d) / 100d, 0d, 1d),
+            (float)Math.Clamp((telemetry.BrakePercent ?? 0d) / 100d, 0d, 1d),
+            0,
+            doors,
+            [],
+            [],
+            [],
+            [],
+            [],
+            null,
+            sentMilliseconds);
     }
 
     private OpenOmsiLanWalker? BuildOpenOmsiLocalWalker(
