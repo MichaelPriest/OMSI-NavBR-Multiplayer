@@ -85,37 +85,27 @@ O NavBR **não reimplementa** a física do personagem. O openOMSI atual já poss
 O plugin detecta `info.on_foot` e `info.view` e usa esse estado no NavBR. Isso evita
 dois controladores competindo pelo mesmo personagem.
 
-## Limites atuais da API pública do openOMSI
+## Compatibilidade com atualizações do openOMSI
 
-A API Lua pública continua sem expor canvas/egui customizado, desenho 3D arbitrário,
-registro de widgets próprios no navigator nem comando público para acionar `get_up()`.
-Por isso o plugin não usa hook/injeção. Para builds aprimoradas do openOMSI, o pacote
-agora inclui um contrato opcional de host (`OpenOmsiGetOverlayFrameV2`) e um aplicador
-reproduzível que integra o frame 2D e o world guidance no código do próprio openOMSI.
+O NavBR agora é distribuído como **plugin-only**. Ele não substitui, não renomeia e não
+faz patch do `openomsi.exe`.
 
-O openOMSI stock continua funcionando normalmente sem essa extensão. O fallback 3D usa
-os mesmos helper objects das route arrows nativas; o modo `mesh` usa uma malha
-translúcida compartilhada e é validado separadamente no CI.
+O contrato obrigatório é somente o loader público do openOMSI:
 
+- descoberta recursiva de `.opl` em `Plugins`;
+- carregamento da DLL indicada em `[dll]`;
+- exports OMSI clássicos `PluginStart` e `PluginFinalize`;
+- callbacks opcionais de variável, sistema, string e trigger;
+- companion `main.lua` pelas APIs públicas do openOMSI.
 
-## Integração com o Navigator nativo
+Exports NavBR adicionais, como `OpenOmsiGetOverlayFrameV2` e
+`OpenOmsiSetHudFlagsV1`, permanecem opcionais e não são necessários para o plugin
+carregar ou funcionar. Se uma versão futura do openOMSI oferecer integração nativa
+equivalente, ela poderá consumi-los sem mudar a instalação do plugin.
 
-Em uma build do openOMSI com a extensão host aplicada, o NavBR não cria um segundo
-minimapa. O frame v2 controla temporariamente o próprio `Navigator` do openOMSI:
-
-- `MiniMapVisible` liga/desliga o painel do navigator;
-- `TrafficVisible` controla os veículos IA no mapa;
-- `PlayersVisible` controla os jogadores LAN no mapa;
-- `RouteGuidanceVisible` habilita orientação, mas as `nav_arrows` nativas só são usadas
-  como fallback quando o `WorldGuidance` NavBR não estiver ativo;
-- rota, congestionamento, road network, stops, autozoom e heading-up continuam vindo do
-  pipeline nativo do openOMSI.
-
-As preferências originais do Navigator são restauradas após o frame, portanto a extensão
-não grava nem sobrescreve permanentemente as configurações do usuário.
-
-O overlay próprio fica restrito ao que o Navigator não oferece: cartão compacto de
-manobra, TeleMatrix e guidance 3D estilo NavBR.
+Recursos que exigem desenho arbitrário dentro do renderer 3D do host ficam limitados
+ao que a API pública do openOMSI expuser. O NavBR não irá manter um executável próprio
+do openOMSI para contornar essa limitação.
 
 ## Separação obrigatória
 
@@ -160,54 +150,22 @@ O removedor só apaga arquivos registrados no manifesto NavBR.
 
 ## Próximas etapas
 
-1. manter stock + mesh host integration compilando contra o upstream pinado;
-2. evoluir o HUD 2D para minimapa completo/TeleMatrix no caminho nativo;
-3. melhorar a mesh de guidance com estilo de manobra e tema noturno;
-4. ligar CCO/empresa/crachá/chat/voz ao transporte de rede do plugin;
+1. manter o plugin carregando no **openOMSI stock**, sem patches do executável;
+2. acompanhar novas APIs públicas de HUD/mapa/3D e adotá-las quando disponíveis;
+3. evoluir minimapa, TeleMatrix, chat, voz/PTT e controles usando apenas interfaces estáveis;
+4. manter CCO/empresa/crachá e multiplayer no transporte próprio do NavBR;
 5. manter o modo RP delegado ao `on_foot.rs` nativo.
 
+## Regra de instalação
 
-## Overlay nativo opcional do openOMSI
+Atualizações do openOMSI podem substituir o executável oficial à vontade. O NavBR
+permanece separado em:
 
-O DLL exporta adicionalmente `OpenOmsiGetOverlayFrame`. Esse símbolo não substitui nem
-altera a ABI OMSI clássica; uma build do openOMSI pode detectá-lo opcionalmente e consumir
-o frame de HUD/mapa/setas já calculado pelo NavBR.
+```text
+<content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.dll
+<content-root>\Plugins\NavBR.OpenOmsi\NavBR.OpenOmsiPlugin.opl
+<content-root>\Plugins\NavBR.OpenOmsi\main.lua
+```
 
-O contrato completo está em `OPENOMSI_OVERLAY_ABI.md`. O payload de setas representa
-dados de navegação em coordenadas do mundo; uma build stock do openOMSI ainda não possui
-API pública de plugin para desenhar essas setas 3D por conta própria.
-
-
-### Integração nativa de mapa no host aprimorado
-
-O aplicador host-side usa o navigator/city map do próprio openOMSI:
-
-- minimapa NavBR habilita/desabilita o navigator nativo;
-- IA e players seguem os toggles do payload;
-- o raio de navegação do NavBR alimenta o autozoom do navigator;
-- `heading-up` e `north-up` são respeitados sem criar um segundo mapa;
-- o mapa completo é aberto por **transição de toggle**, não forçado a cada frame.
-
-Esse último detalhe preserva a interação nativa: se o usuário fechar o city map com Escape
-ou clique, ele permanece fechado até o toggle NavBR ser desligado e ligado novamente.
-
-
-### HUD de navegação
-
-O cartão compacto do host aprimorado também recebe `RouteProgressPercent` e desenha uma
-barra de progresso da rota. Em estado off-route a barra muda de aparência, sem alterar o
-cálculo ou a seleção da rota.
-
-
-### Painel dentro do jogo
-
-Em uma build do openOMSI com a extensão host NavBR aplicada:
-
-- **F10** abre/fecha o painel NavBR;
-- **Esc** fica reservado ao openOMSI; F10 abre/fecha o painel;
-- os switches controlam diretamente o plugin por `OpenOmsiSetHudFlagsV1`;
-- disponíveis: minimapa/GPS, mapa completo, autozoom, seguir veículo, horários,
-  TeleMatrix, tráfego IA, players, congestionamento e setas/rota 3D;
-- RP/personagem continua usando os controles nativos do openOMSI.
-
-O painel não depende do NavBR Desktop e não usa WebView/React.
+Enquanto o openOMSI mantiver o contrato público de plugins, nenhuma atualização do
+`openomsi.exe` precisa ser substituída pelo NavBR.
