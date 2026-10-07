@@ -90,7 +90,7 @@ public static class OmsiPluginBridgeRelay
         CancellationToken cancellationToken = default)
     {
         if (varTableHash == 0 ||
-            variableIds.Count > 256 ||
+            variableIds.Count > 512 ||
             stringVariableIds.Count > 64)
         {
             return Task.CompletedTask;
