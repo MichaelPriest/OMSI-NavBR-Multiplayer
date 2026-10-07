@@ -195,6 +195,61 @@ Require(hello.RequestedSession is null, "HELLO direct join should not require a 
 Require(hello.World.Map == "maps/Grundorf/global.cfg", "HELLO map mismatch");
 Require(hello.Nonce == 0x0011223344556677UL, "HELLO nonce mismatch");
 
+var clockText = OpenOmsiLanProtocol.EncodeClock(
+    new OpenOmsiLanWorld(
+        "maps/Grundorf/global.cfg",
+        "2026-10-07",
+        43_210.5d,
+        "weather.cfg",
+        "autumn"),
+    1.25d);
+Require(
+    OpenOmsiLanProtocol.TryDecodeClock(
+        clockText,
+        out var decodedClock),
+    "CLOCK did not round-trip");
+Require(
+    decodedClock.World.Map == "maps/Grundorf/global.cfg" &&
+    decodedClock.World.Date == "2026-10-07" &&
+    Math.Abs(decodedClock.World.TimeSeconds - 43_210.5d) < 0.01d &&
+    Math.Abs(decodedClock.Speed - 1.25d) < 0.01d,
+    "CLOCK payload mismatch");
+
+var carDesc = new OpenOmsiWorldDescription.Car(
+    77,
+    @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+    3,
+    "76",
+    "Rathaus Spandau");
+var carDescText =
+    OpenOmsiWorldDescriptionCodec.Encode(carDesc);
+Require(
+    OpenOmsiWorldDescriptionCodec.TryDecode(
+        carDescText,
+        out var decodedCarDesc) &&
+    decodedCarDesc is OpenOmsiWorldDescription.Car decodedCar &&
+    decodedCar.Id == 77 &&
+    decodedCar.File ==
+        "Vehicles/MAN_NL_NG/MAN_EN92_main.bus" &&
+    decodedCar.Scheme == 3 &&
+    decodedCar.Line == "76",
+    "WORLD DESC car did not round-trip");
+Require(
+    !OpenOmsiWorldDescriptionCodec.TryDecode(
+        "DESC|c|1|../../bad.bus|-||",
+        out _),
+    "WORLD DESC accepted a traversal path");
+Require(
+    OpenOmsiWorldDescriptionCodec.TryDecodeWant(
+        "WANT|2|c77,p12,c16777215",
+        out var wantRequester,
+        out var wantedRefs) &&
+    wantRequester == 2 &&
+    wantedRefs.Count == 3 &&
+    !wantedRefs[0].IsPerson &&
+    wantedRefs[1].IsPerson,
+    "WORLD WANT did not parse");
+
 
 
 var worldFrame = new OpenOmsiWorldFrame(
@@ -489,6 +544,69 @@ await using (var client = new OpenOmsiLanPeerSession())
         @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
 
     Require(client.LocalPlayerId >= 2, "client did not receive a LAN player id");
+
+    var clientSawDescription =
+        new TaskCompletionSource<OpenOmsiWorldDescription>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var hostSawWant =
+        new TaskCompletionSource<
+            (ushort PlayerId, IReadOnlyList<OpenOmsiWorldEntityRef> Refs)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var hostSawClientDescription =
+        new TaskCompletionSource<
+            (ushort PlayerId, OpenOmsiWorldDescription.Person Description)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    client.WorldDescriptionReceived += description =>
+        clientSawDescription.TrySetResult(description);
+    host.WorldDescriptionsRequested += (playerId, refs) =>
+        hostSawWant.TrySetResult((playerId, refs));
+    host.ClientWorldDescriptionReceived +=
+        (playerId, description) =>
+            hostSawClientDescription.TrySetResult(
+                (playerId, description));
+
+    await host.SendWorldDescriptionAsync(
+        client.LocalPlayerId,
+        carDesc);
+    var descAtClient =
+        await clientSawDescription.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    Require(
+        descAtClient is OpenOmsiWorldDescription.Car receivedCar &&
+        receivedCar.Id == 77 &&
+        receivedCar.File ==
+            "Vehicles/MAN_NL_NG/MAN_EN92_main.bus",
+        "host DESC did not reach client");
+
+    await client.RequestWorldDescriptionsAsync(
+        [
+            new OpenOmsiWorldEntityRef(false, 77),
+            new OpenOmsiWorldEntityRef(true, 12)
+        ]);
+    var wantAtHost =
+        await hostSawWant.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    Require(
+        wantAtHost.PlayerId == client.LocalPlayerId &&
+        wantAtHost.Refs.Count == 2 &&
+        wantAtHost.Refs[0].Id == 77 &&
+        wantAtHost.Refs[1].IsPerson,
+        "client WANT did not reach host");
+
+    await client.SendWorldDescriptionUpAsync(
+        new OpenOmsiWorldDescription.Person(
+            12,
+            @"Humans\axyz.hum"));
+    var descUpAtHost =
+        await hostSawClientDescription.Task.WaitAsync(
+            TimeSpan.FromSeconds(3));
+    Require(
+        descUpAtHost.PlayerId == client.LocalPlayerId &&
+        descUpAtHost.Description.Id == 12 &&
+        descUpAtHost.Description.File ==
+            "Humans/axyz.hum",
+        "client person DESC did not reach host");
 
     Require(
         client.SessionId == host.SessionId,
@@ -865,7 +983,7 @@ await using (var client = new OpenOmsiLanPeerSession())
 }
 
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + fragmented VARS.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + fragmented VARS + CLOCK + WORLD DESC/WANT.");
 
 static void Require(bool condition, string message)
 {
