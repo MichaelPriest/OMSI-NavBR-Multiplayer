@@ -799,7 +799,19 @@ public sealed partial class MultiplayerClientService
 
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
-        _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
+
+        // This frame came from the authenticated room's openOMSI v6 peer and
+        // has a matching INFO vehicle identity. That v6 stream, not SignalR,
+        // is the physical admission authority for OMSI 2 remote RoadVehicles.
+        // Frames without a concrete vehicle remain informational only.
+        var physicalStateAdmitted =
+            (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0 &&
+            info?.VehiclePath is { Length: > 0 };
+        _ = physicalStateAdmitted
+            ? OmsiPluginBridgeRelay
+                .ForwardAdmittedRemotePhysicalStateAsync(frame)
+            : OmsiPluginBridgeRelay
+                .ForwardRemoteTelemetryAsync(frame);
 
         if (state.Walker is { } walker)
         {
