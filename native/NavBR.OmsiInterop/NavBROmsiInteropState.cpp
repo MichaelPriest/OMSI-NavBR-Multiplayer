@@ -74,6 +74,9 @@ namespace
     // pointer to the Delphi dynamic-array holder. The holder points to an
     // array of float pointers; its element count is stored at data-4.
     constexpr int ComplObjInstancePublicVarsOffset = 0x028;
+    // OmsiHook 2.5.3: StringVars is a Delphi dynamic array stored inline
+    // at +0x2C. Each element is a RawDelphiString pointer (UTF-16).
+    constexpr int ComplObjInstanceStringVarsOffset = 0x02C;
     constexpr int ComplObjInstancePositionOffset = 0x05C;
     constexpr int ComplObjInstanceRenderMeOffset = 0x09C;
     constexpr int ComplMapObjModelStringOffset = 0x1A4;
@@ -3713,6 +3716,144 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePublicVar(
 
     *value = read;
     return 1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehicleStringVarCount(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return -1;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + ComplObjInstanceOffset, sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int complObjInstance =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    if (complObjInstance == 0)
+    {
+        return 0;
+    }
+
+    const auto child = static_cast<std::uintptr_t>(complObjInstance);
+    if (!IsReadableRange(
+            child + ComplObjInstanceStringVarsOffset,
+            sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int data =
+        *reinterpret_cast<const int*>(
+            child + ComplObjInstanceStringVarsOffset);
+    if (data == 0)
+    {
+        return 0;
+    }
+
+    const auto dataAddress = static_cast<std::uintptr_t>(data);
+    if (dataAddress < sizeof(int) ||
+        !IsReadableRange(dataAddress - sizeof(int), sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int count =
+        *reinterpret_cast<const int*>(dataAddress - sizeof(int));
+    return count >= 0 && count <= 4096 ? count : -1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehicleStringVarUtf16(
+    int vehiclePointer,
+    int index,
+    std::uint16_t* buffer,
+    int capacityChars)
+{
+    if (buffer == nullptr ||
+        capacityChars <= 0 ||
+        index < 0)
+    {
+        return -1;
+    }
+
+    const int count = NavBR_GetRoadVehicleStringVarCount(vehiclePointer);
+    if (count < 0 || index >= count)
+    {
+        return -1;
+    }
+
+    buffer[0] = 0;
+    if (count == 0)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    const int complObjInstance =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    const auto child = static_cast<std::uintptr_t>(complObjInstance);
+    const int data =
+        *reinterpret_cast<const int*>(
+            child + ComplObjInstanceStringVarsOffset);
+    const auto entryAddress =
+        static_cast<std::uintptr_t>(data) +
+        static_cast<std::uintptr_t>(index) * sizeof(int);
+
+    if (!IsReadableRange(entryAddress, sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int stringPointer =
+        *reinterpret_cast<const int*>(entryAddress);
+    if (stringPointer == 0)
+    {
+        return 0;
+    }
+
+    const auto stringAddress =
+        static_cast<std::uintptr_t>(stringPointer);
+    if (stringAddress < sizeof(std::uint32_t) ||
+        !IsReadableRange(
+            stringAddress - sizeof(std::uint32_t),
+            sizeof(std::uint32_t)))
+    {
+        return -1;
+    }
+
+    const std::uint32_t length =
+        *reinterpret_cast<const std::uint32_t*>(
+            stringAddress - sizeof(std::uint32_t));
+    if (length > 4096u)
+    {
+        return -1;
+    }
+
+    const int copyChars =
+        static_cast<int>(length) < capacityChars - 1
+            ? static_cast<int>(length)
+            : capacityChars - 1;
+    if (copyChars > 0 &&
+        !IsReadableRange(
+            stringAddress,
+            static_cast<std::size_t>(copyChars) * sizeof(std::uint16_t)))
+    {
+        return -1;
+    }
+
+    for (int i = 0; i < copyChars; ++i)
+    {
+        buffer[i] =
+            *reinterpret_cast<const std::uint16_t*>(
+                stringAddress +
+                static_cast<std::uintptr_t>(i) * sizeof(std::uint16_t));
+    }
+    buffer[copyChars] = 0;
+    return copyChars;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_WriteRoadVehiclePublicVar(
