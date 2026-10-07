@@ -85,8 +85,7 @@ internal sealed class RemotePhysicalVehicleCoordinator
     {
         get
         {
-            if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled ||
-                Application.Current is not App app ||
+            if (Application.Current is not App app ||
                 !app.PluginBridge.IsConnected)
             {
                 return false;
@@ -119,11 +118,9 @@ internal sealed class RemotePhysicalVehicleCoordinator
             return status;
         }
 
-        var state = !ExperimentalFeatureFlags.PhysicalVehiclesEnabled
-            ? "disabled"
-            : !IsPhysicalMultiplayerAvailable
-                ? "plugin-unavailable"
-                : "waiting-telemetry";
+        var state = !IsPhysicalMultiplayerAvailable
+            ? "plugin-unavailable"
+            : "waiting-telemetry";
         return new RemotePhysicalVehicleStatus(
             state,
             ErrorCode: null,
@@ -188,16 +185,6 @@ internal sealed class RemotePhysicalVehicleCoordinator
         CancellationToken cancellationToken)
     {
         var playerId = frame.Player.PlayerId;
-        if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled)
-        {
-            SetStatus(playerId, "disabled");
-            if (_spawned.ContainsKey(playerId))
-            {
-                await DespawnOwnedAsync(playerId, cancellationToken);
-            }
-            return;
-        }
-
         if (!frame.Telemetry.IsInGame)
         {
             SetStatus(playerId, "remote-not-in-game");
