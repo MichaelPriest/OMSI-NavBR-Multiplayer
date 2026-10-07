@@ -1039,6 +1039,45 @@ internal static class OmsiNativeInterop
         }
     }
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_WriteRoadVehiclePublicVar")]
+    private static extern int WriteRoadVehiclePublicVar(
+        int vehiclePointer,
+        int index,
+        float value);
+
+    internal static bool TryWriteRoadVehiclePublicVar(
+        int vehiclePointer,
+        int index,
+        float value)
+    {
+        if (!IsShimReady ||
+            index < 0 ||
+            !float.IsFinite(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            return WriteRoadVehiclePublicVar(
+                       vehiclePointer,
+                       index,
+                       value) == 1;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
     internal static extern int IsRoadVehiclePointer(int vehiclePointer);
 
