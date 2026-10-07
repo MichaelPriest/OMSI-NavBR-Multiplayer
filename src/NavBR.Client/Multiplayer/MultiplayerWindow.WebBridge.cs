@@ -228,6 +228,18 @@ public partial class MultiplayerWindow
             relayEnabled = _settings.EnableApplicationRelay,
             physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
+            openOmsiV6 = new
+            {
+                active = _client.UsesOpenOmsiV6Transport,
+                isHost = _client.IsOpenOmsiV6Host,
+                port = _client.OpenOmsiV6Port,
+                sessionCode = _client.OpenOmsiV6SessionCode,
+                role = !_client.UsesOpenOmsiV6Transport
+                    ? "offline"
+                    : _client.IsOpenOmsiV6Host
+                        ? "host"
+                        : "client"
+            },
             networkQuality = new
             {
                 level = networkQuality.Level.ToString(),
