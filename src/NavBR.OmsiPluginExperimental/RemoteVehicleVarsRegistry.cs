@@ -11,6 +11,8 @@ internal static class RemoteVehicleVarsRegistry
 
     private static readonly ConcurrentDictionary<string, RemoteVehicleVarsSnapshot> States =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> AdmittedVehiclePaths =
+        new(StringComparer.OrdinalIgnoreCase);
 
     internal static bool TryApply(
         PluginBridgeMessage message,
@@ -168,6 +170,83 @@ internal static class RemoteVehicleVarsRegistry
         return true;
     }
 
+    internal static void ClearVisualState(string? playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return;
+        }
+
+        States.AddOrUpdate(
+            playerId,
+            _ => RemoteVehicleVarsSnapshot.Empty(),
+            (_, current) => current with
+            {
+                SyncTableHash = null,
+                Lamps = [],
+                Switches = [],
+                Values = [],
+                Doors = [],
+                LampIds = [],
+                SwitchIds = [],
+                ValueIds = [],
+                DoorIds = [],
+                UpdatedAtTick = Environment.TickCount64
+            });
+    }
+
+    internal static void ObserveAdmittedVehicleIdentity(
+        string? playerId,
+        string? vehiclePath)
+    {
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            string.IsNullOrWhiteSpace(vehiclePath))
+        {
+            return;
+        }
+
+        var normalizedPlayer = playerId.Trim();
+        var normalizedPath = vehiclePath
+            .Trim()
+            .Replace('/', '\\');
+
+        while (true)
+        {
+            if (!AdmittedVehiclePaths.TryGetValue(
+                    normalizedPlayer,
+                    out var previous))
+            {
+                if (AdmittedVehiclePaths.TryAdd(
+                        normalizedPlayer,
+                        normalizedPath))
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            if (string.Equals(
+                    previous,
+                    normalizedPath,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!AdmittedVehiclePaths.TryUpdate(
+                    normalizedPlayer,
+                    normalizedPath,
+                    previous))
+            {
+                continue;
+            }
+
+            States.TryRemove(normalizedPlayer, out _);
+            return;
+        }
+    }
+
     internal static bool TryGet(
         string? playerId,
         out RemoteVehicleVarsSnapshot snapshot)
@@ -182,10 +261,15 @@ internal static class RemoteVehicleVarsRegistry
         if (!string.IsNullOrWhiteSpace(playerId))
         {
             States.TryRemove(playerId, out _);
+            AdmittedVehiclePaths.TryRemove(playerId, out _);
         }
     }
 
-    internal static void Clear() => States.Clear();
+    internal static void Clear()
+    {
+        States.Clear();
+        AdmittedVehiclePaths.Clear();
+    }
 
     internal sealed record RemoteVehicleVarsSnapshot(
         uint? SyncTableHash,
