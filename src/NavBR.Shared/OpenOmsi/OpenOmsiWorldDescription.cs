@@ -209,6 +209,116 @@ public static class OpenOmsiWorldDescriptionCodec
         return parsed.Count > 0;
     }
 
+    public static string EncodeClaim(
+        ushort requesterId,
+        IEnumerable<uint> people)
+    {
+        var body = string.Join(
+            ",",
+            people
+                .Where(id =>
+                    id <= OpenOmsiWorldCodec.MaxId)
+                .Distinct()
+                .Take(64)
+                .Select(id =>
+                    id.ToString(
+                        CultureInfo.InvariantCulture)));
+        return
+            $"CLAIM|{requesterId.ToString(CultureInfo.InvariantCulture)}|{body}";
+    }
+
+    public static bool TryDecodeClaim(
+        string text,
+        out ushort requesterId,
+        out IReadOnlyList<uint> people)
+    {
+        requesterId = 0;
+        people = Array.Empty<uint>();
+
+        var parts = text.Split('|', 3);
+        if (parts.Length < 3 ||
+            !string.Equals(
+                parts[0],
+                "CLAIM",
+                StringComparison.Ordinal) ||
+            !ushort.TryParse(
+                parts[1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out requesterId) ||
+            requesterId == 0)
+        {
+            return false;
+        }
+
+        var parsed = ParseIdList(parts[2]);
+        people = parsed;
+        return parsed.Count > 0;
+    }
+
+    public static string EncodeClaimResult(
+        bool granted,
+        IEnumerable<uint> people)
+    {
+        var body = string.Join(
+            ",",
+            people
+                .Where(id =>
+                    id <= OpenOmsiWorldCodec.MaxId)
+                .Distinct()
+                .Take(64)
+                .Select(id =>
+                    id.ToString(
+                        CultureInfo.InvariantCulture)));
+        return $"{(granted ? "GRANT" : "DENY")}|{body}";
+    }
+
+    public static bool TryDecodeClaimResult(
+        string text,
+        out bool granted,
+        out IReadOnlyList<uint> people)
+    {
+        granted = false;
+        people = Array.Empty<uint>();
+
+        var parts = text.Split('|', 2);
+        if (parts.Length < 2 ||
+            (parts[0] != "GRANT" &&
+             parts[0] != "DENY"))
+        {
+            return false;
+        }
+
+        granted = parts[0] == "GRANT";
+        var parsed = ParseIdList(parts[1]);
+        people = parsed;
+        return parsed.Count > 0;
+    }
+
+    private static IReadOnlyList<uint> ParseIdList(
+        string text)
+    {
+        var parsed = new List<uint>(64);
+        foreach (var token in text
+                     .Split(
+                         ',',
+                         StringSplitOptions.RemoveEmptyEntries)
+                     .Take(64))
+        {
+            if (uint.TryParse(
+                    token.Trim(),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var id) &&
+                id <= OpenOmsiWorldCodec.MaxId)
+            {
+                parsed.Add(id);
+            }
+        }
+
+        return parsed;
+    }
+
     private static string? CleanContentPath(
         string? value,
         IReadOnlyCollection<string> extensions)
