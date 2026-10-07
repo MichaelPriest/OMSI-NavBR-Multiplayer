@@ -38,11 +38,13 @@ public static class PluginExports
     {
         ResetState();
         OpenOmsiBridge.Start();
+        OpenOmsiStandaloneOverlay.Start();
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)], EntryPoint = nameof(PluginFinalize))]
     public static void PluginFinalize()
     {
+        OpenOmsiStandaloneOverlay.Stop();
         OpenOmsiBridge.Stop();
         ResetState();
     }
