@@ -86,10 +86,12 @@ public static class OmsiPluginBridgeRelay
     public static Task ConfigureLocalVarsAsync(
         uint varTableHash,
         IReadOnlyList<ushort> variableIds,
+        IReadOnlyList<ushort> stringVariableIds,
         CancellationToken cancellationToken = default)
     {
         if (varTableHash == 0 ||
-            variableIds.Count > 256)
+            variableIds.Count > 256 ||
+            stringVariableIds.Count > 64)
         {
             return Task.CompletedTask;
         }
@@ -98,7 +100,8 @@ public static class OmsiPluginBridgeRelay
             PluginBridgeProtocol.ConfigureLocalVehicleVars,
             PluginBridgeProtocol.Version,
             VarTableHash: varTableHash,
-            VariableIndices: variableIds.ToArray());
+            VariableIndices: variableIds.ToArray(),
+            StringVariableIndices: stringVariableIds.ToArray());
 
         return SendBestEffortAsync(message, cancellationToken);
     }
