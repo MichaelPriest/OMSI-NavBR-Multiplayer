@@ -550,14 +550,37 @@ internal static class PluginBridgeClient
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
-            if (message.SyncTableHash is uint &&
-                !RemoteVehicleVarsRegistry.TryApplyVisualState(
-                    message,
-                    out var visualRejection))
+            var admittedIdentity =
+                !string.IsNullOrWhiteSpace(message.PlayerId) &&
+                !string.IsNullOrWhiteSpace(message.VehicleInstanceId) &&
+                string.Equals(
+                    message.PlayerId,
+                    message.VehicleInstanceId,
+                    StringComparison.OrdinalIgnoreCase);
+            if (admittedIdentity)
             {
-                Log(
-                    $"remote-visual-sync rejeitado player={message.PlayerId ?? "-"} " +
-                    $"reason={visualRejection ?? "unknown"}");
+                RemoteVehicleVarsRegistry.ObserveAdmittedVehicleIdentity(
+                    message.PlayerId,
+                    message.VehiclePath);
+            }
+
+            if (message.SyncTableHash is uint)
+            {
+                if (!RemoteVehicleVarsRegistry.TryApplyVisualState(
+                        message,
+                        out var visualRejection))
+                {
+                    RemoteVehicleVarsRegistry.ClearVisualState(
+                        message.PlayerId);
+                    Log(
+                        $"remote-visual-sync rejeitado player={message.PlayerId ?? "-"} " +
+                        $"reason={visualRejection ?? "unknown"}");
+                }
+            }
+            else
+            {
+                RemoteVehicleVarsRegistry.ClearVisualState(
+                    message.PlayerId);
             }
 
             if (RemoteVehicles.Upsert(message))
