@@ -32,6 +32,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
     private static long _internalCommandSequence;
     private static readonly Dictionary<string, string> LastVarProbeKey =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> LastVarPinKey =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static int DesiredCount
     {
@@ -387,6 +389,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             Entries.Clear();
             PendingRemovals.Clear();
             LastVarProbeKey.Clear();
+            LastVarPinKey.Clear();
         }
 
         Interlocked.Exchange(ref _resetRequested, 0);
@@ -478,6 +481,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              StringComparison.Ordinal))
                 {
                     ProbeRemoteScriptVarBounds(entry.InstanceId, instance);
+                    PinRemoteScriptVars(entry.InstanceId, instance);
                     if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
@@ -737,6 +741,92 @@ internal static class PhysicalVehicleLifecycleSupervisor
             $"physical-vars-probe id={instanceId} " +
             $"table={varTableHash:X8} publicVars={count} " +
             $"maxRemoteId={maxId} compatible={compatible}");
+    }
+
+    private static void PinRemoteScriptVars(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.VarTableHash is not uint varTableHash ||
+            snapshot.Floats.Count == 0)
+        {
+            return;
+        }
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        if (count <= 0)
+        {
+            return;
+        }
+
+        var maxId = snapshot.Floats.Keys.Max();
+        if (maxId >= count)
+        {
+            return;
+        }
+
+        var applied = 0;
+        foreach (var pair in snapshot.Floats.Take(256))
+        {
+            if (!float.IsFinite(pair.Value) ||
+                pair.Key >= count ||
+                !OmsiNativeInterop.TryWriteRoadVehiclePublicVar(
+                    instance.VehiclePointer,
+                    pair.Key,
+                    pair.Value))
+            {
+                var failedKey =
+                    $"{varTableHash:X8}:fail:{pair.Key}:{count}";
+                lock (Sync)
+                {
+                    if (!LastVarPinKey.TryGetValue(
+                            instanceId,
+                            out var previous) ||
+                        !string.Equals(
+                            previous,
+                            failedKey,
+                            StringComparison.Ordinal))
+                    {
+                        LastVarPinKey[instanceId] = failedKey;
+                        PluginLogWriter.Enqueue(
+                            $"physical-vars-pin id={instanceId} " +
+                            $"table={varTableHash:X8} status=write-failed " +
+                            $"var={pair.Key} publicVars={count}");
+                    }
+                }
+                return;
+            }
+
+            applied++;
+        }
+
+        var successKey =
+            $"{varTableHash:X8}:ok:{count}:{applied}";
+        lock (Sync)
+        {
+            if (LastVarPinKey.TryGetValue(
+                    instanceId,
+                    out var previous) &&
+                string.Equals(
+                    previous,
+                    successKey,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVarPinKey[instanceId] = successKey;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-vars-pin id={instanceId} " +
+            $"table={varTableHash:X8} status=active " +
+            $"vars={applied} publicVars={count}");
     }
 
     private static void RunRandomBusControlProbe(string instanceId)
