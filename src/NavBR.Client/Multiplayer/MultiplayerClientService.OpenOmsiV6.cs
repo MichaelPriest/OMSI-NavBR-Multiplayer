@@ -59,6 +59,7 @@ public sealed partial class MultiplayerClientService
         var session = new OpenOmsiLanPeerSession();
         session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
         session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
         session.RemoteLeft += HandleOpenOmsiRemoteLeft;
         _openOmsiV6Session = session;
 
@@ -136,6 +137,7 @@ public sealed partial class MultiplayerClientService
             session = new OpenOmsiLanPeerSession();
             session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
         }
@@ -419,6 +421,24 @@ public sealed partial class MultiplayerClientService
         ApplyRoleplayCharacter(new RoleplayCharacterFrame(presence, state));
     }
 
+    private void HandleOpenOmsiRemoteVars(OpenOmsiVarsFrame vars)
+    {
+        PlayerPresence? presence;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(vars.PlayerId, out presence);
+        }
+
+        if (presence is null)
+        {
+            return;
+        }
+
+        _ = OmsiPluginBridgeRelay.ForwardRemoteVarsAsync(
+            presence.PlayerId,
+            vars);
+    }
+
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
     {
         PlayerPresence? presence;
@@ -661,6 +681,7 @@ public sealed partial class MultiplayerClientService
             var session = new OpenOmsiLanPeerSession();
             session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
 
