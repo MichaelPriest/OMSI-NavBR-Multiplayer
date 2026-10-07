@@ -49,10 +49,10 @@ internal static class RemoteVehicleVarsRegistry
 
         States.AddOrUpdate(
             playerId,
-            _ => RemoteVehicleVarsSnapshot.Empty() with
+            _ => (RemoteVehicleVarsSnapshot.Empty() with
             {
                 VarTableHash = varTableHash
-            }.Apply(
+            }).Apply(
                 floatIds,
                 floatValues,
                 stringIds,
