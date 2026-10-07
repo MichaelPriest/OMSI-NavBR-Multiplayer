@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.Network;
+using NavBR.Shared.OpenOmsi;
 
 namespace NavBR.Server.Multiplayer;
 
@@ -287,6 +288,36 @@ public sealed class MultiplayerRoomRegistry
             {
                 VoiceEnabled = voiceEnabled,
                 LatencyMs = normalizedLatency
+            };
+
+            if (_connections.TryUpdate(connectionId, updated, current))
+            {
+                return updated;
+            }
+        }
+
+        return null;
+    }
+
+    public PlayerPresence? UpdateOpenOmsiTransport(
+        string connectionId,
+        OpenOmsiTransportDescriptor? transport)
+    {
+        if (transport is not null && !transport.IsValid)
+        {
+            transport = null;
+        }
+
+        while (_connections.TryGetValue(connectionId, out var current))
+        {
+            if (Equals(current.OpenOmsiTransport, transport))
+            {
+                return null;
+            }
+
+            var updated = current with
+            {
+                OpenOmsiTransport = transport
             };
 
             if (_connections.TryUpdate(connectionId, updated, current))
