@@ -34,6 +34,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private ushort _heartbeatSequence;
     private ushort _nextPlayerId = 2;
     private ulong _sessionId;
+    private ulong? _requestedSessionId;
     private OpenOmsiLanVehicleInfo? _localInfo;
     private OpenOmsiLanVehicleState? _localState;
 
@@ -100,11 +101,12 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 nameof(sessionCode));
         }
 
-        await JoinAsync(
+        await JoinAsyncCore(
             new IPEndPoint(decoded.Address, decoded.Port),
             world,
             displayName,
             vehiclePath,
+            decoded.Session,
             cancellationToken);
     }
 
@@ -161,12 +163,27 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         return null;
     }
 
-    public async Task JoinAsync(
+    public Task JoinAsync(
         IPEndPoint host,
         OpenOmsiLanWorld world,
         string displayName,
         string? vehiclePath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        JoinAsyncCore(
+            host,
+            world,
+            displayName,
+            vehiclePath,
+            null,
+            cancellationToken);
+
+    private async Task JoinAsyncCore(
+        IPEndPoint host,
+        OpenOmsiLanWorld world,
+        string displayName,
+        string? vehiclePath,
+        ulong? requestedSession,
+        CancellationToken cancellationToken)
     {
         ThrowIfRunning();
         ArgumentNullException.ThrowIfNull(host);
@@ -175,6 +192,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         IsHost = false;
         LocalPlayerId = 0;
         _hostEndpoint = host;
+        _requestedSessionId = requestedSession;
         _udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
         _joinTcs = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -186,7 +204,9 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             "|",
             "HELLO",
             OpenOmsiLanProtocol.ProtocolVersion,
-            "-",
+            requestedSession is ulong requiredSession
+                ? OpenOmsiLanProtocol.SessionHex(requiredSession)
+                : "-",
             OpenOmsiLanProtocol.CleanText(displayName, 32),
             OpenOmsiLanProtocol.NormalizeVehiclePath(vehiclePath) ?? string.Empty,
             OpenOmsiLanProtocol.CleanText(world.Map, 260),
@@ -717,6 +737,19 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             HandleWelcome(text, from);
             return;
         }
+        if (!IsHost &&
+            text.StartsWith("REJECT|", StringComparison.Ordinal) &&
+            _hostEndpoint?.Equals(from) == true)
+        {
+            var parts = text.Split('|', 3);
+            var reason = parts.Length >= 3
+                ? OpenOmsiLanProtocol.CleanText(parts[2], 300)
+                : "openOMSI host rejected the connection.";
+            _joinTcs?.TrySetException(
+                new InvalidOperationException(reason));
+            return;
+        }
+
 
         if (!IsHost && _hostEndpoint?.Equals(from) == true)
         {
@@ -1033,8 +1066,36 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             return;
         }
 
-        var existing = _peers.Values.FirstOrDefault(p => p.Endpoint.Equals(from));
+        if (hello.RequestedSession is ulong requested &&
+            requested != _sessionId)
+        {
+            await SendTextAsync(
+                $"REJECT|{OpenOmsiLanProtocol.ProtocolVersion}|Wrong session code",
+                from,
+                cancellationToken);
+            return;
+        }
+
+        if (_peers.Count >= 32 &&
+            !_peers.Values.Any(peer =>
+                peer.Endpoint.Equals(from) ||
+                (hello.Nonce is ulong nonce &&
+                 peer.Nonce == nonce)))
+        {
+            await SendTextAsync(
+                $"REJECT|{OpenOmsiLanProtocol.ProtocolVersion}|Session full",
+                from,
+                cancellationToken);
+            return;
+        }
+
+        var existing = _peers.Values.FirstOrDefault(peer =>
+            peer.Endpoint.Equals(from) ||
+            (hello.Nonce is ulong nonce &&
+             peer.Nonce == nonce));
         var peer = existing ?? new Peer(AllocatePlayerId(), from);
+        peer.Endpoint = from;
+        peer.Nonce = hello.Nonce;
         peer.LastSeenUtc = DateTimeOffset.UtcNow;
         _peers[peer.Id] = peer;
 
@@ -1075,10 +1136,26 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
 
         LocalPlayerId = id;
-        if (ulong.TryParse(parts[3], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var session))
+        if (!ulong.TryParse(
+                parts[3],
+                NumberStyles.HexNumber,
+                CultureInfo.InvariantCulture,
+                out var session))
         {
-            _sessionId = session;
+            return;
         }
+
+        session &= 0xFFFF_FFFF_FFFFUL;
+        if (_requestedSessionId is ulong requiredSession &&
+            session != requiredSession)
+        {
+            _joinTcs?.TrySetException(
+                new InvalidOperationException(
+                    "openOMSI host answered with a different session id."));
+            return;
+        }
+
+        _sessionId = session;
 
         if (double.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
         {
@@ -1345,7 +1422,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private sealed class Peer(ushort id, IPEndPoint endpoint)
     {
         public ushort Id { get; } = id;
-        public IPEndPoint Endpoint { get; } = endpoint;
+        public IPEndPoint Endpoint { get; set; } = endpoint;
+        public ulong? Nonce { get; set; }
         public DateTimeOffset LastSeenUtc { get; set; } = DateTimeOffset.UtcNow;
         public OpenOmsiLanVehicleInfo? Info { get; set; }
         public OpenOmsiLanVehicleState? State { get; set; }
