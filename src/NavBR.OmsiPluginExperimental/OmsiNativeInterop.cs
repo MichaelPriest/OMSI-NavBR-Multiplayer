@@ -967,6 +967,78 @@ internal static class OmsiNativeInterop
         out int trackEntry,
         out float paiMovingDistance);
 
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_GetRoadVehiclePublicVarCount")]
+    private static extern int GetRoadVehiclePublicVarCount(int vehiclePointer);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_ReadRoadVehiclePublicVar")]
+    private static extern int ReadRoadVehiclePublicVar(
+        int vehiclePointer,
+        int index,
+        out float value);
+
+    internal static bool TryReadRoadVehiclePublicVar(
+        int vehiclePointer,
+        int index,
+        out float value)
+    {
+        value = 0f;
+        if (!IsShimReady || index < 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var count = GetRoadVehiclePublicVarCount(vehiclePointer);
+            return count > 0 &&
+                   index < count &&
+                   ReadRoadVehiclePublicVar(
+                       vehiclePointer,
+                       index,
+                       out value) == 1 &&
+                   float.IsFinite(value);
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    internal static int TryGetRoadVehiclePublicVarCount(
+        int vehiclePointer)
+    {
+        if (!IsShimReady)
+        {
+            return -1;
+        }
+
+        try
+        {
+            var count = GetRoadVehiclePublicVarCount(vehiclePointer);
+            return count is >= 0 and <= 65535 ? count : -1;
+        }
+        catch (DllNotFoundException)
+        {
+            return -1;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return -1;
+        }
+        catch (BadImageFormatException)
+        {
+            return -1;
+        }
+    }
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_IsRoadVehiclePointer")]
     internal static extern int IsRoadVehiclePointer(int vehiclePointer);
 
