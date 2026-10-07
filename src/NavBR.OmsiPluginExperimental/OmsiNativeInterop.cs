@@ -1125,6 +1125,57 @@ internal static class OmsiNativeInterop
         }
     }
 
+    [DllImport(
+        LibraryName,
+        CallingConvention = CallingConvention.Cdecl,
+        CharSet = CharSet.Unicode,
+        EntryPoint = "NavBR_WriteRoadVehicleStringVarUtf16")]
+    private static extern int WriteRoadVehicleStringVarUtf16(
+        int vehiclePointer,
+        int index,
+        [MarshalAs(UnmanagedType.LPWStr)] string value,
+        int lengthChars);
+
+    internal static bool TryWriteRoadVehicleStringVar(
+        int vehiclePointer,
+        int index,
+        string? value)
+    {
+        if (!IsShimReady ||
+            index < 0)
+        {
+            return false;
+        }
+
+        var normalized = value ?? string.Empty;
+        if (normalized.Length > 255 ||
+            normalized.Any(char.IsControl))
+        {
+            return false;
+        }
+
+        try
+        {
+            return WriteRoadVehicleStringVarUtf16(
+                       vehiclePointer,
+                       index,
+                       normalized,
+                       normalized.Length) == 1;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "NavBR_WriteRoadVehiclePublicVar")]
     private static extern int WriteRoadVehiclePublicVar(
         int vehiclePointer,
