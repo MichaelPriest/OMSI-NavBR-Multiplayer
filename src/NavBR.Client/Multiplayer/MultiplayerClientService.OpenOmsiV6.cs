@@ -566,6 +566,9 @@ public sealed partial class MultiplayerClientService
             telemetry.LocalX is double &&
             telemetry.LocalY is double &&
             telemetry.LocalZ is double;
+        var rearSections = useNativeAxes
+            ? BuildOpenOmsiLocalRearSections(telemetry)
+            : Array.Empty<OpenOmsiLanPartPose>();
 
         return new OpenOmsiLanVehicleState(
             id,
@@ -588,12 +591,144 @@ public sealed partial class MultiplayerClientService
             0,
             doors,
             [],
-            [],
+            rearSections,
             [],
             [],
             [],
             null,
             sentMilliseconds);
+    }
+
+    private static IReadOnlyList<OpenOmsiLanPartPose>
+        BuildOpenOmsiLocalRearSections(VehicleTelemetry telemetry)
+    {
+        if (telemetry.RearSections is not { Length: > 0 } sections ||
+            telemetry.LocalX is not double frontLocalX ||
+            telemetry.LocalY is not double frontLocalY ||
+            telemetry.LocalZ is not double frontLocalZ)
+        {
+            return [];
+        }
+
+        var frontGridX = telemetry.PhysicalGridX ?? telemetry.GridX;
+        var frontGridY = telemetry.PhysicalGridY ?? telemetry.GridY;
+        if (frontGridX is not int gx || frontGridY is not int gy)
+        {
+            return [];
+        }
+
+        var tileSize = InferOpenOmsiTileSize(
+            telemetry,
+            gx,
+            gy,
+            frontLocalX,
+            frontLocalZ);
+
+        var result = new List<OpenOmsiLanPartPose>(
+            Math.Min(
+                sections.Length,
+                OpenOmsiLanProtocol.MaxRearSections));
+
+        foreach (var section in sections.Take(OpenOmsiLanProtocol.MaxRearSections))
+        {
+            var gridDeltaX = section.GridX - gx;
+            var gridDeltaY = section.GridY - gy;
+            if ((gridDeltaX != 0 || gridDeltaY != 0) &&
+                tileSize is null)
+            {
+                continue;
+            }
+
+            var dx =
+                section.LocalX - frontLocalX +
+                gridDeltaX * (tileSize ?? 0d);
+            var dy =
+                section.LocalZ - frontLocalZ +
+                gridDeltaY * (tileSize ?? 0d);
+            var dz = section.LocalY - frontLocalY;
+            var heading = OpenOmsiQuaternionHeading(
+                section.RotationX,
+                section.RotationY,
+                section.RotationZ,
+                section.RotationW);
+
+            if (!double.IsFinite(dx) ||
+                !double.IsFinite(dy) ||
+                !double.IsFinite(dz) ||
+                !double.IsFinite(heading))
+            {
+                continue;
+            }
+
+            result.Add(
+                new OpenOmsiLanPartPose(
+                    telemetry.X + dx,
+                    telemetry.Z + dy,
+                    telemetry.Y + dz,
+                    (float)heading));
+        }
+
+        return result;
+    }
+
+    private static double? InferOpenOmsiTileSize(
+        VehicleTelemetry telemetry,
+        int gridX,
+        int gridY,
+        double localX,
+        double localZ)
+    {
+        var candidates = new List<double>(2);
+        if (gridX != 0)
+        {
+            var value = Math.Abs((telemetry.X - localX) / gridX);
+            if (double.IsFinite(value) && value is >= 250d and <= 500d)
+            {
+                candidates.Add(value);
+            }
+        }
+
+        if (gridY != 0)
+        {
+            var value = Math.Abs((telemetry.Z - localZ) / gridY);
+            if (double.IsFinite(value) && value is >= 250d and <= 500d)
+            {
+                candidates.Add(value);
+            }
+        }
+
+        return candidates.Count switch
+        {
+            0 => null,
+            1 => candidates[0],
+            _ => Math.Abs(candidates[0] - candidates[1]) <= 2d
+                ? (candidates[0] + candidates[1]) * 0.5d
+                : null
+        };
+    }
+
+    private static double OpenOmsiQuaternionHeading(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var lengthSquared = x * x + y * y + z * z + w * w;
+        if (!double.IsFinite(lengthSquared) || lengthSquared < 0.00000001d)
+        {
+            return double.NaN;
+        }
+
+        var inverseLength = 1d / Math.Sqrt(lengthSquared);
+        x *= inverseLength;
+        y *= inverseLength;
+        z *= inverseLength;
+        w *= inverseLength;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        var degrees = Math.Atan2(sinYaw, cosYaw) * (180d / Math.PI);
+        return (degrees + 360d) % 360d;
     }
 
     private OpenOmsiLanWalker? BuildOpenOmsiLocalWalker(
