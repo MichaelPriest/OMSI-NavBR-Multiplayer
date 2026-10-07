@@ -75,8 +75,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             TaskCreationOptions.RunContinuationsAsynchronously);
         StartLoops();
 
-        Span<byte> nonceBytes = stackalloc byte[8];
-        RandomNumberGenerator.Fill(nonceBytes);
+        var nonceBytes = RandomNumberGenerator.GetBytes(8);
         var nonce = BitConverter.ToUInt64(nonceBytes).ToString("X16", CultureInfo.InvariantCulture);
         var hello = string.Join(
             "|",
