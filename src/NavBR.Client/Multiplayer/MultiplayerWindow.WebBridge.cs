@@ -86,6 +86,14 @@ public partial class MultiplayerWindow
                     physicalVehiclePartCount = physicalVehicleStatus?.PartCount,
                     physicalVehicleExpectedPartCount = physicalVehicleStatus?.ExpectedPartCount,
                     physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
+                    openOmsiVisualSyncStatus = isLocal
+                        ? null
+                        : _client.GetRemoteOpenOmsiVisualSyncStatus(
+                            player.PlayerId),
+                    openOmsiVisualSyncHash = isLocal
+                        ? null
+                        : _client.GetRemoteOpenOmsiVisualSyncHash(
+                            player.PlayerId)?.ToString("X8"),
                     physicalTelemetryGridX = !isLocal ? telemetry?.PhysicalGridX : null,
                     physicalTelemetryGridY = !isLocal ? telemetry?.PhysicalGridY : null,
                     physicalTelemetryNavigationGridX = !isLocal ? telemetry?.GridX : null,
