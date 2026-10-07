@@ -66,6 +66,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public event Action<OpenOmsiLanVehicleInfo>? RemoteInfoReceived;
     public event Action<OpenOmsiLanVehicleState>? RemoteStateReceived;
     public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
+    public event Action<ushort, string, string>? ChatReceived;
     public event Action<ushort>? RemoteLeft;
     public event Action<string>? NoteReceived;
 
@@ -459,6 +460,43 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             : Array.Empty<byte>();
     }
 
+    public async Task SendChatAsync(
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        var clean = OpenOmsiLanProtocol.CleanText(text, 160);
+        if (string.IsNullOrWhiteSpace(clean))
+        {
+            return;
+        }
+
+        var name =
+            OpenOmsiLanProtocol.CleanText(
+                _localInfo?.Name ?? "Driver",
+                32);
+
+        ChatReceived?.Invoke(
+            LocalPlayerId,
+            string.IsNullOrWhiteSpace(name) ? "Driver" : name,
+            clean);
+
+        if (IsHost)
+        {
+            await BroadcastTextAsync(
+                $"SAY|{LocalPlayerId}|{name}|{clean}",
+                null,
+                cancellationToken);
+        }
+        else if (_hostEndpoint is not null)
+        {
+            await SendTextAsync(
+                $"CHAT|{LocalPlayerId}|{clean}",
+                _hostEndpoint,
+                cancellationToken);
+        }
+    }
+
     public async Task LeaveAsync(CancellationToken cancellationToken = default)
     {
         if (!IsRunning || LocalPlayerId == 0)
@@ -705,6 +743,58 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 out var footprints))
         {
             _nearTcs?.TrySetResult(footprints);
+            return;
+        }
+
+        if (IsHost &&
+            text.StartsWith("CHAT|", StringComparison.Ordinal))
+        {
+            var parts = text.Split('|', 3);
+            if (parts.Length == 3 &&
+                ushort.TryParse(
+                    parts[1],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var senderId) &&
+                _peers.TryGetValue(senderId, out var sender) &&
+                sender.Endpoint.Equals(from))
+            {
+                var chat = OpenOmsiLanProtocol.CleanText(parts[2], 160);
+                if (!string.IsNullOrWhiteSpace(chat))
+                {
+                    sender.LastSeenUtc = DateTimeOffset.UtcNow;
+                    var name = OpenOmsiLanProtocol.CleanText(
+                        sender.Info?.Name ?? $"Player {senderId}",
+                        32);
+                    ChatReceived?.Invoke(senderId, name, chat);
+                    await BroadcastTextAsync(
+                        $"SAY|{senderId}|{name}|{chat}",
+                        senderId,
+                        cancellationToken);
+                }
+            }
+            return;
+        }
+
+        if (!IsHost &&
+            text.StartsWith("SAY|", StringComparison.Ordinal) &&
+            _hostEndpoint?.Equals(from) == true)
+        {
+            var parts = text.Split('|', 4);
+            if (parts.Length == 4 &&
+                ushort.TryParse(
+                    parts[1],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var senderId))
+            {
+                var name = OpenOmsiLanProtocol.CleanText(parts[2], 32);
+                var chat = OpenOmsiLanProtocol.CleanText(parts[3], 160);
+                if (!string.IsNullOrWhiteSpace(chat))
+                {
+                    ChatReceived?.Invoke(senderId, name, chat);
+                }
+            }
             return;
         }
 
