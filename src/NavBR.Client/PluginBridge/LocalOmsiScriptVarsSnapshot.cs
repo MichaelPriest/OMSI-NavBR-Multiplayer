@@ -19,7 +19,10 @@ public sealed record LocalOmsiScriptVarsSnapshot(
             message.VariableValues is not { } values ||
             ids.Length != values.Length ||
             ids.Length > 256 ||
-            values.Any(value => !float.IsFinite(value)))
+            values.Any(value => !float.IsFinite(value)) ||
+            (message.StringVariableIndices?.Length ?? 0) !=
+                (message.StringVariableValues?.Length ?? 0) ||
+            (message.StringVariableIndices?.Length ?? 0) > 64)
         {
             return null;
         }
