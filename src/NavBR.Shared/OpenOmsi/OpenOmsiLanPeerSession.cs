@@ -34,6 +34,24 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public ushort LocalPlayerId { get; private set; }
     public int? Port => (_udp?.Client.LocalEndPoint as IPEndPoint)?.Port;
     public ulong SessionId => _sessionId;
+    public string? SessionCode
+    {
+        get
+        {
+            if (!IsHost || Port is not int port)
+            {
+                return null;
+            }
+
+            var address = ResolveAdvertiseAddress();
+            return new OpenOmsiSessionCode(
+                OpenOmsiLanProtocol.ProtocolVersion,
+                address,
+                checked((ushort)port),
+                _sessionId).Encode();
+        }
+    }
+
     public OpenOmsiLanWorld World { get; private set; } =
         new(string.Empty, string.Empty, 0d, string.Empty, string.Empty);
 
@@ -54,6 +72,82 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         _udp = BindHost();
         StartLoops();
         await Task.CompletedTask;
+    }
+
+    public async Task JoinByCodeAsync(
+        string sessionCode,
+        OpenOmsiLanWorld world,
+        string displayName,
+        string? vehiclePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!OpenOmsiSessionCode.TryDecode(sessionCode, out var decoded) ||
+            decoded.Protocol != OpenOmsiLanProtocol.ProtocolVersion)
+        {
+            throw new ArgumentException(
+                "Invalid or incompatible openOMSI session code.",
+                nameof(sessionCode));
+        }
+
+        await JoinAsync(
+            new IPEndPoint(decoded.Address, decoded.Port),
+            world,
+            displayName,
+            vehiclePath,
+            cancellationToken);
+    }
+
+    public static async Task<IPEndPoint?> DiscoverHostAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+        udp.EnableBroadcast = true;
+        var message = Encoding.UTF8.GetBytes(
+            $"DISCOVER|{OpenOmsiLanProtocol.ProtocolVersion}");
+
+        for (var port = DefaultPort; port < DefaultPort + PortAttempts; port++)
+        {
+            await udp.SendAsync(
+                message,
+                new IPEndPoint(IPAddress.Broadcast, port),
+                cancellationToken);
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(2));
+        while (!timeout.IsCancellationRequested)
+        {
+            UdpReceiveResult response;
+            try
+            {
+                response = await udp.ReceiveAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            string text;
+            try
+            {
+                text = new UTF8Encoding(false, true).GetString(response.Buffer);
+            }
+            catch (DecoderFallbackException)
+            {
+                continue;
+            }
+
+            var parts = text.Split('|');
+            if (parts.Length >= 6 &&
+                parts[0] == "HERE" &&
+                byte.TryParse(parts[1], out var protocol) &&
+                protocol == OpenOmsiLanProtocol.ProtocolVersion)
+            {
+                return response.RemoteEndPoint;
+            }
+        }
+
+        return null;
     }
 
     public async Task JoinAsync(
@@ -256,6 +350,21 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         IPEndPoint from,
         CancellationToken cancellationToken)
     {
+        if (IsHost && text.StartsWith("DISCOVER|", StringComparison.Ordinal))
+        {
+            var parts = text.Split('|');
+            if (parts.Length >= 2 &&
+                byte.TryParse(parts[1], out var protocol) &&
+                protocol == OpenOmsiLanProtocol.ProtocolVersion)
+            {
+                await SendTextAsync(
+                    $"HERE|{OpenOmsiLanProtocol.ProtocolVersion}|NavBR/openOMSI|{OpenOmsiLanProtocol.SessionHex(_sessionId)}|{OpenOmsiLanProtocol.CleanText(World.Map, 260)}|{_peers.Count + 1}",
+                    from,
+                    cancellationToken);
+            }
+            return;
+        }
+
         if (IsHost && text.StartsWith("HELLO|", StringComparison.Ordinal))
         {
             await HandleHelloAsync(text, from, cancellationToken);
@@ -493,6 +602,22 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             }
 
             return _nextPlayerId++;
+        }
+    }
+
+    private static IPAddress ResolveAdvertiseAddress()
+    {
+        try
+        {
+            return Dns.GetHostAddresses(Dns.GetHostName())
+                .FirstOrDefault(address =>
+                    address.AddressFamily == AddressFamily.InterNetwork &&
+                    !IPAddress.IsLoopback(address))
+                ?? IPAddress.Loopback;
+        }
+        catch
+        {
+            return IPAddress.Loopback;
         }
     }
 
