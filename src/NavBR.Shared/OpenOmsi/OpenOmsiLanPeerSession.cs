@@ -25,6 +25,9 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private Task? _receiveTask;
     private Task? _maintenanceTask;
     private IPEndPoint? _hostEndpoint;
+    private IPEndPoint[]? _joinCandidates;
+    private HashSet<string>? _joinRejectedCandidates;
+    private IPAddress[]? _sessionCodeAddresses;
     private TaskCompletionSource<bool>? _joinTcs;
     private TaskCompletionSource<IReadOnlyList<OpenOmsiLanFootprint>>? _nearTcs;
     private string? _joinHello;
@@ -77,11 +80,21 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 port = _hostEndpoint.Port;
             }
 
-            return new OpenOmsiSessionCode(
+            var code = new OpenOmsiSessionCode(
                 OpenOmsiLanProtocol.ProtocolVersion,
                 address,
                 checked((ushort)port),
-                _sessionId).Encode();
+                _sessionId);
+            if (!IsHost &&
+                _sessionCodeAddresses is { Length: > 1 })
+            {
+                code = code with
+                {
+                    Addresses = _sessionCodeAddresses
+                };
+            }
+
+            return code.Encode();
         }
     }
 
@@ -137,8 +150,13 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 nameof(sessionCode));
         }
 
+        _sessionCodeAddresses =
+            decoded.EffectiveAddresses
+                .Select(address => address.MapToIPv4())
+                .ToArray();
+
         await JoinAsyncCore(
-            new IPEndPoint(decoded.Address, decoded.Port),
+            decoded.Endpoints,
             world,
             displayName,
             vehiclePath,
@@ -206,7 +224,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         string? vehiclePath,
         CancellationToken cancellationToken = default) =>
         JoinAsyncCore(
-            host,
+            new[] { host },
             world,
             displayName,
             vehiclePath,
@@ -214,7 +232,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             cancellationToken);
 
     private async Task JoinAsyncCore(
-        IPEndPoint host,
+        IReadOnlyList<IPEndPoint> hosts,
         OpenOmsiLanWorld world,
         string displayName,
         string? vehiclePath,
@@ -222,12 +240,37 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         ThrowIfRunning();
-        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(hosts);
+        if (hosts.Count == 0)
+        {
+            throw new ArgumentException(
+                "At least one openOMSI host endpoint is required.",
+                nameof(hosts));
+        }
+
+        var candidates = hosts
+            .Where(endpoint => endpoint is not null)
+            .Select(endpoint =>
+                new IPEndPoint(
+                    endpoint.Address.MapToIPv4(),
+                    endpoint.Port))
+            .Distinct()
+            .Take(3)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            throw new ArgumentException(
+                "No usable openOMSI IPv4 host endpoint was supplied.",
+                nameof(hosts));
+        }
 
         World = world;
         IsHost = false;
         LocalPlayerId = 0;
-        _hostEndpoint = host;
+        _hostEndpoint = candidates[0];
+        _joinCandidates = candidates;
+        _joinRejectedCandidates =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _requestedSessionId = requestedSession;
         _udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
         _joinTcs = new TaskCompletionSource<bool>(
@@ -259,7 +302,14 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         while (LocalPlayerId == 0 && DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await SendTextAsync(hello, host, cancellationToken);
+            foreach (var candidate in candidates)
+            {
+                await SendTextAsync(
+                    hello,
+                    candidate,
+                    cancellationToken);
+            }
+
             var completed = await Task.WhenAny(
                 _joinTcs.Task,
                 Task.Delay(700, cancellationToken));
@@ -272,8 +322,12 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
         if (LocalPlayerId == 0)
         {
-            throw new TimeoutException("openOMSI LAN v6 host did not answer within 10 seconds.");
+            throw new TimeoutException(
+                "openOMSI LAN v6 host did not answer on any session-code endpoint within 10 seconds.");
         }
+
+        _joinCandidates = null;
+        _joinRejectedCandidates = null;
     }
 
     public async Task PublishInfoAsync(
@@ -1066,14 +1120,33 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
         if (!IsHost &&
             text.StartsWith("REJECT|", StringComparison.Ordinal) &&
-            _hostEndpoint?.Equals(from) == true)
+            IsExpectedJoinEndpoint(from))
         {
             var parts = text.Split('|', 3);
             var reason = parts.Length >= 3
                 ? OpenOmsiLanProtocol.CleanText(parts[2], 300)
                 : "openOMSI host rejected the connection.";
-            _joinTcs?.TrySetException(
-                new InvalidOperationException(reason));
+
+            if (_joinCandidates is { Length: > 1 } candidates &&
+                LocalPlayerId == 0)
+            {
+                _joinRejectedCandidates ??=
+                    new HashSet<string>(
+                        StringComparer.OrdinalIgnoreCase);
+                _joinRejectedCandidates.Add(
+                    EndpointKey(from));
+                if (_joinRejectedCandidates.Count >=
+                    candidates.Length)
+                {
+                    _joinTcs?.TrySetException(
+                        new InvalidOperationException(reason));
+                }
+            }
+            else
+            {
+                _joinTcs?.TrySetException(
+                    new InvalidOperationException(reason));
+            }
             return;
         }
 
@@ -1572,7 +1645,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
     private void HandleWelcome(string text, IPEndPoint from)
     {
-        if (_hostEndpoint is null || !_hostEndpoint.Equals(from))
+        if (!IsExpectedJoinEndpoint(from))
         {
             return;
         }
@@ -1608,6 +1681,11 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
 
         _sessionId = session;
+        _hostEndpoint = new IPEndPoint(
+            from.Address.MapToIPv4(),
+            from.Port);
+        _joinCandidates = null;
+        _joinRejectedCandidates = null;
         LocalPlayerId = id;
 
         if (double.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
@@ -1619,6 +1697,27 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         _hostLostAtUtc = null;
         _joinTcs?.TrySetResult(true);
     }
+
+    private bool IsExpectedJoinEndpoint(
+        IPEndPoint endpoint)
+    {
+        if (LocalPlayerId != 0)
+        {
+            return _hostEndpoint?.Equals(endpoint) == true;
+        }
+
+        if (_joinCandidates is { Length: > 0 })
+        {
+            return _joinCandidates.Any(
+                candidate => candidate.Equals(endpoint));
+        }
+
+        return _hostEndpoint?.Equals(endpoint) == true;
+    }
+
+    private static string EndpointKey(
+        IPEndPoint endpoint) =>
+        $"{endpoint.Address.MapToIPv4()}:{endpoint.Port}";
 
     private async Task MaintenanceLoopAsync(CancellationToken cancellationToken)
     {
@@ -1848,6 +1947,10 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         cts?.Cancel();
         _udp?.Dispose();
         _udp = null;
+        _hostEndpoint = null;
+        _joinCandidates = null;
+        _joinRejectedCandidates = null;
+        _sessionCodeAddresses = null;
         _localInfo = null;
         _localState = null;
         _lastLocalInfoWire = null;
