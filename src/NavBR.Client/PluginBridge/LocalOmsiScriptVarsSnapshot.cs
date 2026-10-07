@@ -6,7 +6,9 @@ public sealed record LocalOmsiScriptVarsSnapshot(
     DateTimeOffset CapturedAtUtc,
     uint VarTableHash,
     ushort[] VariableIndices,
-    float[] VariableValues)
+    float[] VariableValues,
+    ushort[] StringVariableIndices,
+    string[] StringVariableValues)
 {
     public static LocalOmsiScriptVarsSnapshot? FromMessage(
         PluginBridgeMessage message)
@@ -22,6 +24,15 @@ public sealed record LocalOmsiScriptVarsSnapshot(
             return null;
         }
 
+        var stringIds = message.StringVariableIndices ?? [];
+        var stringValues = message.StringVariableValues ?? [];
+        if (stringIds.Length != stringValues.Length ||
+            stringIds.Length > 64 ||
+            stringValues.Any(value => (value?.Length ?? 0) > 255))
+        {
+            return null;
+        }
+
         var capturedAt = message.TimestampUnixMilliseconds is long ms
             ? DateTimeOffset.FromUnixTimeMilliseconds(ms)
             : DateTimeOffset.UtcNow;
@@ -30,7 +41,9 @@ public sealed record LocalOmsiScriptVarsSnapshot(
             capturedAt,
             hash,
             ids.ToArray(),
-            values.ToArray());
+            values.ToArray(),
+            stringIds.ToArray(),
+            stringValues.Select(value => value ?? string.Empty).ToArray());
     }
 }
 
