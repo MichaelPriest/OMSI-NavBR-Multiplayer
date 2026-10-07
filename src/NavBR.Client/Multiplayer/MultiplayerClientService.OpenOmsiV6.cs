@@ -1111,7 +1111,18 @@ public sealed partial class MultiplayerClientService
         OpenOmsiSyncTableManifest? syncTable,
         LocalOmsiScriptVarsSnapshot? snapshot)
     {
-        if (syncTable is null || snapshot is null)
+        if (syncTable is null ||
+            snapshot is null ||
+            snapshot.VarTableHash != syncTable.VarTableHash ||
+            snapshot.VariableIndices.Length !=
+                snapshot.VariableValues.Length)
+        {
+            return false;
+        }
+
+        var age = DateTimeOffset.UtcNow - snapshot.CapturedAtUtc;
+        if (age < TimeSpan.FromSeconds(-1) ||
+            age > TimeSpan.FromSeconds(2))
         {
             return false;
         }
