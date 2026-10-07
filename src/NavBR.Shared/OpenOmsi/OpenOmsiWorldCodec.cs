@@ -287,7 +287,7 @@ public static class OpenOmsiWorldCodec
             for (var i = 0; i < carCount; i++)
             {
                 cars.Add(ReadCar(
-                    reader,
+                    ref reader,
                     anchorX,
                     anchorY,
                     anchorZ));
@@ -298,7 +298,7 @@ public static class OpenOmsiWorldCodec
             for (var i = 0; i < personCount; i++)
             {
                 people.Add(ReadPerson(
-                    reader,
+                    ref reader,
                     anchorX,
                     anchorY,
                     anchorZ));
@@ -402,7 +402,7 @@ public static class OpenOmsiWorldCodec
     }
 
     private static OpenOmsiWorldCarState ReadCar(
-        BitReader reader,
+        ref BitReader reader,
         int ax,
         int ay,
         short az)
@@ -502,7 +502,7 @@ public static class OpenOmsiWorldCodec
     }
 
     private static OpenOmsiWorldPersonState ReadPerson(
-        BitReader reader,
+        ref BitReader reader,
         int ax,
         int ay,
         short az)
