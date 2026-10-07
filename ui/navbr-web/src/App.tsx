@@ -73,6 +73,7 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
     isHost: false,
     port: null,
     sessionCode: null,
+    webSocketUrl: null,
     role: "offline"
   },
   networkQuality: {
@@ -4803,6 +4804,12 @@ function Multiplayer({
       lines.push(`port=${multiplayer.hostPort ?? 27730}`);
     }
     lines.push(`mode=${multiplayer.transportMode === "dedicated-server" ? "dedicated-server" : useOnlineServer ? "relay" : "peer-host"}`);
+    if (multiplayer.openOmsiV6.sessionCode) {
+      lines.push(`openomsi=${multiplayer.openOmsiV6.sessionCode}`);
+    }
+    if (multiplayer.openOmsiV6.webSocketUrl) {
+      lines.push(`openomsi_ws=${multiplayer.openOmsiV6.webSocketUrl}`);
+    }
     return lines.join("\n");
   };
 
@@ -5334,6 +5341,13 @@ function Multiplayer({
                 <div className="invite-box compact-invite">
                   <small>{pick("CÓDIGO OPENOMSI", "OPENOMSI CODE", "CÓDIGO OPENOMSI", "OPENOMSI-CODE", "CODE OPENOMSI")}</small>
                   <code>{multiplayer.openOmsiV6.sessionCode}</code>
+                </div>
+              )}
+
+              {multiplayer.openOmsiV6.webSocketUrl && (
+                <div className="invite-box compact-invite">
+                  <small>{pick("TÚNEL OPENOMSI", "OPENOMSI TUNNEL", "TÚNEL OPENOMSI", "OPENOMSI-TUNNEL", "TUNNEL OPENOMSI")}</small>
+                  <code>{multiplayer.openOmsiV6.webSocketUrl}</code>
                 </div>
               )}
 
