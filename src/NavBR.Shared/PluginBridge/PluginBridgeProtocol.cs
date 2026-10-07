@@ -196,4 +196,7 @@ public sealed record PluginBridgeMessage(
     ushort[]? VariableIndices = null,
     float[]? VariableValues = null,
     ushort[]? StringVariableIndices = null,
-    string[]? StringVariableValues = null);
+    string[]? StringVariableValues = null,
+    float[]? SyncLamps = null,
+    float[]? SyncSwitches = null,
+    float[]? SyncValues = null);
