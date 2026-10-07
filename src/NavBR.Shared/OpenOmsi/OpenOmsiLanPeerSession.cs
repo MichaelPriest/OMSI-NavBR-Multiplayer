@@ -26,6 +26,11 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private Task? _maintenanceTask;
     private IPEndPoint? _hostEndpoint;
     private TaskCompletionSource<bool>? _joinTcs;
+    private string? _joinHello;
+    private DateTimeOffset _lastHostPacketUtc;
+    private DateTimeOffset _lastLocalStateUtc;
+    private DateTimeOffset? _hostLostAtUtc;
+    private ushort _heartbeatSequence;
     private ushort _nextPlayerId = 2;
     private ulong _sessionId;
 
@@ -184,6 +189,9 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             OpenOmsiLanProtocol.CleanText(world.Weather, 260),
             OpenOmsiLanProtocol.CleanText(world.Season, 16),
             nonce);
+        _joinHello = hello;
+        _lastHostPacketUtc = DateTimeOffset.UtcNow;
+        _hostLostAtUtc = null;
 
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
         while (LocalPlayerId == 0 && DateTimeOffset.UtcNow < deadline)
@@ -240,6 +248,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         {
             await SendBytesAsync(bytes, _hostEndpoint!, cancellationToken);
         }
+
+        _lastLocalStateUtc = DateTimeOffset.UtcNow;
     }
 
     public async Task LeaveAsync(CancellationToken cancellationToken = default)
@@ -341,6 +351,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 return;
             }
 
+            _lastHostPacketUtc = DateTimeOffset.UtcNow;
+            _hostLostAtUtc = null;
             RemoteStateReceived?.Invoke(state);
         }
     }
@@ -373,8 +385,16 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
         if (!IsHost && text.StartsWith("WELCOME|", StringComparison.Ordinal))
         {
+            _lastHostPacketUtc = DateTimeOffset.UtcNow;
+            _hostLostAtUtc = null;
             HandleWelcome(text, from);
             return;
+        }
+
+        if (!IsHost && _hostEndpoint?.Equals(from) == true)
+        {
+            _lastHostPacketUtc = DateTimeOffset.UtcNow;
+            _hostLostAtUtc = null;
         }
 
         if (text.StartsWith("INFO|", StringComparison.Ordinal) &&
@@ -490,32 +510,91 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             World = new OpenOmsiLanWorld(parts[5], parts[6], time, parts[8], parts[9]);
         }
 
+        _lastHostPacketUtc = DateTimeOffset.UtcNow;
+        _hostLostAtUtc = null;
         _joinTcs?.TrySetResult(true);
     }
 
     private async Task MaintenanceLoopAsync(CancellationToken cancellationToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        var lastClockUtc = DateTimeOffset.MinValue;
+
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
-            if (!IsHost)
+            var now = DateTimeOffset.UtcNow;
+
+            if (IsHost)
+            {
+                var cutoff = now - PeerTimeout;
+                foreach (var pair in _peers.ToArray())
+                {
+                    if (pair.Value.LastSeenUtc >= cutoff)
+                    {
+                        continue;
+                    }
+
+                    if (_peers.TryRemove(pair.Key, out _))
+                    {
+                        RemoteLeft?.Invoke(pair.Key);
+                        await BroadcastTextAsync(
+                            $"BYE|{pair.Key}",
+                            pair.Key,
+                            cancellationToken);
+                    }
+                }
+
+                if (now - lastClockUtc >= TimeSpan.FromSeconds(5))
+                {
+                    await BroadcastTextAsync(
+                        OpenOmsiLanProtocol.EncodeClock(World),
+                        null,
+                        cancellationToken);
+                    lastClockUtc = now;
+                }
+
+                continue;
+            }
+
+            if (_hostEndpoint is null || LocalPlayerId == 0)
             {
                 continue;
             }
 
-            var cutoff = DateTimeOffset.UtcNow - PeerTimeout;
-            foreach (var pair in _peers.ToArray())
+            if (now - _lastLocalStateUtc >= TimeSpan.FromSeconds(1))
             {
-                if (pair.Value.LastSeenUtc >= cutoff)
+                var heartbeat = OpenOmsiLanVehicleState.Empty(
+                    LocalPlayerId,
+                    unchecked(++_heartbeatSequence)) with
                 {
-                    continue;
-                }
+                    SentMilliseconds = unchecked((uint)Environment.TickCount64)
+                };
+                await SendBytesAsync(
+                    OpenOmsiLanStateCodec.Encode(heartbeat),
+                    _hostEndpoint,
+                    cancellationToken);
+                _lastLocalStateUtc = now;
+            }
 
-                if (_peers.TryRemove(pair.Key, out _))
-                {
-                    RemoteLeft?.Invoke(pair.Key);
-                    await BroadcastTextAsync($"BYE|{pair.Key}", pair.Key, cancellationToken);
-                }
+            if (now - _lastHostPacketUtc <= PeerTimeout)
+            {
+                continue;
+            }
+
+            _hostLostAtUtc ??= now;
+            if (now - _hostLostAtUtc.Value > TimeSpan.FromSeconds(60))
+            {
+                NoteReceived?.Invoke(
+                    "openOMSI host unreachable for 60 seconds; multiplayer transport is offline.");
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_joinHello))
+            {
+                await SendTextAsync(
+                    _joinHello,
+                    _hostEndpoint,
+                    cancellationToken);
             }
         }
     }
