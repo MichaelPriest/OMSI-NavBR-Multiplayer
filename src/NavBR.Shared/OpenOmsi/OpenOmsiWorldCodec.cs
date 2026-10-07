@@ -491,8 +491,8 @@ public static class OpenOmsiWorldCodec
             8);
         writer.Put(
             person.Seat is byte seat
-                ? Math.Min(seat, (byte)254)
-                : 255,
+                ? (ulong)Math.Min(seat, (byte)254)
+                : 255UL,
             8);
     }
 
