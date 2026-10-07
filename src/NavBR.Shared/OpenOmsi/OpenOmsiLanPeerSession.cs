@@ -67,6 +67,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public event Action<OpenOmsiLanVehicleState>? RemoteStateReceived;
     public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
     public event Action<ushort, string, string>? ChatReceived;
+    public event Action<ushort, string>? CommandReceived;
     public event Action<ushort>? RemoteLeft;
     public event Action<string>? NoteReceived;
 
@@ -497,6 +498,43 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
     }
 
+    public async Task SendCommandAsync(
+        ushort targetPlayerId,
+        string command,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (targetPlayerId == 0 ||
+            targetPlayerId == LocalPlayerId)
+        {
+            return;
+        }
+
+        var clean = OpenOmsiLanProtocol.CleanText(command, 160);
+        if (string.IsNullOrWhiteSpace(clean))
+        {
+            return;
+        }
+
+        if (IsHost)
+        {
+            if (_peers.TryGetValue(targetPlayerId, out var target))
+            {
+                await SendTextAsync(
+                    $"CMD|{LocalPlayerId}|{targetPlayerId}|{clean}",
+                    target.Endpoint,
+                    cancellationToken);
+            }
+        }
+        else if (_hostEndpoint is not null)
+        {
+            await SendTextAsync(
+                $"CMD|{LocalPlayerId}|{targetPlayerId}|{clean}",
+                _hostEndpoint,
+                cancellationToken);
+        }
+    }
+
     public async Task LeaveAsync(CancellationToken cancellationToken = default)
     {
         if (!IsRunning || LocalPlayerId == 0)
@@ -793,6 +831,53 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 if (!string.IsNullOrWhiteSpace(chat))
                 {
                     ChatReceived?.Invoke(senderId, name, chat);
+                }
+            }
+            return;
+        }
+
+        if (text.StartsWith("CMD|", StringComparison.Ordinal))
+        {
+            var parts = text.Split('|', 4);
+            if (parts.Length == 4 &&
+                ushort.TryParse(
+                    parts[1],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var senderId) &&
+                ushort.TryParse(
+                    parts[2],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var targetId))
+            {
+                var command =
+                    OpenOmsiLanProtocol.CleanText(parts[3], 160);
+                if (IsHost)
+                {
+                    if (_peers.TryGetValue(senderId, out var sender) &&
+                        sender.Endpoint.Equals(from) &&
+                        !string.IsNullOrWhiteSpace(command))
+                    {
+                        sender.LastSeenUtc = DateTimeOffset.UtcNow;
+                        if (targetId == LocalPlayerId)
+                        {
+                            CommandReceived?.Invoke(senderId, command);
+                        }
+                        else if (_peers.TryGetValue(targetId, out var target))
+                        {
+                            await SendTextAsync(
+                                $"CMD|{senderId}|{targetId}|{command}",
+                                target.Endpoint,
+                                cancellationToken);
+                        }
+                    }
+                }
+                else if (_hostEndpoint?.Equals(from) == true &&
+                         targetId == LocalPlayerId &&
+                         !string.IsNullOrWhiteSpace(command))
+                {
+                    CommandReceived?.Invoke(senderId, command);
                 }
             }
             return;
