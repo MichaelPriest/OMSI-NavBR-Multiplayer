@@ -74,25 +74,49 @@ public sealed partial class MultiplayerClientService
                 snapshot.TrafficAuthorityPlayerId,
                 StringComparison.OrdinalIgnoreCase));
 
-        if (authority?.OpenOmsiTransport is not { IsValid: true } transport ||
-            !IPAddress.TryParse(transport.Host, out var hostAddress))
+        if (authority?.OpenOmsiTransport is { IsValid: true } transport &&
+            IPAddress.TryParse(transport.Host, out var hostAddress))
         {
-            // The sidecar may deliver the authority transport in the next
-            // playerPresenceChanged event. Keep the NavBR services connected
-            // and join v6 as soon as that advertisement arrives.
-            await session.DisposeAsync();
-            if (ReferenceEquals(_openOmsiV6Session, session))
+            await JoinAdvertisedOpenOmsiTransportAsync(
+                transport,
+                hostAddress,
+                world,
+                cancellationToken);
+            return;
+        }
+
+        // Sidecar discovery can lag behind the physical session. Fall back to
+        // the native openOMSI LAN discovery packet so local rooms remain usable
+        // without waiting for the service plane.
+        var discovered = await OpenOmsiLanPeerSession.DiscoverHostAsync(
+            cancellationToken);
+        if (discovered is not null)
+        {
+            await session.JoinAsync(
+                discovered,
+                world,
+                _joinRequest.DisplayName,
+                _joinRequest.Compatibility?.VehiclePath,
+                cancellationToken);
+
+            var connection = _connection;
+            if (connection?.State == HubConnectionState.Connected)
             {
-                _openOmsiV6Session = null;
+                await connection.InvokeAsync(
+                    "UpdateOpenOmsiLanId",
+                    (ushort?)session.LocalPlayerId,
+                    cancellationToken);
             }
             return;
         }
 
-        await JoinAdvertisedOpenOmsiTransportAsync(
-            transport,
-            hostAddress,
-            world,
-            cancellationToken);
+        // Keep NavBR services connected and wait for the authority transport
+        // advertisement if no LAN host answered discovery.
+        await session.DisposeAsync();
+        if (ReferenceEquals(_openOmsiV6Session, session))
+        {
+            _openOmsiV6Session = null;
+        }
     }
 
     private async Task JoinAdvertisedOpenOmsiTransportAsync(
