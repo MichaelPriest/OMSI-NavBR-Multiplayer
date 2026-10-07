@@ -26,6 +26,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private Task? _maintenanceTask;
     private IPEndPoint? _hostEndpoint;
     private TaskCompletionSource<bool>? _joinTcs;
+    private TaskCompletionSource<IReadOnlyList<OpenOmsiLanFootprint>>? _nearTcs;
     private string? _joinHello;
     private DateTimeOffset _lastHostPacketUtc;
     private DateTimeOffset _lastLocalStateUtc;
@@ -33,6 +34,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     private ushort _heartbeatSequence;
     private ushort _nextPlayerId = 2;
     private ulong _sessionId;
+    private OpenOmsiLanVehicleInfo? _localInfo;
+    private OpenOmsiLanVehicleState? _localState;
 
     public bool IsHost { get; private set; }
     public bool IsRunning => _udp is not null;
@@ -222,6 +225,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         EnsureConnected();
         info = info with { PlayerId = LocalPlayerId };
         var text = OpenOmsiLanProtocol.EncodeInfo(info);
+        _localInfo = info;
 
         if (IsHost)
         {
@@ -240,6 +244,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         EnsureConnected();
         state = state with { PlayerId = LocalPlayerId };
         var bytes = OpenOmsiLanStateCodec.Encode(state);
+        _localState = state;
 
         if (IsHost)
         {
@@ -253,6 +258,71 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         _lastLocalStateUtc = DateTimeOffset.UtcNow;
     }
 
+
+    public async Task<IReadOnlyList<OpenOmsiLanFootprint>> RequestNearAsync(
+        OpenOmsiLanFootprint at,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (IsHost)
+        {
+            return BuildNearFootprints(LocalPlayerId, at);
+        }
+
+        if (_hostEndpoint is null)
+        {
+            return Array.Empty<OpenOmsiLanFootprint>();
+        }
+
+        var tcs =
+            new TaskCompletionSource<IReadOnlyList<OpenOmsiLanFootprint>>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        _nearTcs = tcs;
+
+        var message = string.Join(
+            "|",
+            "PLACE",
+            LocalPlayerId.ToString(CultureInfo.InvariantCulture),
+            at.X.ToString("0.00", CultureInfo.InvariantCulture),
+            at.Y.ToString("0.00", CultureInfo.InvariantCulture),
+            at.Z.ToString("0.00", CultureInfo.InvariantCulture),
+            (((at.HeadingDegrees % 360d) + 360d) % 360d)
+                .ToString("0.0", CultureInfo.InvariantCulture),
+            Math.Clamp(at.LengthMeters, 0d, 60d)
+                .ToString("0.0", CultureInfo.InvariantCulture),
+            Math.Clamp(at.WidthMeters, 0d, 8d)
+                .ToString("0.0", CultureInfo.InvariantCulture));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(3);
+        try
+        {
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await SendTextAsync(
+                    message,
+                    _hostEndpoint,
+                    cancellationToken);
+
+                var completed = await Task.WhenAny(
+                    tcs.Task,
+                    Task.Delay(500, cancellationToken));
+                if (completed == tcs.Task)
+                {
+                    return await tcs.Task;
+                }
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(_nearTcs, tcs))
+            {
+                _nearTcs = null;
+            }
+        }
+
+        return Array.Empty<OpenOmsiLanFootprint>();
+    }
 
     public async Task PublishVarsAsync(
         OpenOmsiVarsFrame vars,
@@ -483,6 +553,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             }
 
             peer.LastSeenUtc = DateTimeOffset.UtcNow;
+            peer.State = state;
             RemoteStateReceived?.Invoke(state);
             await BroadcastBytesAsync(packet, state.PlayerId, cancellationToken);
         }
@@ -601,6 +672,42 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             return;
         }
 
+        if (IsHost &&
+            text.StartsWith("PLACE|", StringComparison.Ordinal))
+        {
+            var parts = text.Split('|');
+            if (parts.Length >= 8 &&
+                ushort.TryParse(
+                    parts[1],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var requesterId) &&
+                _peers.TryGetValue(requesterId, out var requester) &&
+                requester.Endpoint.Equals(from) &&
+                TryParseFootprint(parts, 2, out var spawn))
+            {
+                requester.LastSeenUtc = DateTimeOffset.UtcNow;
+                var near = BuildNearFootprints(requesterId, spawn);
+                await SendTextAsync(
+                    OpenOmsiLanProtocol.EncodeNear(requesterId, near),
+                    from,
+                    cancellationToken);
+            }
+            return;
+        }
+
+        if (!IsHost &&
+            text.StartsWith("NEAR|", StringComparison.Ordinal) &&
+            _hostEndpoint?.Equals(from) == true &&
+            OpenOmsiLanProtocol.TryDecodeNear(
+                text,
+                LocalPlayerId,
+                out var footprints))
+        {
+            _nearTcs?.TrySetResult(footprints);
+            return;
+        }
+
         if (text.StartsWith("BYE|", StringComparison.Ordinal) &&
             ushort.TryParse(text.AsSpan(4), out var left))
         {
@@ -621,6 +728,119 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         {
             NoteReceived?.Invoke(text[5..]);
         }
+    }
+
+    private IReadOnlyList<OpenOmsiLanFootprint> BuildNearFootprints(
+        ushort requesterId,
+        OpenOmsiLanFootprint spawn)
+    {
+        var candidates = new List<OpenOmsiLanFootprint>();
+
+        if (requesterId != LocalPlayerId &&
+            TryBuildFootprint(_localInfo, _localState, out var local))
+        {
+            candidates.Add(local);
+        }
+
+        foreach (var pair in _peers)
+        {
+            if (pair.Key == requesterId ||
+                !TryBuildFootprint(
+                    pair.Value.Info,
+                    pair.Value.State,
+                    out var footprint))
+            {
+                continue;
+            }
+
+            candidates.Add(footprint);
+        }
+
+        const double radiusSquared = 250d * 250d;
+        return candidates
+            .Where(footprint =>
+            {
+                var dx = footprint.X - spawn.X;
+                var dy = footprint.Y - spawn.Y;
+                return dx * dx + dy * dy < radiusSquared;
+            })
+            .OrderBy(footprint =>
+            {
+                var dx = footprint.X - spawn.X;
+                var dy = footprint.Y - spawn.Y;
+                return dx * dx + dy * dy;
+            })
+            .Take(28)
+            .ToArray();
+    }
+
+    private static bool TryBuildFootprint(
+        OpenOmsiLanVehicleInfo? info,
+        OpenOmsiLanVehicleState? state,
+        out OpenOmsiLanFootprint footprint)
+    {
+        footprint = default!;
+        if (info is null ||
+            state is null ||
+            (state.Flags & OpenOmsiLanProtocol.FlagVehicle) == 0)
+        {
+            return false;
+        }
+
+        var heading =
+            ((state.HeadingDegrees % 360f) + 360f) % 360f;
+        var radians = heading * Math.PI / 180d;
+        var offset = info.BoxOffsetMeters;
+        footprint = new OpenOmsiLanFootprint(
+            state.X + Math.Sin(radians) * offset,
+            state.Y + Math.Cos(radians) * offset,
+            state.Z,
+            heading,
+            Math.Max(1d, info.LengthMeters),
+            Math.Max(1d, info.WidthMeters));
+        return true;
+    }
+
+    private static bool TryParseFootprint(
+        IReadOnlyList<string> parts,
+        int first,
+        out OpenOmsiLanFootprint footprint)
+    {
+        footprint = default!;
+        if (parts.Count < first + 6)
+        {
+            return false;
+        }
+
+        var values = new double[6];
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!double.TryParse(
+                    parts[first + i],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out values[i]) ||
+                !double.IsFinite(values[i]))
+            {
+                return false;
+            }
+        }
+
+        if (Math.Abs(values[0]) > 100_000_000d ||
+            Math.Abs(values[1]) > 100_000_000d ||
+            Math.Abs(values[2]) > 100_000d)
+        {
+            return false;
+        }
+
+        footprint = new OpenOmsiLanFootprint(
+            values[0],
+            values[1],
+            values[2],
+            ((values[3] % 360d) + 360d) % 360d,
+            Math.Clamp(values[4], 0d, 60d),
+            Math.Clamp(values[5], 0d, 8d));
+        return true;
     }
 
     private async Task HandleHelloAsync(
@@ -953,5 +1173,6 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         public IPEndPoint Endpoint { get; } = endpoint;
         public DateTimeOffset LastSeenUtc { get; set; } = DateTimeOffset.UtcNow;
         public OpenOmsiLanVehicleInfo? Info { get; set; }
+        public OpenOmsiLanVehicleState? State { get; set; }
     }
 }
