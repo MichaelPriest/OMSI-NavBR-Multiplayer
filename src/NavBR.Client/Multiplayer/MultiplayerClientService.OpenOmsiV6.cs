@@ -675,10 +675,40 @@ public sealed partial class MultiplayerClientService
             telemetry.MapCompatibilityId,
             _joinRequest.Compatibility);
 
+        var frame = new PlayerTelemetryFrame(localPresence, telemetry);
+        OpenOmsiVarTableManifest? varTable = null;
+        OpenOmsiSyncTableManifest? syncTable = null;
+        LocalOmsiScriptVarsSnapshot? scriptSnapshot =
+            LocalOmsiScriptVarsSnapshotStore.Latest;
+
+        if (!string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            varTable = await ResolveLocalOpenOmsiVarTableAsync(
+                telemetry.VehiclePath);
+            if (varTable is not null)
+            {
+                syncTable = await ResolveLocalOpenOmsiSyncTableAsync(
+                    telemetry.VehiclePath,
+                    varTable);
+                await EnsureLocalOpenOmsiSamplingConfiguredAsync(
+                    varTable,
+                    syncTable,
+                    cancellationToken);
+                scriptSnapshot =
+                    LocalOmsiScriptVarsSnapshotStore.Latest;
+            }
+        }
+
+        var visualSnapshot =
+            BuildOpenOmsiVisualSnapshot(
+                syncTable,
+                scriptSnapshot);
+
         var baseState = BuildOpenOmsiLocalState(
             session.LocalPlayerId,
             unchecked(++_openOmsiLocalSequence),
-            new PlayerTelemetryFrame(localPresence, telemetry),
+            frame,
+            visualSnapshot,
             (uint)Environment.TickCount64);
 
         var walker = BuildOpenOmsiLocalWalker(baseState, telemetry);
@@ -686,7 +716,8 @@ public sealed partial class MultiplayerClientService
 
         var info = BuildOpenOmsiLocalInfo(
             session.LocalPlayerId,
-            new PlayerTelemetryFrame(localPresence, telemetry));
+            frame,
+            syncTable?.Hash ?? 0u);
         await session.PublishInfoAsync(info, cancellationToken);
         await session.PublishStateAsync(state, cancellationToken);
 
@@ -770,7 +801,8 @@ public sealed partial class MultiplayerClientService
 
     private static OpenOmsiLanVehicleInfo BuildOpenOmsiLocalInfo(
         ushort id,
-        PlayerTelemetryFrame frame)
+        PlayerTelemetryFrame frame,
+        uint syncTableHash)
     {
         var telemetry = frame.Telemetry;
         var vehiclePath = OpenOmsiLanProtocol.NormalizeVehiclePath(
@@ -787,7 +819,7 @@ public sealed partial class MultiplayerClientService
             12d,
             2.55d,
             0d,
-            0,
+            syncTableHash,
             telemetry.Route ?? string.Empty,
             [],
             null,
@@ -798,6 +830,7 @@ public sealed partial class MultiplayerClientService
         ushort id,
         ushort sequence,
         PlayerTelemetryFrame frame,
+        OpenOmsiLocalVisualSnapshot? visual,
         uint sentMilliseconds)
     {
         var telemetry = frame.Telemetry;
@@ -827,12 +860,26 @@ public sealed partial class MultiplayerClientService
         var interior = (byte)(
             (telemetry.Lights & VehicleLightFlags.Interior) != 0 ? 3 : 0);
 
-        var doors = new float[5];
-        doors[0] = (telemetry.Doors & VehicleDoorFlags.Front) != 0 ? 1f : 0f;
-        doors[1] = (telemetry.Doors & VehicleDoorFlags.Middle) != 0 ? 1f : 0f;
-        doors[2] = (telemetry.Doors & VehicleDoorFlags.Rear) != 0 ? 1f : 0f;
-        doors[3] = (telemetry.Doors & VehicleDoorFlags.Extra1) != 0 ? 1f : 0f;
-        doors[4] = (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
+        IReadOnlyList<float> doors;
+        if (visual is { Doors.Length: > 0 })
+        {
+            doors = visual.Doors;
+        }
+        else
+        {
+            var fallbackDoors = new float[5];
+            fallbackDoors[0] =
+                (telemetry.Doors & VehicleDoorFlags.Front) != 0 ? 1f : 0f;
+            fallbackDoors[1] =
+                (telemetry.Doors & VehicleDoorFlags.Middle) != 0 ? 1f : 0f;
+            fallbackDoors[2] =
+                (telemetry.Doors & VehicleDoorFlags.Rear) != 0 ? 1f : 0f;
+            fallbackDoors[3] =
+                (telemetry.Doors & VehicleDoorFlags.Extra1) != 0 ? 1f : 0f;
+            fallbackDoors[4] =
+                (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
+            doors = fallbackDoors;
+        }
 
         var useNativeAxes =
             telemetry.LocalX is double &&
@@ -864,11 +911,72 @@ public sealed partial class MultiplayerClientService
             doors,
             [],
             rearSections,
-            [],
-            [],
-            [],
+            visual?.Lamps ?? [],
+            visual?.Switches ?? [],
+            visual?.Values ?? [],
             null,
             sentMilliseconds);
+    }
+
+    private sealed record OpenOmsiLocalVisualSnapshot(
+        float[] Lamps,
+        float[] Switches,
+        float[] Values,
+        float[] Doors);
+
+    private static OpenOmsiLocalVisualSnapshot?
+        BuildOpenOmsiVisualSnapshot(
+            OpenOmsiSyncTableManifest? syncTable,
+            LocalOmsiScriptVarsSnapshot? snapshot)
+    {
+        if (!IsSyncTableSnapshotReady(syncTable, snapshot) ||
+            syncTable is null ||
+            snapshot is null)
+        {
+            return null;
+        }
+
+        var valuesById = snapshot.VariableIndices
+            .Zip(
+                snapshot.VariableValues,
+                static (id, value) => (id, value))
+            .ToDictionary(
+                item => item.id,
+                item => item.value);
+
+        float[] Resolve(IReadOnlyList<ushort> ids)
+        {
+            var values = new float[ids.Count];
+            for (var i = 0; i < ids.Count; i++)
+            {
+                if (!valuesById.TryGetValue(ids[i], out values[i]) ||
+                    !float.IsFinite(values[i]))
+                {
+                    return [];
+                }
+            }
+
+            return values;
+        }
+
+        var lamps = Resolve(syncTable.LampIds);
+        var switches = Resolve(syncTable.SwitchIds);
+        var values = Resolve(syncTable.ValueIds);
+        var doors = Resolve(syncTable.DoorIds);
+
+        if ((syncTable.LampIds.Length > 0 && lamps.Length == 0) ||
+            (syncTable.SwitchIds.Length > 0 && switches.Length == 0) ||
+            (syncTable.ValueIds.Length > 0 && values.Length == 0) ||
+            (syncTable.DoorIds.Length > 0 && doors.Length == 0))
+        {
+            return null;
+        }
+
+        return new OpenOmsiLocalVisualSnapshot(
+            lamps,
+            switches,
+            values,
+            doors);
     }
 
     private static IReadOnlyList<OpenOmsiLanPartPose>
