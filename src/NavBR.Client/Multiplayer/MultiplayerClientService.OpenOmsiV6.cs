@@ -44,6 +44,7 @@ public sealed partial class MultiplayerClientService
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
     private OpenOmsiQuickTunnel? _openOmsiQuickTunnel;
     private string? _openOmsiPublicWebSocketUrl;
+    private string? _openOmsiCanonicalSessionCode;
     private ushort _openOmsiLocalSequence;
     private ushort _openOmsiWorldSequence;
     private long _openOmsiTrafficReceiveSequence;
@@ -56,7 +57,9 @@ public sealed partial class MultiplayerClientService
 
     public bool UsesOpenOmsiV6Transport => _openOmsiV6Session?.IsRunning == true;
     public bool IsOpenOmsiV6Host => _openOmsiV6Session?.IsHost == true;
-    public string? OpenOmsiV6SessionCode => _openOmsiV6Session?.SessionCode;
+    public string? OpenOmsiV6SessionCode =>
+        _openOmsiCanonicalSessionCode ??
+        _openOmsiV6Session?.SessionCode;
     public int? OpenOmsiV6Port => _openOmsiV6Session?.Port;
     public string? OpenOmsiV6WebSocketUrl => _openOmsiPublicWebSocketUrl;
 
@@ -427,7 +430,16 @@ public sealed partial class MultiplayerClientService
 
         if (session.IsRunning)
         {
+            if (!string.IsNullOrWhiteSpace(transport.SessionCode))
+            {
+                _openOmsiCanonicalSessionCode = transport.SessionCode;
+            }
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(transport.SessionCode))
+        {
+            _openOmsiCanonicalSessionCode = transport.SessionCode;
         }
 
         Exception? udpError = null;
@@ -495,13 +507,25 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
+        var canonicalSessionCode = session.SessionCode;
+        if (IPAddress.TryParse(address, out var advertisedAddress))
+        {
+            canonicalSessionCode = new OpenOmsiSessionCode(
+                OpenOmsiLanProtocol.ProtocolVersion,
+                advertisedAddress,
+                checked((ushort)port),
+                session.SessionId).Encode();
+        }
+
+        _openOmsiCanonicalSessionCode = canonicalSessionCode;
+
         var descriptor = new OpenOmsiTransportDescriptor(
             OpenOmsiLanProtocol.ProtocolVersion,
             address,
             port,
             OpenOmsiLanProtocol.SessionHex(session.SessionId))
         {
-            SessionCode = session.SessionCode,
+            SessionCode = canonicalSessionCode,
             WebSocketUrl = _openOmsiPublicWebSocketUrl
         };
 
@@ -2455,6 +2479,7 @@ public sealed partial class MultiplayerClientService
         _openOmsiWebSocketGateway = null;
         _openOmsiQuickTunnel = null;
         _openOmsiPublicWebSocketUrl = null;
+        _openOmsiCanonicalSessionCode = null;
         _openOmsiLocalRoleplayState = null;
         _openOmsiConfiguredLocalVarHash = null;
         _openOmsiConfiguredLocalSampleKey = null;
