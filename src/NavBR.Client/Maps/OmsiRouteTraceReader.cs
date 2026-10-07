@@ -298,21 +298,25 @@ public static class OmsiRouteTraceReader
             }
 
             (int GridX, int GridY) grid;
-            if (tileCatalog.TryGetValue(thirdValue, out var indexedGrid))
+            var directGridExists = tileCatalog.Values.Any(candidate =>
+                candidate.GridX == thirdValue &&
+                candidate.GridY == fourthValue);
+            if (directGridExists)
+            {
+                // Native OMSI TTR stores GridX/GridY directly. Prefer this
+                // interpretation even when GridX also happens to be a valid
+                // ordered [map] index in large maps.
+                grid = (thirdValue, fourthValue);
+            }
+            else if (tileCatalog.TryGetValue(
+                         thirdValue,
+                         out var indexedGrid))
             {
                 grid = indexedGrid;
             }
             else
             {
-                var directGridExists = tileCatalog.Values.Any(candidate =>
-                    candidate.GridX == thirdValue &&
-                    candidate.GridY == fourthValue);
-                if (!directGridExists)
-                {
-                    continue;
-                }
-
-                grid = (thirdValue, fourthValue);
+                continue;
             }
 
             var pathLength = 0d;
