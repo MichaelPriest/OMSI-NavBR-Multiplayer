@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Numerics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,6 +11,55 @@ using NavBR.Shared.Multiplayer;
 using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
+
+var roleplayControllerType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.RoleplayCharacterController",
+        throwOnError: true)!;
+var cameraHeadingResolver =
+    roleplayControllerType.GetMethod(
+        "TryResolveCameraHeadingFromMatrices",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "RP camera heading resolver not found");
+
+static double ResolveCameraHeading(
+    MethodInfo resolver,
+    Vector3 target)
+{
+    var view = Matrix4x4.CreateLookAt(
+        Vector3.Zero,
+        target,
+        Vector3.UnitY);
+    var projection = Matrix4x4.CreatePerspectiveFieldOfView(
+        MathF.PI / 3f,
+        16f / 9f,
+        0.1f,
+        1000f);
+    object?[] args =
+    [
+        view,
+        projection,
+        DateTimeOffset.UtcNow,
+        0d
+    ];
+    Require(
+        (bool)(resolver.Invoke(null, args) ?? false),
+        "RP camera heading resolver rejected a valid view matrix");
+    return (double)(args[3] ?? double.NaN);
+}
+
+var rpHeadingNorth =
+    ResolveCameraHeading(cameraHeadingResolver, Vector3.UnitZ);
+var rpHeadingEast =
+    ResolveCameraHeading(cameraHeadingResolver, Vector3.UnitX);
+Require(
+    Math.Abs(rpHeadingNorth) < 0.01d ||
+    Math.Abs(rpHeadingNorth - 360d) < 0.01d,
+    $"RP camera +Z heading must be 0 degrees, got {rpHeadingNorth:F3}");
+Require(
+    Math.Abs(rpHeadingEast - 90d) < 0.01d,
+    $"RP camera +X heading must be 90 degrees, got {rpHeadingEast:F3}");
 
 var identityReaderType = typeof(OmsiPluginBridgeServer).Assembly.GetType(
     "NavBR.Client.Telemetry.OmsiVehicleIdentityReader",
