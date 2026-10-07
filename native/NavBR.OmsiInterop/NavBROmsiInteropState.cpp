@@ -70,6 +70,10 @@ namespace
     // still hidden/stale, which makes a successfully spawned remote bus appear
     // invisible.
     constexpr int ComplObjInstanceVisibleOffset = 0x019;
+    // OmsiHook 2.5.3: OmsiComplObjInst.PublicVars at +0x28 is a
+    // pointer to the Delphi dynamic-array holder. The holder points to an
+    // array of float pointers; its element count is stored at data-4.
+    constexpr int ComplObjInstancePublicVarsOffset = 0x028;
     constexpr int ComplObjInstancePositionOffset = 0x05C;
     constexpr int ComplObjInstanceRenderMeOffset = 0x09C;
     constexpr int ComplMapObjModelStringOffset = 0x1A4;
@@ -3592,6 +3596,123 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_MaintainVehicleExternalContro
     }
 
     return result;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_GetRoadVehiclePublicVarCount(
+    int vehiclePointer)
+{
+    if (!IsRoadVehiclePointer(vehiclePointer))
+    {
+        return -1;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    if (!IsReadableRange(base + ComplObjInstanceOffset, sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int complObjInstance =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    if (complObjInstance == 0)
+    {
+        return 0;
+    }
+
+    const auto child = static_cast<std::uintptr_t>(complObjInstance);
+    if (!IsReadableRange(
+            child + ComplObjInstancePublicVarsOffset,
+            sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int holder =
+        *reinterpret_cast<const int*>(
+            child + ComplObjInstancePublicVarsOffset);
+    if (holder == 0 ||
+        !IsReadableRange(
+            static_cast<std::uintptr_t>(holder),
+            sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int data =
+        *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(holder));
+    if (data == 0)
+    {
+        return 0;
+    }
+
+    const auto dataAddress = static_cast<std::uintptr_t>(data);
+    if (dataAddress < sizeof(int) ||
+        !IsReadableRange(dataAddress - sizeof(int), sizeof(int)))
+    {
+        return -1;
+    }
+
+    const int count =
+        *reinterpret_cast<const int*>(dataAddress - sizeof(int));
+    return count >= 0 && count <= 65535 ? count : -1;
+}
+
+extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePublicVar(
+    int vehiclePointer,
+    int index,
+    float* value)
+{
+    if (value == nullptr || index < 0)
+    {
+        return 0;
+    }
+
+    const int count = NavBR_GetRoadVehiclePublicVarCount(vehiclePointer);
+    if (count <= 0 || index >= count)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    const int complObjInstance =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    const auto child = static_cast<std::uintptr_t>(complObjInstance);
+    const int holder =
+        *reinterpret_cast<const int*>(
+            child + ComplObjInstancePublicVarsOffset);
+    const int data =
+        *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(holder));
+    const auto entryAddress =
+        static_cast<std::uintptr_t>(data) +
+        static_cast<std::uintptr_t>(index) * sizeof(int);
+
+    if (!IsReadableRange(entryAddress, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int floatPointer =
+        *reinterpret_cast<const int*>(entryAddress);
+    if (floatPointer == 0 ||
+        !IsReadableRange(
+            static_cast<std::uintptr_t>(floatPointer),
+            sizeof(float)))
+    {
+        return 0;
+    }
+
+    const float read =
+        *reinterpret_cast<const float*>(
+            static_cast<std::uintptr_t>(floatPointer));
+    if (!std::isfinite(read))
+    {
+        return 0;
+    }
+
+    *value = read;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
