@@ -3715,6 +3715,65 @@ extern "C" __declspec(dllexport) int __cdecl NavBR_ReadRoadVehiclePublicVar(
     return 1;
 }
 
+extern "C" __declspec(dllexport) int __cdecl NavBR_WriteRoadVehiclePublicVar(
+    int vehiclePointer,
+    int index,
+    float value)
+{
+    if (!std::isfinite(value) ||
+        !IsRoadVehiclePointer(vehiclePointer) ||
+        index < 0)
+    {
+        return 0;
+    }
+
+    const int playerVehicleAtWrite = GetPlayerVehiclePointer();
+    if (playerVehicleAtWrite != 0 &&
+        vehiclePointer == playerVehicleAtWrite)
+    {
+        return 0;
+    }
+
+    const int count = NavBR_GetRoadVehiclePublicVarCount(vehiclePointer);
+    if (count <= 0 || index >= count)
+    {
+        return 0;
+    }
+
+    const auto base = static_cast<std::uintptr_t>(vehiclePointer);
+    const int complObjInstance =
+        *reinterpret_cast<const int*>(base + ComplObjInstanceOffset);
+    const auto child = static_cast<std::uintptr_t>(complObjInstance);
+    const int holder =
+        *reinterpret_cast<const int*>(
+            child + ComplObjInstancePublicVarsOffset);
+    const int data =
+        *reinterpret_cast<const int*>(
+            static_cast<std::uintptr_t>(holder));
+    const auto entryAddress =
+        static_cast<std::uintptr_t>(data) +
+        static_cast<std::uintptr_t>(index) * sizeof(int);
+
+    if (!IsReadableRange(entryAddress, sizeof(int)))
+    {
+        return 0;
+    }
+
+    const int floatPointer =
+        *reinterpret_cast<const int*>(entryAddress);
+    const auto valueAddress =
+        static_cast<std::uintptr_t>(floatPointer);
+    if (floatPointer == 0 ||
+        !IsReadableRange(valueAddress, sizeof(float)) ||
+        !IsWritableRange(valueAddress, sizeof(float)))
+    {
+        return 0;
+    }
+
+    *reinterpret_cast<float*>(valueAddress) = value;
+    return 1;
+}
+
 extern "C" __declspec(dllexport) int __cdecl NavBR_SetVehicleVisualState(
     int vehiclePointer,
     int lightFlags,
