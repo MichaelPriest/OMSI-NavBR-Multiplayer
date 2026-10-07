@@ -685,11 +685,11 @@ public partial class HudOverlayWindow
 
         _inGameGroundGuidanceToggle = BuildInGameCheckBox(
             InGameText(
-                "Setas 3D no chão (rota)",
-                "3D ground route arrows",
-                "Flechas 3D en el suelo",
-                "3D-Routenpfeile am Boden",
-                "Flèches 3D au sol"),
+                "Setas na via (estilo Forza)",
+                "Road arrows (Forza style)",
+                "Flechas en la vía (estilo Forza)",
+                "Pfeile auf der Fahrbahn (Forza-Stil)",
+                "Flèches sur la voie (style Forza)"),
             value => SaveInGameSettings(settings => settings with
             {
                 GroundRouteGuidanceEnabled = value
@@ -1550,7 +1550,7 @@ public partial class HudOverlayWindow
             if (_inGameGroundGuidanceStatusText is not null)
             {
                 _inGameGroundGuidanceStatusText.Text =
-                    $"SETAS 3D • {GroundRouteGuidanceStatus}";
+                    $"SETAS NA VIA • {GroundRouteGuidanceStatus}";
             }
             if (_inGameFreeRoamToggle is not null) _inGameFreeRoamToggle.IsChecked = settings.RoleplayFreeRoamEnabled;
             if (_inGameMapRouteToggle is not null) _inGameMapRouteToggle.IsChecked = settings.MapShowRoute;
@@ -1603,7 +1603,7 @@ public partial class HudOverlayWindow
         }
 
         _inGameGroundGuidanceStatusText.Text =
-            $"SETAS 3D • {status}";
+            $"SETAS NA VIA • {status}";
     }
 
     private static TextBlock BuildInGameStatusText() =>
