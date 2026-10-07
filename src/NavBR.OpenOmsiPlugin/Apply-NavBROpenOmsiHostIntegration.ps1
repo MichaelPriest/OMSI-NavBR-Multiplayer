@@ -292,38 +292,37 @@ Replace-Required $events @'
 '@ @'
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && !event.repeat {
-                    if let PhysicalKey::Code(KeyCode::KeyN) = event.physical_key {
-                        let ctrl = self.keys.contains(&KeyCode::ControlLeft)
-                            || self.keys.contains(&KeyCode::ControlRight);
-                        let alt = self.keys.contains(&KeyCode::AltLeft)
-                            || self.keys.contains(&KeyCode::AltRight);
-                        let shift = self.keys.contains(&KeyCode::ShiftLeft)
-                            || self.keys.contains(&KeyCode::ShiftRight);
-                        if ctrl && (alt || shift) {
-                            self.navbr_panel_open = !self.navbr_panel_open;
-                            self.service_msg = Some((
-                                if self.navbr_panel_open {
-                                    "NavBR: painel aberto"
-                                } else {
-                                    "NavBR: painel fechado"
-                                }.to_string(),
-                                2.0,
-                            ));
-                            return;
+                    let navbr_toggle = match event.physical_key {
+                        PhysicalKey::Code(KeyCode::F10) => true,
+                        PhysicalKey::Code(KeyCode::KeyN) => {
+                            let ctrl = self.keys.contains(&KeyCode::ControlLeft)
+                                || self.keys.contains(&KeyCode::ControlRight);
+                            let alt = self.keys.contains(&KeyCode::AltLeft)
+                                || self.keys.contains(&KeyCode::AltRight);
+                            let shift = self.keys.contains(&KeyCode::ShiftLeft)
+                                || self.keys.contains(&KeyCode::ShiftRight);
+                            ctrl && (alt || shift)
                         }
-                    }
-                    if let PhysicalKey::Code(KeyCode::Escape) = event.physical_key {
-                        if self.navbr_panel_open {
-                            self.navbr_panel_open = false;
-                            return;
-                        }
+                        _ => false,
+                    };
+                    if navbr_toggle {
+                        self.navbr_panel_open = !self.navbr_panel_open;
+                        self.service_msg = Some((
+                            if self.navbr_panel_open {
+                                "NavBR: painel aberto (F10)"
+                            } else {
+                                "NavBR: painel fechado (F10)"
+                            }.to_string(),
+                            2.0,
+                        ));
+                        return;
                     }
                 }
 
                 if event.state == ElementState::Pressed && self.menu_edit_icao {
 '@
 
-# --- NavBR in-game panel shortcut: Ctrl+Alt+N; Escape closes it first.
+# --- NavBR in-game panel shortcut: F10; Escape closes it first.
 Replace-Required $inputScript @'
             if pressed && !repeat {
                 self.keys.insert(code);
@@ -342,23 +341,22 @@ Replace-Required $inputScript @'
                 || self.keys.contains(&KeyCode::ControlRight);
             let navbr_alt = self.keys.contains(&KeyCode::AltLeft)
                 || self.keys.contains(&KeyCode::AltRight);
-            if pressed && !repeat && code == KeyCode::KeyN && navbr_ctrl && navbr_alt {
+            let navbr_fallback = code == KeyCode::KeyN
+                && navbr_ctrl
+                && (navbr_alt || self.keys.contains(&KeyCode::ShiftLeft) || self.keys.contains(&KeyCode::ShiftRight));
+            if pressed && !repeat && (code == KeyCode::F10 || navbr_fallback) {
                 self.navbr_panel_open = !self.navbr_panel_open;
                 self.service_msg = Some((
                     if self.navbr_panel_open {
-                        "NavBR: painel aberto"
+                        "NavBR: painel aberto (F10)"
                     } else {
-                        "NavBR: painel fechado"
+                        "NavBR: painel fechado (F10)"
                     }.to_string(),
                     2.0,
                 ));
                 return;
             }
-            if pressed && !repeat && code == KeyCode::Escape && self.navbr_panel_open {
-                self.navbr_panel_open = false;
-                return;
-            }
-
+            // Esc remains entirely native to openOMSI; NavBR uses F10.
             // Alt+Enter: full screen on and off
 '@
 
@@ -732,9 +730,9 @@ Replace-Required $ui @'
                 r,
                 scene,
                 if f.navbr_overlay.is_some() {
-                    "Painel do openOMSI  ·  Ctrl+Alt+N  ·  conectado"
+                    "Painel do openOMSI  ·  F10  ·  conectado"
                 } else {
-                    "Painel do openOMSI  ·  Ctrl+Alt+N  ·  aguardando plugin"
+                    "Painel do openOMSI  ·  F10  ·  aguardando plugin"
                 },
                 (12.0 * s) as u32,
                 [170, 185, 205, 0],
