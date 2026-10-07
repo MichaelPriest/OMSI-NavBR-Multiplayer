@@ -507,7 +507,10 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
-        if (_openOmsiV6Session?.IsHost == true)
+        // Authority changed: a client must leave the previous v6 host as well,
+        // otherwise it would keep receiving motion from a room authority that
+        // no longer owns the shared session.
+        if (_openOmsiV6Session?.IsRunning == true)
         {
             await StopOpenOmsiV6Async();
         }
