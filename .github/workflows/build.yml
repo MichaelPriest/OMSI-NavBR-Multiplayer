@@ -361,7 +361,7 @@ jobs:
           }
           Write-Host "Embedded OMSI plugin resource validated."
 
-      - name: Smoke-test SignalR to openOMSI physical gateway
+      - name: Smoke-test SignalR sidecar and openOMSI v6 split
         shell: pwsh
         run: |
           dotnet publish src/NavBR.OpenOmsiSignalRSmokeTest/NavBR.OpenOmsiSignalRSmokeTest.csproj `
@@ -370,7 +370,7 @@ jobs:
             -o artifacts/NavBR.OpenOmsiSignalRSmokeTest
           & "artifacts/NavBR.OpenOmsiSignalRSmokeTest/NavBR.OpenOmsiSignalRSmokeTest.exe"
           if ($LASTEXITCODE -ne 0) {
-            throw "SignalR to openOMSI physical gateway smoke failed."
+            throw "SignalR sidecar and openOMSI v6 split smoke failed."
           }
 
       - name: Smoke-test plugin bridge handshake and status
