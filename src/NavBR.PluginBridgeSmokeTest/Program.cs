@@ -205,6 +205,89 @@ finally
     Directory.Delete(varTableRoot, recursive: true);
 }
 
+var interpolatorType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.OpenOmsiRemoteStateInterpolator",
+        throwOnError: true)!;
+var interpolator =
+    Activator.CreateInstance(
+        interpolatorType,
+        nonPublic: true)
+    ?? throw new InvalidOperationException(
+        "openOMSI remote state interpolator could not be created");
+var pushAndInterpolate =
+    interpolatorType.GetMethod(
+        "TryPushAndInterpolate",
+        BindingFlags.NonPublic | BindingFlags.Instance)
+    ?? throw new InvalidOperationException(
+        "openOMSI remote state interpolation entrypoint not found");
+
+bool PushState(
+    OpenOmsiLanVehicleState state,
+    out OpenOmsiLanVehicleState? rendered)
+{
+    object?[] args = [state, null];
+    var accepted =
+        (bool)(pushAndInterpolate.Invoke(
+            interpolator,
+            args) ?? false);
+    rendered =
+        args[1] as OpenOmsiLanVehicleState;
+    return accepted;
+}
+
+var orderedState =
+    OpenOmsiLanVehicleState.Empty(42, 1) with
+    {
+        Flags = OpenOmsiLanProtocol.FlagVehicle,
+        X = 10d,
+        Y = 20d,
+        SpeedKph = 25f,
+        SentMilliseconds = 1_000u
+    };
+Require(
+    PushState(
+        orderedState,
+        out var orderedRendered) &&
+    orderedRendered is not null,
+    "openOMSI interpolator rejected the first ordered state");
+
+var staleState =
+    orderedState with
+    {
+        Sequence = 2,
+        X = 9d,
+        SentMilliseconds = 900u
+    };
+Require(
+    !PushState(staleState, out _),
+    "openOMSI interpolator accepted a stale/reordered state");
+
+var laterState =
+    orderedState with
+    {
+        Sequence = 3,
+        X = 30d,
+        SentMilliseconds = 50_000u
+    };
+Require(
+    PushState(laterState, out _),
+    "openOMSI interpolator rejected a later state");
+
+var restartedClockState =
+    orderedState with
+    {
+        Sequence = 1,
+        X = 5d,
+        SentMilliseconds = 1_000u
+    };
+Require(
+    PushState(
+        restartedClockState,
+        out var restartRendered) &&
+    restartRendered is not null,
+    "openOMSI interpolator did not reset after remote clock restart");
+
 var updaterType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
         "NavBR.Client.Updates.NavBRAutoUpdateService",
