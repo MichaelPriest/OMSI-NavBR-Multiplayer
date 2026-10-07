@@ -19,8 +19,8 @@ internal static class RemoteVehicleVarsRegistry
         rejectionReason = null;
         var playerId = message.PlayerId?.Trim();
         if (string.IsNullOrWhiteSpace(playerId) ||
-            message.SyncTableHash is not uint tableHash ||
-            tableHash == 0)
+            message.VarTableHash is not uint varTableHash ||
+            varTableHash == 0)
         {
             rejectionReason = "missing-player-or-table";
             return false;
@@ -49,16 +49,24 @@ internal static class RemoteVehicleVarsRegistry
 
         States.AddOrUpdate(
             playerId,
-            _ => RemoteVehicleVarsSnapshot.Empty(tableHash).Apply(
+            _ => RemoteVehicleVarsSnapshot.Empty() with
+            {
+                VarTableHash = varTableHash
+            }.Apply(
                 floatIds,
                 floatValues,
                 stringIds,
                 stringValues),
             (_, current) =>
             {
-                if (current.TableHash != tableHash)
+                if (current.VarTableHash != varTableHash)
                 {
-                    current = RemoteVehicleVarsSnapshot.Empty(tableHash);
+                    current = current with
+                    {
+                        VarTableHash = varTableHash,
+                        Floats = new Dictionary<ushort, float>(),
+                        Strings = new Dictionary<ushort, string>()
+                    };
                 }
 
                 return current.Apply(
@@ -78,8 +86,8 @@ internal static class RemoteVehicleVarsRegistry
         rejectionReason = null;
         var playerId = message.PlayerId?.Trim();
         if (string.IsNullOrWhiteSpace(playerId) ||
-            message.SyncTableHash is not uint tableHash ||
-            tableHash == 0)
+            message.SyncTableHash is not uint varTableHash ||
+            varTableHash == 0)
         {
             rejectionReason = "missing-player-or-table";
             return false;
@@ -101,8 +109,9 @@ internal static class RemoteVehicleVarsRegistry
 
         States.AddOrUpdate(
             playerId,
-            _ => RemoteVehicleVarsSnapshot.Empty(tableHash) with
+            _ => RemoteVehicleVarsSnapshot.Empty() with
             {
+                SyncTableHash = syncTableHash,
                 Lamps = lamps.ToArray(),
                 Switches = switches.ToArray(),
                 Values = values.ToArray(),
@@ -110,9 +119,15 @@ internal static class RemoteVehicleVarsRegistry
             },
             (_, current) =>
             {
-                if (current.TableHash != tableHash)
+                if (current.SyncTableHash != syncTableHash)
                 {
-                    current = RemoteVehicleVarsSnapshot.Empty(tableHash);
+                    current = current with
+                    {
+                        SyncTableHash = syncTableHash,
+                        Lamps = [],
+                        Switches = [],
+                        Values = []
+                    };
                 }
 
                 return current with
@@ -147,7 +162,8 @@ internal static class RemoteVehicleVarsRegistry
     internal static void Clear() => States.Clear();
 
     internal sealed record RemoteVehicleVarsSnapshot(
-        uint TableHash,
+        uint? SyncTableHash,
+        uint? VarTableHash,
         IReadOnlyDictionary<ushort, float> Floats,
         IReadOnlyDictionary<ushort, string> Strings,
         float[] Lamps,
@@ -155,9 +171,10 @@ internal static class RemoteVehicleVarsRegistry
         float[] Values,
         long UpdatedAtTick)
     {
-        internal static RemoteVehicleVarsSnapshot Empty(uint tableHash) =>
+        internal static RemoteVehicleVarsSnapshot Empty() =>
             new(
-                tableHash,
+                null,
+                null,
                 new Dictionary<ushort, float>(),
                 new Dictionary<ushort, string>(),
                 [],
@@ -184,7 +201,8 @@ internal static class RemoteVehicleVarsRegistry
             }
 
             return new RemoteVehicleVarsSnapshot(
-                TableHash,
+                SyncTableHash,
+                VarTableHash,
                 floats,
                 strings,
                 Lamps,
