@@ -258,6 +258,38 @@ await using (var client = new OpenOmsiLanPeerSession())
 
     Require(client.LocalPlayerId >= 2, "client did not receive a LAN player id");
 
+    Require(
+        client.SessionId == host.SessionId,
+        "session-code join did not keep the requested session id");
+
+    await using (var wrongSessionClient = new OpenOmsiLanPeerSession())
+    {
+        var wrongSessionCode = new OpenOmsiSessionCode(
+            OpenOmsiLanProtocol.ProtocolVersion,
+            IPAddress.Loopback,
+            checked((ushort)host.Port.Value),
+            (host.SessionId ^ 1UL) & 0x0000_FFFF_FFFF_FFFFUL)
+            .Encode();
+
+        var rejected = false;
+        try
+        {
+            await wrongSessionClient.JoinByCodeAsync(
+                wrongSessionCode,
+                world,
+                "Wrong Session",
+                @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+
+        Require(
+            rejected,
+            "host accepted a HELLO carrying the wrong session id");
+    }
+
     var clientState = OpenOmsiLanVehicleState.Empty(client.LocalPlayerId, 1) with
     {
         Flags = OpenOmsiLanProtocol.FlagVehicle |
