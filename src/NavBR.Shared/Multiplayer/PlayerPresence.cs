@@ -1,4 +1,5 @@
 using NavBR.Shared.Network;
+using NavBR.Shared.OpenOmsi;
 
 namespace NavBR.Shared.Multiplayer;
 
@@ -23,4 +24,6 @@ public sealed record PlayerPresence(
     public int? PhysicalVehicleCount { get; init; }
 
     public IReadOnlyList<string>? PhysicalVehiclePlayerIds { get; init; }
+
+    public OpenOmsiTransportDescriptor? OpenOmsiTransport { get; init; }
 }
