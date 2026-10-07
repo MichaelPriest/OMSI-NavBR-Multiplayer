@@ -16,6 +16,9 @@ public sealed partial class MultiplayerClientService
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ushort, OpenOmsiLanVehicleInfo> _openOmsiInfoByLanId = [];
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
+    private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
+    private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
+    private string? _openOmsiPublicWebSocketUrl;
     private ushort _openOmsiLocalSequence;
     private RoleplayCharacterState? _openOmsiLocalRoleplayState;
 
@@ -61,6 +64,7 @@ public sealed partial class MultiplayerClientService
         if (IsTrafficAuthority)
         {
             await session.StartHostAsync(world, cancellationToken);
+            await StartOpenOmsiWebSocketGatewayAsync(session, cancellationToken);
             await PublishOpenOmsiTransportPresenceAsync(
                 session,
                 ResolveLanAdvertiseAddress(),
@@ -74,15 +78,16 @@ public sealed partial class MultiplayerClientService
                 snapshot.TrafficAuthorityPlayerId,
                 StringComparison.OrdinalIgnoreCase));
 
-        if (authority?.OpenOmsiTransport is { IsValid: true } transport &&
-            IPAddress.TryParse(transport.Host, out var hostAddress))
+        if (authority?.OpenOmsiTransport is { IsValid: true } transport)
         {
             await JoinAdvertisedOpenOmsiTransportAsync(
                 transport,
-                hostAddress,
                 world,
                 cancellationToken);
-            return;
+            if (_openOmsiV6Session?.IsRunning == true)
+            {
+                return;
+            }
         }
 
         // Sidecar discovery can lag behind the physical session. Fall back to
@@ -121,7 +126,6 @@ public sealed partial class MultiplayerClientService
 
     private async Task JoinAdvertisedOpenOmsiTransportAsync(
         OpenOmsiTransportDescriptor transport,
-        IPAddress hostAddress,
         OpenOmsiLanWorld world,
         CancellationToken cancellationToken)
     {
@@ -140,12 +144,48 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
-        await session.JoinAsync(
-            new IPEndPoint(hostAddress, transport.Port),
-            world,
-            _joinRequest?.DisplayName ?? "Driver",
-            _joinRequest?.Compatibility?.VehiclePath,
-            cancellationToken);
+        Exception? udpError = null;
+        if (transport.HasUdpEndpoint &&
+            IPAddress.TryParse(transport.Host, out var hostAddress))
+        {
+            try
+            {
+                await session.JoinAsync(
+                    new IPEndPoint(hostAddress, transport.Port),
+                    world,
+                    _joinRequest?.DisplayName ?? "Driver",
+                    _joinRequest?.Compatibility?.VehiclePath,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (
+                transport.HasWebSocketEndpoint &&
+                ex is TimeoutException or SocketException)
+            {
+                udpError = ex;
+            }
+        }
+
+        if (!session.IsRunning || session.LocalPlayerId == 0)
+        {
+            if (!transport.HasWebSocketEndpoint)
+            {
+                if (udpError is not null)
+                {
+                    throw udpError;
+                }
+                return;
+            }
+
+            _openOmsiWebSocketClient = await OpenOmsiWebSocketClient.ConnectAsync(
+                transport.WebSocketUrl!,
+                cancellationToken);
+            await session.JoinAsync(
+                _openOmsiWebSocketClient.LocalEndpoint,
+                world,
+                _joinRequest?.DisplayName ?? "Driver",
+                _joinRequest?.Compatibility?.VehiclePath,
+                cancellationToken);
+        }
 
         var connection = _connection;
         if (connection?.State == HubConnectionState.Connected)
@@ -175,7 +215,8 @@ public sealed partial class MultiplayerClientService
             port,
             OpenOmsiLanProtocol.SessionHex(session.SessionId))
         {
-            SessionCode = session.SessionCode
+            SessionCode = session.SessionCode,
+            WebSocketUrl = _openOmsiPublicWebSocketUrl
         };
 
         await connection.InvokeAsync(
@@ -201,8 +242,7 @@ public sealed partial class MultiplayerClientService
                 presence.PlayerId,
                 TrafficAuthorityPlayerId,
                 StringComparison.OrdinalIgnoreCase) ||
-            presence.OpenOmsiTransport is not { IsValid: true } transport ||
-            !IPAddress.TryParse(transport.Host, out var address))
+            presence.OpenOmsiTransport is not { IsValid: true } transport)
         {
             return;
         }
@@ -218,7 +258,6 @@ public sealed partial class MultiplayerClientService
         {
             await JoinAdvertisedOpenOmsiTransportAsync(
                 transport,
-                address,
                 world,
                 CancellationToken.None);
         }
@@ -631,6 +670,9 @@ public sealed partial class MultiplayerClientService
                 string.Empty,
                 string.Empty);
             await session.StartHostAsync(world);
+            await StartOpenOmsiWebSocketGatewayAsync(
+                session,
+                CancellationToken.None);
             await PublishOpenOmsiTransportPresenceAsync(
                 session,
                 ResolveLanAdvertiseAddress(),
@@ -663,10 +705,51 @@ public sealed partial class MultiplayerClientService
         }
     }
 
+
+    private async Task StartOpenOmsiWebSocketGatewayAsync(
+        OpenOmsiLanPeerSession session,
+        CancellationToken cancellationToken)
+    {
+        if (session.Port is not int udpPort)
+        {
+            return;
+        }
+
+        if (_openOmsiWebSocketGateway is not null)
+        {
+            await _openOmsiWebSocketGateway.DisposeAsync();
+            _openOmsiWebSocketGateway = null;
+        }
+
+        var webPort = Math.Min(65535, udpPort + 10);
+        _openOmsiWebSocketGateway =
+            await OpenOmsiWebSocketGateway.StartAsync(
+                webPort,
+                new IPEndPoint(IPAddress.Loopback, udpPort),
+                cancellationToken);
+
+        // A public tunnel URL, when available, replaces this local address.
+        _openOmsiPublicWebSocketUrl ??=
+            $"http://127.0.0.1:{_openOmsiWebSocketGateway.Port}";
+    }
+
+    internal void SetOpenOmsiPublicWebSocketUrl(string? url)
+    {
+        _openOmsiPublicWebSocketUrl =
+            string.IsNullOrWhiteSpace(url)
+                ? null
+                : url.Trim();
+    }
+
     private async Task StopOpenOmsiV6Async()
     {
         var session = _openOmsiV6Session;
+        var webSocketClient = _openOmsiWebSocketClient;
+        var webSocketGateway = _openOmsiWebSocketGateway;
         _openOmsiV6Session = null;
+        _openOmsiWebSocketClient = null;
+        _openOmsiWebSocketGateway = null;
+        _openOmsiPublicWebSocketUrl = null;
         _openOmsiLocalRoleplayState = null;
         lock (_openOmsiV6Sync)
         {
@@ -678,6 +761,16 @@ public sealed partial class MultiplayerClientService
         if (session is not null)
         {
             await session.DisposeAsync();
+        }
+
+        if (webSocketClient is not null)
+        {
+            await webSocketClient.DisposeAsync();
+        }
+
+        if (webSocketGateway is not null)
+        {
+            await webSocketGateway.DisposeAsync();
         }
     }
 
