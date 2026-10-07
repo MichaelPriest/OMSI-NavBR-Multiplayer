@@ -190,37 +190,37 @@ jobs:
           # and require the patched openOMSI loader to resolve the NavBR HUD export.
           $loaderTest = Join-Path $upstream "crates\omsi-plugin\tests\navbr_loader.rs"
           @'
-use omsi_plugin::{HostConfig, Plugins};
-use std::path::PathBuf;
-
-#[test]
-fn navbr_native_aot_loads_in_process_with_hud_control_export() {
-    let dll = PathBuf::from(std::env::var("NAVBR_PLUGIN_DLL").expect("NAVBR_PLUGIN_DLL"));
-    assert!(dll.is_file(), "NavBR DLL missing: {}", dll.display());
-
-    let root = std::env::temp_dir().join(format!("navbr-openomsi-loader-{}", std::process::id()));
-    let plugins_dir = root.join("Plugins");
-    let navbr_dir = plugins_dir.join("NavBR.OpenOmsi");
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&navbr_dir).unwrap();
-
-    std::fs::copy(&dll, navbr_dir.join("NavBR.OpenOmsiPlugin.dll")).unwrap();
-    std::fs::write(
-        navbr_dir.join("NavBR.OpenOmsiPlugin.opl"),
-        "[dll]\r\nNavBR.OpenOmsi\\NavBR.OpenOmsiPlugin.dll\r\n\r\n[varlist]\r\n0\r\n\r\n[systemvarlist]\r\n0\r\n\r\n[stringvarlist]\r\n0\r\n\r\n[triggers]\r\n0\r\n",
-    ).unwrap();
-
-    let mut plugins = Plugins::load(&[plugins_dir.clone()], &HostConfig::default());
-    assert_eq!(plugins.loaded.len(), 1, "NavBR DLL was not loaded by Plugins::load");
-    assert!(
-        plugins.set_navbr_hud_flags(1, 1),
-        "NavBR loaded but OpenOmsiSetHudFlagsV1 was not resolved"
-    );
-
-    plugins.finalize();
-    let _ = std::fs::remove_dir_all(&root);
-}
-'@ | Set-Content -LiteralPath $loaderTest -Encoding UTF8
+          use omsi_plugin::{HostConfig, Plugins};
+          use std::path::PathBuf;
+          
+          #[test]
+          fn navbr_native_aot_loads_in_process_with_hud_control_export() {
+              let dll = PathBuf::from(std::env::var("NAVBR_PLUGIN_DLL").expect("NAVBR_PLUGIN_DLL"));
+              assert!(dll.is_file(), "NavBR DLL missing: {}", dll.display());
+          
+              let root = std::env::temp_dir().join(format!("navbr-openomsi-loader-{}", std::process::id()));
+              let plugins_dir = root.join("Plugins");
+              let navbr_dir = plugins_dir.join("NavBR.OpenOmsi");
+              let _ = std::fs::remove_dir_all(&root);
+              std::fs::create_dir_all(&navbr_dir).unwrap();
+          
+              std::fs::copy(&dll, navbr_dir.join("NavBR.OpenOmsiPlugin.dll")).unwrap();
+              std::fs::write(
+                  navbr_dir.join("NavBR.OpenOmsiPlugin.opl"),
+                  "[dll]\r\nNavBR.OpenOmsi\\NavBR.OpenOmsiPlugin.dll\r\n\r\n[varlist]\r\n0\r\n\r\n[systemvarlist]\r\n0\r\n\r\n[stringvarlist]\r\n0\r\n\r\n[triggers]\r\n0\r\n",
+              ).unwrap();
+          
+              let mut plugins = Plugins::load(&[plugins_dir.clone()], &HostConfig::default());
+              assert_eq!(plugins.loaded.len(), 1, "NavBR DLL was not loaded by Plugins::load");
+              assert!(
+                  plugins.set_navbr_hud_flags(1, 1),
+                  "NavBR loaded but OpenOmsiSetHudFlagsV1 was not resolved"
+              );
+          
+              plugins.finalize();
+              let _ = std::fs::remove_dir_all(&root);
+          }
+          '@ | Set-Content -LiteralPath $loaderTest -Encoding UTF8
 
           $env:NAVBR_PLUGIN_DLL = (Resolve-Path (Join-Path $env:GITHUB_WORKSPACE "artifacts\NavBR.OpenOmsiPlugin\NavBR.OpenOmsiPlugin.dll")).Path
 
