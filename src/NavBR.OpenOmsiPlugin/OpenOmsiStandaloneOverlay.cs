@@ -28,12 +28,15 @@ internal static class OpenOmsiStandaloneOverlay
     private const uint WM_DESTROY = 0x0002;
     private const uint WM_PAINT = 0x000F;
     private const uint WM_TIMER = 0x0113;
+    private const uint WM_LBUTTONDOWN = 0x0201;
     private const uint WM_LBUTTONUP = 0x0202;
+    private const uint WM_NCLBUTTONDOWN = 0x00A1;
     private const uint WM_HOTKEY = 0x0312;
 
     private const int SW_HIDE = 0;
     private const int SW_SHOWNOACTIVATE = 4;
     private const int HOTKEY_ID = 0x4E4252;
+    private const int HTCAPTION = 2;
     private const uint VK_F10 = 0x79;
 
     private static readonly string[] Rows =
@@ -57,6 +60,8 @@ internal static class OpenOmsiStandaloneOverlay
     private static IntPtr _window;
     private static volatile bool _running;
     private static volatile bool _visible = true;
+    private static volatile bool _manualPosition;
+    private static IntPtr _openOmsiWindow;
 
     internal static void Start()
     {
@@ -122,6 +127,7 @@ internal static class OpenOmsiStandaloneOverlay
             }
 
             var owner = FindOpenOmsiWindow();
+            _openOmsiWindow = owner;
             var rect = GetAnchorRect(owner);
             _window = CreateWindowEx(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
@@ -180,7 +186,11 @@ internal static class OpenOmsiStandaloneOverlay
                 ShowWindow(hwnd, _visible ? SW_SHOWNOACTIVATE : SW_HIDE);
                 if (_visible)
                 {
-                    PositionNearOpenOmsi(FindOpenOmsiWindow());
+                    EnsureOpenOmsiAnchor();
+                    if (!_manualPosition)
+                    {
+                        PositionNearOpenOmsi(_openOmsiWindow);
+                    }
                     InvalidateRect(hwnd, IntPtr.Zero, false);
                 }
                 return IntPtr.Zero;
@@ -188,10 +198,24 @@ internal static class OpenOmsiStandaloneOverlay
             case WM_TIMER when wParam.ToInt32() == TimerId:
                 if (_visible)
                 {
-                    PositionNearOpenOmsi(FindOpenOmsiWindow());
+                    EnsureOpenOmsiAnchor();
+                    if (!_manualPosition)
+                    {
+                        PositionNearOpenOmsi(_openOmsiWindow);
+                    }
                     InvalidateRect(hwnd, IntPtr.Zero, false);
                 }
                 return IntPtr.Zero;
+
+            case WM_LBUTTONDOWN:
+                if (HighWord(lParam) < Header)
+                {
+                    _manualPosition = true;
+                    ReleaseCapture();
+                    SendMessage(hwnd, WM_NCLBUTTONDOWN, new IntPtr(HTCAPTION), IntPtr.Zero);
+                    return IntPtr.Zero;
+                }
+                break;
 
             case WM_LBUTTONUP:
                 HandleClick(hwnd, LowWord(lParam), HighWord(lParam));
@@ -555,24 +579,52 @@ internal static class OpenOmsiStandaloneOverlay
         return (80, 80);
     }
 
+    private static void EnsureOpenOmsiAnchor()
+    {
+        if (_openOmsiWindow == IntPtr.Zero ||
+            _openOmsiWindow == _window ||
+            !IsWindow(_openOmsiWindow))
+        {
+            _openOmsiWindow = FindOpenOmsiWindow();
+        }
+    }
+
     private static IntPtr FindOpenOmsiWindow()
     {
         var pid = (uint)Environment.ProcessId;
         IntPtr found = IntPtr.Zero;
+        long largestArea = -1;
+
         EnumWindows((hwnd, _) =>
         {
-            GetWindowThreadProcessId(hwnd, out var windowPid);
-            if (windowPid == pid && IsWindowVisible(hwnd))
+            if (hwnd == _window || !IsWindowVisible(hwnd))
             {
-                var length = GetWindowTextLength(hwnd);
-                if (length > 0)
-                {
-                    found = hwnd;
-                    return false;
-                }
+                return true;
             }
+
+            GetWindowThreadProcessId(hwnd, out var windowPid);
+            if (windowPid != pid || GetWindowTextLength(hwnd) <= 0)
+            {
+                return true;
+            }
+
+            if (!GetWindowRect(hwnd, out var rect))
+            {
+                return true;
+            }
+
+            var width = Math.Max(0, rect.Right - rect.Left);
+            var height = Math.Max(0, rect.Bottom - rect.Top);
+            var area = (long)width * height;
+            if (area > largestArea)
+            {
+                largestArea = area;
+                found = hwnd;
+            }
+
             return true;
         }, IntPtr.Zero);
+
         return found;
     }
 
@@ -677,6 +729,12 @@ internal static class OpenOmsiStandaloneOverlay
     private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
     private static extern void PostQuitMessage(int exitCode);
 
     [DllImport("user32.dll")]
@@ -699,6 +757,9 @@ internal static class OpenOmsiStandaloneOverlay
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindow(IntPtr hwnd);
 
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hwnd);
