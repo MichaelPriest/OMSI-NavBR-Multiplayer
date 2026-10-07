@@ -193,6 +193,7 @@ public sealed record PluginBridgeMessage(
     double? AccelerationLocalZ = null,
     VehicleSectionPose[]? RearSections = null,
     uint? SyncTableHash = null,
+    uint? VarTableHash = null,
     ushort[]? VariableIndices = null,
     float[]? VariableValues = null,
     ushort[]? StringVariableIndices = null,
