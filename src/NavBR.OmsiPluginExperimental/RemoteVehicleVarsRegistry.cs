@@ -96,12 +96,23 @@ internal static class RemoteVehicleVarsRegistry
         var lamps = message.SyncLamps ?? [];
         var switches = message.SyncSwitches ?? [];
         var values = message.SyncValues ?? [];
+        var doors = message.SyncDoors ?? [];
+        var lampIds = message.SyncLampVariableIndices ?? [];
+        var switchIds = message.SyncSwitchVariableIndices ?? [];
+        var valueIds = message.SyncValueVariableIndices ?? [];
+        var doorIds = message.SyncDoorVariableIndices ?? [];
         if (lamps.Length > 127 ||
             switches.Length > 31 ||
             values.Length > 63 ||
+            doors.Length > 7 ||
+            lamps.Length != lampIds.Length ||
+            switches.Length != switchIds.Length ||
+            values.Length != valueIds.Length ||
+            doors.Length != doorIds.Length ||
             lamps.Any(value => !float.IsFinite(value)) ||
             switches.Any(value => !float.IsFinite(value)) ||
-            values.Any(value => !float.IsFinite(value)))
+            values.Any(value => !float.IsFinite(value)) ||
+            doors.Any(value => !float.IsFinite(value)))
         {
             rejectionReason = "invalid-visual-sync-shape";
             return false;
@@ -115,6 +126,11 @@ internal static class RemoteVehicleVarsRegistry
                 Lamps = lamps.ToArray(),
                 Switches = switches.ToArray(),
                 Values = values.ToArray(),
+                Doors = doors.ToArray(),
+                LampIds = lampIds.ToArray(),
+                SwitchIds = switchIds.ToArray(),
+                ValueIds = valueIds.ToArray(),
+                DoorIds = doorIds.ToArray(),
                 UpdatedAtTick = Environment.TickCount64
             },
             (_, current) =>
@@ -126,7 +142,12 @@ internal static class RemoteVehicleVarsRegistry
                         SyncTableHash = syncTableHash,
                         Lamps = [],
                         Switches = [],
-                        Values = []
+                        Values = [],
+                        Doors = [],
+                        LampIds = [],
+                        SwitchIds = [],
+                        ValueIds = [],
+                        DoorIds = []
                     };
                 }
 
@@ -135,6 +156,11 @@ internal static class RemoteVehicleVarsRegistry
                     Lamps = lamps.ToArray(),
                     Switches = switches.ToArray(),
                     Values = values.ToArray(),
+                    Doors = doors.ToArray(),
+                    LampIds = lampIds.ToArray(),
+                    SwitchIds = switchIds.ToArray(),
+                    ValueIds = valueIds.ToArray(),
+                    DoorIds = doorIds.ToArray(),
                     UpdatedAtTick = Environment.TickCount64
                 };
             });
@@ -169,6 +195,11 @@ internal static class RemoteVehicleVarsRegistry
         float[] Lamps,
         float[] Switches,
         float[] Values,
+        float[] Doors,
+        ushort[] LampIds,
+        ushort[] SwitchIds,
+        ushort[] ValueIds,
+        ushort[] DoorIds,
         long UpdatedAtTick)
     {
         internal static RemoteVehicleVarsSnapshot Empty() =>
@@ -177,6 +208,11 @@ internal static class RemoteVehicleVarsRegistry
                 null,
                 new Dictionary<ushort, float>(),
                 new Dictionary<ushort, string>(),
+                [],
+                [],
+                [],
+                [],
+                [],
                 [],
                 [],
                 [],
@@ -208,6 +244,11 @@ internal static class RemoteVehicleVarsRegistry
                 Lamps,
                 Switches,
                 Values,
+                Doors,
+                LampIds,
+                SwitchIds,
+                ValueIds,
+                DoorIds,
                 Environment.TickCount64);
         }
     }
