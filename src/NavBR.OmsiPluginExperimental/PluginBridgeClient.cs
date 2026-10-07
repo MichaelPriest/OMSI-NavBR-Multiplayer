@@ -522,6 +522,16 @@ internal static class PluginBridgeClient
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
+            if (message.SyncTableHash is uint &&
+                !RemoteVehicleVarsRegistry.TryApplyVisualState(
+                    message,
+                    out var visualRejection))
+            {
+                Log(
+                    $"remote-visual-sync rejeitado player={message.PlayerId ?? "-"} " +
+                    $"reason={visualRejection ?? "unknown"}");
+            }
+
             if (RemoteVehicles.Upsert(message))
             {
                 // The state stream already contains the exact bus path, local
