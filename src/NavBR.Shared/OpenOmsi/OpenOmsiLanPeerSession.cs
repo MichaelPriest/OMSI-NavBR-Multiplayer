@@ -286,13 +286,17 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         _localInfo = info;
 
         var now = DateTimeOffset.UtcNow;
+        var elapsed = now - _lastLocalInfoSentUtc;
         var changed = !string.Equals(
             _lastLocalInfoWire,
             wire,
             StringComparison.Ordinal);
         var refreshDue =
-            now - _lastLocalInfoSentUtc >= TimeSpan.FromSeconds(5);
-        if (!changed && !refreshDue)
+            elapsed >= TimeSpan.FromSeconds(2);
+        var changeAllowed =
+            changed &&
+            elapsed >= TimeSpan.FromMilliseconds(250);
+        if (!changeAllowed && !refreshDue)
         {
             return;
         }
