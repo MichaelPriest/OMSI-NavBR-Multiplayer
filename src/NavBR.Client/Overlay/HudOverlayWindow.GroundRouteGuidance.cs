@@ -256,8 +256,8 @@ public partial class HudOverlayWindow
                         (float)aheadZ),
                     projection!.Value,
                     viewport,
-                    out var screenX,
-                    out var screenY) &&
+                    out screenX,
+                    out screenY) &&
                 TryProjectToViewport(
                     new Vector3(
                         (float)directionX,
@@ -265,8 +265,8 @@ public partial class HudOverlayWindow
                         (float)directionZ),
                     projection.Value,
                     viewport,
-                    out var nextScreenX,
-                    out var nextScreenY);
+                    out nextScreenX,
+                    out nextScreenY);
 
             if (!projected)
             {
