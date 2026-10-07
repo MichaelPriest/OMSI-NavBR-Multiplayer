@@ -43,7 +43,7 @@ public partial class HudOverlayWindow
         var layout = _mapLayout;
         var map = _activeMap;
 
-        MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
+        ApplyOpenOmsiNavigatorOpacity(_hudSettings.HudMapOpacity);
         UpdateTripInfo(telemetry, map);
 
         var hasRoadmapSurface =
@@ -185,6 +185,21 @@ public partial class HudOverlayWindow
 
         UpdateNavigationSummary(navigation, map);
         UpdateTurnGuidance(navigation, rejoinPath);
+    }
+
+    private void ApplyOpenOmsiNavigatorOpacity(double opacity)
+    {
+        opacity = Math.Clamp(opacity, 0.10d, 1d);
+        MiniMapImage.Opacity = opacity;
+
+        // openOMSI-style navigator: the world stays visible through the panel,
+        // while route/markers remain crisp and independent from the map opacity.
+        var panelAlpha = (byte)Math.Round(255d * Math.Clamp(0.16d + opacity * 0.48d, 0.20d, 0.72d));
+        var canvasAlpha = (byte)Math.Round(255d * Math.Clamp(0.03d + opacity * 0.14d, 0.04d, 0.20d));
+        MiniMapFrame.Background = new SolidColorBrush(
+            Color.FromArgb(panelAlpha, 10, 10, 10));
+        MiniMapCanvas.Background = new SolidColorBrush(
+            Color.FromArgb(canvasAlpha, 10, 10, 10));
     }
 
     private bool TryGetGpsDisplayAnchor(
