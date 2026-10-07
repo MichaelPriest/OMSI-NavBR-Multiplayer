@@ -237,6 +237,8 @@ try
                 $"SyncTable property {propertyName} missing"));
 
     var syncHash = ReadManifestProperty<uint>(syncManifest, "Hash");
+    var syncVarTableHash =
+        ReadManifestProperty<uint>(syncManifest, "VarTableHash");
     var lampIds = ReadManifestProperty<ushort[]>(syncManifest, "LampIds");
     var switchIds = ReadManifestProperty<ushort[]>(syncManifest, "SwitchIds");
     var valueIds = ReadManifestProperty<ushort[]>(syncManifest, "ValueIds");
@@ -247,6 +249,7 @@ try
 
     Require(
         syncHash != 0 &&
+        syncVarTableHash == actualVarHash &&
         lampIds.Length == 1 &&
         switchIds.Length == 1 &&
         doorIds.Length == 1 &&
@@ -302,6 +305,31 @@ try
         ?? throw new InvalidOperationException(
             "local openOMSI visual snapshot was not produced");
 
+    Require(
+        buildVisualSnapshot.Invoke(
+            null,
+            [
+                syncManifest,
+                scriptSnapshot with
+                {
+                    VarTableHash = actualVarHash ^ 0x00000001u
+                }
+            ]) is null,
+        "visual SyncTable accepted a snapshot from a different VarTable");
+    Require(
+        buildVisualSnapshot.Invoke(
+            null,
+            [
+                syncManifest,
+                scriptSnapshot with
+                {
+                    CapturedAtUtc =
+                        DateTimeOffset.UtcNow -
+                        TimeSpan.FromSeconds(3)
+                }
+            ]) is null,
+        "visual SyncTable accepted a stale local PublicVars snapshot");
+
     var telemetry = new VehicleTelemetry(
         "sync-local",
         DateTimeOffset.UtcNow,
@@ -325,6 +353,27 @@ try
     var frame = new PlayerTelemetryFrame(
         presence,
         telemetry);
+
+    var buildLocalInfo =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiLocalInfo",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI INFO builder not found");
+    var localInfo =
+        (OpenOmsiLanVehicleInfo?)buildLocalInfo.Invoke(
+            null,
+            [
+                (ushort)27,
+                frame,
+                syncHash
+            ])
+        ?? throw new InvalidOperationException(
+            "local openOMSI INFO was not produced");
+    Require(
+        localInfo.SyncTableHash == syncHash,
+        "local openOMSI INFO did not publish the visual SyncTable hash");
+
     var buildLocalState =
         multiplayerServiceType.GetMethod(
             "BuildOpenOmsiLocalState",
