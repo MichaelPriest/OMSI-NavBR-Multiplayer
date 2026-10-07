@@ -334,6 +334,60 @@ await using (var client = new OpenOmsiLanPeerSession())
     Near(hostFootprint.LengthMeters, 12d, 0.05, "NEAR host footprint length");
     Near(hostFootprint.WidthMeters, 2.5d, 0.05, "NEAR host footprint width");
 
+    var hostSawClientChat =
+        new TaskCompletionSource<(ushort Id, string Name, string Text)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var clientSawHostChat =
+        new TaskCompletionSource<(ushort Id, string Name, string Text)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    host.ChatReceived += (id, name, textValue) =>
+    {
+        if (id == client.LocalPlayerId)
+        {
+            hostSawClientChat.TrySetResult((id, name, textValue));
+        }
+    };
+    client.ChatReceived += (id, name, textValue) =>
+    {
+        if (id == 1)
+        {
+            clientSawHostChat.TrySetResult((id, name, textValue));
+        }
+    };
+
+    await client.PublishInfoAsync(
+        new OpenOmsiLanVehicleInfo(
+            client.LocalPlayerId,
+            "Client",
+            @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus",
+            string.Empty,
+            "76",
+            "Rathaus",
+            12d,
+            2.5d,
+            -2d,
+            0u,
+            "76/2",
+            [],
+            null,
+            []));
+
+    await client.SendChatAsync("Olá pelo v6");
+    var chatAtHost =
+        await hostSawClientChat.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        chatAtHost.Text == "Olá pelo v6" &&
+        chatAtHost.Name == "Client",
+        "CHAT client→host did not preserve text/name");
+
+    await host.SendChatAsync("Resposta do host");
+    var chatAtClient =
+        await clientSawHostChat.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(
+        chatAtClient.Text == "Resposta do host",
+        "SAY host→client did not preserve text");
+
     var clientSawHostVars =
         new TaskCompletionSource<OpenOmsiVarsFrame>(
             TaskCreationOptions.RunContinuationsAsynchronously);
