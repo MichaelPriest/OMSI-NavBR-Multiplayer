@@ -18,6 +18,8 @@ public sealed partial class MultiplayerClientService
     private readonly Dictionary<ushort, OpenOmsiLanVehicleInfo> _openOmsiInfoByLanId = [];
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiVarTableManifest>
         _openOmsiVarTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiSyncTableManifest>
+        _openOmsiSyncTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
@@ -25,6 +27,7 @@ public sealed partial class MultiplayerClientService
     private string? _openOmsiPublicWebSocketUrl;
     private ushort _openOmsiLocalSequence;
     private uint? _openOmsiConfiguredLocalVarHash;
+    private string? _openOmsiConfiguredLocalSampleKey;
     private DateTimeOffset? _openOmsiLastPublishedLocalVarsAt;
     private RoleplayCharacterState? _openOmsiLocalRoleplayState;
 
@@ -523,6 +526,113 @@ public sealed partial class MultiplayerClientService
         }
 
         return manifest;
+    }
+
+
+    private async Task<OpenOmsiSyncTableManifest?>
+        ResolveLocalOpenOmsiSyncTableAsync(
+            string vehiclePath,
+            OpenOmsiVarTableManifest variables)
+    {
+        var key =
+            $"{vehiclePath}|{variables.Hash:X8}";
+        if (_openOmsiSyncTableByVehicle.TryGetValue(
+                key,
+                out var cached))
+        {
+            return cached;
+        }
+
+        var roots =
+            OpenOmsiEnvironmentLocator.ResolveContentSearchRoots();
+        var manifest = await Task.Run(
+            () =>
+            {
+                foreach (var root in roots)
+                {
+                    var candidate =
+                        OpenOmsiSyncTableManifestBuilder.TryBuild(
+                            root,
+                            vehiclePath,
+                            variables);
+                    if (candidate is not null)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            });
+
+        if (manifest is not null)
+        {
+            _openOmsiSyncTableByVehicle[key] = manifest;
+        }
+
+        return manifest;
+    }
+
+    private async Task EnsureLocalOpenOmsiSamplingConfiguredAsync(
+        OpenOmsiVarTableManifest variables,
+        OpenOmsiSyncTableManifest? syncTable,
+        CancellationToken cancellationToken)
+    {
+        var visualIds = syncTable is null
+            ? Enumerable.Empty<ushort>()
+            : syncTable.LampIds
+                .Concat(syncTable.SwitchIds)
+                .Concat(syncTable.ValueIds)
+                .Concat(syncTable.DoorIds);
+
+        var sampleIds = visualIds
+            .Concat(variables.FloatIds)
+            .Distinct()
+            .Take(512)
+            .ToArray();
+        var stringIds = variables.StringIds
+            .Distinct()
+            .Take(64)
+            .ToArray();
+
+        var key =
+            $"{variables.Hash:X8}|" +
+            string.Join(',', sampleIds) +
+            "|" +
+            string.Join(',', stringIds);
+
+        if (string.Equals(
+                _openOmsiConfiguredLocalSampleKey,
+                key,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await OmsiPluginBridgeRelay.ConfigureLocalVarsAsync(
+            variables.Hash,
+            sampleIds,
+            stringIds,
+            cancellationToken);
+        _openOmsiConfiguredLocalVarHash = variables.Hash;
+        _openOmsiConfiguredLocalSampleKey = key;
+        _openOmsiLastPublishedLocalVarsAt = null;
+        LocalOmsiScriptVarsSnapshotStore.Clear();
+    }
+
+    private static bool IsSyncTableSnapshotReady(
+        OpenOmsiSyncTableManifest? syncTable,
+        LocalOmsiScriptVarsSnapshot? snapshot)
+    {
+        if (syncTable is null || snapshot is null)
+        {
+            return false;
+        }
+
+        var ids = snapshot.VariableIndices.ToHashSet();
+        return syncTable.LampIds.All(ids.Contains) &&
+               syncTable.SwitchIds.All(ids.Contains) &&
+               syncTable.ValueIds.All(ids.Contains) &&
+               syncTable.DoorIds.All(ids.Contains);
     }
 
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
@@ -1092,6 +1202,7 @@ public sealed partial class MultiplayerClientService
         _openOmsiPublicWebSocketUrl = null;
         _openOmsiLocalRoleplayState = null;
         _openOmsiConfiguredLocalVarHash = null;
+        _openOmsiConfiguredLocalSampleKey = null;
         _openOmsiLastPublishedLocalVarsAt = null;
         LocalOmsiScriptVarsSnapshotStore.Clear();
         lock (_openOmsiV6Sync)
@@ -1101,6 +1212,7 @@ public sealed partial class MultiplayerClientService
             _openOmsiInfoByLanId.Clear();
         }
         _openOmsiVarTableByVehicle.Clear();
+        _openOmsiSyncTableByVehicle.Clear();
 
         if (session is not null)
         {
