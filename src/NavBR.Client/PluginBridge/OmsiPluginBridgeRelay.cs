@@ -97,7 +97,7 @@ public static class OmsiPluginBridgeRelay
             PluginBridgeProtocol.RemoteVehicleVars,
             PluginBridgeProtocol.Version,
             PlayerId: playerId,
-            SyncTableHash: vars.TableHash,
+            VarTableHash: vars.TableHash,
             VariableIndices: vars.Floats.Select(item => item.Index).ToArray(),
             VariableValues: vars.Floats.Select(item => item.Value).ToArray(),
             StringVariableIndices: vars.Strings.Select(item => item.Index).ToArray(),
