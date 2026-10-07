@@ -506,7 +506,17 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
             RemoteVehicles.Remove(message.PlayerId);
+            RemoteVehicleVarsRegistry.Remove(message.PlayerId);
             PhysicalVehicleLifecycleSupervisor.RequestRemoteRemoval(message.PlayerId);
+            return null;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleVars, StringComparison.Ordinal))
+        {
+            if (!RemoteVehicleVarsRegistry.TryApply(message, out var rejectionReason))
+            {
+                Log($"remote-vars rejeitado player={message.PlayerId ?? "-"} reason={rejectionReason ?? "unknown"}");
+            }
             return null;
         }
 
@@ -614,6 +624,7 @@ internal static class PluginBridgeClient
     {
         SetLocalState(null);
         RemoteVehicles.Clear();
+        RemoteVehicleVarsRegistry.Clear();
         TrafficVehicles.Clear();
         OmsiThreadCommandQueue.Clear();
         // The pipe worker cannot touch OMSI objects directly. Ask the callback
@@ -652,6 +663,7 @@ internal static class PluginBridgeClient
         var built = ExperimentalVehicleCommandProcessor
             .GetCapabilities()
             .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+            .Append(PluginBridgeProtocol.CapabilityRemoteScriptVars)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         Interlocked.CompareExchange(
