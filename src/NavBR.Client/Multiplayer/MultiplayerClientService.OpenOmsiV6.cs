@@ -774,16 +774,20 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
+        var allowedFloatIds = manifest.FloatIds.ToHashSet();
         var floats = snapshot.VariableIndices
             .Zip(
                 snapshot.VariableValues,
                 static (id, value) => (id, value))
+            .Where(item => allowedFloatIds.Contains(item.id))
             .ToArray();
 
+        var allowedStringIds = manifest.StringIds.ToHashSet();
         var strings = snapshot.StringVariableIndices
             .Zip(
                 snapshot.StringVariableValues,
                 static (id, value) => (id, value))
+            .Where(item => allowedStringIds.Contains(item.id))
             .ToArray();
 
         await session.PublishVarsAsync(
