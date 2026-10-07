@@ -20,6 +20,10 @@ public sealed partial class MultiplayerClientService
         _openOmsiVarTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiSyncTableManifest>
         _openOmsiSyncTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, string>
+        _openOmsiRemoteSyncProbeKey = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, uint>
+        _openOmsiCompatibleRemoteSyncHash = new();
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
@@ -306,6 +310,66 @@ public sealed partial class MultiplayerClientService
         {
             _openOmsiInfoByLanId[info.PlayerId] = info;
         }
+
+        var vehiclePath = info.VehiclePath?.Trim() ?? string.Empty;
+        var probeKey =
+            $"{vehiclePath}|{info.SyncTableHash:X8}";
+        if (_openOmsiRemoteSyncProbeKey.TryGetValue(
+                info.PlayerId,
+                out var previous) &&
+            string.Equals(
+                previous,
+                probeKey,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _openOmsiRemoteSyncProbeKey[info.PlayerId] = probeKey;
+        _openOmsiCompatibleRemoteSyncHash[info.PlayerId] = 0u;
+        _ = ResolveRemoteOpenOmsiSyncCompatibilityAsync(
+            info,
+            probeKey);
+    }
+
+    private async Task ResolveRemoteOpenOmsiSyncCompatibilityAsync(
+        OpenOmsiLanVehicleInfo info,
+        string probeKey)
+    {
+        if (info.SyncTableHash == 0 ||
+            string.IsNullOrWhiteSpace(info.VehiclePath))
+        {
+            return;
+        }
+
+        var variables =
+            await ResolveLocalOpenOmsiVarTableAsync(
+                info.VehiclePath);
+        if (variables is null)
+        {
+            return;
+        }
+
+        var syncTable =
+            await ResolveLocalOpenOmsiSyncTableAsync(
+                info.VehiclePath,
+                variables);
+
+        if (!_openOmsiRemoteSyncProbeKey.TryGetValue(
+                info.PlayerId,
+                out var currentKey) ||
+            !string.Equals(
+                currentKey,
+                probeKey,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _openOmsiCompatibleRemoteSyncHash[info.PlayerId] =
+            syncTable?.Hash == info.SyncTableHash
+                ? info.SyncTableHash
+                : 0u;
     }
 
     private void HandleOpenOmsiRemoteState(OpenOmsiLanVehicleState state)
@@ -323,23 +387,35 @@ public sealed partial class MultiplayerClientService
             return;
         }
 
-        var doors = VehicleDoorFlags.None;
-        for (var index = 0; index < Math.Min(5, state.Doors.Count); index++)
-        {
-            if (state.Doors[index] <= 0.02f)
-            {
-                continue;
-            }
+        var visualSyncCompatible =
+            info is { SyncTableHash: > 0 } &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                state.PlayerId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash;
 
-            doors |= index switch
+        var doors = VehicleDoorFlags.None;
+        if (visualSyncCompatible)
+        {
+            for (var index = 0;
+                 index < Math.Min(5, state.Doors.Count);
+                 index++)
             {
-                0 => VehicleDoorFlags.Front,
-                1 => VehicleDoorFlags.Middle,
-                2 => VehicleDoorFlags.Rear,
-                3 => VehicleDoorFlags.Extra1,
-                4 => VehicleDoorFlags.Extra2,
-                _ => VehicleDoorFlags.None
-            };
+                if (state.Doors[index] <= 0.02f)
+                {
+                    continue;
+                }
+
+                doors |= index switch
+                {
+                    0 => VehicleDoorFlags.Front,
+                    1 => VehicleDoorFlags.Middle,
+                    2 => VehicleDoorFlags.Rear,
+                    3 => VehicleDoorFlags.Extra1,
+                    4 => VehicleDoorFlags.Extra2,
+                    _ => VehicleDoorFlags.None
+                };
+            }
         }
 
         var lights = VehicleLightFlags.None;
@@ -411,10 +487,14 @@ public sealed partial class MultiplayerClientService
                         MapTileIndex: null);
                 })
                 .ToArray(),
-            SyncTableHash: info?.SyncTableHash,
-            OpenOmsiLamps: state.Lamps.ToArray(),
-            OpenOmsiSwitches: state.Switches.ToArray(),
-            OpenOmsiValues: state.Values.ToArray());
+            SyncTableHash:
+                visualSyncCompatible ? info?.SyncTableHash : null,
+            OpenOmsiLamps:
+                visualSyncCompatible ? state.Lamps.ToArray() : null,
+            OpenOmsiSwitches:
+                visualSyncCompatible ? state.Switches.ToArray() : null,
+            OpenOmsiValues:
+                visualSyncCompatible ? state.Values.ToArray() : null);
 
         var frame = new PlayerTelemetryFrame(presence, telemetry);
         TelemetryReceived?.Invoke(frame);
@@ -638,6 +718,8 @@ public sealed partial class MultiplayerClientService
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
     {
         PlayerPresence? presence;
+        _openOmsiRemoteSyncProbeKey.TryRemove(lanId, out _);
+        _openOmsiCompatibleRemoteSyncHash.TryRemove(lanId, out _);
         lock (_openOmsiV6Sync)
         {
             _openOmsiInfoByLanId.Remove(lanId);
@@ -1325,6 +1407,8 @@ public sealed partial class MultiplayerClientService
         }
         _openOmsiVarTableByVehicle.Clear();
         _openOmsiSyncTableByVehicle.Clear();
+        _openOmsiRemoteSyncProbeKey.Clear();
+        _openOmsiCompatibleRemoteSyncHash.Clear();
 
         if (session is not null)
         {
