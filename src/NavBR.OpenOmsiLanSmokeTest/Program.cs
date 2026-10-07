@@ -1,3 +1,4 @@
+using System.Net;
 using NavBR.Shared.OpenOmsi;
 
 var state = new OpenOmsiLanVehicleState(
@@ -194,8 +195,97 @@ Require(hello.RequestedSession is null, "HELLO direct join should not require a 
 Require(hello.World.Map == "maps/Grundorf/global.cfg", "HELLO map mismatch");
 Require(hello.Nonce == 0x0011223344556677UL, "HELLO nonce mismatch");
 
+
+await using (var host = new OpenOmsiLanPeerSession())
+await using (var client = new OpenOmsiLanPeerSession())
+{
+    var world = new OpenOmsiLanWorld(
+        "maps/Grundorf/global.cfg",
+        "2026-10-07",
+        36_000d,
+        string.Empty,
+        "autumn");
+
+    await host.StartHostAsync(world);
+    Require(host.Port is not null, "host did not bind an openOMSI LAN port");
+
+    var hostSawClientState =
+        new TaskCompletionSource<OpenOmsiLanVehicleState>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    var clientSawHostState =
+        new TaskCompletionSource<OpenOmsiLanVehicleState>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    host.RemoteStateReceived += remote =>
+    {
+        if (remote.PlayerId >= 2)
+        {
+            hostSawClientState.TrySetResult(remote);
+        }
+    };
+    client.RemoteStateReceived += remote =>
+    {
+        if (remote.PlayerId == 1)
+        {
+            clientSawHostState.TrySetResult(remote);
+        }
+    };
+
+    await client.JoinAsync(
+        new IPEndPoint(IPAddress.Loopback, host.Port.Value),
+        world,
+        "Client",
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
+
+    Require(client.LocalPlayerId >= 2, "client did not receive a LAN player id");
+
+    var clientState = OpenOmsiLanVehicleState.Empty(client.LocalPlayerId, 1) with
+    {
+        Flags = OpenOmsiLanProtocol.FlagVehicle |
+                OpenOmsiLanProtocol.FlagEngine,
+        X = 100d,
+        Y = 200d,
+        Z = 3d,
+        HeadingDegrees = 90f,
+        SpeedKph = 32f,
+        Walker = new OpenOmsiLanWalker(
+            101d,
+            201d,
+            3.2d,
+            95f,
+            1.4f,
+            95f,
+            false,
+            null,
+            null,
+            null),
+        SentMilliseconds = 50
+    };
+    await client.PublishStateAsync(clientState);
+
+    var clientAtHost = await hostSawClientState.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Near(clientAtHost.X, 100d, 0.01, "peer client x");
+    Require(clientAtHost.Walker is not null, "peer client walker/RP state missing");
+
+    var hostState = OpenOmsiLanVehicleState.Empty(1, 1) with
+    {
+        Flags = OpenOmsiLanProtocol.FlagVehicle |
+                OpenOmsiLanProtocol.FlagEngine,
+        X = 110d,
+        Y = 220d,
+        Z = 4d,
+        HeadingDegrees = 180f,
+        SpeedKph = 20f,
+        SentMilliseconds = 75
+    };
+    await host.PublishStateAsync(hostState);
+
+    var hostAtClient = await clientSawHostState.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Near(hostAtClient.Y, 220d, 0.01, "peer host y");
+}
+
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + walker.");
 
 static void Require(bool condition, string message)
 {
