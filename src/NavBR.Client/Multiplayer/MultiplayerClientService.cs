@@ -505,7 +505,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
-        _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
@@ -632,53 +631,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
-    }
-
-    private static OmsiCompatibilityManifest BuildLiveRemoteManifest(
-        PlayerTelemetryFrame frame)
-    {
-        var telemetry = frame.Telemetry;
-        var reported = frame.Player.Compatibility;
-        if (reported is not null)
-        {
-            return reported with
-            {
-                MapName = telemetry.MapName ?? reported.MapName,
-                MapCompatibilityId =
-                    telemetry.MapCompatibilityId ??
-                    reported.MapCompatibilityId,
-                VehiclePath =
-                    telemetry.VehiclePath ??
-                    reported.VehiclePath,
-                VehicleCompatibilityId =
-                    telemetry.VehicleCompatibilityId ??
-                    reported.VehicleCompatibilityId,
-                HofName =
-                    telemetry.HofName ??
-                    reported.HofName,
-                HofCompatibilityId =
-                    telemetry.HofCompatibilityId ??
-                    reported.HofCompatibilityId
-            };
-        }
-
-        return new OmsiCompatibilityManifest(
-            OmsiVersion: null,
-            NavBRVersion: null,
-            MapName: telemetry.MapName ?? frame.Player.MapName,
-            MapCompatibilityId:
-                telemetry.MapCompatibilityId ??
-                frame.Player.MapCompatibilityId,
-            VehiclePath: telemetry.VehiclePath,
-            VehicleCompatibilityId:
-                telemetry.VehicleCompatibilityId,
-            HofName: telemetry.HofName,
-            HofCompatibilityId:
-                telemetry.HofCompatibilityId,
-            PluginProtocolVersion:
-                PluginBridgeProtocol.Version,
-            PluginDeployment: null,
-            Capabilities: Array.Empty<string>());
     }
 
     private bool TryAcceptRemoteTelemetry(PlayerTelemetryFrame frame)
