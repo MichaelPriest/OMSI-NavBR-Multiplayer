@@ -80,6 +80,7 @@ public sealed partial class MultiplayerClientService
         session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.ChatReceived += HandleOpenOmsiChat;
+            session.CommandReceived += HandleOpenOmsiCommand;
         session.RemoteLeft += HandleOpenOmsiRemoteLeft;
         _openOmsiV6Session = session;
         StartOpenOmsiPlaybackLoop();
@@ -160,6 +161,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.ChatReceived += HandleOpenOmsiChat;
+            session.CommandReceived += HandleOpenOmsiCommand;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
@@ -935,6 +937,63 @@ public sealed partial class MultiplayerClientService
                 DateTimeOffset.UtcNow));
     }
 
+    private void HandleOpenOmsiCommand(
+        ushort senderLanId,
+        string command)
+    {
+        PlayerPresence? sender = null;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(
+                senderLanId,
+                out sender);
+        }
+
+        var playerId =
+            sender?.PlayerId ??
+            $"openomsi:{senderLanId}";
+        SessionCommandReceived?.Invoke(
+            playerId,
+            command);
+    }
+
+    public async Task<bool> SendSessionCommandAsync(
+        string targetPlayerId,
+        string command,
+        CancellationToken cancellationToken = default)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsRunning != true ||
+            string.IsNullOrWhiteSpace(targetPlayerId))
+        {
+            return false;
+        }
+
+        ushort targetLanId = 0;
+        lock (_openOmsiV6Sync)
+        {
+            if (_openOmsiPresenceByPlayerId.TryGetValue(
+                    targetPlayerId,
+                    out var presence) &&
+                presence.OpenOmsiLanId is ushort lanId)
+            {
+                targetLanId = lanId;
+            }
+        }
+
+        if (targetLanId == 0 ||
+            targetLanId == session.LocalPlayerId)
+        {
+            return false;
+        }
+
+        await session.SendCommandAsync(
+            targetLanId,
+            command,
+            cancellationToken);
+        return true;
+    }
+
     private void HandleOpenOmsiRemoteLeft(ushort lanId)
     {
         PlayerPresence? presence;
@@ -1515,6 +1574,7 @@ public sealed partial class MultiplayerClientService
             session.RemoteStateReceived += HandleOpenOmsiRemoteState;
             session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
             session.ChatReceived += HandleOpenOmsiChat;
+            session.CommandReceived += HandleOpenOmsiCommand;
             session.RemoteLeft += HandleOpenOmsiRemoteLeft;
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
